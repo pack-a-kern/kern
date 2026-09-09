@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC FIXTURE — NOT CAPTURED FROM BNR.
+
+  Every documented BNR exchange-rate XML URL currently 302-redirects to the HTML homepage
+  (see docs/reference/bnr-fx-endpoints.md, investigated 2026-09-08), so no real response has
+  been observed. This document's shape (DataSet/Body/Cube/Rate, a `multiplier` attribute for
+  currencies quoted per more than one unit) is built from BLUEPRINT.md §7's narrative description
+  plus the widely publicly documented historical shape of BNR's feed — it is a best-effort
+  fixture for exercising App\Domain\Fx\Parsing\BnrXmlParser, not a verified schema. Re-check
+  this fixture against a real captured response before pointing the importer at a live URL.
+-->
+<DataSet xmlns="http://www.bnr.ro/xsd">
+  <Header>
+    <Publisher>Synthetic fixture — not BNR</Publisher>
+    <PublishingDate>2026-01-15</PublishingDate>
+    <MessageType>DR</MessageType>
+  </Header>
+  <Body>
+    <Subject>Reference exchange rate (synthetic)</Subject>
+    <OrigCurrency>RON</OrigCurrency>
+    <Cube date="2026-01-15">
+      <Rate currency="EUR">4.976400</Rate>
+      <Rate currency="USD">4.582100</Rate>
+      <Rate currency="HUF" multiplier="100">1279.990000</Rate>
+    </Cube>
+  </Body>
+</DataSet>

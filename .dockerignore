@@ -1,0 +1,30 @@
+# Build context exclusions shared by every image built from the repo root.
+# Keeps local dev artifacts (vendor/, node_modules/, venvs, secrets) out of
+# images — dependencies are installed fresh inside the build, never copied
+# from the host.
+
+.git
+docs/
+tax-rules/
+*.md
+
+apps/api/vendor
+apps/api/node_modules
+apps/api/.env
+apps/api/storage/logs/*
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/bootstrap/cache/*.php
+!apps/api/bootstrap/cache/.gitignore
+
+apps/processing/.venv
+apps/processing/__pycache__
+apps/processing/**/__pycache__
+apps/processing/.pytest_cache
+apps/processing/.ruff_cache
+apps/processing/.mypy_cache
+apps/processing/.pyright
+
+apps/spv-browser/node_modules
+apps/spv-browser/dist

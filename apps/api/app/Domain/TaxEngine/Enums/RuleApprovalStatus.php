@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\TaxEngine\Enums;
+
+/**
+ * TaxEngine's own view of a `tax_rule_versions`/`fiscal_parameter_versions` row's approval state
+ * — carried on {@see \App\Domain\TaxEngine\DataTransferObjects\ResolvedTaxRuleVersion} and
+ * {@see \App\Domain\TaxEngine\DataTransferObjects\ResolvedFiscalParameter} so
+ * {@see \App\Domain\TaxEngine\Services\RuleResolver} / {@see \App\Domain\TaxEngine\Services\ParameterResolver}
+ * can enforce `docs/AGENTS.md` §9's draft-vs-final gate.
+ *
+ * Deliberately a second enum, not a reuse of `App\Domain\TaxKnowledge\Enums\RuleApprovalStatus` —
+ * see `docs/adr/0010-tax-engine-ports-and-adapters.md`. A TaxEngine port
+ * ({@see \App\Domain\TaxEngine\Contracts\TaxRuleVersionProvider}, {@see \App\Domain\TaxEngine\Contracts\FiscalParameterProvider})
+ * must never name a TaxKnowledge type in its signature, or the module boundary that ADR restores
+ * leaks straight back in through an enum instead of a model. `App\Domain\TaxKnowledge\Providers\
+ * EloquentTaxRuleVersionProvider`/`EloquentFiscalParameterProvider` map TaxKnowledge's enum to
+ * this one at the adapter boundary (`self::from($tkStatus->value)`) — the case names and backing
+ * values are, and must remain, identical between the two enums.
+ */
+enum RuleApprovalStatus: string
+{
+    case CANDIDATE = 'CANDIDATE';
+    case APPROVED = 'APPROVED';
+    case SUPERSEDED = 'SUPERSEDED';
+    case REJECTED = 'REJECTED';
+}

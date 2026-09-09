@@ -1,0 +1,586 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\TaxKnowledge\Parsing;
+
+use App\Domain\TaxKnowledge\Enums\SectionType;
+use App\Domain\TaxKnowledge\Parsing\Exceptions\UnparsableLegislationDocumentException;
+use DateTimeImmutable;
+use DOMComment;
+use DOMDocument;
+use DOMElement;
+use DOMNode;
+use DOMText;
+use DOMXPath;
+use RuntimeException;
+
+/**
+ * Structural parser for `legislatie.just.ro`'s real, observed HTML markup (`BLUEPRINT.md` §9,
+ * this task's brief). The class-name hierarchy below was read directly from a live fetch on
+ * 2026-09-08 (the Romanian Constitution, `Public/DetaliiDocumentAfis/47355`, and a decree,
+ * `Public/DetaliiDocumentAfis/47355`... see `docs/handoff/018-legislation-ingestion.md` "Sources
+ * consulted" for the exact URLs) — **not guessed, not invented**:
+ *
+ * ```text
+ * <span class="S_ART" id="id_artNNN">                        <!-- ARTICOL container -->
+ *   <span class="S_ART_TTL" id="..._ttl">Articolul 27</span> <!-- label -->
+ *   <span class="S_ART_DEN">...</span>                       <!-- denomination — not captured, see below -->
+ *   <span class="S_ART_BDY" id="..._bdy">
+ *     <span class="S_PAR" ...>Inviolabilitatea domiciliului</span>   <!-- own text -->
+ *     <span class="S_ALN" id="id_litNNN">                    <!-- ALINEAT, nested directly in BDY -->
+ *       <span class="S_ALN_TTL" ...>(1)</span>
+ *       <span class="S_ALN_BDY" ...>Domiciliul ... <span class="S_LIT" ...>...</span></span>
+ *     </span>
+ *   </span>
+ * </span>
+ * ```
+ *
+ * Nesting is *usually* DOM containment: a section's children are ordinarily the container spans
+ * found as direct children of its own `_BDY` element. **This is no longer the whole story** — see
+ * `docs/handoff/039-fiscal-code-parser-fix.md` for the full measured evidence, gathered by parsing
+ * the real Codul fiscal (Legea 227/2015, 7.6 MB), which is far larger and more amended than the
+ * Constitution this parser was first validated against and broke two of this docblock's original
+ * assumptions:
+ *
+ * 1. `collectBodyContent()` now descends **recursively**, not just into `_BDY`'s direct children —
+ *    a real, plain wrapper (`S_PAR`) can directly contain a nested container (e.g. Art. 3's eight
+ *    fiscal principles are `S_LIT` elements nested *inside* the article's own introductory
+ *    `S_PAR`, not siblings of it). A direct-children-only scan silently dropped 233 real `S_LIT`
+ *    elements this way — not mislabelled, absent from the parse tree entirely.
+ * 2. `groupOrphanContinuations()` repairs a specific, measured tag-nesting defect in the source
+ *    itself: when an `ALINEAT`'s own body contains an editorial amendment note, the site's HTML
+ *    sometimes closes that `ALINEAT` *before* the lettered items its own text promised, leaving
+ *    them as direct siblings of the `ALINEAT` (not nested inside it). See that method's docblock.
+ *
+ * **What this parser does NOT capture, honestly, not silently**:
+ * - `S_ART_DEN` ("denomination") — observed empty/HTML-comment in every live sample fetched;
+ *   discarded rather than guessed at.
+ * - `S_TTL`/`S_CAP`/`S_SEC` (Titlu/Capitol/Secțiune) — real container levels *above* `ARTICOL`,
+ *   confirmed to exist in the live Constitution fetch, but outside `App\Domain\TaxKnowledge\Enums\SectionType`'s
+ *   scope: they never carry citable text of their own, only group other sections.
+ *   `findTopLevelContainers()` walks straight through them without creating a row for them — an
+ *   `ARTICOL`'s `parent_id` is `null` whenever nothing but a Titlu/Capitol/Secțiune wrapper sits
+ *   above it in the source markup. `S_ANX` (Anexă/Annex) is the one sibling wrapper-ish level that
+ *   *is* modelled ({@see SectionType::ANEXA}) — confirmed against the real Codul fiscal to carry
+ *   its own citable `ALINEAT`/`LITERA`/`PUNCT` content, unlike Titlu/Capitol/Secțiune.
+ * - **`S_PCT` (`PUNCT`) was unverified when this parser was first written** — no document
+ *   containing numbered "puncte" had been fetched yet. **Now confirmed**: the real Codul fiscal
+ *   uses `S_PCT` 631 times (`docs/handoff/039-fiscal-code-parser-fix.md`), including `S_PCT`
+ *   nested inside `S_LIT` and vice versa — both handled by the same generic container recursion,
+ *   no `PUNCT`-specific code was needed.
+ * - **Effective dates.** No structured, reliably-parseable effective-date field was found on the
+ *   page — free-text mentions of "în vigoare" are substantive legal content (what the law itself
+ *   says takes effect when), not machine-readable version metadata. This parser therefore never
+ *   sets a section's or a document's `effective_from`/`effective_until` — see
+ *   `App\Domain\TaxKnowledge\Services\LegislationSectionPersister`, which is what always leaves a
+ *   freshly-parsed `legislatie.just.ro` version `REQUIRES_REVIEW`, honestly, every time.
+ */
+final class LegislatieJustRoHtmlParser
+{
+    public const string VERSION = '1.1.0';
+
+    /** @var array<string, SectionType> */
+    private const array CONTAINER_CLASSES = [
+        'S_ART' => SectionType::ARTICOL,
+        'S_ALN' => SectionType::ALINEAT,
+        'S_LIT' => SectionType::LITERA,
+        // Unverified — see class docblock.
+        'S_PCT' => SectionType::PUNCT,
+        // Confirmed against the real Codul fiscal — see class docblock's "Anexe" note.
+        'S_ANX' => SectionType::ANEXA,
+    ];
+
+    /**
+     * Wrapper-container class tokens that never become a {@see ParsedSection} themselves
+     * (`BLUEPRINT.md` §6.8 scope, {@see SectionType}'s docblock) but whose own `_TTL` label text is
+     * read — verbatim, never invented — to disambiguate an {@see SectionType::ANEXA}'s citation
+     * label, since annex numbering restarts per `Titlu` (the real Codul fiscal has three separate
+     * documents each rendered "Anexa nr. 1"). Order matters: outermost first, matching the order a
+     * citation reads in ("Titlul VII Capitolul XV Anexa").
+     *
+     * @var list<string>
+     */
+    private const array TITLE_WRAPPER_CLASSES = ['S_TTL', 'S_CAP', 'S_SEC'];
+
+    public function parse(string $html): ParsedLegislationDocument
+    {
+        if (trim($html) === '') {
+            throw UnparsableLegislationDocumentException::emptyContent();
+        }
+
+        $document = $this->loadDocument($html);
+        $root = $document->documentElement;
+
+        if ($root === null) {
+            throw UnparsableLegislationDocumentException::noRootElement();
+        }
+
+        $sections = $this->parseTopLevelSections($root);
+        $seenCitationLabels = [];
+        $ambiguousCitationLabels = [];
+        $sections = $this->pruneAmbiguousCitations($sections, $seenCitationLabels, $ambiguousCitationLabels);
+
+        return new ParsedLegislationDocument(
+            publicationDate: $this->extractPublicationDate($document),
+            topLevelSections: $sections,
+            ambiguousCitationLabels: array_values(array_unique($ambiguousCitationLabels)),
+        );
+    }
+
+    /**
+     * Last-resort safety net, run once over the whole document after every legitimate structural
+     * fix ({@see groupOrphanContinuations()}, the recursive {@see collectBodyContent()}) has
+     * already run — see {@see ParsedLegislationDocument::$ambiguousCitationLabels}'s docblock for
+     * why this exists and the real, evidenced cases that reach it. Walks the tree in exactly the
+     * pre-order (parent, then children in order, then next sibling) that
+     * `App\Domain\TaxKnowledge\Services\LegislationSectionPersister` inserts rows in, so "first
+     * occurrence wins" here means the same thing there: the *earlier* occurrence in reading order
+     * is kept as the real, citable row, and every later section sharing its label — subtree
+     * included, since a colliding provision's own children cannot be reliably re-parented either —
+     * is dropped and its label recorded, never silently renumbered or suffixed.
+     *
+     * @param list<ParsedSection> $sections
+     * @param array<string, true> $seenCitationLabels
+     * @param list<string> $ambiguousCitationLabels
+     * @return list<ParsedSection>
+     */
+    private function pruneAmbiguousCitations(array $sections, array &$seenCitationLabels, array &$ambiguousCitationLabels): array
+    {
+        $kept = [];
+
+        foreach ($sections as $section) {
+            if (isset($seenCitationLabels[$section->citationLabel])) {
+                $ambiguousCitationLabels[] = $section->citationLabel;
+
+                continue;
+            }
+
+            $seenCitationLabels[$section->citationLabel] = true;
+
+            $children = $this->pruneAmbiguousCitations($section->children, $seenCitationLabels, $ambiguousCitationLabels);
+
+            $kept[] = new ParsedSection(
+                $section->sectionType,
+                $section->rawLabel,
+                $section->citationLabel,
+                $section->ordinal,
+                $section->text,
+                $children,
+            );
+        }
+
+        return $kept;
+    }
+
+    private function loadDocument(string $html): DOMDocument
+    {
+        $document = new DOMDocument();
+        $previousSetting = libxml_use_internal_errors(true);
+
+        try {
+            // Prefixing an XML encoding declaration (literal string built below) forces libxml to
+            // interpret the byte stream as UTF-8 without inserting a visible processing-instruction
+            // node into the tree — a well-known DOMDocument::loadHTML idiom. The alternative, a
+            // <meta charset> tag, is not reliably present/first on every page this parser will ever
+            // see. NOTE: never write that literal two-character closing delimiter inside a
+            // comment in this file — PHP ends the current PHP tag the instant it sees it, even
+            // inside a "//" line comment, silently truncating everything after it.
+            $document->loadHTML(
+                '<?xml encoding="utf-8" ?>' . $html,
+                LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+            );
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousSetting);
+        }
+
+        return $document;
+    }
+
+    /**
+     * @return list<ParsedSection>
+     */
+    private function parseTopLevelSections(DOMElement $root): array
+    {
+        $sections = [];
+        $ordinal = 1;
+
+        foreach ($this->findTopLevelContainers($root) as $container) {
+            // ARTICOL numbers are unique across the whole act, so (like today) it gets no
+            // ancestor context. ANEXA numbers are only unique per-Titlu (verified: the real
+            // Codul fiscal has three distinct "Anexa nr. 1"s) — see buildCitationLabel().
+            $topLevelContext = $this->matchingContainerToken($container) === 'S_ANX'
+                ? $this->ancestorWrapperContext($container)
+                : null;
+
+            $sections[] = $this->parseContainer($container, $topLevelContext, $ordinal);
+            $ordinal++;
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Walks `$container`'s ancestors up to the document root collecting the `_TTL` label of every
+     * real `Titlu`/`Capitol`/`Secțiune` wrapper found (outermost first) — verbatim source text,
+     * never invented. Returns `null` when no such wrapper exists (an annex directly under the
+     * document root, not observed live but not impossible).
+     */
+    private function ancestorWrapperContext(DOMElement $container): ?string
+    {
+        $labels = [];
+        $node = $container->parentNode;
+
+        while ($node instanceof DOMElement) {
+            foreach (self::TITLE_WRAPPER_CLASSES as $token) {
+                if (in_array($token, $this->classTokens($node), true)) {
+                    $label = $this->directChildTextByToken($node, $token . '_TTL');
+
+                    if ($label !== '') {
+                        $labels[] = $label;
+                    }
+
+                    break;
+                }
+            }
+
+            $node = $node->parentNode;
+        }
+
+        return $labels === [] ? null : implode(' ', array_reverse($labels));
+    }
+
+    /**
+     * Depth-first search that stops descending the instant it finds a container element —
+     * everything above the first `ARTICOL`/`ALINEAT`/`LITERA`/`PUNCT` on a given branch
+     * (a bare `<div>`, or a real `S_TTL`/`S_CAP`/`S_SEC` wrapper) is walked through but never
+     * itself becomes a row.
+     *
+     * @return list<DOMElement>
+     */
+    private function findTopLevelContainers(DOMNode $node): array
+    {
+        $results = [];
+
+        foreach ($node->childNodes as $child) {
+            if (! $child instanceof DOMElement) {
+                continue;
+            }
+
+            if ($this->matchingContainerToken($child) !== null) {
+                $results[] = $child;
+
+                continue;
+            }
+
+            array_push($results, ...$this->findTopLevelContainers($child));
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param list<DOMElement> $extraDirectChildren Continuation elements a *sibling* body handed
+     *        down because the source's own markup nested them one level too shallow — see
+     *        {@see groupOrphanContinuations()}. Always empty for a normal, correctly-nested call.
+     */
+    private function parseContainer(DOMElement $container, ?string $parentCitationLabel, int $ordinal, array $extraDirectChildren = []): ParsedSection
+    {
+        $token = $this->matchingContainerToken($container);
+
+        if ($token === null) {
+            // Cannot happen: every caller only ever passes an element findTopLevelContainers() or
+            // splitBodyContent() already confirmed matches a container token. Thrown, not
+            // silently defaulted, per docs/CODE-QUALITY.md §4 ("no catch-all that swallows").
+            throw new RuntimeException('parseContainer() called with a non-container element.');
+        }
+
+        $sectionType = self::CONTAINER_CLASSES[$token];
+        $rawLabel = $this->directChildTextByToken($container, $token . '_TTL');
+        $body = $this->directChildElementByToken($container, $token . '_BDY');
+
+        $citationLabel = $this->buildCitationLabel($sectionType, $rawLabel, $parentCitationLabel, $ordinal);
+
+        [$ownText, $childContainers] = $body !== null
+            ? $this->splitBodyContent($body)
+            : ['', []];
+
+        array_push($childContainers, ...$extraDirectChildren);
+
+        $children = [];
+        $childOrdinal = 1;
+
+        foreach ($this->groupOrphanContinuations($childContainers) as $group) {
+            $children[] = $this->parseContainer($group->primary, $citationLabel, $childOrdinal, $group->extraDirectChildren);
+            $childOrdinal++;
+        }
+
+        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children);
+    }
+
+    /**
+     * Repairs a specific, measured markup defect in the real Codul fiscal (never observed in the
+     * Constitution): when an `ALINEAT`'s own body contains an editorial amendment note (an
+     * `S_PAR` reading e.g. "(la 03-09-2021, ... a fost modificată de ...)"), the site's own HTML
+     * closes that `ALINEAT`'s tag immediately after the note — *before* the lettered items its
+     * introductory sentence promised ("... următoarele situații:"). Those `LITERA` elements land
+     * as direct siblings of the `ALINEAT` in the parent body instead of nested inside it.
+     * Confirmed live in five places (`docs/handoff/039-fiscal-code-parser-fix.md` has the exact
+     * HTML): Art. 40^3 (two groups), Art. 316 (three groups, each preceded by its own dated
+     * amendment note).
+     *
+     * This is a structural repair using only DOM order — never legal-content inference: a
+     * `LITERA` is reattached to the *immediately preceding sibling* in the same body only when
+     * that sibling is an `ALINEAT` (the only pairing evidenced above — see "Deliberately narrow"
+     * below). A `LITERA` with no such preceding sibling (e.g. Art. 3's principles, enumerated
+     * directly under the article with no alineate at all) is left exactly where it is — that is
+     * not a defect, see the class docblock's "Anexe" note for how that case reaches this method's
+     * input in the first place.
+     *
+     * **Deliberately narrow — do not widen without new evidence.** An earlier version of this
+     * method also reattached `PUNCT` onto a preceding `ALINEAT`/`PUNCT`, reasoning by analogy
+     * rather than evidence. That broke Art. 316 alin. (1) lit. a), which legitimately contains
+     * *two independent, correctly-nested* `PUNCT` siblings (pct. 1., pct. 2.) — the rule matched
+     * `PUNCT` following `PUNCT` and nested the second `pct.` inside the first
+     * (`tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php` caught
+     * it against the real extract). No real occurrence of a `PUNCT` orphaned the way `LITERA` is
+     * here has been found in the real Codul fiscal; do not reintroduce that branch without the
+     * same kind of measured HTML evidence this docblock cites for `LITERA`/`ALINEAT`.
+     *
+     * @param list<DOMElement> $elements in document order
+     * @return list<OrphanContinuationGroup>
+     */
+    private function groupOrphanContinuations(array $elements): array
+    {
+        /** @var list<OrphanContinuationGroup> $groups */
+        $groups = [];
+
+        foreach ($elements as $element) {
+            $type = $this->sectionTypeOf($element);
+            $previousGroup = $groups === [] ? null : $groups[array_key_last($groups)];
+            $previousType = $previousGroup === null ? null : $this->sectionTypeOf($previousGroup->primary);
+
+            $continuesPrevious = $previousGroup !== null
+                && $type === SectionType::LITERA
+                && $previousType === SectionType::ALINEAT;
+
+            if ($continuesPrevious) {
+                $previousGroup->extraDirectChildren[] = $element;
+
+                continue;
+            }
+
+            $groups[] = new OrphanContinuationGroup($element);
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Splits one container's `_BDY` element into (a) its own text and (b) the container elements
+     * that become this section's nested children — searched by **recursive descent**, not merely
+     * `_BDY`'s direct children.
+     *
+     * The original implementation (this project's first, validated only against the
+     * Constitution) scanned direct children only, on the documented assumption that "nesting is
+     * DOM containment ... never deeper". Parsing the real Codul fiscal (7.6 MB, far more amended)
+     * disproved that assumption with real, measured evidence
+     * (`docs/handoff/039-fiscal-code-parser-fix.md`): **233 real `S_LIT` elements** — e.g. Art. 3's
+     * eight fiscal principles — are direct children of a plain `S_PAR` wrapper (an inline
+     * paragraph span, not a container), which is itself the direct child of a `_BDY`. A
+     * direct-children-only scan folds that whole `S_PAR` subtree into the parent's own text
+     * (via `$node->textContent`, silently including the nested letters' text without ever giving
+     * them their own row) and never finds the `S_LIT` elements inside it at all — not
+     * mislabelled, genuinely absent from the parse tree.
+     *
+     * This method now walks every descendant (depth-first, document order — the same strategy
+     * {@see findTopLevelContainers()} already used at the document root), stopping the descent the
+     * instant it finds a container token (that subtree becomes a child, its own text is never
+     * touched here) or a non-citable annotation (that subtree is dropped entirely, see below).
+     * Only a genuine dead end — a text node, or an element with neither a container token nor an
+     * annotation token — contributes to `text`.
+     *
+     * Two kinds of elements are dropped entirely, at *any* depth — neither text nor a section:
+     * - A `_SHORT` element (`S_LIT_SHORT`, the collapsed-view UI duplicate `" ... "` placeholder).
+     * - An `S_NTA` element ("Notă") — confirmed live (2026-09-08 fetch, see class docblock) to be
+     *   editorial amendment-history commentary (e.g. "*) Modificată și completată prin Legea de
+     *   revizuire ... publicată ... 29 octombrie 2003 ..."), not part of the article's own legal
+     *   text. Including it would silently corrupt what a citation's `text` represents — the words
+     *   the law itself uses, not commentary about the law.
+     *
+     * @return array{0: string, 1: list<DOMElement>}
+     */
+    private function splitBodyContent(DOMElement $body): array
+    {
+        $textParts = [];
+        $childContainers = [];
+
+        $this->collectBodyContent($body, $textParts, $childContainers);
+
+        return [$this->normalizeWhitespace(implode(' ', $textParts)), $childContainers];
+    }
+
+    /**
+     * @param list<string> $textParts
+     * @param list<DOMElement> $childContainers
+     */
+    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers): void
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMText) {
+                $textParts[] = $child->textContent;
+
+                continue;
+            }
+
+            if ($child instanceof DOMComment || ! $child instanceof DOMElement) {
+                continue;
+            }
+
+            if ($this->isNonCitableAnnotation($child)) {
+                continue;
+            }
+
+            if ($this->matchingContainerToken($child) !== null) {
+                $childContainers[] = $child;
+
+                continue;
+            }
+
+            // A plain wrapper (S_PAR, S_LGI, <a>/<b>/...) — recurse rather than flattening its
+            // whole subtree into text, since it may itself directly contain a container (the
+            // Art. 3 case above).
+            $this->collectBodyContent($child, $textParts, $childContainers);
+        }
+    }
+
+    private function buildCitationLabel(SectionType $type, string $rawLabel, ?string $parentCitationLabel, int $ordinal): string
+    {
+        $parentPrefix = $parentCitationLabel ?? '';
+
+        return match ($type) {
+            SectionType::ARTICOL => $this->articleCitationLabel($rawLabel, $ordinal),
+            SectionType::ALINEAT => trim($parentPrefix . ' alin. ' . ($rawLabel !== '' ? $rawLabel : "({$ordinal})")),
+            SectionType::LITERA => trim($parentPrefix . ' lit. ' . ($rawLabel !== '' ? $rawLabel : "{$ordinal})")),
+            SectionType::PUNCT => trim($parentPrefix . ' pct. ' . ($rawLabel !== '' ? $rawLabel : "{$ordinal}.")),
+            // $parentCitationLabel here is the Titlu/Capitol/Secțiune wrapper chain
+            // (see ancestorWrapperContext()), not a sibling section's citation — annex numbering
+            // restarts per Titlu, so it is the disambiguator an ANEXA needs and no other type does.
+            SectionType::ANEXA => trim($parentPrefix . ' ' . ($rawLabel !== '' ? $rawLabel : "Anexa #{$ordinal}")),
+        };
+    }
+
+    /**
+     * `"Articolul 27"` -> `"Art. 27"`. Falls back to `"Art. #{ordinal}"` (a structural position,
+     * never fabricated legal content) only when the source's own label is empty or unparseable —
+     * observed to happen for `"Articolul UNIC"`-only decrees are still handled correctly since
+     * `"UNIC"` is preserved verbatim (`"Art. UNIC"`), this fallback is for the genuinely-missing
+     * case only.
+     */
+    private function articleCitationLabel(string $rawLabel, int $ordinal): string
+    {
+        $withoutPrefix = preg_replace('/^articolul\s*/ui', '', trim($rawLabel));
+        $number = $withoutPrefix !== null ? trim($withoutPrefix, " \t\n\r\0\x0B.") : '';
+
+        return $number !== '' ? "Art. {$number}" : "Art. #{$ordinal}";
+    }
+
+    private function extractPublicationDate(DOMDocument $document): ?DateTimeImmutable
+    {
+        $xpath = new DOMXPath($document);
+        $nodes = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' S_PUB_BDY ')]");
+
+        if ($nodes === false || $nodes->length === 0) {
+            return null;
+        }
+
+        $first = $nodes->item(0);
+
+        if (! $first instanceof DOMElement) {
+            return null;
+        }
+
+        return RomanianDateParser::parse($first->textContent);
+    }
+
+    private function directChildTextByToken(DOMElement $parent, string $token): string
+    {
+        $element = $this->directChildElementByToken($parent, $token);
+
+        return $element === null ? '' : $this->normalizeWhitespace($element->textContent);
+    }
+
+    private function directChildElementByToken(DOMElement $parent, string $token): ?DOMElement
+    {
+        foreach ($parent->childNodes as $child) {
+            if ($child instanceof DOMElement && in_array($token, $this->classTokens($child), true)) {
+                return $child;
+            }
+        }
+
+        return null;
+    }
+
+    private function matchingContainerToken(DOMElement $element): ?string
+    {
+        $classes = $this->classTokens($element);
+
+        foreach (array_keys(self::CONTAINER_CLASSES) as $token) {
+            if (in_array($token, $classes, true)) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves `$element`'s {@see SectionType} — only ever called on an element a caller already
+     * confirmed matches a container token (via {@see matchingContainerToken()}), so the exception
+     * path can't happen; kept explicit rather than a silently-nullable lookup per
+     * docs/CODE-QUALITY.md §4 ("no catch-all that swallows").
+     */
+    private function sectionTypeOf(DOMElement $element): SectionType
+    {
+        $token = $this->matchingContainerToken($element);
+
+        if ($token === null) {
+            throw new RuntimeException('sectionTypeOf() called with a non-container element.');
+        }
+
+        return self::CONTAINER_CLASSES[$token];
+    }
+
+    private function isNonCitableAnnotation(DOMElement $element): bool
+    {
+        $classes = $this->classTokens($element);
+
+        if (in_array('S_NTA', $classes, true)) {
+            return true;
+        }
+
+        foreach ($classes as $token) {
+            if (str_ends_with($token, '_SHORT')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function classTokens(DOMElement $element): array
+    {
+        $class = trim($element->getAttribute('class'));
+
+        return $class === '' ? [] : (preg_split('/\s+/', $class) ?: []);
+    }
+
+    private function normalizeWhitespace(string $text): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
+    }
+}

@@ -1,0 +1,470 @@
+# TaxOS România — CI pipeline (BLUEPRINT.md §22, docs/AGENTS.md §7).
+#
+# One workflow file, not several, because the fail-fast ordering this
+# blueprint asks for ("cheap lanes before expensive ones") is expressed with
+# `needs:` — and `needs:` only works between jobs in the *same* workflow
+# file. Splitting this into per-stack files would silently drop that
+# ordering guarantee.
+#
+# Job map:
+#   secret-scan      — gitleaks over the git-tracked tree. No `needs`: cheap,
+#                       runs immediately.
+#   fiscal-gates      — placeholder for BLUEPRINT.md §22's fiscal-change gates
+#                       (Milestone 4/5 not built yet). No `needs`: cheap,
+#                       runs immediately. See .github/scripts/fiscal-gates-
+#                       placeholder.sh for exactly what is and isn't real.
+#   php-quality       — composer validate/audit, Pint, PHPStan, Deptrac. No
+#                       database needed. No `needs`.
+#   php-tests         — Pest against real Postgres + Redis service
+#                       containers. `needs: php-quality` — do not spend a
+#                       database + full test run on a change that doesn't
+#                       even pass static analysis.
+#   js-api            — apps/api's Inertia/React frontend: lint, format,
+#                       typecheck, build, audit. No `needs`. Uploads the
+#                       Vite build as an artifact for the `containers` job.
+#   js-spv-browser    — apps/spv-browser: lint, typecheck, build, real tests,
+#                       audit. No `needs`.
+#   python            — apps/processing: uv/ruff/pyright/pytest/pip-audit.
+#                       No `needs`.
+#   containers        — builds every production image, generates an SBOM,
+#                       and vulnerability-scans it. `needs` every job above
+#                       except secret-scan/fiscal-gates — this is the
+#                       expensive lane and must not start until the cheap
+#                       ones are green.
+#
+# Every third-party action below is pinned to a commit SHA (docs/
+# DEPENDENCY-POLICY.md §1); the trailing comment names the tag that SHA
+# resolves to, verified against the GitHub API on 2026-09-08.
+
+name: CI
+
+on:
+  push:
+    # Local repo is currently on `master` with no commits yet (never pushed
+    # to a remote) and no ADR/doc fixes a final default-branch name — see
+    # docs/handoff/008-ci-pipeline.md "Open questions". Triggering on both
+    # avoids CI silently never running because of a name mismatch; drop
+    # whichever one turns out unused once the repo has a real remote.
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Secret scanning — BLUEPRINT.md §4.10 / docs/DEPENDENCY-POLICY.md §5.
+  # ---------------------------------------------------------------------
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: gitleaks
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/workspace:ro \
+            -v "${{ github.workspace }}/.github/gitleaks":/gcfg:ro \
+            -w /workspace \
+            zricethezav/gitleaks:v8.30.1 dir . --no-banner \
+            --gitleaks-ignore-path=/gcfg/.gitleaksignore
+
+  # ---------------------------------------------------------------------
+  # Fiscal gates — BLUEPRINT.md §22 "Tax changes" gates. PLACEHOLDER: real
+  # ruleset/tax-engine code does not exist yet (Milestone 4/5). See the
+  # script for exactly what this does and does not prove, and for the
+  # canary that fails the build the moment real fiscal content lands
+  # without this job being upgraded first.
+  # ---------------------------------------------------------------------
+  fiscal-gates:
+    name: Fiscal gates (placeholder — M4/M5)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run fiscal gates
+        run: bash .github/scripts/fiscal-gates-placeholder.sh
+
+  # ---------------------------------------------------------------------
+  # PHP — apps/api. No database needed for any of these five checks.
+  # ---------------------------------------------------------------------
+  php-quality:
+    name: PHP quality (validate, audit, Pint, PHPStan, Deptrac)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          extensions: pdo_pgsql, redis, bcmath, intl, pcntl, sodium
+          tools: composer:2.10.3
+          coverage: none
+
+      - name: Resolve Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
+      - name: composer install
+        run: composer install --no-interaction --prefer-dist
+
+      # Cheapest checks first (docs/AGENTS.md §7's ordering intent, applied
+      # inside the job too): a broken composer.json fails in milliseconds,
+      # PHPStan takes the longest.
+      - name: composer validate
+        run: composer validate --strict
+
+      - name: composer audit
+        run: composer audit
+
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: PHPStan
+        env:
+          # Non-secret, test-only Laravel APP_KEY (see php-tests job below
+          # for why one is needed at all). Encrypts nothing that outlives
+          # this job.
+          APP_KEY: "base64:8nv5QLUkFwcF+ILRrO9PfkhDAoI83n8i89yBdebg2lo="
+        run: vendor/bin/phpstan analyse --memory-limit=512M
+
+      - name: Deptrac (module boundaries, BLUEPRINT.md §2.1)
+        run: vendor/bin/deptrac analyse --config-file=deptrac.php
+
+  php-tests:
+    name: PHP tests (Pest, real Postgres + Redis)
+    runs-on: ubuntu-latest
+    needs: php-quality
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        # Same image/tag as production (docs/reference/verified-versions.md)
+        # — pgvector/pgvector, not a bare postgres image, so the vector/
+        # unaccent/pg_trgm extensions this project needs are present.
+        image: pgvector/pgvector:pg18-trixie
+        env:
+          POSTGRES_DB: taxos
+          POSTGRES_USER: taxos
+          POSTGRES_PASSWORD: taxos_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U taxos"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:8-trixie
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      # Non-secret, test-only Laravel APP_KEY. Never used outside this CI
+      # job's ephemeral service containers; encrypts nothing that outlives
+      # it. Real per-environment keys are generated at deploy time and
+      # never committed (BLUEPRINT.md §4.10).
+      APP_KEY: "base64:8nv5QLUkFwcF+ILRrO9PfkhDAoI83n8i89yBdebg2lo="
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: taxos
+      DB_USERNAME: taxos
+      DB_PASSWORD: taxos_ci
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          extensions: pdo_pgsql, redis, bcmath, intl, pcntl, sodium
+          tools: composer:2.10.3
+          coverage: none
+
+      - name: Resolve Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
+      - name: composer install
+        run: composer install --no-interaction --prefer-dist
+
+      # Laravel's dotenv loader warns (Pest turns the warning into a test
+      # WARN, not a clean PASS) when no .env file is present at all, even
+      # though every value it would contain is supplied via real env vars
+      # above. No .env is committed (BLUEPRINT.md §4.10) or shipped in the
+      # runtime image, so create an empty one for this job only — verified
+      # locally (docs/handoff/008-ci-pipeline.md) that this is the only
+      # difference between a WARN and a clean PASS here.
+      - name: Touch empty .env (see comment)
+        run: touch .env
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      - name: Pest
+        run: vendor/bin/pest
+
+  # ---------------------------------------------------------------------
+  # JavaScript/TypeScript — apps/api (Inertia/React frontend).
+  # ---------------------------------------------------------------------
+  js-api:
+    name: JS/TS — apps/api
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20.19.6"
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier
+        run: npm run format
+
+      - name: tsc --noEmit
+        run: npm run typecheck
+
+      - name: Build (Vite)
+        run: npm run build
+
+      # No frontend test suite exists yet — apps/api/resources/js has no
+      # test files and package.json has no "test" script (see docs/handoff/
+      # 002-laravel-scaffold.md: M0 scaffold only, one static page). BLUEPRINT.md
+      # §22 asks for "frontend tests"; per docs/AGENTS.md ("if a gate
+      # genuinely can't run yet, leave it out and document why rather than
+      # faking a pass"), this step is intentionally absent, not stubbed.
+      # Add it back the moment the first *.test.tsx file exists.
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+      # Consumed by the `containers` job to build the edge (nginx) image
+      # without re-running Vite on a second runner.
+      - name: Upload Vite build output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-build
+          path: apps/api/public/build
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # JavaScript/TypeScript — apps/spv-browser (Playwright worker).
+  # ---------------------------------------------------------------------
+  js-spv-browser:
+    name: JS/TS — apps/spv-browser
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/spv-browser
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20.19.6"
+          cache: npm
+          cache-dependency-path: apps/spv-browser/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: tsc --noEmit
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test (node --test)
+        run: npm test
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  # ---------------------------------------------------------------------
+  # Python — apps/processing.
+  # ---------------------------------------------------------------------
+  python:
+    name: Python — apps/processing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/processing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: apps/processing/uv.lock
+
+      - name: uv lock --check
+        run: uv lock --check
+
+      - name: uv sync --frozen
+        run: uv sync --frozen
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: pyright
+        run: uv run pyright
+
+      - name: pytest
+        run: uv run pytest -q
+
+      - name: pip-audit
+        run: uv run pip-audit
+
+  # ---------------------------------------------------------------------
+  # Containers & security — the expensive lane. Gated behind every lint/
+  # test job above (docs/AGENTS.md §7's "run these before declaring done",
+  # applied at pipeline level: don't spend minutes building four images for
+  # a change that doesn't even pass Pint).
+  #
+  # Each image is production-shape (the same Dockerfile/target compose.yaml
+  # uses), never the `test` stage — dev tooling is not shipped, and is not
+  # what gets scanned here.
+  # ---------------------------------------------------------------------
+  containers:
+    name: Containers (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs: [php-quality, php-tests, js-api, js-spv-browser, python]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: php-runtime
+            file: docker/php/Dockerfile
+            target: runtime
+            needs_frontend: false
+          - name: python-runtime
+            file: docker/python/Dockerfile
+            target: runtime
+            needs_frontend: false
+          - name: edge
+            file: docker/nginx/Dockerfile
+            target: ""
+            needs_frontend: true
+          - name: spv-browser
+            file: docker/playwright/Dockerfile
+            target: ""
+            needs_frontend: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The edge (nginx) image bakes in apps/api/public — including
+      # public/build, which is gitignored (Vite output, not source) and
+      # therefore not in this checkout. Reuse the js-api job's build
+      # instead of running Vite a second time on a second runner.
+      - name: Download Vite build output
+        if: matrix.needs_frontend == true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-build
+          path: apps/api/public/build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          tags: taxos/${{ matrix.name }}:ci
+          push: false
+          load: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: taxos/${{ matrix.name }}:ci
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+      # Severity threshold: CRITICAL/HIGH only, and only vulnerabilities
+      # with a fix already published (`ignore-unfixed`) — an unfixed base-
+      # OS CVE in a Debian trixie package is not something changing this
+      # repo's code can resolve, and would otherwise turn this into a gate
+      # nobody can ever satisfy. This still fails real, actionable findings
+      # — verified locally (docs/handoff/008-ci-pipeline.md) against the
+      # real images this workflow builds, which currently have three such
+      # findings recorded there and in docs/STATUS.md's Known issues table.
+      - name: Vulnerability scan (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: taxos/${{ matrix.name }}:ci
+          scanners: vuln
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"

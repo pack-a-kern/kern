@@ -1,0 +1,26 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/pestphp/pest-plugin-phpstan/extension.neon
+
+parameters:
+    level: 9
+    paths:
+        - app
+        - bootstrap/app.php
+        - bootstrap/providers.php
+        - config
+        - database
+        - routes
+        - tests
+    excludePaths:
+        - resources/js
+        # tests/Fixtures/TaxEngine/Purity/ImpureEnvironmentRule.php is a DELIBERATELY IMPURE
+        # fixture (docs/handoff/020-tax-engine.md) — its one line exists only so
+        # Tests\Support\TaxEngineRulePurity\RulePuritySourceScanner has a real env() read to
+        # detect when tests/Unit/Domain/TaxEngine/RulePuritySourceScannerTest.php and
+        # tests/Feature/Domain/TaxEngine/RulePurityArchitectureTest.php scan its raw source text.
+        # The class is never instantiated or executed by any test — only lexically scanned as
+        # text — so Larastan's real "no env() outside config" rule firing on it is not a defect
+        # to silence with a baseline entry; the violation is the fixture's entire purpose. Same
+        # treatment a fixture with deliberately malformed content gets from any other linter.
+        - tests/Fixtures/TaxEngine/Purity/ImpureEnvironmentRule.php

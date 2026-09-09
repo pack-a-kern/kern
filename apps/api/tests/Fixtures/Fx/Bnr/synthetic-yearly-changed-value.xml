@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC FIXTURE — NOT CAPTURED FROM BNR. See synthetic-daily.xml's header comment.
+
+  Identical to synthetic-yearly.xml except the 2026-01-15 EUR rate is different — used to prove
+  a re-backfill that finds a changed historical value records an anomaly for that one day and
+  leaves every other already-imported row untouched.
+-->
+<DataSet xmlns="http://www.bnr.ro/xsd">
+  <Header>
+    <Publisher>Synthetic fixture — not BNR</Publisher>
+    <PublishingDate>2026-01-19</PublishingDate>
+    <MessageType>DR</MessageType>
+  </Header>
+  <Body>
+    <Subject>Reference exchange rate (synthetic)</Subject>
+    <OrigCurrency>RON</OrigCurrency>
+    <Cube date="2026-01-14">
+      <Rate currency="EUR">4.975000</Rate>
+      <Rate currency="USD">4.580000</Rate>
+      <Rate currency="HUF" multiplier="100">1278.500000</Rate>
+    </Cube>
+    <Cube date="2026-01-15">
+      <Rate currency="EUR">5.200000</Rate>
+      <Rate currency="USD">4.582100</Rate>
+      <Rate currency="HUF" multiplier="100">1279.990000</Rate>
+    </Cube>
+    <Cube date="2026-01-16">
+      <Rate currency="EUR">4.977800</Rate>
+      <Rate currency="USD">4.583500</Rate>
+      <Rate currency="HUF" multiplier="100">1280.400000</Rate>
+    </Cube>
+    <Cube date="2026-01-19">
+      <Rate currency="EUR">4.978100</Rate>
+      <Rate currency="USD">4.584900</Rate>
+      <Rate currency="HUF" multiplier="100">1281.100000</Rate>
+    </Cube>
+    <Cube date="2026-01-20">
+      <Rate currency="EUR">4.979500</Rate>
+      <Rate currency="USD">4.586200</Rate>
+      <Rate currency="HUF" multiplier="100">1281.700000</Rate>
+    </Cube>
+  </Body>
+</DataSet>

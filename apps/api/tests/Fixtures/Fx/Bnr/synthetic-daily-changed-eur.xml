@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC FIXTURE — NOT CAPTURED FROM BNR. See synthetic-daily.xml's header comment.
+
+  Same date as synthetic-daily.xml (2026-01-15) but with a different EUR rate — used to prove
+  App\Domain\Fx\Services\FxRateImporter records an anomaly instead of silently overwriting the
+  already-imported value for that date.
+-->
+<DataSet xmlns="http://www.bnr.ro/xsd">
+  <Header>
+    <Publisher>Synthetic fixture — not BNR</Publisher>
+    <PublishingDate>2026-01-15</PublishingDate>
+    <MessageType>DR</MessageType>
+  </Header>
+  <Body>
+    <Subject>Reference exchange rate (synthetic)</Subject>
+    <OrigCurrency>RON</OrigCurrency>
+    <Cube date="2026-01-15">
+      <Rate currency="EUR">5.100000</Rate>
+      <Rate currency="USD">4.582100</Rate>
+      <Rate currency="HUF" multiplier="100">1279.990000</Rate>
+    </Cube>
+  </Body>
+</DataSet>

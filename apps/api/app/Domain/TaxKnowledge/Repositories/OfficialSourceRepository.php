@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\TaxKnowledge\Repositories;
+
+use App\Domain\TaxKnowledge\Config\OfficialSourceRegistry;
+use App\Domain\TaxKnowledge\Models\OfficialSource;
+
+/**
+ * Mirrors `config/sources.php` into the `official_sources` table on demand. The config file is
+ * always authoritative (see that migration's docblock) — `resolve()` upserts the DB row's
+ * `trust_tier`/`base_url`/`enabled` from the current config every time, so the two can never
+ * silently drift apart.
+ *
+ * This is the module's cross-boundary read surface for `Domain/Fx`:
+ * {@see idForCode()} returns a bare id string precisely so `Domain/Fx` never needs to import
+ * {@see OfficialSource} itself (`docs/AGENTS.md` §6 — a module never imports another module's
+ * Eloquent models).
+ */
+final readonly class OfficialSourceRepository
+{
+    public function __construct(
+        private OfficialSourceRegistry $registry,
+    ) {
+    }
+
+    public function resolve(string $code): OfficialSource
+    {
+        $definition = $this->registry->find($code);
+
+        return OfficialSource::query()->updateOrCreate(
+            ['code' => $definition->code],
+            [
+                'trust_tier' => $definition->trustTier->value,
+                'base_url' => $definition->baseUrl,
+                'enabled' => $definition->enabled,
+            ],
+        );
+    }
+
+    public function idForCode(string $code): string
+    {
+        return $this->resolve($code)->id;
+    }
+}

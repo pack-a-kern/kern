@@ -1,0 +1,123 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Domain\TaxKnowledge\LegislationSectionPersisterTest;
+
+use App\Domain\TaxKnowledge\Enums\SectionType;
+use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
+use App\Domain\TaxKnowledge\Exceptions\UnknownSourceDocumentVersionException;
+use App\Domain\TaxKnowledge\Models\SourceDocument;
+use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
+use App\Domain\TaxKnowledge\Models\SourceSection;
+use App\Domain\TaxKnowledge\Parsing\ParsedLegislationDocument;
+use App\Domain\TaxKnowledge\Parsing\ParsedSection;
+use App\Domain\TaxKnowledge\Services\LegislationSectionPersister;
+use DateTimeImmutable;
+use Illuminate\Support\Facades\Artisan;
+
+beforeEach(function (): void {
+    Artisan::call('migrate', ['--force' => true]);
+});
+
+/**
+ * Builds a small, clearly SYNTHETIC parsed tree (invented placeholder legal text, not real law)
+ * for testing persistence mechanics independent of the HTML parser (covered separately by
+ * tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserTest.php).
+ */
+function syntheticParsedDocument(?DateTimeImmutable $publicationDate = null): ParsedLegislationDocument
+{
+    $litera = new ParsedSection(SectionType::LITERA, 'a)', 'Art. 1 alin. (1) lit. a)', 1, 'SYNTHETIC: litera text', []);
+    $alineat = new ParsedSection(SectionType::ALINEAT, '(1)', 'Art. 1 alin. (1)', 1, 'SYNTHETIC: alineat text', [$litera]);
+    $article = new ParsedSection(SectionType::ARTICOL, 'Articolul 1', 'Art. 1', 1, 'SYNTHETIC: article heading', [$alineat]);
+
+    return new ParsedLegislationDocument($publicationDate, [$article]);
+}
+
+it('persists a parsed tree as source_sections rows with correct parent/child links', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+
+    $result = app(LegislationSectionPersister::class)->persist($version->id, syntheticParsedDocument());
+
+    expect($result->sectionCount)->toBe(3)
+        ->and(SourceSection::query()->count())->toBe(3);
+
+    $article = SourceSection::query()->where('citation_label', 'Art. 1')->firstOrFail();
+    $alineat = SourceSection::query()->where('citation_label', 'Art. 1 alin. (1)')->firstOrFail();
+    $litera = SourceSection::query()->where('citation_label', 'Art. 1 alin. (1) lit. a)')->firstOrFail();
+
+    expect($article->parent_id)->toBeNull()
+        ->and($alineat->parent_id)->toBe($article->id)
+        ->and($litera->parent_id)->toBe($alineat->id)
+        ->and($article->section_type)->toBe(SectionType::ARTICOL)
+        ->and($litera->text)->toBe('SYNTHETIC: litera text')
+        ->and($litera->text_hash)->toBe(hash('sha256', 'SYNTHETIC: litera text'));
+});
+
+it('marks the version REQUIRES_REVIEW when no effective date is given — never guessed', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+
+    app(LegislationSectionPersister::class)->persist($version->id, syntheticParsedDocument());
+
+    $version->refresh();
+    expect($version->status)->toBe(SourceDocumentVersionStatus::REQUIRES_REVIEW)
+        ->and($version->effective_from)->toBeNull();
+});
+
+it('marks the version PARSED only when an effective date is explicitly supplied by the caller', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+
+    app(LegislationSectionPersister::class)->persist(
+        $version->id,
+        syntheticParsedDocument(),
+        effectiveFrom: new DateTimeImmutable('2026-01-01'),
+    );
+
+    $version->refresh();
+    expect($version->status)->toBe(SourceDocumentVersionStatus::PARSED)
+        ->and($version->effective_from?->format('Y-m-d'))->toBe('2026-01-01');
+});
+
+it('records the parser_version used', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+
+    app(LegislationSectionPersister::class)->persist($version->id, syntheticParsedDocument(), parserVersion: '9.9.9-test');
+
+    expect($version->refresh()->parser_version)->toBe('9.9.9-test');
+});
+
+it('replaces the whole section set on re-parse rather than duplicating', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+    $persister = app(LegislationSectionPersister::class);
+
+    $persister->persist($version->id, syntheticParsedDocument());
+    expect(SourceSection::query()->count())->toBe(3);
+
+    $singleArticle = new ParsedLegislationDocument(null, [
+        new ParsedSection(SectionType::ARTICOL, 'Articolul 2', 'Art. 2', 1, 'SYNTHETIC: replaced', []),
+    ]);
+    $result = $persister->persist($version->id, $singleArticle);
+
+    expect($result->sectionCount)->toBe(1)
+        ->and(SourceSection::query()->count())->toBe(1)
+        ->and(SourceSection::query()->first()?->citation_label)->toBe('Art. 2');
+});
+
+it('backfills source_documents.publication_date once, and never overwrites it on a later parse', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+    $persister = app(LegislationSectionPersister::class);
+
+    $persister->persist($version->id, syntheticParsedDocument(new DateTimeImmutable('2020-05-01')));
+
+    /** @var SourceDocument $document */
+    $document = SourceDocument::query()->findOrFail($version->source_document_id);
+    expect($document->publication_date?->format('Y-m-d'))->toBe('2020-05-01');
+
+    $persister->persist($version->id, syntheticParsedDocument(new DateTimeImmutable('2099-01-01')));
+
+    expect($document->refresh()->publication_date?->format('Y-m-d'))->toBe('2020-05-01');
+});
+
+it('throws for an unknown source_document_version id', function (): void {
+    app(LegislationSectionPersister::class)->persist('00000000-0000-0000-0000-000000000000', syntheticParsedDocument());
+})->throws(UnknownSourceDocumentVersionException::class);

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ro">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Fără conexiune — TaxOS România</title>
+        <style>
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #f9fafb;
+                color: #171717;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    'Segoe UI',
+                    sans-serif;
+            }
+            main {
+                max-width: 26rem;
+                padding: 2rem;
+                text-align: center;
+            }
+            h1 {
+                font-size: 1.25rem;
+                margin-bottom: 0.5rem;
+            }
+            p {
+                color: #525252;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            button {
+                margin-top: 1.5rem;
+                background: #2563eb;
+                color: white;
+                border: none;
+                border-radius: 0.375rem;
+                padding: 0.6rem 1.2rem;
+                font-size: 0.875rem;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>Fără conexiune la internet</h1>
+            <p>
+                Această pagină nu a putut fi încărcată deoarece dispozitivul este offline. Documentele adăugate anterior în coada de
+                capturare rămân salvate pe acest dispozitiv și se vor încărca automat imediat ce reveniți online.
+            </p>
+            <button onclick="window.location.reload()">Reîncearcă</button>
+        </main>
+    </body>
+</html>

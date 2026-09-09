@@ -1,0 +1,736 @@
+# TaxOS România — container topology (Milestone 0, BLUEPRINT.md §3).
+#
+# This is the production-shape file: no host ports on postgres/redis/minio,
+# app_net and data_net are `internal: true` (no outbound Internet), and
+# every image is pinned to an exact tag (docs/DEPENDENCY-POLICY.md).
+# compose.override.yaml adds dev-only conveniences (mailpit, published DB
+# ports, bind-mounted source) on top of this file — do not add those things
+# here.
+#
+# Network segmentation (see docs/handoff/001-docker-topology.md for the full
+# matrix and the reasoning behind the two extra `app`/`queue`/`scheduler`/
+# `reverb` -> data_net attachments beyond BLUEPRINT.md §3.3's literal list):
+#   edge_net        edge, app, reverb                              — not internal
+#   app_net         app, queue, scheduler, reverb,          — internal
+#                   redis, openbao
+#   processing_net  app, python-api, python-worker,         — not internal
+#                   minio, clamav
+#   data_net        postgres, redis, minio, app, queue,     — internal
+#                   scheduler, reverb
+#   browser_net     app, spv-browser                        — not internal
+#
+# Production digest pinning (§3.4 "immutable image tags through digest in
+# production"): this file pins exact tags for reproducible local/dev builds
+# per docs/DEPENDENCY-POLICY.md. A production deploy additionally locks each
+# image to its digest, e.g.:
+#
+#   postgres:
+#     image: pgvector/pgvector:pg18-trixie@sha256:78bf48b801e792f99e3ac62b5036fd3876e9be48afda16c1e331af1c75ceb2ff
+#
+# (digest verified 2026-09-07 — see the handoff note for the full table).
+# Do not add digests to the tags below; that is a production overlay
+# decision for whoever builds the deploy pipeline, not this dev-shape file.
+
+networks:
+  edge_net:
+    driver: bridge
+  app_net:
+    driver: bridge
+    internal: true
+  processing_net:
+    driver: bridge
+  data_net:
+    driver: bridge
+    internal: true
+  browser_net:
+    driver: bridge
+
+volumes:
+  # ~2.3 GB of BAAI/bge-m3 ONNX weights, downloaded once and reused across recreates.
+  embedding_cache:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clamav_data:
+  app_storage:
+  app_bootstrap_cache:
+
+x-php-image: &php-image
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+    target: runtime
+  environment: &php-environment
+    APP_NAME: ${APP_NAME:-TaxOS România}
+    APP_ENV: ${APP_ENV:-production}
+    APP_KEY: ${APP_KEY:?set APP_KEY — see .env.example}
+    # Default OFF, deliberately. A Laravel debug page renders the full environment —
+    # OPENBAO_TOKEN, POSTGRES_PASSWORD, CRYPTO_BLIND_INDEX_KEYS, APP_KEY — to any
+    # unauthenticated visitor who can provoke an error. Debug must be opted into for local
+    # work, never left as the default that a deployment inherits.
+    APP_DEBUG: ${APP_DEBUG:-false}
+    APP_URL: ${APP_URL:-http://localhost}
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: ${POSTGRES_DB:-taxos}
+    DB_USERNAME: ${POSTGRES_USER:-taxos}
+    DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
+    SESSION_DRIVER: redis
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD — see .env.example}
+    BROADCAST_CONNECTION: reverb
+    REVERB_APP_ID: ${REVERB_APP_ID:?set REVERB_APP_ID — see .env.example}
+    REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY — see .env.example}
+    REVERB_APP_SECRET: ${REVERB_APP_SECRET:?set REVERB_APP_SECRET — see .env.example}
+    # Server-side host: config/broadcasting.php uses REVERB_HOST when the APP publishes an event,
+    # and inside these containers `localhost:8080` is nothing — every broadcast failed with
+    # "cURL error 7: Failed to connect to localhost port 8080". The browser needs a different
+    # value (it connects from outside), which is what VITE_REVERB_HOST is for.
+    REVERB_HOST: ${REVERB_SERVER_DNS:-reverb}
+    REVERB_PORT: ${REVERB_PORT:-8080}
+    VITE_REVERB_HOST: ${REVERB_HOST:-localhost}
+    # KMS access (BLUEPRINT.md §4.2). The app is the primary consumer of the transit engine — it
+    # unwraps each tax subject's DEK on demand — but was never handed the address or token, so
+    # every encrypted read/write failed with 'Missing or invalid config value
+    # "crypto.kms.openbao.token"'. DEV credentials only; production injects these from a secret
+    # manager and never from a compose file.
+    OPENBAO_ADDR: ${OPENBAO_ADDR:-http://openbao:8200}
+    OPENBAO_TOKEN: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
+    # Mandatory: the global versioned HMAC key for blind-index lookups (BLUEPRINT.md §4.4).
+    # Unset, the app throws JsonException on registration and login. See .env.example.
+    # Deploy-time allowlist of system administrators until platform roles exist (ADR 0013).
+    SETTINGS_ADMIN_USER_IDS: ${SETTINGS_ADMIN_USER_IDS:-}
+    CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see .env.example}
+    CRYPTO_BLIND_INDEX_CURRENT_VERSION: ${CRYPTO_BLIND_INDEX_CURRENT_VERSION:-1}
+    REVERB_SCHEME: ${REVERB_SCHEME:-http}
+    REVERB_SERVER_HOST: 0.0.0.0
+    REVERB_SERVER_PORT: 8080
+    FILESYSTEM_DISK: s3
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
+    AWS_DEFAULT_REGION: eu-central-1
+    AWS_BUCKET: taxos-documents
+    AWS_ENDPOINT: http://minio:9000
+    AWS_USE_PATH_STYLE_ENDPOINT: "true"
+    MAIL_MAILER: ${MAIL_MAILER:-log}
+    MAIL_HOST: ${MAIL_HOST:-mailpit}
+    MAIL_PORT: ${MAIL_PORT:-1025}
+    # Shared secret with python-api's own INTERNAL_SERVICE_AUTH_TOKEN below — BLUEPRINT.md §4.10,
+    # docs/handoff/024-extraction-endpoint.md. App\Domain\Documents\Extraction\
+    # HttpTextExtractionGateway sends it as `Authorization: Bearer <token>`.
+    INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}
+    # Legislation retrieval's embedding half (BLUEPRINT.md §15.2). `..._DIMENSION` must equal the
+    # python-api service's EMBEDDING_DIMENSION and the `vector(N)` on source_section_chunks.
+    RETRIEVAL_EMBEDDING_ENABLED: ${RETRIEVAL_EMBEDDING_ENABLED:-false}
+    RETRIEVAL_EMBEDDING_URL: ${RETRIEVAL_EMBEDDING_URL:-http://python-api:8000}
+    RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS: ${RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS:-900}
+    RETRIEVAL_EMBEDDING_MODEL: ${RETRIEVAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+    RETRIEVAL_EMBEDDING_DIMENSION: ${RETRIEVAL_EMBEDDING_DIMENSION:-384}
+    RETRIEVAL_EMBEDDING_BATCH_SIZE: ${RETRIEVAL_EMBEDDING_BATCH_SIZE:-32}
+    # Background operations (/admin/operatiuni, docs/handoff/044-operations-console.md, ADR 0015).
+    # The file pair is here rather than only in config/operations.php because
+    # docker/php/scheduler-healthcheck.php runs *before* the framework boots and has no container
+    # to ask — it reads those two variables directly, so the healthcheck and the schedule entry
+    # that writes the file always resolve to the same path and limit.
+    OPERATIONS_HEARTBEAT_PATH: ${OPERATIONS_HEARTBEAT_PATH:-/tmp/scheduler-heartbeat}
+    OPERATIONS_HEARTBEAT_MAX_AGE_SECONDS: ${OPERATIONS_HEARTBEAT_MAX_AGE_SECONDS:-180}
+    # The screen is rendered by `app`, which has its own tmpfs and therefore cannot see the file
+    # above — `app` and `scheduler` share no filesystem. The cache is the channel both already have.
+    OPERATIONS_HEARTBEAT_CACHE_KEY: ${OPERATIONS_HEARTBEAT_CACHE_KEY:-operations:scheduler-heartbeat}
+    OPERATIONS_HEARTBEAT_CACHE_TTL_SECONDS: ${OPERATIONS_HEARTBEAT_CACHE_TTL_SECONDS:-86400}
+    # *When* a scheduled task runs. Deliberately not editable at runtime: a cron expression typed
+    # into a web form is how a job silently stops running forever. *Whether* it runs is the one
+    # runtime switch, held in `scheduled_tasks.enabled` and read on every scheduler tick.
+    OPERATIONS_SCHEDULE_TIMEZONE: ${OPERATIONS_SCHEDULE_TIMEZONE:-Europe/Bucharest}
+    OPERATIONS_CRON_FX_IMPORT_DAILY: ${OPERATIONS_CRON_FX_IMPORT_DAILY:-0 14 * * 1-5}
+    OPERATIONS_RUN_QUEUE: ${OPERATIONS_RUN_QUEUE:-default}
+    OPERATIONS_RUN_LOCK_SECONDS: ${OPERATIONS_RUN_LOCK_SECONDS:-1800}
+    OPERATIONS_RUNS_PAGE_SIZE: ${OPERATIONS_RUNS_PAGE_SIZE:-20}
+    OPERATIONS_RUN_MAX_OUTPUT_BYTES: ${OPERATIONS_RUN_MAX_OUTPUT_BYTES:-4000}
+    OPERATIONS_FX_MAX_AGE_DAYS: ${OPERATIONS_FX_MAX_AGE_DAYS:-4}
+    OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES: ${OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES:-60}
+    OPERATIONS_FAILED_JOBS_LIMIT: ${OPERATIONS_FAILED_JOBS_LIMIT:-50}
+    OPERATIONS_FX_BACKFILL_MIN_YEAR: ${OPERATIONS_FX_BACKFILL_MIN_YEAR:-2005}
+  volumes: &php-volumes
+    - app_storage:/var/www/html/storage
+    - app_bootstrap_cache:/var/www/html/bootstrap/cache
+  read_only: true
+  tmpfs:
+    - /tmp:mode=1777
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+
+services:
+  # -------------------------------------------------------------------------
+  # Edge
+  # -------------------------------------------------------------------------
+  edge:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    ports:
+      - "${EDGE_HTTP_PORT:-80}:8080"
+      - "${EDGE_HTTPS_PORT:-443}:8443"
+    volumes:
+      # TLS material. The edge is published on a public IP, so plain HTTP would put the login
+      # password on the wire in clear text. Key is gitignored; cert is self-signed for dev.
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - edge_net
+    depends_on:
+      app:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /var/cache/nginx:mode=1777
+      - /var/run/nginx:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Laravel — app / queue / scheduler / reverb (same image, four processes)
+  # -------------------------------------------------------------------------
+  app:
+    <<: *php-image
+    networks:
+      - edge_net
+      - app_net
+      - processing_net
+      - browser_net
+      - data_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Hits php-fpm's own internal status page (pm.status_path in
+      # docker/php/www.conf) over FastCGI — proves the pool is answering
+      # requests without depending on any apps/api route existing.
+      # Verified against a real container 2026-09-07.
+      test:
+        [
+          "CMD",
+          "cgi-fcgi",
+          "-bind",
+          "-connect",
+          "127.0.0.1:9000",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  queue:
+    <<: *php-image
+    command: ["php", "artisan", "horizon"]
+    networks:
+      - app_net
+      - data_net
+      # processing_net is required, not optional: ScanQuarantinedDocument reaches `clamav` and
+      # ProcessScannedDocument reaches `python-api`, and BOTH run on this worker, not in `app`.
+      # Without it every queued document silently fails its scan/extraction step even though the
+      # same code works when exercised synchronously from `app` (which does have the network).
+      - processing_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  scheduler:
+    <<: *php-image
+    command: ["php", "artisan", "schedule:work"]
+    networks:
+      - app_net
+      - data_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./docker/php/scheduler-healthcheck.php:/usr/local/bin/scheduler-healthcheck.php:ro
+    healthcheck:
+      # Asserts the schedule *ran*, via a heartbeat file the schedule itself touches every minute
+      # (see bootstrap/app.php). The previous check ran `pgrep`, which is not installed in this
+      # image, so it failed from its first tick onward whatever the scheduler was doing — and a
+      # process check could not have seen a scheduler that is alive but wedged anyway.
+      test: ["CMD", "php", "/usr/local/bin/scheduler-healthcheck.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Longer than the heartbeat's own cadence: the first tick has to happen before a missing
+      # file can mean anything.
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+  reverb:
+    <<: *php-image
+    command: ["php", "artisan", "reverb:start"]
+    networks:
+      # edge_net so nginx can proxy the browser's WebSocket handshake to it (see
+      # docker/nginx/conf.d/app.conf, `location /app/`). Without this the edge cannot resolve
+      # `reverb` at all and every client falls back to no live updates, silently.
+      - edge_net
+      - app_net
+      - data_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Reverb exposes no documented HTTP health route as of this check
+      # (2026-09-07) — this only proves the WebSocket port accepts TCP
+      # connections. See "What is NOT done".
+      # Probed with php, not /dev/tcp: this image's /bin/sh is dash, and /dev/tcp is a bash
+      # builtin — so the old CMD-SHELL check could never succeed and reported a healthy,
+      # listening Reverb as unhealthy, which blocks any depends_on: service_healthy on it.
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080, $$e, $$s, 3) ? 0 : 1);"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+  # -------------------------------------------------------------------------
+  # Processing plane (Python) — BLUEPRINT.md §1.2. No Postgres credentials.
+  # -------------------------------------------------------------------------
+  python-api:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    command: ["uvicorn", "processing.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - processing_net
+    environment:
+      # Shared secret with the app/queue/scheduler/reverb containers' own
+      # INTERNAL_SERVICE_AUTH_TOKEN above (x-php-image's &php-environment) — BLUEPRINT.md §4.10,
+      # docs/handoff/024-extraction-endpoint.md. processing.internal_auth.require_internal_auth
+      # fails closed (401) if this is unset.
+      INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}
+      # Local embedding model for legislation retrieval (BLUEPRINT.md §15.2). Self-hosted rather
+      # than an external API: docs/STATUS.md blocked item #3 (provider, region, DPA) gates every
+      # external AI call, and running the weights here sidesteps it for this corpus entirely.
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-intfloat/multilingual-e5-small}
+      EMBEDDING_REVISION: ${EMBEDDING_REVISION:-main}
+      EMBEDDING_CACHE_DIR: /var/cache/embeddings
+      # Must match `source_section_chunks.embedding`'s `vector(N)`. Changing either alone silently
+      # breaks retrieval; changing both requires re-embedding every stored chunk.
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-384}
+      EMBEDDING_ONNX_FILE: ${EMBEDDING_ONNX_FILE:-model_qint8_avx512_vnni.onnx}
+      EMBEDDING_POOLING: ${EMBEDDING_POOLING:-mean}
+      # Quoted wholesale: the values contain ": ", which YAML reads as a mapping otherwise. The
+      # trailing space is part of the prefix and must survive.
+      EMBEDDING_QUERY_PREFIX: '${EMBEDDING_QUERY_PREFIX:-query: }'
+      EMBEDDING_PASSAGE_PREFIX: '${EMBEDDING_PASSAGE_PREFIX:-passage: }'
+      EMBEDDING_MAX_TOKENS: ${EMBEDDING_MAX_TOKENS:-512}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-16}
+      EMBEDDING_WARM_ON_STARTUP: ${EMBEDDING_WARM_ON_STARTUP:-false}
+      # huggingface_hub writes here as well as to EMBEDDING_CACHE_DIR; without it the library
+      # tries $HOME, which this user does not have (`--no-create-home`).
+      HF_HOME: /var/cache/embeddings
+    volumes:
+      - embedding_cache:/var/cache/embeddings
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          # Raised modestly when the embedding model moved in-process. The int8
+          # multilingual-e5-small graph is 118 MB on disk and roughly 300-400 MB resident with
+          # onnxruntime's arena, which leaves no room beside PDF extraction inside the old 512M.
+          # 1G is comfortable rather than generous; a larger model needs this raised with it.
+          cpus: "${PYTHON_API_CPUS:-2.00}"
+          memory: ${PYTHON_API_MEMORY:-1G}
+    restart: unless-stopped
+
+  python-worker:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    # PLACEHOLDER: apps/processing has no distinct worker entrypoint yet
+    # (only the FastAPI app python-api also runs) — see
+    # docs/handoff/001-docker-topology.md "What is NOT done". This keeps the
+    # container up and observable instead of exiting, without pretending a
+    # real worker loop exists.
+    command:
+      [
+        "python",
+        "-c",
+        "import time; print('python-worker: no worker entrypoint yet — see docs/handoff/001-docker-topology.md', flush=True); time.sleep(2**31)",
+      ]
+    networks:
+      - processing_net
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "python"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1024M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # SPV browser worker — BLUEPRINT.md §13. No Postgres credentials, no
+  # persistent profile (ephemeral per session, §3.4).
+  # -------------------------------------------------------------------------
+  spv-browser:
+    build:
+      context: .
+      dockerfile: docker/playwright/Dockerfile
+    networks:
+      - browser_net
+    shm_size: "1gb"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /home/pwuser:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Probed with node rather than curl: node is the one binary this image is
+      # guaranteed to keep (curl comes from the Playwright base and is not ours to rely on),
+      # matching python-api's `python -c` convention. Port/path must track
+      # apps/spv-browser/src/server.ts (PORT, default 8090) and routes/health.ts (/health).
+      # Verified live: returns 200.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Document intake — ClamAV (BLUEPRINT.md §14.1)
+  # -------------------------------------------------------------------------
+  clamav:
+    image: clamav/clamav:1.5-debian13-slim
+    networks:
+      - processing_net
+    volumes:
+      - clamav_data:/var/lib/clamav
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /run/clamav:mode=1777
+      # The image's entrypoint symlinks into /var/lock, which `read_only: true` blocks
+      # ("ln: failed to create symbolic link '/var/lock/lock': Read-only file system").
+      # tmpfs keeps the root filesystem read-only while giving it the one writable path it needs.
+      - /var/lock:mode=1777
+      # freshclam writes its update log here and refuses to initialise without it
+      # ("Failed to open log file /var/log/clamav/freshclam.log: Read-only file system").
+      - /var/log/clamav:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The clamav image's entrypoint chowns /var/lib/clamav on first boot and then drops to the
+    # `clamav` user, so a bare `cap_drop: ALL` makes it crash-loop with
+    # "chown: cannot read directory '/var/lib/clamav': Permission denied" (observed: 7 restarts).
+    # Same minimal set already granted to postgres/redis for their own privilege-drop entrypoints.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    # No healthcheck override: the image ships its own verified
+    # `clamdcheck.sh` HEALTHCHECK (docker inspect confirmed 2026-09-07).
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1024M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Data layer — no host ports, data_net is internal (no outbound Internet).
+  # -------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg18-trixie
+    networks:
+      - data_net
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-taxos}
+      POSTGRES_USER: ${POSTGRES_USER:-taxos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
+    volumes:
+      # Postgres 18's own image changed convention: mount the parent
+      # `/var/lib/postgresql`, not `/var/lib/postgresql/data` — the image
+      # now places data in a major-version subdirectory for pg_upgrade
+      # compatibility. Mounting the old path produces a working-but-warning
+      # container (confirmed 2026-09-07); this is the path its own
+      # entrypoint recommends.
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /var/run/postgresql:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # The official postgres entrypoint starts as root and drops to the
+      # `postgres` user itself (gosu) — it needs these four to do that and
+      # to fix up ownership of a fresh volume. Confirmed by a real boot
+      # test: `cap_drop: [ALL]` alone makes initdb fail with
+      # "Operation not permitted" on chown. 2026-09-07.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1024M
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-trixie
+    # The password is read from the environment at start, NOT interpolated into argv by compose.
+    #
+    # Two reasons, both learned the hard way. Interpolating it here bakes the secret into the
+    # container's command, where `docker inspect` and the host process list expose it in clear
+    # text. And it makes the password part of the container's identity: the value only changes on
+    # recreate, so `docker compose up -d --force-recreate app` on its own leaves redis running with
+    # the previous password while the app has the new one — every request then fails with
+    # `WRONGPASS`, which reads as an application error and is not one. Reading it from the same
+    # `environment:` block the app uses means both sides resolve the same value from the same
+    # place; `docker/redis/entrypoint.sh` also refuses to start on an unset or placeholder value,
+    # so a misconfiguration fails loudly at boot instead of at the first request.
+    command: ["/usr/local/bin/taxos-redis-entrypoint.sh"]
+    networks:
+      - app_net
+      - data_net
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/entrypoint.sh:/usr/local/bin/taxos-redis-entrypoint.sh:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # redis-server's entrypoint uses `setpriv` to drop from root to the
+      # `redis` user. Confirmed by a real boot test: without SETPCAP,
+      # setpriv itself fails ("apply bounding set: Operation not
+      # permitted") before redis ever starts. 2026-09-07.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - SETPCAP
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD — see .env.example}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    restart: unless-stopped
+
+  minio-init-perms:
+    # One-shot: MinIO's own image never chdir/chowns its data volume for a
+    # non-root `user:`, so a fresh named volume is root-owned and MinIO
+    # (running as uid 10001 below) fails with "file access denied" —
+    # confirmed by a real boot test 2026-09-07. This fixes ownership once,
+    # before minio starts, and exits.
+    image: alpine:3.24.1
+    command: ["chown", "-R", "10001:10001", "/data"]
+    volumes:
+      - minio_data:/data
+    network_mode: "none"
+    security_opt:
+      - no-new-privileges:true
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    user: "10001:10001"
+    networks:
+      - processing_net
+      - data_net
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
+      # No web console, no phone-home update checks — this is object
+      # storage for a backend service, not an admin UI (BLUEPRINT.md §3.3
+      # "minio nu este public").
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio_data:/data
+    depends_on:
+      minio-init-perms:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # KMS — OpenBao dev-mode transit engine (BLUEPRINT.md §4.2). DEV ONLY — see
+  # the handoff note before this ever runs anywhere but a developer machine.
+  # -------------------------------------------------------------------------
+  openbao:
+    image: openbao/openbao:2.6.2
+    command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"]
+    networks:
+      - app_net
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
+      # `bao status` (used by the healthcheck below) defaults to
+      # https://127.0.0.1:8200 and fails against this plain-HTTP dev server
+      # without this — confirmed by a real health-check failure 2026-09-07.
+      BAO_ADDR: http://127.0.0.1:8200
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /home/openbao:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # OpenBao's dev-mode server calls mlock() to keep secrets out of swap;
+      # without IPC_LOCK it only logs a warning and continues, but this is
+      # the one capability worth granting back for a KMS component. Verified
+      # against a real running container 2026-09-07 (starts and serves
+      # without it too, IPC_LOCK just silences the mlock warning).
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD", "bao", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    restart: unless-stopped
+
+  openbao-init:
+    image: openbao/openbao:2.6.2
+    entrypoint: ["sh", "/init.sh"]
+    networks:
+      - app_net
+    environment:
+      BAO_ADDR: http://openbao:8200
+      BAO_TOKEN: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
+    volumes:
+      - ./docker/openbao/init.sh:/init.sh:ro
+    depends_on:
+      - openbao
+    security_opt:
+      - no-new-privileges:true

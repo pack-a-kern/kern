@@ -1,0 +1,22 @@
+# gitleaks false-positive suppressions — CI support only (see
+# .github/workflows/ci.yml's `secret-scan` job and
+# docs/handoff/008-ci-pipeline.md).
+#
+# Every line below is a specific finding (path:rule:line), verified by hand
+# on 2026-09-08 to be a cryptographic algorithm or constant NAME, not a
+# credential. Re-verify by hand before adding a new line. Never add a broad
+# regex/path allowlist here — that would blind the scanner instead of
+# dismissing one confirmed false positive.
+#
+# Fingerprints are relative to the repository root, because the CI job
+# mounts the checkout at /workspace and scans `.` from there (see the
+# workflow) — an absolute-path fingerprint would not match a GitHub Actions
+# runner's checkout path.
+
+# PHP/libsodium constant name (SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES),
+# not a secret value. High-entropy match is coincidental to the constant's name.
+apps/api/app/Support/Crypto/EnvelopeCipher.php:generic-api-key:43
+
+# Comment naming the OpenBao/Vault transit key algorithm ("chacha20-poly1305"),
+# not a key or token value.
+docker/openbao/init.sh:generic-api-key:17

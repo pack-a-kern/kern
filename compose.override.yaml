@@ -1,0 +1,166 @@
+# TaxOS România — local development overrides.
+#
+# Applied automatically by `docker compose up` alongside compose.yaml (Compose
+# merges the two files by default when both are present in the working
+# directory). Never used in production — see compose.yaml's own header.
+#
+# What this file does, and why it needs a non-internal `dev_net`:
+#   - Publishes postgres/redis/minio to the host for local psql/redis-cli/mc
+#     access ("dev access goes through the app or an explicit override" —
+#     this is that override). compose.yaml deliberately keeps those three on
+#     `data_net` only (internal: true, no outbound Internet); a container
+#     already on an internal network cannot have its ports published to the
+#     host (confirmed by a real test 2026-09-07 — publishing a port on a
+#     container with only an internal-network attachment is unreachable).
+#     Attaching them here, in dev only, to a second, non-internal network
+#     restores publishing. This is a deliberate hardening tradeoff scoped to
+#     local development; it must never ship to a production compose file.
+#   - Adds mailpit (SMTP catch-all + web UI), dev-only per BLUEPRINT.md §3.1.
+#   - Runs the four Laravel processes and the two Python processes with the
+#     real host source bind-mounted over the built image, so code edits are
+#     visible without a rebuild. This necessarily drops `read_only` for
+#     those services — dev convenience, not the production shape.
+
+networks:
+  dev_net:
+    driver: bridge
+
+services:
+  postgres:
+    networks:
+      - data_net
+      - dev_net
+    ports:
+      - "${POSTGRES_DEV_PORT:-5432}:5432"
+
+  redis:
+    networks:
+      - app_net
+      - data_net
+      - dev_net
+    ports:
+      - "${REDIS_DEV_PORT:-6379}:6379"
+
+  minio:
+    networks:
+      - processing_net
+      - data_net
+      - dev_net
+    ports:
+      - "${MINIO_DEV_API_PORT:-9000}:9000"
+      - "${MINIO_DEV_CONSOLE_PORT:-9001}:9001"
+    environment:
+      # The production shape disables the console entirely (compose.yaml);
+      # local dev wants it back to browse buckets.
+      MINIO_BROWSER: "on"
+
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    networks:
+      - app_net
+      - dev_net
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: unless-stopped
+
+  # Note on volumes: compose.yaml's `app_storage`/`app_bootstrap_cache` named
+  # volumes are still declared on the base service and Compose *concatenates*
+  # volume lists across files rather than replacing them — so they stay
+  # mounted here too, layered on top of the bind mount below at their own
+  # subpaths (`/var/www/html/storage`, `/var/www/html/bootstrap/cache`).
+  # That's harmless (Docker mounts the more specific path last regardless of
+  # declaration order) but means dev storage/logs live in those named
+  # volumes, not directly in the bind-mounted apps/api/storage on the host —
+  # `make shell` + `docker compose logs app` is the way to see them, not
+  # `tail -f apps/api/storage/logs/laravel.log` from the host.
+  edge:
+    # Serve the CURRENT built assets, not the snapshot baked in at image-build time.
+    # docker/nginx/Dockerfile COPYs apps/api/public, so every `npm run build` changes the asset
+    # hashes while nginx keeps serving the old ones — the site 404s its own CSS and JS until
+    # someone rebuilds the edge image. Production keeps the baked-in copy (immutable deploys);
+    # development mounts the live directory so a rebuild is enough.
+    volumes:
+      - ./apps/api/public:/var/www/html/public:ro
+      # Same reasoning for the server config: docker/nginx/Dockerfile COPYs app.conf, so an edit
+      # to it does nothing until the image is rebuilt — a `location` block can look present in the
+      # repository and be absent from the running server, which is exactly how the Reverb proxy
+      # first appeared to 404. Production keeps the baked-in copy.
+      - ./docker/nginx/conf.d/app.conf:/etc/nginx/conf.d/app.conf:ro
+
+  # Every PHP service below mounts `docker/php/php.dev.ini` into `conf.d`, which turns opcache's
+  # timestamp validation back on. Without it php-fpm serves the compiled copy it made at startup and
+  # ignores the bind-mounted source entirely, so every PHP or config edit needs a container recreate
+  # before the browser sees it. Production is unaffected — the file is mounted here, never baked
+  # into an image. See that file's header for the full explanation.
+  app:
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    volumes:
+      - ./apps/api:/var/www/html
+      - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+    read_only: false
+    ports:
+      - "${VITE_DEV_PORT:-5173}:5173"
+
+  queue:
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+    volumes:
+      - ./apps/api:/var/www/html
+      - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+    read_only: false
+
+  scheduler:
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+    volumes:
+      - ./apps/api:/var/www/html
+      - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+    read_only: false
+
+  reverb:
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+    volumes:
+      - ./apps/api:/var/www/html
+      - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+    read_only: false
+
+
+  python-api:
+    volumes:
+      - ./apps/processing/src:/app/src
+    read_only: false
+    command:
+      [
+        "uvicorn",
+        "processing.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+
+  python-worker:
+    volumes:
+      - ./apps/processing/src:/app/src
+    read_only: false

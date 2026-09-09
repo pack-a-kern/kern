@@ -1,0 +1,85 @@
+[project]
+name = "processing"
+version = "0.1.0"
+description = "TaxOS România — internal processing plane (document/AI worker API). No Laravel DB access; communicates via signed job payloads and object storage references only."
+authors = [
+    { name = "TaxOS România" }
+]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi>=0.141.1,<0.142.0",
+    "httpx2>=2.12.0,<2.13.0",
+    "opencv-python-headless>=5.0.0.93,<5.1.0.0",
+    "pydantic>=2.13.5,<2.14.0",
+    "pydantic-settings>=2.15.0,<2.16.0",
+    "pypdf>=6.18.0,<6.19.0",
+    # Local embedding model (BAAI/bge-m3, ONNX). Deliberately onnxruntime rather
+    # than torch/sentence-transformers: one forward pass needs no autograd, and
+    # the torch stack would add ~1 GB to a slim, hardened runtime image.
+    "huggingface-hub>=1.30.0,<1.31.0",
+    "numpy>=2.5.3,<2.6.0",
+    "onnxruntime>=1.29.0,<1.30.0",
+    "tokenizers>=0.23.2,<0.24.0",
+    "python-multipart>=0.0.32,<0.0.33",
+    "uvicorn>=0.52.4,<0.53.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pip-audit>=2.10.1,<2.11.0",
+    "pyright>=1.1.411,<1.2.0",
+    "pytest>=9.1.1,<9.2.0",
+    "pytest-asyncio>=1.4.0,<1.5.0",
+    "ruff>=0.16.6,<0.17.0",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",    # pycodestyle / pyflakes
+    "I",              # isort
+    "UP",             # pyupgrade
+    "B",              # bugbear
+    "C4",             # comprehensions
+    "SIM",            # simplify
+    "RUF",            # ruff-native rules
+    "ASYNC",          # async pitfalls
+    "S",              # bandit-equivalent security rules
+    "LOG", "G",       # logging discipline (no PII-shaped f-strings in log calls)
+]
+ignore = [
+    "S101",           # `assert` is expected in pytest
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "S107"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["processing"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    # Upstream: starlette 1.6.0's testclient module references the deprecated
+    # anyio.abc.BlockingPortal alias at import time. Not our code; tracked
+    # against starlette, not silenced project-wide.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]

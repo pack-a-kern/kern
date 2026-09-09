@@ -1,0 +1,48 @@
+{
+    "name": "TaxOS România",
+    "short_name": "TaxOS",
+    "description": "Platformă fiscal-financiară pentru persoane fizice — capturare documente, verificare extrageri și panou fiscal.",
+    "start_url": "/dashboard",
+    "id": "/dashboard",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f9fafb",
+    "theme_color": "#2563eb",
+    "lang": "ro",
+    "dir": "ltr",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Adaugă document",
+            "short_name": "Capturare",
+            "url": "/documents/capture",
+            "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Documentele mele",
+            "short_name": "Documente",
+            "url": "/documents",
+            "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+        }
+    ]
+}

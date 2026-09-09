@@ -1,0 +1,30 @@
+{
+  "name": "spv-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TaxOS România — ephemeral Playwright worker for SPV PF automation. Session lifecycle only in M0; portal navigation is Milestone 10.",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "pretest": "tsc -p tsconfig.test.json",
+    "test": "node --test dist-test/tests",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "playwright": "1.63.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/express": "5.0.6",
+    "@types/node": "20.19.43",
+    "eslint": "10.10.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
+}

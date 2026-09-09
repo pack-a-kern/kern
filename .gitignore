@@ -1,0 +1,32 @@
+# TaxOS România — repository-root ignores.
+# Each app under apps/** carries its own, more specific .gitignore; this
+# file covers the docker topology layer and anything that could land at the
+# repo root.
+
+# Local secrets — never commit real credentials (BLUEPRINT.md §4.10).
+.env
+.env.*.local
+
+# Editor / OS noise.
+.DS_Store
+*.swp
+
+# Local scratch space some tools default to at the repo root.
+/tmp/
+docker/nginx/certs/*.key
+
+# A stray sqlite database is created whenever DB_DATABASE names a file instead of a
+# Postgres database — `apps/api/taxos` appeared exactly that way during a test run.
+# It is never the real database (that is Postgres, in a volume) and can hold real rows
+# if someone points a dev command at it, so it must never be committed.
+*.sqlite
+*.sqlite3
+/apps/api/taxos
+/apps/api/database/*.sqlite
+
+# Debugging screenshots pasted in while working. The design mockups (taxos-*.html) are
+# deliberately kept — they are the reference the UI is built against.
+*.PNG
+*.png
+!apps/api/public/icons/*.png
+!docs/**/*.png
