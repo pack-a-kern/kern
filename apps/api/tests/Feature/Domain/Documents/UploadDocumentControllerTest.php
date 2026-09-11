@@ -16,13 +16,16 @@ use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\KeyManagement\SubjectDekService;
 use App\Support\ObjectStore\DocumentObjectKind;
+use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
+use Tests\Fakes\UnwritableDisk;
 use Tests\Fixtures\Documents\FileFixtures;
 
 /**
@@ -173,4 +176,141 @@ it('refuses an upload for a subject the authenticated user has no membership for
     // document exists anywhere," matching App\Domain\Subjects\Tenancy\ScopedToTaxSubject's own
     // documented escape hatch for genuinely cross-tenant checks.
     expect(Document::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+});
+
+it('leaves no document row behind when the bytes cannot be stored', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    // A disk that accepts nothing — a missing bucket, a full volume, MinIO down. This reproduces
+    // exactly the failure a missing `taxos-quarantine` bucket produced: `EncryptedObjectStore`
+    // raises "Failed writing object … to the object store disk."
+    //
+    // Before the row and the bytes were committed together, that left a `documents` row with
+    // nothing behind it — the upload answered 500 while the document appeared in the inbox
+    // forever, permanently QUARANTINE, with no content to scan and no way to advance it.
+    $this->app->instance(QuarantineObjectStore::class, new QuarantineObjectStore(
+        new EncryptedObjectStore(new UnwritableDisk(), $this->app->make(SubjectDekService::class), 4 * 1024 * 1024),
+    ));
+
+    // A genuinely valid PDF, so the file-security validator passes and the *storage* failure is
+    // what this test is actually exercising.
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subject->id}/documents", [
+            'type' => 'RECEIPT',
+            'file' => UploadedFile::fake()->createWithContent('bon.pdf', FileFixtures::minimalPdf()),
+        ])
+        ->assertStatus(500);
+
+    expect(Document::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+
+    // And nothing downstream was told about a document that does not exist.
+    Bus::assertNotDispatched(ScanQuarantinedDocument::class);
+});
+
+it('records the upload in the subject audit chain, attributed to the uploader', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('factura.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ])->assertStatus(202);
+
+    $event = DB::table('audit_events')
+        ->where('event_type', 'DocumentUploaded')
+        ->sole();
+
+    // Ingestion used to leave no audit trace at all — only the review half of the pipeline was
+    // recorded, in a system whose whole premise is provenance.
+    expect($event->subject_id)->toBe($subject->id)
+        ->and($event->actor_id)->toBe($user->id)
+        ->and($event->resource_type)->toBe('Document');
+});
+
+it('keeps the filename out of the audit payload it hashes', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('cnp-1234567890123.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ])->assertStatus(202);
+
+    // The filename is encrypted at rest; an audit chain that carried it in clear — or hashed a
+    // payload containing it — would quietly undo that. The hash is over type, MIME, size and
+    // content digest only, so an identical file uploaded under a different name hashes identically.
+    $row = DB::table('audit_events')->where('event_type', 'DocumentUploaded')->sole();
+    $serialised = json_encode($row, JSON_THROW_ON_ERROR);
+
+    expect($serialised)->not->toContain('cnp-1234567890123');
+});
+
+/*
+ * Duplicate detection, on content rather than on name.
+ *
+ * `documents.sha256` had been recorded since the table was created and never read — so uploading
+ * the same file twice quietly produced two documents, two scans, and two AI readings of identical
+ * bytes, with nothing telling the person they already had it.
+ */
+
+it('refuses a byte-identical re-upload and points at the document already held', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $first = $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('factura.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ]);
+    $first->assertStatus(202);
+    $existingId = jsonString($first, 'id');
+
+    // Same bytes, different name — the name is not what makes two files the same file.
+    $second = $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('factura-copie.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ]);
+
+    $second->assertStatus(409)->assertJson([
+        'reason' => 'DUPLICATE_DOCUMENT',
+        'existing_document_id' => $existingId,
+    ]);
+
+    // Refused before anything was written: one row, one object, one scan.
+    expect(Document::query()->where('tax_subject_id', $subject->id)->count())->toBe(1);
+});
+
+it('does not treat another subject\'s identical file as a duplicate', function (): void {
+    [$user, $subject] = memberAndSubject();
+    [$otherUser, $otherSubject] = memberAndSubject();
+
+    $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('factura.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ])->assertStatus(202);
+
+    // Two taxpayers can hold the same document — a shared invoice, the same ANAF decision. The
+    // check is scoped to the subject, never global, which a cross-tenant hash lookup would be.
+    $this->actingAs($otherUser, 'web')->post("/api/v1/subjects/{$otherSubject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('factura.pdf', FileFixtures::minimalPdf()),
+        'type' => 'INVOICE',
+    ])->assertStatus(202);
+
+    expect(Document::query()->withoutGlobalScopes()->count())->toBe(2);
+});
+
+it('lets a deleted document be uploaded again', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $first = $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('bon.pdf', FileFixtures::minimalPdf()),
+        'type' => 'RECEIPT',
+    ]);
+    $first->assertStatus(202);
+
+    $this->actingAs($user, 'web')
+        ->deleteJson("/api/v1/subjects/{$subject->id}/documents/" . jsonString($first, 'id'))
+        ->assertStatus(204);
+
+    // A soft-deleted row must not become an invisible tombstone that refuses the file forever.
+    $this->actingAs($user, 'web')->post("/api/v1/subjects/{$subject->id}/documents", [
+        'file' => UploadedFile::fake()->createWithContent('bon.pdf', FileFixtures::minimalPdf()),
+        'type' => 'RECEIPT',
+    ])->assertStatus(202);
 });

@@ -16,9 +16,9 @@ use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\AccountBalanceSnapshot;
-use App\Domain\Wallet\Models\Deposit;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\DepositRatePeriod;
+use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
@@ -145,59 +145,31 @@ function walletRowFactories(): array
                 'category_code' => 'GROCERIES',
             ]);
         },
-        Deposit::class => static function (string $subjectId): Deposit {
-            return Deposit::create([
-                'tax_subject_id' => $subjectId,
-                'principal_minor' => 100_000,
-                'currency_code' => 'RON',
-                'opened_at' => '2026-01-01',
-                'maturity_at' => '2027-01-01',
-                'rate_type' => RateType::FIXED,
-                'interest_method' => InterestMethod::SIMPLE,
-                'payment_frequency' => PaymentFrequency::AT_MATURITY,
-                'day_count_convention' => DayCountConvention::ACTUAL_365,
-                'auto_renewal' => false,
-            ]);
+        DepositTerms::class => static function (string $subjectId): DepositTerms {
+            $account = depositAccountFor($subjectId);
+
+            // The terms row, not the account: the account has its own entry in this table above,
+            // and this asserts the extension row is scoped independently rather than only reachable
+            // through a scoped parent.
+            return DepositTerms::query()->whereKey($account->id)->sole();
         },
         DepositRatePeriod::class => static function (string $subjectId): DepositRatePeriod {
-            $deposit = Deposit::create([
-                'tax_subject_id' => $subjectId,
-                'principal_minor' => 100_000,
-                'currency_code' => 'RON',
-                'opened_at' => '2026-01-01',
-                'maturity_at' => '2027-01-01',
-                'rate_type' => RateType::FIXED,
-                'interest_method' => InterestMethod::SIMPLE,
-                'payment_frequency' => PaymentFrequency::AT_MATURITY,
-                'day_count_convention' => DayCountConvention::ACTUAL_365,
-                'auto_renewal' => false,
-            ]);
+            $account = depositAccountFor($subjectId);
 
             return DepositRatePeriod::create([
                 'tax_subject_id' => $subjectId,
-                'deposit_id' => $deposit->id,
+                'account_id' => $account->id,
                 'valid_from' => '2026-01-01',
                 'valid_to' => null,
                 'annual_rate_decimal' => '6.50',
             ]);
         },
         DepositInterestEvent::class => static function (string $subjectId): DepositInterestEvent {
-            $deposit = Deposit::create([
-                'tax_subject_id' => $subjectId,
-                'principal_minor' => 100_000,
-                'currency_code' => 'RON',
-                'opened_at' => '2026-01-01',
-                'maturity_at' => '2027-01-01',
-                'rate_type' => RateType::FIXED,
-                'interest_method' => InterestMethod::SIMPLE,
-                'payment_frequency' => PaymentFrequency::AT_MATURITY,
-                'day_count_convention' => DayCountConvention::ACTUAL_365,
-                'auto_renewal' => false,
-            ]);
+            $account = depositAccountFor($subjectId);
 
             return DepositInterestEvent::create([
                 'tax_subject_id' => $subjectId,
-                'deposit_id' => $deposit->id,
+                'account_id' => $account->id,
                 'accrual_from' => '2026-01-01',
                 'accrual_to' => '2027-01-01',
                 'currency_code' => 'RON',
@@ -233,4 +205,37 @@ foreach (walletRowFactories() as $modelClass => $makeRow) {
         $shouldBeInvisible = $modelClass::find($rowA->getKey());
         expect($shouldBeInvisible)->toBeNull();
     });
+}
+
+/**
+ * A TERM_DEPOSIT account with its terms — the pair that replaced the old single `deposits` row.
+ *
+ * Written out rather than through `OpenFinancialAccount` because this suite is about the tenant
+ * scope on each model, so each fixture creates exactly the rows under test and nothing else.
+ */
+function depositAccountFor(string $subjectId): FinancialAccount
+{
+    $account = new FinancialAccount([
+        'tax_subject_id' => $subjectId,
+        'kind' => AccountKind::TERM_DEPOSIT,
+        'display_name_ciphertext' => 'Depozit',
+        'currency_code' => 'RON',
+        'opened_at' => '2026-01-01',
+        'source' => RecordSource::MANUAL,
+    ]);
+    $account->save();
+
+    DepositTerms::create([
+        'account_id' => $account->id,
+        'tax_subject_id' => $subjectId,
+        'principal_minor' => 100_000,
+        'maturity_at' => '2027-01-01',
+        'rate_type' => RateType::FIXED,
+        'interest_method' => InterestMethod::SIMPLE,
+        'payment_frequency' => PaymentFrequency::AT_MATURITY,
+        'day_count_convention' => DayCountConvention::ACTUAL_365,
+        'auto_renewal' => false,
+    ]);
+
+    return $account;
 }

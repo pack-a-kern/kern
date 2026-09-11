@@ -6,15 +6,16 @@
  * production. See `docs/handoff/040-ui-foundation.md` "i18n" for why this was chosen over
  * `react-i18next`/`next-intl`.
  */
+import type { AiExtractionOutcome } from '../types/documents';
+
 export interface Dictionary {
     nav: {
         dashboard: string;
         walletGroup: string;
         wallet: string;
         walletAccounts: string;
-        walletDeposits: string;
+        walletTransactions: string;
         documents: string;
-        documentsCapture: string;
         rentals: string;
         taxesGroup: string;
         taxes: string;
@@ -62,6 +63,11 @@ export interface Dictionary {
         loading: string;
         cancel: string;
         save: string;
+        /** Dismisses a dialog that has nothing to submit — a viewer, not a form. */
+        close: string;
+        /** The destructive action's own label — never "OK", which says nothing about what happens. */
+        delete: string;
+        deleteFailed: string;
         loadMore: string;
         loadingMore: string;
     };
@@ -171,7 +177,14 @@ export interface Dictionary {
         title: string;
         intro: string;
         offlineNotice: string;
+        backToInbox: string;
+        addTitle: string;
+        /** Shown beside the capture panel's title while the device has no connection. */
+        offline: string;
         typeLabel: string;
+        typeHint: string;
+        processingNote: string;
+        queueNote: string;
         takePhoto: string;
         chooseFiles: string;
         pickError: string;
@@ -187,21 +200,54 @@ export interface Dictionary {
         statusUploaded: string;
         statusFailed: string;
         statusRejected: string;
+        statusDuplicate: string;
+        duplicateNote: string;
+        batchProgress: string;
     };
     documentsInbox: {
         title: string;
+        description: string;
         newDocument: string;
         liveNotice: string;
+        /** Shown when the list fell back to this device's cache because the server was unreachable. */
+        offline: string;
         empty: string;
+        loadFailed: string;
+        /** How many extraction proposals on a document are still waiting on a human. */
+        pendingExtractions: string;
         review: string;
+        deleteTitle: string;
+        deleteHint: string;
+        deleted: string;
         noActiveSubject: string;
         goToDashboard: string;
-        received: string;
+        filters: {
+            allStatuses: string;
+            allTypes: string;
+            from: string;
+            to: string;
+            needsReview: string;
+            reset: string;
+        };
+        columns: {
+            document: string;
+            type: string;
+            received: string;
+            size: string;
+            status: string;
+        };
     };
     documentsReview: {
         /** Shown in place of a `proposed_fields` value that cannot be serialised for display. */
         unrenderableValue: string;
         title: string;
+        description: string;
+        receivedLabel: string;
+        formatLabel: string;
+        rejectedLabel: string;
+        /** Alt text for the image preview — copy, so it belongs here rather than in the markup. */
+        previewAlt: string;
+        previewPdfTitle: string;
         back: string;
         source: string;
         quarantineNotice: string;
@@ -213,6 +259,27 @@ export interface Dictionary {
         noAutoConfirmNotice: string;
         loading: string;
         empty: string;
+        nameLabel: string;
+        nameHint: string;
+        originalFilenameLabel: string;
+        rename: string;
+        renameSave: string;
+        renameCancel: string;
+        renameSuggestion: string;
+        renameUseSuggestion: string;
+        renameFailed: string;
+        renameCleared: string;
+        aiOutcomeWorking: string;
+        aiOutcomeWorkingHint: string;
+        aiOutcomeTitle: string;
+        aiOutcomeAttemptedAt: string;
+        aiOutcomeRetry: string;
+        aiOutcomeRetrying: string;
+        aiOutcomeRetryQueued: string;
+        aiOutcomeRetryFailed: string;
+        aiOutcomeRetryHint: string;
+        /** Keyed by `App\Domain\Documents\Enums\AiExtractionOutcome`. */
+        aiOutcomes: Record<AiExtractionOutcome, string>;
         accept: string;
         correct: string;
         submitCorrection: string;
@@ -230,6 +297,35 @@ export interface Dictionary {
         correctError: string;
         emptyCorrectionError: string;
         confidenceLabel: string;
+        /** The human step that turns a reviewed document into a wallet transaction. */
+        createTransaction: string;
+        createTransactionHint: string;
+        createTransactionExisting: string;
+        transactionAccount: string;
+        transactionNoAccounts: string;
+        transactionCurrencyHint: string;
+        transactionDirection: string;
+        directionOut: string;
+        directionIn: string;
+        transactionAmount: string;
+        transactionAmountHint: string;
+        transactionDate: string;
+        transactionDescription: string;
+        transactionCounterparty: string;
+        transactionCreated: string;
+        transactionFailed: string;
+        historyTitle: string;
+        historyHint: string;
+        scansTitle: string;
+        noScans: string;
+        scannerLabel: string;
+        definitionsLabel: string;
+        /** Shown where a scanner answered a scan but not a version query. */
+        notRecorded: string;
+        scanOutcomes: Record<string, string | undefined>;
+        chainTitle: string;
+        noEvents: string;
+        chainEvents: Record<string, string | undefined>;
     };
     statusBadge: {
         QUARANTINE: string;
@@ -248,6 +344,8 @@ export interface Dictionary {
         NATIVE_PDF_TEXT: string;
         EXTERNAL_DOCUMENT_AI: string;
         HUMAN_CORRECTION: string;
+        /** A deterministic parser written for one document layout — reproducible, unlike a model. */
+        PATTERN_PARSER: string;
     };
     rejectionReason: {
         INFECTED: string;
@@ -291,9 +389,186 @@ export interface Dictionary {
         unexpected: string;
     };
     pages: {
-        walletOverview: { title: string; description: string; blockedOn: string };
-        walletAccounts: { title: string; description: string; blockedOn: string };
-        walletDeposits: { title: string; description: string; blockedOn: string };
+        wallet: {
+            /** Shared by all three wallet screens. */
+            noSubject: string;
+            loadFailed: string;
+            empty: string;
+            /** Why there is no single "total balance" across currencies. */
+            perCurrencyNote: string;
+            unknownBalance: string;
+            asOf: string;
+            verified: string;
+            /** The balance includes transactions added on top of (or instead of) an observation. */
+            derived: string;
+            unverified: string;
+            sources: Record<string, string | undefined>;
+            kinds: Record<string, string | undefined>;
+            frequencies: Record<string, string | undefined>;
+            rateTypes: Record<string, string | undefined>;
+            interestMethods: Record<string, string | undefined>;
+        };
+        walletOverview: {
+            title: string;
+            description: string;
+            /** Everything the subject holds, in one currency. An indication, never a fiscal figure. */
+            netWorth: string;
+            netWorthRate: string;
+            netWorthDirect: string;
+            netWorthPartial: string;
+            totalBalance: string;
+            acrossAccounts: string;
+            deposits: string;
+            depositCount: string;
+            /** Forecast, not earned yet: what the running deposits will have produced by maturity. */
+            interestAtMaturity: string;
+            grossAccrued: string;
+            recognisedIncome: string;
+            recognisedHint: string;
+            accountsTitle: string;
+            accountsHint: string;
+            viewAll: string;
+            maturingTitle: string;
+            maturingHint: string;
+            viewDeposits: string;
+            noAccounts: string;
+            noMaturing: string;
+        };
+        walletAccounts: {
+            title: string;
+            description: string;
+            includeClosed: string;
+            columns: {
+                account: string;
+                type: string;
+                currency: string;
+                balance: string;
+                source: string;
+                lastUpdate: string;
+                status: string;
+            };
+            active: string;
+            closed: string;
+            never: string;
+            add: string;
+            addHint: string;
+            added: string;
+            addFailed: string;
+            form: {
+                displayName: string;
+                displayNameHint: string;
+                institution: string;
+                kind: string;
+                currency: string;
+                iban: string;
+                ibanHint: string;
+                openedAt: string;
+            };
+            /** Recording an observed balance — a snapshot, never an overwrite. */
+            updateBalance: string;
+            /** Closing is the ordinary end of an account's life; deleting is the exception. */
+            close: string;
+            reopen: string;
+            closedToast: string;
+            reopened: string;
+            closeFailed: string;
+            deleteTitle: string;
+            deleteHint: string;
+            deleted: string;
+            /** Shown on a 409: records still explain a figure through this account. */
+            deleteBlocked: string;
+            updateBalanceHint: string;
+            balanceRecorded: string;
+            balanceFailed: string;
+            balanceAmount: string;
+            balanceAmountHint: string;
+            balanceAsOf: string;
+            balanceVerified: string;
+            balanceVerifiedHint: string;
+        };
+        walletDeposits: {
+            title: string;
+            description: string;
+            includeMatured: string;
+            columns: {
+                deposit: string;
+                principal: string;
+                rate: string;
+                /** Gross interest over the whole term — what the deposit will have earned by then. */
+                interestAtMaturity: string;
+                opened: string;
+                maturity: string;
+                status: string;
+            };
+            matured: string;
+            daysLeft: string;
+            totalDays: string;
+            autoRenewal: string;
+            noRate: string;
+            notComputed: string;
+            notComputedHint: string;
+            /** How the RON figure behind the interest gets its provenance, and when. */
+            interestHint: string;
+            add: string;
+            addHint: string;
+            added: string;
+            addFailed: string;
+            form: {
+                institution: string;
+                principal: string;
+                principalHint: string;
+                currency: string;
+                openedAt: string;
+                /** The length a deposit is bought as; the maturity date is derived from it. */
+                term: string;
+                termMonths: string;
+                termOneMonth: string;
+                termHint: string;
+                maturityAt: string;
+                maturityCalculated: string;
+                maturityPending: string;
+                annualRate: string;
+                annualRateHint: string;
+                rateType: string;
+                interestMethod: string;
+                paymentFrequency: string;
+                autoRenewal: string;
+            };
+        };
+        walletTransactions: {
+            deleteTitle: string;
+            deleteHint: string;
+            deleted: string;
+            title: string;
+            description: string;
+            empty: string;
+            capped: string;
+            allAccounts: string;
+            columns: {
+                date: string;
+                account: string;
+                description: string;
+                amount: string;
+                status: string;
+            };
+            add: string;
+            addHint: string;
+            added: string;
+            addFailed: string;
+            statuses: Record<string, string | undefined>;
+            form: {
+                account: string;
+                amount: string;
+                amountHint: string;
+                currency: string;
+                bookedAt: string;
+                valueAt: string;
+                valueAtHint: string;
+                description: string;
+                counterparty: string;
+                counterpartyHint: string;
+            };
+        };
         rentals: { title: string; description: string; blockedOn: string };
         taxes: { title: string; description: string; blockedOn: string };
         taxesExplain: { title: string; description: string; blockedOn: string };
@@ -434,6 +709,13 @@ export interface Dictionary {
             totpDisableFailed: string;
         };
         settingsSubjects: {
+            /** A display preference: how totals are summed, never how a tax is computed. */
+            displayCurrencyTitle: string;
+            displayCurrencyDescription: string;
+            displayCurrencyLabel: string;
+            displayCurrencyNote: string;
+            displayCurrencySaved: string;
+            displayCurrencyFailed: string;
             title: string;
             description: string;
             retry: string;

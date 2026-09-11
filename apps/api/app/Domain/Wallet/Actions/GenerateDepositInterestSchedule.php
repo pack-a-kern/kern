@@ -6,9 +6,9 @@ namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use App\Domain\Wallet\Events\DepositInterestEventRecorded;
-use App\Domain\Wallet\Models\Deposit;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\DepositRatePeriod;
+use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use App\Domain\Wallet\Services\Interest\DepositInterestCalculator;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  * commits.
  *
  * **Idempotent and safe to re-run** (e.g. after adding a new rate period to a `VARIABLE` deposit):
- * matched by the unique `(deposit_id, accrual_from, accrual_to)` key,
+ * matched by the unique `(account_id, accrual_from, accrual_to)` key,
  * - a period whose row does not exist yet is inserted;
  * - a period whose row exists and has **not** been marked `paid_at` is recalculated and updated in
  *   place (an existing `withholding_minor`, if one was ever recorded via
@@ -51,9 +51,17 @@ final readonly class GenerateDepositInterestSchedule
     /**
      * @return list<DepositInterestEvent>
      */
-    public function __invoke(Deposit $deposit): array
+    public function __invoke(FinancialAccount $account): array
     {
-        $ratePeriodInputs = array_values($deposit->ratePeriods
+        $terms = $account->depositTerms;
+
+        if ($terms === null) {
+            // Not a term deposit. Returning nothing beats throwing: callers regenerate schedules
+            // over a set of accounts, and an ordinary current account in that set is not an error.
+            return [];
+        }
+
+        $ratePeriodInputs = array_values($account->depositRatePeriods
             ->map(static fn (DepositRatePeriod $period): DepositRatePeriodInput => new DepositRatePeriodInput(
                 validFrom: $period->valid_from->format('Y-m-d'),
                 validTo: $period->valid_to?->format('Y-m-d'),
@@ -61,23 +69,33 @@ final readonly class GenerateDepositInterestSchedule
             ))
             ->all());
 
+        $openedAt = $account->opened_at;
+
+        if ($openedAt === null) {
+            // Guarded at creation; restated here because this action is also the re-generation
+            // entry point and an account edited later must not compute interest from nothing.
+            return [];
+        }
+
         $computedPeriods = $this->calculator->calculate(
-            principalMinor: $deposit->principal_minor,
+            principalMinor: $terms->principal_minor,
             ratePeriods: $ratePeriodInputs,
-            method: $deposit->interest_method,
-            frequency: $deposit->payment_frequency,
-            dayCountConvention: $deposit->day_count_convention,
-            openedAt: $deposit->opened_at->toImmutable(),
-            maturityAt: $deposit->maturity_at->toImmutable(),
+            method: $terms->interest_method,
+            frequency: $terms->payment_frequency,
+            dayCountConvention: $terms->day_count_convention,
+            // The dates come from both rows: opening is the account's, maturity the terms' — the
+            // split that removed the duplicated columns.
+            openedAt: $openedAt->toImmutable(),
+            maturityAt: $terms->maturity_at->toImmutable(),
         );
 
-        $events = DB::transaction(function () use ($deposit, $computedPeriods): array {
+        $events = DB::transaction(function () use ($account, $computedPeriods): array {
             $recorded = [];
 
             foreach ($computedPeriods as $period) {
                 /** @var DepositInterestEvent|null $existing */
                 $existing = DepositInterestEvent::query()
-                    ->where('deposit_id', $deposit->id)
+                    ->where('account_id', $account->id)
                     ->whereDate('accrual_from', $period->accrualFrom->format('Y-m-d'))
                     ->whereDate('accrual_to', $period->accrualTo->format('Y-m-d'))
                     ->first();
@@ -88,19 +106,24 @@ final readonly class GenerateDepositInterestSchedule
                     continue;
                 }
 
-                $fxAnnotation = $deposit->currency_code === self::RON
+                $fxAnnotation = $account->currency_code === self::RON
                     ? null
-                    : $this->fxAnnotator->annotate($deposit->currency_code, $period->accrualTo, $period->grossInterestMinor);
+                    // `tryAnnotate`, not `annotate`: the schedule spans the deposit's whole life,
+                    // so most periods end on a date the BNR has not published a rate for yet. Those
+                    // rows store the gross interest with no FX chain and are filled in on a later
+                    // regeneration; failing the whole schedule instead would leave a foreign-
+                    // currency deposit with no interest figure at all until its maturity.
+                    : $this->fxAnnotator->tryAnnotate($account->currency_code, $period->accrualTo, $period->grossInterestMinor);
 
                 $withholdingMinor = $existing?->withholding_minor;
                 $netInterestMinor = $period->grossInterestMinor - ($withholdingMinor ?? 0);
 
                 $attributes = [
-                    'tax_subject_id' => $deposit->tax_subject_id,
-                    'deposit_id' => $deposit->id,
+                    'tax_subject_id' => $account->tax_subject_id,
+                    'account_id' => $account->id,
                     'accrual_from' => $period->accrualFrom->format('Y-m-d'),
                     'accrual_to' => $period->accrualTo->format('Y-m-d'),
-                    'currency_code' => $deposit->currency_code,
+                    'currency_code' => $account->currency_code,
                     'gross_interest_minor' => $period->grossInterestMinor,
                     'withholding_minor' => $withholdingMinor,
                     'net_interest_minor' => $netInterestMinor,
@@ -130,7 +153,7 @@ final readonly class GenerateDepositInterestSchedule
             event(new DepositInterestEventRecorded(
                 depositInterestEventId: $event->id,
                 taxSubjectId: $event->tax_subject_id,
-                depositId: $event->deposit_id,
+                depositId: $event->account_id,
                 accrualFrom: $event->accrual_from->toImmutable(),
                 accrualTo: $event->accrual_to->toImmutable(),
                 currencyCode: $event->currency_code,

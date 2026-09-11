@@ -7,14 +7,18 @@ namespace App\Domain\Documents;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\NullDocumentAiProvider;
+use App\Domain\Documents\ExternalAi\OpenAiCompatibleDocumentAiProvider;
 use App\Domain\Documents\Extraction\HttpTextExtractionGateway;
 use App\Domain\Documents\Extraction\TextExtractionGateway;
 use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\FileSecurity\FileSecurityValidator;
 use App\Domain\Documents\FileSecurity\MagicByteSniffer;
+use App\Domain\Documents\Parsing\ParserRegistry;
+use App\Domain\Documents\Parsing\Parsers\RomanianReceiptParser;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ClamdVirusScanner;
 use App\Domain\Documents\Scanning\VirusScanner;
+use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use App\Support\KeyManagement\SubjectDekService;
 use App\Support\ObjectStore\EncryptedObjectStore;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -76,7 +80,31 @@ final class DocumentsServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(ExternalDocumentAiProvider::class, NullDocumentAiProvider::class);
+        // Deterministic parsers, in priority order: a parser written for one specific layout is
+        // offered the text before a generic one. Registered in code rather than configuration for
+        // the same reason `OperationTask` is a closed enum — a parser decides what a figure on a
+        // tax return says, so adding one is a code change and a review.
+        $this->app->singleton(ParserRegistry::class, static fn (): ParserRegistry => new ParserRegistry([
+            new RomanianReceiptParser(),
+        ]));
+
+        // A real provider only once one is actually configured. `ResolveAiProviderCredentials`
+        // merges the stored settings with the env fallback, so this covers both — and until a base
+        // URL and a model exist, the Null provider keeps the previous behaviour exactly: it throws,
+        // `ProcessScannedDocument` catches, and nothing is sent anywhere.
+        //
+        // Bound as a factory rather than resolved once at boot: the settings are editable at
+        // runtime, and a provider decided at container-build time would keep answering "not
+        // configured" until the workers were restarted.
+        $this->app->bind(ExternalDocumentAiProvider::class, static function (Application $app): ExternalDocumentAiProvider {
+            $credentials = $app->make(ResolveAiProviderCredentials::class)();
+
+            if (! $credentials->enabled || $credentials->baseUrl === null || $credentials->model === null) {
+                return $app->make(NullDocumentAiProvider::class);
+            }
+
+            return $app->make(OpenAiCompatibleDocumentAiProvider::class);
+        });
         $this->app->singleton(DocumentAiConsentGate::class);
 
         // Transient, like App\Support\ObjectStore\ObjectStoreServiceProvider's own

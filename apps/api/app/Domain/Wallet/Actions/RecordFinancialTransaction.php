@@ -6,9 +6,12 @@ namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
+use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
+use App\Domain\Wallet\Exceptions\ZeroAmountTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Domain\Wallet\Services\WalletAudit;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
 use Illuminate\Support\Facades\DB;
@@ -25,11 +28,18 @@ final readonly class RecordFinancialTransaction
 {
     public function __construct(
         private BlindIndexHasher $blindIndex,
+        private WalletAudit $audit,
     ) {
     }
 
     public function __invoke(RecordFinancialTransactionInput $input): FinancialTransaction
     {
+        // Guarded here as well as in the request validator: an importer or a document parser
+        // reaches this action without passing through a form.
+        if ($input->amountMinor === 0) {
+            throw ZeroAmountTransactionException::forTransaction();
+        }
+
         $this->assertSplitsMatchTotal($input);
 
         return DB::transaction(function () use ($input): FinancialTransaction {
@@ -46,6 +56,10 @@ final readonly class RecordFinancialTransaction
                     ? TransactionClassificationStatus::UNCLASSIFIED
                     : TransactionClassificationStatus::CLASSIFIED,
                 'source' => $input->source,
+                // Evidence, when there is any. `nullOnDelete` on both, so removing a document never
+                // deletes the transaction it explained.
+                'document_id' => $input->documentId,
+                'document_extraction_id' => $input->documentExtractionId,
             ]);
 
             if ($input->externalId !== null) {
@@ -65,6 +79,24 @@ final readonly class RecordFinancialTransaction
                     'linked_domain_id' => $split->linkedDomainId,
                 ]);
             }
+
+            $this->audit->record(
+                subjectId: $input->taxSubjectId,
+                actorId: $input->actorId,
+                eventType: WalletAuditEvent::TRANSACTION_RECORDED->value,
+                resourceType: WalletAuditEvent::TRANSACTION_RECORDED->resourceType(),
+                resourceId: $transaction->id,
+                payload: [
+                    // Amount, currency and dates are stored in clear and are what a later question
+                    // is about. The description and counterparty are encrypted and stay out.
+                    'account_id' => $input->accountId,
+                    'amount_minor' => $input->amountMinor,
+                    'currency_code' => strtoupper($input->currencyCode),
+                    'booked_at' => $input->bookedAt,
+                    'source' => $input->source->value,
+                    'document_id' => $input->documentId,
+                ],
+            );
 
             return $transaction;
         });

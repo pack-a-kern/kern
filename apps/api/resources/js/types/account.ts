@@ -21,6 +21,8 @@ export interface TaxSubject {
     displayName: string;
     status: string;
     role: string;
+    /** Which currency this subject's wallet totals are added up in. A display preference only. */
+    displayCurrency: string;
 }
 
 function str(row: Record<string, unknown>, key: string): string {
@@ -72,6 +74,9 @@ export function parseSubjects(payload: unknown): TaxSubject[] {
             displayName: str(row, 'display_name'),
             status: str(row, 'status'),
             role: str(row, 'role'),
+            // Empty when an older response omits it; the card falls back to RON rather than showing
+            // a blank select.
+            displayCurrency: str(row, 'display_currency'),
         };
     });
 }

@@ -30,3 +30,7 @@ docker/nginx/certs/*.key
 *.png
 !apps/api/public/icons/*.png
 !docs/**/*.png
+
+# Design mockups. Reference material, not part of the application.
+/taxos*.html
+/apps/api/taxos*.html

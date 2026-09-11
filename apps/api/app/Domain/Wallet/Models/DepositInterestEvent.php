@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id
  * @property string $tax_subject_id
- * @property string $deposit_id
+ * @property string $account_id
  * @property \Illuminate\Support\Carbon $accrual_from
  * @property \Illuminate\Support\Carbon $accrual_to
  * @property string $currency_code
@@ -47,7 +47,7 @@ final class DepositInterestEvent extends Model
     /** @var list<string> */
     protected $fillable = [
         'tax_subject_id',
-        'deposit_id',
+        'account_id',
         'accrual_from',
         'accrual_to',
         'currency_code',
@@ -74,9 +74,9 @@ final class DepositInterestEvent extends Model
         'fx_rate_date' => 'date',
     ];
 
-    /** @return BelongsTo<Deposit, $this> */
+    /** @return BelongsTo<DepositTerms, $this> */
     public function deposit(): BelongsTo
     {
-        return $this->belongsTo(Deposit::class, 'deposit_id');
+        return $this->belongsTo(DepositTerms::class, 'account_id', 'account_id');
     }
 }

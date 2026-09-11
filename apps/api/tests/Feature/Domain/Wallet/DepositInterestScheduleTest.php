@@ -10,18 +10,20 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\GenerateDepositInterestSchedule;
-use App\Domain\Wallet\Actions\OpenDeposit;
+use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\Actions\RecordDepositInterestWithholding;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\DataTransferObjects\OpenDepositInput;
+use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
+use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Events\DepositInterestEventRecorded;
 use App\Domain\Wallet\Exceptions\InvalidWithholdingAmountException;
-use App\Domain\Wallet\Models\Deposit;
 use App\Domain\Wallet\Models\DepositInterestEvent;
+use App\Domain\Wallet\Models\FinancialAccount;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -51,36 +53,43 @@ function activatedSubject(): TaxSubject
     return $subject;
 }
 
-function monthlyDeposit(TaxSubject $subject): Deposit
+function monthlyDeposit(TaxSubject $subject): FinancialAccount
 {
-    return app(OpenDeposit::class)(new OpenDepositInput(
+    // A deposit is an account with terms — one call, one row per real-world thing.
+    return app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        principalMinor: 100_000,
+        kind: AccountKind::TERM_DEPOSIT,
+        displayName: 'Depozit 3 luni',
         currencyCode: 'RON',
         openedAt: '2026-01-01',
-        maturityAt: '2026-04-01',
-        rateType: RateType::FIXED,
-        interestMethod: InterestMethod::SIMPLE,
-        paymentFrequency: PaymentFrequency::MONTHLY,
-        dayCountConvention: DayCountConvention::ACTUAL_365,
-        ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '12')],
+        depositTerms: new DepositTermsInput(
+            principalMinor: 100_000,
+            maturityAt: '2026-04-01',
+            rateType: RateType::FIXED,
+            interestMethod: InterestMethod::SIMPLE,
+            paymentFrequency: PaymentFrequency::MONTHLY,
+            dayCountConvention: DayCountConvention::ACTUAL_365,
+            ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '12')],
+        ),
     ));
 }
 
 it('persists one deposit_interest_events row per payment period with the hand-computed gross amounts', function (): void {
     Event::fake();
     $subject = activatedSubject();
-    $deposit = monthlyDeposit($subject);
 
-    $events = app(GenerateDepositInterestSchedule::class)($deposit);
+    // No second call: opening the deposit is what generates the schedule. Everything the
+    // calculation needs is fixed at that moment, so there is nothing left for anyone to trigger.
+    monthlyDeposit($subject);
+
+    /** @var list<DepositInterestEvent> $events */
+    $events = DepositInterestEvent::query()->orderBy('accrual_from')->get()->all();
 
     expect($events)->toHaveCount(3)
         ->and(array_map(static fn (DepositInterestEvent $e) => $e->gross_interest_minor, $events))->toBe([1019, 921, 1019])
         ->and(array_map(static fn (DepositInterestEvent $e) => $e->net_interest_minor, $events))->toBe([1019, 921, 1019])
         ->and($events[0]->calculation_version)->toBe(GenerateDepositInterestSchedule::CALCULATION_VERSION)
         ->and($events[0]->fx_rate_decimal)->toBeNull();
-
-    expect(DepositInterestEvent::query()->count())->toBe(3);
 
     Event::assertDispatchedTimes(DepositInterestEventRecorded::class, 3);
 });

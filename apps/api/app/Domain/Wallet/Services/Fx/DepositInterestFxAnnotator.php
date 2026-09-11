@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services\Fx;
 
+use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Services\FxRateQuery;
 use App\Domain\Fx\ValueObjects\DecimalRate;
 use App\Domain\Wallet\DataTransferObjects\DepositInterestFxAnnotation;
@@ -43,6 +44,40 @@ final readonly class DepositInterestFxAnnotator
     ) {
     }
 
+    /**
+     * The RON provenance for a period, or **null when no rate has been published for its accrual
+     * date yet**.
+     *
+     * A deposit's schedule covers its whole life, so most of its periods end in the future — and a
+     * future date has no BNR rate, by definition. `FxRateQuery` is deliberately strict about that
+     * (no interpolation, no nearest-day fallback: an exact miss throws, because a guessed rate on a
+     * tax figure is worse than no figure), so asking it for a future date is a question with no
+     * honest answer.
+     *
+     * Null is that answer, and it is recorded as null on the row rather than filled with today's
+     * rate: the gross interest in the deposit's own currency is known now, the RON amount it will
+     * convert to is not, and a provenance chain (`BLUEPRINT.md` §7.5) that pointed at the wrong
+     * day's XML would be worse than an empty one. The row is rewritten with the real rate when the
+     * schedule is regenerated after that date has passed — `App\Domain\Wallet\Actions\
+     * GenerateDepositInterestSchedule` updates any period that is not yet `paid_at`.
+     *
+     * Same answer for a *past* date the BNR never published (a bank holiday, or a gap in the
+     * imported history). That is a data gap to be filled by re-running the FX import, not a reason
+     * to fail the whole schedule and leave the deposit with no interest figure at all.
+     */
+    public function tryAnnotate(string $currencyCode, DateTimeImmutable $accrualTo, int $grossInterestMinor): ?DepositInterestFxAnnotation
+    {
+        try {
+            return $this->annotate($currencyCode, $accrualTo, $grossInterestMinor);
+        } catch (FxRateNotFoundException) {
+            return null;
+        }
+    }
+
+    /**
+     * Throws `FxRateNotFoundException` when no rate exists for `$accrualTo`. Callers computing a
+     * schedule that reaches into the future want `self::tryAnnotate()` instead.
+     */
     public function annotate(string $currencyCode, DateTimeImmutable $accrualTo, int $grossInterestMinor): DepositInterestFxAnnotation
     {
         $withProvenance = $this->fxRateQuery->rateWithProvenance($currencyCode, $accrualTo);

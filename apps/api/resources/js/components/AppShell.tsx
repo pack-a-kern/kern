@@ -5,7 +5,6 @@ import {
     Calculator,
     FileCheck2,
     Gavel,
-    Inbox,
     LayoutDashboard,
     Landmark,
     LogOut,
@@ -53,11 +52,19 @@ interface NavLink {
 }
 
 /**
- * The single source of truth for the sidebar's structure. Every route here has a matching entry
- * in `routes/web.php` (`docs/handoff/040-ui-foundation.md` "Routes"), either a real screen or
- * `PlaceholderPage` — nothing in this list is a dead link. `Documente` / `Capturare` point at the
- * pre-existing, already-verified `/documents` / `/documents/capture` English-slug routes rather
- * than a new `/documente` duplicate — see the handoff's "Key decisions" for why.
+ * The single source of truth for the sidebar's structure. Every route here has a matching entry in
+ * `routes/web.php` (`docs/handoff/040-ui-foundation.md` "Routes"), either a real screen or
+ * `PlaceholderPage` — nothing in this list is a dead link. `Documente` keeps the pre-existing,
+ * already-verified `/documents` English slug rather than a `/documente` duplicate.
+ *
+ * Documents sits *inside* Portofel rather than beside it. A receipt is a transaction, a bank
+ * statement is a page of transactions, a deposit contract is an account — a document is evidence
+ * for a wallet record, not a parallel filing cabinet, and putting it a level up made the two look
+ * like unrelated features (which is exactly how they had been built).
+ *
+ * There is no `Capturare` entry any more. Adding a document is an action taken from the list you
+ * are already looking at, so it is a button and a dialog on `/documents`, not a separate
+ * destination you navigate to and then navigate back from.
  */
 const MAIN_ITEMS: NavLink[] = [
     { href: '/dashboard', label: (d) => d.nav.dashboard, icon: LayoutDashboard },
@@ -67,14 +74,9 @@ const MAIN_ITEMS: NavLink[] = [
         icon: Wallet,
         children: [
             { href: '/portofel/conturi', label: (d) => d.nav.walletAccounts },
-            { href: '/portofel/depozite', label: (d) => d.nav.walletDeposits },
+            { href: '/portofel/tranzactii', label: (d) => d.nav.walletTransactions },
+            { href: '/documents', label: (d) => d.nav.documents },
         ],
-    },
-    {
-        href: '/documents',
-        label: (d) => d.nav.documents,
-        icon: Inbox,
-        children: [{ href: '/documents/capture', label: (d) => d.nav.documentsCapture }],
     },
     { href: '/chirii', label: (d) => d.nav.rentals, icon: Building2 },
     {

@@ -12,9 +12,13 @@ import {
 describe('parseDocumentSummary', () => {
     const validJson = JSON.stringify({
         id: 'doc-1',
+        filename: 'bon-fiscal.pdf',
         type: 'RECEIPT',
         status: 'READY',
         rejection_reason: null,
+        original_filename: 'capture.PNG',
+        ai_extraction_outcome: null,
+        ai_extraction_attempted_at: null,
         mime_type: 'application/pdf',
         size_bytes: 1024,
         received_at: '2026-09-01T10:00:00Z',
@@ -23,9 +27,15 @@ describe('parseDocumentSummary', () => {
     it('parses a well-formed ShowDocumentController response', () => {
         expect(parseDocumentSummary(validJson)).toEqual({
             id: 'doc-1',
+            // Decrypted server-side for the subject that owns it — a review screen headed by a
+            // UUID tells a reviewer nothing about what they are reviewing.
+            filename: 'bon-fiscal.pdf',
             type: 'RECEIPT',
             status: 'READY',
             rejectionReason: null,
+            originalFilename: 'capture.PNG',
+            aiExtractionOutcome: null,
+            aiExtractionAttemptedAt: null,
             mimeType: 'application/pdf',
             sizeBytes: 1024,
             receivedAt: '2026-09-01T10:00:00Z',
@@ -38,6 +48,9 @@ describe('parseDocumentSummary', () => {
             type: 'RECEIPT',
             status: 'NOT_A_REAL_STATUS',
             rejection_reason: null,
+            original_filename: 'capture.PNG',
+            ai_extraction_outcome: null,
+            ai_extraction_attempted_at: null,
             mime_type: 'application/pdf',
             size_bytes: 1024,
             received_at: '2026-09-01T10:00:00Z',
@@ -49,15 +62,58 @@ describe('parseDocumentSummary', () => {
     it('preserves a non-null rejection reason', () => {
         const rejected = JSON.stringify({
             id: 'doc-2',
+            filename: 'factura.pdf',
             type: 'INVOICE',
             status: 'REJECTED',
             rejection_reason: 'ENCRYPTED_PDF',
+            original_filename: 'capture.PNG',
+            ai_extraction_outcome: null,
+            ai_extraction_attempted_at: null,
             mime_type: 'application/pdf',
             size_bytes: 512,
             received_at: '2026-09-01T10:00:00Z',
         });
 
         expect(parseDocumentSummary(rejected).rejectionReason).toBe('ENCRYPTED_PDF');
+    });
+
+    it('preserves a recorded AI extraction outcome', () => {
+        const failed = JSON.stringify({
+            id: 'doc-3',
+            filename: 'bon.png',
+            type: 'RECEIPT',
+            status: 'READY',
+            rejection_reason: null,
+            original_filename: 'capture.PNG',
+            ai_extraction_outcome: 'FAILED_HTTP_STATUS',
+            ai_extraction_attempted_at: '2026-09-10T16:01:51Z',
+            mime_type: 'image/png',
+            size_bytes: 296440,
+            received_at: '2026-09-10T16:00:00Z',
+        });
+
+        const summary = parseDocumentSummary(failed);
+
+        expect(summary.aiExtractionOutcome).toBe('FAILED_HTTP_STATUS');
+        expect(summary.aiExtractionAttemptedAt).toBe('2026-09-10T16:01:51Z');
+    });
+
+    it('rejects an unknown AI extraction outcome rather than passing it through', () => {
+        const bad = JSON.stringify({
+            id: 'doc-4',
+            filename: 'bon.png',
+            type: 'RECEIPT',
+            status: 'READY',
+            rejection_reason: null,
+            original_filename: 'capture.PNG',
+            ai_extraction_outcome: 'NOT_A_REAL_OUTCOME',
+            ai_extraction_attempted_at: null,
+            mime_type: 'image/png',
+            size_bytes: 10,
+            received_at: '2026-09-10T16:00:00Z',
+        });
+
+        expect(() => parseDocumentSummary(bad)).toThrow(ValidationError);
     });
 });
 

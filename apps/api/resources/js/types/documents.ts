@@ -1,6 +1,7 @@
 import {
     type CursorPage,
     parseJson,
+    vArray,
     vCursorPage,
     vEnum,
     vNullable,
@@ -46,12 +47,40 @@ export const REJECTION_REASONS = [
 
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
+/**
+ * `App\Domain\Documents\Enums\AiExtractionOutcome` — what came of the external-AI reading.
+ *
+ * `null` on a document means no attempt was made, which is the ordinary case when a deterministic
+ * parser already read it. Anything else means an attempt ended, and the review screen owes the
+ * person an explanation rather than "no proposal yet".
+ */
+export const AI_EXTRACTION_OUTCOMES = [
+    'NOT_SENT_CONSENT_REQUIRED',
+    'NOT_SENT_PROVIDER_UNCONFIGURED',
+    'NOT_SENT_PROVIDER_DISABLED',
+    'NOT_SENT_NOTHING_TO_SEND',
+    'FAILED_UNREACHABLE',
+    'FAILED_HTTP_STATUS',
+    'FAILED_MALFORMED_REPLY',
+    'FAILED_REASONING_BUDGET',
+    'FAILED_SCHEMA_VIOLATION',
+    'SUCCEEDED',
+] as const;
+
+export type AiExtractionOutcome = (typeof AI_EXTRACTION_OUTCOMES)[number];
+
 /** `App\Http\Controllers\Api\V1\Documents\ShowDocumentController` response — metadata only. */
 export interface DocumentSummary {
     id: string;
+    /** Decrypted server-side for the owning subject — see `ShowDocumentController`. */
+    filename: string;
     type: DocumentType;
     status: DocumentStatus;
     rejectionReason: RejectionReason | null;
+    /** What the file was called on arrival. Provenance — never the label; see `filename`. */
+    originalFilename: string;
+    aiExtractionOutcome: AiExtractionOutcome | null;
+    aiExtractionAttemptedAt: string | null;
     mimeType: string;
     sizeBytes: number;
     receivedAt: string;
@@ -62,9 +91,13 @@ export function parseDocumentSummary(text: string): DocumentSummary {
         text,
         vObject({
             id: vString,
+            filename: vString,
             type: vEnum(DOCUMENT_TYPES),
             status: vEnum(DOCUMENT_STATUSES),
             rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
+            original_filename: vString,
+            ai_extraction_outcome: vNullable(vEnum(AI_EXTRACTION_OUTCOMES)),
+            ai_extraction_attempted_at: vNullable(vString),
             mime_type: vString,
             size_bytes: vNumber,
             received_at: vString,
@@ -73,12 +106,159 @@ export function parseDocumentSummary(text: string): DocumentSummary {
 
     return {
         id: parsed.id,
+        filename: parsed.filename,
         type: parsed.type,
         status: parsed.status,
         rejectionReason: parsed.rejection_reason,
+        originalFilename: parsed.original_filename,
+        aiExtractionOutcome: parsed.ai_extraction_outcome,
+        aiExtractionAttemptedAt: parsed.ai_extraction_attempted_at,
         mimeType: parsed.mime_type,
         sizeBytes: parsed.size_bytes,
         receivedAt: parsed.received_at,
+    };
+}
+
+/**
+ * `App\Domain\Documents\Models\Document::presentedFilename()` — the name a document is shown
+ * under, which is the one a person chose or, failing that, one derived from its content hash.
+ *
+ * Deliberately not the uploaded filename: a phone calls every photograph `IMG_0042.jpg`, so a list
+ * of them is a list of identical rows, and a name chosen by whoever sent the file can carry
+ * anything at all.
+ */
+
+/** `App\Domain\Documents\Enums\DocumentSource`. */
+export const DOCUMENT_SOURCES = ['USER_UPLOAD', 'SPV', 'IMPORT', 'SYSTEM'] as const;
+
+export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];
+
+/**
+ * One row of `App\Http\Controllers\Api\V1\Documents\ListDocumentsController` — the inbox.
+ *
+ * Carries two things the single-document endpoint does not: `source`, and `pendingExtractions` —
+ * how many proposals are still waiting on a human, so the inbox can show a queue rather than making
+ * someone open each document to find out.
+ */
+export interface DocumentListItem {
+    id: string;
+    filename: string;
+    type: DocumentType;
+    status: DocumentStatus;
+    rejectionReason: RejectionReason | null;
+    mimeType: string;
+    sizeBytes: number;
+    source: DocumentSource;
+    receivedAt: string;
+    pendingExtractions: number;
+}
+
+const documentListItemValidator = vObject({
+    id: vString,
+    filename: vString,
+    type: vEnum(DOCUMENT_TYPES),
+    status: vEnum(DOCUMENT_STATUSES),
+    rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
+    mime_type: vString,
+    size_bytes: vNumber,
+    source: vEnum(DOCUMENT_SOURCES),
+    received_at: vString,
+    pending_extractions: vNumber,
+});
+
+export function parseDocumentsPage(text: string): CursorPage<DocumentListItem> {
+    return parseJson(
+        text,
+        vCursorPage((value, path = ''): DocumentListItem => {
+            const parsed = documentListItemValidator(value, path);
+
+            return {
+                id: parsed.id,
+                filename: parsed.filename,
+                type: parsed.type,
+                status: parsed.status,
+                rejectionReason: parsed.rejection_reason,
+                mimeType: parsed.mime_type,
+                sizeBytes: parsed.size_bytes,
+                source: parsed.source,
+                receivedAt: parsed.received_at,
+                pendingExtractions: parsed.pending_extractions,
+            };
+        }),
+    );
+}
+
+/** One virus-scan attempt, from `document_scans`. */
+export interface DocumentScanRecord {
+    id: string;
+    outcome: string;
+    scanner: string;
+    /** Null when the scanner answered a scan but not a version query — recorded, not guessed. */
+    scannerVersion: string | null;
+    definitionsVersion: string | null;
+    durationMs: number | null;
+    scannedAt: string;
+}
+
+/** One entry from the subject's append-only audit chain, for this document. */
+export interface DocumentAuditEntry {
+    eventType: string;
+    sequence: number;
+    /** Null for the pipeline's own steps — no person scanned or extracted anything. */
+    actorId: string | null;
+    occurredAt: string;
+    eventHash: string;
+}
+
+export interface DocumentHistory {
+    scans: DocumentScanRecord[];
+    events: DocumentAuditEntry[];
+}
+
+export function parseDocumentHistory(text: string): DocumentHistory {
+    const parsed = parseJson(
+        text,
+        vObject({
+            scans: vArray(
+                vObject({
+                    id: vString,
+                    outcome: vString,
+                    scanner: vString,
+                    scanner_version: vNullable(vString),
+                    definitions_version: vNullable(vString),
+                    duration_ms: vNullable(vNumber),
+                    scanned_at: vString,
+                }),
+            ),
+            events: vArray(
+                vObject({
+                    event_type: vString,
+                    sequence: vNumber,
+                    actor_id: vNullable(vString),
+                    occurred_at: vString,
+                    event_hash: vString,
+                }),
+            ),
+        }),
+    );
+
+    return {
+        scans: parsed.scans.map((scan) => ({
+            id: scan.id,
+            outcome: scan.outcome,
+            scanner: scan.scanner,
+            scannerVersion: scan.scanner_version,
+            definitionsVersion: scan.definitions_version,
+            durationMs: scan.duration_ms,
+            scannedAt: scan.scanned_at,
+        })),
+        events: parsed.events.map((event) => ({
+            eventType: event.event_type,
+            sequence: event.sequence,
+            actorId: event.actor_id,
+            occurredAt: event.occurred_at,
+            eventHash: event.event_hash,
+        })),
     };
 }
 
@@ -141,7 +321,12 @@ export function parseDocumentLifecycleEvent(raw: unknown): DocumentLifecycleEven
 }
 
 /** `App\Domain\Documents\Enums\ExtractorType`. */
-export const EXTRACTOR_TYPES = ['NATIVE_PDF_TEXT', 'EXTERNAL_DOCUMENT_AI', 'HUMAN_CORRECTION'] as const;
+export const EXTRACTOR_TYPES = [
+    'NATIVE_PDF_TEXT',
+    'EXTERNAL_DOCUMENT_AI',
+    'HUMAN_CORRECTION',
+    'PATTERN_PARSER',
+] as const;
 
 export type ExtractorType = (typeof EXTRACTOR_TYPES)[number];
 

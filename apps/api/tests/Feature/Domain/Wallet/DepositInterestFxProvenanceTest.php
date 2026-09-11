@@ -11,9 +11,11 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\GenerateDepositInterestSchedule;
-use App\Domain\Wallet\Actions\OpenDeposit;
+use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\DataTransferObjects\OpenDepositInput;
+use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
+use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
@@ -64,17 +66,23 @@ it('attaches a full FX provenance chain to a non-RON deposit\'s interest event',
         'source_document_version_id' => $sourceVersion->id,
     ]);
 
-    $deposit = app(OpenDeposit::class)(new OpenDepositInput(
+    // A deposit is an account with terms — the account owns the currency and opening date, the
+    // terms own the principal, maturity and rate.
+    $deposit = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        principalMinor: 100_000, // 1000.00 EUR
+        kind: AccountKind::TERM_DEPOSIT,
+        displayName: 'Depozit',
         currencyCode: 'EUR',
         openedAt: '2026-01-01',
-        maturityAt: '2027-01-01',
-        rateType: RateType::FIXED,
-        interestMethod: InterestMethod::SIMPLE,
-        paymentFrequency: PaymentFrequency::AT_MATURITY,
-        dayCountConvention: DayCountConvention::ACTUAL_365,
-        ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '10')],
+        depositTerms: new DepositTermsInput(
+            principalMinor: 100_000, // 1000.00 EUR
+            maturityAt: '2027-01-01',
+            rateType: RateType::FIXED,
+            interestMethod: InterestMethod::SIMPLE,
+            paymentFrequency: PaymentFrequency::AT_MATURITY,
+            dayCountConvention: DayCountConvention::ACTUAL_365,
+            ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '10')],
+        ),
     ));
 
     $events = app(GenerateDepositInterestSchedule::class)($deposit);
@@ -114,17 +122,23 @@ it('never attaches FX provenance to a RON deposit\'s interest event', function (
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 
-    $deposit = app(OpenDeposit::class)(new OpenDepositInput(
+    // A deposit is an account with terms — the account owns the currency and opening date, the
+    // terms own the principal, maturity and rate.
+    $deposit = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        principalMinor: 100_000,
+        kind: AccountKind::TERM_DEPOSIT,
+        displayName: 'Depozit',
         currencyCode: 'RON',
         openedAt: '2026-01-01',
-        maturityAt: '2027-01-01',
-        rateType: RateType::FIXED,
-        interestMethod: InterestMethod::SIMPLE,
-        paymentFrequency: PaymentFrequency::AT_MATURITY,
-        dayCountConvention: DayCountConvention::ACTUAL_365,
-        ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '10')],
+        depositTerms: new DepositTermsInput(
+            principalMinor: 100_000,
+            maturityAt: '2027-01-01',
+            rateType: RateType::FIXED,
+            interestMethod: InterestMethod::SIMPLE,
+            paymentFrequency: PaymentFrequency::AT_MATURITY,
+            dayCountConvention: DayCountConvention::ACTUAL_365,
+            ratePeriods: [new DepositRatePeriodInput('2026-01-01', null, '10')],
+        ),
     ));
 
     $events = app(GenerateDepositInterestSchedule::class)($deposit);

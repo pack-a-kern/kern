@@ -80,7 +80,15 @@ async function performFetch(url: string, init: RequestInit): Promise<Response> {
  * report a failed request identically, regardless of what a *successful* response's body is.
  */
 async function throwForFailedResponse(response: Response): Promise<never> {
-    const text = await response.text();
+    return throwForFailure(response.status, await response.text());
+}
+
+/**
+ * The status/body half of {@link throwForFailedResponse}, split out so the `XMLHttpRequest` upload
+ * path reports a failure identically to every `fetch` call — a 422 rejection or a 409 duplicate
+ * must not mean something different just because the request needed progress events.
+ */
+function throwForFailure(status: number, text: string): never {
     let data: unknown = null;
 
     try {
@@ -94,12 +102,12 @@ async function throwForFailedResponse(response: Response): Promise<never> {
             ? data['message']
             : // No user-facing copy in code (BLUEPRINT.md §19.1): this is for logs and stack traces.
               // A screen shows its own translated message, keyed off the status or `reason`.
-              `Request failed (${String(response.status)}).`;
+              `Request failed (${String(status)}).`;
     const errors =
         isRecord(data) && isRecord(data['errors']) ? (data['errors'] as Record<string, string[]>) : undefined;
     const reason = isRecord(data) && typeof data['reason'] === 'string' ? data['reason'] : undefined;
 
-    throw new ApiError(response.status, message, errors, reason);
+    throw new ApiError(status, message, errors, reason);
 }
 
 /**
@@ -137,4 +145,77 @@ export async function apiRequestBinary(path: string, options: RequestOptions = {
     }
 
     return response.blob();
+}
+
+/**
+ * A multipart upload that reports how much of the body has gone out.
+ *
+ * `fetch` cannot do this — it has no upload-progress event — so this is the one request in the app
+ * built on `XMLHttpRequest`. Everything else about the envelope is identical to {@link apiRequest}:
+ * same URL prefix, same credentials, same CSRF header, same {@link ApiError} on failure, because
+ * they come from the same {@link buildRequestInit} and {@link throwForFailure}.
+ *
+ * `onProgress` receives a fraction in `[0, 1]`, and only while the length is computable — a request
+ * whose total size the browser cannot determine reports nothing rather than inventing a number.
+ * It fires for the *upload*, so reaching 1 means the bytes are sent, not that the server has
+ * answered; the caller still awaits the response.
+ */
+export async function apiUpload(
+    path: string,
+    body: FormData,
+    onProgress?: (fraction: number) => void,
+    signal?: AbortSignal,
+): Promise<string> {
+    const [url, init] = buildRequestInit(path, { method: 'POST', body });
+    const headers = init.headers as Record<string, string>;
+
+    return new Promise<string>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+
+        request.open('POST', url, true);
+        request.withCredentials = true;
+
+        for (const [name, value] of Object.entries(headers)) {
+            request.setRequestHeader(name, value);
+        }
+
+        if (onProgress) {
+            request.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable && event.total > 0) {
+                    onProgress(event.loaded / event.total);
+                }
+            });
+        }
+
+        request.addEventListener('load', () => {
+            if (request.status >= 200 && request.status < 300) {
+                resolve(request.responseText);
+
+                return;
+            }
+
+            try {
+                throwForFailure(request.status, request.responseText);
+            } catch (error) {
+                reject(error instanceof Error ? error : new Error(String(error)));
+            }
+        });
+
+        // Same developer-facing string `performFetch` throws, so a dropped connection is one
+        // condition with one `reason` for the UI to translate, however the request was made.
+        request.addEventListener('error', () => {
+            reject(new ApiError(0, 'The server could not be reached.', undefined, 'network'));
+        });
+        request.addEventListener('abort', () => {
+            reject(new ApiError(0, 'The upload was aborted.', undefined, 'network'));
+        });
+
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                request.abort();
+            });
+        }
+
+        request.send(body);
+    });
 }

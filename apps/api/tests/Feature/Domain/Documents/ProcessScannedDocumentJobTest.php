@@ -6,15 +6,18 @@ namespace Tests\Feature\Domain\Documents\ProcessScannedDocumentJobTest;
 
 use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
+use App\Domain\Documents\Enums\AiExtractionOutcome;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\ExtractionStatus;
 use App\Domain\Documents\Enums\ExtractorType;
 use App\Domain\Documents\Enums\RejectionReason;
+use App\Domain\Documents\Events\DocumentAiExtractionFinished;
 use App\Domain\Documents\Events\DocumentExtractionProposed;
 use App\Domain\Documents\Events\DocumentTextExtracted;
 use App\Domain\Documents\Events\DocumentTextExtractionRejected;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
+use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderFailedException;
 use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\Extraction\Exceptions\TextExtractionUnavailableException;
 use App\Domain\Documents\Jobs\ProcessScannedDocument;
@@ -328,4 +331,154 @@ it('proposes an extraction, writes one audit event, and never auto-confirms it, 
 
         return $payload['extraction_id'] === $extraction->id && $payload['extraction_status'] === 'PROPOSED';
     });
+});
+
+/*
+ * What came of the external-AI attempt, recorded on the document.
+ *
+ * Before this existed, every one of the cases below was indistinguishable from every other and from
+ * "nothing has been tried yet": the document reached READY, no extraction row was written, and the
+ * review screen said "no proposed extraction for this document yet" regardless of whether consent
+ * was missing, a provider had timed out, or the pipeline had simply not got there.
+ */
+
+it('records SUCCEEDED when a provider proposes an extraction', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::minimalPdf());
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    Http::fake(['*/v1/documents/extract-text' => Http::response(
+        extractionSuccessBody([['page_number' => 1, 'text' => 'CNP 1234567890123 IBAN RO00BANK']]),
+    )]);
+
+    $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
+        public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
+        {
+            return new DocumentAiResponse('acme-ai', 'acme-extractor-v3', '1.0.0', ['vendor' => 'ACME SRL'], '0.9100');
+        }
+    });
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::SUCCEEDED)
+        ->and($document->ai_extraction_attempted_at)->not->toBeNull();
+});
+
+it('records the consent refusal rather than leaving the document looking untried', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::minimalPdf());
+
+    Http::fake(['*/v1/documents/extract-text' => Http::response(extractionSuccessBody([['page_number' => 1, 'text' => 'x']]))]);
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::NOT_SENT_CONSENT_REQUIRED)
+        // A subject declining consent is a setting, not an incident.
+        ->and($document->ai_extraction_outcome->isFailure())->toBeFalse();
+});
+
+it('records the administrator switch being off, distinctly from consent and from a fault', function (): void {
+    config(['settings.ai.env_fallback.enabled' => false]);
+
+    $document = Document::factory()->create(['mime_type' => 'application/pdf', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::minimalPdf());
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    Http::fake(['*/v1/documents/extract-text' => Http::response(extractionSuccessBody([['page_number' => 1, 'text' => 'x']]))]);
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::NOT_SENT_PROVIDER_DISABLED)
+        ->and($document->ai_extraction_outcome->isFailure())->toBeFalse();
+});
+
+it('records a provider failure as a failure, and still leaves the document usable by hand', function (): void {
+    Event::fake([DocumentAiExtractionFinished::class]);
+
+    $document = Document::factory()->create(['mime_type' => 'application/pdf', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::minimalPdf());
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    Http::fake(['*/v1/documents/extract-text' => Http::response(extractionSuccessBody([['page_number' => 1, 'text' => 'x']]))]);
+
+    // The case that prompted all of this: a reverse proxy in front of a self-hosted model giving up
+    // at its own idle timeout, long before the application's.
+    $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
+        public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
+        {
+            throw ExternalDocumentAiProviderFailedException::status(504);
+        }
+    });
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::FAILED_HTTP_STATUS)
+        ->and($document->ai_extraction_outcome->isFailure())->toBeTrue()
+        // READY either way: a failed reading never withholds a document a person could review.
+        ->and($document->status)->toBe(DocumentStatus::READY)
+        ->and(DocumentExtraction::query()->count())->toBe(0);
+
+    // The screen learns the attempt ended, instead of waiting for an event that never comes.
+    Event::assertDispatched(DocumentAiExtractionFinished::class, function (DocumentAiExtractionFinished $event): bool {
+        $payload = $event->broadcastWith();
+
+        return $payload['outcome'] === 'FAILED_HTTP_STATUS'
+            && $payload['is_failure'] === true
+            // Required by the client's shared lifecycle-event parser; an event without it is dropped.
+            && $payload['status'] === 'READY';
+    });
+});
+
+it('refuses to send a document that has neither text nor sendable image content', function (): void {
+    // Smaller than the fixture, so the image is over the ceiling and there is nothing left to send.
+    config(['ai_providers.extraction_max_image_bytes' => 1]);
+
+    $document = Document::factory()->create(['mime_type' => 'image/png', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::pngWithDimensions(8, 8));
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    // Asking a model to read a document it was never given can only produce an invented answer —
+    // the one failure mode a system built on provenance must not have.
+    $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
+        public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
+        {
+            throw new RuntimeException('must not be called with nothing to send');
+        }
+    });
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::NOT_SENT_NOTHING_TO_SEND)
+        ->and(DocumentExtraction::query()->count())->toBe(0);
+});
+
+it('clears a recorded failure when a later attempt succeeds', function (): void {
+    $document = Document::factory()->create([
+        'mime_type' => 'application/pdf',
+        'status' => DocumentStatus::SCANNED,
+        // Left behind by an earlier attempt.
+        'ai_extraction_outcome' => AiExtractionOutcome::FAILED_UNREACHABLE,
+    ]);
+    putOriginal($document, FileFixtures::minimalPdf());
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    Http::fake(['*/v1/documents/extract-text' => Http::response(extractionSuccessBody([['page_number' => 1, 'text' => 'x']]))]);
+
+    $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
+        public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
+        {
+            return new DocumentAiResponse('acme-ai', 'acme-extractor-v3', '1.0.0', ['vendor' => 'ACME SRL'], '0.9100');
+        }
+    });
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    // The stale failure must not outlive the retry that fixed it.
+    $document->refresh();
+    expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::SUCCEEDED);
 });

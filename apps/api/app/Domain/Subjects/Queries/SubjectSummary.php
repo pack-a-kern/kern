@@ -22,6 +22,8 @@ final readonly class SubjectSummary
         public string $displayName,
         public SubjectStatus $status,
         public MembershipRole $role,
+        /** The currency this subject's wallet totals are added up in — a display preference. */
+        public string $displayCurrency,
     ) {
     }
 
@@ -36,6 +38,7 @@ final readonly class SubjectSummary
             'display_name' => $this->displayName,
             'status' => $this->status->value,
             'role' => $this->role->value,
+            'display_currency' => $this->displayCurrency,
         ];
     }
 }

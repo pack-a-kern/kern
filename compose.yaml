@@ -108,6 +108,12 @@ x-php-image: &php-image
     CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see .env.example}
     CRYPTO_BLIND_INDEX_CURRENT_VERSION: ${CRYPTO_BLIND_INDEX_CURRENT_VERSION:-1}
     REVERB_SCHEME: ${REVERB_SCHEME:-http}
+    # Page origins allowed to open a websocket, comma-separated. Passed through explicitly because
+    # this `environment:` block is the only channel by which the root .env reaches these containers
+    # — a value set there but not named here simply never arrives, which is why the first attempt at
+    # this fix appeared to change nothing. Defaults to APP_URL, matching config/reverb.php's own
+    # fallback, so an unset value behaves the way it always did.
+    REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-${APP_URL:-http://localhost}}
     REVERB_SERVER_HOST: 0.0.0.0
     REVERB_SERVER_PORT: 8080
     FILESYSTEM_DISK: s3
@@ -115,6 +121,10 @@ x-php-image: &php-image
     AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
     AWS_DEFAULT_REGION: eu-central-1
     AWS_BUCKET: taxos-documents
+    # The physically separate bucket unscanned uploads land in
+    # (App\Domain\Documents\Quarantine\QuarantineObjectStore). Named here beside AWS_BUCKET so
+    # one place declares both, and `minio-init-buckets` below creates exactly these two.
+    QUARANTINE_BUCKET: taxos-quarantine
     AWS_ENDPOINT: http://minio:9000
     AWS_USE_PATH_STYLE_ENDPOINT: "true"
     MAIL_MAILER: ${MAIL_MAILER:-log}
@@ -221,11 +231,24 @@ services:
       - processing_net
       - browser_net
       - data_net
+    # A private AI endpoint — one on a VPN or a LAN — usually resolves only through the *host's*
+    # /etc/hosts, which containers never read. The result is a provider that answers fine from a
+    # terminal and is unreachable from the app, with nothing in the error to say why.
+    #
+    # Set both halves in the root .env to publish that mapping inside the container. The default is
+    # a deliberately unroutable placeholder, so leaving them unset changes nothing for anyone whose
+    # provider has ordinary public DNS.
+    extra_hosts:
+      - "${AI_ENDPOINT_HOST:-ai-endpoint.invalid}:${AI_ENDPOINT_IP:-127.0.0.1}"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # The buckets must exist before the first upload, not merely minio itself — a missing bucket
+      # is answered with a silent `false` by the S3 driver, which surfaces as a 500 with no clue.
+      minio-init-buckets:
+        condition: service_completed_successfully
     healthcheck:
       # Hits php-fpm's own internal status page (pm.status_path in
       # docker/php/www.conf) over FastCGI — proves the pool is answering
@@ -260,11 +283,23 @@ services:
       # Without it every queued document silently fails its scan/extraction step even though the
       # same code works when exercised synchronously from `app` (which does have the network).
       - processing_net
+    # A private AI endpoint — one on a VPN or a LAN — usually resolves only through the *host's*
+    # /etc/hosts, which containers never read. The result is a provider that answers fine from a
+    # terminal and is unreachable from the app, with nothing in the error to say why.
+    #
+    # Set both halves in the root .env to publish that mapping inside the container. The default is
+    # a deliberately unroutable placeholder, so leaving them unset changes nothing for anyone whose
+    # provider has ordinary public DNS.
+    extra_hosts:
+      - "${AI_ENDPOINT_HOST:-ai-endpoint.invalid}:${AI_ENDPOINT_IP:-127.0.0.1}"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # ScanQuarantinedDocument reads from the quarantine bucket and writes to the documents one.
+      minio-init-buckets:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "php", "artisan", "horizon:status"]
       interval: 30s
@@ -512,13 +547,75 @@ services:
       - FOWNER
       - SETUID
       - SETGID
+    # No `CLAMD_CONF_*` here, though the image supports it. Its entrypoint applies those with
+    # `sed -i` against /etc/clamav/clamd.conf, which `read_only: true` above forbids — the container
+    # crash-loops on "sed: couldn't open temporary file … Read-only file system". Tuning clamd would
+    # mean vendoring a whole clamd.conf and mounting it, which is a file to maintain against every
+    # image bump. Sizing the memory correctly costs nothing and is the actual fix.
+
     # No healthcheck override: the image ships its own verified
     # `clamdcheck.sh` HEALTHCHECK (docker inspect confirmed 2026-09-07).
+    #
+    # `restart: unless-stopped` is not enough on its own here, and that is the second half of the
+    # same failure: clamd died *inside* a container that stayed up, so Docker saw nothing to
+    # restart. The container reported "running" with 764 KiB resident and a refused port for six
+    # hours, and the only symptom anybody saw was a document stuck in quarantine.
+    #
+    # `autoheal` (below) watches for the unhealthy state the image's own healthcheck already
+    # reports and restarts the container, turning a silent death into a few seconds of downtime.
+    labels:
+      - "autoheal=true"
     deploy:
       resources:
         limits:
           cpus: "1.00"
-          memory: 1024M
+          # 1 GB was below the working set, not a tight margin. ClamAV holds ~1.3 GB of signatures
+          # resident once loaded (3.6M of them as of 28119), and during a freshclam update it loads
+          # the new database while still serving the old one — so the peak is roughly double. The
+          # 2026-09-10 update crossed 1 GB mid-"Activating the newly loaded database" and the kernel
+          # killed it (`OOMKilled=true`).
+          #
+          # 3 GB clears that doubled peak with room for signature growth. The host has 47 GB and
+          # this is a limit, not a reservation: clamd uses what it needs and the cap only exists to
+          # stop a runaway taking the machine with it.
+          memory: 3072M
+    restart: unless-stopped
+
+  autoheal:
+    # Restarts any container that its own healthcheck reports as unhealthy.
+    #
+    # Exists because of a specific failure this stack could not otherwise notice: clamd was
+    # OOM-killed *inside* a container that stayed up, so Docker saw no exit and `restart:
+    # unless-stopped` never fired. The container sat "running" with a refused port for six hours,
+    # and the only visible symptom was one document stuck in quarantine — which is exactly the
+    # fail-closed behaviour working, and exactly why nothing looked broken.
+    #
+    # Opt-in per service via `labels: [autoheal=true]`, not blanket: restarting a database or an
+    # object store because it briefly failed a probe can turn a slow moment into an outage. Today
+    # only clamav is labelled, because only clamav has a process that can die while its container
+    # lives.
+    #
+    # This is the one container that gets the Docker socket, and it is worth being explicit about
+    # what that means: socket access is root-equivalent on the host. It is mounted read-only, the
+    # image does nothing but poll container health and restart, and it sits on no application
+    # network — it cannot reach postgres, minio, or anything holding data. Everything else in this
+    # file is denied the socket precisely so this stays the single, reviewed exception.
+    image: willfarrell/autoheal:1.2.0
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      # Give a restarted container time to load 3.6M signatures before judging it again.
+      AUTOHEAL_START_PERIOD: "300"
+      AUTOHEAL_INTERVAL: "30"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    network_mode: "none"
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
@@ -676,6 +773,53 @@ services:
           cpus: "1.00"
           memory: 512M
     restart: unless-stopped
+
+  minio-init-buckets:
+    # One-shot: creates the buckets the application expects, then exits.
+    #
+    # Nothing else in this repository ever created them. `taxos-documents` had been made by hand at
+    # some point and `taxos-quarantine` never had, so every upload failed at its first write with
+    # "Failed writing object … to the object store disk" — a 500 with no hint that a bucket was
+    # missing, because `config/filesystems.php` sets `'throw' => false` and the S3 driver answers a
+    # nonexistent bucket with a silent `false`. A `docker compose down -v` would have reproduced it
+    # from scratch on any machine.
+    #
+    # `mc mb --ignore-existing` is idempotent, so this is safe on every `up`, and it runs after
+    # minio reports healthy rather than merely started — `mc` against a booting server fails.
+    #
+    # Only on `data_net`, which is `internal: true`: this talks to minio and nothing else, and must
+    # not reach the Internet. Credentials come from the same env vars minio itself uses, so they
+    # cannot drift apart.
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$AWS_BUCKET"
+        mc mb --ignore-existing "local/$$QUARANTINE_BUCKET"
+        echo "buckets ready: $$AWS_BUCKET, $$QUARANTINE_BUCKET"
+    networks:
+      - data_net
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
+      AWS_BUCKET: taxos-documents
+      QUARANTINE_BUCKET: taxos-quarantine
+      # `mc` writes an alias config on first use and defaults to `$HOME/.mc`, which this image's
+      # non-root user cannot create — it fails with "Unable to save new mc config". Pointed at the
+      # tmpfs below, which also means the credentials never touch a layer or a volume.
+      MC_CONFIG_DIR: /tmp/.mc
+    tmpfs:
+      - /tmp:mode=1777
+    depends_on:
+      minio:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   # -------------------------------------------------------------------------
   # KMS — OpenBao dev-mode transit engine (BLUEPRINT.md §4.2). DEV ONLY — see

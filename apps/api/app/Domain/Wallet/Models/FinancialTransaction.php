@@ -59,6 +59,8 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
         'import_batch_id',
         'classification_status',
         'source',
+        'document_id',
+        'document_extraction_id',
     ];
 
     /** @var array<string, string> */

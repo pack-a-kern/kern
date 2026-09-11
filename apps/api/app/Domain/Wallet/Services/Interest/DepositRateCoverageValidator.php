@@ -12,7 +12,7 @@ use DateTimeImmutable;
 /**
  * Validates that a deposit's rate periods cover its whole life, `[openedAt, maturityAt)`, with no
  * gap and no overlap — used both eagerly, when a deposit is opened
- * (`App\Domain\Wallet\Actions\OpenDeposit`, so bad data is rejected before it reaches the
+ * (`App\Domain\Wallet\Actions\OpenFinancialAccount`, so bad data is rejected before it reaches the
  * database), and again by `App\Domain\Wallet\Services\Interest\DepositInterestCalculator` (which
  * cannot assume the database still reflects what it validated at creation time — a `VARIABLE`
  * deposit's rate periods can be edited later). One implementation, not two: the coverage

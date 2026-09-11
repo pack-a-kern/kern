@@ -43,6 +43,46 @@ final readonly class FxRateQuery
         return $this->find($currencyCode, $date, $sourceCode);
     }
 
+    /**
+     * The most recent published rate **on or before** `$date`, or null if there is none.
+     *
+     * ## This is for display, and the naming says so
+     *
+     * {@see self::rate()} and {@see self::rateWithProvenance()} refuse to approximate: an exact miss
+     * throws, because a fiscal figure has to be reproducible against the rate that actually applied
+     * on its own date (`BLUEPRINT.md` §26). That strictness is not weakened here — this is a
+     * *different question*, asked by a different kind of caller.
+     *
+     * A dashboard converting today's balances is not computing a tax figure. It needs the latest
+     * rate the BNR has published, which on a Sunday is Friday's, and during a gap in the imported
+     * history is whatever came before it. Answering that with an exception would leave the screen
+     * blank; answering it silently from `self::rate()` would make every fiscal lookup approximate.
+     * Hence a separate method, with "on or before" in its name so a caller cannot reach for it by
+     * accident.
+     *
+     * Returns null rather than throwing: "no rate has ever been published for this currency" is an
+     * ordinary answer for a screen, which shows the amount unconverted instead.
+     */
+    public function latestRateOnOrBefore(string $currencyCode, DateTimeImmutable $date, string $sourceCode = 'BNR'): ?FxRateWithProvenance
+    {
+        /** @var FxSource|null $source */
+        $source = FxSource::query()->where('code', $sourceCode)->first();
+
+        if ($source === null) {
+            return null;
+        }
+
+        /** @var FxRate|null $rate */
+        $rate = FxRate::query()
+            ->where('fx_source_id', $source->id)
+            ->where('currency_code', strtoupper($currencyCode))
+            ->whereDate('rate_date', '<=', $date->format('Y-m-d'))
+            ->orderByDesc('rate_date')
+            ->first();
+
+        return $rate === null ? null : $this->describe($rate, $sourceCode);
+    }
+
     private function find(string $currencyCode, DateTimeImmutable $date, string $sourceCode): FxRateWithProvenance
     {
         $dateString = $date->format('Y-m-d');
@@ -61,6 +101,18 @@ final readonly class FxRateQuery
             throw FxRateNotFoundException::forQuery($sourceCode, $currencyCode, $dateString);
         }
 
+        return $this->describe($rate, $sourceCode);
+    }
+
+    /**
+     * One `fx_rates` row as the value object callers receive, provenance and all.
+     *
+     * Shared by the strict lookup and the display-only one so the two can never disagree about how
+     * a published rate becomes a per-unit rate — the division by `multiplier` in particular, which
+     * is what makes a rate quoted per 100 HUF comparable with one quoted per 1 EUR.
+     */
+    private function describe(FxRate $rate, string $sourceCode): FxRateWithProvenance
+    {
         $published = DecimalRate::fromString((string) $rate->rate_decimal);
         $perUnit = $published->divideByInt($rate->multiplier, self::DIVISION_SCALE);
 

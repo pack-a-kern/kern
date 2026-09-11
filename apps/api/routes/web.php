@@ -25,7 +25,6 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
 
     Route::get('/documents', fn () => Inertia::render('documents/inbox'))->name('documents.inbox');
-    Route::get('/documents/capture', fn () => Inertia::render('documents/capture'))->name('documents.capture');
     Route::get('/documents/{document}/review', fn (string $document) => Inertia::render('documents/review', [
         'documentId' => $document,
     ]))->name('documents.review');
@@ -42,7 +41,7 @@ Route::middleware('auth')->group(function (): void {
      */
     Route::get('/portofel', fn () => Inertia::render('wallet/overview'))->name('wallet.overview');
     Route::get('/portofel/conturi', fn () => Inertia::render('wallet/accounts'))->name('wallet.accounts');
-    Route::get('/portofel/depozite', fn () => Inertia::render('wallet/deposits'))->name('wallet.deposits');
+    Route::get('/portofel/tranzactii', fn () => Inertia::render('wallet/transactions'))->name('wallet.transactions');
 
     Route::get('/chirii', fn () => Inertia::render('rentals'))->name('rentals');
 

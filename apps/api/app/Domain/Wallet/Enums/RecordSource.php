@@ -24,4 +24,14 @@ enum RecordSource: string
     case MANUAL = 'MANUAL';
     case IMPORT = 'IMPORT';
     case BANK_SYNC = 'BANK_SYNC';
+
+    /**
+     * Created from an uploaded document — a receipt, an invoice, a line of a bank statement.
+     *
+     * Beyond `BLUEPRINT.md` §6.3's original three, and deliberately so: "someone typed this in" and
+     * "this came from a document that is still in the object store, with its hash and its scan
+     * record" are not the same provenance, and a row that could not tell them apart would make the
+     * document link unverifiable from the transaction's own side.
+     */
+    case DOCUMENT = 'DOCUMENT';
 }

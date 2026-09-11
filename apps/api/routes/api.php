@@ -23,11 +23,17 @@ use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TotpController;
 use App\Http\Controllers\Api\V1\Documents\AcceptDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\CorrectDocumentExtractionController;
+use App\Http\Controllers\Api\V1\Documents\CreateTransactionFromDocumentController;
+use App\Http\Controllers\Api\V1\Documents\DeleteDocumentController;
 use App\Http\Controllers\Api\V1\Documents\DocumentAiConsentController;
 use App\Http\Controllers\Api\V1\Documents\ListDocumentExtractionsController;
+use App\Http\Controllers\Api\V1\Documents\ListDocumentsController;
+use App\Http\Controllers\Api\V1\Documents\RenameDocumentController;
+use App\Http\Controllers\Api\V1\Documents\RetryDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentAiConsentsController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentContentController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentController;
+use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
@@ -47,6 +53,17 @@ use App\Http\Controllers\Api\V1\Settings\UpdateAiSettingsController;
 use App\Http\Controllers\Api\V1\Settings\UpdateSettingsGroupController;
 use App\Http\Controllers\Api\V1\Subjects\ListSubjectsController;
 use App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController;
+use App\Http\Controllers\Api\V1\Wallet\DeleteAccountController;
+use App\Http\Controllers\Api\V1\Wallet\DeleteTransactionController;
+use App\Http\Controllers\Api\V1\Wallet\OpenAccountController;
+use App\Http\Controllers\Api\V1\Wallet\RecordBalanceController;
+use App\Http\Controllers\Api\V1\Wallet\RecordTransactionController;
+use App\Http\Controllers\Api\V1\Wallet\ShowAccountsController;
+use App\Http\Controllers\Api\V1\Wallet\ShowTransactionsController;
+use App\Http\Controllers\Api\V1\Wallet\ShowWalletOverviewController;
+use App\Http\Controllers\Api\V1\Wallet\UpdateAccountController;
+use App\Http\Controllers\Api\V1\Wallet\UpdateDisplayCurrencyController;
+use App\Http\Controllers\Api\V1\Wallet\UpdateTransactionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -111,15 +128,65 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
 Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])->group(function (): void {
     Route::post('documents', UploadDocumentController::class)
         ->middleware('throttle:documents-upload-per-subject');
+    // The subject's own documents, from the server rather than from whichever device uploaded them.
+    Route::get('documents', ListDocumentsController::class);
     Route::get('documents/{document}', ShowDocumentController::class);
+    // Removes the row, its derivatives and the encrypted bytes. A transaction built from it keeps
+    // its own row with a null link — the figure was real; only its evidence is gone.
+    // Naming a document something recognisable; until then it is shown under its content hash.
+    Route::patch('documents/{document}', RenameDocumentController::class);
+    Route::delete('documents/{document}', DeleteDocumentController::class);
     Route::get('documents/{document}/content', ShowDocumentContentController::class);
+    // What was done to this document: the virus-scan records, and this document's own entries in
+    // the subject's audit chain. Subject-scoped, unlike the cross-tenant /v1/audit screens.
+    Route::get('documents/{document}/history', ShowDocumentHistoryController::class);
+    // The bridge: a reviewed document becomes a wallet transaction that keeps it as evidence. A
+    // person does this, so the figures are the ones they saw and agreed to.
+    Route::post('documents/{document}/transaction', CreateTransactionFromDocumentController::class);
 
     Route::get('documents/{document}/extractions', ListDocumentExtractionsController::class);
+    // The remedy offered next to a recorded extraction failure on the review screen.
+    Route::post('documents/{document}/extractions/retry', RetryDocumentExtractionController::class);
     Route::post('documents/{document}/extractions/{extraction}/accept', AcceptDocumentExtractionController::class);
     Route::post('documents/{document}/extractions/{extraction}/correct', CorrectDocumentExtractionController::class);
 
     Route::post('document-ai-consent', [DocumentAiConsentController::class, 'store']);
     Route::delete('document-ai-consent', [DocumentAiConsentController::class, 'destroy']);
+
+    /*
+     * Wallet (`BLUEPRINT.md` §6.4) — accounts, deposits and their totals for the active tax
+     * subject.
+     *
+     * The writes are thin over `App\Domain\Wallet\Actions\*`, which own the encryption of the
+     * display name and IBAN and the rate-coverage rule on a deposit. Nothing is reimplemented in the
+     * HTTP layer, so a record created from the screen is the same shape as one a future import
+     * produces.
+     *
+     * Inside the `{subject}` group deliberately: every Wallet model is `ScopedToTaxSubject`, so
+     * these rows only exist relative to one subject and the `tax-subject` middleware binds it
+     * before any query runs.
+     */
+    Route::get('wallet/overview', ShowWalletOverviewController::class);
+    // Which currency this subject's totals are added up in. A display preference — never a fiscal
+    // conversion, which each tax rule decides for itself with its own provenance.
+    Route::put('wallet/display-currency', UpdateDisplayCurrencyController::class);
+    Route::get('wallet/accounts', ShowAccountsController::class);
+    // One endpoint for every kind of account. A TERM_DEPOSIT carries its deposit terms in the same
+    // request — opening a deposit also computes its full interest schedule, since everything the
+    // calculation needs is fixed at that moment.
+    Route::post('wallet/accounts', OpenAccountController::class);
+    // Editing is a PATCH of only what changed; deleting is refused while anything still explains a
+    // figure through the account, which is what `closed_at` is for instead. Every mutation writes an
+    // audit event — an edit nobody recorded is indistinguishable from one that never happened.
+    Route::patch('wallet/accounts/{account}', UpdateAccountController::class)->where('account', '[0-9a-f-]{36}');
+    Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
+    Route::post('wallet/accounts/{account}/balance', RecordBalanceController::class)->where('account', '[0-9a-f-]{36}');
+
+
+    Route::get('wallet/transactions', ShowTransactionsController::class);
+    Route::post('wallet/transactions', RecordTransactionController::class);
+    Route::patch('wallet/transactions/{transaction}', UpdateTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
+    Route::delete('wallet/transactions/{transaction}', DeleteTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
 });
 
 /*

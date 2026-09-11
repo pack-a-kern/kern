@@ -1,16 +1,21 @@
-import { ApiError, apiRequest, apiRequestBinary } from '../lib/http';
-import { type CursorPage, parseJson, vBoolean, vObject } from '../lib/validate';
+import { ApiError, apiRequest, apiRequestBinary, apiUpload } from '../lib/http';
+import { type CursorPage, parseJson, vBoolean, vObject, vString } from '../lib/validate';
 import {
     type AcceptedExtraction,
+    type DocumentListItem,
     type CorrectedExtraction,
     type DocumentExtractionSummary,
+    type DocumentStatus,
+    type DocumentHistory,
     type DocumentSummary,
     type DocumentType,
     type UploadAccepted,
     parseAcceptedExtraction,
     parseCorrectedExtraction,
     parseDocumentExtractionsPage,
+    parseDocumentHistory,
     parseDocumentSummary,
+    parseDocumentsPage,
     parseUploadAccepted,
 } from '../types/documents';
 
@@ -41,16 +46,14 @@ export async function uploadDocument(
     type: DocumentType,
     file: File | Blob,
     filename: string,
+    onProgress?: (fraction: number) => void,
 ): Promise<UploadAccepted> {
     const form = new FormData();
     form.set('type', type);
     form.set('file', file, filename);
 
     try {
-        const text = await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/documents`, {
-            method: 'POST',
-            body: form,
-        });
+        const text = await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/documents`, form, onProgress);
 
         return parseUploadAccepted(text);
     } catch (error) {
@@ -58,8 +61,86 @@ export async function uploadDocument(
             throw new DocumentRejectedError(error.reason, error.message);
         }
 
+        // The subject already holds these exact bytes. Not a failure to retry — retrying is what
+        // produced it — so it gets its own type rather than being lumped in with transport errors.
+        if (error instanceof ApiError && error.status === 409 && error.reason === 'DUPLICATE_DOCUMENT') {
+            throw new DocumentDuplicateError(error.message);
+        }
+
         throw error;
     }
+}
+
+/**
+ * The subject already has a byte-identical document.
+ *
+ * Identity is the content hash, not the filename — see
+ * `App\Domain\Documents\Exceptions\DuplicateDocumentException`.
+ */
+export class DocumentDuplicateError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'DocumentDuplicateError';
+    }
+}
+
+/** Filters the inbox offers. Every one is a column stored in clear; see {@link listDocuments}. */
+export interface DocumentListFilters {
+    status?: DocumentStatus;
+    type?: DocumentType;
+    receivedFrom?: string;
+    receivedTo?: string;
+    needsReview?: boolean;
+}
+
+/**
+ * `GET /api/v1/subjects/{subject}/documents` — this subject's documents, newest first.
+ *
+ * The list comes from the server, not from this device's IndexedDB. That cache still exists and
+ * still earns its keep offline, but it only ever held what *this* browser uploaded — so a document
+ * captured on a phone was invisible on a laptop, and clearing site data emptied the screen while
+ * the documents themselves sat safely in the object store.
+ *
+ * There is no filename search: the column is encrypted with a random nonce and so is not
+ * searchable. Filtering is on the metadata stored in clear.
+ */
+export async function listDocuments(
+    subjectId: string,
+    filters: DocumentListFilters = {},
+    cursor: string | null = null,
+): Promise<CursorPage<DocumentListItem>> {
+    const query = new URLSearchParams();
+
+    if (filters.status !== undefined) {
+        query.set('status', filters.status);
+    }
+
+    if (filters.type !== undefined) {
+        query.set('type', filters.type);
+    }
+
+    if (filters.receivedFrom !== undefined && filters.receivedFrom !== '') {
+        query.set('received_from', filters.receivedFrom);
+    }
+
+    if (filters.receivedTo !== undefined && filters.receivedTo !== '') {
+        query.set('received_to', filters.receivedTo);
+    }
+
+    if (filters.needsReview === true) {
+        query.set('needs_review', '1');
+    }
+
+    if (cursor !== null && cursor !== '') {
+        // `URLSearchParams` escapes this for us. It matters: the cursor is base64 and a bare `+`
+        // in a query string decodes to a space, which the server then discards as malformed —
+        // silently serving the first page again instead of the next one.
+        query.set('cursor', cursor);
+    }
+
+    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+
+    return parseDocumentsPage(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/documents${suffix}`));
 }
 
 /**
@@ -73,6 +154,67 @@ export async function fetchDocument(subjectId: string, documentId: string): Prom
     );
 
     return parseDocumentSummary(text);
+}
+
+/**
+ * `GET .../documents/{id}/history` — the virus-scan records and this document's own audit-chain
+ * entries.
+ *
+ * Subject-scoped, unlike the `/v1/audit` screens that span every tax subject and sit behind an
+ * administrator permission. Being unable to answer "was my document scanned?" without an
+ * administrator is not a security property.
+ */
+export async function fetchDocumentHistory(subjectId: string, documentId: string): Promise<DocumentHistory> {
+    return parseDocumentHistory(
+        await apiRequest(
+            `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}/history`,
+        ),
+    );
+}
+
+/** Fields the "create transaction from this document" form sends. */
+export interface CreateTransactionFromDocumentRequest {
+    account_id: string;
+    /** Signed minor units — the sign *is* the direction, so out is negative and in is positive. */
+    amount_minor: number;
+    currency_code: string;
+    booked_at: string;
+    description: string;
+    counterparty?: string;
+    /** Which reading of the document was trusted, when one was. */
+    document_extraction_id?: string;
+}
+
+/**
+ * `POST .../documents/{id}/transaction` — turn a document into a wallet transaction that keeps it
+ * as evidence.
+ *
+ * The figures travel in the request rather than being re-derived server-side from the extraction,
+ * so what reaches the ledger is what the person actually saw and agreed to. A document no parser
+ * could read becomes a transaction the same way — they type what they see, and the document is
+ * attached identically.
+ */
+export async function createTransactionFromDocument(
+    subjectId: string,
+    documentId: string,
+    body: CreateTransactionFromDocumentRequest,
+): Promise<void> {
+    await apiRequest(
+        `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}/transaction`,
+        { method: 'POST', body: { ...body } },
+    );
+}
+
+/**
+ * `DELETE .../documents/{id}` — remove a document, its derivatives and the encrypted bytes.
+ *
+ * A transaction built from it keeps its own row with a null document link: the figure was real, and
+ * losing its evidence is a loss of provenance rather than a reason to change someone's income.
+ */
+export async function deleteDocument(subjectId: string, documentId: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}`, {
+        method: 'DELETE',
+    });
 }
 
 export async function grantDocumentAiConsent(subjectId: string): Promise<boolean> {
@@ -136,6 +278,39 @@ export async function fetchDocumentExtractions(
  * written. Never called automatically (`BLUEPRINT.md` §14.6); always the direct result of a user
  * clicking "Acceptă".
  */
+/**
+ * `POST .../extractions/retry` — run the reading step again for a document that produced no
+ * proposal.
+ *
+ * Returns nothing: the reading happens on the queue, and the outcome arrives over the documents
+ * channel as `DocumentAiExtractionFinished` or `DocumentExtractionProposed`. A 409 from the server
+ * (already proposed, or not ready) surfaces as an `ApiError` for the caller to show.
+ */
+export async function retryDocumentExtraction(subjectId: string, documentId: string): Promise<void> {
+    await apiRequest(`${documentExtractionsPath(subjectId, documentId)}/retry`, { method: 'POST' });
+}
+
+/**
+ * `PATCH .../documents/{document}` — name a document, or clear the name with `null` to return it to
+ * its hash-derived one. Resolves to whatever it is now called.
+ */
+export async function renameDocument(
+    subjectId: string,
+    documentId: string,
+    displayName: string | null,
+): Promise<string> {
+    const text = await apiRequest(
+        `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}`,
+        { method: 'PATCH', body: { display_name: displayName } },
+    );
+
+    return parseRenamedDocument(text);
+}
+
+function parseRenamedDocument(text: string): string {
+    return parseJson(text, vObject({ id: vString, filename: vString })).filename;
+}
+
 export async function acceptDocumentExtraction(
     subjectId: string,
     documentId: string,

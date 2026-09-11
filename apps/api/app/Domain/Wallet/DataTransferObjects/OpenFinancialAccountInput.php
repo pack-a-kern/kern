@@ -18,6 +18,15 @@ final readonly class OpenFinancialAccountInput
         public ?string $openedAt = null,
         public ?string $closedAt = null,
         public ?string $metadataJson = null,
+        /**
+         * Required when `kind` is `TERM_DEPOSIT`, forbidden otherwise — `OpenFinancialAccount`
+         * enforces both directions. That single check is what the old separate `deposits` table
+         * could never express: it allowed a TERM_DEPOSIT account with no deposit behind it, and a
+         * deposit belonging to no account.
+         */
+        public ?DepositTermsInput $depositTerms = null,
+        /** Who opened it, for the audit chain. Null for a system import with no person behind it. */
+        public ?string $actorId = null,
     ) {
     }
 }

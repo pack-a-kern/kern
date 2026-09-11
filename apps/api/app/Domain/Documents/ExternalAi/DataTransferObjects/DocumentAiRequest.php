@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\ExternalAi\DataTransferObjects;
 
+use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
 
@@ -29,6 +30,19 @@ final readonly class DocumentAiRequest
         public string $mimeType,
         public ?UntrustedDocumentText $extractedText,
         public AiProviderCredentials $credentials,
+        /**
+         * The document's own bytes, for a type nothing could read locally.
+         *
+         * Mutually exclusive with `$extractedText`: a PDF sends the text PyMuPDF already pulled
+         * out, a photograph sends the image. Sending both would ask the model to reconcile two
+         * versions of one document.
+         *
+         * Null for a document with usable text — which keeps the smaller, cheaper and more private
+         * path the default, exactly as ADR 0005 intends.
+         */
+        public ?DocumentContent $content = null,
+        /** Which document type's schema the reply must satisfy (`BLUEPRINT.md` §14.4). */
+        public ?DocumentType $documentType = null,
     ) {
     }
 }

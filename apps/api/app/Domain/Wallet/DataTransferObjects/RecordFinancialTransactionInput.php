@@ -27,6 +27,16 @@ final readonly class RecordFinancialTransactionInput
         public ?string $externalId = null,
         public array $splits = [],
         public RecordSource $source = RecordSource::MANUAL,
+        /** Who recorded it, for the audit chain. Null for an importer or a document parser. */
+        public ?string $actorId = null,
+        /**
+         * The document this came from, and which reading of it was trusted.
+         *
+         * Null for a transaction typed in with no paper behind it, which stays perfectly
+         * legitimate — `source` is what says which kind this is.
+         */
+        public ?string $documentId = null,
+        public ?string $documentExtractionId = null,
     ) {
     }
 }

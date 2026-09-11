@@ -12,6 +12,8 @@ use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use RuntimeException;
 
 /**
@@ -69,6 +71,40 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
         'iban_ciphertext' => Encrypted::class,
         'metadata_ciphertext' => Encrypted::class,
     ];
+
+    /**
+     * The extra facts that make this account a term deposit, or null for every other kind.
+     *
+     * A `HasOne` rather than columns on this table: nullable deposit columns would let a current
+     * account carry a maturity date and a day-count convention, and nothing in the schema would
+     * object. Here the terms are either wholly present or wholly absent.
+     *
+     * @return HasOne<DepositTerms, $this>
+     */
+    public function depositTerms(): HasOne
+    {
+        return $this->hasOne(DepositTerms::class, 'account_id');
+    }
+
+    /**
+     * The rate periods covering this deposit's life, oldest first.
+     *
+     * A series rather than one rate, because a variable-rate deposit changes rate mid-term and
+     * every past interest figure must stay reproducible against the rate that actually applied
+     * then. Empty for an account that is not a deposit.
+     *
+     * @return HasMany<DepositRatePeriod, $this>
+     */
+    public function depositRatePeriods(): HasMany
+    {
+        return $this->hasMany(DepositRatePeriod::class, 'account_id')->orderBy('valid_from');
+    }
+
+    /** @return HasMany<DepositInterestEvent, $this> */
+    public function depositInterestEvents(): HasMany
+    {
+        return $this->hasMany(DepositInterestEvent::class, 'account_id')->orderBy('accrual_from');
+    }
 
     public function encryptionSubjectId(): string
     {

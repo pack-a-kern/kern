@@ -123,9 +123,11 @@ final readonly class UpdateSettingsGroupController
     private function normalize(SettingKey $key, mixed $value): ?string
     {
         return match ($key->type()) {
+            // Encoded through the type, so the writer and every reader share one definition of
+            // what a stored boolean looks like.
             SettingType::BOOLEAN => match (true) {
-                is_bool($value) => $value ? '1' : '0',
-                $value === '1' || $value === '0' => (string) $value,
+                is_bool($value) => SettingType::encodeBoolean($value),
+                $value === SettingType::TRUE || $value === SettingType::FALSE => (string) $value,
                 default => null,
             },
             SettingType::INTEGER => is_int($value) || (is_string($value) && ctype_digit($value))

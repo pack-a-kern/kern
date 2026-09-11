@@ -23,7 +23,9 @@ import {
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import DisplayCurrencyCard from '../../components/wallet/DisplayCurrencyCard';
 import { ApiError } from '../../lib/http';
+import { getActiveSubjectId } from '../../lib/subjectStore';
 import type { TaxSubject } from '../../types/account';
 
 /** Initials for the avatar disc, from a display name rather than an email. */
@@ -41,6 +43,14 @@ function initialsFor(name: string): string {
  * scoped to one. That is why names and CNPs appear here and not on the profile screen, and why a
  * membership carries a role of its own.
  */
+/**
+ * The currency a subject's totals fall back to.
+ *
+ * RON because this is a Romanian tax product and the BNR quotes every other currency *against* RON
+ * — it is the one currency the conversion needs no cross-rate for.
+ */
+const DEFAULT_DISPLAY_CURRENCY = 'RON';
+
 export default function SettingsSubjects(): JSX.Element {
     const { t } = useTranslation();
 
@@ -86,6 +96,7 @@ export default function SettingsSubjects(): JSX.Element {
     }, [reloadToken, describeFailure, t]);
 
     const active = (subjects ?? []).filter((subject) => subject.status === 'ACTIVE').length;
+    const activeSubjectId = getActiveSubjectId();
     const owned = (subjects ?? []).filter((subject) => subject.role === 'OWNER').length;
 
     return (
@@ -194,6 +205,19 @@ export default function SettingsSubjects(): JSX.Element {
                         </DataTable>
                     )}
                 </Panel>
+
+                {/* The preference belongs to the *active* subject, so it only appears once one is
+                    chosen — a currency select with nothing to apply it to would be a control that
+                    silently does nothing. */}
+                {activeSubjectId === null ? null : (
+                    <DisplayCurrencyCard
+                        subjectId={activeSubjectId}
+                        value={
+                            (subjects ?? []).find((subject) => subject.id === activeSubjectId)?.displayCurrency ||
+                            DEFAULT_DISPLAY_CURRENCY
+                        }
+                    />
+                )}
             </Page>
 
             <AddSubjectDialog

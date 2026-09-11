@@ -30,8 +30,12 @@ const DOCUMENTS_STORE = 'knownDocuments';
  * FileSecurityValidator` returned a `422` with a closed `RejectionReason` for *this exact file*,
  * which will fail identically on every retry — so it is never retried automatically, only shown to
  * the user with the reason, to be removed or replaced with a different file.
+ *
+ * `duplicate` is permanent too, but for the opposite reason: nothing is wrong with the file — the
+ * subject simply already holds these exact bytes (`documents.sha256`). Retrying is precisely what
+ * caused it, so it is never retried; `remoteDocumentId` points at the copy already stored.
  */
-export type CaptureStatus = 'queued' | 'uploading' | 'uploaded' | 'failed' | 'rejected';
+export type CaptureStatus = 'queued' | 'uploading' | 'uploaded' | 'failed' | 'rejected' | 'duplicate';
 
 export interface CaptureItem {
     localId: string;

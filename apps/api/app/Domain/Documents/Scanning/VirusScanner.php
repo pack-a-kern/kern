@@ -24,4 +24,15 @@ interface VirusScanner
      *                                           verdict.
      */
     public function scan($stream): ScanOutcome;
+
+    /**
+     * What this scanner is, and what it is running — recorded on `document_scans` so a past verdict
+     * can be attributed to a specific engine and signature set.
+     *
+     * Unlike {@see self::scan()}, this must **never throw**. A scanner that answers a scan but not a
+     * version query is still a working scanner, and failing an upload over unavailable metadata
+     * would trade a document for a footnote. Unknown fields come back null, which is an honest
+     * "not recorded" rather than a guess.
+     */
+    public function describe(): ScannerDescription;
 }

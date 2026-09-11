@@ -6,6 +6,7 @@ namespace App\Domain\Documents\Scanning;
 
 use App\Domain\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * `App\Domain\Documents\Scanning\VirusScanner` against a real `clamd` daemon over its own
@@ -29,6 +30,11 @@ final readonly class ClamdVirusScanner implements VirusScanner
 {
     private const string COMMAND = "zINSTREAM\0";
 
+    private const string SCANNER_NAME = 'clamav';
+
+    /** Newline-framed, like `COMMAND` — clamd's `z`/`n` prefixes select the framing. */
+    private const string VERSION_COMMAND = "nVERSION\n";
+
     private const string OK_MARKER = 'stream: OK';
 
     private const string FOUND_MARKER = 'FOUND';
@@ -43,6 +49,44 @@ final readonly class ClamdVirusScanner implements VirusScanner
         if ($this->chunkSize < 1) {
             throw new InvalidArgumentException('chunkSize must be at least 1 byte.');
         }
+    }
+
+    /**
+     * clamd's `VERSION` reply is one line shaped like
+     * `ClamAV 1.4.3/27780/Tue Sep  9 09:12:05 2026` — engine, signature-database revision, and the
+     * date that database was published. The revision is the part that matters: it is what a future
+     * re-scan has to differ from for a past verdict to be worth revisiting.
+     *
+     * Never throws. A scanner that scans but will not say what it is stays usable — recording an
+     * unknown version is worth less than recording a known one, and infinitely more than refusing
+     * the document over it.
+     */
+    public function describe(): ScannerDescription
+    {
+        $socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->connectTimeoutSeconds);
+
+        if ($socket === false) {
+            return new ScannerDescription(self::SCANNER_NAME);
+        }
+
+        try {
+            stream_set_timeout($socket, (int) $this->streamTimeoutSeconds);
+            $this->writeAll($socket, self::VERSION_COMMAND);
+
+            $reply = trim((string) fgets($socket, 512));
+        } catch (Throwable) {
+            return new ScannerDescription(self::SCANNER_NAME);
+        } finally {
+            fclose($socket);
+        }
+
+        // `ClamAV <engine>/<definitions>/<date>` — anything else is recorded as unknown rather than
+        // guessed at, since a wrong version is worse than none.
+        if (! preg_match('#^ClamAV\s+([^/\s]+)/([^/\s]+)#', $reply, $matches)) {
+            return new ScannerDescription(self::SCANNER_NAME);
+        }
+
+        return new ScannerDescription(self::SCANNER_NAME, $matches[1], $matches[2]);
     }
 
     public function scan($stream): ScanOutcome

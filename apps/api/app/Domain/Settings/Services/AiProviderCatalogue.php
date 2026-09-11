@@ -97,6 +97,59 @@ final readonly class AiProviderCatalogue
     }
 
     /**
+     * How long one document extraction may take.
+     *
+     * Separate from {@see self::timeoutSeconds()} on purpose. That one bounds a *ping* — one token,
+     * answered in milliseconds — and 10 seconds is a sane ceiling for deciding a provider is dead.
+     * Reading a photograph on a self-hosted vision model is a different order of work: loading the
+     * model, then the image, then generating. Reusing the ping's ceiling would abandon every real
+     * extraction and report the provider as unreachable, which is exactly the wrong diagnosis.
+     *
+     * Runs on a queue worker, never in a request, so a long wait costs nobody a loading spinner.
+     */
+    public function extractionTimeoutSeconds(): int
+    {
+        $timeout = $this->config->get('ai_providers.extraction_timeout_seconds');
+
+        return is_int($timeout) && $timeout > 0 ? $timeout : 120;
+    }
+
+    /**
+     * The largest document that may be sent for a model to look at.
+     *
+     * Below the 15 MB an upload is allowed to be, deliberately. Base64 adds a third on top, a
+     * gateway's own body limit is usually smaller than either, and the browser already downscales
+     * a photograph to 2200px before uploading — so a file arriving above this is one that came in
+     * by some other path and is almost certainly larger than it needs to be.
+     *
+     * A document over the ceiling is not truncated. Half a receipt is not a smaller receipt.
+     */
+    public function extractionMaxImageBytes(): int
+    {
+        $max = $this->config->get('ai_providers.extraction_max_image_bytes');
+
+        return is_int($max) && $max > 0 ? $max : 8 * 1024 * 1024;
+    }
+
+    /**
+     * A ceiling on the reply, not the document.
+     *
+     * Bounds a model that ignores the instruction and starts narrating; without it, one runs until
+     * the timeout, costing money on a metered provider and a worker slot on a self-hosted one.
+     *
+     * Generous because a *reasoning* model spends the same budget thinking before it answers. A
+     * tighter cap does not truncate the JSON — it consumes the whole allowance on the chain of
+     * thought and returns empty `content`, which then fails schema validation and looks exactly
+     * like a model that could not read the document.
+     */
+    public function extractionMaxTokens(): int
+    {
+        $max = $this->config->get('ai_providers.extraction_max_tokens');
+
+        return is_int($max) && $max > 0 ? $max : 4096;
+    }
+
+    /**
      * @param  array<array-key, mixed>  $definition
      */
     private function hydrate(string $key, array $definition): AiProviderPreset

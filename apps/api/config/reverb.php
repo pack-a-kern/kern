@@ -88,7 +88,69 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                'allowed_origins' => [env('REVERB_ALLOWED_ORIGIN', env('APP_URL', 'http://localhost'))],
+                // Which page origins may open a websocket. Reverb closes anything else with
+                // `pusher:error` code 4009 ("Origin not allowed") — the handshake succeeds first, so
+                // the symptom is a socket that connects and then silently delivers nothing.
+                //
+                // **Reverb matches the HOST, not the URL.** Its check is, verbatim:
+                //
+                //     $origin = parse_url($connection->origin(), PHP_URL_HOST);
+                //     Str::is($allowedOrigin, $origin)
+                //
+                // so the pattern is compared against `your.server.ip`, never against
+                // `https://your.server.ip`. Laravel's own default of `APP_URL` is therefore broken
+                // out of the box for every host: a full URL can never equal a bare hostname, so the
+                // shipped configuration refuses every browser until someone reads this code.
+                //
+                // Both forms are accepted here and reduced to the host, because an operator writing
+                // an origin allowlist will reasonably write either, and being refused with an opaque
+                // 4009 for choosing the wrong one is not a useful lesson.
+                //
+                // Comma-separated, because one deployment legitimately has several: a server reached
+                // by bare IP during development, `localhost` for a tunnel, a real hostname later.
+                // `Str::is` patterns work, so `*.example.com` covers subdomains, and `*` allows
+                // everything — deliberately not the default, since this check is what stops a page
+                // on another site from opening a socket against this one with a visitor's cookies.
+                //
+                // A candidate that is present but blank is skipped rather than accepted as an empty
+                // list — which is exactly what a compose `environment:` entry with no value
+                // produces, and would otherwise mean "no origin is allowed", locking everyone out
+                // with the same opaque 4009 this setting exists to explain.
+                'allowed_origins' => (static function (): array {
+                    foreach (['REVERB_ALLOWED_ORIGINS', 'REVERB_ALLOWED_ORIGIN', 'APP_URL'] as $key) {
+                        $value = env($key);
+
+                        if (! is_string($value)) {
+                            continue;
+                        }
+
+                        $origins = [];
+
+                        foreach (explode(',', $value) as $candidate) {
+                            $candidate = trim($candidate);
+
+                            if ($candidate === '') {
+                                continue;
+                            }
+
+                            // `*` and bare hostnames pass through untouched; a full URL is reduced
+                            // to the host Reverb will actually compare against.
+                            $host = str_contains($candidate, '://')
+                                ? parse_url($candidate, PHP_URL_HOST)
+                                : $candidate;
+
+                            if (is_string($host) && $host !== '') {
+                                $origins[] = $host;
+                            }
+                        }
+
+                        if ($origins !== []) {
+                            return $origins;
+                        }
+                    }
+
+                    return ['localhost'];
+                })(),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),

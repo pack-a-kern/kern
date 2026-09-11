@@ -19,4 +19,18 @@ enum ExtractorType: string
     case NATIVE_PDF_TEXT = 'NATIVE_PDF_TEXT';
     case EXTERNAL_DOCUMENT_AI = 'EXTERNAL_DOCUMENT_AI';
     case HUMAN_CORRECTION = 'HUMAN_CORRECTION';
+
+    /**
+     * A deterministic parser built for one document shape — a bank's statement layout, a receipt's
+     * fiscal footer.
+     *
+     * Kept apart from `EXTERNAL_DOCUMENT_AI` because the two differ in the way that matters: a
+     * parser's output is reproducible from the same bytes forever, and a model's is not. When a
+     * figure has to be defended years later, "this pattern matched this text" is an argument;
+     * "a model said so in 2026" is not.
+     *
+     * For the layouts it recognises a parser is also simply more accurate than a model, and needs
+     * no consent, no network call and no provider — which is why the pipeline tries parsers first.
+     */
+    case PATTERN_PARSER = 'PATTERN_PARSER';
 }

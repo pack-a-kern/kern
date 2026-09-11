@@ -86,6 +86,7 @@ export function subscribeToDocumentsChannel(subjectId: string, handlers: Documen
         'DocumentTextExtracted',
         'DocumentTextExtractionRejected',
         'DocumentExtractionProposed',
+        'DocumentAiExtractionFinished',
     ];
 
     const listener = (raw: unknown): void => {

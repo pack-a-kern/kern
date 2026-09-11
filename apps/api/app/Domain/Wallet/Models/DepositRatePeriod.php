@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id
  * @property string $tax_subject_id
- * @property string $deposit_id
+ * @property string $account_id
  * @property \Illuminate\Support\Carbon $valid_from
  * @property \Illuminate\Support\Carbon|null $valid_to
  * @property string $annual_rate_decimal
@@ -33,7 +33,7 @@ final class DepositRatePeriod extends Model
     /** @var list<string> */
     protected $fillable = [
         'tax_subject_id',
-        'deposit_id',
+        'account_id',
         'valid_from',
         'valid_to',
         'annual_rate_decimal',
@@ -45,9 +45,9 @@ final class DepositRatePeriod extends Model
         'valid_to' => 'date',
     ];
 
-    /** @return BelongsTo<Deposit, $this> */
+    /** @return BelongsTo<DepositTerms, $this> */
     public function deposit(): BelongsTo
     {
-        return $this->belongsTo(Deposit::class, 'deposit_id');
+        return $this->belongsTo(DepositTerms::class, 'account_id', 'account_id');
     }
 }

@@ -120,7 +120,14 @@ return static function (DeptracConfig $config): void {
             // DepositInterestFxAnnotator calls App\Domain\Fx\Services\FxRateQuery, the sanctioned
             // cross-module entry point docs/handoff/014-source-registry-bnr.md documents — Wallet
             // never imports a Fx or Subjects Eloquent model directly.
-            Ruleset::forLayer($wallet)->accesses($support, $subjects, $fx),
+            // Wallet -> Audit: `App\Domain\Wallet\Services\WalletAudit` records every account and
+            // transaction change in the subject's append-only hash chain, through
+            // `AuditChainService` and `AuditEventInput` — the same application-service crossing
+            // `Documents` already makes for extraction review, and for the same reason. A wallet
+            // record is a figure a tax return is computed from; an edit nobody recorded is
+            // indistinguishable from an edit that never happened. Wallet never touches an Audit
+            // Eloquent model, only the service that owns the chain's invariants.
+            Ruleset::forLayer($wallet)->accesses($support, $subjects, $fx, $audit),
             // TaxEngine -> Subjects: App\Domain\TaxEngine\Models\{TaxFact,TaxAssessment} use
             // App\Domain\Subjects\Tenancy\ScopedToTaxSubject (a trait, not a model import) and
             // App\Domain\TaxEngine\Repositories\TaxFactRepository references

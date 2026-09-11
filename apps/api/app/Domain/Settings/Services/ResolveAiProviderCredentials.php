@@ -6,6 +6,7 @@ namespace App\Domain\Settings\Services;
 
 use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
 use App\Domain\Settings\Enums\SettingKey;
+use App\Domain\Settings\Enums\SettingType;
 use App\Domain\Settings\Repositories\SettingsRepository;
 
 /**
@@ -31,10 +32,11 @@ final readonly class ResolveAiProviderCredentials
 
     public function __invoke(): AiProviderCredentials
     {
-        $enabledRaw = $this->settings->get(SettingKey::AI_ENABLED);
-        $enabled = $enabledRaw !== null
-            ? $enabledRaw === 'true'
-            : (bool) config('settings.ai.env_fallback.enabled', false);
+        // Decoded through the type that owns the format, not by comparing to a literal here — the
+        // literal was `'true'` while the update endpoint stored `'1'`, so this switch read as off
+        // however it was set.
+        $enabled = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_ENABLED))
+            ?? (bool) config('settings.ai.env_fallback.enabled', false);
 
         return new AiProviderCredentials(
             enabled: $enabled,

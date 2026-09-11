@@ -66,6 +66,8 @@ final class ListSubjectsForUser
                 displayName: $subject->display_name_ciphertext ?? '',
                 status: $subject->status,
                 role: $membership->role,
+                // Stored in clear, so no decrypt: it is a preference, not personal data.
+                displayCurrency: $subject->display_currency,
             );
         });
     }

@@ -62,6 +62,7 @@ final class TaxSubject extends Model implements EncryptsWithSubjectDek
         'fiscal_identifier_blind_index',
         'fiscal_identifier_kind',
         'status',
+        'display_currency',
     ];
 
     /** @var array<string, string> */

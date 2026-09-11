@@ -10,6 +10,7 @@ use App\Domain\Documents\Events\DocumentScanned;
 use App\Domain\Documents\Jobs\ProcessScannedDocument;
 use App\Domain\Documents\Jobs\ScanQuarantinedDocument;
 use App\Domain\Documents\Models\Document;
+use App\Domain\Documents\Models\DocumentScan;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ClamdVirusScanner;
 use App\Domain\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
@@ -21,9 +22,11 @@ use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
 use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Tests\Fakes\FakeVirusScanner;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\Fixtures\Documents\FileFixtures;
@@ -72,12 +75,7 @@ it('rejects an infected document, deletes it from quarantine, and never promotes
     $document = Document::factory()->create(['mime_type' => 'application/pdf']);
     $key = putInQuarantine($document, FileFixtures::minimalPdf());
 
-    $this->app->instance(VirusScanner::class, new class () implements VirusScanner {
-        public function scan($stream): ScanOutcome
-        {
-            return ScanOutcome::INFECTED;
-        }
-    });
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::INFECTED));
 
     ScanQuarantinedDocument::dispatchSync($document->id);
 
@@ -104,12 +102,7 @@ it('promotes a clean document out of quarantine into the real store and continue
     $document = Document::factory()->create(['mime_type' => 'application/pdf']);
     $key = putInQuarantine($document, $content);
 
-    $this->app->instance(VirusScanner::class, new class () implements VirusScanner {
-        public function scan($stream): ScanOutcome
-        {
-            return ScanOutcome::CLEAN;
-        }
-    });
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::CLEAN));
 
     ScanQuarantinedDocument::dispatchSync($document->id);
 
@@ -138,12 +131,7 @@ it('blocks the document — never promoting it — when the scanner is unreachab
     $document = Document::factory()->create(['mime_type' => 'application/pdf']);
     $key = putInQuarantine($document, $content);
 
-    $this->app->instance(VirusScanner::class, new class () implements VirusScanner {
-        public function scan($stream): ScanOutcome
-        {
-            throw VirusScannerUnavailableException::connectionFailed('clamav', 3310);
-        }
-    });
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::unavailable());
 
     expect(fn () => ScanQuarantinedDocument::dispatchSync($document->id))
         ->toThrow(VirusScannerUnavailableException::class);
@@ -197,3 +185,85 @@ it('rejects a real EICAR-infected document via a real ClamAV daemon, through the
     expect(fn () => app(QuarantineObjectStore::class)->get($key))->toThrow(ObjectNotFoundException::class);
     expect(fn () => app(EncryptedObjectStore::class)->get($key))->toThrow(ObjectNotFoundException::class);
 })->skip(fn (): bool => liveClamavUnavailable(), 'Set CLAMAV_TEST_HOST/CLAMAV_TEST_PORT to run against a live ClamAV daemon.');
+
+it('records what scanned the document, and against which definitions', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf']);
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::CLEAN));
+
+    ScanQuarantinedDocument::dispatchSync($document->id);
+
+    $scan = DocumentScan::query()->where('document_id', $document->id)->sole();
+
+    // The point of the row: "this document was scanned, then, by that engine, against those
+    // definitions" — a question `documents.status` alone could never answer.
+    expect($scan->outcome)->toBe(ScanOutcome::CLEAN)
+        ->and($scan->scanner)->toBe('clamav')
+        ->and($scan->scanner_version)->toBe('1.5.4')
+        ->and($scan->definitions_version)->toBe('28118')
+        ->and($scan->scanned_at)->not->toBeNull()
+        ->and($scan->duration_ms)->toBeGreaterThanOrEqual(0);
+});
+
+it('records the scan for an infected document too, not only a clean one', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf']);
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::INFECTED));
+
+    ScanQuarantinedDocument::dispatchSync($document->id);
+
+    // A rejection is the outcome most worth being able to defend later.
+    expect(DocumentScan::query()->where('document_id', $document->id)->sole()->outcome)
+        ->toBe(ScanOutcome::INFECTED);
+});
+
+it('still records a scan when the scanner will not report its version', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf']);
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    // Unknown versions are recorded as null rather than blocking the document — an unattributed
+    // scan is worth less than an attributed one and far more than none.
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returningWithoutVersion(ScanOutcome::CLEAN));
+
+    ScanQuarantinedDocument::dispatchSync($document->id);
+
+    $scan = DocumentScan::query()->where('document_id', $document->id)->sole();
+
+    expect($scan->outcome)->toBe(ScanOutcome::CLEAN)
+        ->and($scan->scanner_version)->toBeNull()
+        ->and($scan->definitions_version)->toBeNull();
+});
+
+it('writes no scan row when the scanner never produced a verdict', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf']);
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::unavailable());
+
+    expect(fn () => ScanQuarantinedDocument::dispatchSync($document->id))
+        ->toThrow(VirusScannerUnavailableException::class);
+
+    // The absence of a row is the honest state: nothing scanned this document. A row saying
+    // otherwise would be the one lie this table exists to prevent.
+    expect(DocumentScan::query()->where('document_id', $document->id)->count())->toBe(0);
+});
+
+it('adds the scan to the subject audit chain without naming the malware', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf']);
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::INFECTED));
+
+    ScanQuarantinedDocument::dispatchSync($document->id);
+
+    $event = DB::table('audit_events')
+        ->where('resource_id', $document->id)
+        ->where('event_type', 'DocumentScanned')
+        ->sole();
+
+    expect($event->subject_id)->toBe($document->tax_subject_id)
+        // No person scanned this. Recording the uploader would read as though they had.
+        ->and($event->actor_id)->toBeNull();
+});

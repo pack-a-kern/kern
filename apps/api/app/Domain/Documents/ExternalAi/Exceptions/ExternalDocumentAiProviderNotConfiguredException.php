@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\ExternalAi\Exceptions;
 
+use App\Domain\Documents\Enums\AiExtractionOutcome;
+use App\Domain\Documents\ExternalAi\ExplainsAiExtractionOutcome;
 use RuntimeException;
 
 /**
@@ -13,8 +15,10 @@ use RuntimeException;
  * leave the document exactly where it was (`BLUEPRINT.md` §34 "no auto-submit fără review" extends
  * here as "no auto-fallback for an unmade business decision").
  */
-final class ExternalDocumentAiProviderNotConfiguredException extends RuntimeException
+final class ExternalDocumentAiProviderNotConfiguredException extends RuntimeException implements ExplainsAiExtractionOutcome
 {
+    private AiExtractionOutcome $outcome = AiExtractionOutcome::NOT_SENT_PROVIDER_UNCONFIGURED;
+
     public static function noProviderBound(): self
     {
         return new self(
@@ -34,9 +38,18 @@ final class ExternalDocumentAiProviderNotConfiguredException extends RuntimeExce
      */
     public static function disabledBySettings(): self
     {
-        return new self(
+        $exception = new self(
             'External document AI is disabled (ai.enabled=false in system settings). An ' .
             'administrator can enable it via PUT /api/v1/settings/ai.',
         );
+
+        $exception->outcome = AiExtractionOutcome::NOT_SENT_PROVIDER_DISABLED;
+
+        return $exception;
+    }
+
+    public function outcome(): AiExtractionOutcome
+    {
+        return $this->outcome;
     }
 }
