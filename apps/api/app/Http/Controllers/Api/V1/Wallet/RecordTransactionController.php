@@ -7,12 +7,15 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\RecordFinancialTransaction;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
+use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Controller;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * `POST /api/v1/subjects/{subject}/wallet/transactions` — record one transaction by hand.
@@ -38,6 +41,7 @@ final class RecordTransactionController extends Controller
         Request $request,
         RecordFinancialTransaction $record,
         TenantContext $tenant,
+        TaxCategoryCatalogue $categories,
     ): JsonResponse {
         $validated = $request->validate([
             // Only a source that receives transactions. A cash holding is one declared value and a
@@ -57,16 +61,23 @@ final class RecordTransactionController extends Controller
             'amount_minor' => ['required', 'integer', 'not_in:0'],
             'currency_code' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
             'booked_at' => ['required', 'date'],
-            // When the money actually moved, if that differs from when the bank booked it. Only
-            // `value_at` is meaningful for an accrual question; `booked_at` is the statement's view.
-            'value_at' => ['sometimes', 'nullable', 'date'],
             'description' => ['required', 'string', 'max:255'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:255'],
+
+            // What the money was, answered while it is being typed. Someone entering a transaction
+            // by hand already knows — asking again afterwards, in a separate dialog, is work for
+            // nothing. Optional: a row can be recorded now and answered from the worklist later,
+            // which is what imported and system-generated rows do.
+            'category_code' => ['sometimes', 'nullable', 'string', Rule::in($categories->codes())],
+            'country_code' => ['sometimes', 'nullable', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
         ]);
 
         // Tenant-scoped lookup: an account id belonging to another subject 404s here rather than
         // being written as a foreign key.
         FinancialAccount::query()->findOrFail((string) $validated['account_id']);
+
+        // Answered while it is being typed, or left for the worklist.
+        $category = $this->nullableString($validated, 'category_code');
 
         $transaction = $record(new RecordFinancialTransactionInput(
             taxSubjectId: $tenant->currentSubjectId(),
@@ -78,9 +89,13 @@ final class RecordTransactionController extends Controller
             // Encrypted at rest like the description: a counterparty name is personal data about
             // someone who never used this application.
             counterparty: is_string($validated['counterparty'] ?? null) ? $validated['counterparty'] : '',
-            valueAt: is_string($validated['value_at'] ?? null) ? $validated['value_at'] : null,
             source: RecordSource::MANUAL,
             actorId: $this->actorId($request),
+            splits: $category === null ? [] : [new TransactionSplitInput(
+                amountMinor: (int) $validated['amount_minor'],
+                categoryCode: $category,
+                countryCode: $this->nullableString($validated, 'country_code'),
+            )],
         ));
 
         $key = $transaction->getKey();
@@ -93,5 +108,13 @@ final class RecordTransactionController extends Controller
         $id = $request->user()?->getAuthIdentifier();
 
         return is_scalar($id) ? (string) $id : null;
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function nullableString(array $validated, string $key): ?string
+    {
+        $value = $validated[$key] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

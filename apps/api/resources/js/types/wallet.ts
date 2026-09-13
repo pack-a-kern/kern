@@ -130,7 +130,6 @@ export interface TransactionSummary {
     accountId: string;
     accountName: string;
     bookedAt: string;
-    valueAt: string | null;
     amountMinor: number;
     currencyCode: string;
     description: string;
@@ -453,7 +452,6 @@ export function parseTransactions(payload: unknown): TransactionPage {
                 accountId: str(row, 'account_id'),
                 accountName: str(row, 'account_name'),
                 bookedAt: str(row, 'booked_at'),
-                valueAt: nullableStr(row, 'value_at'),
                 amountMinor: num(row, 'amount_minor'),
                 currencyCode: str(row, 'currency_code'),
                 description: str(row, 'description'),

@@ -51,7 +51,6 @@ final readonly class RecordFinancialTransaction
                 'tax_subject_id' => $input->taxSubjectId,
                 'account_id' => $input->accountId,
                 'booked_at' => $input->bookedAt,
-                'value_at' => $input->valueAt,
                 'amount_minor' => $input->amountMinor,
                 'currency_code' => strtoupper($input->currencyCode),
                 'description_ciphertext' => $input->description,

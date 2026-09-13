@@ -255,7 +255,6 @@ final readonly class WalletQuery
                     accountId: $accountId,
                     accountName: $names[$accountId] ?? '',
                     bookedAt: $transaction->booked_at->toDateString(),
-                    valueAt: $transaction->value_at?->toDateString(),
                     amountMinor: (int) $transaction->amount_minor,
                     currencyCode: self::str($transaction->currency_code),
                     description: self::str($transaction->description_ciphertext),

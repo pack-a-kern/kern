@@ -1,17 +1,15 @@
 import { useState, type JSX } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { classifyTransaction } from '../../api/walletApi';
-import { Field, PanelButton, PanelDialog, PanelInput, PanelSelect } from '../../components/panel';
+import { Field, FieldGrid, PanelButton, PanelDialog, PanelSelect } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { useCountries } from './useCountries';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatMinor, type TaxCategory, type TransactionSummary } from '../../types/wallet';
 
-/** A row being edited. Amounts stay strings until save: a half-typed "4." is not a number yet. */
+/** The answer being given: what it was, and where it came from. */
 interface Draft {
-    amount: string;
     category: string;
     country: string;
 }
@@ -29,14 +27,13 @@ const DOMESTIC = 'RO';
  * all. This is where that answer is given, and every figure a tax return ever states is built from
  * it.
  *
- * ## Why splits, not a single category
+ * ## One answer per transaction
  *
- * One payment can be two things at once: 4.500 arriving of which 4.000 is rent and 500 the tenant
- * repaying a water bill. A single category would have to lose one of them, so the dialog opens with
- * one row and grows when the money needs more than one answer. The rows must add up to the
- * transaction exactly — they partition it rather than annotate it, and a remainder would be income
- * with no answer, silently missing from a return. The dialog shows what is left over and refuses to
- * save until it is zero.
+ * The whole amount gets one category. `transaction_splits` can hold several — one payment genuinely
+ * can be two things, 4.000 rent and 500 the tenant repaying a water bill — and the server still
+ * accepts that shape, so nothing has to be rebuilt if it is ever offered. It is not offered here:
+ * splitting is rare, and a form that leads with it makes every ordinary answer look like a
+ * calculation.
  *
  * ## Why the country is a separate field
  *
@@ -59,17 +56,13 @@ export default function ClassifyDialog(props: {
     const transaction = props.transaction;
 
     // Seeded from what the transaction already says, so reopening it shows the current answer rather
-    // than an empty form. A transaction nobody has answered for starts with one row holding the
-    // whole amount, which is the common case: one payment, one meaning.
+    // than an empty form.
     //
     // The parent keys this component by transaction id, so opening a different row remounts it and
     // re-seeds — simpler, and more obviously correct, than syncing state to a prop in an effect.
-    const [drafts, setDrafts] = useState<Draft[]>(() => seed(transaction));
+    const [draft, setDraft] = useState<Draft>(() => seed(transaction));
 
-    const total = transaction.amountMinor;
-    const assigned = drafts.reduce((sum, draft) => sum + toMinor(draft.amount), 0);
-    const remainder = total - assigned;
-    const complete = drafts.length > 0 && remainder === 0 && drafts.every((draft) => draft.category !== '');
+    const complete = draft.category !== '';
 
     const save = async (): Promise<void> => {
         setSaving(true);
@@ -78,14 +71,17 @@ export default function ClassifyDialog(props: {
             await classifyTransaction(
                 props.subjectId,
                 transaction.id,
-                drafts.map((draft) => ({
-                    amount_minor: toMinor(draft.amount),
-                    category_code: draft.category,
-                    // Romania is the absence of a country, not a value: the column means "somewhere
-                    // other than here", and storing RO everywhere would make the foreign rows
-                    // indistinguishable from the domestic ones by query.
-                    country_code: draft.country === DOMESTIC ? null : draft.country,
-                })),
+                [
+                    {
+                        // The whole amount: one transaction, one answer.
+                        amount_minor: transaction.amountMinor,
+                        category_code: draft.category,
+                        // Romania is the absence of a country, not a value: the column means
+                        // "somewhere other than here", and storing RO everywhere would make the
+                        // foreign rows indistinguishable from the domestic ones by query.
+                        country_code: draft.country === DOMESTIC ? null : draft.country,
+                    },
+                ],
             );
 
             toast.success(t((d) => d.pages.walletTransactions.classify.saved));
@@ -117,9 +113,6 @@ export default function ClassifyDialog(props: {
         }
     };
 
-    const update = (index: number, patch: Partial<Draft>): void => {
-        setDrafts((current) => current.map((draft, at) => (at === index ? { ...draft, ...patch } : draft)));
-    };
 
     return (
         <PanelDialog
@@ -167,112 +160,48 @@ export default function ClassifyDialog(props: {
                     </div>
                 </div>
 
-                {drafts.map((draft, index) => (
-                    <div className="field-row" key={index}>
-                        <Field label={t((d) => d.pages.walletTransactions.classify.category)}>
-                            <PanelSelect
-                                searchable
-                                value={draft.category}
-                                placeholder={t((d) => d.pages.walletTransactions.classify.choose)}
-                                onValueChange={(next) => {
-                                    update(index, { category: next });
-                                }}
-                                options={props.categories.map((category) => ({
-                                    value: category.code,
-                                    label: t((d) => d.pages.walletTransactions.categories[category.code] ?? category.code),
-                                }))}
-                            />
-                        </Field>
+                <FieldGrid>
+                    <Field label={t((d) => d.pages.walletTransactions.classify.category)}>
+                        <PanelSelect
+                            searchable
+                            value={draft.category}
+                            placeholder={t((d) => d.pages.walletTransactions.classify.choose)}
+                            onValueChange={(next) => {
+                                setDraft((current) => ({ ...current, category: next }));
+                            }}
+                            options={props.categories.map((category) => ({
+                                value: category.code,
+                                label: t(
+                                    (d) => d.pages.walletTransactions.categories[category.code] ?? category.code,
+                                ),
+                            }))}
+                        />
+                    </Field>
 
-                        <Field label={t((d) => d.pages.walletTransactions.classify.country)}>
-                            <PanelSelect
-                                searchable
-                                value={draft.country}
-                                onValueChange={(next) => {
-                                    update(index, { country: next });
-                                }}
-                                options={countries.map((country) => ({
-                                    value: country.code,
-                                    label: country.name,
-                                }))}
-                            />
-                        </Field>
-
-                        <Field label={t((d) => d.pages.walletTransactions.classify.amount)}>
-                            <PanelInput
-                                inputMode="decimal"
-                                value={draft.amount}
-                                onChange={(event) => {
-                                    update(index, { amount: event.target.value });
-                                }}
-                            />
-                        </Field>
-
-                        {/* Only when there is more than one: removing the last row would leave
-                            nothing to answer with, which "Șterge clasificarea" already does more
-                            clearly. */}
-                        {drafts.length > 1 ? (
-                            <PanelButton
-                                variant="ghost"
-                                aria-label={t((d) => d.common.delete)}
-                                onClick={() => {
-                                    setDrafts((current) => current.filter((_, at) => at !== index));
-                                }}
-                            >
-                                <Trash2 className="size-3.5" aria-hidden="true" />
-                            </PanelButton>
-                        ) : null}
-                    </div>
-                ))}
-
-                <div className="flex items-center justify-between gap-3">
-                    <PanelButton
-                        inline
-                        onClick={() => {
-                            setDrafts((current) => [
-                                ...current,
-                                // Pre-filled with what is still unaccounted for: the second row of a
-                                // split is almost always "the rest of it".
-                                { amount: fromMinor(remainder), category: '', country: DOMESTIC },
-                            ]);
-                        }}
-                    >
-                        <Plus className="size-3.5" aria-hidden="true" />
-                        {t((d) => d.pages.walletTransactions.classify.addSplit)}
-                    </PanelButton>
-
-                    <span className={remainder === 0 ? 'note' : 'text-destructive text-xs font-semibold'}>
-                        {t((d) => d.pages.walletTransactions.classify.remainder).replace(
-                            '{amount}',
-                            formatMinor(remainder, transaction.currencyCode, locale),
-                        )}
-                    </span>
-                </div>
+                    {/* Declarația Unică declares foreign income in its own section, per country and
+                        per type, so this is a field of its own rather than a category. It defaults
+                        to Romania, which is the answer almost every time. */}
+                    <Field label={t((d) => d.pages.walletTransactions.classify.country)}>
+                        <PanelSelect
+                            searchable
+                            value={draft.country}
+                            onValueChange={(next) => {
+                                setDraft((current) => ({ ...current, country: next }));
+                            }}
+                            options={countries.map((country) => ({ value: country.code, label: country.name }))}
+                        />
+                    </Field>
+                </FieldGrid>
             </div>
         </PanelDialog>
     );
 }
 
-/** The rows to start from: what the transaction already says, or one row holding all of it. */
-function seed(transaction: TransactionSummary): Draft[] {
-    if (transaction.splits.length === 0) {
-        return [{ amount: fromMinor(transaction.amountMinor), category: '', country: DOMESTIC }];
-    }
+/** The answer to start from: what the transaction already says, or an empty one. */
+function seed(transaction: TransactionSummary): Draft {
+    const existing = transaction.splits[0];
 
-    return transaction.splits.map((split) => ({
-        amount: fromMinor(split.amountMinor),
-        category: split.categoryCode,
-        country: split.countryCode ?? DOMESTIC,
-    }));
-}
-
-/** Major units as typed → minor units, rounded once. A blank or half-typed field is zero. */
-function toMinor(amount: string): number {
-    const value = Number(amount.replace(',', '.'));
-
-    return Number.isFinite(value) ? Math.round(value * 100) : 0;
-}
-
-function fromMinor(amountMinor: number): string {
-    return (amountMinor / 100).toFixed(2);
+    return existing === undefined
+        ? { category: '', country: DOMESTIC }
+        : { category: existing.categoryCode, country: existing.countryCode ?? DOMESTIC };
 }

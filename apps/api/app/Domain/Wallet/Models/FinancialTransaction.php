@@ -25,7 +25,6 @@ use RuntimeException;
  * @property string $tax_subject_id
  * @property string $account_id
  * @property \Illuminate\Support\Carbon $booked_at
- * @property \Illuminate\Support\Carbon|null $value_at
  * @property int $amount_minor
  * @property string $currency_code
  * @property string $description_ciphertext
@@ -49,7 +48,6 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
         'tax_subject_id',
         'account_id',
         'booked_at',
-        'value_at',
         'amount_minor',
         'currency_code',
         'description_ciphertext',
@@ -66,7 +64,6 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
     /** @var array<string, string> */
     protected $casts = [
         'booked_at' => 'date',
-        'value_at' => 'date',
         'classification_status' => TransactionClassificationStatus::class,
         'source' => RecordSource::class,
         'description_ciphertext' => Encrypted::class,

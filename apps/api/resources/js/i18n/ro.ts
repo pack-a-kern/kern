@@ -89,6 +89,7 @@ export const ro = {
         cancel: 'Renunță',
         close: 'Închide',
         delete: 'Șterge',
+        edit: 'Modifică',
         deleteFailed: 'Ștergerea a eșuat.',
         search: 'Caută…',
         noResults: 'Niciun rezultat.',
@@ -683,6 +684,7 @@ export const ro = {
                 action: 'Clasifică',
                 unclassified: 'Neclasificate',
                 allStatuses: 'Toate',
+                later: 'Clasific mai târziu',
                 classified: 'Clasificate',
             },
             categories: {
@@ -723,6 +725,8 @@ export const ro = {
             add: 'Adaugă tranzacție',
             addHint: 'Descrierea și contrapartida sunt criptate la stocare.',
             added: 'Tranzacția a fost adăugată.',
+            saved: 'Tranzacția a fost modificată.',
+            saveFailed: 'Tranzacția nu a putut fi modificată.',
             addFailed: 'Tranzacția nu a putut fi adăugată.',
             statuses: {
                 UNCLASSIFIED: 'Neclasificată',
@@ -735,8 +739,6 @@ export const ro = {
                 amountHint: 'Negativ pentru bani ieșiți, pozitiv pentru bani intrați.',
                 currency: 'Monedă',
                 bookedAt: 'Data operațiunii',
-                valueAt: 'Data valutei',
-                valueAtHint: 'Opțional, dacă diferă de data operațiunii.',
                 description: 'Descriere',
                 counterparty: 'Contrapartidă',
                 counterpartyHint: 'Opțional. Cine a trimis sau a primit banii.',

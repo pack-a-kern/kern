@@ -22,7 +22,6 @@ final readonly class TransactionSummary
         public string $accountId,
         public string $accountName,
         public string $bookedAt,
-        public ?string $valueAt,
         /** Signed: negative is money out. */
         public int $amountMinor,
         public string $currencyCode,
@@ -51,7 +50,6 @@ final readonly class TransactionSummary
             'account_id' => $this->accountId,
             'account_name' => $this->accountName,
             'booked_at' => $this->bookedAt,
-            'value_at' => $this->valueAt,
             'amount_minor' => $this->amountMinor,
             'currency_code' => $this->currencyCode,
             'description' => $this->description,

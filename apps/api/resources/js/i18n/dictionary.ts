@@ -85,6 +85,7 @@ export interface Dictionary {
         close: string;
         /** The destructive action's own label — never "OK", which says nothing about what happens. */
         delete: string;
+        edit: string;
         deleteFailed: string;
         search: string;
         noResults: string;
@@ -612,6 +613,8 @@ export interface Dictionary {
                 action: string;
                 unclassified: string;
                 allStatuses: string;
+                /** The empty option on the add form: recording now, answering from the worklist later. */
+                later: string;
                 classified: string;
             };
             /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
@@ -634,6 +637,8 @@ export interface Dictionary {
             add: string;
             addHint: string;
             added: string;
+            saved: string;
+            saveFailed: string;
             addFailed: string;
             statuses: Record<string, string | undefined>;
             form: {
@@ -642,8 +647,6 @@ export interface Dictionary {
                 amountHint: string;
                 currency: string;
                 bookedAt: string;
-                valueAt: string;
-                valueAtHint: string;
                 description: string;
                 counterparty: string;
                 counterpartyHint: string;

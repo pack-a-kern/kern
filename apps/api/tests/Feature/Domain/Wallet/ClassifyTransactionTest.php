@@ -194,3 +194,48 @@ it('offers the screen exactly the categories it will accept', function (): void 
         ->and(array_column($categories, 'income', 'code')['RENT'])->toBeTrue()
         ->and(array_column($categories, 'income', 'code')['TRANSFER'])->toBeFalse();
 });
+
+it('accepts the answer while the transaction is being typed', function (): void {
+    [$user, $subjectId, ] = classifiable($this);
+
+    /** @var list<array{id: string}> $accounts */
+    $accounts = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->json('accounts');
+
+    // Someone entering a transaction by hand already knows what it was; asking again afterwards in
+    // a separate dialog is work for nothing.
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+        'account_id' => $accounts[0]['id'],
+        'amount_minor' => 120_000,
+        'currency_code' => 'RON',
+        'booked_at' => '2026-04-01',
+        'description' => 'Chirie aprilie',
+        'category_code' => 'RENT',
+        'country_code' => 'DE',
+    ])->assertCreated();
+
+    $response = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions")->assertOk();
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = $response->json('transactions');
+    $classified = array_values(array_filter(
+        $rows,
+        static fn (array $row): bool => $row['classification_status'] === 'CLASSIFIED',
+    ));
+
+    expect($classified)->toHaveCount(1);
+
+    /** @var list<array{category_code: string, country_code: string|null}> $splits */
+    $splits = $classified[0]['splits'];
+
+    expect($splits[0]['category_code'])->toBe('RENT')
+        ->and($splits[0]['country_code'])->toBe('DE');
+});
+
+it('leaves a transaction unanswered when no category is given', function (): void {
+    [$user, $subjectId, $transactionId] = classifiable($this);
+
+    // The worklist depends on this: a row nobody has answered must be distinguishable from one
+    // answered badly, so an omitted category is "not yet", never a default.
+    expect(FinancialTransaction::query()->findOrFail($transactionId)->classification_status->value)
+        ->toBe('UNCLASSIFIED');
+});

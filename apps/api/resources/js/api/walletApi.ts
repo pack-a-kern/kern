@@ -68,6 +68,25 @@ export async function deleteAccount(subjectId: string, accountId: string): Promi
 }
 
 /**
+ * `PATCH .../wallet/transactions/{id}` — corrects a transaction.
+ *
+ * Every field optional, and an omitted one is left alone: a form that sends only what changed
+ * cannot blank the rest. The account and the currency are not editable — a transaction recorded
+ * against the wrong source is a different transaction, and moving it would reinterpret a balance
+ * that has already been read.
+ */
+export async function updateTransaction(
+    subjectId: string,
+    transactionId: string,
+    body: { amount_minor?: number; booked_at?: string; description?: string; counterparty?: string | null },
+): Promise<void> {
+    await apiRequest(
+        `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/${encodeURIComponent(transactionId)}`,
+        { method: 'PATCH', body },
+    );
+}
+
+/**
  * `PUT .../wallet/transactions/{id}/splits` — says what a transaction was.
  *
  * Replaces rather than appends: correcting a label means sending the splits again, and an empty list
@@ -203,7 +222,10 @@ export interface RecordTransactionRequest {
     booked_at: string;
     description: string;
     counterparty?: string;
-    value_at?: string;
+    /** What it was, answered while typing. Optional — the worklist can answer it later. */
+    category_code?: string;
+    /** ISO 3166-1 alpha-2. Omitted means Romania. */
+    country_code?: string;
 }
 
 export async function recordTransaction(subjectId: string, body: RecordTransactionRequest): Promise<void> {

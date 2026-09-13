@@ -23,7 +23,6 @@ final readonly class RecordFinancialTransactionInput
         public string $currencyCode,
         public string $description,
         public string $counterparty,
-        public ?string $valueAt = null,
         public ?string $externalId = null,
         public array $splits = [],
         public RecordSource $source = RecordSource::MANUAL,

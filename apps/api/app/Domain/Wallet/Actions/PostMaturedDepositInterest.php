@@ -87,7 +87,6 @@ final readonly class PostMaturedDepositInterest
                     // The day the period closed, not the day this ran: a run that happens late must
                     // not move the income into a different fiscal year.
                     'booked_at' => $event->accrual_to->toDateString(),
-                    'value_at' => $event->accrual_to->toDateString(),
                     'amount_minor' => $event->net_interest_minor,
                     'currency_code' => $event->currency_code,
                     'description_ciphertext' => 'Dobândă depozit',

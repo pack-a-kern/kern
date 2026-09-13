@@ -1,7 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { deleteTransaction, listAccounts, listTransactions, recordTransaction } from '../../api/walletApi';
+import { deleteTransaction, listAccounts, listTransactions, recordTransaction, updateTransaction } from '../../api/walletApi';
 import { AlignLeftIcon, UserIcon } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -20,6 +20,7 @@ import {
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import ClassifyDialog from './ClassifyDialog';
+import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
@@ -46,13 +47,47 @@ import {
  * one statement and the external id stops a re-import duplicating rows. That importer does not
  * exist, so `source` is always MANUAL.
  */
+/**
+ * The add/edit form's fields.
+ *
+ * Declared rather than inferred: `CURRENCIES[0]` is a const-asserted tuple, so inference would pin
+ * `currency_code` to the literal 'RON' and reject every other code the select offers.
+ */
+interface TransactionForm {
+    account_id: string;
+    amount: string;
+    currency_code: string;
+    booked_at: string;
+    description: string;
+    counterparty: string;
+    category_code: string;
+    country_code: string;
+}
+
+function emptyTransactionForm(): TransactionForm {
+    return {
+        account_id: '',
+        amount: '',
+        currency_code: CURRENCIES[0],
+        booked_at: '',
+        description: '',
+        counterparty: '',
+        category_code: '',
+        // Romania: the answer almost every time, and the absence of a country when stored.
+        country_code: 'RO',
+    };
+}
+
 export default function WalletTransactions(): JSX.Element {
     const { t, locale } = useTranslation();
+    const countries = useCountries();
     const subjectId = getActiveSubjectId();
 
     const [loaded, setLoaded] = useState<{ accountId: string; page: TransactionPage } | null>(null);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
     const [classifying, setClassifying] = useState<TransactionSummary | null>(null);
+    /** The transaction being corrected, or null when the dialog is recording a new one. */
+    const [editing, setEditing] = useState<TransactionSummary | null>(null);
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
     const [classification, setClassification] = useState('all');
     const [accountId, setAccountId] = useState('');
@@ -63,25 +98,7 @@ export default function WalletTransactions(): JSX.Element {
     const [adding, setAdding] = useState(false);
     const [deleting, setDeleting] = useState<TransactionSummary | null>(null);
     const [saving, setSaving] = useState(false);
-    // Typed explicitly: `CURRENCIES[0]` is a const-asserted tuple, so inference would pin
-    // `currency_code` to the literal 'RON' and reject every other code the select offers.
-    const [form, setForm] = useState<{
-        account_id: string;
-        amount: string;
-        currency_code: string;
-        booked_at: string;
-        value_at: string;
-        description: string;
-        counterparty: string;
-    }>({
-        account_id: '',
-        amount: '',
-        currency_code: CURRENCIES[0],
-        booked_at: '',
-        value_at: '',
-        description: '',
-        counterparty: '',
-    });
+    const [form, setForm] = useState<TransactionForm>(emptyTransactionForm());
 
     useEffect(() => {
         if (subjectId === null) {
@@ -155,6 +172,24 @@ export default function WalletTransactions(): JSX.Element {
         errors.reset();
 
         try {
+            if (editing !== null) {
+                // Correcting one. The source and the currency are absent on purpose: a transaction
+                // recorded against the wrong source is a different transaction, and moving it would
+                // reinterpret a balance that has already been read.
+                await updateTransaction(subjectId, editing.id, {
+                    amount_minor: Math.round(Number(form.amount) * 100),
+                    booked_at: form.booked_at,
+                    description: form.description,
+                    counterparty: form.counterparty === '' ? null : form.counterparty,
+                });
+
+                toast.success(t((d) => d.pages.walletTransactions.saved));
+                setEditing(null);
+                setReloadKey((current) => current + 1);
+
+                return;
+            }
+
             await recordTransaction(subjectId, {
                 account_id: form.account_id,
                 // Signed minor units: the form takes a signed major amount, so money out is typed
@@ -164,7 +199,12 @@ export default function WalletTransactions(): JSX.Element {
                 booked_at: form.booked_at,
                 description: form.description,
                 ...(form.counterparty === '' ? {} : { counterparty: form.counterparty }),
-                ...(form.value_at === '' ? {} : { value_at: form.value_at }),
+                // Answered here rather than in a second dialog afterwards: someone typing a
+                // transaction already knows what it was. Romania is the absence of a country.
+                ...(form.category_code === '' ? {} : { category_code: form.category_code }),
+                ...(form.category_code === '' || form.country_code === 'RO'
+                    ? {}
+                    : { country_code: form.country_code }),
             });
 
             toast.success(t((d) => d.pages.walletTransactions.added));
@@ -172,7 +212,11 @@ export default function WalletTransactions(): JSX.Element {
             setReloadKey((current) => current + 1);
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(t((d) => d.pages.walletTransactions.addFailed));
+                toast.error(
+                    editing === null
+                        ? t((d) => d.pages.walletTransactions.addFailed)
+                        : t((d) => d.pages.walletTransactions.saveFailed),
+                );
             }
         } finally {
             setSaving(false);
@@ -321,6 +365,28 @@ export default function WalletTransactions(): JSX.Element {
                                         >
                                             {t((d) => d.pages.walletTransactions.classify.action)}
                                         </PanelButton>
+                                        {/* Correcting a row someone did not type: an imported one,
+                                            or the interest a deposit produced with a figure that
+                                            needs fixing. The endpoint existed and nothing reached
+                                            it. */}
+                                        <PanelButton
+                                            onClick={() => {
+                                                errors.reset();
+                                                setForm({
+                                                    account_id: transaction.accountId,
+                                                    amount: String(transaction.amountMinor / 100),
+                                                    currency_code: transaction.currencyCode,
+                                                    booked_at: transaction.bookedAt.slice(0, 10),
+                                                    description: transaction.description,
+                                                    counterparty: transaction.counterparty ?? '',
+                                                    category_code: '',
+                                                    country_code: 'RO',
+                                                });
+                                                setEditing(transaction);
+                                            }}
+                                        >
+                                            {t((d) => d.common.edit)}
+                                        </PanelButton>
                                         <PanelButton
                                             variant="ghost"
                                             onClick={() => {
@@ -392,9 +458,22 @@ export default function WalletTransactions(): JSX.Element {
             )}
 
             <PanelDialog
-                open={adding}
-                onOpenChange={setAdding}
-                title={t((d) => d.pages.walletTransactions.add)}
+                open={adding || editing !== null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        // Closed without saving: back to empty, so the next thing opened does not
+                        // show what was typed into this one.
+                        setAdding(false);
+                        setEditing(null);
+                        setForm(emptyTransactionForm());
+                        errors.reset();
+                    }
+                }}
+                title={
+                    editing === null
+                        ? t((d) => d.pages.walletTransactions.add)
+                        : t((d) => d.common.edit)
+                }
                 description={t((d) => d.pages.walletTransactions.addHint)}
                 size="lg"
                 actions={
@@ -402,6 +481,9 @@ export default function WalletTransactions(): JSX.Element {
                         <PanelButton
                             onClick={() => {
                                 setAdding(false);
+                                setEditing(null);
+                                setForm(emptyTransactionForm());
+                                errors.reset();
                             }}
                         >
                             {t((d) => d.common.cancel)}
@@ -503,22 +585,6 @@ export default function WalletTransactions(): JSX.Element {
                     </Field>
 
                     <Field
-                        label={t((d) => d.pages.walletTransactions.form.valueAt)}
-                        htmlFor="tx-value"
-                        error={errors.get('value_at')}
-                        hint={t((d) => d.pages.walletTransactions.form.valueAtHint)}
-                    >
-                        <PanelInput
-                            id="tx-value"
-                            type="date"
-                            value={form.value_at}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, value_at: event.target.value }));
-                            }}
-                        />
-                    </Field>
-
-                    <Field
                         label={t((d) => d.pages.walletTransactions.form.counterparty)}
                         htmlFor="tx-counterparty"
                         error={errors.get('counterparty')}
@@ -542,6 +608,49 @@ export default function WalletTransactions(): JSX.Element {
                             setForm((current) => ({ ...current, description: value }));
                         }}
                     />
+
+                    {/* Answered here rather than in a second dialog afterwards: someone typing a
+                        transaction already knows what it was, and asking again later is work for
+                        nothing. Optional — a row can be recorded now and answered from the
+                        worklist, which is what imported and generated rows do. */}
+                    <Field
+                        label={t((d) => d.pages.walletTransactions.classify.category)}
+                        error={errors.get('category_code')}
+                    >
+                        <PanelSelect
+                            searchable
+                            value={form.category_code}
+                            placeholder={t((d) => d.pages.walletTransactions.classify.later)}
+                            emptyLabel={t((d) => d.pages.walletTransactions.classify.later)}
+                            onValueChange={(next) => {
+                                setForm((current) => ({ ...current, category_code: next }));
+                            }}
+                            options={(page?.categories ?? []).map((category) => ({
+                                value: category.code,
+                                label: t(
+                                    (d) => d.pages.walletTransactions.categories[category.code] ?? category.code,
+                                ),
+                            }))}
+                        />
+                    </Field>
+
+                    {/* Only once a category has been chosen: the country qualifies the answer, and
+                        asking where nothing came from is a field with no question behind it. */}
+                    {form.category_code === '' ? null : (
+                        <Field label={t((d) => d.pages.walletTransactions.classify.country)}>
+                            <PanelSelect
+                                searchable
+                                value={form.country_code}
+                                onValueChange={(next) => {
+                                    setForm((current) => ({ ...current, country_code: next }));
+                                }}
+                                options={countries.map((country) => ({
+                                    value: country.code,
+                                    label: country.name,
+                                }))}
+                            />
+                        </Field>
+                    )}
                 </FieldGrid>
             </PanelDialog>
         </AppShell>

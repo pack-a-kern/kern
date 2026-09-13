@@ -32,7 +32,6 @@ final class UpdateTransactionController extends Controller
             // document parsers also reach.
             'amount_minor' => ['sometimes', 'integer', 'not_in:0'],
             'booked_at' => ['sometimes', 'date'],
-            'value_at' => ['sometimes', 'nullable', 'date'],
             'description' => ['sometimes', 'string', 'max:500'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
         ]);
@@ -41,8 +40,6 @@ final class UpdateTransactionController extends Controller
             transaction: $model,
             amountMinor: array_key_exists('amount_minor', $validated) ? (int) $validated['amount_minor'] : null,
             bookedAt: $this->optional($validated, 'booked_at'),
-            // Present-but-null clears the value date; absent leaves it alone.
-            valueAt: array_key_exists('value_at', $validated) ? (string) ($validated['value_at'] ?? '') : null,
             description: $this->optional($validated, 'description'),
             counterparty: array_key_exists('counterparty', $validated)
                 ? (string) ($validated['counterparty'] ?? '')

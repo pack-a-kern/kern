@@ -57,7 +57,6 @@ final class CreateTransactionFromDocumentController extends Controller
             'amount_minor' => ['required', 'integer', 'not_in:0'],
             'currency_code' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
             'booked_at' => ['required', 'date'],
-            'value_at' => ['sometimes', 'nullable', 'date'],
             'description' => ['required', 'string', 'max:500'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
             'document_extraction_id' => ['sometimes', 'nullable', 'uuid'],
@@ -73,7 +72,6 @@ final class CreateTransactionFromDocumentController extends Controller
             currencyCode: (string) $validated['currency_code'],
             description: (string) $validated['description'],
             counterparty: is_string($validated['counterparty'] ?? null) ? $validated['counterparty'] : '',
-            valueAt: is_string($validated['value_at'] ?? null) ? $validated['value_at'] : null,
             // Not MANUAL: "someone typed this in" and "this came from a document still in the
             // object store, with its hash and its scan record" are different provenance.
             source: RecordSource::DOCUMENT,

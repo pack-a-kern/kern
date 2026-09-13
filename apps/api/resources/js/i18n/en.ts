@@ -89,6 +89,7 @@ export const en = {
         cancel: 'Cancel',
         close: 'Close',
         delete: 'Delete',
+        edit: 'Edit',
         deleteFailed: 'The deletion failed.',
         search: 'Search…',
         noResults: 'No results found.',
@@ -676,6 +677,7 @@ export const en = {
                 action: 'Classify',
                 unclassified: 'Unclassified',
                 allStatuses: 'All',
+                later: 'Classify later',
                 classified: 'Classified',
             },
             categories: {
@@ -716,6 +718,8 @@ export const en = {
             add: 'Add transaction',
             addHint: 'The description and counterparty are encrypted at rest.',
             added: 'Transaction added.',
+            saved: 'The transaction has been updated.',
+            saveFailed: 'The transaction could not be updated.',
             addFailed: 'The transaction could not be added.',
             statuses: {
                 UNCLASSIFIED: 'Unclassified',
@@ -728,8 +732,6 @@ export const en = {
                 amountHint: 'Negative for money out, positive for money in.',
                 currency: 'Currency',
                 bookedAt: 'Booked',
-                valueAt: 'Value date',
-                valueAtHint: 'Optional, if it differs from the booking date.',
                 description: 'Description',
                 counterparty: 'Counterparty',
                 counterpartyHint: 'Optional. Who sent or received the money.',

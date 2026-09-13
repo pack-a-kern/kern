@@ -36,7 +36,6 @@ final readonly class UpdateFinancialTransaction
         FinancialTransaction $transaction,
         ?int $amountMinor = null,
         ?string $bookedAt = null,
-        ?string $valueAt = null,
         ?string $description = null,
         ?string $counterparty = null,
         ?string $actorId = null,
@@ -49,7 +48,6 @@ final readonly class UpdateFinancialTransaction
             $transaction,
             $amountMinor,
             $bookedAt,
-            $valueAt,
             $description,
             $counterparty,
             $actorId,
@@ -65,11 +63,6 @@ final readonly class UpdateFinancialTransaction
                 // Through the cast — see `UpdateFinancialAccount` for why.
                 $transaction->setAttribute('booked_at', $bookedAt);
                 $changed[] = 'booked_at';
-            }
-
-            if ($valueAt !== null) {
-                $transaction->setAttribute('value_at', $valueAt === '' ? null : $valueAt);
-                $changed[] = 'value_at';
             }
 
             if ($description !== null) {
