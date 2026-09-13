@@ -19,6 +19,7 @@ import {
     Toolbar,
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
+import ClassifyDialog from './ClassifyDialog';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
@@ -51,6 +52,9 @@ export default function WalletTransactions(): JSX.Element {
 
     const [loaded, setLoaded] = useState<{ accountId: string; page: TransactionPage } | null>(null);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+    const [classifying, setClassifying] = useState<TransactionSummary | null>(null);
+    /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
+    const [classification, setClassification] = useState('all');
     const [accountId, setAccountId] = useState('');
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -136,6 +140,16 @@ export default function WalletTransactions(): JSX.Element {
 
     const page = loaded !== null && loaded.accountId === accountId ? loaded.page : null;
 
+    // Filtered here rather than on the server: the list is already a capped window the server sent
+    // in one go, so narrowing it is a property of what is on screen, not another request.
+    const rows = (page?.transactions ?? []).filter((transaction) =>
+        classification === 'all'
+            ? true
+            : classification === 'unclassified'
+              ? transaction.splits.length === 0
+              : transaction.splits.length > 0,
+    );
+
     const submit = async (): Promise<void> => {
         setSaving(true);
         errors.reset();
@@ -208,6 +222,26 @@ export default function WalletTransactions(): JSX.Element {
                                 label: sourceName(account, t((d) => d.pages.wallet.generalSource)),
                             }))}
                         />
+                        {/* What turns a list into a worklist: "Neclasificate" is the only view that
+                            says what is still to do, and it is the reason this screen exists. */}
+                        <PanelSelect
+                            className="filter-select"
+                            value={classification}
+                            onValueChange={(next) => {
+                                setClassification(next === '' ? 'all' : next);
+                            }}
+                            options={[
+                                { value: 'all', label: t((d) => d.pages.walletTransactions.classify.allStatuses) },
+                                {
+                                    value: 'unclassified',
+                                    label: t((d) => d.pages.walletTransactions.classify.unclassified),
+                                },
+                                {
+                                    value: 'classified',
+                                    label: t((d) => d.pages.walletTransactions.classify.classified),
+                                },
+                            ]}
+                        />
                     </Toolbar>
 
                     {page === null ? (
@@ -216,7 +250,7 @@ export default function WalletTransactions(): JSX.Element {
                         ) : (
                             <TableSkeleton />
                         )
-                    ) : page.transactions.length === 0 ? (
+                    ) : rows.length === 0 ? (
                         <p className="note p-4">{t((d) => d.pages.walletTransactions.empty)}</p>
                     ) : (
                         <DataTable
@@ -232,7 +266,7 @@ export default function WalletTransactions(): JSX.Element {
                                 </>
                             }
                         >
-                            {page.transactions.map((transaction) => (
+                            {rows.map((transaction) => (
                                 <tr key={transaction.id}>
                                     <td className="col-primary whitespace-nowrap tabular-nums">
                                         {new Date(transaction.bookedAt).toLocaleDateString()}
@@ -253,21 +287,40 @@ export default function WalletTransactions(): JSX.Element {
                                     >
                                         {formatMinor(transaction.amountMinor, transaction.currencyCode, locale)}
                                     </td>
-                                    <td>
-                                        <Pill
-                                            tone={
-                                                transaction.classificationStatus === 'CLASSIFIED' ? 'accent' : 'neutral'
-                                            }
-                                        >
-                                            {t(
-                                                (d) =>
-                                                    d.pages.walletTransactions.statuses[
-                                                        transaction.classificationStatus
-                                                    ] ?? transaction.classificationStatus,
-                                            )}
-                                        </Pill>
+                                    <td data-label={t((d) => d.pages.walletTransactions.columns.status)}>
+                                        {/* The answer itself, not merely that one exists: this list
+                                            is the worklist, and "Chirii · DE" is what a person is
+                                            checking for. An unanswered row stays a plain pill so it
+                                            reads as the thing still to do. */}
+                                        {transaction.splits.length === 0 ? (
+                                            <Pill>
+                                                {t((d) => d.pages.walletTransactions.classify.unclassified)}
+                                            </Pill>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-1">
+                                                {transaction.splits.map((split, index) => (
+                                                    <Pill key={index} tone="accent">
+                                                        {t(
+                                                            (d) =>
+                                                                d.pages.walletTransactions.categories[
+                                                                    split.categoryCode
+                                                                ] ?? split.categoryCode,
+                                                        )}
+                                                        {split.countryCode === null ? '' : ` · ${split.countryCode}`}
+                                                    </Pill>
+                                                ))}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="col-end text-right">
+                                        <div className="flex justify-end gap-1.5">
+                                        <PanelButton
+                                            onClick={() => {
+                                                setClassifying(transaction);
+                                            }}
+                                        >
+                                            {t((d) => d.pages.walletTransactions.classify.action)}
+                                        </PanelButton>
                                         <PanelButton
                                             variant="ghost"
                                             onClick={() => {
@@ -276,6 +329,7 @@ export default function WalletTransactions(): JSX.Element {
                                         >
                                             {t((d) => d.common.delete)}
                                         </PanelButton>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -315,6 +369,24 @@ export default function WalletTransactions(): JSX.Element {
 
                             throw cause;
                         }
+                    }}
+                />
+            )}
+
+            {/* Keyed by transaction, so opening a different row remounts the dialog with that row's
+                own answer rather than carrying the previous one over. */}
+            {classifying === null ? null : (
+                <ClassifyDialog
+                    key={classifying.id}
+                    subjectId={subjectId}
+                    transaction={classifying}
+                    categories={page?.categories ?? []}
+                    onClose={() => {
+                        setClassifying(null);
+                    }}
+                    onSaved={() => {
+                        setClassifying(null);
+                        setReloadKey((current) => current + 1);
                     }}
                 />
             )}

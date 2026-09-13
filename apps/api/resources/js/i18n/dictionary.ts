@@ -595,6 +595,27 @@ export interface Dictionary {
             };
         };
         walletTransactions: {
+            classify: {
+                title: string;
+                hint: string;
+                category: string;
+                country: string;
+                amount: string;
+                choose: string;
+                addSplit: string;
+                /** "Unassigned: {amount}" — what the splits do not yet account for. */
+                remainder: string;
+                clear: string;
+                saved: string;
+                cleared: string;
+                failed: string;
+                action: string;
+                unclassified: string;
+                allStatuses: string;
+                classified: string;
+            };
+            /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
+            categories: Record<string, string | undefined>;
             deleteTitle: string;
             deleteHint: string;
             deleted: string;

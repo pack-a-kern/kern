@@ -24,6 +24,9 @@ enum RecordSource: string
     case IMPORT = 'IMPORT';
     case BANK_SYNC = 'BANK_SYNC';
 
+    /** Produced by this application from something already declared — a deposit's own interest. */
+    case SYSTEM = 'SYSTEM';
+
     /**
      * Created from an uploaded document — a receipt, an invoice, a line of a bank statement.
      *

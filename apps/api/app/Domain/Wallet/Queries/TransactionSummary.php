@@ -29,6 +29,16 @@ final readonly class TransactionSummary
         public string $description,
         public ?string $counterparty,
         public string $classificationStatus,
+        /**
+         * What this transaction was said to be, one entry per meaning.
+         *
+         * Carried on the row rather than fetched per transaction: the list *is* the classification
+         * worklist, so every row needs its answer visible, and a request per row to show a pill is
+         * the shape that makes a screen unusable at fifty rows.
+         *
+         * @var list<array{amount_minor: int, category_code: string, country_code: string|null}>
+         */
+        public array $splits,
         public string $source,
     ) {
     }
@@ -47,6 +57,7 @@ final readonly class TransactionSummary
             'description' => $this->description,
             'counterparty' => $this->counterparty,
             'classification_status' => $this->classificationStatus,
+            'splits' => $this->splits,
             'source' => $this->source,
         ];
     }

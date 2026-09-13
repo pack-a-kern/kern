@@ -241,8 +241,13 @@ final readonly class WalletQuery
             $names[$account->id] = $account->displayName;
         }
 
+        $splits = $this->splitsByTransaction(array_map(
+            static fn (FinancialTransaction $transaction): string => self::str($transaction->getKey()),
+            $transactions,
+        ));
+
         return array_map(
-            function (FinancialTransaction $transaction) use ($names): TransactionSummary {
+            function (FinancialTransaction $transaction) use ($names, $splits): TransactionSummary {
                 $accountId = self::str($transaction->account_id);
 
                 return new TransactionSummary(
@@ -258,6 +263,7 @@ final readonly class WalletQuery
                         ? null
                         : $counterparty,
                     classificationStatus: $transaction->classification_status->value,
+                    splits: $splits[self::str($transaction->getKey())] ?? [],
                     source: $transaction->source->value,
                 );
             },
@@ -378,6 +384,40 @@ final readonly class WalletQuery
         }
 
         return (int) DB::table('deposit_interest_events')->sum('ron_equivalent_minor');
+    }
+
+    /**
+     * Every transaction's splits, in one query.
+     *
+     * One query for the page rather than a relation load per row: the transaction list is the
+     * classification worklist, so each row shows what it was said to be, and a query per row is
+     * how that screen becomes unusable at fifty of them. `transaction_splits` carries no encrypted
+     * column, so the query builder is enough.
+     *
+     * @param  list<string>  $transactionIds
+     * @return array<string, list<array{amount_minor: int, category_code: string, country_code: string|null}>>
+     */
+    private function splitsByTransaction(array $transactionIds): array
+    {
+        if ($transactionIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('transaction_splits')
+            ->whereIn('transaction_id', $transactionIds)
+            ->get(['transaction_id', 'amount_minor', 'category_code', 'country_code']);
+
+        $byTransaction = [];
+
+        foreach ($rows as $row) {
+            $byTransaction[self::str($row->transaction_id)][] = [
+                'amount_minor' => (int) $row->amount_minor,
+                'category_code' => self::str($row->category_code),
+                'country_code' => $row->country_code === null ? null : self::str($row->country_code),
+            ];
+        }
+
+        return $byTransaction;
     }
 
     /**

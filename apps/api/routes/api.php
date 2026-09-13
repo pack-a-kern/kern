@@ -61,6 +61,7 @@ use App\Http\Controllers\Api\V1\Subjects\InspectCnpController;
 use App\Http\Controllers\Api\V1\Subjects\ListSubjectsController;
 use App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController;
 use App\Http\Controllers\Api\V1\Subjects\UpdatePfSubjectController;
+use App\Http\Controllers\Api\V1\Wallet\ClassifyTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteAccountController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\OpenAccountController;
@@ -205,6 +206,10 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('wallet/transactions', RecordTransactionController::class);
     Route::patch('wallet/transactions/{transaction}', UpdateTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
     Route::delete('wallet/transactions/{transaction}', DeleteTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
+    // Saying what a transaction *was*. A PUT because it replaces: correcting a label means sending
+    // the splits again, and an empty list returns the row to the unclassified worklist.
+    Route::put('wallet/transactions/{transaction}/splits', ClassifyTransactionController::class)
+        ->where('transaction', '[0-9a-f-]{36}');
 });
 
 /*

@@ -25,13 +25,21 @@ enum WalletAuditEvent: string
     case TRANSACTION_UPDATED = 'WalletTransactionUpdated';
     case TRANSACTION_DELETED = 'WalletTransactionDeleted';
 
+    /** Someone said what a transaction was — the answer every tax figure is built from. */
+    case TRANSACTION_CLASSIFIED = 'WalletTransactionClassified';
+
+    /** A matured interest period became a transaction — see PostMaturedDepositInterest. */
+    case DEPOSIT_INTEREST_POSTED = 'WalletDepositInterestPosted';
+
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
         return match ($this) {
             self::TRANSACTION_RECORDED,
             self::TRANSACTION_UPDATED,
-            self::TRANSACTION_DELETED => 'FinancialTransaction',
+            self::TRANSACTION_DELETED,
+            self::TRANSACTION_CLASSIFIED,
+            self::DEPOSIT_INTEREST_POSTED => 'FinancialTransaction',
             default => 'FinancialAccount',
         };
     }

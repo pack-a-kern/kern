@@ -51,6 +51,14 @@ enum OperationTask: string
     /** Project `config/access.php` onto the permission tables (ADR 0014). */
     case ACCESS_SYNC = 'access.sync';
 
+    /**
+     * Turn deposit interest that has now accrued into transactions.
+     *
+     * Daily, because maturity is a date passing rather than an action: nothing is running when a
+     * period closes, and a person should not have to remember to claim their own interest.
+     */
+    case DEPOSIT_POST_INTEREST = 'deposit.post_interest';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -61,6 +69,7 @@ enum OperationTask: string
             self::LEGISLATION_INGEST => 'taxos:legislation:ingest',
             self::AUDIT_VERIFY_CHAINS => 'taxos:audit:verify',
             self::ACCESS_SYNC => 'taxos:access:sync',
+            self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
         };
     }
 

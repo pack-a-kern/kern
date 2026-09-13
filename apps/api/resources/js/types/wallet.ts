@@ -105,6 +105,26 @@ export interface DepositFormOptions {
  * `amountMinor` is signed — negative is money out. A separate direction field would let the sign
  * and the direction contradict each other.
  */
+/**
+ * One meaning given to part of a transaction.
+ *
+ * `countryCode` is null for Romania. It sits beside the category rather than inside it because
+ * Declarația Unică declares foreign income in its own section, per country *and* per type — so
+ * `RENT` + `DE` and `RENT` + `RO` are different rows on the form.
+ */
+export interface TransactionSplit {
+    amountMinor: number;
+    categoryCode: string;
+    countryCode: string | null;
+}
+
+/** A category a transaction may be said to be, from `config/tax_categories.php`. */
+export interface TaxCategory {
+    code: string;
+    /** Groups the dropdown, and says which totals it joins. Not a tax rule. */
+    income: boolean;
+}
+
 export interface TransactionSummary {
     id: string;
     accountId: string;
@@ -117,6 +137,8 @@ export interface TransactionSummary {
     counterparty: string | null;
     /** Whether this money has been matched to something that explains it. */
     classificationStatus: string;
+    /** What it was said to be. Empty until someone answers. */
+    splits: TransactionSplit[];
     source: string;
 }
 
@@ -125,6 +147,8 @@ export interface TransactionPage {
     limit: number;
     /** The list is a window, not the whole history — the screen says so when it fills. */
     capped: boolean;
+    /** The vocabulary the classification dialog offers; the server validates against the same list. */
+    categories: TaxCategory[];
 }
 
 /**
@@ -435,11 +459,25 @@ export function parseTransactions(payload: unknown): TransactionPage {
                 description: str(row, 'description'),
                 counterparty: nullableStr(row, 'counterparty'),
                 classificationStatus: str(row, 'classification_status'),
+                splits: (Array.isArray(row.splits) ? row.splits : []).map((entry): TransactionSplit => {
+                    const split = obj(entry);
+
+                    return {
+                        amountMinor: num(split, 'amount_minor'),
+                        categoryCode: str(split, 'category_code'),
+                        countryCode: nullableStr(split, 'country_code'),
+                    };
+                }),
                 source: str(row, 'source'),
             };
         }),
         limit: num(body, 'limit'),
         capped: body.capped === true,
+        categories: (Array.isArray(body.categories) ? body.categories : []).map((entry): TaxCategory => {
+            const category = obj(entry);
+
+            return { code: str(category, 'code'), income: category.income === true };
+        }),
     };
 }
 

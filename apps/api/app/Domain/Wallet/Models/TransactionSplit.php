@@ -34,6 +34,7 @@ final class TransactionSplit extends Model
         'transaction_id',
         'amount_minor',
         'category_code',
+        'country_code',
         'linked_domain_type',
         'linked_domain_id',
     ];

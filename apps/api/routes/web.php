@@ -49,7 +49,12 @@ Route::middleware('auth')->group(function (): void {
      */
     Route::get('/portofel', fn () => Inertia::render('wallet/overview'))->name('wallet.overview');
     Route::get('/portofel/conturi', fn () => Inertia::render('wallet/accounts'))->name('wallet.accounts');
-    Route::get('/portofel/tranzactii', fn () => Inertia::render('wallet/transactions'))->name('wallet.transactions');
+    // `countries` is a page prop rather than a shared one, for the same reason `counties` is:
+    // only the classification dialog offers the list, and sharing it would put it on every Inertia
+    // response in the application.
+    Route::get('/portofel/tranzactii', fn () => Inertia::render('wallet/transactions', [
+        'countries' => config('countries.all'),
+    ]))->name('wallet.transactions');
 
     Route::get('/chirii', fn () => Inertia::render('rentals'))->name('rentals');
 

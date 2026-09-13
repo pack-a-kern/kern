@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Queries\TransactionSummary;
 use App\Domain\Wallet\Queries\WalletQuery;
+use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,8 +24,11 @@ final class ShowTransactionsController extends Controller
 
     private const int MAX_LIMIT = 250;
 
-    public function __invoke(Request $request, WalletQuery $wallet): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        WalletQuery $wallet,
+        TaxCategoryCatalogue $categories,
+    ): JsonResponse {
         $validated = $request->validate([
             'account_id' => ['sometimes', 'nullable', 'uuid'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:' . self::MAX_LIMIT],
@@ -47,6 +51,10 @@ final class ShowTransactionsController extends Controller
             // So the screen can say it is showing a window rather than everything.
             'limit' => $limit,
             'capped' => count($transactions) === $limit,
+            // The vocabulary the classification dialog offers, from the same catalogue the
+            // classify endpoint validates against — so the dropdown cannot offer a code the
+            // server would refuse.
+            'categories' => $categories->toArray(),
         ]);
     }
 }

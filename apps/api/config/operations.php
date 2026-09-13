@@ -43,6 +43,9 @@ return [
         'expressions' => [
             // Weekdays at 14:00 Bucharest — BNR publishes the daily reference rates at 13:00.
             'fx.import_daily' => env('OPERATIONS_CRON_FX_IMPORT_DAILY', '0 14 * * 1-5'),
+            // Just after midnight: a period closes at the end of a day, so the first run after it
+            // is the earliest honest moment to post the interest.
+            'deposit.post_interest' => env('OPERATIONS_CRON_DEPOSIT_POST_INTEREST', '15 0 * * *'),
         ],
     ],
 

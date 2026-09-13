@@ -67,6 +67,25 @@ export async function deleteAccount(subjectId: string, accountId: string): Promi
     });
 }
 
+/**
+ * `PUT .../wallet/transactions/{id}/splits` — says what a transaction was.
+ *
+ * Replaces rather than appends: correcting a label means sending the splits again, and an empty list
+ * returns the transaction to the unclassified worklist. The amounts must add up to the transaction
+ * exactly — splits partition it, they do not annotate it, and a remainder would be income nobody has
+ * an answer for.
+ */
+export async function classifyTransaction(
+    subjectId: string,
+    transactionId: string,
+    splits: Array<{ amount_minor: number; category_code: string; country_code?: string | null }>,
+): Promise<void> {
+    await apiRequest(
+        `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/${encodeURIComponent(transactionId)}/splits`,
+        { method: 'PUT', body: { splits } },
+    );
+}
+
 /** `DELETE .../wallet/transactions/{id}` — remove a transaction and the splits that categorise it. */
 export async function deleteTransaction(subjectId: string, transactionId: string): Promise<void> {
     await apiRequest(

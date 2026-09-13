@@ -79,6 +79,7 @@ final readonly class RecordFinancialTransaction
                     'transaction_id' => $transaction->id,
                     'amount_minor' => $split->amountMinor,
                     'category_code' => $split->categoryCode,
+                    'country_code' => $split->countryCode,
                     'linked_domain_type' => $split->linkedDomainType,
                     'linked_domain_id' => $split->linkedDomainId,
                 ]);
