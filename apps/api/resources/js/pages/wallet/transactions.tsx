@@ -1,7 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { deleteTransaction, listAccounts, listTransactions, recordTransaction, updateTransaction } from '../../api/walletApi';
+import { classifyTransaction, deleteTransaction, listAccounts, listTransactions, recordTransaction, updateTransaction } from '../../api/walletApi';
 import { AlignLeftIcon, UserIcon } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -19,7 +19,6 @@ import {
     Toolbar,
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
-import ClassifyDialog from './ClassifyDialog';
 import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
@@ -85,7 +84,6 @@ export default function WalletTransactions(): JSX.Element {
 
     const [loaded, setLoaded] = useState<{ accountId: string; page: TransactionPage } | null>(null);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
-    const [classifying, setClassifying] = useState<TransactionSummary | null>(null);
     /** The transaction being corrected, or null when the dialog is recording a new one. */
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
@@ -183,8 +181,27 @@ export default function WalletTransactions(): JSX.Element {
                     counterparty: form.counterparty === '' ? null : form.counterparty,
                 });
 
+                // And what it was, in the same save. Two endpoints because the transaction and its
+                // answer are different records, but one action as far as a person is concerned —
+                // the alternative was a second button that opened a second dialog to change one
+                // field the first dialog was already showing.
+                await classifyTransaction(
+                    subjectId,
+                    editing.id,
+                    form.category_code === ''
+                        ? []
+                        : [
+                              {
+                                  amount_minor: Math.round(Number(form.amount) * 100),
+                                  category_code: form.category_code,
+                                  country_code: form.country_code === 'RO' ? null : form.country_code,
+                              },
+                          ],
+                );
+
                 toast.success(t((d) => d.pages.walletTransactions.saved));
                 setEditing(null);
+                setForm(emptyTransactionForm());
                 setReloadKey((current) => current + 1);
 
                 return;
@@ -358,17 +375,10 @@ export default function WalletTransactions(): JSX.Element {
                                     </td>
                                     <td className="col-end text-right">
                                         <div className="flex justify-end gap-1.5">
-                                        <PanelButton
-                                            onClick={() => {
-                                                setClassifying(transaction);
-                                            }}
-                                        >
-                                            {t((d) => d.pages.walletTransactions.classify.action)}
-                                        </PanelButton>
-                                        {/* Correcting a row someone did not type: an imported one,
-                                            or the interest a deposit produced with a figure that
-                                            needs fixing. The endpoint existed and nothing reached
-                                            it. */}
+                                        {/* One button, because there is one thing to change: the
+                                            figures and what the money was are the same dialog. A
+                                            separate "classify" opened a second dialog to edit one
+                                            field the first was already showing. */}
                                         <PanelButton
                                             onClick={() => {
                                                 errors.reset();
@@ -379,8 +389,10 @@ export default function WalletTransactions(): JSX.Element {
                                                     booked_at: transaction.bookedAt.slice(0, 10),
                                                     description: transaction.description,
                                                     counterparty: transaction.counterparty ?? '',
-                                                    category_code: '',
-                                                    country_code: 'RO',
+                                                    category_code:
+                                                        transaction.splits[0]?.categoryCode ?? '',
+                                                    country_code:
+                                                        transaction.splits[0]?.countryCode ?? 'RO',
                                                 });
                                                 setEditing(transaction);
                                             }}
@@ -435,24 +447,6 @@ export default function WalletTransactions(): JSX.Element {
 
                             throw cause;
                         }
-                    }}
-                />
-            )}
-
-            {/* Keyed by transaction, so opening a different row remounts the dialog with that row's
-                own answer rather than carrying the previous one over. */}
-            {classifying === null ? null : (
-                <ClassifyDialog
-                    key={classifying.id}
-                    subjectId={subjectId}
-                    transaction={classifying}
-                    categories={page?.categories ?? []}
-                    onClose={() => {
-                        setClassifying(null);
-                    }}
-                    onSaved={() => {
-                        setClassifying(null);
-                        setReloadKey((current) => current + 1);
                     }}
                 />
             )}

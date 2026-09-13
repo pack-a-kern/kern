@@ -597,25 +597,14 @@ export interface Dictionary {
         };
         walletTransactions: {
             classify: {
-                title: string;
-                hint: string;
                 category: string;
                 country: string;
-                amount: string;
-                choose: string;
-                addSplit: string;
-                /** "Unassigned: {amount}" — what the splits do not yet account for. */
-                remainder: string;
-                clear: string;
-                saved: string;
-                cleared: string;
-                failed: string;
-                action: string;
+                /** The filter that turns the list into a worklist. */
                 unclassified: string;
-                allStatuses: string;
-                /** The empty option on the add form: recording now, answering from the worklist later. */
-                later: string;
                 classified: string;
+                allStatuses: string;
+                /** The empty option on the form: recording now, answering from the worklist later. */
+                later: string;
             };
             /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
             categories: Record<string, string | undefined>;

@@ -239,3 +239,36 @@ it('leaves a transaction unanswered when no category is given', function (): voi
     expect(FinancialTransaction::query()->findOrFail($transactionId)->classification_status->value)
         ->toBe('UNCLASSIFIED');
 });
+
+it('changes the figures and the answer in one edit', function (): void {
+    [$user, $subjectId, $transactionId] = classifiable($this);
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
+            'splits' => [['amount_minor' => 450_000, 'category_code' => 'SALARY']],
+        ])
+        ->assertNoContent();
+
+    // What the screen does when someone edits a row: the amount and the answer move together, and
+    // the split follows the new amount rather than being left pointing at the old one.
+    $this->actingAs($user)
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}", [
+            'amount_minor' => 500_000,
+            'description' => 'Chirie corectată',
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
+            'splits' => [['amount_minor' => 500_000, 'category_code' => 'RENT']],
+        ])
+        ->assertNoContent();
+
+    /** @var list<TransactionSplit> $splits */
+    $splits = TransactionSplit::query()->where('transaction_id', $transactionId)->get()->all();
+
+    expect($splits)->toHaveCount(1)
+        ->and($splits[0]->category_code)->toBe('RENT')
+        ->and($splits[0]->amount_minor)->toBe(500_000)
+        ->and(FinancialTransaction::query()->findOrFail($transactionId)->amount_minor)->toBe(500_000);
+});
