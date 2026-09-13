@@ -1,15 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
+import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+import { useRowSelection } from '../../hooks/useRowSelection';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import {
     Building2,
-    ChevronDown,
     FileQuestion,
     FileText,
     FolderOpen,
@@ -25,7 +21,7 @@ import {
 } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 import { toast } from 'sonner';
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { deleteDocument, listDocuments, type DocumentListFilters } from '../../api/documentsApi';
 import AppShell from '../../components/AppShell';
@@ -95,14 +91,6 @@ export default function DocumentsInbox(): JSX.Element {
     const [pageSize, setPageSize] = useState(25);
     const [adding, setAdding] = useState(false);
     const [deleting, setDeleting] = useState<DocumentListItem | null>(null);
-    /**
-     * Ids ticked for a bulk action.
-     *
-     * Kept across pages and filter changes on purpose: selecting ten documents, paging to find an
-     * eleventh and losing the first ten is the behaviour people expect least. Cleared only when the
-     * action they were selected for completes.
-     */
-    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
 
@@ -250,6 +238,13 @@ export default function DocumentsInbox(): JSX.Element {
 
     useDocumentsChannel(subjectId, onLifecycle);
 
+    const current = loaded !== null && loaded.key === filterKey ? loaded : null;
+    const documents = current?.rows ?? null;
+
+    const pageIds = useMemo(() => documents?.map((document) => document.id) ?? [], [documents]);
+    const selection = useRowSelection(pageIds);
+
+
     if (subjectId === null) {
         return (
             <AppShell>
@@ -268,44 +263,6 @@ export default function DocumentsInbox(): JSX.Element {
         );
     }
 
-    const current = loaded !== null && loaded.key === filterKey ? loaded : null;
-    const documents = current?.rows ?? null;
-
-    const pageIds = documents?.map((document) => document.id) ?? [];
-    const selectedOnPage = pageIds.filter((id) => selected.has(id)).length;
-    const allOnPageSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
-
-    function toggleOne(id: string, next: boolean): void {
-        setSelected((current) => {
-            const updated = new Set(current);
-
-            if (next) {
-                updated.add(id);
-            } else {
-                updated.delete(id);
-            }
-
-            return updated;
-        });
-    }
-
-    /** Select-all acts on this page only — it cannot tick rows nobody has seen. */
-    function togglePage(next: boolean): void {
-        setSelected((current) => {
-            const updated = new Set(current);
-
-            for (const id of pageIds) {
-                if (next) {
-                    updated.add(id);
-                } else {
-                    updated.delete(id);
-                }
-            }
-
-            return updated;
-        });
-    }
-
     async function deleteSelected(): Promise<void> {
         if (!subjectId) {
             return;
@@ -317,11 +274,11 @@ export default function DocumentsInbox(): JSX.Element {
             // One request each: there is no bulk endpoint, and inventing one would skip the audit
             // event and the object-store cleanup each single delete already does correctly.
             // Sequential rather than parallel so a partial failure leaves a coherent list.
-            for (const id of selected) {
+            for (const id of selection.ids) {
                 await deleteDocument(subjectId, id);
             }
         } finally {
-            setSelected(new Set());
+            selection.clear();
             setBulkDeleting(false);
             setReloadKey((current) => current + 1);
         }
@@ -439,32 +396,17 @@ export default function DocumentsInbox(): JSX.Element {
                         {/* Only once something is ticked. A permanently-present "0 selected" button
                             is a control that does nothing most of the time, and the row it sits in
                             is already full of filters. */}
-                        {selected.size > 0 && (
-                            <div className="sm:ml-auto">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button type="button" className="shell-control" disabled={bulkDeleting}>
-                                            {t((d) => d.documentsInbox.selectedCount).replace(
-                                                '{count}',
-                                                String(selected.size),
-                                            )}
-                                            <ChevronDown className="text-muted-foreground size-3" aria-hidden="true" />
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44">
-                                        <DropdownMenuItem
-                                            variant="destructive"
-                                            onSelect={() => {
-                                                setConfirmingBulkDelete(true);
-                                            }}
-                                        >
-                                            <Trash2 className="size-4" />
-                                            {t((d) => d.documentsInbox.deleteSelected)}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        )}
+                        <BulkActions count={selection.size} disabled={bulkDeleting}>
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                    setConfirmingBulkDelete(true);
+                                }}
+                            >
+                                <Trash2 className="size-4" />
+                                {t((d) => d.documentsInbox.deleteSelected)}
+                            </DropdownMenuItem>
+                        </BulkActions>
                     </Toolbar>
 
                     {documents === null ? (
@@ -508,9 +450,9 @@ export default function DocumentsInbox(): JSX.Element {
                                 <>
                                     <th className="w-10">
                                         <Checkbox
-                                            checked={allOnPageSelected}
-                                            indeterminate={selectedOnPage > 0 && !allOnPageSelected}
-                                            onCheckedChange={togglePage}
+                                            checked={selection.allOnPage}
+                                            indeterminate={selection.someOnPage}
+                                            onCheckedChange={selection.toggleAll}
                                             aria-label={t((d) => d.documentsInbox.selectPage)}
                                         />
                                     </th>
@@ -532,13 +474,13 @@ export default function DocumentsInbox(): JSX.Element {
                                 return (
                                     <tr
                                         key={document.id}
-                                        className={cn(selected.has(document.id) && 'row-selected')}
+                                        className={cn(selection.has(document.id) && 'row-selected')}
                                     >
                                         <td>
                                             <Checkbox
-                                                checked={selected.has(document.id)}
+                                                checked={selection.has(document.id)}
                                                 onCheckedChange={(next) => {
-                                                    toggleOne(document.id, next);
+                                                    selection.toggle(document.id, next);
                                                 }}
                                                 aria-label={document.filename}
                                             />
@@ -636,7 +578,7 @@ export default function DocumentsInbox(): JSX.Element {
                     description={t((d) => d.documentsInbox.deleteSelectedHint)}
                     detail={
                         <p className="note">
-                            {t((d) => d.documentsInbox.selectedCount).replace('{count}', String(selected.size))}
+                            {t((d) => d.documentsInbox.selectedCount).replace('{count}', String(selection.size))}
                         </p>
                     }
                     confirmLabel={t((d) => d.common.delete)}

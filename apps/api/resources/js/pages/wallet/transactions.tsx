@@ -1,12 +1,13 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { classifyTransaction, deleteTransaction, listAccounts, listTransactions, recordTransaction, updateTransaction } from '../../api/walletApi';
-import { AlignLeftIcon, UserIcon } from 'lucide-react';
+import { AlignLeftIcon, UserIcon, ArrowLeftRight, PlusIcon, Trash2 } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
     DataTable,
+    EmptyState,
     Field,
     FieldGrid,
     Page,
@@ -18,10 +19,18 @@ import {
     Pill,
     Toolbar,
 } from '../../components/panel';
+import BulkActions from '../../components/BulkActions';
+import { PanelDate } from '../../components/PanelDatePicker';
+import Checkbox from '../../components/Checkbox';
+import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Skeleton } from '../../components/ui/skeleton';
+import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
+import { describeApiFailure } from '../../lib/apiErrors';
+import { cn } from '../../lib/utils';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
     CURRENCIES,
@@ -88,6 +97,10 @@ export default function WalletTransactions(): JSX.Element {
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
     const [classification, setClassification] = useState('all');
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
     const [accountId, setAccountId] = useState('');
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -141,6 +154,29 @@ export default function WalletTransactions(): JSX.Element {
         };
     }, [subjectId, accountId, reloadKey]);
 
+    const page = loaded !== null && loaded.accountId === accountId ? loaded.page : null;
+
+    const rows = (page?.transactions ?? []).filter((transaction) =>
+        classification === 'all'
+            ? true
+            : classification === 'unclassified'
+              ? transaction.splits.length === 0
+              : transaction.splits.length > 0,
+    );
+
+    /*
+     * Paged in the browser, over what the server already sent.
+     *
+     * The endpoint returns a capped window in one request, so asking it for a page would be a round
+     * trip to slice an array that is already here — and the classification filter above narrows the
+     * same array, so paging anywhere else would make the two disagree about what is on screen.
+     */
+    const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+    const currentPage = Math.min(pageNumber, pageCount);
+    const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const pageIds = useMemo(() => paged.map((transaction) => transaction.id), [paged]);
+    const selection = useRowSelection(pageIds);
+
     if (subjectId === null) {
         return (
             <AppShell>
@@ -153,17 +189,37 @@ export default function WalletTransactions(): JSX.Element {
         );
     }
 
-    const page = loaded !== null && loaded.accountId === accountId ? loaded.page : null;
 
     // Filtered here rather than on the server: the list is already a capped window the server sent
     // in one go, so narrowing it is a property of what is on screen, not another request.
-    const rows = (page?.transactions ?? []).filter((transaction) =>
-        classification === 'all'
-            ? true
-            : classification === 'unclassified'
-              ? transaction.splits.length === 0
-              : transaction.splits.length > 0,
-    );
+
+    const deleteSelected = async (): Promise<void> => {
+        setBulkDeleting(true);
+
+        let removed = 0;
+
+        try {
+            // One request each: there is no bulk endpoint, and inventing one would skip the audit
+            // event every single delete already writes. Sequential so a partial failure leaves a
+            // coherent list rather than an unknown number of rows gone.
+            for (const id of selection.ids) {
+                await deleteTransaction(subjectId, id);
+                removed += 1;
+            }
+
+            toast.success(t((d) => d.pages.walletTransactions.deleted));
+        } catch (cause: unknown) {
+            toast.error(t((d) => d.common.deleteFailed), { description: describeApiFailure(cause, t) });
+        } finally {
+            setBulkDeleting(false);
+            setConfirmingBulkDelete(false);
+
+            if (removed > 0) {
+                selection.clear();
+                setReloadKey((current) => current + 1);
+            }
+        }
+    };
 
     const submit = async (): Promise<void> => {
         setSaving(true);
@@ -248,30 +304,44 @@ export default function WalletTransactions(): JSX.Element {
             >
                 <Panel
                     title={t((d) => d.pages.walletTransactions.title)}
-                    footNote={
-                        page?.capped === true
-                            ? t((d) => d.pages.walletTransactions.capped).replace('{limit}', String(page.limit))
-                            : undefined
-                    }
+                    description={t((d) => d.pages.walletTransactions.description)}
+                    icon={<ArrowLeftRight className="size-4" />}
                     flush
-                >
-                    <Toolbar>
+                    aside={
                         <PanelButton
                             primary
+                            inline
                             disabled={accounts.length === 0}
                             onClick={() => {
                                 errors.reset();
-                                setForm((current) => ({
-                                    ...current,
+                                setForm({
+                                    ...emptyTransactionForm(),
                                     account_id: accounts[0]?.id ?? '',
                                     currency_code: accounts[0]?.currencyCode ?? CURRENCIES[0],
                                     booked_at: new Date().toISOString().slice(0, 10),
-                                }));
+                                });
                                 setAdding(true);
                             }}
                         >
+                            <PlusIcon className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.walletTransactions.add)}
                         </PanelButton>
+                    }
+                    foot={
+                        <Pagination
+                            page={currentPage}
+                            pageSize={pageSize}
+                            total={rows.length}
+                            unit={t((d) => d.pages.walletTransactions.unit)}
+                            onPageChange={setPageNumber}
+                            onPageSizeChange={(size) => {
+                                setPageSize(size);
+                                setPageNumber(1);
+                            }}
+                        />
+                    }
+                >
+                    <Toolbar>
                         <PanelSelect
                             className="filter-select"
                             value={accountId}
@@ -285,6 +355,17 @@ export default function WalletTransactions(): JSX.Element {
                         />
                         {/* What turns a list into a worklist: "Neclasificate" is the only view that
                             says what is still to do, and it is the reason this screen exists. */}
+                        <BulkActions count={selection.size} disabled={bulkDeleting}>
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                    setConfirmingBulkDelete(true);
+                                }}
+                            >
+                                <Trash2 className="size-4" />
+                                {t((d) => d.pages.walletTransactions.deleteSelected)}
+                            </DropdownMenuItem>
+                        </BulkActions>
                         <PanelSelect
                             className="filter-select"
                             value={classification}
@@ -312,12 +393,24 @@ export default function WalletTransactions(): JSX.Element {
                             <TableSkeleton />
                         )
                     ) : rows.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.walletTransactions.empty)}</p>
+                        <EmptyState
+                            icon={<ArrowLeftRight className="size-5" />}
+                            title={t((d) => d.pages.walletTransactions.emptyTitle)}
+                            description={t((d) => d.pages.walletTransactions.emptyHint)}
+                        />
                     ) : (
                         <DataTable
                             stacked
                             head={
                                 <>
+                                    <th className="w-8">
+                                        <Checkbox
+                                            checked={selection.allOnPage}
+                                            indeterminate={selection.someOnPage}
+                                            onCheckedChange={selection.toggleAll}
+                                            aria-label={t((d) => d.common.selectPage)}
+                                        />
+                                    </th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
@@ -327,8 +420,20 @@ export default function WalletTransactions(): JSX.Element {
                                 </>
                             }
                         >
-                            {rows.map((transaction) => (
-                                <tr key={transaction.id}>
+                            {paged.map((transaction) => (
+                                <tr
+                                    key={transaction.id}
+                                    className={cn(selection.has(transaction.id) && 'row-selected')}
+                                >
+                                    <td className="col-hide w-8">
+                                        <Checkbox
+                                            checked={selection.has(transaction.id)}
+                                            onCheckedChange={(next) => {
+                                                selection.toggle(transaction.id, next);
+                                            }}
+                                            aria-label={transaction.description}
+                                        />
+                                    </td>
                                     <td className="col-primary whitespace-nowrap tabular-nums">
                                         {new Date(transaction.bookedAt).toLocaleDateString()}
                                     </td>
@@ -414,7 +519,29 @@ export default function WalletTransactions(): JSX.Element {
                         </DataTable>
                     )}
                 </Panel>
+
+                {page?.capped === true ? (
+                    <p className="note">
+                        {t((d) => d.pages.walletTransactions.capped).replace('{limit}', String(page.limit))}
+                    </p>
+                ) : null}
             </Page>
+
+            {confirmingBulkDelete ? (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setConfirmingBulkDelete(false);
+                        }
+                    }}
+                    title={t((d) => d.pages.walletTransactions.deleteSelected)}
+                    description={t((d) => d.pages.walletTransactions.deleteSelectedHint)}
+                    confirmLabel={t((d) => d.common.delete)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={deleteSelected}
+                />
+            ) : null}
 
             {deleting === null ? null : (
                 <ConfirmDialog
@@ -568,12 +695,12 @@ export default function WalletTransactions(): JSX.Element {
                         htmlFor="tx-booked"
                         error={errors.get('booked_at')}
                     >
-                        <PanelInput
-                            id="tx-booked"
-                            type="date"
-                            value={form.booked_at}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, booked_at: event.target.value }));
+                        <PanelDate
+                            block
+                            disableFuture
+                            value={form.booked_at === '' ? null : form.booked_at}
+                            onChange={(next) => {
+                                setForm((current) => ({ ...current, booked_at: next ?? '' }));
                             }}
                         />
                     </Field>
@@ -594,14 +721,20 @@ export default function WalletTransactions(): JSX.Element {
                         />
                     </Field>
 
-                    <FieldSpanDescription
+                    <Field
                         label={t((d) => d.pages.walletTransactions.form.description)}
+                        htmlFor="tx-description"
                         error={errors.get('description')}
-                        value={form.description}
-                        onChange={(value) => {
-                            setForm((current) => ({ ...current, description: value }));
-                        }}
-                    />
+                    >
+                        <PanelInput
+                            id="tx-description"
+                            icon={<AlignLeftIcon className="size-3.5" />}
+                            value={form.description}
+                            onChange={(event) => {
+                                setForm((current) => ({ ...current, description: event.target.value }));
+                            }}
+                        />
+                    </Field>
 
                     {/* Answered here rather than in a second dialog afterwards: someone typing a
                         transaction already knows what it was, and asking again later is work for
@@ -651,28 +784,6 @@ export default function WalletTransactions(): JSX.Element {
     );
 }
 
-/** The description spans both columns — it is the one free-text field and the longest. */
-function FieldSpanDescription(props: {
-    label: string;
-    error: string | undefined;
-    value: string;
-    onChange: (value: string) => void;
-}): JSX.Element {
-    return (
-        <div className="sm:col-span-2">
-            <Field label={props.label} htmlFor="tx-description" error={props.error}>
-                <PanelInput
-                    id="tx-description"
-                    icon={<AlignLeftIcon className="size-3.5" />}
-                    value={props.value}
-                    onChange={(event) => {
-                        props.onChange(event.target.value);
-                    }}
-                />
-            </Field>
-        </div>
-    );
-}
 
 function TableSkeleton(): JSX.Element {
     return (

@@ -90,6 +90,10 @@ export interface Dictionary {
         search: string;
         noResults: string;
         actions: string;
+        /** "{count} selected" — the bulk-action trigger, shared by every table that has one. */
+        selectedCount: string;
+        /** The header checkbox's label — select-all acts on this page only. */
+        selectPage: string;
         loadMore: string;
         loadingMore: string;
     };
@@ -526,6 +530,11 @@ export interface Dictionary {
             };
             active: string;
             add: string;
+            unit: string;
+            emptyTitle: string;
+            emptyHint: string;
+            deleteSelected: string;
+            deleteSelectedHint: string;
             addHint: string;
             added: string;
             addFailed: string;
@@ -613,7 +622,6 @@ export interface Dictionary {
             deleted: string;
             title: string;
             description: string;
-            empty: string;
             capped: string;
             allAccounts: string;
             columns: {
@@ -624,6 +632,11 @@ export interface Dictionary {
                 status: string;
             };
             add: string;
+            unit: string;
+            deleteSelected: string;
+            deleteSelectedHint: string;
+            emptyTitle: string;
+            emptyHint: string;
             addHint: string;
             added: string;
             saved: string;

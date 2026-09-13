@@ -1,12 +1,14 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 
 import { deleteAccount, listAccounts, openAccount, updateAccount } from '../../api/walletApi';
-import { PercentIcon, TagIcon } from 'lucide-react';
+import { Banknote, LandmarkIcon, PercentIcon, PlusIcon, TagIcon, Trash2 } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import { PanelDate } from '../../components/PanelDatePicker';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
+    ActionGroup,
     DataTable,
+    EmptyState,
     Field,
     FieldGrid,
     Page,
@@ -21,7 +23,13 @@ import {
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import BulkActions from '../../components/BulkActions';
+import Checkbox from '../../components/Checkbox';
+import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { useRowSelection } from '../../hooks/useRowSelection';
 import { useTranslation } from '../../i18n';
+import { cn } from '../../lib/utils';
 import { addMonths, daysBetween } from '../../lib/depositTerm';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
@@ -150,6 +158,10 @@ export default function WalletAccounts(): JSX.Element {
     } | null>(null);
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
 
     const errors = useFormErrors();
     const [deleting, setDeleting] = useState<AccountSummary | null>(null);
@@ -162,7 +174,8 @@ export default function WalletAccounts(): JSX.Element {
     const [form, setForm] = useState<AccountForm>(emptyForm());
 
     useEffect(() => {
-        if (subjectId === null) {
+    
+    if (subjectId === null) {
             return;
         }
 
@@ -188,6 +201,21 @@ export default function WalletAccounts(): JSX.Element {
         };
     }, [subjectId, reloadKey]);
 
+    const accounts = loaded?.rows ?? null;
+
+    /*
+     * Paged in the browser, over the whole list.
+     *
+     * The endpoint returns every source for the subject — there are a handful, not thousands — so
+     * asking the server for a page would be a round trip to slice an array that is already here.
+     * The pager still exists because a broker, three banks and two deposits is enough to want one.
+     */
+    const pageCount = Math.max(1, Math.ceil((accounts?.length ?? 0) / pageSize));
+    const currentPage = Math.min(page, pageCount);
+    const paged = (accounts ?? []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const pageIds = useMemo(() => paged.map((account) => account.id), [paged]);
+    const selection = useRowSelection(pageIds);
+
     if (subjectId === null) {
         return (
             <AppShell>
@@ -200,7 +228,6 @@ export default function WalletAccounts(): JSX.Element {
         );
     }
 
-    const accounts = loaded?.rows ?? null;
 
     // A term deposit is an account with extra terms, so the form grows rather than the app offering
     // a second place to add one. This is the whole reason `deposits` stopped being its own table.
@@ -228,6 +255,35 @@ export default function WalletAccounts(): JSX.Element {
     // Neither handler re-checks `subjectId`: the early return above this point already narrowed it
     // to a string, and TypeScript rejects the redundant check as unreachable.
 
+
+    const deleteSelected = async (): Promise<void> => {
+        setBulkDeleting(true);
+
+        let removed = 0;
+
+        try {
+            // One request each: there is no bulk endpoint, and inventing one would skip the audit
+            // event every single delete already writes. Sequential rather than parallel so a
+            // partial failure leaves a coherent list — and each source is judged on its own, so a
+            // refusal stops the run rather than silently skipping to the next.
+            for (const id of selection.ids) {
+                await deleteAccount(subjectId, id);
+                removed += 1;
+            }
+
+            toast.success(t((d) => d.pages.walletAccounts.deleted));
+        } catch (cause: unknown) {
+            toast.error(t((d) => d.common.deleteFailed), { description: describeApiFailure(cause, t) });
+        } finally {
+            setBulkDeleting(false);
+            setConfirmingBulkDelete(false);
+
+            if (removed > 0) {
+                selection.clear();
+                setReloadKey((current) => current + 1);
+            }
+        }
+    };
 
     const submit = async (): Promise<void> => {
         setSaving(true);
@@ -289,12 +345,13 @@ export default function WalletAccounts(): JSX.Element {
             <Page title={t((d) => d.pages.walletAccounts.title)} lede={t((d) => d.pages.walletAccounts.description)}>
                 <Panel
                     title={t((d) => d.pages.walletAccounts.title)}
-                    footNote={t((d) => d.pages.wallet.perCurrencyNote)}
+                    description={t((d) => d.pages.walletAccounts.description)}
+                    icon={<LandmarkIcon className="size-4" />}
                     flush
-                >
-                    <Toolbar>
+                    aside={
                         <PanelButton
                             primary
+                            inline
                             onClick={() => {
                                 errors.reset();
                                 // From `emptyForm()`, not from whatever was last typed: the dialog
@@ -306,8 +363,40 @@ export default function WalletAccounts(): JSX.Element {
                                 setAdding(true);
                             }}
                         >
+                            <PlusIcon className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.walletAccounts.add)}
                         </PanelButton>
+                    }
+                    foot={
+                        <Pagination
+                            page={currentPage}
+                            pageSize={pageSize}
+                            total={accounts?.length ?? 0}
+                            unit={t((d) => d.pages.walletAccounts.unit)}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
+                        />
+                    }
+                >
+                    {/* Only once something is ticked — see `BulkActions`. Deleting is the one thing
+                        several sources can sensibly have done to them at once, and the same refusals
+                        apply to each: the general source is never removed, and one holding
+                        transactions is refused rather than cascaded. */}
+                    <Toolbar>
+                        <BulkActions count={selection.size} disabled={bulkDeleting}>
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                    setConfirmingBulkDelete(true);
+                                }}
+                            >
+                                <Trash2 className="size-4" />
+                                {t((d) => d.pages.walletAccounts.deleteSelected)}
+                            </DropdownMenuItem>
+                        </BulkActions>
                     </Toolbar>
 
                     {accounts === null ? (
@@ -315,12 +404,24 @@ export default function WalletAccounts(): JSX.Element {
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.pages.wallet.loadFailed)}</p>
                     ) : accounts.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.walletOverview.noAccounts)}</p>
+                        <EmptyState
+                            icon={<LandmarkIcon className="size-5" />}
+                            title={t((d) => d.pages.walletAccounts.emptyTitle)}
+                            description={t((d) => d.pages.walletAccounts.emptyHint)}
+                        />
                     ) : (
                         <DataTable
                             stacked
                             head={
                                 <>
+                                    <th className="w-8">
+                                        <Checkbox
+                                            checked={selection.allOnPage}
+                                            indeterminate={selection.someOnPage}
+                                            onCheckedChange={selection.toggleAll}
+                                            aria-label={t((d) => d.common.selectPage)}
+                                        />
+                                    </th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.type)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.balance)}</th>
@@ -329,8 +430,22 @@ export default function WalletAccounts(): JSX.Element {
                                 </>
                             }
                         >
-                            {accounts.map((account) => (
-                                <tr key={account.id}>
+                            {paged.map((account) => (
+                                <tr key={account.id} className={cn(selection.has(account.id) && 'row-selected')}>
+                                    {/* The general source is never removed, so it is never ticked:
+                                        a checkbox that cannot lead to an action is a control that
+                                        lies about what is possible. */}
+                                    <td className="col-hide w-8">
+                                        {account.kind === 'GENERAL' ? null : (
+                                            <Checkbox
+                                                checked={selection.has(account.id)}
+                                                onCheckedChange={(next) => {
+                                                    selection.toggle(account.id, next);
+                                                }}
+                                                aria-label={account.displayName}
+                                            />
+                                        )}
+                                    </td>
                                     <td className="col-primary">
                                         <div className="font-semibold">
                                             {sourceName(account, t((d) => d.pages.wallet.generalSource))}
@@ -394,39 +509,38 @@ export default function WalletAccounts(): JSX.Element {
                                         )}
                                     </td>
                                     <td className="col-end text-right">
-                                        {/* The general source is the system's own: it is created
-                                            with the taxpayer, labelled by this screen and cannot be
-                                            removed, so neither action means anything on it. */}
-                                        <div className="flex justify-end gap-2">
-                                            {account.kind === 'GENERAL' ? (
-                                                <span className="note">
-                                                    {t((d) => d.pages.walletAccounts.systemSource)}
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    {/* Editing is the only change a source takes:
-                                                        its name, its currency, and — for a deposit
-                                                        — the terms that produce its schedule. */}
-                                                    <PanelButton
-                                                        onClick={() => {
-                                                            errors.reset();
-                                                            setForm(formFor(account));
-                                                            setEditing(account);
-                                                        }}
-                                                    >
-                                                        {t((d) => d.pages.walletAccounts.edit)}
-                                                    </PanelButton>
-                                                    <PanelButton
-                                                        variant="ghost"
-                                                        onClick={() => {
-                                                            setDeleting(account);
-                                                        }}
-                                                    >
-                                                        {t((d) => d.common.delete)}
-                                                    </PanelButton>
-                                                </>
-                                            )}
-                                        </div>
+                                        {/* One control holding both actions, the way every other
+                                            row in this application draws them — a tile with a
+                                            divider, not two loose buttons. */}
+                                        {account.kind === 'GENERAL' ? (
+                                            <span className="note">
+                                                {t((d) => d.pages.walletAccounts.systemSource)}
+                                            </span>
+                                        ) : (
+                                            <div className="flex justify-end">
+                                                <ActionGroup
+                                                    actions={[
+                                                        {
+                                                            key: 'edit',
+                                                            label: t((d) => d.pages.walletAccounts.edit),
+                                                            onClick: () => {
+                                                                errors.reset();
+                                                                setForm(formFor(account));
+                                                                setEditing(account);
+                                                            },
+                                                        },
+                                                        {
+                                                            key: 'delete',
+                                                            label: t((d) => d.common.delete),
+                                                            tone: 'destructive' as const,
+                                                            onClick: () => {
+                                                                setDeleting(account);
+                                                            },
+                                                        },
+                                                    ]}
+                                                />
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -434,6 +548,22 @@ export default function WalletAccounts(): JSX.Element {
                     )}
                 </Panel>
             </Page>
+
+            {confirmingBulkDelete ? (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setConfirmingBulkDelete(false);
+                        }
+                    }}
+                    title={t((d) => d.pages.walletAccounts.deleteSelected)}
+                    description={t((d) => d.pages.walletAccounts.deleteSelectedHint)}
+                    confirmLabel={t((d) => d.common.delete)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={deleteSelected}
+                />
+            ) : null}
 
             {deleting === null ? null : (
                 <ConfirmDialog
@@ -585,6 +715,7 @@ export default function WalletAccounts(): JSX.Element {
                         >
                             <PanelInput
                                 id="account-holding"
+                                icon={<Banknote className="size-3.5" />}
                                 inputMode="decimal"
                                 value={form.holding_amount}
                                 onChange={(event) => {
