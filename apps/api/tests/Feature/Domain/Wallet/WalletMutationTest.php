@@ -47,11 +47,12 @@ function mutationSubject(): array
  */
 function openCurrentAccount(TestCase $case, User $user, string $subjectId, string $name = 'Cont curent'): string
 {
+    // `OTHER`, not `GENERAL`: the general source is created with the taxpayer and cannot be opened
+    // a second time or deleted, so a test that needs a disposable one asks for a stream.
     $response = $case->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'display_name' => $name,
-        'kind' => 'BANK_CURRENT',
+        'kind' => 'OTHER',
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
     ])->assertCreated();
 
     return idFrom($response->json('id'));
@@ -68,40 +69,33 @@ it('edits only the fields the request actually sent', function (): void {
     $accountId = openCurrentAccount($this, $user, $subjectId);
 
     $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", [
-            'institution_name' => 'Banca Transilvania',
-        ])
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['currency_code' => 'EUR'])
         ->assertOk();
 
     $account = FinancialAccount::query()->findOrFail($accountId);
 
     // A PATCH naming one field must not blank the others — the trap in every partial-update
     // endpoint that treats absent as empty.
-    expect($account->institution_name)->toBe('Banca Transilvania')
-        ->and($account->display_name_ciphertext)->toBe('Cont curent')
-        ->and($account->opened_at?->toDateString())->toBe('2026-01-01');
+    expect($account->display_name_ciphertext)->toBe('Cont curent')
+        ->and($account->currency_code)->toBe('EUR');
 });
 
-it('refuses to change the currency of an account amounts were already recorded in', function (): void {
+it("refuses to change a source's kind, because it decides what the source is", function (): void {
     [$user, $subjectId] = mutationSubject();
     $accountId = openCurrentAccount($this, $user, $subjectId);
 
-    // Not merely ignored — rejected, so nobody believes it worked. Every transaction and interest
-    // event against this account is denominated in its currency.
+    // Not merely ignored — rejected, so nobody believes it worked. `kind` decides whether
+    // transactions may be recorded against the source at all, so changing it would reinterpret what
+    // is already stored.
+    $this->actingAs($user)
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['kind' => 'CASH'])
+        ->assertStatus(422);
+
+    // The currency is not identity, though: it pre-fills the transaction form and nothing that
+    // calculates reads it, so it can be corrected.
     $this->actingAs($user)
         ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['currency_code' => 'EUR'])
-        ->assertStatus(422);
-});
-
-it('closes an account without destroying its history', function (): void {
-    [$user, $subjectId] = mutationSubject();
-    $accountId = openCurrentAccount($this, $user, $subjectId);
-
-    $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['closed_at' => '2026-06-30'])
         ->assertOk();
-
-    expect(FinancialAccount::query()->findOrFail($accountId)->closed_at?->toDateString())->toBe('2026-06-30');
 });
 
 it('refuses to delete an account that still has transactions', function (): void {
@@ -219,9 +213,8 @@ it('recomputes a deposit schedule when its terms change, leaving settled periods
     $created = $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
-        'institution_name' => 'BT',
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
+        'starts_at' => '2026-01-01',
         'maturity_at' => '2026-12-31',
         'principal_minor' => 100_000_00,
         'annual_rate' => '6.00',
@@ -247,115 +240,109 @@ it('recomputes a deposit schedule when its terms change, leaving settled periods
         ->and($after)->toBeGreaterThan($before);
 });
 
-it('moves the balance when a transaction is recorded', function (): void {
+it('reports a balance per currency, from the transactions alone', function (): void {
     [$user, $subjectId] = mutationSubject();
     $accountId = openCurrentAccount($this, $user, $subjectId);
 
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}/balance", [
-        'balance_minor' => 100_000,
-        'as_of' => '2026-02-01',
+    foreach ([['RON', -4550], ['RON', 100_000], ['EUR', 20_000]] as [$currency, $amount]) {
+        $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+            'account_id' => $accountId,
+            'amount_minor' => $amount,
+            'currency_code' => $currency,
+            'booked_at' => '2026-02-03',
+            'description' => 'Mișcare',
+        ])->assertCreated();
+    }
+
+    // The regression this pins: every `amount_minor` used to be summed regardless of currency and
+    // labelled with the account's, so this source would have reported 115.450 RON — a number that
+    // is not any quantity of anything.
+    $response = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk();
+
+    /** @var list<array{currency_code: string, amount_minor: int}> $balances */
+    $balances = $response->json('accounts.0.balances');
+
+    expect($balances)->toHaveCount(2)
+        ->and(array_column($balances, 'amount_minor', 'currency_code'))
+        ->toBe(['EUR' => 20_000, 'RON' => 95_450]);
+});
+
+it('reports nothing for a source that has never been used', function (): void {
+    [$user, $subjectId] = mutationSubject();
+    openCurrentAccount($this, $user, $subjectId);
+
+    // An empty list, not a zero. A source with no transactions has an *unknown* balance, and zero
+    // would be a claim about its contents that nothing supports.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
+        ->assertJsonPath('accounts.0.balances', []);
+});
+
+it('declares a cash holding as one transaction and refuses any other', function (): void {
+    [$user, $subjectId] = mutationSubject();
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
+        'display_name' => 'Numerar acasă',
+        'kind' => 'CASH',
+        'currency_code' => 'RON',
+        'holding_amount_minor' => 500_000,
     ])->assertCreated();
 
+    /** @var list<array{id: string, kind: string, balances: list<array{amount_minor: int}>}> $accounts */
+    $accounts = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->json('accounts');
+    $cash = array_values(array_filter($accounts, static fn (array $row): bool => $row['kind'] === 'CASH'))[0];
+
+    // The declaration *is* the transaction, so the source reports its value with nothing typed.
+    expect($cash['balances'])->toBe([['currency_code' => 'RON', 'amount_minor' => 500_000]]);
+
+    // And nothing may add to it: a cash holding that also contains hand-typed movements is no
+    // longer a statement of what is held.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
-        'account_id' => $accountId,
-        'amount_minor' => -4550,
+        'account_id' => $cash['id'],
+        'amount_minor' => 1_000,
         'currency_code' => 'RON',
         'booked_at' => '2026-02-03',
-        'description' => 'Cumpărături',
-    ])->assertCreated();
+        'description' => 'Nu ar trebui',
+    ])->assertStatus(422);
 
-    // A snapshot is what the bank said on a day; the transactions since are movements on top. Not
-    // adding them meant a person recorded a payment and watched the balance sit unchanged.
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', 95_450)
-        // No longer the bank's word once this system's arithmetic is on top of it.
-        ->assertJsonPath('accounts.0.balance_is_derived', true);
-});
-
-it('does not double-count a transaction from before the snapshot', function (): void {
-    [$user, $subjectId] = mutationSubject();
-    $accountId = openCurrentAccount($this, $user, $subjectId);
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
-        'account_id' => $accountId,
-        'amount_minor' => -4550,
-        'currency_code' => 'RON',
-        'booked_at' => '2026-01-10',
-        'description' => 'Înainte de extras',
-    ])->assertCreated();
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}/balance", [
-        'balance_minor' => 100_000,
-        'as_of' => '2026-02-01',
-    ])->assertCreated();
-
-    // The bank's figure already reflects it. Counting it again would subtract it twice.
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', 100_000);
-});
-
-it('tracks an account from its movements alone when nothing was ever observed', function (): void {
-    [$user, $subjectId] = mutationSubject();
-    $accountId = openCurrentAccount($this, $user, $subjectId);
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
-        'account_id' => $accountId,
-        'amount_minor' => 25_000,
-        'currency_code' => 'RON',
-        'booked_at' => '2026-02-03',
-        'description' => 'Salariu',
-    ])->assertCreated();
-
-    // Real but incomplete — an account opened with money already in it reads low — so the screen is
-    // told to say the figure was computed rather than observed.
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', 25_000)
-        ->assertJsonPath('accounts.0.balance_is_derived', true);
-});
-
-it('closes and reopens an account through the same endpoint', function (): void {
-    [$user, $subjectId] = mutationSubject();
-    $accountId = openCurrentAccount($this, $user, $subjectId);
-
+    // Editing the source edits that one row rather than adding a second.
     $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['closed_at' => '2026-06-30'])
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$cash['id']}", ['holding_amount_minor' => 750_000])
         ->assertOk();
 
-    expect(FinancialAccount::query()->findOrFail($accountId)->closed_at?->toDateString())->toBe('2026-06-30');
+    /** @var list<array{kind: string, balances: list<array{amount_minor: int}>}> $after */
+    $after = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->json('accounts');
+    $updated = array_values(array_filter($after, static fn (array $row): bool => $row['kind'] === 'CASH'))[0];
 
-    // Present-but-null reopens it. "No closing date" has to be a value a person can set, or an
-    // account closed by mistake is closed forever.
-    $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['closed_at' => null])
-        ->assertOk();
-
-    expect(FinancialAccount::query()->findOrFail($accountId)->closed_at)->toBeNull();
+    expect($updated['balances'])->toBe([['currency_code' => 'RON', 'amount_minor' => 750_000]]);
 });
 
-it('keeps a closed account transactions and leaves it out of the open list', function (): void {
+it('refuses a transaction recorded against a term deposit', function (): void {
     [$user, $subjectId] = mutationSubject();
-    $accountId = openCurrentAccount($this, $user, $subjectId);
 
+    $created = $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
+        'display_name' => 'Depozit',
+        'kind' => 'TERM_DEPOSIT',
+        'currency_code' => 'RON',
+        'starts_at' => '2026-01-01',
+        'maturity_at' => '2026-12-31',
+        'principal_minor' => 100_000_00,
+        'annual_rate' => '6.00',
+        'rate_type' => 'FIXED',
+        'interest_method' => 'SIMPLE',
+        'payment_frequency' => 'AT_MATURITY',
+    ])->assertCreated();
+
+    /** @var string $depositId */
+    $depositId = $created->json('id');
+
+    // The bug this pins: the form offered every source, so a deposit could be given an arbitrary
+    // credit — and a deposit that says it earns 4% while also holding a typed 5.000 RON is not
+    // reporting anything.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
-        'account_id' => $accountId,
-        'amount_minor' => -4550,
+        'account_id' => $depositId,
+        'amount_minor' => 500_000,
         'currency_code' => 'RON',
         'booked_at' => '2026-02-03',
-        'description' => 'Cumpărături',
-    ])->assertCreated();
-
-    $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}", ['closed_at' => '2026-06-30'])
-        ->assertOk();
-
-    // Gone from the default list...
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonCount(0, 'accounts');
-
-    // ...but still there, with its history, which is the entire difference from deleting it.
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts?include_closed=1")->assertOk()
-        ->assertJsonCount(1, 'accounts')
-        ->assertJsonPath('accounts.0.closed', true);
-
-    expect(FinancialTransaction::query()->where('account_id', $accountId)->count())->toBe(1);
+        'description' => 'Nu ar trebui',
+    ])->assertStatus(422);
 });

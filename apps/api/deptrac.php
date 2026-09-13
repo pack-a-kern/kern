@@ -87,7 +87,13 @@ return static function (DeptracConfig $config): void {
             // table's rows are written via a plain DB::table('security_events')->insert(...) call
             // per docs/handoff/011-identity-tenancy.md "Key decisions" #9), so no Identity ->
             // Subjects grant is needed here.
-            Ruleset::forLayer($identity)->accesses($support, $audit),
+            // Identity -> Settings: App\Domain\Identity\Services\RegistrationPolicy reads
+            // SettingKey::IDENTITY_REGISTRATION_ENABLED through SettingsRepository — the same
+            // application-service crossing Documents already makes for the AI provider settings,
+            // and for the same reason: whether sign-ups are open is an operational switch an owner
+            // flips at runtime, so the module that registers users has to ask rather than assume.
+            // Identity never touches a Settings Eloquent model.
+            Ruleset::forLayer($identity)->accesses($support, $audit, $settings),
             // Subjects -> Audit: App\Domain\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
             // "application service" cross-module traffic shape) to record TaxSubjectRegistered.

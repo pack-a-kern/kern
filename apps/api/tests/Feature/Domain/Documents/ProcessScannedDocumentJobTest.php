@@ -482,3 +482,31 @@ it('clears a recorded failure when a later attempt succeeds', function (): void 
     $document->refresh();
     expect($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::SUCCEEDED);
 });
+
+it('does not send a scanned PDF to the model as an empty document', function (): void {
+    $document = Document::factory()->create(['mime_type' => 'application/pdf', 'status' => DocumentStatus::SCANNED]);
+    putOriginal($document, FileFixtures::minimalPdf());
+    app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+
+    // A PDF whose pages are photographs of paper: the service reads it fine and finds no text.
+    Http::fake(['*/v1/documents/extract-text' => Http::response(
+        extractionSuccessBody([['page_number' => 1, 'text' => "  \n  "]], needsOcr: true),
+    )]);
+
+    // `joinedText()` returns an empty string rather than null, so every `!== null` check used to
+    // pass and this request went out carrying no document at all — the one thing a provenance
+    // system must never ask a model to answer.
+    $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
+        public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
+        {
+            throw new RuntimeException('must not be called with an empty document');
+        }
+    });
+
+    ProcessScannedDocument::dispatchSync($document->id);
+
+    $document->refresh();
+    expect($document->status)->toBe(DocumentStatus::READY)
+        ->and($document->ai_extraction_outcome)->toBe(AiExtractionOutcome::NOT_SENT_NOTHING_TO_SEND)
+        ->and(DocumentExtraction::query()->count())->toBe(0);
+});

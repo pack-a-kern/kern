@@ -19,6 +19,14 @@ export interface FormErrors {
     capture: (cause: unknown) => boolean;
     /** Clears one field, for when it is edited — a stale error reads as a rejected correction. */
     clear: (field: string) => void;
+    /**
+     * Puts a message on one field without a request having failed.
+     *
+     * For a rejection the form learns about outside a submit — a CNP checked on its own, before
+     * the rest of the form is even shown. The message still belongs on the field rather than in a
+     * toast, which is the whole point of this hook.
+     */
+    set: (field: string, message: string) => void;
     reset: () => void;
     any: boolean;
 }
@@ -50,9 +58,13 @@ export function useFormErrors(): FormErrors {
         );
     }, []);
 
+    const set = useCallback((field: string, message: string): void => {
+        setErrors((current) => ({ ...current, [snakeCase(field)]: message }));
+    }, []);
+
     const reset = useCallback((): void => {
         setErrors({});
     }, []);
 
-    return { get, capture, clear, reset, any: Object.keys(errors).length > 0 };
+    return { get, capture, clear, set, reset, any: Object.keys(errors).length > 0 };
 }

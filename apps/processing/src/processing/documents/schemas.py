@@ -27,7 +27,7 @@ class UntrustedDocumentText:
       instruction message;
     - never let an instruction-shaped sentence found inside the text change
       which instructions the model follows — the extraction model this
-      feeds is never given tools (`processing.ai.schemas.ChatMessage.role`
+      feeds is never given tools (the chat role
       already excludes `tool`/`function`) and must treat document content
       as reportable data, not as commands to obey.
     """

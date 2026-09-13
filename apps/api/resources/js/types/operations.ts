@@ -24,10 +24,11 @@ export interface QueueSnapshot {
     pending: number | null;
     completed: number | null;
     failed: number | null;
-    recentlyFailed: number | null;
     supervisors: number | null;
     masterStatus: string | null;
     maxWaitSeconds: number | null;
+    /** Jobs processed per minute over Horizon's measurement window. */
+    throughput: number | null;
 }
 
 /**
@@ -44,7 +45,7 @@ export interface TaskArgument {
     required: boolean;
 }
 
-export interface JobRun {
+export interface TaskRun {
     id: string;
     taskKey: string;
     trigger: string;
@@ -59,36 +60,51 @@ export interface JobRun {
 }
 
 /**
- * One line of the merged background-activity feed.
+ * One queued job, as Horizon records it.
  *
- * `kind` is not decoration: it says which record the row came from, and therefore what can be done
- * with it. Running a task again and re-queueing a failed job are different operations against
- * different endpoints, so a row that lost its origin would also lose its action. Fields only one
- * source has stay `null` on the other rather than being flattened away.
+ * Not the same population as a {@link TaskRun}, and the two are never mixed: an operation task
+ * reaches the queue wrapped in a single job class and writes its own outcome to `task_runs`, so it
+ * never appears among these failures. The payload is deliberately absent — it carries document and
+ * tax-subject ids.
  */
-export type ActivityKind = 'task_run' | 'failed_job';
-
-export interface ActivityEntry {
-    kind: ActivityKind;
+export interface QueueJob {
     id: string;
-    /** An `OperationTask` key (translated on screen) or a failed job's class name. */
-    label: string;
-    occurredAt: string;
+    /** The job's class name. Not translated: it is a class, and a fake friendly name would lie. */
+    name: string;
+    queue: string;
+    connection: string;
     status: string;
-    trigger: string | null;
-    durationSeconds: number | null;
-    exitCode: number | null;
-    output: string | null;
-    queue: string | null;
-    connection: string | null;
+    queuedAt: string | null;
+    completedAt: string | null;
+    failedAt: string | null;
     exception: string | null;
+    retried: boolean;
 }
 
-export interface ActivityPage {
-    activity: ActivityEntry[];
+export interface QueueJobsPage {
+    jobs: QueueJob[];
     total: number;
     page: number;
-    pages: number;
+    perPage: number;
+    /** False when Horizon could not be reached — an empty list then means "nobody can tell". */
+    available: boolean;
+    queue: QueueSnapshot;
+}
+
+/** `GET /v1/operations/tasks/{task}/runs` — one task's history, newest first. */
+export interface TaskRunsPage {
+    runs: TaskRun[];
+    total: number;
+    page: number;
+    perPage: number;
+}
+
+/** `GET /v1/settings/platform-data` — the source allowlist, how fresh each feed is, and the
+ *  scheduler's heartbeat, which the settings screen shows beside the other services. */
+export interface PlatformData {
+    scheduler: SchedulerStatus;
+    freshness: FreshnessItem[];
+    sources: SourceRegistryEntry[];
 }
 
 export interface OperationTaskView {
@@ -105,7 +121,7 @@ export interface OperationTaskView {
     enabled: boolean;
     running: boolean;
     arguments: TaskArgument[];
-    lastRun: JobRun | null;
+    lastRun: TaskRun | null;
 }
 
 export interface FreshnessItem {
@@ -136,11 +152,7 @@ export interface SourceRegistryEntry {
 
 export interface OperationsOverview {
     scheduler: SchedulerStatus;
-    queue: QueueSnapshot;
     tasks: OperationTaskView[];
-    freshness: FreshnessItem[];
-    health: ComponentHealth[];
-    sources: SourceRegistryEntry[];
 }
 
 function obj(value: unknown): Record<string, unknown> {
@@ -182,7 +194,7 @@ function state(row: Record<string, unknown>, key: string): OperationState {
     return value === 'ok' || value === 'warn' || value === 'bad' ? value : 'idle';
 }
 
-function parseJobRun(payload: unknown): JobRun {
+function parseTaskRun(payload: unknown): TaskRun {
     const row = obj(payload);
     const args = row.arguments;
 
@@ -211,7 +223,6 @@ function parseJobRun(payload: unknown): JobRun {
 export function parseOperationsOverview(payload: unknown): OperationsOverview {
     const body = obj(payload);
     const scheduler = obj(body.scheduler);
-    const queue = obj(body.queue);
 
     return {
         scheduler: {
@@ -219,16 +230,6 @@ export function parseOperationsOverview(payload: unknown): OperationsOverview {
             lastBeatAt: nullableStr(scheduler, 'last_beat_at'),
             ageSeconds: nullableNum(scheduler, 'age_seconds'),
             maxAgeSeconds: num(scheduler, 'max_age_seconds'),
-        },
-        queue: {
-            available: bool(queue, 'available'),
-            pending: nullableNum(queue, 'pending'),
-            completed: nullableNum(queue, 'completed'),
-            failed: nullableNum(queue, 'failed'),
-            recentlyFailed: nullableNum(queue, 'recently_failed'),
-            supervisors: nullableNum(queue, 'supervisors'),
-            masterStatus: nullableStr(queue, 'master_status'),
-            maxWaitSeconds: nullableNum(queue, 'max_wait_seconds'),
         },
         tasks: (Array.isArray(body.tasks) ? body.tasks : []).map((entry): OperationTaskView => {
             const row = obj(entry);
@@ -261,9 +262,77 @@ export function parseOperationsOverview(payload: unknown): OperationsOverview {
                         required: spec.required !== false,
                     };
                 }),
-                lastRun: row.last_run === null || row.last_run === undefined ? null : parseJobRun(row.last_run),
+                lastRun: row.last_run === null || row.last_run === undefined ? null : parseTaskRun(row.last_run),
             };
         }),
+    };
+}
+
+function parseQueueSnapshot(payload: unknown): QueueSnapshot {
+    const queue = obj(payload);
+
+    return {
+        available: bool(queue, 'available'),
+        pending: nullableNum(queue, 'pending'),
+        completed: nullableNum(queue, 'completed'),
+        failed: nullableNum(queue, 'failed'),
+        supervisors: nullableNum(queue, 'supervisors'),
+        masterStatus: nullableStr(queue, 'master_status'),
+        maxWaitSeconds: nullableNum(queue, 'max_wait_seconds'),
+        throughput: nullableNum(queue, 'throughput'),
+    };
+}
+
+export function parseQueueJobsPage(payload: unknown): QueueJobsPage {
+    const body = obj(payload);
+
+    return {
+        jobs: (Array.isArray(body.jobs) ? body.jobs : []).map((entry): QueueJob => {
+            const row = obj(entry);
+
+            return {
+                id: str(row, 'id'),
+                name: str(row, 'name'),
+                queue: str(row, 'queue'),
+                connection: str(row, 'connection'),
+                status: str(row, 'status'),
+                queuedAt: nullableStr(row, 'queued_at'),
+                completedAt: nullableStr(row, 'completed_at'),
+                failedAt: nullableStr(row, 'failed_at'),
+                exception: nullableStr(row, 'exception'),
+                retried: bool(row, 'retried'),
+            };
+        }),
+        total: num(body, 'total'),
+        page: num(body, 'page'),
+        perPage: num(body, 'per_page'),
+        available: bool(body, 'available'),
+        queue: parseQueueSnapshot(body.queue),
+    };
+}
+
+export function parseTaskRunsPage(payload: unknown): TaskRunsPage {
+    const body = obj(payload);
+
+    return {
+        runs: (Array.isArray(body.runs) ? body.runs : []).map(parseTaskRun),
+        total: num(body, 'total'),
+        page: num(body, 'page'),
+        perPage: num(body, 'per_page'),
+    };
+}
+
+export function parsePlatformData(payload: unknown): PlatformData {
+    const body = obj(payload);
+    const scheduler = obj(body.scheduler);
+
+    return {
+        scheduler: {
+            alive: bool(scheduler, 'alive'),
+            lastBeatAt: nullableStr(scheduler, 'last_beat_at'),
+            ageSeconds: nullableNum(scheduler, 'age_seconds'),
+            maxAgeSeconds: num(scheduler, 'max_age_seconds'),
+        },
         freshness: (Array.isArray(body.freshness) ? body.freshness : []).map((entry): FreshnessItem => {
             const row = obj(entry);
 
@@ -273,11 +342,6 @@ export function parseOperationsOverview(payload: unknown): OperationsOverview {
                 value: nullableStr(row, 'value'),
                 detail: nullableStr(row, 'detail'),
             };
-        }),
-        health: (Array.isArray(body.health) ? body.health : []).map((entry): ComponentHealth => {
-            const row = obj(entry);
-
-            return { key: str(row, 'key'), state: str(row, 'state'), detail: nullableStr(row, 'detail') };
         }),
         sources: (Array.isArray(body.sources) ? body.sources : []).map((entry): SourceRegistryEntry => {
             const row = obj(entry);
@@ -290,35 +354,5 @@ export function parseOperationsOverview(payload: unknown): OperationsOverview {
                 mirrored: bool(row, 'mirrored'),
             };
         }),
-    };
-}
-
-export function parseActivityPage(payload: unknown): ActivityPage {
-    const body = obj(payload);
-
-    return {
-        activity: (Array.isArray(body.activity) ? body.activity : []).map((entry): ActivityEntry => {
-            const row = obj(entry);
-
-            return {
-                // Anything the server did not label as a known kind is treated as a failed job:
-                // that is the row with the least assumed about it, and it renders read-only.
-                kind: row.kind === 'task_run' ? 'task_run' : 'failed_job',
-                id: str(row, 'id'),
-                label: str(row, 'label'),
-                occurredAt: str(row, 'occurred_at'),
-                status: str(row, 'status'),
-                trigger: nullableStr(row, 'trigger'),
-                durationSeconds: nullableNum(row, 'duration_seconds'),
-                exitCode: nullableNum(row, 'exit_code'),
-                output: nullableStr(row, 'output'),
-                queue: nullableStr(row, 'queue'),
-                connection: nullableStr(row, 'connection'),
-                exception: nullableStr(row, 'exception'),
-            };
-        }),
-        total: num(body, 'total'),
-        page: num(body, 'page'),
-        pages: num(body, 'pages'),
     };
 }

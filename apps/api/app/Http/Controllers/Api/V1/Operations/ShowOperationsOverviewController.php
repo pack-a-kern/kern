@@ -4,56 +4,46 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Operations;
 
-use App\Domain\Operations\DataTransferObjects\FreshnessItem;
 use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
-use App\Domain\Operations\DataTransferObjects\SourceRegistryEntry;
 use App\Domain\Operations\DataTransferObjects\TaskArgument;
-use App\Domain\Operations\Models\JobRun;
-use App\Domain\Operations\Repositories\JobRunRepository;
-use App\Domain\Operations\Services\ProbeDataFreshness;
-use App\Domain\Operations\Services\ProbeQueueStatus;
+use App\Domain\Operations\Models\TaskRun;
+use App\Domain\Operations\Repositories\TaskRunRepository;
 use App\Domain\Operations\Services\ProbeSchedulerStatus;
-use App\Domain\Operations\Services\ReadSourceAllowlist;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
-use App\Domain\Settings\DataTransferObjects\ComponentHealth;
-use App\Domain\Settings\Services\ProbeSystemHealth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
- * `GET /api/v1/operations` — everything the operations console renders in one request.
+ * `GET /api/v1/operations` — the scheduled-task console.
  *
- * One endpoint rather than six because these panels are read together and mean little apart: a
- * queue with no pending jobs is reassuring until you notice the scheduler heartbeat went stale
- * four hours ago, and the two arriving in separate responses invites rendering one before the
- * other. Each probe degrades independently inside its own service, so a single unreachable
- * dependency costs one panel, not the page.
+ * The six tasks and the scheduler's heartbeat, and nothing else. They are one answer: a task that
+ * reports "last run succeeded" means nothing if the heartbeat went stale four hours ago, and the two
+ * arriving in separate responses invites rendering one before the other.
  *
- * The system-health rows come from `ProbeSystemHealth`, the same service the settings screen uses.
- * They are surfaced here as well, deliberately duplicated rather than moved: reachability is the
- * first thing to check when an import has failed, and making an operator navigate to Settings to
- * find it is how a status board goes unread.
+ * What used to be here and is not any more, so nobody goes looking for it:
  *
- * `sources` is read-only, and that is a correctness property rather than a missing feature — see
- * {@see ReadSourceAllowlist} for why a switch over `official_sources.enabled` would have reported a
- * state it does not hold.
+ *  - **the queue and its jobs** moved to `GET /v1/operations/jobs`, which reads Horizon. Queued jobs
+ *    and operation tasks are different populations — a task reaches the queue wrapped in one job
+ *    class and records its own outcome, so it never appears among the failures;
+ *  - **service health** was a second copy of the settings screen's, and is now only there;
+ *  - **data freshness** and the **official-source allowlist** moved to
+ *    `GET /v1/settings/platform-data`, behind the settings permission, because what this
+ *    installation is configured to trust is a settings question rather than an operations one.
+ *
+ * Each probe degrades inside its own service, so an unreachable dependency costs one panel rather
+ * than the page.
  */
 final class ShowOperationsOverviewController extends Controller
 {
     public function __invoke(
         ScheduledTaskRegistry $registry,
-        JobRunRepository $runs,
+        TaskRunRepository $runs,
         ProbeSchedulerStatus $scheduler,
-        ProbeQueueStatus $queue,
-        ProbeDataFreshness $freshness,
-        ProbeSystemHealth $health,
-        ReadSourceAllowlist $sources,
     ): JsonResponse {
         $latest = $runs->latestPerTask();
 
         return response()->json([
             'scheduler' => $scheduler()->toArray(),
-            'queue' => $queue()->toArray(),
             'tasks' => array_map(
                 fn (ScheduledTaskDefinition $definition): array => $this->presentTask(
                     $definition,
@@ -62,25 +52,13 @@ final class ShowOperationsOverviewController extends Controller
                 ),
                 $registry->all(),
             ),
-            'freshness' => array_map(
-                static fn (FreshnessItem $item): array => $item->toArray(),
-                $freshness(),
-            ),
-            'health' => array_map(
-                static fn (ComponentHealth $component): array => $component->toArray(),
-                $health(),
-            ),
-            'sources' => array_map(
-                static fn (SourceRegistryEntry $entry): array => $entry->toArray(),
-                $sources(),
-            ),
         ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function presentTask(ScheduledTaskDefinition $definition, ?JobRun $lastRun, bool $running): array
+    private function presentTask(ScheduledTaskDefinition $definition, ?TaskRun $lastRun, bool $running): array
     {
         return [
             'key' => $definition->task->value,
@@ -96,7 +74,7 @@ final class ShowOperationsOverviewController extends Controller
                 static fn (TaskArgument $argument): array => $argument->toArray(),
                 $definition->task->arguments(),
             ),
-            'last_run' => $lastRun === null ? null : JobRunPresenter::present($lastRun),
+            'last_run' => $lastRun === null ? null : TaskRunPresenter::present($lastRun),
         ];
     }
 }

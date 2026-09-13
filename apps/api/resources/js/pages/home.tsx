@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import type { JSX } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '../i18n';
-import GuestLanguageToggle from '../components/GuestLanguageToggle';
+import { LanguageMenu, PaletteMenu, ThemeToggle } from '../components/ShellControls';
 
 export default function Home(): JSX.Element {
     const { t } = useTranslation();
@@ -10,7 +10,11 @@ export default function Home(): JSX.Element {
     return (
         <>
             <Head title={t((d) => d.shell.appName)} />
-            <GuestLanguageToggle />
+            <div className="fixed top-3 right-3 flex items-center gap-1.5">
+                <LanguageMenu />
+                <PaletteMenu />
+                <ThemeToggle />
+            </div>
             <main className="flex min-h-dvh items-center justify-center bg-background text-foreground">
                 <div className="text-center">
                     <h1 className="text-2xl font-semibold">{t((d) => d.shell.appName)}</h1>

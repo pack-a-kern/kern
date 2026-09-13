@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Consent;
 
+use App\Domain\Audit\DataTransferObjects\AuditEventInput;
+use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
 use App\Domain\Documents\Models\DocumentAiConsent;
 
@@ -13,18 +15,32 @@ use App\Domain\Documents\Models\DocumentAiConsent;
  * RequestExternalDocumentExtraction` calls {@see self::assertConsented()} before ever
  * constructing a provider request; nothing else in this module reads or writes
  * `document_ai_consents` directly.
+ *
+ * ## Both changes are recorded
+ *
+ * This switch decides whether a person's documents leave the installation, so "who turned it on,
+ * and when" is exactly the kind of question the audit chain exists to answer. Writing only the row
+ * left the most privacy-relevant control in the application with no history at all: a consent that
+ * had been revoked was indistinguishable from one that was never granted, and neither could be
+ * attributed to anyone.
  */
 final class DocumentAiConsentGate
 {
-    public function grant(string $subjectId): void
+    public function __construct(private readonly AuditChainService $audit)
+    {
+    }
+
+    public function grant(string $subjectId, ?string $actorId = null): void
     {
         DocumentAiConsent::query()->updateOrCreate(
             ['tax_subject_id' => $subjectId],
             ['consented_at' => now('UTC'), 'revoked_at' => null],
         );
+
+        $this->record($subjectId, $actorId, 'DocumentAiConsentGranted');
     }
 
-    public function revoke(string $subjectId): void
+    public function revoke(string $subjectId, ?string $actorId = null): void
     {
         $consent = DocumentAiConsent::query()->find($subjectId);
 
@@ -34,6 +50,20 @@ final class DocumentAiConsentGate
 
         $consent->revoked_at = now('UTC');
         $consent->save();
+
+        $this->record($subjectId, $actorId, 'DocumentAiConsentRevoked');
+    }
+
+    private function record(string $subjectId, ?string $actorId, string $eventType): void
+    {
+        $this->audit->record(AuditEventInput::occurringNow(
+            subjectId: $subjectId,
+            actorId: $actorId,
+            eventType: $eventType,
+            resourceType: 'DocumentAiConsent',
+            resourceId: $subjectId,
+            payloadHash: $this->audit->hashPayload(['tax_subject_id' => $subjectId]),
+        ));
     }
 
     public function isConsented(string $subjectId): bool

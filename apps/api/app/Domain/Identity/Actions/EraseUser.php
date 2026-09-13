@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Identity\Actions;
+
+use App\Domain\Audit\DataTransferObjects\AuditEventInput;
+use App\Domain\Audit\Services\AuditChainService;
+use App\Domain\Identity\Enums\UserStatus;
+use App\Domain\Identity\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+/**
+ * Erases a person from this installation, as far as the record permits.
+ *
+ * ## Why this is not a DELETE
+ *
+ * `audit_events.actor_id` is `ON DELETE RESTRICT`, and the table carries a trigger refusing DELETE
+ * outright. That is deliberate: the chain exists so that nobody — an administrator included, this
+ * code included — can make it say that something never happened. A user who has ever acted
+ * therefore cannot be removed, and pretending otherwise would mean either a button that fails or an
+ * audit chain with holes in it.
+ *
+ * So erasure means everything *except* the trail. What survives is "user 01a0… did this, then";
+ * what does not is any way to learn who that was, or to sign in as them again.
+ *
+ * | thing | what happens |
+ * |---|---|
+ * | sessions | deleted — signed out everywhere, at once |
+ * | passkeys, authenticator, recovery codes | deleted — nothing can authenticate as them again |
+ * | memberships | deleted — access to every taxpayer ends |
+ * | email, password | replaced by a tombstone; the blind index is randomised, so the address can neither be found by searching for it nor collide with a later registration |
+ * | status | `DELETED` |
+ */
+final readonly class EraseUser
+{
+    public function __construct(private AuditChainService $audit)
+    {
+    }
+
+    public function __invoke(User $user, string $actorId): void
+    {
+        DB::transaction(function () use ($user, $actorId): void {
+            $user->sessions()->delete();
+            $user->passkeys()->delete();
+            $user->mfaMethods()->delete();
+            $user->recoveryCodes()->delete();
+
+            // Memberships belong to the Subjects module, and this one does not import its models —
+            // the same plain-table crossing `security_events` already uses
+            // (docs/handoff/011-identity-tenancy.md, key decision #9).
+            DB::table('subject_memberships')->where('user_id', $user->id)->delete();
+
+            // A random index rather than null: the column is unique, and an index left intact would
+            // still answer "is this address registered?" to anyone who cared to ask.
+            $user->email_ciphertext = sprintf('erased-%s@invalid', Str::uuid()->toString());
+            $user->email_blind_index = hash('sha256', Str::uuid()->toString());
+            $user->password_hash = null;
+            $user->email_verified_at = null;
+            $user->status = UserStatus::DELETED;
+            $user->save();
+
+            // Account-level: an erasure is about a person rather than about any one taxpayer, so it
+            // joins the chain that records logins and registrations.
+            $this->audit->record(AuditEventInput::occurringNow(
+                subjectId: null,
+                actorId: $actorId,
+                eventType: 'UserErased',
+                resourceType: 'User',
+                resourceId: $user->id,
+                payloadHash: $this->audit->hashPayload(['user_id' => $user->id]),
+            ));
+        });
+    }
+}

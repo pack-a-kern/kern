@@ -47,7 +47,7 @@ function activatedAccount(): array
 
     $account = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        kind: AccountKind::BANK_CURRENT,
+        kind: AccountKind::GENERAL,
         displayName: 'Test account',
         currencyCode: 'RON',
     ));

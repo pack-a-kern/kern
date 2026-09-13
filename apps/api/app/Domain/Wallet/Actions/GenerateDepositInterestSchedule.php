@@ -69,23 +69,15 @@ final readonly class GenerateDepositInterestSchedule
             ))
             ->all());
 
-        $openedAt = $account->opened_at;
-
-        if ($openedAt === null) {
-            // Guarded at creation; restated here because this action is also the re-generation
-            // entry point and an account edited later must not compute interest from nothing.
-            return [];
-        }
-
         $computedPeriods = $this->calculator->calculate(
             principalMinor: $terms->principal_minor,
             ratePeriods: $ratePeriodInputs,
             method: $terms->interest_method,
             frequency: $terms->payment_frequency,
             dayCountConvention: $terms->day_count_convention,
-            // The dates come from both rows: opening is the account's, maturity the terms' — the
-            // split that removed the duplicated columns.
-            openedAt: $openedAt->toImmutable(),
+            // Both dates come from the terms now: a source is a folder that may hold several
+            // products, so it cannot carry one start date for all of them.
+            openedAt: $terms->starts_at->toImmutable(),
             maturityAt: $terms->maturity_at->toImmutable(),
         );
 

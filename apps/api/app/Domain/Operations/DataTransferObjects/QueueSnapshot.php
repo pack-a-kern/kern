@@ -22,19 +22,21 @@ final readonly class QueueSnapshot
         public ?int $supervisors,
         public ?string $masterStatus,
         public ?int $maxWaitSeconds,
+        /** Jobs Horizon processed per minute over its measurement window — is the queue moving. */
+        public ?float $throughput,
     ) {
     }
 
     public static function unavailable(): self
     {
-        return new self(false, null, null, null, null, null, null, null);
+        return new self(false, null, null, null, null, null, null, null, null);
     }
 
     /**
      * @return array{
      *     available: bool, pending: int|null, completed: int|null, failed: int|null,
      *     recently_failed: int|null, supervisors: int|null, master_status: string|null,
-     *     max_wait_seconds: int|null
+     *     max_wait_seconds: int|null, throughput: float|null
      * }
      */
     public function toArray(): array
@@ -48,6 +50,7 @@ final readonly class QueueSnapshot
             'supervisors' => $this->supervisors,
             'master_status' => $this->masterStatus,
             'max_wait_seconds' => $this->maxWaitSeconds,
+            'throughput' => $this->throughput,
         ];
     }
 }

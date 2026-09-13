@@ -7,16 +7,16 @@ namespace App\Domain\Wallet\Exceptions;
 use RuntimeException;
 
 /**
- * An account was deleted while records still depend on it.
+ * A stream source was deleted while transactions still explain a figure through it.
  *
- * Deleting is not the same as closing, and this is the line between them. A closed account keeps
- * its history — `closed_at` says money stopped moving through it, and last year's transactions
- * still explain last year's return. Deleting is for an account that should never have existed, and
- * that is only true while nothing points at it.
+ * Cascading instead would silently remove records a tax figure was computed from, which is the one
+ * thing this product must never do quietly. The remedy is in the message: remove or move the
+ * transactions first, deliberately.
  *
- * Cascading instead would silently remove transactions a tax figure was computed from, which is the
- * one thing this product must never do quietly. The remedy is in the message: close it, or remove
- * what depends on it first.
+ * This applies only to sources transactions were *recorded into* — a broker, a crypto exchange,
+ * anything typed by hand. A holding is different: a cash source's single row and a deposit's
+ * interest schedule are produced from the declaration being deleted, not entered against it, so
+ * they go with it rather than blocking it.
  */
 final class AccountNotEmptyException extends RuntimeException
 {
@@ -32,7 +32,7 @@ final class AccountNotEmptyException extends RuntimeException
     {
         return new self(
             sprintf(
-                'This account cannot be deleted: %d transaction(s) and %d interest event(s) still reference it. Close it instead.',
+                'This source cannot be deleted: %d transaction(s) and %d interest event(s) still reference it. Remove or move them first.',
                 $transactions,
                 $interestEvents,
             ),

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Operations\Jobs;
 
-use App\Domain\Operations\Enums\JobRunTrigger;
 use App\Domain\Operations\Enums\OperationTask;
-use App\Domain\Operations\Services\JobRunRecorder;
+use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Services\OperationRunLock;
+use App\Domain\Operations\Services\TaskRunRecorder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -53,7 +53,7 @@ final class RunOperationTask implements ShouldQueue
      */
     public function __construct(
         private readonly OperationTask $task,
-        private readonly JobRunTrigger $trigger,
+        private readonly TaskRunTrigger $trigger,
         private readonly ?string $actorId,
         private readonly array $arguments = [],
         private readonly ?string $lockOwner = null,
@@ -66,7 +66,7 @@ final class RunOperationTask implements ShouldQueue
      * An artisan option is addressed as `--type` while a form field cannot be, so
      * {@see \App\Domain\Operations\DataTransferObjects\TaskArgument} carries both names and the
      * translation happens here — once, next to the call — rather than leaking `--` into the screen,
-     * the JSON and the stored `job_runs.arguments`.
+     * the JSON and the stored `task_runs.arguments`.
      *
      * @return array<string, int|string>
      */
@@ -83,7 +83,7 @@ final class RunOperationTask implements ShouldQueue
         return $mapped;
     }
 
-    public function handle(Kernel $artisan, JobRunRecorder $recorder, OperationRunLock $lock): void
+    public function handle(Kernel $artisan, TaskRunRecorder $recorder, OperationRunLock $lock): void
     {
         // A manual run arrives holding the lock the controller took, so a double-click was already
         // refused with an answer. A scheduled run has no owner and takes it here — otherwise the

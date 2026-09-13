@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import {
     fetchAiModels,
+    getPlatformData,
     listAiProviders,
     listSettings,
     listSystemHealth,
@@ -16,6 +17,7 @@ import {
     FieldSpan,
     Metric,
     MetricGrid,
+    Page,
     Panel,
     PanelButton,
     PanelDialog,
@@ -25,6 +27,7 @@ import {
     Row,
     RowList,
     Status,
+    DataTable,
     type StatusTone,
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -34,11 +37,29 @@ import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { ApiError } from '../../lib/http';
 import { cn } from '../../lib/utils';
-import { KeyRoundIcon, LinkIcon, LockIcon, PencilIcon, ServerIcon } from 'lucide-react';
+import {
+    ActivityIcon,
+    BanknoteIcon,
+    BotIcon,
+    FilesIcon,
+    KeyRoundIcon,
+    LandmarkIcon,
+    LinkIcon,
+    LockIcon,
+    PencilIcon,
+    ScanLineIcon,
+    ServerIcon,
+    ShieldCheckIcon,
+    GaugeIcon,
+    GlobeIcon,
+} from 'lucide-react';
 
 import { iconForSetting } from '../../lib/settingIcons';
 import { unitFor } from '../../lib/settingUnits';
 import type { AiProvider, ComponentHealth, Setting, SettingGroupPayload } from '../../types/settings';
+// Produced by the Operations module's probes; read here because what this installation is
+// configured to trust, and whether those sources are still delivering, is a settings question.
+import type { PlatformData, SchedulerStatus } from '../../types/operations';
 
 /**
  * Drafts hold what the operator typed, in the unit shown on screen — never the stored unit.
@@ -55,6 +76,22 @@ const AI_GROUP = 'ai';
 const DOCUMENTS_GROUP = 'documents';
 
 /**
+ * The mark on each card's head.
+ *
+ * Keyed by group rather than derived, because a group is a subject ("official sources", "security")
+ * and nothing about its settings says which picture stands for it. A group with no entry simply has
+ * no mark — the card still aligns.
+ */
+const GROUP_ICONS: Record<string, JSX.Element> = {
+    ai: <BotIcon className="size-4" />,
+    documents: <FilesIcon className="size-4" />,
+    sources: <GlobeIcon className="size-4" />,
+    fx: <BanknoteIcon className="size-4" />,
+    spv: <LandmarkIcon className="size-4" />,
+    security: <ShieldCheckIcon className="size-4" />,
+};
+
+/**
  * System settings.
  *
  * Each card uses the body its content calls for rather than one generic key/value list: values you
@@ -69,6 +106,7 @@ export default function AdminSettings(): JSX.Element {
     const [groups, setGroups] = useState<SettingGroupPayload[] | null>(null);
     const [providers, setProviders] = useState<AiProvider[]>([]);
     const [health, setHealth] = useState<ComponentHealth[] | 'failed' | null>(null);
+    const [platform, setPlatform] = useState<PlatformData | null>(null);
     const [forbidden, setForbidden] = useState(false);
     const [loadFailed, setLoadFailed] = useState(false);
     const [drafts, setDrafts] = useState<Draft>({});
@@ -164,6 +202,24 @@ export default function AdminSettings(): JSX.Element {
             () => {
                 if (active) {
                     setHealth('failed');
+                }
+            },
+        );
+        void getPlatformData().then(
+            (loaded) => {
+                if (active) {
+                    setPlatform(loaded);
+                }
+            },
+            () => {
+                if (active) {
+                    // Both cards then render their own "unknown" rather than the page failing:
+                    // neither is required to change a setting.
+                    setPlatform({
+                        scheduler: { alive: false, lastBeatAt: null, ageSeconds: null, maxAgeSeconds: 0 },
+                        freshness: [],
+                        sources: [],
+                    });
                 }
             },
         );
@@ -279,14 +335,11 @@ export default function AdminSettings(): JSX.Element {
 
     return (
         <AppShell>
-            <div className="page-stack">
-                <header className="page-head">
-                    <div>
-                        <h1 className="page-title">{t((d) => d.pages.adminSettings.title)}</h1>
-                        <p className="page-lede max-w-2xl">{t((d) => d.pages.adminSettings.description)}</p>
-                    </div>
-
-                    {loadFailed ? (
+            <Page
+                title={t((d) => d.pages.adminSettings.title)}
+                lede={t((d) => d.pages.adminSettings.description)}
+                actions={
+                    loadFailed ? (
                         <PanelButton
                             onClick={() => {
                                 setGroups(null);
@@ -296,13 +349,14 @@ export default function AdminSettings(): JSX.Element {
                         >
                             {t((d) => d.pages.adminSettings.retry)}
                         </PanelButton>
-                    ) : null}
-                </header>
+                    ) : undefined
+                }
+            >
 
                 {groups === null ? (
-                    <div className="columns-1 gap-3.5 xl:columns-2">
+                    <div className="card-columns">
                         {[0, 1, 2, 3].map((index) => (
-                            <Skeleton key={index} className="mb-3.5 h-56 w-full rounded-xl" />
+                            <Skeleton key={index} className="h-56 w-full rounded-xl" />
                         ))}
                     </div>
                 ) : (
@@ -310,7 +364,7 @@ export default function AdminSettings(): JSX.Element {
                         {/* Multi-column flow rather than a row-aligned grid: these cards have very
                             different heights, and a grid aligns rows, leaving a tall card's
                             neighbour padded with dead space. */}
-                        <div className="columns-1 gap-3.5 xl:columns-2">
+                        <div className="card-columns">
                             {groups.map((group) => (
                                 <GroupPanel
                                     key={group.group}
@@ -333,17 +387,23 @@ export default function AdminSettings(): JSX.Element {
                             <DocumentPipelinePanel />
                             <SystemStatusPanel
                                 health={health}
+                                scheduler={platform?.scheduler ?? null}
                                 onRetry={() => {
                                     setHealth(null);
                                     setReloadToken((token) => token + 1);
                                 }}
                             />
+                            <DataFreshnessPanel platform={platform} />
                         </div>
+
+                        {/* Outside the column flow: a five-column table does not belong in a
+                            narrow card track, and this one is read across rather than down. */}
+                        <OfficialSourcesPanel platform={platform} />
 
                         <Legend />
                     </>
                 )}
-            </div>
+            </Page>
         </AppShell>
     );
 }
@@ -408,6 +468,7 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
         <Panel
             title={t((d) => d.pages.adminSettings.groups[group.group as GroupKey])}
             description={t((d) => d.pages.adminSettings.groupHints[group.group as GroupKey])}
+            icon={GROUP_ICONS[group.group]}
             aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
             footActions={actions}
         >
@@ -456,6 +517,7 @@ function UploadLimitsPanel(props: {
             <Panel
                 title={t((d) => d.pages.adminSettings.groups.documents)}
                 description={t((d) => d.pages.adminSettings.groupHints.documents)}
+                icon={GROUP_ICONS.documents}
                 aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
                 footNote={t((d) => d.pages.adminSettings.limitsNote)}
                 footActions={
@@ -474,7 +536,7 @@ function UploadLimitsPanel(props: {
                             key={setting.key}
                             label={t((d) => d.pages.adminSettings.settingLabels[setting.key] ?? setting.key)}
                             value={formatSetting(setting, props.drafts[setting.key])}
-                            marker={<SourceMark setting={setting} />}
+                            mark={<SourceMark setting={setting} />}
                         />
                     ))}
                 </MetricGrid>
@@ -693,6 +755,7 @@ function AiPanel(props: {
             <Panel
                 title={t((d) => d.pages.adminSettings.groups.ai)}
                 description={t((d) => d.pages.adminSettings.groupHints.ai)}
+                icon={GROUP_ICONS.ai}
                 aside={
                     enabledSetting ? (
                         <Switch
@@ -730,7 +793,7 @@ function AiPanel(props: {
                 <FieldGrid>
                     <Field
                         label={t((d) => d.pages.adminSettings.settingLabels['ai.provider'] ?? 'ai.provider')}
-                        marker={providerSetting ? <SourceMark setting={providerSetting} /> : null}
+                        mark={providerSetting ? <SourceMark setting={providerSetting} /> : null}
                     >
                         {props.providers.length > 0 ? (
                             <PanelSelect
@@ -746,6 +809,7 @@ function AiPanel(props: {
                         ) : (
                             <PanelInput
                                 id="ai.provider"
+                                icon={iconForSetting('ai.provider', 'string')}
                                 value={providerKey}
                                 onChange={(event) => {
                                     props.onDraft('ai.provider', event.target.value);
@@ -756,7 +820,7 @@ function AiPanel(props: {
 
                     <Field
                         label={t((d) => d.pages.adminSettings.settingLabels['ai.model'] ?? 'ai.model')}
-                        marker={modelSetting ? <SourceMark setting={modelSetting} /> : null}
+                        mark={modelSetting ? <SourceMark setting={modelSetting} /> : null}
                     >
                         <div className="flex gap-1.5">
                             {modelOptions.length > 0 ? (
@@ -772,6 +836,7 @@ function AiPanel(props: {
                             ) : (
                                 <PanelInput
                                     id="ai.model"
+                                    icon={iconForSetting('ai.model', 'string')}
                                     className="min-w-0 flex-1"
                                     value={valueOf('ai.model')}
                                     onChange={(event) => {
@@ -799,7 +864,7 @@ function AiPanel(props: {
                     <FieldSpan>
                         <Field
                             label={t((d) => d.pages.adminSettings.settingLabels['ai.base_url'] ?? 'ai.base_url')}
-                            marker={baseUrlSetting ? <SourceMark setting={baseUrlSetting} /> : null}
+                            mark={baseUrlSetting ? <SourceMark setting={baseUrlSetting} /> : null}
                             hint={
                                 preset?.docsUrl != null ? (
                                     <a
@@ -846,7 +911,7 @@ function AiPanel(props: {
                     <FieldSpan>
                         <Field
                             label={t((d) => d.pages.adminSettings.settingLabels['ai.api_key'] ?? 'ai.api_key')}
-                            marker={apiKeySetting ? <SourceMark setting={apiKeySetting} /> : null}
+                            mark={apiKeySetting ? <SourceMark setting={apiKeySetting} /> : null}
                             hint={
                                 preset !== undefined && !preset.requiresApiKey
                                     ? t((d) => d.pages.adminSettings.ai.keyOptional)
@@ -962,6 +1027,7 @@ function DocumentPipelinePanel(): JSX.Element {
     return (
         <Panel
             title={t((d) => d.pages.adminSettings.pipeline.title)}
+            icon={<ScanLineIcon className="size-4" />}
             description={t((d) => d.pages.adminSettings.pipeline.description)}
         >
             <RowList>
@@ -991,9 +1057,11 @@ function DocumentPipelinePanel(): JSX.Element {
 /** Live state of the services this installation runs. Every row is a real probe, never inferred. */
 function SystemStatusPanel({
     health,
+    scheduler,
     onRetry,
 }: {
     health: ComponentHealth[] | 'failed' | null;
+    scheduler: SchedulerStatus | null;
     onRetry: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
@@ -1013,6 +1081,7 @@ function SystemStatusPanel({
     return (
         <Panel
             title={t((d) => d.pages.adminSettings.health.title)}
+            icon={<ActivityIcon className="size-4" />}
             description={t((d) => d.pages.adminSettings.health.description)}
             aside={
                 // Only a real answer gets a summary; "could not read" belongs in the body, next to
@@ -1038,6 +1107,28 @@ function SystemStatusPanel({
                 <p className="note">{t((d) => d.pages.adminSettings.health.unknown)}</p>
             ) : (
                 <RowList>
+                    {/* The scheduler belongs among the services, not on a screen of its own: it is
+                        one more process that is either reachable or not, and it is read for the
+                        same reason as the database or the antivirus. Its heartbeat is a real
+                        liveness check — a wedged `schedule:work` stays "up" while beating nothing. */}
+                    {scheduler === null ? null : (
+                        <Row
+                            title={t((d) => d.pages.adminSettings.scheduler.title)}
+                            subtitle={
+                                scheduler.ageSeconds === null
+                                    ? t((d) => d.pages.adminSettings.scheduler.never)
+                                    : t((d) => d.pages.adminSettings.scheduler.age)
+                                          .replace('{seconds}', String(scheduler.ageSeconds))
+                                          .replace('{limit}', String(scheduler.maxAgeSeconds))
+                            }
+                        >
+                            <Status tone={scheduler.alive ? 'ok' : 'bad'}>
+                                {scheduler.alive
+                                    ? t((d) => d.pages.adminSettings.scheduler.alive)
+                                    : t((d) => d.pages.adminSettings.scheduler.stalled)}
+                            </Status>
+                        </Row>
+                    )}
                     {components.map((component) => (
                         <Row
                             key={component.key}
@@ -1162,11 +1253,141 @@ function SourceMark({ setting }: { setting: Setting }): JSX.Element {
                 {/* A span, not a button: it is not actionable, and making it focusable would put a
                     tab stop in front of every field for information the legend already gives. */}
                 <span className={cn('source-mark', `source-mark-${tone}`)} aria-hidden="true">
-                    <Icon className="size-3" />
+                    <Icon className="size-2.5" />
                 </span>
             </TooltipTrigger>
             <TooltipContent side="top">{label}</TooltipContent>
         </Tooltip>
+    );
+}
+
+/**
+ * How current the data this platform reasons over actually is.
+ *
+ * The question no queue metric answers: the queue can be empty, every worker healthy, and the BNR
+ * rates still nine days old because the source published nothing and nobody looked. Each row is a
+ * probe with its own staleness rule from `config/operations.php`, not a derived count.
+ */
+function DataFreshnessPanel({ platform }: { platform: PlatformData | null }): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <Panel
+            title={t((d) => d.pages.adminSettings.freshness.title)}
+            icon={<GaugeIcon className="size-4" />}
+            description={t((d) => d.pages.adminSettings.freshness.description)}
+        >
+            {platform === null ? (
+                <div className="space-y-2">
+                    {[0, 1, 2].map((index) => (
+                        <Skeleton key={index} className="tile h-8 w-full" />
+                    ))}
+                </div>
+            ) : platform.freshness.length === 0 ? (
+                <p className="note">{t((d) => d.pages.adminSettings.freshness.unknown)}</p>
+            ) : (
+                <RowList>
+                    {platform.freshness.map((item) => (
+                        <Row
+                            key={item.key}
+                            title={t((d) => d.pages.adminSettings.freshness.labels[item.key] ?? item.key)}
+                            {...(item.detail === null
+                                ? {}
+                                : {
+                                      subtitle: t(
+                                          (d) => d.pages.adminSettings.freshness.details[item.key] ?? '{detail}',
+                                      ).replace('{detail}', item.detail),
+                                  })}
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className="tabular-nums">
+                                    {item.value ?? t((d) => d.pages.adminSettings.freshness.unknown)}
+                                </span>
+                                <Status tone={item.state}>{t((d) => d.pages.adminSettings.states[item.state])}</Status>
+                            </div>
+                        </Row>
+                    ))}
+                </RowList>
+            )}
+        </Panel>
+    );
+}
+
+/**
+ * The allowlist every download is checked against.
+ *
+ * Read-only, and that is a correctness property rather than a missing feature: the list is declared
+ * in `config/sources.php` and re-mirrored onto `official_sources` at every fetch, and the fetcher
+ * checks the config-derived definition rather than the row — so a switch here would report a state
+ * it cannot hold.
+ */
+function OfficialSourcesPanel({ platform }: { platform: PlatformData | null }): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <Panel
+            title={t((d) => d.pages.adminSettings.sources.title)}
+            icon={<GlobeIcon className="size-4" />}
+            description={t((d) => d.pages.adminSettings.sources.description)}
+            footNote={t((d) => d.pages.adminSettings.sources.readOnlyNotice)}
+            flush
+        >
+            {platform === null ? (
+                <div className="space-y-2 p-3">
+                    {[0, 1, 2].map((index) => (
+                        <Skeleton key={index} className="tile h-9 w-full" />
+                    ))}
+                </div>
+            ) : platform.sources.length === 0 ? (
+                <p className="note p-4">{t((d) => d.pages.adminSettings.freshness.unknown)}</p>
+            ) : (
+                <DataTable
+                    // Stacked on a phone: a base URL is long enough on its own to push the trust
+                    // tier and the state off-screen if these stayed five side-by-side columns.
+                    stacked
+                    head={
+                        <>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.code)}</th>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.tier)}</th>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.url)}</th>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.enabled)}</th>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.state)}</th>
+                        </>
+                    }
+                >
+                    {platform.sources.map((source) => (
+                        <tr key={source.code}>
+                            <td className="col-primary font-semibold">{source.code}</td>
+                            <td data-label={t((d) => d.pages.adminSettings.sources.columns.tier)}>
+                                <Pill>{source.trustTier}</Pill>
+                            </td>
+                            <td
+                                className="mono col-wide break-all"
+                                data-label={t((d) => d.pages.adminSettings.sources.columns.url)}
+                            >
+                                {source.baseUrl}
+                            </td>
+                            <td data-label={t((d) => d.pages.adminSettings.sources.columns.enabled)}>
+                                <Status tone={source.enabled ? 'ok' : 'idle'}>
+                                    {source.enabled
+                                        ? t((d) => d.pages.adminSettings.sources.allowed)
+                                        : t((d) => d.pages.adminSettings.sources.blocked)}
+                                </Status>
+                            </td>
+                            <td className="col-end" data-label={t((d) => d.pages.adminSettings.sources.columns.state)}>
+                                {source.mirrored ? (
+                                    <Pill>{t((d) => d.pages.adminSettings.sources.inUse)}</Pill>
+                                ) : (
+                                    <Pill tone="locked">
+                                        {t((d) => d.pages.adminSettings.sources.neverFetched)}
+                                    </Pill>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </DataTable>
+            )}
+        </Panel>
     );
 }
 
@@ -1196,16 +1417,20 @@ function Legend(): JSX.Element {
     ];
 
     return (
-        <section className="panel bg-muted/40">
-            <h2 className="eyebrow mb-2.5">{t((d) => d.pages.adminSettings.legend.title)}</h2>
-            <dl className="grid gap-2.5 md:grid-cols-3">
+        // A key, not a card: it explains the page's notation rather than holding any of its content,
+        // so it sits on the page ground with a hairline above it instead of competing with the
+        // cards it describes.
+        <section className="border-border mt-1 border-t pt-4">
+            <h2 className="eyebrow mb-3">{t((d) => d.pages.adminSettings.legend.title)}</h2>
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
                 {rows.map(([tone, Icon, name, text]) => (
-                    <div key={tone} className="flex items-start gap-2">
+                    <div key={tone} className="flex items-start gap-2.5">
                         <dt className={cn('source-mark shrink-0', `source-mark-${tone}`)} aria-hidden="true">
-                            <Icon className="size-3" />
+                            <Icon className="size-2.5" />
                         </dt>
-                        <dd className="note min-w-0">
-                            <span className="font-semibold">{name}</span> — {text}
+                        <dd className="min-w-0">
+                            <span className="field-label block">{name}</span>
+                            <span className="note mt-0.5 block">{text}</span>
                         </dd>
                     </div>
                 ))}

@@ -7,8 +7,10 @@ namespace App\Domain\Wallet\Actions;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Exceptions\HoldingSourceException;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Exceptions\ZeroAmountTransactionException;
+use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\WalletAudit;
@@ -39,6 +41,8 @@ final readonly class RecordFinancialTransaction
         if ($input->amountMinor === 0) {
             throw ZeroAmountTransactionException::forTransaction();
         }
+
+        $this->assertSourceAcceptsTransactions($input->accountId);
 
         $this->assertSplitsMatchTotal($input);
 
@@ -100,6 +104,21 @@ final readonly class RecordFinancialTransaction
 
             return $transaction;
         });
+    }
+
+    /**
+     * Refuses a holding source.
+     *
+     * Cash and term deposits carry their entries from their own declaration, so there is no
+     * meaningful "add a transaction" on either — see {@see HoldingSourceException}.
+     */
+    private function assertSourceAcceptsTransactions(string $accountId): void
+    {
+        $account = FinancialAccount::query()->find($accountId);
+
+        if ($account !== null && $account->kind->isHolding()) {
+            throw HoldingSourceException::forKind($account->kind);
+        }
     }
 
     private function assertSplitsMatchTotal(RecordFinancialTransactionInput $input): void

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Account\ShowProfileController;
 use App\Http\Controllers\Api\V1\Account\UpdatePasswordController;
+use App\Http\Controllers\Api\V1\Admin\CreateUserController;
+use App\Http\Controllers\Api\V1\Admin\EraseUserController;
+use App\Http\Controllers\Api\V1\Admin\ImpersonationController;
 use App\Http\Controllers\Api\V1\Admin\ShowAccessCatalogueController;
 use App\Http\Controllers\Api\V1\Admin\ShowUsersController;
 use App\Http\Controllers\Api\V1\Admin\UpdateUserRolesController;
@@ -39,24 +42,28 @@ use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RetryFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RunOperationTaskController;
-use App\Http\Controllers\Api\V1\Operations\ShowOperationsActivityController;
 use App\Http\Controllers\Api\V1\Operations\ShowOperationsOverviewController;
+use App\Http\Controllers\Api\V1\Operations\ShowQueueJobsController;
+use App\Http\Controllers\Api\V1\Operations\ShowTaskRunsController;
 use App\Http\Controllers\Api\V1\Operations\UpdateScheduledTaskController;
 use App\Http\Controllers\Api\V1\Settings\ClearAiApiKeyController;
 use App\Http\Controllers\Api\V1\Settings\ListAiModelsController;
 use App\Http\Controllers\Api\V1\Settings\ShowAiProvidersController;
 use App\Http\Controllers\Api\V1\Settings\ShowAiSettingsController;
+use App\Http\Controllers\Api\V1\Settings\ShowPlatformDataController;
 use App\Http\Controllers\Api\V1\Settings\ShowSettingsController;
 use App\Http\Controllers\Api\V1\Settings\ShowSystemHealthController;
 use App\Http\Controllers\Api\V1\Settings\TestAiConnectionController;
 use App\Http\Controllers\Api\V1\Settings\UpdateAiSettingsController;
 use App\Http\Controllers\Api\V1\Settings\UpdateSettingsGroupController;
+use App\Http\Controllers\Api\V1\Subjects\ChangeSubjectStatusController;
+use App\Http\Controllers\Api\V1\Subjects\InspectCnpController;
 use App\Http\Controllers\Api\V1\Subjects\ListSubjectsController;
 use App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController;
+use App\Http\Controllers\Api\V1\Subjects\UpdatePfSubjectController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteAccountController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\OpenAccountController;
-use App\Http\Controllers\Api\V1\Wallet\RecordBalanceController;
 use App\Http\Controllers\Api\V1\Wallet\RecordTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\ShowAccountsController;
 use App\Http\Controllers\Api\V1\Wallet\ShowTransactionsController;
@@ -114,9 +121,21 @@ Route::prefix('v1/auth')->group(function (): void {
  * Neither route binds `{subject}`/`tax-subject` — listing must work *before* any subject is
  * chosen, and registration creates one.
  */
+Route::post('v1/admin/impersonation/stop', [ImpersonationController::class, 'stop'])->middleware('auth:web');
+
 Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListSubjectsController::class);
     Route::post('pf', RegisterPfSubjectController::class);
+    // Reads a CNP and answers what it contains — including whether it is already registered, which
+    // is what makes the throttle matter: the endpoint writes nothing, but answered without limit it
+    // would be a way of testing CNPs against this installation. Registration refuses a duplicate in
+    // any case, so this only changes how cheaply the same answer can be asked for.
+    Route::post('cnp', InspectCnpController::class)->middleware('throttle:20,1');
+    // Outside the `tax-subject` group below: these act *on* a taxpayer rather than within one, and
+    // binding a tenant context to change that tenant's own status reads the wrong way round. Both
+    // check ownership themselves.
+    Route::patch('{subject}', UpdatePfSubjectController::class);
+    Route::put('{subject}/status', ChangeSubjectStatusController::class);
 });
 
 /*
@@ -180,7 +199,6 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // audit event — an edit nobody recorded is indistinguishable from one that never happened.
     Route::patch('wallet/accounts/{account}', UpdateAccountController::class)->where('account', '[0-9a-f-]{36}');
     Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
-    Route::post('wallet/accounts/{account}/balance', RecordBalanceController::class)->where('account', '[0-9a-f-]{36}');
 
 
     Route::get('wallet/transactions', ShowTransactionsController::class);
@@ -209,6 +227,9 @@ Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void 
         Route::get('/', ShowSettingsController::class);
         Route::get('ai', ShowAiSettingsController::class);
         Route::get('health', ShowSystemHealthController::class);
+        // What this installation is allowed to fetch from, and how recently each of those actually
+        // delivered. Read-only — see ShowPlatformDataController.
+        Route::get('platform-data', ShowPlatformDataController::class);
         Route::get('ai/providers', ShowAiProvidersController::class);
     });
 
@@ -249,8 +270,7 @@ Route::prefix('v1/audit')->middleware(['auth:web', 'permission:audit.view'])->gr
 Route::get('v1/legislation/search', SearchLegislationController::class)->middleware('auth:web');
 
 /*
- * Background operations (`/admin/operatiuni`) — the scheduler, the queue, data freshness and the
- * official-source allowlist.
+ * Background operations — the Tasks and Jobs tabs of `/jurnale`.
  *
  * Two permissions, not one, and the split is deliberate: reading whether the nightly import
  * succeeded is something a support engineer needs, while starting an import, pausing the schedule,
@@ -262,11 +282,12 @@ Route::get('v1/legislation/search', SearchLegislationController::class)->middlew
  */
 Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): void {
     Route::middleware('permission:operations.view')->group(function (): void {
+        // Two listings rather than one feed, because they are two populations that never overlap:
+        // a task reaches the queue wrapped in `RunOperationTask` and records its own outcome, so it
+        // never appears among the failures, and no queued job ever appears in the run ledger.
         Route::get('/', ShowOperationsOverviewController::class);
-        // One feed rather than a `runs` listing beside a `failed-jobs` listing: two tables of
-        // mostly red rows read as duplication, and a reader looking for "what went wrong in the
-        // background" had to check both. The rows keep their differences — see the controller.
-        Route::get('activity', ShowOperationsActivityController::class);
+        Route::get('tasks/{task}/runs', ShowTaskRunsController::class)->where('task', '[a-z_.]+');
+        Route::get('jobs', ShowQueueJobsController::class);
     });
 
     Route::middleware('permission:operations.run')->group(function (): void {
@@ -299,8 +320,13 @@ Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
     });
 
     Route::middleware('permission:users.manage')->group(function (): void {
+        Route::post('users', CreateUserController::class);
         Route::put('users/{user}/roles', UpdateUserRolesController::class);
         Route::put('users/{user}/status', UpdateUserStatusController::class);
+        // Erasing a person and acting as one are not role changes: both check SUPER_ADMIN
+        // themselves, on top of the `users.manage` permission this group already requires.
+        Route::delete('users/{user}', EraseUserController::class);
+        Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start']);
     });
 });
 

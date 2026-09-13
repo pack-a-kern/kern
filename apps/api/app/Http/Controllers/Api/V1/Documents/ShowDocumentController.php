@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Documents;
 
+use App\Domain\Documents\Enums\DocumentStage;
+use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Models\Document;
+use App\Domain\Documents\Parsing\ExtractionSchema;
+use App\Domain\Documents\Queries\SettledDocuments;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
@@ -23,9 +27,10 @@ use Illuminate\Http\JsonResponse;
  */
 final class ShowDocumentController extends Controller
 {
-    public function __invoke(string $subject, string $document): JsonResponse
+    public function __invoke(string $subject, string $document, SettledDocuments $settledDocuments): JsonResponse
     {
         $model = Document::query()->findOrFail($document);
+        $settled = $settledDocuments($model->tax_subject_id, [$model->id]) !== [];
 
         return response()->json([
             'id' => $model->id,
@@ -35,6 +40,11 @@ final class ShowDocumentController extends Controller
             'original_filename' => $model->original_filename_ciphertext,
             'type' => $model->type->value,
             'status' => $model->status->value,
+            'stage' => DocumentStage::of($model->status, $settled)->value,
+            // The field names a correction may use, for this document's type. Sent rather than
+            // mirrored in the client: `ExtractionSchema` is where required-vs-optional is decided,
+            // and a second copy in TypeScript would drift the first time a type gained a field.
+            'extraction_fields' => $this->extractionFields($model->type),
             'rejection_reason' => $model->rejection_reason?->value,
             // What came of the external-AI attempt, so the review screen can say why no proposal
             // exists instead of implying one is still on its way. A closed enum, never a provider
@@ -46,4 +56,19 @@ final class ShowDocumentController extends Controller
             'received_at' => $model->received_at->toIso8601String(),
         ]);
     }
+
+    /**
+     * @return array{required: list<string>, optional: list<string>}
+     */
+    private function extractionFields(DocumentType $type): array
+    {
+        $schema = ExtractionSchema::for($type);
+
+        // A type with no schema — a bank statement, a rental contract — has no agreed field names
+        // yet. Empty is the honest answer: a correction on one of those has nothing to pick from.
+        return $schema === null
+            ? ['required' => [], 'optional' => []]
+            : ['required' => $schema->required, 'optional' => $schema->optional];
+    }
+
 }

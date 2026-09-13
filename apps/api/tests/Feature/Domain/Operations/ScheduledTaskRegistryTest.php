@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
-use App\Domain\Operations\Enums\JobRunStatus;
-use App\Domain\Operations\Enums\JobRunTrigger;
 use App\Domain\Operations\Enums\OperationTask;
+use App\Domain\Operations\Enums\TaskRunStatus;
+use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
-use App\Domain\Operations\Models\JobRun;
-use App\Domain\Operations\Services\JobRunRecorder;
+use App\Domain\Operations\Models\TaskRun;
 use App\Domain\Operations\Services\OperationRunLock;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
+use App\Domain\Operations\Services\TaskRunRecorder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Schema;
 
@@ -67,13 +67,13 @@ it('records a run with the command exit code, not merely that nothing threw', fu
     // network and writes only to the permission tables this suite already rebuilds.
     $task = OperationTask::ACCESS_SYNC;
 
-    (new RunOperationTask($task, JobRunTrigger::MANUAL, null))
-        ->handle(app(Kernel::class), app(JobRunRecorder::class), app(OperationRunLock::class));
+    (new RunOperationTask($task, TaskRunTrigger::MANUAL, null))
+        ->handle(app(Kernel::class), app(TaskRunRecorder::class), app(OperationRunLock::class));
 
-    $run = JobRun::query()->where('task_key', $task->value)->first();
+    $run = TaskRun::query()->where('task_key', $task->value)->first();
 
     expect($run)->not->toBeNull()
-        ->and($run?->status)->toBe(JobRunStatus::SUCCEEDED)
+        ->and($run?->status)->toBe(TaskRunStatus::SUCCEEDED)
         ->and($run?->exit_code)->toBe(0)
         ->and($run?->finished_at)->not->toBeNull();
 });
@@ -84,10 +84,10 @@ it('skips a run while another run of the same task holds the lock', function ():
 
     expect($lock->acquire($task))->not->toBeNull();
 
-    (new RunOperationTask($task, JobRunTrigger::SCHEDULED, null))
-        ->handle(app(Kernel::class), app(JobRunRecorder::class), $lock);
+    (new RunOperationTask($task, TaskRunTrigger::SCHEDULED, null))
+        ->handle(app(Kernel::class), app(TaskRunRecorder::class), $lock);
 
     // No ledger row at all: the run never started, so recording one would claim work that did not
     // happen.
-    expect(JobRun::query()->count())->toBe(0);
+    expect(TaskRun::query()->count())->toBe(0);
 });

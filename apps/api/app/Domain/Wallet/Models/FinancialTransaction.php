@@ -30,9 +30,9 @@ use RuntimeException;
  * @property string $currency_code
  * @property string $description_ciphertext
  * @property string $counterparty_ciphertext
+ * @property string|null $institution
  * @property string|null $external_id_ciphertext
  * @property string|null $external_id_blind_index
- * @property string|null $import_batch_id
  * @property TransactionClassificationStatus $classification_status
  * @property RecordSource $source
  */
@@ -54,9 +54,9 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
         'currency_code',
         'description_ciphertext',
         'counterparty_ciphertext',
+        'institution',
         'external_id_ciphertext',
         'external_id_blind_index',
-        'import_batch_id',
         'classification_status',
         'source',
         'document_id',

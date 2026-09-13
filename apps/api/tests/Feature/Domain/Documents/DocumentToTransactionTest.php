@@ -52,7 +52,7 @@ function bridgeAccount(TestCase $case, User $user, string $subjectId): string
 {
     $id = $case->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'display_name' => 'Cont curent',
-        'kind' => 'BANK_CURRENT',
+        'kind' => 'GENERAL',
         'currency_code' => 'RON',
     ])->assertCreated()->json('id');
 

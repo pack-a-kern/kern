@@ -74,22 +74,28 @@ it('returns the newest events first', function (): void {
         ->and(auditInt($events[0]['sequence']))->toBeGreaterThan(auditInt($events[1]['sequence']));
 });
 
-it('pages by chain sequence rather than by offset', function (): void {
+it('pages by number over a window frozen at the first request', function (): void {
     // 30 events, page size 25 — the second page must continue exactly where the first stopped and
-    // must not repeat a row, which is the failure mode OFFSET has on an append-only table.
+    // must not repeat a row.
     seedAuditChain(30);
 
     $admin = settingsAdminUser();
 
     $first = $this->actingAs($admin)->getJson('/api/v1/audit/events')->assertOk();
-    $cursor = $first->json('next_cursor');
 
-    expect($cursor)->not->toBeNull();
+    expect($first->json('total'))->toBe(30)
+        ->and($first->json('page'))->toBe(1)
+        ->and($first->json('per_page'))->toBe(25)
+        ->and($first->json('anchor'))->toBeString();
 
-    expect($cursor)->toBeInt();
+    $anchor = $first->json('anchor');
+
+    // Appended *after* the anchor was taken: it must not appear, and must not shift page 2 — the
+    // failure mode a bare OFFSET has on an append-only table.
+    seedAuditChain(1);
 
     $second = $this->actingAs($admin)
-        ->getJson('/api/v1/audit/events?cursor=' . (string) auditInt($cursor))
+        ->getJson('/api/v1/audit/events?page=2&anchor=' . urlencode(is_string($anchor) ? $anchor : ''))
         ->assertOk();
 
     /** @var list<array<string, mixed>> $firstPage */
@@ -99,7 +105,7 @@ it('pages by chain sequence rather than by offset', function (): void {
 
     expect($firstPage)->toHaveCount(25)
         ->and($secondPage)->toHaveCount(5)
-        ->and($second->json('next_cursor'))->toBeNull();
+        ->and($second->json('total'))->toBe(30);
 
     /** @var list<string> $ids */
     $ids = array_map(
@@ -107,6 +113,36 @@ it('pages by chain sequence rather than by offset', function (): void {
         array_merge(array_column($firstPage, 'id'), array_column($secondPage, 'id')),
     );
     expect(array_unique($ids))->toHaveCount(30);
+});
+
+it('honours the page size the pager asks for', function (): void {
+    seedAuditChain(12);
+
+    $response = $this->actingAs(settingsAdminUser())
+        ->getJson('/api/v1/audit/events?per_page=10')
+        ->assertOk();
+
+    expect($response->json('events'))->toHaveCount(10)
+        ->and($response->json('total'))->toBe(12)
+        ->and($response->json('per_page'))->toBe(10);
+});
+
+it('rejects a page size the pager does not offer', function (): void {
+    // Otherwise a crafted request decrypts nothing but does load the whole table into one response.
+    $this->actingAs(settingsAdminUser())
+        ->getJson('/api/v1/audit/events?per_page=5000')
+        ->assertStatus(422);
+});
+
+it('clamps a page past the end back onto the last page with rows', function (): void {
+    seedAuditChain(3);
+
+    $response = $this->actingAs(settingsAdminUser())
+        ->getJson('/api/v1/audit/events?page=99')
+        ->assertOk();
+
+    expect($response->json('page'))->toBe(1)
+        ->and($response->json('events'))->toHaveCount(3);
 });
 
 it('filters by event type', function (): void {

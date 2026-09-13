@@ -10,7 +10,6 @@ namespace App\Domain\Wallet\Enums;
  * shared between both, not two identical enums, since it is the same finite domain concept
  * ("how did this row enter the system") in both places (`docs/CODE-QUALITY.md` §1: duplicating
  * this would be duplicating stable domain knowledge, not incidental similarity).
- * `App\Domain\Wallet\Models\AccountBalanceSnapshot::$source` reuses it too, for the same reason.
  *
  * This milestone (`BLUEPRINT.md` §34 non-goals: "no bank-API sync, no statement import parsers")
  * only ever constructs `MANUAL` — `IMPORT`/`BANK_SYNC` exist in the schema because the blueprint's

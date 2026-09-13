@@ -30,13 +30,8 @@ use RuntimeException;
  * @property string $id
  * @property string $tax_subject_id
  * @property AccountKind $kind
- * @property string|null $institution_name
  * @property string $display_name_ciphertext
  * @property string $currency_code
- * @property string|null $iban_ciphertext
- * @property string|null $iban_blind_index
- * @property \Illuminate\Support\Carbon|null $opened_at
- * @property \Illuminate\Support\Carbon|null $closed_at
  * @property RecordSource $source
  * @property string|null $metadata_ciphertext
  */
@@ -50,13 +45,8 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
     protected $fillable = [
         'tax_subject_id',
         'kind',
-        'institution_name',
         'display_name_ciphertext',
         'currency_code',
-        'iban_ciphertext',
-        'iban_blind_index',
-        'opened_at',
-        'closed_at',
         'source',
         'metadata_ciphertext',
     ];
@@ -65,10 +55,7 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
     protected $casts = [
         'kind' => AccountKind::class,
         'source' => RecordSource::class,
-        'opened_at' => 'date',
-        'closed_at' => 'date',
         'display_name_ciphertext' => Encrypted::class,
-        'iban_ciphertext' => Encrypted::class,
         'metadata_ciphertext' => Encrypted::class,
     ];
 

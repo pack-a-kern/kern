@@ -6,7 +6,7 @@ namespace App\Domain\Subjects\Queries;
 
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use Illuminate\Pagination\CursorPaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use RuntimeException;
 
 /**
@@ -22,21 +22,26 @@ use RuntimeException;
  * answerable *before* any one of them is bound, not "act as an already-chosen one." Both models
  * live in this same module, so this is an ordinary intra-module read, not a cross-module crossing
  * `deptrac.php` needs to know about.
+ *
+ * Numbered pages rather than a cursor, matching the documents list: an account holding several
+ * taxpayers wants to know how many there are and to jump to the last one, and a cursor can answer
+ * neither question. The cost is a `count()` per request, which on a table keyed by one user's
+ * memberships is not a cost.
  */
 final class ListSubjectsForUser
 {
     private const int DEFAULT_PER_PAGE = 20;
 
     /**
-     * @return CursorPaginator<int, SubjectSummary>
+     * @return LengthAwarePaginator<int, SubjectSummary>
      */
-    public function __invoke(string $userId, ?string $cursor = null, int $perPage = self::DEFAULT_PER_PAGE): CursorPaginator
+    public function __invoke(string $userId, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): LengthAwarePaginator
     {
         $memberships = SubjectMembership::query()
             ->where('user_id', $userId)
             ->whereNull('revoked_at')
             ->orderBy('id')
-            ->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
+            ->paginate($perPage, ['*'], 'page', $page);
 
         $subjectsById = TaxSubject::query()
             ->whereIn('id', $memberships->getCollection()->pluck('subject_id'))

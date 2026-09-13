@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 use App\Domain\Identity\Models\User;
-use App\Domain\Operations\Enums\JobRunStatus;
-use App\Domain\Operations\Enums\JobRunTrigger;
 use App\Domain\Operations\Enums\OperationTask;
+use App\Domain\Operations\Enums\TaskRunStatus;
+use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
-use App\Domain\Operations\Models\JobRun;
 use App\Domain\Operations\Models\ScheduledTask;
+use App\Domain\Operations\Models\TaskRun;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -39,7 +39,10 @@ it('refuses the operations console to a user with no platform role', function ()
     $user = operationsUser();
 
     $this->actingAs($user)->getJson('/api/v1/operations')->assertForbidden();
-    $this->actingAs($user)->getJson('/api/v1/operations/activity')->assertForbidden();
+    $this->actingAs($user)->getJson('/api/v1/operations/jobs')->assertForbidden();
+    $this->actingAs($user)
+        ->getJson('/api/v1/operations/tasks/' . OperationTask::ACCESS_SYNC->value . '/runs')
+        ->assertForbidden();
 });
 
 it('separates reading operations from acting on them', function (): void {
@@ -90,7 +93,7 @@ it('never claims a queue count when Horizon cannot be reached', function (): voi
     // so this exercises the real degraded path. The contract under test is that the counts come
     // back null — a zero would read as "nothing is queued" during exactly the incident where the
     // truth is that nobody can tell.
-    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations')->assertOk();
+    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations/jobs')->assertOk();
 
     if ($response->json('queue.available') === false) {
         expect($response->json('queue.pending'))->toBeNull()
@@ -191,14 +194,14 @@ it('refuses to store a pause flag for a task that is not on the schedule', funct
     expect(ScheduledTask::query()->count())->toBe(0);
 });
 
-it('merges task runs into one activity feed and embeds the latest run per task on the overview', function (): void {
+it("lists one task's runs, newest first, and embeds the latest on the overview", function (): void {
     $task = OperationTask::ACCESS_SYNC;
 
     foreach ([3, 2, 1] as $index) {
-        $run = new JobRun();
+        $run = new TaskRun();
         $run->task_key = $task->value;
-        $run->trigger = JobRunTrigger::SCHEDULED;
-        $run->status = JobRunStatus::SUCCEEDED;
+        $run->trigger = TaskRunTrigger::SCHEDULED;
+        $run->status = TaskRunStatus::SUCCEEDED;
         $startedAt = CarbonImmutable::now('UTC')->subMinutes($index);
         $run->started_at = $startedAt;
         $run->finished_at = $startedAt->addSeconds(4);
@@ -208,13 +211,14 @@ it('merges task runs into one activity feed and embeds the latest run per task o
 
     $actor = operationsUser('SUPER_ADMIN');
 
-    $feed = $this->actingAs($actor)->getJson('/api/v1/operations/activity')->assertOk();
+    $history = $this->actingAs($actor)
+        ->getJson("/api/v1/operations/tasks/{$task->value}/runs")
+        ->assertOk();
 
-    expect($feed->json('total'))->toBe(3);
+    expect($history->json('total'))->toBe(3);
 
-    // Newest first, and every row says which record it came from — that is what decides its action.
-    $feed->assertJsonPath('activity.0.kind', 'task_run')
-        ->assertJsonPath('activity.0.duration_seconds', 4);
+    $history->assertJsonPath('runs.0.task_key', $task->value)
+        ->assertJsonPath('runs.0.duration_seconds', 4);
 
     // Located by position in `OperationTask::cases()` rather than a hard-coded index: adding a task
     // to the enum shifts every one after it, and a literal here would fail for that alone.
@@ -222,7 +226,44 @@ it('merges task runs into one activity feed and embeds the latest run per task o
 
     $this->actingAs($actor)->getJson('/api/v1/operations')->assertOk()
         ->assertJsonPath("tasks.{$index}.key", $task->value)
-        ->assertJsonPath("tasks.{$index}.last_run.status", JobRunStatus::SUCCEEDED->value);
+        ->assertJsonPath("tasks.{$index}.last_run.status", TaskRunStatus::SUCCEEDED->value);
+});
+
+it('pages a task history and keeps each task to its own', function (): void {
+    foreach ([OperationTask::ACCESS_SYNC, OperationTask::AUDIT_VERIFY_CHAINS] as $task) {
+        foreach (range(1, $task === OperationTask::ACCESS_SYNC ? 12 : 2) as $index) {
+            $run = new TaskRun();
+            $run->task_key = $task->value;
+            $run->trigger = TaskRunTrigger::MANUAL;
+            $run->status = TaskRunStatus::SUCCEEDED;
+            $run->started_at = CarbonImmutable::now('UTC')->subMinutes($index);
+            $run->save();
+        }
+    }
+
+    $actor = operationsUser('SUPER_ADMIN');
+    $key = OperationTask::ACCESS_SYNC->value;
+
+    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs")->assertOk()
+        ->assertJsonCount(10, 'runs')
+        ->assertJsonPath('total', 12);
+
+    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs?page=2")->assertOk()
+        ->assertJsonCount(2, 'runs');
+
+    // The other task's twelve neighbours are not in its history — the two never mix.
+    $other = OperationTask::AUDIT_VERIFY_CHAINS->value;
+
+    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$other}/runs")->assertOk()
+        ->assertJsonPath('total', 2);
+});
+
+it('answers 404 for a task key that is not in the enum', function (): void {
+    // The set of tasks is closed in code, so an unknown key is a wrong address rather than a task
+    // that happens to have never run.
+    $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->getJson('/api/v1/operations/tasks/not.a.task/runs')
+        ->assertNotFound();
 });
 
 it('lists the allowlist from config, not from the table that mirrors it', function (): void {
@@ -231,7 +272,7 @@ it('lists the allowlist from config, not from the table that mirrors it', functi
     // indistinguishable from "nothing is allowlisted", which is the opposite of the truth.
     expect(DB::table('official_sources')->count())->toBe(0);
 
-    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations')->assertOk();
+    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/settings/platform-data')->assertOk();
 
     /** @var array<string, mixed> $declared */
     $declared = Config::array('sources.entries');
@@ -256,7 +297,9 @@ it('marks a source as mirrored once a row exists for it', function (): void {
         'updated_at' => now(),
     ]);
 
-    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations')->assertOk();
+    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->getJson('/api/v1/settings/platform-data')
+        ->assertOk();
 
     // Addressed by index rather than searched, so the assertion stays typed: `BNR` is the fourth
     // entry declared in `config/sources.php`.
@@ -284,39 +327,41 @@ it('answers 404 for a failed job that does not exist', function (): void {
     $this->actingAs($actor)->deleteJson('/api/v1/operations/failed-jobs/missing')->assertNotFound();
 });
 
-it('filters the activity feed by outcome', function (): void {
-    $task = OperationTask::ACCESS_SYNC;
-
-    foreach ([JobRunStatus::SUCCEEDED, JobRunStatus::FAILED] as $index => $status) {
-        $run = new JobRun();
-        $run->task_key = $task->value;
-        $run->trigger = JobRunTrigger::MANUAL;
-        $run->status = $status;
-        $run->started_at = CarbonImmutable::now('UTC')->subMinutes($index + 1);
-        $run->finished_at = CarbonImmutable::now('UTC')->subMinutes($index + 1)->addSecond();
-        $run->exit_code = $status === JobRunStatus::SUCCEEDED ? 0 : 1;
-        $run->save();
-    }
-
-    $actor = operationsUser('SUPER_ADMIN');
-
-    $this->actingAs($actor)->getJson('/api/v1/operations/activity?status=failed')->assertOk()
-        ->assertJsonCount(1, 'activity')
-        ->assertJsonPath('activity.0.status', JobRunStatus::FAILED->value);
-
-    $this->actingAs($actor)->getJson('/api/v1/operations/activity?status=succeeded')->assertOk()
-        ->assertJsonCount(1, 'activity');
-
-    // `failed_jobs` is empty here, so restricting the feed to that source empties it — which also
-    // proves the two records really are separate populations rather than one filtered twice.
-    $this->actingAs($actor)->getJson('/api/v1/operations/activity?kind=failed_job')->assertOk()
-        ->assertJsonCount(0, 'activity');
+it('rejects a jobs status the screen does not offer rather than silently ignoring it', function (): void {
+    // Each status reads a different Horizon list, so an unrecognised one is not a filter that
+    // matches nothing — it names a list that does not exist.
+    $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->getJson('/api/v1/operations/jobs?status=whatever')
+        ->assertStatus(422);
 });
 
-it('rejects an unknown activity filter rather than silently ignoring it', function (): void {
+it('rejects a page size the pager does not offer', function (): void {
     $this->actingAs(operationsUser('SUPER_ADMIN'))
-        ->getJson('/api/v1/operations/activity?status=whatever')
+        ->getJson('/api/v1/operations/jobs?per_page=5000')
         ->assertStatus(422);
+
+    $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->getJson('/api/v1/operations/tasks/' . OperationTask::ACCESS_SYNC->value . '/runs?per_page=5000')
+        ->assertStatus(422);
+});
+
+it('never mixes task runs into the queue listing', function (): void {
+    // The two populations are separate by construction: `RunOperationTask` catches its own failure
+    // and writes a FAILED run, so it never reaches `failed_jobs` or Horizon's failed list. This
+    // pins that the jobs endpoint reports the queue rather than the ledger.
+    $run = new TaskRun();
+    $run->task_key = OperationTask::ACCESS_SYNC->value;
+    $run->trigger = TaskRunTrigger::MANUAL;
+    $run->status = TaskRunStatus::FAILED;
+    $run->started_at = CarbonImmutable::now('UTC');
+    $run->save();
+
+    $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations/jobs')->assertOk();
+
+    /** @var list<array<string, mixed>> $jobs */
+    $jobs = $response->json('jobs');
+
+    expect(array_column($jobs, 'name'))->not->toContain(OperationTask::ACCESS_SYNC->value);
 });
 
 it('refuses an ingest URL whose host is not on the chosen source\'s allowlist', function (): void {

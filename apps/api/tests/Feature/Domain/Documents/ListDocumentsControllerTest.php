@@ -201,19 +201,34 @@ it('filters by received date inclusively at both ends', function (): void {
         ->assertJsonCount(2, 'data');
 });
 
-it('counts only the proposals still waiting on a human', function (): void {
+it('reports a document a person has accepted a reading of as done', function (): void {
     [$user, $subject] = memberAndSubject();
     $document = Document::factory()->create([
         'tax_subject_id' => $subject->id,
         'status' => DocumentStatus::READY,
     ]);
 
-    foreach ([ExtractionStatus::PROPOSED, ExtractionStatus::PROPOSED, ExtractionStatus::ACCEPTED] as $status) {
-        insertExtraction($document->id, $status);
-    }
+    insertExtraction($document->id, ExtractionStatus::PROPOSED);
+    insertExtraction($document->id, ExtractionStatus::ACCEPTED);
+
+    // A still-pending proposal alongside an accepted one does not drag it back: somebody decided,
+    // and the stage says so. `READY` on its own could not — it is the pipeline finishing, not a
+    // person.
+    $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk()
+        ->assertJsonPath('data.0.stage', 'DONE');
+});
+
+it('reports a read document nobody has decided on as needing attention', function (): void {
+    [$user, $subject] = memberAndSubject();
+    $document = Document::factory()->create([
+        'tax_subject_id' => $subject->id,
+        'status' => DocumentStatus::READY,
+    ]);
+
+    insertExtraction($document->id, ExtractionStatus::PROPOSED);
 
     $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk()
-        ->assertJsonPath('data.0.pending_extractions', 2);
+        ->assertJsonPath('data.0.stage', 'ACTION_NEEDED');
 });
 
 it('narrows to documents nobody has dealt with yet', function (): void {
@@ -257,7 +272,7 @@ it('treats a document already turned into a transaction as dealt with', function
     // insisted nothing needed reviewing. Acting on it is what makes it done.
     $account = FinancialAccount::create([
         'tax_subject_id' => $subject->id,
-        'kind' => AccountKind::BANK_CURRENT,
+        'kind' => AccountKind::GENERAL,
         'display_name_ciphertext' => 'Cont',
         'currency_code' => 'RON',
         'source' => RecordSource::MANUAL,
@@ -288,27 +303,49 @@ it('pages without repeating or skipping a row when documents share a received ti
         Document::factory()->create(['tax_subject_id' => $subject->id, 'received_at' => $sameInstant]);
     }
 
-    $first = $this->actingAs($user, 'web')
-        ->getJson("/api/v1/subjects/{$subject->id}/documents?per_page=2")->assertOk();
+    $seen = [];
 
-    $cursor = $first->json('next_cursor');
-    expect($cursor)->toBeString();
+    for ($page = 1; $page <= 3; $page++) {
+        $response = $this->actingAs($user, 'web')
+            ->getJson("/api/v1/subjects/{$subject->id}/documents?per_page=2&page={$page}")->assertOk();
 
-    // URL-encoded, as any client must: the cursor is base64 and an unescaped `+` in a query string
-    // decodes to a space, which Laravel then discards as a malformed cursor — silently serving page
-    // one again rather than erroring.
-    $encoded = urlencode(is_string($cursor) ? $cursor : '');
-
-    $second = $this->actingAs($user, 'web')
-        ->getJson("/api/v1/subjects/{$subject->id}/documents?per_page=2&cursor={$encoded}")->assertOk();
+        $seen = [...$seen, ...idsFrom($response->json('data.*.id'))];
+    }
 
     // Ordering on the UUIDv7 primary key is what stops a shared timestamp from repeating a row
-    // across the page boundary — see the controller for the sqlite comparison that made ordering on
-    // `received_at` return page one forever.
-    $firstIds = idsFrom($first->json('data.*.id'));
-    $secondIds = idsFrom($second->json('data.*.id'));
+    // across a page boundary: five documents created in the same millisecond still have a strict,
+    // unique order, so paging them yields each exactly once.
+    expect($seen)->toHaveCount(5)
+        ->and(array_unique($seen))->toHaveCount(5);
+});
 
-    expect(array_values(array_intersect($firstIds, $secondIds)))->toBe([]);
-    expect($firstIds)->toHaveCount(2);
-    expect($secondIds)->toHaveCount(2);
+it('reports the total across every page, not the size of the page returned', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    for ($i = 0; $i < 5; $i++) {
+        Document::factory()->create(['tax_subject_id' => $subject->id]);
+    }
+
+    // The total is what lets a pager say "1–2 of 5" and offer three pages; a cursor could answer
+    // neither, which is why this endpoint pages by number.
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subject->id}/documents?per_page=2")->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('total', 5)
+        ->assertJsonPath('current_page', 1)
+        ->assertJsonPath('last_page', 3);
+});
+
+it('counts only what the filters match, so the pager does not offer empty pages', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    Document::factory()->create(['tax_subject_id' => $subject->id, 'type' => DocumentType::INVOICE]);
+    for ($i = 0; $i < 4; $i++) {
+        Document::factory()->create(['tax_subject_id' => $subject->id, 'type' => DocumentType::RECEIPT]);
+    }
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subject->id}/documents?type=INVOICE")->assertOk()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('last_page', 1);
 });

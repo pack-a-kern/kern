@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Documents;
 
+use App\Domain\Documents\Enums\DocumentStage;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Enums\ExtractionStatus;
 use App\Domain\Documents\Models\Document;
+use App\Domain\Documents\Queries\SettledDocuments;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -55,8 +56,12 @@ final class ListDocumentsController extends Controller
 
     private const int MAX_PER_PAGE = 100;
 
-    public function __invoke(Request $request, string $subject, TenantContext $tenant): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        string $subject,
+        TenantContext $tenant,
+        SettledDocuments $settledDocuments,
+    ): JsonResponse {
         $validated = $request->validate([
             'status' => ['sometimes', Rule::enum(DocumentStatus::class)],
             'type' => ['sometimes', Rule::enum(DocumentType::class)],
@@ -67,7 +72,10 @@ final class ListDocumentsController extends Controller
             // Documents whose proposals nobody has looked at yet — the actual working queue, and
             // the one filter that is not simply a column.
             'needs_review' => ['sometimes', 'boolean'],
-            'cursor' => ['sometimes', 'string'],
+            // The stage a person sees, not the pipeline status — filtering has to speak the same
+            // language the column does, or the list offers words that appear nowhere in it.
+            'stage' => ['sometimes', 'string', Rule::enum(DocumentStage::class)],
+            'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer'],
         ]);
 
@@ -106,6 +114,10 @@ final class ListDocumentsController extends Controller
 
         if (isset($validated['received_to'])) {
             $query->whereDate('received_at', '<=', (string) $validated['received_to']);
+        }
+
+        if (isset($validated['stage']) && is_string($validated['stage'])) {
+            $this->applyStage($query, DocumentStage::from($validated['stage']), $tenant->currentSubjectId());
         }
 
         if ($request->boolean('needs_review')) {
@@ -148,13 +160,30 @@ final class ListDocumentsController extends Controller
         }
 
         $perPage = max(1, min(self::MAX_PER_PAGE, (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE)));
-        $cursor = $validated['cursor'] ?? null;
 
-        $paginator = $query->cursorPaginate($perPage, ['*'], 'cursor', is_string($cursor) ? $cursor : null);
+        // Numbered pages, which means offset pagination and the `count(*)` that comes with it.
+        //
+        // A cursor cannot answer "how many are there" or "take me to page 7", and both are things a
+        // person working through their own filing wants. The count is over one subject's documents,
+        // already narrowed by whatever filters are set, so it is cheap at any size a personal
+        // document set reaches.
+        //
+        // The ordering below is unchanged and still load-bearing: `id` is a UUIDv7, so descending id
+        // is newest-first with no ties. That was adopted to fix a cursor bug and happens to be
+        // exactly what offset pagination wants too — a stable, unique sort key.
+        //
+        // The trade-off offset brings is that a document arriving while someone is on page 3 shifts
+        // every row after it. Acceptable here: uploads announce themselves over the documents
+        // channel and the list reloads, so the page a person is looking at is re-derived rather
+        // than left stale.
+        $paginator = $query->paginate($perPage, ['*'], 'page');
 
         /** @var list<Document> $documents */
         $documents = $paginator->items();
-        $pending = $this->pendingExtractionCounts($documents);
+        $settled = $settledDocuments(
+            $tenant->currentSubjectId(),
+            array_map(static fn (Document $document): string => $document->id, $documents),
+        );
 
         return response()->json(
             $paginator->through(static fn (Document $document): array => [
@@ -162,46 +191,72 @@ final class ListDocumentsController extends Controller
                 'filename' => $document->presentedFilename(),
                 'type' => $document->type->value,
                 'status' => $document->status->value,
+                // What the pipeline is doing, said in the terms a person uses. `status` stays
+                // beside it: the two answer different questions and the screen needs both.
+                'stage' => DocumentStage::of($document->status, isset($settled[$document->id]))->value,
                 'rejection_reason' => $document->rejection_reason?->value,
                 'mime_type' => $document->mime_type,
                 'size_bytes' => $document->size_bytes,
                 'source' => $document->source->value,
                 'received_at' => $document->received_at->toIso8601String(),
-                // How many proposals are waiting on a human. Zero and "none yet extracted" look the
-                // same here on purpose: both mean there is nothing for a reviewer to do.
-                'pending_extractions' => $pending[$document->id] ?? 0,
             ])->toArray(),
         );
     }
 
+
     /**
-     * Proposed-extraction counts for a page of documents, in one query rather than one per row.
+     * Narrow to one stage.
      *
-     * @param  list<Document>  $documents
-     * @return array<string, int>
+     * Four of the six are a plain status. The other two split `READY` by whether a person has dealt
+     * with the document — the same rule `SettledDocuments` uses for the badge, expressed here as
+     * subqueries because a list cannot be narrowed by a value computed after the rows are fetched.
+     *
+     * `ACTION_NEEDED` is exactly what the `needs_review` flag already means. Both are kept: the flag
+     * is part of the API other callers may use, and this is the one the screen now drives.
+     *
+     * @param  \Illuminate\Contracts\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<Document>  $query
      */
-    private function pendingExtractionCounts(array $documents): array
+    private function applyStage(mixed $query, DocumentStage $stage, string $subjectId): void
     {
-        $ids = array_map(static fn (Document $document): string => $document->id, $documents);
+        $status = match ($stage) {
+            DocumentStage::CHECKING => DocumentStatus::QUARANTINE,
+            DocumentStage::QUEUED => DocumentStatus::SCANNED,
+            DocumentStage::PROCESSING => DocumentStatus::PROCESSING,
+            DocumentStage::REJECTED => DocumentStatus::REJECTED,
+            DocumentStage::ACTION_NEEDED, DocumentStage::DONE => DocumentStatus::READY,
+        };
 
-        if ($ids === []) {
-            return [];
+        $query->where('status', $status->value);
+
+        if ($stage !== DocumentStage::ACTION_NEEDED && $stage !== DocumentStage::DONE) {
+            return;
         }
 
-        $rows = DB::table('document_extractions')
-            ->whereIn('document_id', $ids)
-            ->where('status', ExtractionStatus::PROPOSED->value)
-            ->groupBy('document_id')
-            ->selectRaw('document_id, count(*) as pending')
-            ->get();
+        $settled = static function ($sub) use ($subjectId): void {
+            $sub->from('document_extractions')
+                ->join('documents', 'documents.id', '=', 'document_extractions.document_id')
+                ->where('documents.tax_subject_id', $subjectId)
+                ->select('document_extractions.document_id')
+                ->whereIn('document_extractions.status', [
+                    ExtractionStatus::ACCEPTED->value,
+                    ExtractionStatus::REVIEWED->value,
+                ]);
+        };
+        $used = static function ($sub) use ($subjectId): void {
+            $sub->from('financial_transactions')
+                ->select('document_id')
+                ->where('tax_subject_id', $subjectId)
+                ->whereNotNull('document_id');
+        };
 
-        $counts = [];
+        if ($stage === DocumentStage::DONE) {
+            $query->where(static function ($outer) use ($settled, $used): void {
+                $outer->whereIn('id', $settled)->orWhereIn('id', $used);
+            });
 
-        foreach ($rows as $row) {
-            $documentId = $row->document_id;
-            $counts[is_scalar($documentId) ? (string) $documentId : ''] = (int) $row->pending;
+            return;
         }
 
-        return $counts;
+        $query->whereNotIn('id', $settled)->whereNotIn('id', $used);
     }
 }

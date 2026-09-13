@@ -43,6 +43,38 @@ uses(RefreshDatabase::class)->in('Feature/Domain/Settings');
 uses(RefreshDatabase::class)->in('Feature/Domain/Operations');
 
 /**
+ * Puts the database back after the one suite that is allowed to commit.
+ *
+ * `Feature/Domain/Audit` is excluded from RefreshDatabase above, for a reason that is not
+ * negotiable: `AuditChainConcurrencyTest` forks OS processes which open their own connections and
+ * must therefore see *committed* rows. What that costs is that its writes survive the suite — and
+ * they are not a handful of audit rows. Measured: 16 users, 11 tax subjects and 90 events left
+ * behind, because every chain needs a subject and every actor needs an account.
+ *
+ * Pest walks directories alphabetically, so `Audit` runs first and every later suite then starts
+ * against an installation that is not empty. That broke tests which had every right to assume it
+ * was: "registration stays open on an instance with no users" found sixteen; the admin directory
+ * answered 500 because those users' email ciphertext was sealed with a *previous* run's in-process
+ * fake key; assertions counting audit events found ninety of somebody else's.
+ *
+ * `TRUNCATE` rather than `DELETE` on purpose. `audit_events` carries a `BEFORE UPDATE OR DELETE`
+ * trigger that refuses both — that append-only guarantee is the point of the table and
+ * `AuditChainServiceTest` asserts it — and `TRUNCATE` is neither operation, so the guarantee stays
+ * fully enforced for the application while the harness can still reset its own fixtures. `CASCADE`
+ * follows the foreign keys pointing at these tables, which is what makes the reset complete rather
+ * than a new set of orphans.
+ */
+uses()->afterEach(function (): void {
+    // sqlite has neither the trigger nor `TRUNCATE ... CASCADE`, and hands every test its own
+    // in-memory database anyway, so there is nothing to reset there.
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        return;
+    }
+
+    DB::statement('TRUNCATE users, tax_subjects, audit_events, audit_chain_heads RESTART IDENTITY CASCADE');
+})->in('Feature/Domain/Audit');
+
+/**
  * Swaps the real OpenBao-backed `KeyManagementService` and the config-driven `BlindIndexHasher`
  * for fakes with a random in-process key, exactly the pattern
  * `tests/Feature/Domain/Subjects/BlindIndexLookupTest.php` established first. Every `Feature/
@@ -246,4 +278,25 @@ function settingsAdminUser(): User
 function ordinaryUser(): User
 {
     return User::factory()->create();
+}
+
+/**
+ * A structurally valid CNP, with the check digit computed for the twelve digits given.
+ *
+ * Fixtures are built rather than borrowed: a real CNP in a test file is a real person's identifier
+ * in version control. Shared here because both the parser's tests and the registration tests need
+ * numbers the parser will accept.
+ */
+function cnpWithCheckDigit(string $first12): string
+{
+    $key = '279146358279';
+    $sum = 0;
+
+    for ($index = 0; $index < 12; $index++) {
+        $sum += (int) $first12[$index] * (int) $key[$index];
+    }
+
+    $remainder = $sum % 11;
+
+    return $first12 . ($remainder === 10 ? '1' : (string) $remainder);
 }

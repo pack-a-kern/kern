@@ -1,4 +1,29 @@
 import { Head, Link } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
+import Checkbox from '../../components/Checkbox';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
+import {
+    Building2,
+    ChevronDown,
+    FileQuestion,
+    FileText,
+    FolderOpen,
+    Gavel,
+    Image as ImageIcon,
+    Landmark,
+    Layers3,
+    PiggyBank,
+    Plus,
+    ReceiptText,
+    SearchX,
+    Trash2,
+} from 'lucide-react';
+import Pagination from '../../components/Pagination';
 import { toast } from 'sonner';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 
@@ -9,16 +34,17 @@ import AddDocumentDialog from '../../components/documents/AddDocumentDialog';
 import {
     DataTable,
     Page,
+    ActionGroup,
     Panel,
+    EmptyState,
     PanelButton,
-    PanelInput,
     PanelSelect,
     Status,
     Toolbar,
     type StatusTone,
 } from '../../components/panel';
+import { PanelDateRange } from '../../components/PanelDatePicker';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Switch } from '../../components/ui/switch';
 import { useCoalescedCallback } from '../../hooks/useCoalescedCallback';
 import { useDocumentsChannel } from '../../hooks/useDocumentsChannel';
 import { useTranslation } from '../../i18n';
@@ -26,10 +52,11 @@ import { formatBytes, formatDateTime } from '../../lib/format';
 import { listKnownDocuments, type KnownDocument } from '../../lib/db';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
-    DOCUMENT_STATUSES,
+    DOCUMENT_STAGES,
     DOCUMENT_TYPES,
     type DocumentLifecycleEvent,
     type DocumentListItem,
+    type DocumentStage,
     type DocumentStatus,
     type DocumentType,
 } from '../../types/documents';
@@ -59,14 +86,25 @@ export default function DocumentsInbox(): JSX.Element {
     const { t, locale } = useTranslation();
     const [subjectId] = useState(() => getActiveSubjectId());
 
-    const [status, setStatus] = useState<DocumentStatus | ''>('');
+    const [stage, setStage] = useState<DocumentStage | ''>('');
     const [type, setType] = useState<DocumentType | ''>('');
     const [receivedFrom, setReceivedFrom] = useState('');
     const [receivedTo, setReceivedTo] = useState('');
-    const [needsReview, setNeedsReview] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
     const [adding, setAdding] = useState(false);
     const [deleting, setDeleting] = useState<DocumentListItem | null>(null);
+    /**
+     * Ids ticked for a bulk action.
+     *
+     * Kept across pages and filter changes on purpose: selecting ten documents, paging to find an
+     * eleventh and losing the first ten is the behaviour people expect least. Cleared only when the
+     * action they were selected for completes.
+     */
+    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
 
     // Rows are stored together with the filters that produced them, so "the loaded filters do not
     // match the current ones" is what means *loading*. Resetting to null inside the effect that
@@ -75,22 +113,25 @@ export default function DocumentsInbox(): JSX.Element {
     const [loaded, setLoaded] = useState<{
         key: string;
         rows: DocumentListItem[];
-        nextCursor: string | null;
+        /** Rows matching the current filters across every page, for the pager's summary. */
+        total: number;
         /** True when the server could not be reached and these rows came from the local cache. */
         stale: boolean;
     } | null>(null);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [failed, setFailed] = useState(false);
 
+    // "Nothing here" and "nothing matches" are different situations with different remedies.
+    const hasFilters =
+        stage !== '' || type !== '' || receivedFrom !== '' || receivedTo !== '';
+
     const filters: DocumentListFilters = {
-        ...(status === '' ? {} : { status }),
+        ...(stage === '' ? {} : { stage }),
         ...(type === '' ? {} : { type }),
         ...(receivedFrom === '' ? {} : { receivedFrom }),
         ...(receivedTo === '' ? {} : { receivedTo }),
-        ...(needsReview ? { needsReview: true } : {}),
     };
 
-    const filterKey = JSON.stringify([status, type, receivedFrom, receivedTo, needsReview, reloadKey]);
+    const filterKey = JSON.stringify([stage, type, receivedFrom, receivedTo, page, pageSize, reloadKey]);
 
     useEffect(() => {
         if (subjectId === null) {
@@ -99,10 +140,10 @@ export default function DocumentsInbox(): JSX.Element {
 
         let active = true;
 
-        listDocuments(subjectId, filters).then(
-            (page) => {
+        listDocuments(subjectId, filters, page, pageSize).then(
+            (result) => {
                 if (active) {
-                    setLoaded({ key: filterKey, rows: page.data, nextCursor: page.nextCursor, stale: false });
+                    setLoaded({ key: filterKey, rows: result.data, total: result.total, stale: false });
                     setFailed(false);
                 }
             },
@@ -116,13 +157,13 @@ export default function DocumentsInbox(): JSX.Element {
                 void listKnownDocuments(subjectId).then(
                     (cached) => {
                         if (active) {
-                            setLoaded({ key: filterKey, rows: cached.map(fromCache), nextCursor: null, stale: true });
+                            setLoaded({ key: filterKey, rows: cached.map(fromCache), total: cached.length, stale: true });
                             setFailed(cached.length === 0);
                         }
                     },
                     () => {
                         if (active) {
-                            setLoaded({ key: filterKey, rows: [], nextCursor: null, stale: true });
+                            setLoaded({ key: filterKey, rows: [], total: 0, stale: true });
                             setFailed(true);
                         }
                     },
@@ -230,35 +271,68 @@ export default function DocumentsInbox(): JSX.Element {
     const current = loaded !== null && loaded.key === filterKey ? loaded : null;
     const documents = current?.rows ?? null;
 
-    const loadMore = async (): Promise<void> => {
-        if (current === null || current.nextCursor === null) {
+    const pageIds = documents?.map((document) => document.id) ?? [];
+    const selectedOnPage = pageIds.filter((id) => selected.has(id)).length;
+    const allOnPageSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
+
+    function toggleOne(id: string, next: boolean): void {
+        setSelected((current) => {
+            const updated = new Set(current);
+
+            if (next) {
+                updated.add(id);
+            } else {
+                updated.delete(id);
+            }
+
+            return updated;
+        });
+    }
+
+    /** Select-all acts on this page only — it cannot tick rows nobody has seen. */
+    function togglePage(next: boolean): void {
+        setSelected((current) => {
+            const updated = new Set(current);
+
+            for (const id of pageIds) {
+                if (next) {
+                    updated.add(id);
+                } else {
+                    updated.delete(id);
+                }
+            }
+
+            return updated;
+        });
+    }
+
+    async function deleteSelected(): Promise<void> {
+        if (!subjectId) {
             return;
         }
 
-        setLoadingMore(true);
+        setBulkDeleting(true);
 
         try {
-            const page = await listDocuments(subjectId, filters, current.nextCursor);
-
-            setLoaded({
-                key: filterKey,
-                rows: [...current.rows, ...page.data],
-                nextCursor: page.nextCursor,
-                stale: false,
-            });
-        } catch {
-            // Leave what is already on screen; the button stays available to try again.
+            // One request each: there is no bulk endpoint, and inventing one would skip the audit
+            // event and the object-store cleanup each single delete already does correctly.
+            // Sequential rather than parallel so a partial failure leaves a coherent list.
+            for (const id of selected) {
+                await deleteDocument(subjectId, id);
+            }
         } finally {
-            setLoadingMore(false);
+            setSelected(new Set());
+            setBulkDeleting(false);
+            setReloadKey((current) => current + 1);
         }
-    };
+    }
 
     const resetFilters = (): void => {
-        setStatus('');
+        setPage(1);
+        setStage('');
         setType('');
         setReceivedFrom('');
         setReceivedTo('');
-        setNeedsReview(false);
     };
 
     return (
@@ -267,52 +341,62 @@ export default function DocumentsInbox(): JSX.Element {
             <Page
                 title={t((d) => d.documentsInbox.title)}
                 lede={t((d) => d.documentsInbox.description)}
-                actions={
-                    <PanelButton
-                        primary
-                        inline
-                        onClick={() => {
-                            setAdding(true);
-                        }}
-                    >
-                        {t((d) => d.documentsInbox.newDocument)}
-                    </PanelButton>
-                }
             >
                 <Panel
+                    flush
+                    icon={<FolderOpen className="size-4" />}
                     title={t((d) => d.documentsInbox.title)}
+                    description={t((d) => d.documentsInbox.count).replace(
+                        '{count}',
+                        String(current?.total ?? 0),
+                    )}
                     aside={
-                        current?.stale === true ? (
-                            <Status tone="warn">{t((d) => d.documentsInbox.offline)}</Status>
-                        ) : null
-                    }
-                    footNote={t((d) => d.documentsInbox.liveNotice)}
-                    footActions={
-                        current !== null && current.nextCursor !== null ? (
+                        <div className="flex items-center gap-2">
+                            {current?.stale === true && (
+                                <Status tone="warn">{t((d) => d.documentsInbox.offline)}</Status>
+                            )}
                             <PanelButton
-                                disabled={loadingMore}
+                                primary
+                                inline
                                 onClick={() => {
-                                    void loadMore();
+                                    setAdding(true);
                                 }}
                             >
-                                {t((d) => (loadingMore ? d.common.loadingMore : d.common.loadMore))}
+                                <Plus className="size-4" />
+                                {t((d) => d.documentsInbox.newDocument)}
                             </PanelButton>
-                        ) : undefined
+                        </div>
                     }
-                    flush
+                    foot={
+                        <Pagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={current?.total ?? 0}
+                            unit={t((d) => d.documentsInbox.unit)}
+                            onPageChange={setPage}
+                            onPageSizeChange={(next) => {
+                                setPageSize(next);
+                                setPage(1);
+                            }}
+                        />
+                    }
                 >
                     <Toolbar>
                         <PanelSelect
                             className="filter-select"
-                            value={status}
+                            value={stage}
                             onValueChange={(value) => {
-                                setStatus(value as DocumentStatus | '');
+                                setStage(value as DocumentStage | '');
                             }}
                             placeholder={t((d) => d.documentsInbox.filters.allStatuses)}
                             emptyLabel={t((d) => d.documentsInbox.filters.allStatuses)}
-                            options={DOCUMENT_STATUSES.map((value) => ({
+                            emptyIcon={<span className="select-dot text-muted-foreground" />}
+                            options={DOCUMENT_STAGES.map((value) => ({
                                 value,
-                                label: t((d) => d.statusBadge[value]),
+                                label: t((d) => d.documentStage[value]),
+                                // The same dot the table draws, in the same tone — so the filter
+                                // and the column it filters read as one vocabulary.
+                                icon: <span className={cn('select-dot', statusToneClass(stageTone(value)))} />,
                             }))}
                         />
                         <PanelSelect
@@ -323,38 +407,64 @@ export default function DocumentsInbox(): JSX.Element {
                             }}
                             placeholder={t((d) => d.documentsInbox.filters.allTypes)}
                             emptyLabel={t((d) => d.documentsInbox.filters.allTypes)}
+                            emptyIcon={<Layers3 className="size-4" aria-hidden="true" />}
+                            emptyDescription={t((d) => d.documentsInbox.filters.everyDocument)}
+                            searchable
+                            optionVisual="tile"
                             options={DOCUMENT_TYPES.map((value) => ({
                                 value,
                                 label: t((d) => d.documentType[value]),
+                                // What the type is for, under its name — "Receipt" alone does not
+                                // tell someone filing a parking ticket whether it belongs here.
+                                description: t((d) => d.documentTypeHint[value]),
+                                icon: <DocumentTypeIcon type={value} />,
                             }))}
                         />
-                        <PanelInput
-                            className="filter-select"
-                            type="date"
-                            aria-label={t((d) => d.documentsInbox.filters.from)}
-                            value={receivedFrom}
-                            onChange={(event) => {
-                                setReceivedFrom(event.target.value);
+                        {/* One control, not two boxes: "received between" is a single thought, and
+                            a pair of bare date fields made the reader supply the relationship
+                            themselves — as well as making "last month" six clicks instead of one. */}
+                        <PanelDateRange
+                            title={t((d) => d.documentsInbox.filters.received)}
+                            value={{
+                                from: receivedFrom === '' ? null : receivedFrom,
+                                to: receivedTo === '' ? null : receivedTo,
+                            }}
+                            onChange={(next) => {
+                                setReceivedFrom(next.from ?? '');
+                                setReceivedTo(next.to ?? '');
                             }}
                         />
-                        <PanelInput
-                            className="filter-select"
-                            type="date"
-                            aria-label={t((d) => d.documentsInbox.filters.to)}
-                            value={receivedTo}
-                            onChange={(event) => {
-                                setReceivedTo(event.target.value);
-                            }}
-                        />
-                        <label className="flex items-center gap-2 text-xs">
-                            <Switch
-                                checked={needsReview}
-                                onCheckedChange={setNeedsReview}
-                                aria-label={t((d) => d.documentsInbox.filters.needsReview)}
-                            />
-                            {t((d) => d.documentsInbox.filters.needsReview)}
-                        </label>
                         <PanelButton onClick={resetFilters}>{t((d) => d.documentsInbox.filters.reset)}</PanelButton>
+
+                        {/* Only once something is ticked. A permanently-present "0 selected" button
+                            is a control that does nothing most of the time, and the row it sits in
+                            is already full of filters. */}
+                        {selected.size > 0 && (
+                            <div className="sm:ml-auto">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button type="button" className="shell-control" disabled={bulkDeleting}>
+                                            {t((d) => d.documentsInbox.selectedCount).replace(
+                                                '{count}',
+                                                String(selected.size),
+                                            )}
+                                            <ChevronDown className="text-muted-foreground size-3" aria-hidden="true" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-44">
+                                        <DropdownMenuItem
+                                            variant="destructive"
+                                            onSelect={() => {
+                                                setConfirmingBulkDelete(true);
+                                            }}
+                                        >
+                                            <Trash2 className="size-4" />
+                                            {t((d) => d.documentsInbox.deleteSelected)}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
                     </Toolbar>
 
                     {documents === null ? (
@@ -362,12 +472,48 @@ export default function DocumentsInbox(): JSX.Element {
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.documentsInbox.loadFailed)}</p>
                     ) : documents.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.documentsInbox.empty)}</p>
+                        hasFilters ? (
+                            <EmptyState
+                                icon={<SearchX className="size-5" />}
+                                title={t((d) => d.documentsInbox.emptyFiltered)}
+                                action={
+                                    <PanelButton onClick={resetFilters}>
+                                        {t((d) => d.documentsInbox.filters.reset)}
+                                    </PanelButton>
+                                }
+                            />
+                        ) : (
+                            <EmptyState
+                                icon={<FolderOpen className="size-5" />}
+                                title={t((d) => d.documentsInbox.emptyTitle)}
+                                description={t((d) => d.documentsInbox.empty)}
+                                action={
+                                    <PanelButton
+                                        primary
+                                        inline
+                                        onClick={() => {
+                                            setAdding(true);
+                                        }}
+                                    >
+                                        <Plus className="size-4" />
+                                        {t((d) => d.documentsInbox.newDocument)}
+                                    </PanelButton>
+                                }
+                            />
+                        )
                     ) : (
                         <DataTable
                             stacked
                             head={
                                 <>
+                                    <th className="w-10">
+                                        <Checkbox
+                                            checked={allOnPageSelected}
+                                            indeterminate={selectedOnPage > 0 && !allOnPageSelected}
+                                            onCheckedChange={togglePage}
+                                            aria-label={t((d) => d.documentsInbox.selectPage)}
+                                        />
+                                    </th>
                                     <th>{t((d) => d.documentsInbox.columns.document)}</th>
                                     <th>{t((d) => d.documentsInbox.columns.type)}</th>
                                     <th>{t((d) => d.documentsInbox.columns.received)}</th>
@@ -384,18 +530,41 @@ export default function DocumentsInbox(): JSX.Element {
                                 const reason = document.rejectionReason;
 
                                 return (
-                                    <tr key={document.id}>
+                                    <tr
+                                        key={document.id}
+                                        className={cn(selected.has(document.id) && 'row-selected')}
+                                    >
+                                        <td>
+                                            <Checkbox
+                                                checked={selected.has(document.id)}
+                                                onCheckedChange={(next) => {
+                                                    toggleOne(document.id, next);
+                                                }}
+                                                aria-label={document.filename}
+                                            />
+                                        </td>
                                         <td className="col-primary">
-                                            <div className="font-semibold break-all">
-                                                {document.filename === ''
-                                                    ? t((d) => d.documentType[document.type])
-                                                    : document.filename}
-                                            </div>
-                                            {reason === null ? null : (
-                                                <div className="text-destructive text-xs">
-                                                    {t((d) => d.rejectionReason[reason])}
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="row-mark">
+                                                    {document.mimeType === 'application/pdf' ? (
+                                                        <FileText className="size-4" aria-hidden="true" />
+                                                    ) : (
+                                                        <ImageIcon className="size-4" aria-hidden="true" />
+                                                    )}
+                                                </span>
+                                                <div className="min-w-0">
+                                                    <div className="truncate">
+                                                        {document.filename === ''
+                                                            ? t((d) => d.documentType[document.type])
+                                                            : document.filename}
+                                                    </div>
+                                                    {reason !== null && (
+                                                        <div className="text-destructive row-note">
+                                                            {t((d) => d.rejectionReason[reason])}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
                                         </td>
                                         <td className="whitespace-nowrap">{t((d) => d.documentType[document.type])}</td>
                                         <td className="col-hide whitespace-nowrap">
@@ -407,36 +576,41 @@ export default function DocumentsInbox(): JSX.Element {
                                             {formatBytes(document.sizeBytes, locale)}
                                         </td>
                                         <td>
-                                            <Status tone={statusTone(document.status)}>
-                                                {t((d) => d.statusBadge[document.status])}
-                                            </Status>
-                                            {document.pendingExtractions > 0 ? (
-                                                <div className="note">
-                                                    {t((d) => d.documentsInbox.pendingExtractions).replace(
-                                                        '{count}',
-                                                        String(document.pendingExtractions),
-                                                    )}
-                                                </div>
-                                            ) : null}
+                                            <span
+                                                className={cn('status-dot', statusToneClass(stageTone(document.stage)))}
+                                            >
+                                                {t((d) => d.documentStage[document.stage])}
+                                            </span>
                                         </td>
                                         <td className="col-end text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {document.status === 'READY' ? (
-                                                    <Link
-                                                        href={`/documents/${document.id}/review`}
-                                                        className="ctl-action-link"
-                                                    >
-                                                        {t((d) => d.documentsInbox.review)}
-                                                    </Link>
-                                                ) : null}
-                                                <PanelButton
-                                                    variant="ghost"
-                                                    onClick={() => {
-                                                        setDeleting(document);
-                                                    }}
-                                                >
-                                                    {t((d) => d.common.delete)}
-                                                </PanelButton>
+                                            <div className="flex justify-end">
+                                                <ActionGroup
+                                                    actions={[
+                                                        ...(document.stage === 'ACTION_NEEDED' ||
+                                                        document.stage === 'DONE'
+                                                            ? [
+                                                                  {
+                                                                      key: 'review',
+                                                                      label: t((d) =>
+                                                                          document.stage === 'DONE'
+                                                                              ? d.documentsInbox.view
+                                                                              : d.documentsInbox.review,
+                                                                      ),
+                                                                      href: `/documents/${document.id}/review`,
+                                                                  },
+                                                              ]
+                                                            : []),
+                                                        {
+                                                            key: 'delete',
+                                                            label: <Trash2 className="size-3.5" />,
+                                                            title: t((d) => d.common.delete),
+                                                            tone: 'destructive' as const,
+                                                            onClick: () => {
+                                                                setDeleting(document);
+                                                            },
+                                                        },
+                                                    ]}
+                                                />
                                             </div>
                                         </td>
                                     </tr>
@@ -450,6 +624,30 @@ export default function DocumentsInbox(): JSX.Element {
             {/* Rendered only while open so the upload queue's effects do not run on every page
                 view, and re-reads the list on close: a document that finished uploading while the
                 dialog was open should be on the screen behind it. */}
+            {confirmingBulkDelete && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setConfirmingBulkDelete(false);
+                        }
+                    }}
+                    title={t((d) => d.documentsInbox.deleteSelectedTitle)}
+                    description={t((d) => d.documentsInbox.deleteSelectedHint)}
+                    detail={
+                        <p className="note">
+                            {t((d) => d.documentsInbox.selectedCount).replace('{count}', String(selected.size))}
+                        </p>
+                    }
+                    confirmLabel={t((d) => d.common.delete)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={async () => {
+                        await deleteSelected();
+                        setConfirmingBulkDelete(false);
+                    }}
+                />
+            )}
+
             {deleting === null ? null : (
                 <ConfirmDialog
                     open
@@ -502,32 +700,91 @@ export default function DocumentsInbox(): JSX.Element {
  * extractions are waiting, so it claims none rather than inventing a number. The rows are labelled
  * as cached wherever they are shown.
  */
+
+/** The stage a cached row can honestly claim, knowing nothing about reviews or transactions. */
+function cachedStage(status: DocumentStatus): DocumentStage {
+    return {
+        QUARANTINE: 'CHECKING',
+        SCANNED: 'QUEUED',
+        PROCESSING: 'PROCESSING',
+        READY: 'ACTION_NEEDED',
+        REJECTED: 'REJECTED',
+    }[status] as DocumentStage;
+}
+
 function fromCache(document: KnownDocument): DocumentListItem {
     return {
         id: document.id,
         filename: '',
         type: document.type,
         status: document.status,
+        // The cache has no idea whether anybody has acted on this document, and guessing `DONE`
+        // would hide work. An in-flight status still maps honestly; a `READY` one claims it needs
+        // attention, which is the safe direction to be wrong in.
+        stage: cachedStage(document.status),
         rejectionReason: document.rejectionReason,
         mimeType: document.mimeType,
         sizeBytes: document.sizeBytes,
         source: 'USER_UPLOAD',
         receivedAt: document.receivedAt,
-        pendingExtractions: 0,
     };
 }
 
 /** Where a document sits in the pipeline, as a colour. Rejected is bad; everything else is progress. */
-function statusTone(status: DocumentStatus): StatusTone {
-    if (status === 'REJECTED') {
-        return 'bad';
-    }
+/**
+ * A status tone as a text colour for the dot-and-label form.
+ *
+ * `Status` renders a filled pill, which is right for a card header and wrong for a table column —
+ * a column of pills is a column of boxes. Here the dot carries the colour and the label stays text,
+ * so the eye reads the words and the colour only qualifies them.
+ */
+/**
+ * The mark for a document type, shared by the type filter and anywhere else a type is offered.
+ *
+ * A picker of seven similar words is hard to scan; a shape per type gives the eye something to aim
+ * at before it reads. Defined once so the same type never appears under two different marks.
+ */
+function DocumentTypeIcon({ type }: { type: DocumentType }): JSX.Element {
+    const Icon = {
+        RECEIPT: ReceiptText,
+        INVOICE: FileText,
+        BANK_STATEMENT: Landmark,
+        DEPOSIT_AGREEMENT: PiggyBank,
+        RENTAL_CONTRACT: Building2,
+        ANAF_DECISION: Gavel,
+        OTHER: FileQuestion,
+    }[type];
 
-    if (status === 'READY') {
-        return 'ok';
-    }
+    return <Icon className="size-4" aria-hidden="true" />;
+}
 
-    return 'idle';
+/**
+ * A stage as a tone.
+ *
+ * `ACTION_NEEDED` is `warn` and `DONE` is `ok` — the opposite of how the pipeline sees them, and
+ * correct: a document the machine has finished with is precisely the one still asking something of
+ * a person, and the green one is the one nobody has to look at again. In-flight stages are `idle`
+ * because there is nothing to do about them but wait.
+ */
+function stageTone(stage: DocumentStage): StatusTone {
+    return {
+        CHECKING: 'idle',
+        QUEUED: 'idle',
+        PROCESSING: 'idle',
+        ACTION_NEEDED: 'warn',
+        DONE: 'ok',
+        REJECTED: 'bad',
+    }[stage] as StatusTone;
+}
+
+
+function statusToneClass(tone: StatusTone): string {
+    return {
+        ok: 'text-success',
+        warn: 'text-warning',
+        bad: 'text-destructive',
+        idle: 'text-muted-foreground',
+    }[tone];
 }
 
 function TableSkeleton(): JSX.Element {

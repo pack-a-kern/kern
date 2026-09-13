@@ -57,27 +57,22 @@ it('never stores an account\'s plaintext display name or IBAN anywhere in the ra
     $subject = activatedSubject();
 
     $plaintextDisplayName = 'Recognisable Current Account';
-    $plaintextIban = 'RO49AAAA1B31007593840000';
-
     $account = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        kind: AccountKind::BANK_CURRENT,
+        kind: AccountKind::GENERAL,
         displayName: $plaintextDisplayName,
         currencyCode: 'RON',
-        iban: $plaintextIban,
     ));
 
-    /** @var object{display_name_ciphertext: string, iban_ciphertext: string}|null $raw */
+    /** @var object{display_name_ciphertext: string}|null $raw */
     $raw = DB::table('financial_accounts')->where('id', $account->id)->first();
     expect($raw)->not->toBeNull();
     assert($raw !== null);
 
-    foreach ([$raw->display_name_ciphertext, $raw->iban_ciphertext] as $column) {
-        expect($column)->not->toContain($plaintextDisplayName)
-            ->and($column)->not->toContain($plaintextIban)
-            ->and((string) base64_decode($column, true))->not->toContain($plaintextDisplayName)
-            ->and((string) base64_decode($column, true))->not->toContain($plaintextIban);
-    }
+    // Only the display name is encrypted on a source now: the IBAN it used to carry is gone, and
+    // nothing else on the row identifies anyone.
+    expect($raw->display_name_ciphertext)->not->toContain($plaintextDisplayName)
+        ->and((string) base64_decode($raw->display_name_ciphertext, true))->not->toContain($plaintextDisplayName);
 });
 
 it('never stores a transaction\'s plaintext description, counterparty, or external id anywhere in the raw row', function (): void {
@@ -85,7 +80,7 @@ it('never stores a transaction\'s plaintext description, counterparty, or extern
 
     $account = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $subject->id,
-        kind: AccountKind::BANK_CURRENT,
+        kind: AccountKind::GENERAL,
         displayName: 'Account for transaction test',
         currencyCode: 'RON',
     ));

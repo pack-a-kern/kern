@@ -37,7 +37,7 @@ function validPfPayload(array $overrides = []): array
         'display_name' => 'Ion Popescu',
         'first_name' => 'Ion',
         'last_name' => 'Popescu',
-        'cnp' => '1900101221144',
+        'cnp' => cnpWithCheckDigit('190010122114'),
         'birth_date' => '1990-01-01',
         'county_code' => 'CJ',
         'locality' => 'Cluj-Napoca',
@@ -90,10 +90,12 @@ it('validates required fields', function (): void {
         ->assertStatus(422)
         ->assertJsonValidationErrors(['cnp']);
 
+    // The birth date is not a request field any more — it is read out of the CNP — so a CNP whose
+    // check digit is wrong is what a bad date looks like now.
     $this->actingAs($user, 'web')
-        ->postJson('/api/v1/subjects/pf', validPfPayload(['birth_date' => 'not-a-date']))
+        ->postJson('/api/v1/subjects/pf', validPfPayload(['cnp' => '1234567890123']))
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['birth_date']);
+        ->assertJsonPath('reason', 'CNP_CHECKSUM');
 });
 
 it('requires authentication', function (): void {

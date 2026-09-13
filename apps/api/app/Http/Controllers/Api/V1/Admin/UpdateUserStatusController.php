@@ -38,6 +38,15 @@ final class UpdateUserStatusController extends Controller
             'You cannot suspend your own account.',
         );
 
+        // An erased account is a tombstone: its password, passkeys and authenticator are gone, so
+        // moving it back to ACTIVE would claim it can sign in when nothing can. Erasure is the one
+        // status change with no way back.
+        abort_if(
+            $user->status === UserStatus::DELETED,
+            422,
+            'This account has been erased and cannot be changed.',
+        );
+
         $before = $user->status;
         $user->status = $status;
         $user->save();

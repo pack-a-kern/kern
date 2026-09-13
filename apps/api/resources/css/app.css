@@ -74,6 +74,34 @@
     --font-sans: var(--font-sans);
     --color-background: var(--background);
     --color-foreground: var(--foreground);
+    /*
+     * The mockups' own vocabulary, made valid here so their markup can be lifted verbatim rather
+     * than retyped into equivalents — `text-ink-400`, `bg-accent-50`, `shadow-float` all resolve.
+     *
+     * `accent-*` is wired to the brand ramp, not to fixed hexes, so the pasted classes follow a
+     * palette change for free; `ink-*` is the neutral scale, which is deliberately palette-independent.
+     */
+    --color-ink-950: #101828;
+    --color-ink-900: #182230;
+    --color-ink-700: #344054;
+    --color-ink-500: #667085;
+    --color-ink-400: #98A2B3;
+
+    --color-accent-50: var(--brand-50);
+    --color-accent-100: var(--brand-100);
+    --color-accent-200: var(--brand-200);
+    --color-accent-300: var(--brand-300);
+    --color-accent-400: var(--brand-400);
+    --color-accent-500: var(--brand-500);
+    --color-accent-600: var(--brand-600);
+    --color-accent-700: var(--brand-700);
+    --color-accent-800: var(--brand-800);
+
+    --shadow-hair: var(--elevation-hair);
+    --shadow-float: var(--elevation-float);
+    --shadow-menu: var(--elevation-menu);
+
+    --color-shell: var(--shell);
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
     --color-popover: var(--popover);
@@ -97,87 +125,181 @@
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
+    /* The one radius scale. Every rounded corner in the app — a Tailwind `rounded-*` utility or a
+       `var(--radius-*)` in a component rule below — resolves here, so the silhouette of the whole
+       interface is these five lines and nothing else. Multipliers off a single base were the old
+       approach; they produced values like 16.8px that matched nothing in the design. */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: var(--radius);
+    --radius-2xl: 1rem;
 }
 
 /*
  * TaxOS România design tokens.
  *
  * Deliberately not the shadcn default look (`docs/adr/0013-shadcn-ui-component-foundation.md`):
- * neutrals carry a faint cool tint (hue ~240, near-zero chroma) instead of pure grey, the accent
- * is a desaturated ink-navy rather than a bright SaaS blue or a purple/blue gradient, and the
- * corner radius is smaller (0.375rem, not shadcn's 0.625rem default) — a deliberately squarer,
- * more "official document" silhouette for a fiscal product, per `BLUEPRINT.md`'s "trustworthy and
- * precise, not playful."
+ * neutrals carry a faint cool tint instead of pure grey, and the palette is a calm institutional
+ * blue rather than a bright SaaS blue or a purple/blue gradient — "trustworthy and precise, not
+ * playful" (`BLUEPRINT.md`).
+ *
+ * ## The brand is a ramp, and the ramp is not written here
+ *
+ * `--brand-50` … `--brand-900`, `--support`, `--attention` and `--critical` are set on the document
+ * root at runtime by `resources/js/hooks/usePalette.ts`, mixed from a single colour per palette in
+ * `resources/js/lib/palette.ts`. Every value below is the default palette written out literally, so
+ * the page is fully styled before any JavaScript runs and never flashes; the hook then overrides
+ * them in place.
+ *
+ * That indirection is the point: a new palette is one entry in one file, and nothing in this
+ * stylesheet changes. So style against `--brand-*` rather than a literal — a hex committed here is
+ * a colour that will not follow the brand when someone switches it.
  *
  * `--success` / `--warning` / `--info` are not part of shadcn's base token set — added here
  * because document/extraction status badges (`StatusBadge`, `ExtractionStatusBadge`) need
  * theme-aware, dark-mode-aware semantic colours instead of the hardcoded `bg-emerald-100
  * text-emerald-800` etc. the pre-conversion pages used, which had no dark variant at all.
+ *
+ * `--shell` is the sidebar and header surface, one step apart from both the canvas behind them and
+ * the cards on top — the three-surface separation the design depends on for depth.
  */
 :root {
-    --background: oklch(0.985 0.003 240);
-    --foreground: oklch(0.205 0.014 240);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.205 0.014 240);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.205 0.014 240);
-    /* #111827 — the reference design's near-black. The previous muted slate made an enabled
-       primary button read as disabled, which is a usability problem, not only a visual one. */
-    --primary: oklch(0.21 0.032 265);
-    --primary-foreground: oklch(0.985 0.002 265);
-    --secondary: oklch(0.95 0.006 240);
-    --secondary-foreground: oklch(0.25 0.02 240);
-    --muted: oklch(0.95 0.006 240);
-    --muted-foreground: oklch(0.48 0.014 240);
-    --accent: oklch(0.93 0.012 245);
-    --accent-foreground: oklch(0.25 0.02 240);
-    --destructive: oklch(0.55 0.19 25);
-    --destructive-foreground: oklch(0.98 0.005 245);
+    /* The default palette, written out so the page is styled before `usePalette` runs. Overridden
+       in place by the hook; never read a literal from here in a rule. */
+    --brand-50: #EDF2F6;
+    --brand-100: #DBE4EC;
+    --brand-200: #BBCCDB;
+    --brand-300: #96B0C7;
+    --brand-400: #6A8FB0;
+    --brand-500: #386A96;
+    --brand-600: #315D84;
+    --brand-700: #2A5071;
+    --brand-800: #244460;
+    --brand-900: #1D374E;
+    --brand-rgb: 56 106 150;
+
+    --support: #667085;
+    --attention: #F59E0B;
+    --critical: #DC2626;
+
+    --background: #F5F7F9;
+    --foreground: #182230;
+    --shell: #FFFFFF;
+    --card: #FFFFFF;
+    --card-foreground: #182230;
+    --popover: #FFFFFF;
+    --popover-foreground: #182230;
+    /* The deep end of the ramp, not a near-black: a primary button is the one place the brand
+       should be unmistakable. */
+    --primary: var(--brand-800);
+    --primary-foreground: #FFFFFF;
+    --secondary: #F1F4F7;
+    --secondary-foreground: #344054;
+    /* The table header's own ground. It is not `--secondary`: in dark that value is the hover
+       grey, one step lighter, and a header lit like a hovered row reads as one. */
+    --table-head: #F1F4F7;
+    --muted: #F1F4F7;
+    /*
+     * Secondary text follows the palette's own `support` colour — that is what a per-palette
+     * support colour is for, and "blue identity, slate structure" only means anything if the
+     * structure colour actually moves.
+     *
+     * Mixed a little toward the page rather than used neat: at full strength this sits close enough
+     * to body text to compete with it, and the whole job of muted text is to recede. 12% is enough
+     * to soften without dropping it below a readable contrast on the canvas.
+     */
+    --muted-foreground: color-mix(in srgb, var(--support) 88%, var(--background));
+    /* Soft brand wash — the active nav row, a selected option, a subject avatar. */
+    --accent: var(--brand-50);
+    --accent-foreground: var(--brand-700);
+    --destructive: var(--critical);
+    --destructive-foreground: #FFFFFF;
     --success: oklch(0.5 0.11 155);
     --success-foreground: oklch(0.98 0.01 155);
-    --warning: oklch(0.72 0.15 75);
-    --warning-foreground: oklch(0.22 0.03 75);
-    --info: oklch(0.55 0.1 235);
-    --info-foreground: oklch(0.98 0.005 235);
-    --border: oklch(0.89 0.006 240);
-    --input: oklch(0.89 0.006 240);
-    --ring: oklch(0.55 0.05 245);
-    --radius: 0.375rem;
+    --warning: var(--attention);
+    --warning-foreground: #22180A;
+    --info: var(--brand-600);
+    --info-foreground: #FFFFFF;
+    --border: #E7EBF0;
+    --input: #E7EBF0;
+    --ring: var(--brand-600);
+    /* Rounder than the original 0.375rem. Radius is fully token-derived, so this one value moves
+       every panel, control and chip together. */
+    --radius: 0.75rem;
     --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* A blue-tinted lift rather than neutral grey, so a panel reads as sitting on the canvas
+       instead of being outlined on it. */
+    --elevation-hair: 0 1px 0 rgb(16 24 40 / 3%);
+    --elevation-float: 0 1px 2px rgb(16 24 40 / 2.5%), 0 10px 30px rgb(37 56 88 / 5.5%);
+    --elevation-menu: 0 18px 45px rgb(16 24 40 / 12%), 0 3px 10px rgb(16 24 40 / 6%);
 }
 
 .dark {
-    --background: oklch(0.19 0.012 240);
-    --foreground: oklch(0.94 0.006 240);
-    --card: oklch(0.23 0.013 240);
-    --card-foreground: oklch(0.94 0.006 240);
-    --popover: oklch(0.23 0.013 240);
-    --popover-foreground: oklch(0.94 0.006 240);
-    --primary: oklch(0.95 0.004 265);
-    --primary-foreground: oklch(0.21 0.03 265);
-    --secondary: oklch(0.29 0.014 240);
-    --secondary-foreground: oklch(0.9 0.006 240);
-    --muted: oklch(0.29 0.014 240);
-    --muted-foreground: oklch(0.66 0.014 240);
-    --accent: oklch(0.32 0.02 245);
-    --accent-foreground: oklch(0.93 0.006 240);
-    --destructive: oklch(0.62 0.19 25);
-    --destructive-foreground: oklch(0.14 0.01 25);
+    /* Four distinct greys, not one with opacity: canvas, shell, card, hover. Depth here comes from
+       surface separation rather than shadow, which barely reads on a dark ground. */
+    --background: #191A1C;
+    --foreground: #ECEEF0;
+    --shell: #202225;
+    --card: #292B2F;
+    --card-foreground: #ECEEF0;
+    --popover: #2C2F33;
+    --popover-foreground: #ECEEF0;
+    /* The mid ramp, not the deep end: #244460 on a near-black ground reads as disabled. */
+    --primary: var(--brand-500);
+    --primary-foreground: #FFFFFF;
+    --secondary: #33363B;
+    --secondary-foreground: #E2E4E7;
+    --table-head: #2F3135;
+    --muted: #33363B;
+    /* Lifted toward white rather than the ground: on a dark surface `support` neat is too close to
+       the background to read at all, which is the opposite failure from the light theme's. */
+    --muted-foreground: color-mix(in srgb, var(--support) 45%, #FFFFFF);
+    /* The soft brand wash cannot be `--brand-50` here — it is almost white. Mixed against the card
+       instead, so it stays a tint of the brand at any palette. */
+    --accent: color-mix(in srgb, var(--brand-500) 16%, #202225);
+    --accent-foreground: var(--brand-200);
+    --destructive: color-mix(in srgb, var(--critical) 82%, white);
+    --destructive-foreground: #FFFFFF;
     --success: oklch(0.68 0.13 155);
     --success-foreground: oklch(0.14 0.02 155);
-    --warning: oklch(0.78 0.14 80);
-    --warning-foreground: oklch(0.18 0.03 80);
-    --info: oklch(0.72 0.1 235);
-    --info-foreground: oklch(0.15 0.02 235);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.6 0.07 245);
+    --warning: color-mix(in srgb, var(--attention) 80%, white);
+    --warning-foreground: #1B1406;
+    --info: var(--brand-300);
+    --info-foreground: #12212E;
+    --border: #42464D;
+    --input: #474B52;
+    --ring: var(--brand-400);
+    --elevation-hair: 0 1px 0 rgb(0 0 0 / 25%);
+    --elevation-float: 0 1px 2px rgb(0 0 0 / 28%), 0 14px 34px rgb(0 0 0 / 22%);
+    --elevation-menu: 0 18px 45px rgb(0 0 0 / 45%), 0 3px 10px rgb(0 0 0 / 30%);
 }
+
+/*
+ * ## Component classes and their modifiers
+ *
+ * The component classes below (`.ctl`, `.panel`, `.nav-item`, `.data-table`, …) are deliberately
+ * **unlayered**. Unlayered CSS beats every `@layer` rule, and that is the whole mechanism: the
+ * vendor components in `components/ui/*` ship with utility classes baked into them, and the design
+ * has to win against those without every call site repeating overrides. Moving these into
+ * `@layer components` would hand victory back to the vendor defaults.
+ *
+ * The cost is that a base class cannot be overridden by a Tailwind utility either — `h-auto` on an
+ * element carrying `.ctl` does nothing. So a variant has to be **another class**, and that class
+ * has to outrank the base.
+ *
+ * **Write a modifier as a compound selector: `.base.modifier`, never bare `.modifier`.**
+ *
+ * Bare modifiers do work — as long as they happen to sit lower in this file than the class they
+ * modify, because equal specificity is resolved by source order. That is not a rule anyone can see
+ * while editing, and it broke four separate times: a subject switcher clamped to `.ctl`'s 32px, a
+ * rail icon pushed off-centre by a group's chevron gutter, a search field at the wrong height, a
+ * menu sized to the wrong state's trigger. Each looked like a styling mistake and was really a
+ * specificity tie decided by line number.
+ *
+ * `.base.modifier` is (0,2,0) against the base's (0,1,0), so it wins wherever it is written, and
+ * moving code around cannot silently change what renders.
+ */
 
 @layer base {
     * {
@@ -185,6 +307,22 @@
     }
     body {
         @apply bg-background text-foreground;
+        /* 13px, not the browser's 16px. The interface is dense — tables of figures, filter rows,
+           label/value pairs — and the design is drawn at this size; scaling it up spaces every row
+           apart until a screenful stops being a screenful. */
+        font-size: 13px;
+        /* Inter's alternate glyphs: a single-storey `a`, an open `4`, a straighter `l`. They are
+           what stops long Romanian strings and columns of digits looking mechanical. */
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+        /* Inter is drawn loose for body copy at larger sizes; at 13px it needs pulling in. */
+        letter-spacing: -0.008em;
+    }
+    /* Headings tighten further as they grow, so a page title reads as one object rather than a row
+       of separate words. */
+    h1,
+    h2,
+    h3 {
+        letter-spacing: -0.025em;
     }
     html {
         @apply font-sans;
@@ -214,7 +352,7 @@
    each other line up. Applied by PanelInput / PanelSelect / PanelButton[inline]. */
 .ctl {
     height: 2rem;
-    border-radius: 7px;
+    border-radius: var(--radius-xl);
     padding-inline: 9px;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -245,9 +383,41 @@
     outline: none;
 }
 
+
+/* Inside a menu, the highlight *is* the focus indicator.
+ *
+ * Radix moves focus onto each item as you arrow through one, so the generic outline below draws a
+ * 2px ring inset within the item — a second, competing marker on a row that is already filled with
+ * the accent colour. The fill stays; the ring goes.
+ */
+[role='menu'] :is(button, a):focus-visible,
+[role='menu'] [role='menuitem']:focus-visible,
+[role='menu'] [role='menuitemradio']:focus-visible {
+    outline: none;
+}
+
+/* The topbar and sidebar controls firm their border up, exactly as `.ctl` does — the design has no
+   halos anywhere, and a bordered control has a border to strengthen. */
+.shell-control:focus-visible,
+[aria-haspopup='menu']:focus-visible {
+    border-color: var(--ring);
+    outline: none;
+}
+
 /* Controls with no border to firm up — a switch, a checkbox, a radio — still need a visible focus
-   state, so they keep a real outline. Removing the halo must not mean removing the indicator. */
-:is(button, [role='switch'], [role='checkbox'], [role='radio'], a):focus-visible {
+   state, so they keep a real outline. Removing the halo must not mean removing the indicator.
+ *
+ * `.ctl` is excluded here rather than opting out below: this selector scores 0,2,1 and the opt-out
+ * scores 0,2,0, so a `.ctl` button was never able to win and carried both a firmed-up border and a
+ * halo at once. */
+:is(button, [role='switch'], [role='checkbox'], [role='radio'], a):not(
+        .ctl,
+        .shell-control,
+        .nav-item,
+        [aria-haspopup='menu'],
+        [role='menuitem'],
+        [role='menuitemradio']
+    ):focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
 }
@@ -292,10 +462,10 @@
 .ctl-icon-trailing {
     right: 9px;
 }
-.ctl-has-leading {
+.ctl.ctl-has-leading {
     padding-left: 30px;
 }
-.ctl-has-trailing {
+.ctl.ctl-has-trailing {
     padding-right: 30px;
 }
 
@@ -313,34 +483,161 @@
     pointer-events: none;
 }
 
-/* Segmented buttons: one control made of several, sharing edges. */
+/*
+ * Buttons that act as one object: a segmented choice, or the actions on a table row.
+ *
+ * The tile — fill, border, radius — belongs to the group; its members sit inside it transparent,
+ * separated by a hairline. Painting each member instead gives two bordered chips with a doubled
+ * edge between them, and makes the group's surface depend on how many buttons are in it.
+ *
+ * The fill is `--card`, not `--background`: a group sits *on* a panel, not in the page behind it.
+ * One token covers both themes — white in light, the dark card surface in dark.
+ */
 .btn-group {
     display: inline-flex;
     align-items: stretch;
-    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
 }
+
 .btn-group > * {
     border-radius: 0;
-    margin-left: -1px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--foreground);
+    /* Buttons clip their fill to the padding box, which leaves their 1px transparent border
+       unpainted. Alone that is invisible; inside a tile it lets the group's own background through
+       as a hairline around whichever member is hovered. Here the fill runs to the edge, and the
+       divider — a real border colour — still draws over it. */
+    background-clip: border-box;
 }
-.btn-group > *:first-child {
-    border-start-start-radius: 7px;
-    border-end-start-radius: 7px;
-    margin-left: 0;
+
+/* The separator between two members, drawn by the second one rather than an element of its own. */
+.btn-group > * + * {
+    border-left-color: var(--border);
 }
-.btn-group > *:last-child {
-    border-start-end-radius: 7px;
-    border-end-end-radius: 7px;
+
+.btn-group > *:hover {
+    background: var(--secondary);
 }
-/* The pressed segment sits above its neighbours so its border is not clipped by theirs. */
+
+/* The chosen segment of a segmented control. Fill only — a border would be a second edge inside a
+   tile that already has one. */
 .btn-group > *[aria-pressed='true'] {
-    z-index: 1;
+    background: var(--secondary);
+}
+
+/*
+ * Focus belongs to the whole tile.
+ *
+ * A member cannot show it: its own border is transparent here, and an outline around one segment
+ * draws a box through the middle of the group. So the members give up both indicators and the
+ * group takes one on their behalf — `:has()` rather than `:focus-within` so a mouse click does not
+ * light it up.
+ */
+.btn-group:has(:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+/* Every focus state, not just `:focus-visible`: `.ctl` firms its border on `:focus-within` too, and
+   a mouse click that opens a dialog comes back as plain `:focus` when the dialog closes — which is
+   how a single member ended up outlined in blue after a click. */
+.btn-group > *:is(:focus, :focus-visible, :focus-within) {
+    outline: none;
+    border-color: transparent;
+}
+
+.btn-group > * + *:is(:focus, :focus-visible, :focus-within) {
+    border-left-color: var(--border);
+}
+
+/*
+ * An action's colour, carried by its icon alone.
+ *
+ * Tinting whole buttons would break the group into competing objects, and the point of a group is
+ * that its members belong together. The icon is enough to say which one creates and which destroys.
+ *
+ * Destructive is the exception to "at rest": a bin that is red before you touch it reads as a
+ * warning about the row rather than as a button, so it stays quiet until the pointer is on it.
+ */
+.btn-group svg {
+    color: var(--muted-foreground);
+}
+
+.btn-group > [data-tone='primary'] svg {
+    color: var(--brand-600);
+}
+
+.btn-group > [data-tone='destructive']:hover {
+    background: color-mix(in srgb, var(--destructive) 8%, var(--card));
+}
+
+.btn-group > [data-tone='destructive']:hover svg {
+    color: var(--destructive);
+}
+
+/*
+ * Cards flowing down one column, then the next.
+ *
+ * A multi-column flow rather than a grid because these cards have very different heights: a grid
+ * aligns rows, so a short card beside a tall one is padded out with dead space. The flow also has
+ * to space its own children — a column gap separates the columns, never the cards stacked inside
+ * one, which is why a bare `columns-2` leaves them touching.
+ */
+.card-columns {
+    columns: 1;
+    column-gap: 0.875rem;
+}
+
+.card-columns > * {
+    margin-bottom: 0.875rem;
+    /* Without this a card can be split across the column break, head in one column and foot in the
+       next. `Panel` already sets it; repeated here so anything else dropped into the flow behaves. */
+    break-inside: avoid;
+}
+
+@media (width >= 80rem) {
+    .card-columns {
+        columns: 2;
+    }
+}
+
+/*
+ * A correction row: the field's name, its value, and the control that removes it — one line at every
+ * width, including a phone.
+ *
+ * Columns rather than a flex row because `.select-trigger` is 100% wide by design; in a flex row it
+ * takes everything and leaves the value a sliver. Its 155px floor is waived here for the same
+ * reason — three controls on a 360px screen cannot each keep a floor that wide, and the name is the
+ * one that can afford to truncate, since it is chosen from a list rather than read.
+ */
+.field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.field-row .select-trigger {
+    min-width: 0;
+}
+
+/* On a phone the name takes the larger share: its options are long words ("Număr document"), while
+   a value is usually a number or a date. The desktop split is the other way round for the same
+   reason — there, both fit. */
+@media (width < 30rem) {
+    .field-row {
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+    }
 }
 
 /* Card-foot action: slightly shorter than a control, since it sits alone under a hairline. */
 .ctl-action {
     height: 30px;
-    border-radius: 7px;
+    border-radius: var(--radius-lg);
     padding-inline: 0.625rem;
     font-size: 11.5px;
     font-weight: 600;
@@ -359,7 +656,7 @@
     justify-content: center;
     gap: 0.375rem;
     height: 30px;
-    border-radius: 7px;
+    border-radius: var(--radius-lg);
     padding-inline: 0.625rem;
     font-size: 11.5px;
     font-weight: 600;
@@ -395,48 +692,412 @@
  * `ring-1` — a *box-shadow* — and this rule's own `box-shadow` replaces it outright. Unlayered CSS
  * wins the cascade, which is the point of writing it here, but it also means anything it sets is
  * set completely: the card edge has to come back explicitly. */
-.panel {
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 15px;
-    box-shadow: 0 1px 2px rgb(16 24 40 / 0.025);
+/*
+ * The application shell: sidebar, nav rows, header.
+ *
+ * Unlayered like `.panel` and `.ctl`, and for the same reason — these have to beat Tailwind
+ * utilities, which sit in a layer and therefore always lose. Kept here rather than as class strings
+ * in `AppShell.tsx` so the chrome has one definition, and so every value below can be a token: a
+ * palette change moves the whole shell without a single component re-render.
+ */
+
+/* The surface the sidebar and header sit on — one step from the canvas behind them and the cards
+   on top. Three surfaces is what gives the layout depth without drawing borders everywhere. */
+/* Anything you click looks clickable.
+ *
+ * Browsers give `<button>` and a checkbox the default arrow, and Tailwind's preflight does not
+ * change it — so
+ * every control in the app (the topbar tiles, the menu triggers, the sidebar's rail toggle and
+ * group chevrons, the subject switcher) read as inert text until now. Anchors already get the
+ * pointer from the UA stylesheet; this covers everything else that takes a click, including
+ * triggers rendered as something other than a button.
+ *
+ * Disabled controls take the opposite treatment rather than none: a pointer on something that will
+ * not respond is a worse lie than no pointer at all.
+ */
+:is(button, summary, input[type='checkbox'], input[type='radio'], [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option'], [role='tab'], [aria-haspopup='menu'], [aria-haspopup='listbox'], [aria-haspopup='dialog']):not(
+        :disabled,
+        [aria-disabled='true'],
+        [data-disabled]
+    ) {
+    cursor: pointer;
 }
 
-/* A card whose body reaches the card's own edges — a table, a toolbar. Declared after `.panel`
-   and unlayered like it, so it wins on source order; a Tailwind `p-0` cannot, because utilities
-   sit in a layer and every layered rule loses to these. */
-.panel-flush {
+:is(button, [role='button'], [role='menuitem'], [role='tab']):is(:disabled, [aria-disabled='true'], [data-disabled]) {
+    cursor: not-allowed;
+}
+
+/* A label that drives a *toggle* is part of that control's hit area. Deliberately not every label:
+   one wrapping a text field must keep the caret, or the subject search box stops looking typeable. */
+label:has(
+        input[type='checkbox']:not(:disabled),
+        input[type='radio']:not(:disabled),
+        select:not(:disabled)
+    ) {
+    cursor: pointer;
+}
+
+/* The searchable select (`components/CustomSelect.tsx`).
+ *
+ * Its look lives here rather than in class strings on the component, for the same reason `.ctl` and
+ * `.panel` do: one definition, every token, and a palette switch moves it without a re-render. The
+ * trigger *is* a `.ctl` — it has to line up with every other control in a filter row — so this only
+ * adds what a select needs on top.
+ */
+.select-trigger {
+    display: flex;
+    width: 100%;
+    /* The design's own floor, so a filter row does not collapse its controls to their text. */
+    min-width: 155px;
+    align-items: center;
+    gap: 0.5rem;
+    /* `.ctl` sets only `border-color` — it was written for the vendor Input and Button, which
+       already carry a border. This trigger is a plain `<button>`, so without a width there was
+       nothing for that colour to paint and the control had no edge at all. */
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-align: left;
+}
+
+.select-trigger:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--border) 55%, var(--foreground));
+}
+
+.select-menu {
+    z-index: 60;
+    /* A modal dialog switches off pointer events on `document.body` while it is open, and this menu
+       is portalled there — without this it renders inside a dialog and cannot be clicked at all. */
+    pointer-events: auto;
+    /* Roomier than the control that opens it, as the design draws it: a status or type label needs
+       more width than a filter button gives, and matching the trigger truncated every option. */
+    min-width: 14rem;
+    overflow: hidden;
+    border-radius: var(--radius-2xl);
+    border: 1px solid color-mix(in srgb, var(--border) 88%, var(--foreground));
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--elevation-menu);
+}
+
+.select-option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: var(--radius-xl);
+    padding: 0.5rem;
+    text-align: left;
+    /* 12px, matching the trigger and every other control. 13px made the open menu read a size
+       larger than the thing it came out of. */
+    font-size: 0.75rem;
+}
+
+.select-option:disabled {
+    opacity: 0.45;
+}
+
+/* Keyboard and pointer share one highlight: arrowing to a row and pointing at it must look the
+   same, or the list appears to have two cursors. */
+.select-option-active:not(:disabled) {
+    background: var(--secondary);
+}
+
+/* A hairline scrollbar for the sidebar's navigation.
+ *
+ * The default 15px gutter is a third of the width of a collapsed rail and cuts a grey stripe down
+ * the one surface that should read as calm. 3px is enough to grab and enough to see.
+ */
+.scroll-hairline {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.scroll-hairline::-webkit-scrollbar {
+    width: 3px;
+}
+
+.scroll-hairline::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-hairline::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+}
+
+.scroll-hairline::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+}
+
+.shell-surface {
+    background: var(--shell);
+}
+
+/* Every popover gets a real edge.
+ *
+ * `--border` is tuned for dividing surfaces that already differ; against a white page a white menu
+ * needs a touch more than that, or it reads as floating on its shadow with no boundary of its
+ * own. Only a touch: the edge should be findable, not drawn. Mixed from the border colour rather
+ * than picked, so it tracks the theme. */
+[data-slot='dropdown-menu-content'],
+[data-slot='dropdown-menu-sub-content'],
+[data-slot='popover-content'],
+[data-slot='select-content'] {
+    border: 1px solid color-mix(in srgb, var(--border) 88%, var(--foreground));
+}
+
+/* One nav row. `--brand` only appears on the active one; everything else is neutral, so the eye
+   has exactly one place to land. */
+.nav-item {
+    position: relative;
+    display: flex;
+    /*
+     * Sized by padding rather than a fixed height, so the hover and active fills have room to read
+     * as a shape. At a flat 32px the highlight hugged the text closely enough that you had to look
+     * for it; `min-height` keeps the rhythm regular while the padding gives the fill some air.
+     */
+    min-height: 2.25rem;
+    width: 100%;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: var(--radius-lg);
+    padding-block: 0.4375rem;
+    padding-inline: 0.625rem;
+    font-size: 13.5px;
+    font-weight: 500;
+    /*
+     * One colour for every row in the sidebar — a parent, a leaf and a child all read the same.
+     *
+     * Groups used to sit at `ink-700` and everything else at `muted-foreground`, which made a whole
+     * navigation look like two half-finished ones: the items with children looked enabled and the
+     * items without looked disabled. Hierarchy here is carried by indentation, the chevron and the
+     * active mark; it does not also need three weights of grey.
+     *
+     * The value sits between the two it replaces, so nothing jumped darker or lighter.
+     */
+    color: color-mix(in srgb, var(--color-ink-700) 50%, var(--muted-foreground));
+    transition:
+        background-color 0.12s ease,
+        color 0.12s ease;
+}
+
+/*
+ * Hover has to be visible.
+ *
+ * It was `background: var(--card)` — and the sidebar sits on `--shell`, which is the *same white* in
+ * the light theme. The row lit up with nothing but a hairline shadow, so pointing at it did
+ * essentially nothing. `--secondary` is the neutral one step off both surfaces, and it stays clear
+ * of the active row's brand tint so the two states never read as each other.
+ */
+.nav-item:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+}
+
+.nav-item:hover[aria-current='page'] {
+    /* The active row deepens rather than switching to the neutral — losing its tint on hover would
+       look like it had been deselected. */
+    background: color-mix(in srgb, var(--brand-500) 14%, var(--shell));
+}
+
+.dark .nav-item:hover[aria-current='page'] {
+    background: color-mix(in srgb, var(--brand-500) 22%, var(--shell));
+}
+
+/* A soft wash of the brand plus a 2px bar in the gutter. The bar is what makes the active row
+   findable at a glance in a list of twenty; the wash alone reads as a hover state. */
+.nav-item[aria-current='page'] {
+    background: color-mix(in srgb, var(--brand-500) 9%, var(--shell));
+    color: var(--brand-600);
+    font-weight: 600;
+}
+
+.dark .nav-item[aria-current='page'] {
+    background: color-mix(in srgb, var(--brand-500) 16%, var(--shell));
+    color: var(--brand-200);
+}
+
+.nav-item[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: -0.25rem;
+    top: 50%;
+    height: 1.125rem;
+    width: 2px;
+    transform: translateY(-50%);
+    border-radius: 9999px;
+    background: var(--brand-500);
+}
+
+/* A rail-collapsed row: icon only, centred, no indicator bar to sit in a gutter that no longer
+   exists. */
+/* A nav group's own row: a shade darker than the leaves under it, so the hierarchy is legible
+   before anything is expanded. Matches the design's `text-ink-700` against the children's
+   `text-ink-500`. */
+.nav-item.nav-item-group {
+    padding-right: 1.75rem;
+}
+
+.nav-item.nav-item-rail {
+    justify-content: center;
+    padding-inline: 0;
+    padding-right: 0;
+}
+
+.nav-item.nav-item-rail[aria-current='page']::before {
+    display: none;
+}
+
+/* A child row under a group. Indented, a step smaller, and never carrying the group's own weight. */
+.nav-item.nav-item-child {
+    /* A step shorter than its parent, but still padded — a child row is the one most likely to be
+       the active one, so its fill is the one that most needs to be legible. */
+    min-height: 2rem;
+    gap: 0.5rem;
+    padding-block: 0.3125rem;
+    padding-left: 0.5rem;
+    font-size: 13px;
+}
+
+
+/* A header control: the language, palette, theme and account buttons. A bordered 32px tile on the
+   shell surface rather than a bare ghost button, so the cluster reads as one group of controls. */
+.shell-control {
+    display: inline-flex;
+    height: 2rem;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    padding-inline: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+}
+
+.shell-control:hover {
+    background: var(--secondary);
+}
+
+/* The tax-subject switcher at the foot of the sidebar.
+ *
+ * Shares `.shell-control`'s bordered-tile look but not its size: this one carries an eyebrow and a
+ * name on two lines, so it sizes to its content. It was previously given `.shell-control` alone,
+ * whose `height: 2rem` is unlayered and therefore beat the `h-auto` utility on the element — the
+ * block was clamped to 32px and everything inside it compressed.
+ */
+.shell-control.subject-control {
+    height: auto;
+    gap: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--foreground);
+}
+
+/* Railed, the trigger holds nothing but the initials tile, so it centres it. The expanded padding
+   leaves a 24px content box for a 28px badge — the tile overflows to the right and the gaps stop
+   matching, which is visible as the badge sitting off-centre inside its border. */
+.shell-control.subject-control.subject-control-rail {
+    justify-content: center;
+    padding: 0.5rem;
+}
+
+/*
+ * The card every screen is built out of.
+ *
+ * One format, drawn from the design mockups: a head carrying an icon tile, a title and a count or
+ * subtitle with the card's action opposite; a body; and an optional foot for a note or pagination.
+ * Head and foot are separated by solid rules — the design divides its regions rather than hinting
+ * at them, and a dotted line read as unfinished next to a table that draws real ones.
+ */
+.panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+    background: var(--card);
     padding: 0;
+    box-shadow: var(--elevation-float);
 }
-.panel-flush > .panel-head {
-    padding: 15px 15px 12px;
-    margin-bottom: 0;
+
+/* A card holding prose or a form pads its own body; one holding a table does not, because the
+   table's rules must reach the card's edges. `flush` is the table case. */
+.panel > .panel-body {
+    padding: 0.875rem;
 }
-.panel-flush > .panel-foot {
-    margin-top: 0;
-    padding: 12px 15px;
+
+@media (width >= 40rem) {
+    .panel > .panel-body {
+        padding: 1rem;
+    }
+}
+
+.panel.panel-flush > .panel-body {
+    padding: 0;
 }
 
 .panel-head {
     display: flex;
+    /* Wraps on a narrow screen: a head is a title beside an action, and on a phone there is room
+       for one of them. Without this the action squeezed the title into three wrapped lines and
+       still overflowed the card. */
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    gap: 14px;
-    /* Dotted rather than solid: the card already has a solid edge and the toolbar below draws
-       another, so a third solid line reads as a third box. Dotted separates without dividing. */
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-    border-bottom: 1px dotted var(--border);
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.875rem;
+}
+
+@media (width >= 40rem) {
+    .panel-head {
+        padding: 0.875rem 1rem;
+    }
+}
+
+/* The head's leading tile: a quiet square holding the card's icon, so a page of cards scans by
+   shape before it is read. */
+.panel-head-icon {
+    display: grid;
+    place-items: center;
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-xl);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+}
+
+.panel-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+}
+
+.panel-subtitle {
+    margin-top: 0.125rem;
+    font-size: 10px;
+    color: var(--muted-foreground);
 }
 
 .panel-foot {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     gap: 0.5rem;
-    margin-top: 15px;
-    padding-top: 0.75rem;
     border-top: 1px solid var(--border);
+    padding: 0.625rem 0.75rem;
+}
+
+@media (width >= 40rem) {
+    .panel-foot {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.625rem 1rem;
+    }
 }
 
 /* Wider vertical gutter than horizontal: down a column the next thing after a control is a label,
@@ -466,25 +1127,29 @@
     min-width: 0;
 }
 
-/* Provenance mark: a tinted disc before the label. Small enough to scan past, distinct enough to
-   tell three states apart without reading. */
+/* Provenance mark: a tinted tile before the label. Small enough to scan past, distinct enough to
+   tell three states apart without reading.
+ *
+ * The glyph is 10px inside a 16px tile — three pixels of air on every side. Filling the tile edge
+ * to edge (the icon at 12px, as it was) left the mark reading as a solid blob at a glance rather
+ * than as a small sign; the padding is what makes it legible at this size. */
 .source-mark {
     display: inline-grid;
     place-items: center;
     flex: none;
     width: 16px;
     height: 16px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
 }
-.source-mark-accent {
+.source-mark.source-mark-accent {
     background: color-mix(in oklab, var(--info) 12%, transparent);
     color: var(--info);
 }
-.source-mark-neutral {
+.source-mark.source-mark-neutral {
     background: var(--muted);
     color: var(--muted-foreground);
 }
-.source-mark-locked {
+.source-mark.source-mark-locked {
     background: color-mix(in oklab, var(--warning) 18%, transparent);
     color: var(--warning-foreground);
 }
@@ -520,7 +1185,7 @@
 
 /* Read-mostly value tile. */
 .metric {
-    border-radius: 9px;
+    border-radius: var(--radius-xl);
     padding: 10px;
 }
 .metric-label {
@@ -537,7 +1202,7 @@
 }
 
 /* A control that shows a value but cannot be edited in place — a stored secret, for instance. */
-.ctl-readonly {
+.ctl.ctl-readonly {
     display: flex;
     align-items: center;
     color: var(--muted-foreground);
@@ -584,15 +1249,20 @@
 }
 
 /* Three widths. A form with two columns of fields needs more room than a confirmation, and a
-   dialog wider than its content reads as unfinished rather than generous. */
-.dialog-sm {
-    max-width: 420px;
+   dialog wider than its content reads as unfinished rather than generous.
+ *
+ * Each is capped against the viewport, because these rules are unlayered and therefore beat the
+ * vendor's own `max-w-[calc(100%-2rem)]`. Without the cap a 420px dialog on a 390px phone is wider
+ * than the screen, so it renders edge to edge with no gutter at all — the window it is supposed to
+ * float above disappears entirely. */
+.dialog-panel.dialog-sm {
+    max-width: min(420px, calc(100vw - 2rem));
 }
-.dialog-md {
-    max-width: 520px;
+.dialog-panel.dialog-md {
+    max-width: min(520px, calc(100vw - 2rem));
 }
-.dialog-lg {
-    max-width: 680px;
+.dialog-panel.dialog-lg {
+    max-width: min(680px, calc(100vw - 2rem));
 }
 
 /* The sentence under a page's <h1>. */
@@ -616,7 +1286,7 @@
 }
 .stat {
     border: 1px solid var(--border);
-    border-radius: 11px;
+    border-radius: var(--radius-xl);
     padding: 13px 14px;
     background: var(--card);
 }
@@ -688,21 +1358,23 @@
     min-width: max-content;
 }
 .data-table th {
-    font-size: 10.5px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.045em;
+    letter-spacing: 0.1em;
     text-align: left;
-    color: var(--muted-foreground);
+    color: var(--secondary-foreground);
     font-weight: 700;
-    background: var(--muted);
-    padding: 9px 12px;
+    background: var(--table-head);
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
 .data-table td {
-    padding: 10px 12px;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
-    font-size: 11.5px;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
     vertical-align: middle;
 }
 .data-table tbody tr:last-child td {
@@ -757,8 +1429,22 @@
     .data-table-stack td.col-end {
         margin-left: auto;
     }
+    /* A cell whose value is long enough to own a line of its own — a URL, an error message. It
+       still wraps inside that line rather than widening the row. */
+    .data-table-stack td.col-wide {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+    /* A labelled cell reads as one thing: the header row is gone on a phone, so the label travels
+       with its control instead of sitting above it and leaving the column ragged. */
+    .data-table-stack td[data-label] {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
     .data-table-stack td[data-label]::before {
-        content: attr(data-label) ' ';
+        content: attr(data-label);
+        flex: none;
         color: var(--muted-foreground);
     }
 }
@@ -880,7 +1566,7 @@
     padding: 4px 7px;
     background: var(--muted);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     color: var(--muted-foreground);
     white-space: nowrap;
 }
@@ -889,7 +1575,7 @@
 .check {
     width: 16px;
     height: 16px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     display: grid;
     place-items: center;
@@ -897,14 +1583,14 @@
     font-size: 10px;
     color: transparent;
 }
-.check-on {
+.check.check-on {
     background: var(--primary);
     border-color: var(--primary);
     color: var(--primary-foreground);
 }
 /* Granted, but nothing checks it yet — outlined rather than filled, so the matrix never claims a
    protection the application does not apply. */
-.check-unenforced {
+.check.check-unenforced {
     background: transparent;
     border-color: var(--muted-foreground);
     border-style: dashed;
@@ -956,7 +1642,7 @@
 
 /* Radius shared by the smaller inner blocks — tiles, skeleton rows, boxed sections. */
 .tile {
-    border-radius: 9px;
+    border-radius: var(--radius-xl);
 }
 
 /* The decrypted document on the review screen.
@@ -969,14 +1655,14 @@
 .doc-preview {
     width: 100%;
     height: 32rem;
-    border-radius: 9px;
+    border-radius: var(--radius-xl);
     border: 1px solid var(--border);
 }
 .doc-preview-image {
     width: 100%;
     max-height: 32rem;
     object-fit: contain;
-    border-radius: 9px;
+    border-radius: var(--radius-xl);
     border: 1px solid var(--border);
 }
 
@@ -1012,7 +1698,7 @@
 }
 
 /* A short numeric code — sized to its content, not to its container. */
-.ctl-code {
+.ctl.ctl-code {
     /* Wide enough for six digits at this letter-spacing *after* the leading icon's inset. */
     width: 11rem;
     letter-spacing: 0.18em;
@@ -1039,7 +1725,7 @@
     min-width: 0;
     height: 2rem;
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: var(--radius-xl);
     background: var(--card);
     /* Clips the children's square corners to the group's radius, so no child needs its own. */
     overflow: hidden;
@@ -1103,7 +1789,7 @@
 .input-group-action > * {
     height: calc(2rem - 8px);
     border: 0;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     box-shadow: none;
     background: var(--muted);
     color: var(--foreground);
@@ -1149,4 +1835,440 @@
 .field-invalid .ctl:focus-within,
 .field-invalid .input-group:focus-within {
     border-color: var(--destructive);
+}
+
+/* A row's leading cell: an icon tile and the thing's name, so a list of files scans by shape and
+   the name is the one piece of full-strength text in the row. */
+.row-mark {
+    display: grid;
+    height: 1.75rem;
+    width: 1.75rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+}
+
+.data-table td.col-primary {
+    color: var(--foreground);
+    font-weight: 600;
+}
+
+/* A second line under a row's name — why it was rejected, what still needs doing. Quieter and
+   lighter than the name it hangs off, so it reads as a footnote rather than a second row. */
+.row-note {
+    margin-top: 0.125rem;
+    font-size: 10px;
+    font-weight: 400;
+}
+
+/* A status as a dot and a word, not a filled pill. A table column of pills is a column of boxes;
+   the dot carries the colour and lets the label stay text. */
+.status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-dot::before {
+    content: '';
+    height: 0.375rem;
+    width: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+/* The card foot's pager (`components/Pagination.tsx`). */
+.pager-page {
+    display: grid;
+    height: 2rem;
+    width: 2rem;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    transition:
+        background-color 0.12s ease,
+        color 0.12s ease;
+}
+
+.pager-page:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+}
+
+/* The current page is marked with the brand, like the active nav row — one idea, used twice. */
+.pager-page.pager-page-current {
+    background: var(--accent);
+    color: var(--accent-foreground);
+}
+
+.pager-step {
+    display: grid;
+    height: 2rem;
+    width: 2rem;
+    place-items: center;
+    color: var(--muted-foreground);
+    transition:
+        background-color 0.12s ease,
+        color 0.12s ease;
+}
+
+.pager-step:hover:not(:disabled) {
+    background: var(--secondary);
+    color: var(--foreground);
+}
+
+.pager-step:disabled {
+    opacity: 0.35;
+}
+
+/* A status marker inside a select — trigger and option. Takes its colour from the text colour it
+   sits beside, so one tone class drives the dot and the label together. */
+.select-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+.select-trigger .select-dot {
+    /* Smaller in the trigger than in the list, as drawn: at 8px it competes with the label. */
+    height: 0.375rem;
+    width: 0.375rem;
+}
+
+/* A checkbox, drawn rather than borrowed.
+ *
+ * A native control cannot be styled to match the rest of this interface, and the vendor component
+ * is a button with an icon inside it — which loses `indeterminate`, the state a select-all needs
+ * most: "some of these, not all". So this is a real `<input type="checkbox">` with its own
+ * appearance, which keeps the semantics, the keyboard behaviour and the third state for free.
+ */
+.checkbox {
+    appearance: none;
+    height: 1rem;
+    width: 1rem;
+    flex: none;
+    margin: 0;
+    display: inline-grid;
+    place-content: center;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    transition:
+        background-color 0.14s ease,
+        border-color 0.14s ease,
+        transform 0.1s ease;
+}
+
+.checkbox:hover {
+    border-color: var(--muted-foreground);
+    background: var(--secondary);
+}
+
+.checkbox:checked,
+.checkbox:indeterminate {
+    background: var(--brand-500);
+    border-color: var(--brand-500);
+}
+
+/* The tick is two borders rotated — no icon font, no SVG, and it scales with the box. */
+.checkbox:checked::after {
+    content: '';
+    height: 4px;
+    width: 7px;
+    border-left: 1.8px solid var(--primary-foreground);
+    border-bottom: 1.8px solid var(--primary-foreground);
+    transform: rotate(-45deg) translateY(-1px);
+}
+
+/* "Some, not all" — a dash rather than a tick, so a half-selected page never claims to be whole. */
+.checkbox:indeterminate::after {
+    content: '';
+    height: 1.8px;
+    width: 7px;
+    border-radius: 99px;
+    background: var(--primary-foreground);
+}
+
+.checkbox:focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 2px rgb(var(--brand-rgb) / 12%);
+}
+
+.checkbox:active {
+    transform: scale(0.94);
+}
+
+/* A selected row lifts slightly off the others — enough to group them, not enough to compete with
+   the active-row treatment elsewhere. */
+.data-table tbody tr.row-selected td {
+    background: color-mix(in srgb, var(--brand-500) 5%, var(--card));
+}
+
+.dark .data-table tbody tr.row-selected td {
+    background: color-mix(in srgb, var(--brand-500) 12%, var(--card));
+}
+
+/* A record's own header, above the panels describing it: what this thing is called, and one line
+   placing it. Larger and tighter than a panel title — it names the page's subject, not a section. */
+.record-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+}
+
+.record-sub {
+    margin-top: 0.125rem;
+    font-size: 11px;
+    color: var(--muted-foreground);
+}
+
+/* One labelled fact in a summary band: a small wide-tracked caption over its value. */
+.fact-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+}
+
+.fact-value {
+    margin-top: 0.125rem;
+    font-weight: 500;
+}
+
+/* An identifier shown for recognition rather than reading — a short hash, a chain reference. */
+.fact-id {
+    font-size: 11px;
+}
+
+/* The stage a document is displayed on.
+ *
+ * A sunken ground behind the page itself, so a white receipt on a white card still reads as a
+ * separate object. The document sits in its own framed sheet, centred, at a width that keeps a
+ * portrait page legible without filling the column.
+ */
+.doc-stage {
+    margin: -0.875rem;
+    background: var(--secondary);
+    padding: 1rem;
+}
+
+@media (width >= 40rem) {
+    .doc-stage {
+        margin: -1rem;
+    }
+}
+
+.dark .doc-stage {
+    background: #23262a;
+}
+
+.doc-sheet {
+    margin-inline: auto;
+    max-width: 680px;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background: #fff;
+    box-shadow: var(--elevation-hair);
+}
+
+/* Zoom and rotation are applied to the sheet's contents, so the frame stays put while the document
+   moves inside it. */
+.doc-viewport {
+    overflow: auto;
+    display: grid;
+    place-items: center;
+}
+
+.doc-viewport > * {
+    transform-origin: center center;
+    transition: transform 0.15s ease;
+}
+
+/* The impersonation strip: the one thing on screen that must not be mistaken for part of the page.
+ *
+ * Warning colours rather than brand ones, full width, above everything — an administrator inside
+ * someone else's account should never be able to overlook it, and the way out is in the strip
+ * itself rather than three menus away. */
+.impersonation-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--warning);
+    padding: 0.5rem 0.875rem;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--warning-foreground);
+}
+
+.impersonation-exit {
+    flex: none;
+    border-radius: var(--radius-lg);
+    background: var(--warning-foreground);
+    padding: 0.25rem 0.625rem;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--warning);
+}
+
+.impersonation-exit:disabled {
+    opacity: 0.6;
+}
+
+/* A row's action menu.
+ *
+ * No tile: a bordered box in every row turns a table into a column of chips. What it needed was to
+ * be *findable*, which is contrast and a hit area, not an outline — so it takes the row's own text
+ * colour rather than the muted grey `.panel-tool` uses, and fills on hover.
+ */
+.row-menu {
+    display: grid;
+    height: 2rem;
+    width: 1.75rem;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    color: var(--foreground);
+}
+
+.row-menu:hover:not(:disabled) {
+    background: var(--secondary);
+}
+
+.row-menu:disabled {
+    opacity: 0.35;
+}
+
+/* An icon-only control in a panel head — quieter than `.shell-control`, since a card's own tools
+   should not compete with the card's title. */
+.panel-tool {
+    display: grid;
+    height: 2rem;
+    width: 2rem;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    color: var(--muted-foreground);
+}
+
+.panel-tool:hover:not(:disabled) {
+    background: var(--secondary);
+    color: var(--foreground);
+}
+
+.panel-tool:disabled {
+    opacity: 0.35;
+}
+
+/* A small figure in a panel head — a confidence, a count, a period. Quiet enough not to compete
+   with the title it sits opposite. */
+.head-chip {
+    border-radius: var(--radius-lg);
+    background: var(--secondary);
+    padding: 0.25rem 0.5rem;
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground);
+}
+
+/*
+ * One box per digit of an authenticator code.
+ *
+ * Six boxes rather than one field because that is the shape of the thing being copied: a person
+ * reads a code off a phone a character at a time, and the boxes keep their place for them.
+ */
+.otp-box {
+    height: 3rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background: var(--card);
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+}
+
+.otp-box:focus-visible {
+    border-color: var(--ring);
+    outline: none;
+}
+
+/* A recovery code: full width, monospaced, spaced out. Unlike an authenticator code it is long and
+   grouped, so boxes would fragment it — it is read and pasted as one string. */
+.recovery-field.ctl {
+    width: 100%;
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: none;
+}
+
+/* The wash behind the sign-in panel: two soft brand blooms, no image to ship or theme. */
+.auth-aside-glow {
+    position: absolute;
+    inset: 0;
+    opacity: 0.55;
+    background:
+        radial-gradient(circle at 68% 30%, color-mix(in srgb, var(--brand-500) 18%, transparent) 0, transparent 28%),
+        radial-gradient(circle at 30% 72%, color-mix(in srgb, var(--brand-500) 10%, transparent) 0, transparent 30%);
+}
+
+/* A fact's caption, with its mark.
+ *
+ * The icon sits with the label rather than the value: it identifies *which* fact this is, and a
+ * grid of six is scanned by looking for the right caption, not by reading every value in turn.
+ */
+.fact-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.fact-label > svg {
+    height: 0.75rem;
+    width: 0.75rem;
+    flex: none;
+    opacity: 0.7;
+}
+
+/* "Add another one of these", at the end of a list of rows.
+ *
+ * Dashed and full width so it reads as the next, empty row rather than as a link that happens to
+ * sit below the list — pressing it produces exactly the row it looks like.
+ */
+.add-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-xl);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    transition:
+        border-color 0.12s ease,
+        color 0.12s ease,
+        background-color 0.12s ease;
+}
+
+.add-row:hover:not(:disabled) {
+    border-color: var(--brand-400);
+    background: var(--accent);
+    color: var(--brand-700);
+}
+
+.add-row:disabled {
+    opacity: 0.45;
 }

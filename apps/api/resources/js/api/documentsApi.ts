@@ -1,11 +1,11 @@
 import { ApiError, apiRequest, apiRequestBinary, apiUpload } from '../lib/http';
-import { type CursorPage, parseJson, vBoolean, vObject, vString } from '../lib/validate';
+import { type NumberedPage, type CursorPage, parseJson, vBoolean, vObject, vString } from '../lib/validate';
 import {
     type AcceptedExtraction,
     type DocumentListItem,
     type CorrectedExtraction,
     type DocumentExtractionSummary,
-    type DocumentStatus,
+    type DocumentStage,
     type DocumentHistory,
     type DocumentSummary,
     type DocumentType,
@@ -86,7 +86,8 @@ export class DocumentDuplicateError extends Error {
 
 /** Filters the inbox offers. Every one is a column stored in clear; see {@link listDocuments}. */
 export interface DocumentListFilters {
-    status?: DocumentStatus;
+    /** The stage a person sees — the same vocabulary the list's own column uses. */
+    stage?: DocumentStage;
     type?: DocumentType;
     receivedFrom?: string;
     receivedTo?: string;
@@ -107,12 +108,13 @@ export interface DocumentListFilters {
 export async function listDocuments(
     subjectId: string,
     filters: DocumentListFilters = {},
-    cursor: string | null = null,
-): Promise<CursorPage<DocumentListItem>> {
+    page = 1,
+    perPage?: number,
+): Promise<NumberedPage<DocumentListItem>> {
     const query = new URLSearchParams();
 
-    if (filters.status !== undefined) {
-        query.set('status', filters.status);
+    if (filters.stage !== undefined) {
+        query.set('stage', filters.stage);
     }
 
     if (filters.type !== undefined) {
@@ -131,11 +133,12 @@ export async function listDocuments(
         query.set('needs_review', '1');
     }
 
-    if (cursor !== null && cursor !== '') {
-        // `URLSearchParams` escapes this for us. It matters: the cursor is base64 and a bare `+`
-        // in a query string decodes to a space, which the server then discards as malformed —
-        // silently serving the first page again instead of the next one.
-        query.set('cursor', cursor);
+    if (page > 1) {
+        query.set('page', String(page));
+    }
+
+    if (perPage !== undefined) {
+        query.set('per_page', String(perPage));
     }
 
     const suffix = query.size === 0 ? '' : `?${query.toString()}`;

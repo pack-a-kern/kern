@@ -61,8 +61,9 @@ function monthlyDeposit(TaxSubject $subject): FinancialAccount
         kind: AccountKind::TERM_DEPOSIT,
         displayName: 'Depozit 3 luni',
         currencyCode: 'RON',
-        openedAt: '2026-01-01',
         depositTerms: new DepositTermsInput(
+            startsAt: '2026-01-01',
+            currencyCode: 'RON',
             principalMinor: 100_000,
             maturityAt: '2026-04-01',
             rateType: RateType::FIXED,

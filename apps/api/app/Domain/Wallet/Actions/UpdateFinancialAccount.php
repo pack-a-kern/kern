@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\UpdateFinancialAccountInput;
+use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\InvalidDateRangeException;
 use App\Domain\Wallet\Exceptions\NonPositivePrincipalException;
 use App\Domain\Wallet\Models\DepositRatePeriod;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use App\Domain\Wallet\Services\WalletAudit;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -41,7 +41,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class UpdateFinancialAccount
 {
     public function __construct(
-        private BlindIndexHasher $blindIndex,
         private DepositRateCoverageValidator $coverageValidator,
         private GenerateDepositInterestSchedule $generateSchedule,
         private WalletAudit $audit,
@@ -61,32 +60,21 @@ final readonly class UpdateFinancialAccount
                 $changed[] = 'display_name';
             }
 
-            if ($input->institutionName !== null) {
-                $account->institution_name = $input->institutionName;
-                $changed[] = 'institution_name';
-            }
-
-            if ($input->iban !== null) {
-                $account->iban_ciphertext = $input->iban;
-                $account->iban_blind_index = $this->blindIndex->compute(Normalizer::iban($input->iban));
-                $changed[] = 'iban';
-            }
-
-            if ($input->openedAt !== null) {
-                // Through the cast rather than by direct assignment: the property is a Carbon, and
-                // handing it the ISO string the request carried is a type error even though
-                // Eloquent converts it.
-                $account->setAttribute('opened_at', $input->openedAt);
-                $changed[] = 'opened_at';
-            }
-
-            // Closing is a state, not a deletion: the history stays and stays queryable.
-            if ($input->closedAt !== null) {
-                $account->setAttribute('closed_at', $input->closedAt === '' ? null : $input->closedAt);
-                $changed[] = 'closed_at';
+            if ($input->currencyCode !== null) {
+                $account->currency_code = strtoupper($input->currencyCode);
+                $changed[] = 'currency_code';
             }
 
             $account->save();
+
+            // A cash holding's single transaction *is* its value, so editing the source edits that
+            // row rather than adding a second one. Nothing else can write to it.
+            if ($input->holdingAmountMinor !== null && $account->kind === AccountKind::CASH) {
+                FinancialTransaction::query()
+                    ->where('account_id', $account->id)
+                    ->update(['amount_minor' => $input->holdingAmountMinor]);
+                $changed[] = 'holding_amount';
+            }
 
             $this->audit->record(
                 subjectId: $account->tax_subject_id,
@@ -107,23 +95,21 @@ final readonly class UpdateFinancialAccount
                 throw NonPositivePrincipalException::forAmount($replacement->principalMinor);
             }
 
-            $openedAt = $account->opened_at;
-
-            if ($openedAt === null) {
-                throw InvalidDateRangeException::endNotAfterStart('', $replacement->maturityAt);
-            }
-
-            $opened = new DateTimeImmutable($openedAt->toDateString());
+            // The start date now travels with the replacement terms rather than being read off the
+            // account, so editing a deposit can move it — and must re-validate the whole span.
+            $opened = new DateTimeImmutable($replacement->startsAt);
             $maturity = new DateTimeImmutable($replacement->maturityAt);
 
             if ($maturity <= $opened) {
-                throw InvalidDateRangeException::endNotAfterStart($openedAt->toDateString(), $replacement->maturityAt);
+                throw InvalidDateRangeException::endNotAfterStart($replacement->startsAt, $replacement->maturityAt);
             }
 
             $this->coverageValidator->validateAndNormalize($replacement->ratePeriods, $opened, $maturity);
 
             $terms->fill([
                 'principal_minor' => $replacement->principalMinor,
+                'starts_at' => $replacement->startsAt,
+                'currency_code' => strtoupper($replacement->currencyCode),
                 'maturity_at' => $replacement->maturityAt,
                 'rate_type' => $replacement->rateType,
                 'interest_method' => $replacement->interestMethod,

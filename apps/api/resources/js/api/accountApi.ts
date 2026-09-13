@@ -1,5 +1,5 @@
 import { apiRequest } from '../lib/http';
-import { type Profile, type TaxSubject, parseProfile, parseSubjects } from '../types/account';
+import { type Profile, type SubjectsPage, parseProfile, parseSubjectsPage } from '../types/account';
 
 /** `GET /api/v1/me` — the signed-in account. */
 export async function getProfile(): Promise<Profile> {
@@ -23,8 +23,20 @@ export async function changePassword(input: {
 }
 
 /** `GET /api/v1/subjects` — the tax subjects this account is a member of. */
-export async function listSubjects(): Promise<TaxSubject[]> {
-    return parseSubjects(JSON.parse(await apiRequest('/v1/subjects')));
+export async function listSubjects(page = 1, perPage?: number): Promise<SubjectsPage> {
+    const query = new URLSearchParams();
+
+    if (page > 1) {
+        query.set('page', String(page));
+    }
+
+    if (perPage !== undefined) {
+        query.set('per_page', String(perPage));
+    }
+
+    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+
+    return parseSubjectsPage(JSON.parse(await apiRequest(`/v1/subjects${suffix}`)));
 }
 
 /** `POST/DELETE /api/v1/subjects/{id}/document-ai-consent` — per-subject consent to external AI. */
@@ -89,4 +101,61 @@ export async function listDocumentAiConsents(): Promise<Set<string>> {
     const ids = (body as Record<string, unknown>).consented_subject_ids;
 
     return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []);
+}
+
+/** `PATCH /api/v1/subjects/{id}` — corrects a taxpayer's details. Owner only; the CNP is not
+ *  correctable, because it is what identifies the taxpayer rather than a fact about them. */
+export async function updateSubject(
+    subjectId: string,
+    input: Partial<Omit<RegisterPfInput, 'cnp' | 'birthDate'>>,
+): Promise<void> {
+    const body: Record<string, unknown> = {};
+
+    if (input.displayName !== undefined) body.display_name = input.displayName;
+    if (input.firstName !== undefined) body.first_name = input.firstName;
+    if (input.lastName !== undefined) body.last_name = input.lastName;
+    if (input.countyCode !== undefined) body.county_code = input.countyCode;
+    if (input.locality !== undefined) body.locality = input.locality;
+    if (input.address !== undefined) body.address = input.address;
+
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}`, { method: 'PATCH', body });
+}
+
+/** `PUT /api/v1/subjects/{id}/status` — suspend, close, or reactivate. There is no delete: an
+ *  archived taxpayer keeps its audit chain and every figure filed under it. */
+export async function setSubjectStatus(subjectId: string, status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/status`, {
+        method: 'PUT',
+        body: { status },
+    });
+}
+
+/**
+ * `POST /api/v1/subjects/cnp` — what a CNP contains, before anything is registered.
+ *
+ * The birth date and the county live inside the number, so the form asks for the CNP first and
+ * fills the rest from this answer. Read-only on the server: nothing is stored, nothing is looked
+ * up, and registration re-derives from the CNP it is given rather than trusting what came back
+ * here.
+ */
+export interface CnpDetails {
+    sex: 'MALE' | 'FEMALE';
+    foreignResident: boolean;
+    birthDate: string;
+    countyCode: string;
+    /** Only Bucharest's sectors are named by a CNP; everywhere else this is null. */
+    locality: string | null;
+}
+
+export async function inspectCnp(cnp: string): Promise<CnpDetails> {
+    const payload: unknown = JSON.parse(await apiRequest('/v1/subjects/cnp', { method: 'POST', body: { cnp } }));
+    const row = (payload ?? {}) as Record<string, unknown>;
+
+    return {
+        sex: row.sex === 'FEMALE' ? 'FEMALE' : 'MALE',
+        foreignResident: row.foreign_resident === true,
+        birthDate: typeof row.birth_date === 'string' ? row.birth_date : '',
+        countyCode: typeof row.county_code === 'string' ? row.county_code : '',
+        locality: typeof row.locality === 'string' ? row.locality : null,
+    };
 }

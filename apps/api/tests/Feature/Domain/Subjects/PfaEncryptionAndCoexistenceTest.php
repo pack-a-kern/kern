@@ -61,6 +61,7 @@ it('never stores a PFA subject\'s plaintext trade name, registration number, or 
 
     $subject = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
         registeringUserId: $registerer->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: $plaintextDisplayName,
         tradeName: $plaintextTradeName,
         registrationNumber: $plaintextRegistrationNumber,
@@ -118,6 +119,7 @@ it('decrypts a PFA profile\'s fields back to the original plaintext on read', fu
 
     $subject = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
         registeringUserId: $registerer->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Ana Ionescu PFA',
         tradeName: 'Ionescu Ana Consulting',
         registrationNumber: 'J40/4321/2026',
@@ -146,6 +148,7 @@ it('lets one user hold an active PF subject and an active PFA subject at the sam
 
     $pf = app(RegisterPfSubject::class)(new RegisterPfSubjectInput(
         registeringUserId: $user->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Maria Georgescu',
         firstName: 'Maria',
         lastName: 'Georgescu',
@@ -155,6 +158,7 @@ it('lets one user hold an active PF subject and an active PFA subject at the sam
 
     $pfa = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
         registeringUserId: $user->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Maria Georgescu PFA',
         tradeName: 'Georgescu Maria Traduceri',
         registrationNumber: 'J40/1111/2026',
@@ -185,6 +189,7 @@ it('opens a Wallet financial account for a PFA subject through the unmodified Wa
 
     $pfa = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
         registeringUserId: $user->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Alexandru Dumitrescu PFA',
         tradeName: 'Dumitrescu Alexandru IT',
         registrationNumber: 'J40/2222/2026',
@@ -192,10 +197,9 @@ it('opens a Wallet financial account for a PFA subject through the unmodified Wa
 
     $account = app(OpenFinancialAccount::class)(new OpenFinancialAccountInput(
         taxSubjectId: $pfa->id,
-        kind: AccountKind::BANK_CURRENT,
+        kind: AccountKind::GENERAL,
         displayName: 'Cont curent PFA',
         currencyCode: 'RON',
-        iban: 'RO49AAAA1B31007593840000',
     ));
 
     expect($account->tax_subject_id)->toBe($pfa->id);

@@ -7,8 +7,8 @@ namespace App\Http\Controllers\Api\V1\Operations;
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Operations\DataTransferObjects\TaskArgument;
-use App\Domain\Operations\Enums\JobRunTrigger;
 use App\Domain\Operations\Enums\OperationTask;
+use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
 use App\Domain\Operations\Services\OperationRunLock;
 use App\Http\Controllers\Controller;
@@ -63,7 +63,7 @@ final class RunOperationTaskController extends Controller
 
         $queue = $config->get('operations.runs.queue');
 
-        RunOperationTask::dispatch($operation, JobRunTrigger::MANUAL, $actorId, $arguments, $owner)
+        RunOperationTask::dispatch($operation, TaskRunTrigger::MANUAL, $actorId, $arguments, $owner)
             ->onQueue(is_string($queue) && $queue !== '' ? $queue : 'default');
 
         $audit->record(AuditEventInput::occurringNow(

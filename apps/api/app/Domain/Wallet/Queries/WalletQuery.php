@@ -35,21 +35,29 @@ final readonly class WalletQuery
     }
 
     /**
-     * Accounts with their most recent observed balance.
+     * Sources with their balances, one per currency.
      *
-     * The balance is a *left* join against the latest snapshot, so an account with no snapshot yet
-     * still appears — with a null balance rather than a zero. A newly added account has an unknown
-     * balance, not an empty one, and the screen must be able to say so.
+     * ## Why a list and not a number
+     *
+     * A balance used to be a single figure labelled with the account's currency — which was wrong
+     * the moment a source could hold more than one. The totals were summed with
+     * `sum(amount_minor)` across every row regardless of denomination, so an eToro source holding
+     * €2.000 and $1.100 reported **3.100 EUR**: a number that is not any quantity of anything, shown
+     * with no warning. Grouping by currency is the fix, and a single-currency bank source simply
+     * comes back with a list of one.
+     *
+     * ## Why it is derived rather than observed
+     *
+     * `account_balance_snapshots` is gone. A tax return never asks for a balance, so asking a person
+     * to type one was work with no output; the useful snapshot is the closing figure a *statement*
+     * carries, and there is no parser to read one yet. Until then the balance is the sum of what has
+     * actually been recorded — honest, and labelled as derived.
      *
      * @return list<AccountSummary>
      */
-    public function accounts(bool $includeClosed = false): array
+    public function accounts(): array
     {
-        $query = FinancialAccount::query()->with('depositTerms')->orderBy('institution_name');
-
-        if (! $includeClosed) {
-            $query->whereNull('closed_at');
-        }
+        $query = FinancialAccount::query()->with('depositTerms')->orderBy('display_name_ciphertext');
 
         /** @var list<FinancialAccount> $accounts */
         $accounts = $query->get()->all();
@@ -60,8 +68,7 @@ final readonly class WalletQuery
 
         $ids = array_map(static fn (FinancialAccount $account): string => self::str($account->getKey()), $accounts);
 
-        $latest = $this->latestBalances($ids);
-        $movements = $this->movementsSinceSnapshot($ids, $latest);
+        $balances = $this->balancesByCurrency($ids);
         // One query each for the whole page rather than per deposit row: the rate and the interest
         // total are both simple aggregates keyed by account.
         $today = CarbonImmutable::now('UTC')->startOfDay();
@@ -69,40 +76,19 @@ final readonly class WalletQuery
         $interest = $this->interestAtMaturity($ids);
 
         return array_map(
-            function (FinancialAccount $account) use ($latest, $movements, $rates, $interest, $today): AccountSummary {
+            function (FinancialAccount $account) use ($balances, $rates, $interest, $today): AccountSummary {
                 $id = self::str($account->getKey());
-                $snapshot = $latest[$id] ?? null;
-                $movement = $movements[$id] ?? 0;
-
-                // A confirmed observation plus what has moved since, or — with no observation at
-                // all — the movements alone, which is a real figure but not a confirmed one.
-                $balance = match (true) {
-                    $snapshot !== null => $snapshot['balance_minor'] + $movement,
-                    $movement !== 0 => $movement,
-                    default => null,
-                };
 
                 return new AccountSummary(
                     id: $id,
                     // Decrypted by the `Encrypted` cast on read; it never leaves this process in
                     // any other form.
                     displayName: self::str($account->display_name_ciphertext),
-                    institutionName: self::str($account->institution_name),
                     kind: $account->kind->value,
-                    currencyCode: self::str($account->currency_code),
-                    ibanLast4: $this->last4(self::str($account->iban_ciphertext)),
-                    balanceMinor: $balance,
-                    balanceAsOf: $snapshot === null ? null : CarbonImmutable::parse($snapshot['as_of'])->toIso8601String(),
-                    balanceSource: $snapshot === null ? null : $snapshot['source'],
-                    // Only an untouched observation is "verified": once movements are added on top,
-                    // the figure is this system's arithmetic rather than the bank's word.
-                    balanceVerified: $snapshot !== null && $snapshot['is_verified'] && $movement === 0,
-                    // True when the figure includes movements this system computed, so the screen
-                    // can say the balance is derived rather than observed.
-                    balanceIsDerived: $movement !== 0 || $snapshot === null,
+                    // A default for the form only — a source may legitimately have none.
+                    currencyCode: $account->currency_code,
+                    balances: $balances[$id] ?? [],
                     source: $account->source->value,
-                    openedAt: $account->opened_at?->toDateString(),
-                    closedAt: $account->closed_at?->toDateString(),
                     deposit: $this->depositFacts($account, $rates[$id] ?? null, $interest[$id] ?? null, $today),
                 );
             },
@@ -126,11 +112,11 @@ final readonly class WalletQuery
         }
 
         $maturity = $terms->maturity_at->toImmutable()->startOfDay();
-        // The account owns the opening date, the terms own the maturity — the split that removed
-        // the columns `deposits` used to duplicate.
-        $opened = ($account->opened_at ?? $terms->maturity_at)->toImmutable()->startOfDay();
+        $opened = $terms->starts_at->toImmutable()->startOfDay();
 
         return new DepositFacts(
+            currencyCode: self::str($terms->currency_code),
+            startsAt: $opened->toDateString(),
             principalMinor: $terms->principal_minor,
             maturityAt: $maturity->toDateString(),
             annualRate: $annualRate,
@@ -190,19 +176,18 @@ final readonly class WalletQuery
                     throw new RuntimeException("Account {$id} was selected as a deposit but has no terms.");
                 }
 
-                // Taken from the model's own cast, not stringified first: `opened_at` and
+                // Taken from the model's own cast, not stringified first: `starts_at` and
                 // `maturity_at` are cast to Carbon, and routing a Carbon through a string helper
                 // yielded an empty string that `parse()` read as *now* — every deposit reported
                 // zero days to maturity. Caught by a test, never visible in the type system.
                 $maturity = $terms->maturity_at->toImmutable()->startOfDay();
-                // The account owns the opening date; the terms own the maturity. Both are needed to
-                // count the days the interest was calculated over.
-                $opened = ($deposit->opened_at ?? $maturity)->toImmutable()->startOfDay();
+                $opened = $terms->starts_at->toImmutable()->startOfDay();
 
                 return new DepositSummary(
                     id: $id,
-                    institutionName: self::str($deposit->institution_name),
-                    currencyCode: self::str($deposit->currency_code),
+                    // Decrypted by the model's cast on read, like everywhere else.
+                    displayName: self::str($deposit->display_name_ciphertext),
+                    currencyCode: self::str($terms->currency_code),
                     principalMinor: $terms->principal_minor,
                     annualRate: $rates[$id] ?? null,
                     rateType: $terms->rate_type->value,
@@ -252,7 +237,7 @@ final readonly class WalletQuery
         // of accounts.
         $names = [];
 
-        foreach ($this->accounts(includeClosed: true) as $account) {
+        foreach ($this->accounts() as $account) {
             $names[$account->id] = $account->displayName;
         }
 
@@ -294,12 +279,14 @@ final readonly class WalletQuery
     {
         $balances = [];
 
+        // Each source now reports one figure per currency, so the page total is a sum of those
+        // rather than of one number per source — which is what made the previous version add
+        // euros to dollars before anyone could notice.
         foreach ($this->accounts() as $account) {
-            if ($account->balanceMinor === null) {
-                continue;
+            foreach ($account->balances as $balance) {
+                $currency = $balance['currency_code'];
+                $balances[$currency] = ($balances[$currency] ?? 0) + $balance['amount_minor'];
             }
-
-            $balances[$account->currencyCode] = ($balances[$account->currencyCode] ?? 0) + $account->balanceMinor;
         }
 
         $deposits = [];
@@ -394,90 +381,38 @@ final readonly class WalletQuery
     }
 
     /**
-     * The newest snapshot per account, in one query.
+     * What has actually been recorded against each source, totalled per currency.
      *
-     * `DISTINCT ON` is avoided for the same reason `JobRunRepository` avoids it: the suite runs on
-     * sqlite, and a Postgres-only query would make this untestable there.
+     * Grouped in SQL rather than summed in PHP, and grouped by *currency* rather than by account
+     * alone — the previous version added every `amount_minor` together whatever its denomination and
+     * labelled the result with the account's currency, so a source holding euros and dollars
+     * reported their numeric sum as euros.
+     *
+     * A currency whose movements cancel to zero is kept: "this source had dollars in it and they are
+     * gone" is a different statement from "this source never had dollars", and only one of them
+     * should disappear from a screen.
      *
      * @param  list<string>  $accountIds
-     * @return array<string, array{balance_minor: int, as_of: string, source: string, is_verified: bool}>
+     * @return array<string, list<array{currency_code: string, amount_minor: int}>>
      */
-    private function latestBalances(array $accountIds): array
+    private function balancesByCurrency(array $accountIds): array
     {
-        $rows = DB::table('account_balance_snapshots')
+        $rows = DB::table('financial_transactions')
             ->whereIn('account_id', $accountIds)
-            ->whereIn('as_of', function ($query) use ($accountIds): void {
-                $query->from('account_balance_snapshots')
-                    ->selectRaw('max(as_of)')
-                    ->whereIn('account_id', $accountIds)
-                    ->groupBy('account_id');
-            })
-            ->orderBy('as_of')
-            ->get();
+            ->groupBy('account_id', 'currency_code')
+            ->orderBy('currency_code')
+            ->get(['account_id', 'currency_code', DB::raw('sum(amount_minor) as total')]);
 
         $byAccount = [];
 
         foreach ($rows as $row) {
-            // Ascending, so a later row for the same account overwrites an earlier one — which
-            // makes a same-timestamp collision between two accounts harmless.
-            $byAccount[self::str($row->account_id)] = [
-                'balance_minor' => (int) $row->balance_minor,
-                'as_of' => self::str($row->as_of),
-                'source' => self::str($row->source),
-                'is_verified' => (bool) $row->is_verified,
+            $byAccount[self::str($row->account_id)][] = [
+                'currency_code' => self::str($row->currency_code),
+                'amount_minor' => (int) $row->total,
             ];
         }
 
         return $byAccount;
-    }
-
-    /**
-     * Transactions recorded *after* each account's latest snapshot, summed.
-     *
-     * This is what makes a recorded transaction actually move the balance on screen. A snapshot is
-     * an *observation* — "the bank said 1.240,00 on 3 March" — and transactions are the movements
-     * since. Adding them is how every reconciling ledger works, and without it a person records a
-     * payment and watches the balance sit there unchanged, which is what makes the whole screen feel
-     * broken.
-     *
-     * Only movements after the snapshot count. A transaction from before it was already reflected
-     * in what the bank reported, and counting it again would double it.
-     *
-     * With no snapshot at all, every transaction counts: the account is being tracked from its
-     * movements alone, starting from zero. That figure is real but incomplete — an account opened
-     * with money already in it will read low — so `balanceIsDerived` tells the screen to say so
-     * rather than presenting a movements-only figure as a confirmed balance.
-     *
-     * @param  list<string>  $accountIds
-     * @param  array<string, array{balance_minor: int, as_of: string, source: string, is_verified: bool}>  $snapshots
-     * @return array<string, int>
-     */
-    private function movementsSinceSnapshot(array $accountIds, array $snapshots): array
-    {
-        $rows = DB::table('financial_transactions')
-            ->whereIn('account_id', $accountIds)
-            ->select('account_id', 'amount_minor', 'booked_at')
-            ->get();
-
-        $totals = [];
-
-        foreach ($rows as $row) {
-            $accountId = self::str($row->account_id);
-            $snapshot = $snapshots[$accountId] ?? null;
-
-            // Compared as dates rather than instants: a snapshot carries a timestamp and a
-            // transaction only a booked date, so "same day" counts as after the observation. A
-            // person recording today's payment expects to see it today.
-            if ($snapshot !== null
-                && CarbonImmutable::parse(self::str($row->booked_at))->startOfDay()
-                    < CarbonImmutable::parse($snapshot['as_of'])->startOfDay()) {
-                continue;
-            }
-
-            $totals[$accountId] = ($totals[$accountId] ?? 0) + (int) $row->amount_minor;
-        }
-
-        return $totals;
     }
 
     /**
@@ -544,16 +479,4 @@ final readonly class WalletQuery
         return is_scalar($value) ? (string) $value : '';
     }
 
-    /**
-     * The last four characters of an IBAN, for identifying an account without displaying it.
-     *
-     * Returns null rather than a padded or partial value when the stored IBAN is too short to have
-     * four — a made-up mask would be worse than showing nothing.
-     */
-    private function last4(string $iban): ?string
-    {
-        $trimmed = preg_replace('/\s+/', '', $iban) ?? '';
-
-        return strlen($trimmed) >= 4 ? substr($trimmed, -4) : null;
-    }
 }

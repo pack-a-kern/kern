@@ -67,7 +67,7 @@ function makeMatchingWalletTransaction(string $subjectId, int $amountMinor, stri
 {
     $account = FinancialAccount::create([
         'tax_subject_id' => $subjectId,
-        'kind' => AccountKind::BANK_CURRENT,
+        'kind' => AccountKind::GENERAL,
         'display_name_ciphertext' => 'Landlord current account',
         'currency_code' => 'RON',
         'source' => RecordSource::MANUAL,

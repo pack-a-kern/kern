@@ -103,6 +103,10 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        // Generous on purpose: this queue is serial and each job holds it for as long as the model
+        // takes, so a short backlog is normal operation rather than something to alert on. Ten
+        // documents at a minute each is ten minutes of honest waiting.
+        'redis:documents-ai' => 1800,
     ],
 
     /*
@@ -198,6 +202,30 @@ return [
     */
 
     'defaults' => [
+        /*
+         * Reading a document is serialised: one supervisor, one process, its own queue.
+         *
+         * See `App\Domain\Documents\Jobs\ProcessScannedDocument::$queue`. `maxProcesses` is 1 in
+         * every environment, deliberately not scaled with the others — the constraint is a single
+         * model endpoint, not this machine's cores.
+         *
+         * `timeout` must stay above the job's own, which is derived from
+         * `AI_EXTRACTION_TIMEOUT_SECONDS` plus a margin. A supervisor timeout below it would kill
+         * the job mid-request and record nothing about why.
+         */
+        'supervisor-documents-ai' => [
+            'connection' => 'redis',
+            'queue' => ['documents-ai'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 600,
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -215,6 +243,9 @@ return [
 
     'environments' => [
         'production' => [
+            'supervisor-documents-ai' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -223,6 +254,9 @@ return [
         ],
 
         'local' => [
+            'supervisor-documents-ai' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 3,
             ],

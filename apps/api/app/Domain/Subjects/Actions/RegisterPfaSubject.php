@@ -12,9 +12,11 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Enums\SubjectType;
 use App\Domain\Subjects\Exceptions\DuplicateRegistrationNumberException;
+use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
 use App\Domain\Subjects\Models\PfaProfile;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
+use App\Domain\Subjects\Services\SubjectAllowance;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
 
@@ -62,11 +64,20 @@ final readonly class RegisterPfaSubject
     public function __construct(
         private BlindIndexHasher $blindIndex,
         private AuditChainService $audit,
+        private SubjectAllowance $allowance,
     ) {
     }
 
     public function __invoke(RegisterPfaSubjectInput $input): TaxSubject
     {
+        // A PFA is a taxpayer like any other and counts against the same allowance — a cap that
+        // only one registration path respects is not a cap.
+        if (! $this->allowance->hasRoom($input->registeringUserId, $input->registeringUserRoles)) {
+            throw SubjectLimitReachedException::of(
+                $this->allowance->limitFor($input->registeringUserRoles),
+            );
+        }
+
         $registrationNumberBlindIndex = $this->blindIndex->compute(
             FiscalIdentifierKind::CUI->keyedValue($input->registrationNumber),
         );

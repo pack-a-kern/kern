@@ -7,18 +7,20 @@ namespace App\Domain\Wallet\Actions;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
+use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\InvalidDateRangeException;
 use App\Domain\Wallet\Exceptions\MissingDepositTermsException;
+use App\Domain\Wallet\Exceptions\MissingHoldingAmountException;
 use App\Domain\Wallet\Exceptions\NonPositivePrincipalException;
 use App\Domain\Wallet\Exceptions\UnexpectedDepositTermsException;
 use App\Domain\Wallet\Models\DepositRatePeriod;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use App\Domain\Wallet\Services\WalletAudit;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +31,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class OpenFinancialAccount
 {
     public function __construct(
-        private BlindIndexHasher $blindIndex,
         private DepositRateCoverageValidator $coverageValidator,
         private GenerateDepositInterestSchedule $generateSchedule,
         private WalletAudit $audit,
@@ -51,22 +52,27 @@ final readonly class OpenFinancialAccount
             throw UnexpectedDepositTermsException::forKind($input->kind);
         }
 
-        $openedAt = $input->openedAt;
+        // A cash holding is a declared value, so it arrives with one. Both directions checked, the
+        // same way the deposit's terms are: an amount on a stream source would be a transaction
+        // nobody asked for, and a cash source without one has nothing to report.
+        if ($input->kind === AccountKind::CASH && $input->holdingAmountMinor === null) {
+            throw MissingHoldingAmountException::forKind($input->kind);
+        }
+
+        if ($input->kind !== AccountKind::CASH && $input->holdingAmountMinor !== null) {
+            throw MissingHoldingAmountException::unexpectedForKind($input->kind);
+        }
 
         if ($terms !== null) {
             if ($terms->principalMinor <= 0) {
                 throw NonPositivePrincipalException::forAmount($terms->principalMinor);
             }
 
-            if ($openedAt === null) {
-                throw MissingDepositTermsException::withoutOpeningDate();
-            }
-
-            $opened = new DateTimeImmutable($openedAt);
+            $opened = new DateTimeImmutable($terms->startsAt);
             $maturity = new DateTimeImmutable($terms->maturityAt);
 
             if ($maturity <= $opened) {
-                throw InvalidDateRangeException::endNotAfterStart($openedAt, $terms->maturityAt);
+                throw InvalidDateRangeException::endNotAfterStart($terms->startsAt, $terms->maturityAt);
             }
 
             // Validated before anything is written, rather than discovered later at schedule
@@ -77,19 +83,11 @@ final readonly class OpenFinancialAccount
         $account = new FinancialAccount([
             'tax_subject_id' => $input->taxSubjectId,
             'kind' => $input->kind,
-            'institution_name' => $input->institutionName,
             'display_name_ciphertext' => $input->displayName,
-            'currency_code' => strtoupper($input->currencyCode),
-            'opened_at' => $input->openedAt,
-            'closed_at' => $input->closedAt,
+            'currency_code' => $input->currencyCode === null ? null : strtoupper($input->currencyCode),
             'source' => RecordSource::MANUAL,
             'metadata_ciphertext' => $input->metadataJson,
         ]);
-
-        if ($input->iban !== null) {
-            $account->iban_ciphertext = $input->iban;
-            $account->iban_blind_index = $this->blindIndex->compute(Normalizer::iban($input->iban));
-        }
 
         return DB::transaction(function () use ($account, $input, $terms): FinancialAccount {
             $account->save();
@@ -104,10 +102,25 @@ final readonly class OpenFinancialAccount
                 resourceId: $account->id,
                 payload: [
                     'kind' => $input->kind->value,
-                    'currency_code' => strtoupper($input->currencyCode),
-                    'opened_at' => $input->openedAt,
+                    'currency_code' => $input->currencyCode,
                 ],
             );
+
+            if ($input->holdingAmountMinor !== null) {
+                // Written directly rather than through `RecordFinancialTransaction`, which refuses a
+                // holding source by design. This *is* the declaration, not a movement through it.
+                FinancialTransaction::create([
+                    'tax_subject_id' => $input->taxSubjectId,
+                    'account_id' => $account->id,
+                    'booked_at' => CarbonImmutable::now('UTC')->toDateString(),
+                    'amount_minor' => $input->holdingAmountMinor,
+                    'currency_code' => strtoupper((string) $input->currencyCode),
+                    'description_ciphertext' => $input->displayName,
+                    'counterparty_ciphertext' => '',
+                    'classification_status' => TransactionClassificationStatus::UNCLASSIFIED,
+                    'source' => RecordSource::MANUAL,
+                ]);
+            }
 
             if ($terms === null) {
                 return $account;
@@ -118,6 +131,8 @@ final readonly class OpenFinancialAccount
                 'tax_subject_id' => $input->taxSubjectId,
                 'funding_account_id' => $terms->fundingAccountId,
                 'principal_minor' => $terms->principalMinor,
+                'starts_at' => $terms->startsAt,
+                'currency_code' => strtoupper($terms->currencyCode),
                 'maturity_at' => $terms->maturityAt,
                 'rate_type' => $terms->rateType,
                 'interest_method' => $terms->interestMethod,

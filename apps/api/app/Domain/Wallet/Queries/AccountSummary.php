@@ -5,57 +5,41 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Queries;
 
 /**
- * One account as a screen shows it.
+ * One source as a screen shows it.
  *
- * `ibanLast4` rather than the IBAN: the full value is encrypted under the subject's own DEK and is
- * needed for matching, never for display. Four digits identify an account to the person who owns it
- * without putting a complete bank identifier into a browser tab, a screenshot or a support ticket.
+ * `balances` is a list, not a number. A source is a folder that may hold several currencies at once
+ * — a broker holds euros and dollars, a crypto exchange holds several assets — so a single figure
+ * labelled with one currency could only ever be right by accident, and the version this replaces
+ * added euros to dollars and printed the result as euros. A bank source comes back with a list of
+ * one and looks exactly as it always did.
  *
- * `balanceMinor` comes from the most recent `account_balance_snapshots` row, not from the account —
- * an account has no balance of its own in this schema, only a history of observations, each with
- * the source that produced it and whether it was verified. `balanceAsOf` is therefore part of the
- * answer, not decoration: a balance without its observation date is a number of unknown age.
+ * Every figure here is *derived* from the transactions recorded against the source. There is no
+ * observed balance any more: nothing in a tax return asks for one, so nothing asks a person to type
+ * one. When a statement parser exists it will carry a closing figure for free, and that is the
+ * point at which an observation becomes worth storing again.
  */
 final readonly class AccountSummary
 {
+    /**
+     * @param  list<array{currency_code: string, amount_minor: int}>  $balances
+     */
     public function __construct(
         public string $id,
         public string $displayName,
-        public string $institutionName,
         public string $kind,
-        public string $currencyCode,
-        public ?string $ibanLast4,
-        public ?int $balanceMinor,
-        public ?string $balanceAsOf,
-        public ?string $balanceSource,
-        public bool $balanceVerified,
-        /**
-         * Whether the balance includes movements this system added, rather than being an
-         * observation on its own.
-         *
-         * A snapshot is what a bank said on a day; a derived balance is that plus the transactions
-         * recorded since, or — with no snapshot at all — the transactions alone from a zero start.
-         * Both are useful and only one is confirmed, so the screen has to be able to tell them
-         * apart.
-         */
-        public bool $balanceIsDerived,
+        /** A default for the form only; null for a source that legitimately holds several. */
+        public ?string $currencyCode,
+        public array $balances,
         public string $source,
-        public ?string $openedAt,
-        public ?string $closedAt,
         /**
-         * The deposit half, null for every other kind of account.
+         * The deposit half, null for every other kind of source.
          *
          * Carried on the same row rather than fetched from a second endpoint, because a term
-         * deposit *is* an account — the separate `deposits` table and the separate screen it fed
+         * deposit *is* a source — the separate `deposits` table and the separate screen it fed
          * are exactly what made the two look like different things.
          */
         public ?DepositFacts $deposit = null,
     ) {
-    }
-
-    public function isClosed(): bool
-    {
-        return $this->closedAt !== null;
     }
 
     /** @return array<string, mixed> */
@@ -64,20 +48,11 @@ final readonly class AccountSummary
         return [
             'id' => $this->id,
             'display_name' => $this->displayName,
-            'institution_name' => $this->institutionName,
             'kind' => $this->kind,
             'currency_code' => $this->currencyCode,
-            'iban_last4' => $this->ibanLast4,
-            'balance_minor' => $this->balanceMinor,
-            'balance_as_of' => $this->balanceAsOf,
-            'balance_source' => $this->balanceSource,
-            'balance_verified' => $this->balanceVerified,
-            'balance_is_derived' => $this->balanceIsDerived,
+            'balances' => $this->balances,
             'source' => $this->source,
             'deposit' => $this->deposit?->toArray(),
-            'opened_at' => $this->openedAt,
-            'closed_at' => $this->closedAt,
-            'closed' => $this->isClosed(),
         ];
     }
 }

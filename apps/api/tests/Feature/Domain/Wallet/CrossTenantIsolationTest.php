@@ -15,7 +15,6 @@ use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Models\AccountBalanceSnapshot;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\DepositRatePeriod;
 use App\Domain\Wallet\Models\DepositTerms;
@@ -75,34 +74,16 @@ function walletRowFactories(): array
         FinancialAccount::class => static function (string $subjectId): FinancialAccount {
             return FinancialAccount::create([
                 'tax_subject_id' => $subjectId,
-                'kind' => AccountKind::BANK_CURRENT,
+                'kind' => AccountKind::GENERAL,
                 'display_name_ciphertext' => 'Cross-tenant test account',
                 'currency_code' => 'RON',
                 'source' => RecordSource::MANUAL,
             ]);
         },
-        AccountBalanceSnapshot::class => static function (string $subjectId): AccountBalanceSnapshot {
-            $account = FinancialAccount::create([
-                'tax_subject_id' => $subjectId,
-                'kind' => AccountKind::BANK_CURRENT,
-                'display_name_ciphertext' => 'Snapshot owner account',
-                'currency_code' => 'RON',
-                'source' => RecordSource::MANUAL,
-            ]);
-
-            return AccountBalanceSnapshot::create([
-                'tax_subject_id' => $subjectId,
-                'account_id' => $account->id,
-                'balance_minor' => 1000,
-                'as_of' => now('UTC'),
-                'source' => RecordSource::MANUAL,
-                'is_verified' => false,
-            ]);
-        },
         FinancialTransaction::class => static function (string $subjectId): FinancialTransaction {
             $account = FinancialAccount::create([
                 'tax_subject_id' => $subjectId,
-                'kind' => AccountKind::BANK_CURRENT,
+                'kind' => AccountKind::GENERAL,
                 'display_name_ciphertext' => 'Transaction owner account',
                 'currency_code' => 'RON',
                 'source' => RecordSource::MANUAL,
@@ -122,7 +103,7 @@ function walletRowFactories(): array
         TransactionSplit::class => static function (string $subjectId): TransactionSplit {
             $account = FinancialAccount::create([
                 'tax_subject_id' => $subjectId,
-                'kind' => AccountKind::BANK_CURRENT,
+                'kind' => AccountKind::GENERAL,
                 'display_name_ciphertext' => 'Split owner account',
                 'currency_code' => 'RON',
                 'source' => RecordSource::MANUAL,

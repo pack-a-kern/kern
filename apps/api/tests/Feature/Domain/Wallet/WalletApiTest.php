@@ -12,7 +12,6 @@ use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();
@@ -54,127 +53,69 @@ it('refuses wallet reads for a subject the user has no membership on', function 
         ->assertForbidden();
 });
 
-it('opens an account through the action, encrypting the name and IBAN at rest', function (): void {
+it('opens a source through the action, encrypting its name at rest', function (): void {
     [$user, $subjectId] = walletSubject();
 
     $this->actingAs($user)
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
             'display_name' => 'ING curent',
-            'kind' => AccountKind::BANK_CURRENT->value,
+            'kind' => AccountKind::OTHER->value,
             'currency_code' => 'RON',
-            'institution_name' => 'ING Bank',
-            'iban' => 'RO49AAAA1B31007593840000',
         ])
         ->assertCreated();
 
-    // The raw row must not contain either value in the clear — the whole point of the DEK.
+    // The raw row must not contain the name in the clear — the whole point of the DEK. The IBAN it
+    // used to hold is gone: nothing matched an import by it and nothing reconciled with it, so a
+    // full encryption-plus-blind-index apparatus was being maintained for a `•••• 1234` suffix.
     $row = DB::table('financial_accounts')->where('tax_subject_id', $subjectId)->first();
 
     expect($row)->not->toBeNull()
-        ->and((string) $row?->display_name_ciphertext)->not->toContain('ING curent')
-        ->and((string) $row?->iban_ciphertext)->not->toContain('RO49AAAA')
-        // The blind index is what makes an encrypted IBAN still matchable.
-        ->and($row?->iban_blind_index)->not->toBeNull();
-
-    $listed = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk();
-
-    // Decrypted for display, but only the last four of the IBAN ever leave the server.
-    $listed->assertJsonPath('accounts.0.display_name', 'ING curent')
-        ->assertJsonPath('accounts.0.iban_last4', '0000')
-        ->assertJsonMissing(['iban' => 'RO49AAAA1B31007593840000']);
-});
-
-it('reports an unknown balance rather than zero when no snapshot exists', function (): void {
-    [$user, $subjectId] = walletSubject();
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Cont nou',
-        'kind' => AccountKind::BANK_CURRENT->value,
-        'currency_code' => 'RON',
-    ])->assertCreated();
-
-    // A new account has an *unknown* balance, not an empty one. Zero would be a claim about the
-    // account's contents that nothing supports.
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', null)
-        ->assertJsonPath('accounts.0.balance_as_of', null);
-});
-
-it('reads the most recent balance snapshot, not the first or an arbitrary one', function (): void {
-    [$user, $subjectId] = walletSubject();
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Cont',
-        'kind' => AccountKind::BANK_CURRENT->value,
-        'currency_code' => 'RON',
-    ])->assertCreated();
-
-    $key = FinancialAccount::query()->firstOrFail()->getKey();
-    $accountId = is_scalar($key) ? (string) $key : '';
-
-    // Inserted oldest-last on purpose: a query that took "the first row" would pick the wrong one.
-    foreach ([['2026-01-01', 1000], ['2026-03-01', 5000], ['2026-02-01', 3000]] as [$asOf, $balance]) {
-        DB::table('account_balance_snapshots')->insert([
-            'id' => (string) Str::uuid7(),
-            'tax_subject_id' => $subjectId,
-            'account_id' => $accountId,
-            'balance_minor' => $balance,
-            'as_of' => $asOf,
-            'source' => 'MANUAL',
-            'is_verified' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
+        ->and((string) $row?->display_name_ciphertext)->not->toContain('ING curent');
 
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', 5000);
+        ->assertJsonPath('accounts.0.display_name', 'ING curent');
 });
 
 it('totals balances per currency and never sums across them', function (): void {
     [$user, $subjectId] = walletSubject();
 
-    foreach ([['RON', 70_000_00], ['EUR', 1_200_00], ['RON', 2_480_00]] as [$currency, $balance]) {
+    foreach ([['RON', 70_000_00], ['EUR', 1_200_00], ['RON', 2_480_00]] as $index => [$currency, $amount]) {
         $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-            'display_name' => "Cont {$currency} {$balance}",
-            'kind' => AccountKind::BANK_CURRENT->value,
+            'display_name' => "Sursa {$index}",
+            'kind' => AccountKind::OTHER->value,
             'currency_code' => $currency,
         ])->assertCreated();
     }
 
-    foreach (FinancialAccount::query()->get() as $index => $account) {
-        DB::table('account_balance_snapshots')->insert([
-            'id' => (string) Str::uuid7(),
-            'tax_subject_id' => $subjectId,
-            'account_id' => $account->getKey(),
-            'balance_minor' => [70_000_00, 1_200_00, 2_480_00][$index] ?? 0,
-            'as_of' => '2026-01-01',
-            'source' => 'MANUAL',
-            'is_verified' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+    /** @var list<array{id: string, currency_code: string|null}> $accounts */
+    $accounts = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->json('accounts');
+
+    foreach ([['RON', 70_000_00], ['EUR', 1_200_00], ['RON', 2_480_00]] as $index => [$currency, $amount]) {
+        $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+            'account_id' => $accounts[$index]['id'],
+            'amount_minor' => $amount,
+            'currency_code' => $currency,
+            'booked_at' => '2026-01-01',
+            'description' => 'Intrare',
+        ])->assertCreated();
     }
 
-    // Read through the endpoint rather than `WalletQuery` directly: the query relies on the tenant
-    // being bound, which the `tax-subject` middleware does as part of the request.
-    $response = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk();
-
-    // Two keys, not one number: adding RON to EUR needs a rate, a date and a source, which is the
-    // tax engine's job. A single total here would be an invented exchange rate.
-    expect(array_keys((array) $response->json('totals.balances')))->toEqualCanonicalizing(['RON', 'EUR']);
+    // Two currencies stay two figures. Adding them would produce a number that is not any quantity
+    // of anything — which is exactly what the previous single-balance-per-account version did.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.balances.RON', 72_480_00)
+        ->assertJsonPath('totals.balances.EUR', 1_200_00);
 });
 
 it('rejects a deposit whose maturity precedes its opening', function (): void {
     [$user, $subjectId] = walletSubject();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'ING',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 50_000_00,
         'currency_code' => 'RON',
-        'opened_at' => '2026-09-01',
+        'starts_at' => '2026-09-01',
         'maturity_at' => '2026-08-01',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -190,12 +131,11 @@ it('opens a deposit and reports its current rate and days to maturity', function
     $maturity = CarbonImmutable::now('UTC')->addMonths(5)->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'BT',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 70_000_00,
         'currency_code' => 'RON',
-        'opened_at' => $opened,
+        'starts_at' => $opened,
         'maturity_at' => $maturity,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -230,86 +170,12 @@ it('opens a deposit and reports its current rate and days to maturity', function
         ->and(is_numeric($days) ? (int) $days : null)->toBeGreaterThan(0);
 });
 
-it('records a balance as a new snapshot rather than overwriting the last one', function (): void {
-    [$user, $subjectId] = walletSubject();
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Cont',
-        'kind' => AccountKind::BANK_CURRENT->value,
-        'currency_code' => 'RON',
-    ])->assertCreated();
-
-    $key = FinancialAccount::query()->firstOrFail()->getKey();
-    $accountId = is_scalar($key) ? (string) $key : '';
-
-    foreach ([['2026-01-31', 100_000], ['2026-02-28', 250_000]] as [$asOf, $balance]) {
-        $this->actingAs($user)
-            ->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}/balance", [
-                'balance_minor' => $balance,
-                'as_of' => $asOf,
-                'is_verified' => true,
-            ])
-            ->assertCreated();
-    }
-
-    // Both observations survive: the history is what lets a past figure be defended.
-    expect(DB::table('account_balance_snapshots')->where('account_id', $accountId)->count())->toBe(2);
-
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', 250_000)
-        ->assertJsonPath('accounts.0.balance_verified', true);
-});
-
-it('accepts a negative balance, because an overdraft is a real one', function (): void {
-    [$user, $subjectId] = walletSubject();
-
-    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Cont',
-        'kind' => AccountKind::BANK_CURRENT->value,
-        'currency_code' => 'RON',
-    ])->assertCreated();
-
-    $key = FinancialAccount::query()->firstOrFail()->getKey();
-
-    $this->actingAs($user)
-        ->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts/" . (is_scalar($key) ? (string) $key : '') . '/balance', [
-            'balance_minor' => -45_000,
-            'as_of' => '2026-03-01',
-        ])
-        ->assertCreated();
-
-    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk()
-        ->assertJsonPath('accounts.0.balance_minor', -45_000);
-});
-
-it('refuses a balance for an account belonging to another subject', function (): void {
-    [$user, $subjectId] = walletSubject();
-    [$otherUser, $otherSubjectId] = walletSubject();
-
-    $this->actingAs($otherUser)->postJson("/api/v1/subjects/{$otherSubjectId}/wallet/accounts", [
-        'display_name' => 'Cont strain',
-        'kind' => AccountKind::BANK_CURRENT->value,
-        'currency_code' => 'RON',
-    ])->assertCreated();
-
-    $key = FinancialAccount::query()->withoutGlobalScopes()->firstOrFail()->getKey();
-
-    // Found through the tenant-scoped model, so another subject's account is simply absent — never
-    // written as a foreign key on this subject's snapshot.
-    $this->actingAs($user)
-        ->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts/" . (is_scalar($key) ? (string) $key : '') . '/balance', [
-            'balance_minor' => 1_000,
-            'as_of' => '2026-03-01',
-        ])
-        ->assertNotFound();
-});
-
 it('records a transaction with its description and counterparty encrypted', function (): void {
     [$user, $subjectId] = walletSubject();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'display_name' => 'ING curent',
-        'kind' => AccountKind::BANK_CURRENT->value,
+        'kind' => AccountKind::GENERAL->value,
         'currency_code' => 'RON',
     ])->assertCreated();
 
@@ -342,7 +208,7 @@ it('refuses a zero-amount transaction', function (): void {
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'display_name' => 'Cont',
-        'kind' => AccountKind::BANK_CURRENT->value,
+        'kind' => AccountKind::GENERAL->value,
         'currency_code' => 'RON',
     ])->assertCreated();
 
@@ -365,12 +231,11 @@ it('computes the whole interest schedule when the deposit is opened', function (
     // A RON deposit: no FX annotation is involved, so this isolates the interest calculation from
     // the BNR lookup a foreign-currency deposit would also need.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'BT',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 100_000_00,
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
+        'starts_at' => '2026-01-01',
         'maturity_at' => '2026-12-31',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -406,12 +271,11 @@ it('reports the full term interest, not only the part already elapsed', function
     $maturity = CarbonImmutable::now('UTC')->addYear()->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'ING',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 200_000_00,
         'currency_code' => 'RON',
-        'opened_at' => $opened,
+        'starts_at' => $opened,
         'maturity_at' => $maturity,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -461,12 +325,11 @@ it('applies the configured day-count convention to a deposit opened without one'
 
     // Exactly what the screen sends: no `day_count_convention` at all.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'BCR',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
+        'starts_at' => '2026-01-01',
         'maturity_at' => '2026-07-01',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -483,12 +346,11 @@ it('still accepts an explicit convention, for a contract that states a different
     config()->set('wallet.deposit.default_day_count', 'ACTUAL_365');
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'BCR',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
+        'starts_at' => '2026-01-01',
         'maturity_at' => '2026-07-01',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -506,12 +368,11 @@ it('rejects a day-count convention that is not a real one', function (): void {
     // Optional does not mean unvalidated: a garbage value must fail loudly rather than fall through
     // to the configured default, which would silently apply a denominator nobody asked for.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'BCR',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'opened_at' => '2026-01-01',
+        'starts_at' => '2026-01-01',
         'maturity_at' => '2026-07-01',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -529,12 +390,11 @@ it('opens a foreign-currency deposit whose schedule runs past the last published
     // equivalent is not. Before this was handled, opening any foreign-currency deposit maturing in
     // the future failed outright.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'institution_name' => 'Raiffeisen',
         'display_name' => 'Depozit',
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'EUR',
-        'opened_at' => CarbonImmutable::now('UTC')->toDateString(),
+        'starts_at' => '2026-01-01',
         'maturity_at' => CarbonImmutable::now('UTC')->addYear()->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',

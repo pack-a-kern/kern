@@ -6,7 +6,8 @@
  * production. See `docs/handoff/040-ui-foundation.md` "i18n" for why this was chosen over
  * `react-i18next`/`next-intl`.
  */
-import type { AiExtractionOutcome } from '../types/documents';
+import type { AiExtractionOutcome, DocumentStage, DocumentType } from '../types/documents';
+import type { PaletteName } from '../lib/palette';
 
 export interface Dictionary {
     nav: {
@@ -24,24 +25,35 @@ export interface Dictionary {
         legislation: string;
         spv: string;
         accountGroup: string;
-        settingsProfile: string;
-        settingsSecurity: string;
         settingsSubjects: string;
-        settingsPrivacy: string;
+        logs: string;
         adminGroup: string;
         adminSettings: string;
         adminParameters: string;
         adminUsers: string;
         adminOperations: string;
+        adminJobs: string;
         adminAudit: string;
     };
     shell: {
         appName: string;
+        appTagline: string;
         openMenu: string;
         closeMenu: string;
         collapseSidebar: string;
         expandSidebar: string;
         changeTheme: string;
+        impersonating: string;
+        impersonationStop: string;
+        impersonationStopFailed: string;
+        notifications: string;
+        markAllRead: string;
+        notificationTitle: string;
+        notificationBody: string;
+        changePalette: string;
+        /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
+        paletteNames: Record<PaletteName, string>;
+        paletteDescriptions: Record<PaletteName, string>;
         themeLight: string;
         themeDark: string;
         themeSystem: string;
@@ -52,6 +64,12 @@ export interface Dictionary {
         signOut: string;
         activeSubject: string;
         noActiveSubject: string;
+        taxSubject: string;
+        fiscalSnapshot: string;
+        obligationCount: string;
+        nextDeadline: string;
+        searchSubjects: string;
+        noSubjectsFound: string;
         manageSubjects: string;
     };
     placeholder: {
@@ -61,13 +79,16 @@ export interface Dictionary {
     };
     common: {
         loading: string;
-        cancel: string;
         save: string;
         /** Dismisses a dialog that has nothing to submit — a viewer, not a form. */
+        cancel: string;
         close: string;
         /** The destructive action's own label — never "OK", which says nothing about what happens. */
         delete: string;
         deleteFailed: string;
+        search: string;
+        noResults: string;
+        actions: string;
         loadMore: string;
         loadingMore: string;
     };
@@ -76,6 +97,9 @@ export interface Dictionary {
         previous: string;
         next: string;
         morePages: string;
+        /** `{first}`, `{last}`, `{total}` and `{unit}` are substituted. */
+        range: string;
+        rows: string;
     };
     home: {
         tagline: string;
@@ -104,42 +128,43 @@ export interface Dictionary {
         genericPasskeyError: string;
         rateLimited: string;
         enterEmailForPasskey: string;
+        eyebrow: string;
+        welcomeTitle: string;
+        welcomeSubtitle: string;
+        mfaEyebrow: string;
+        mfaTitle: string;
+        mfaSubtitle: string;
+        mfaPanelTitle: string;
+        mfaPanelBody: string;
+        mfaVerify: string;
+        useRecoveryCode: string;
+        useAuthenticatorCode: string;
+        recoveryCodeLabel: string;
+        recoveryCodeHint: string;
+        recoveryCodePlaceholder: string;
+        recoveryVerify: string;
+        recoveryEyebrow: string;
+        recoveryTitle: string;
+        recoverySubtitle: string;
+        registerEyebrow: string;
+        registerSubtitle: string;
+        showPassword: string;
+        hidePassword: string;
+        orSeparator: string;
+        legalNote: string;
+        asideBadge: string;
+        asideTitle: string;
+        asideBody: string;
+        asideStrongTitle: string;
+        asideStrongBody: string;
+        asideDeviceTitle: string;
+        asideDeviceBody: string;
+        asideAuditTitle: string;
+        asideAuditBody: string;
+        footerCopyright: string;
     };
     dashboard: {
         title: string;
-        loadError: string;
-        aiConsentTitle: string;
-        aiConsentBody: string;
-        aiConsentGrant: string;
-        aiConsentRevoke: string;
-        aiConsentError: string;
-        securityTitle: string;
-        totpLabel: string;
-        totpActive: string;
-        totpInactive: string;
-        passkeysLabel: string;
-        recoveryCodesLabel: string;
-        enrollTotp: string;
-        enrollTotpError: string;
-        registerPasskey: string;
-        registerPasskeyError: string;
-        regenerateCodes: string;
-        regenerateCodesError: string;
-        confirmTotpCodeLabel: string;
-        confirmTotpHint: string;
-        confirmTotpError: string;
-        saveRecoveryCodesWarning: string;
-        sessionsTitle: string;
-        revokeOthers: string;
-        revokeOthersError: string;
-        thisSession: string;
-        unknownDevice: string;
-        lastUsed: string;
-        revoke: string;
-        revokeError: string;
-        goToSecuritySettings: string;
-        goToSubjectSettings: string;
-        goToPrivacySettings: string;
         lede: string;
         empty: string;
     };
@@ -206,6 +231,18 @@ export interface Dictionary {
     };
     documentsInbox: {
         title: string;
+        /** `{count}` is substituted — the card head's running total. */
+        count: string;
+        /** What the pager counts, e.g. "documents". */
+        unit: string;
+        emptyTitle: string;
+        selectPage: string;
+        /** `{count}` is substituted. */
+        selectedCount: string;
+        deleteSelected: string;
+        deleteSelectedTitle: string;
+        deleteSelectedHint: string;
+        emptyFiltered: string;
         description: string;
         newDocument: string;
         liveNotice: string;
@@ -214,8 +251,8 @@ export interface Dictionary {
         empty: string;
         loadFailed: string;
         /** How many extraction proposals on a document are still waiting on a human. */
-        pendingExtractions: string;
         review: string;
+        view: string;
         deleteTitle: string;
         deleteHint: string;
         deleted: string;
@@ -224,7 +261,9 @@ export interface Dictionary {
         filters: {
             allStatuses: string;
             allTypes: string;
+            everyDocument: string;
             from: string;
+            received: string;
             to: string;
             needsReview: string;
             reset: string;
@@ -244,18 +283,28 @@ export interface Dictionary {
         description: string;
         receivedLabel: string;
         formatLabel: string;
+        documentIdLabel: string;
+        typeLabel: string;
+        statusLabel: string;
         rejectedLabel: string;
         /** Alt text for the image preview — copy, so it belongs here rather than in the markup. */
         previewAlt: string;
         previewPdfTitle: string;
         back: string;
         source: string;
+        sourceHint: string;
+        zoomIn: string;
+        zoomOut: string;
+        rotate: string;
         quarantineNotice: string;
         rejectedNotice: string;
         loadingPreview: string;
         unsupportedPreview: string;
         openInNewTab: string;
         proposedExtractions: string;
+        proposedExtractionsHint: string;
+        /** `{percent}` is substituted. */
+        confidenceChip: string;
         noAutoConfirmNotice: string;
         loading: string;
         empty: string;
@@ -263,6 +312,7 @@ export interface Dictionary {
         nameHint: string;
         originalFilenameLabel: string;
         rename: string;
+        actions: string;
         renameSave: string;
         renameCancel: string;
         renameSuggestion: string;
@@ -287,6 +337,8 @@ export interface Dictionary {
         addField: string;
         removeField: string;
         fieldNamePlaceholder: string;
+        fieldRequired: string;
+        fieldOptional: string;
         fieldValuePlaceholder: string;
         correctionHint: string;
         reviewedBy: string;
@@ -327,6 +379,8 @@ export interface Dictionary {
         noEvents: string;
         chainEvents: Record<string, string | undefined>;
     };
+    /** Keyed by `App\Domain\Documents\Enums\DocumentStage` — what a person is told. */
+    documentStage: Record<DocumentStage, string>;
     statusBadge: {
         QUARANTINE: string;
         SCANNED: string;
@@ -361,6 +415,14 @@ export interface Dictionary {
         EXTRACTION_TIMEOUT: string;
         EXTRACTION_FAILED: string;
     };
+    /**
+     * The extraction field names, as a person reads them.
+     *
+     * Keyed by the wire names `App\Domain\Documents\Parsing\ExtractionSchema` defines. A
+     * `Record<string, string>` rather than a closed union because the schema is server-side: a new
+     * field appears here as a missing translation, not a type error.
+     */
+    extractionField: Record<string, string>;
     documentType: {
         RECEIPT: string;
         INVOICE: string;
@@ -370,6 +432,8 @@ export interface Dictionary {
         ANAF_DECISION: string;
         OTHER: string;
     };
+    /** One line saying what each document type is for — shown under its name in a picker. */
+    documentTypeHint: Record<DocumentType, string>;
     subjectType: {
         PF: string;
         PFA: string;
@@ -387,6 +451,16 @@ export interface Dictionary {
     errors: {
         network: string;
         unexpected: string;
+        rateLimited: string;
+        /**
+         * A refusal the server names with a code, translated here.
+         *
+         * `message` is English and written for whoever reads a log; `reason` is the machine-readable
+         * half of the same answer, and the only part that can be said in a person's own language.
+         * A code with no entry falls back to the server's sentence, which is still better than a
+         * generic line.
+         */
+        reasons: Record<string, string | undefined>;
     };
     pages: {
         wallet: {
@@ -396,6 +470,8 @@ export interface Dictionary {
             empty: string;
             /** Why there is no single "total balance" across currencies. */
             perCurrencyNote: string;
+            /** The system's own name for the source every taxpayer has. Never a stored value. */
+            generalSource: string;
             unknownBalance: string;
             asOf: string;
             verified: string;
@@ -437,19 +513,17 @@ export interface Dictionary {
         walletAccounts: {
             title: string;
             description: string;
-            includeClosed: string;
+            edit: string;
+            /** Shown instead of the row's actions on the source nobody may change. */
+            systemSource: string;
+            saved: string;
             columns: {
                 account: string;
                 type: string;
-                currency: string;
                 balance: string;
-                source: string;
-                lastUpdate: string;
                 status: string;
             };
             active: string;
-            closed: string;
-            never: string;
             add: string;
             addHint: string;
             added: string;
@@ -457,34 +531,19 @@ export interface Dictionary {
             form: {
                 displayName: string;
                 displayNameHint: string;
-                institution: string;
                 kind: string;
                 currency: string;
-                iban: string;
-                ibanHint: string;
-                openedAt: string;
+                /** What a cash holding is worth — the source's whole value. */
+                holdingAmount: string;
+                holdingAmountHint: string;
+                /** A deposit's own start date — the day interest begins accruing. */
+                startsAt: string;
             };
-            /** Recording an observed balance — a snapshot, never an overwrite. */
-            updateBalance: string;
-            /** Closing is the ordinary end of an account's life; deleting is the exception. */
-            close: string;
-            reopen: string;
-            closedToast: string;
-            reopened: string;
-            closeFailed: string;
             deleteTitle: string;
             deleteHint: string;
             deleted: string;
-            /** Shown on a 409: records still explain a figure through this account. */
+            /** Shown on a 409: records still explain a figure through this source. */
             deleteBlocked: string;
-            updateBalanceHint: string;
-            balanceRecorded: string;
-            balanceFailed: string;
-            balanceAmount: string;
-            balanceAmountHint: string;
-            balanceAsOf: string;
-            balanceVerified: string;
-            balanceVerifiedHint: string;
         };
         walletDeposits: {
             title: string;
@@ -606,6 +665,16 @@ export interface Dictionary {
             citationCopied: string;
         };
         spv: { title: string; description: string; blockedOn: string };
+        account: {
+            title: string;
+            description: string;
+            stats: {
+                signIn: string;
+                signInSub: string;
+                subjects: string;
+                subjectsSub: string;
+            };
+        };
         settingsProfile: {
             title: string;
             description: string;
@@ -710,10 +779,6 @@ export interface Dictionary {
         };
         settingsSubjects: {
             /** A display preference: how totals are summed, never how a tax is computed. */
-            displayCurrencyTitle: string;
-            displayCurrencyDescription: string;
-            displayCurrencyLabel: string;
-            displayCurrencyNote: string;
             displayCurrencySaved: string;
             displayCurrencyFailed: string;
             title: string;
@@ -722,16 +787,34 @@ export interface Dictionary {
             loadFailed: string;
             empty: string;
             tableTitle: string;
+            tableDescription: string;
+            unit: string;
+            edit: string;
+            editTitle: string;
+            editHint: string;
+            unchanged: string;
+            save: string;
+            saved: string;
+            saveFailed: string;
+            deactivate: string;
+            reactivate: string;
+            close: string;
+            closeTitle: string;
+            closeHint: string;
+            statusChanged: string;
+            statusFailed: string;
             addNote: string;
             types: Record<string, string | undefined>;
             roles: Record<string, string | undefined>;
             statuses: Record<string, string | undefined>;
-            columns: { subject: string; type: string; role: string; status: string };
+            columns: { subject: string; type: string; role: string; status: string; currency: string; ai: string };
             stats: {
                 total: string;
                 active: string;
                 owned: string;
                 ownedSub: string;
+                ai: string;
+                aiSub: string;
                 encryption: string;
                 encryptionSub: string;
                 perSubject: string;
@@ -750,12 +833,19 @@ export interface Dictionary {
                 firstName: string;
                 lastName: string;
                 cnp: string;
+                cnpHint: string;
                 birthDate: string;
+                birthDateHint: string;
+                country: string;
                 countyCode: string;
+                countyPlaceholder: string;
+                countyNone: string;
                 locality: string;
                 address: string;
             };
             checkFields: string;
+            checkingCnp: string;
+            continueLabel: string;
         };
         settingsPrivacy: {
             title: string;
@@ -879,6 +969,47 @@ export interface Dictionary {
                 spv: string;
                 security: string;
             };
+            scheduler: {
+                title: string;
+                description: string;
+                alive: string;
+                stalled: string;
+                never: string;
+                lastBeat: string;
+                /** "{seconds}s ago, limit {limit}s" — the staleness rule made visible. */
+                age: string;
+            };
+            /** The four `Status` tones, named once so every panel labels them identically. */
+            states: {
+                ok: string;
+                warn: string;
+                bad: string;
+                idle: string;
+            };
+            freshness: {
+                title: string;
+                description: string;
+                labels: Record<string, string | undefined>;
+                details: Record<string, string | undefined>;
+                unknown: string;
+            };
+            sources: {
+                title: string;
+                description: string;
+                /** Why this table has no switch — a correctness property, not a missing feature. */
+                readOnlyNotice: string;
+                columns: {
+                    code: string;
+                    tier: string;
+                    url: string;
+                    enabled: string;
+                    state: string;
+                };
+                allowed: string;
+                blocked: string;
+                inUse: string;
+                neverFetched: string;
+            };
         };
         adminParameters: { title: string; description: string; blockedOn: string };
         adminUsers: {
@@ -893,6 +1024,18 @@ export interface Dictionary {
             never: string;
             truncated: string;
             usersTitle: string;
+            usersDescription: string;
+                        unit: string;
+                        loginAs: string;
+                        erase: string;
+                        erased: string;
+                        eraseFailed: string;
+                        eraseTitle: string;
+                        eraseHint: string;
+                        eraseAuditNote: string;
+                        loginAsTitle: string;
+                        loginAsHint: string;
+                        loginAsFailed: string;
             searchPlaceholder: string;
             allStatuses: string;
             mfaNone: string;
@@ -916,6 +1059,17 @@ export interface Dictionary {
             saveFailed: string;
             allRoles: string;
             noRole: string;
+            newTitle: string;
+            newHint: string;
+            newSubmit: string;
+            newDoneTitle: string;
+            newDoneHint: string;
+            newDone: string;
+            newPassword: string;
+            newPasswordHint: string;
+            copy: string;
+            passwordCopied: string;
+            newButton: string;
             noPermissions: string;
             systemRole: string;
             notEnforcedYet: string;
@@ -963,40 +1117,8 @@ export interface Dictionary {
             };
         };
         adminOperations: {
-            title: string;
-            description: string;
             forbidden: string;
             loadFailed: string;
-            refresh: string;
-            /** The four `Status` tones, named once so every panel labels them identically. */
-            states: {
-                ok: string;
-                warn: string;
-                bad: string;
-                idle: string;
-            };
-            scheduler: {
-                title: string;
-                description: string;
-                alive: string;
-                stalled: string;
-                never: string;
-                lastBeat: string;
-                /** "{seconds}s ago, limit {limit}s" — the staleness rule made visible. */
-                age: string;
-            };
-            queue: {
-                title: string;
-                description: string;
-                unavailable: string;
-                pending: string;
-                completed: string;
-                failed: string;
-                recentlyFailed: string;
-                workers: string;
-                longestWait: string;
-                seconds: string;
-            };
             tasks: {
                 title: string;
                 description: string;
@@ -1028,93 +1150,100 @@ export interface Dictionary {
                 enableFailed: string;
                 names: Record<string, string | undefined>;
                 descriptions: Record<string, string | undefined>;
-            };
-            activity: {
-                title: string;
-                description: string;
-                empty: string;
-                /** Why a failed job's payload is never rendered — a design property, not a gap. */
-                noPayloadNotice: string;
-                /** How far back the merged feed can see; it never claims more than it paged over. */
-                windowNotice: string;
-                columns: {
-                    what: string;
-                    when: string;
-                    status: string;
-                    action: string;
-                };
-                statusFilter: Record<string, string | undefined>;
-                kindFilter: Record<string, string | undefined>;
-                statuses: Record<string, string | undefined>;
-                triggers: Record<string, string | undefined>;
-                kinds: Record<string, string | undefined>;
+                /** The run history, opened per task — the only place `task_runs` is listed. */
                 details: string;
                 detailsTitle: string;
+                historyDescription: string;
+                historyEmpty: string;
+                historyFailed: string;
+                unit: string;
+                startedAt: string;
                 trigger: string;
                 duration: string;
                 exitCode: string;
                 output: string;
                 noOutput: string;
-                queue: string;
-                connection: string;
-                error: string;
-                runAgain: string;
-                retry: string;
-                discard: string;
-                discardTitle: string;
-                discardConfirm: string;
-                retried: string;
-                discarded: string;
-                actionFailed: string;
-                page: string;
-                previous: string;
-                next: string;
-            };
-            freshness: {
-                title: string;
-                description: string;
-                labels: Record<string, string | undefined>;
-                details: Record<string, string | undefined>;
-                unknown: string;
-            };
-            health: {
-                title: string;
-                description: string;
-                components: Record<string, string | undefined>;
-            };
-            sources: {
-                title: string;
-                description: string;
-                /** Why this table has no switch — a correctness property, not a missing feature. */
-                readOnlyNotice: string;
-                columns: {
-                    code: string;
-                    tier: string;
-                    url: string;
-                    enabled: string;
-                    state: string;
-                };
-                allowed: string;
-                blocked: string;
-                inUse: string;
-                neverFetched: string;
+                statuses: Record<string, string | undefined>;
+                triggers: Record<string, string | undefined>;
             };
             cancel: string;
             confirm: string;
         };
-        adminAudit: {
+        /**
+         * The queue, read from Horizon — a different population from `adminOperations`, which is
+         * the six maintenance tasks. Neither ever contains the other.
+         */
+        adminJobs: {
+            forbidden: string;
+            loadFailed: string;
+            unavailable: string;
+            queue: {
+                pending: string;
+                completed: string;
+                failed: string;
+                failedWindow: string;
+                workers: string;
+                longestWait: string;
+                throughput: string;
+                throughputSub: string;
+                seconds: string;
+            };
+            listTitle: string;
+            listDescription: string;
+            unit: string;
+            empty: string;
+            /** Horizon's trim windows, stated rather than hidden: 60 minutes, 7 days for failures. */
+            retentionNotice: string;
+            /** Why a job's payload is never rendered — a design property, not a gap. */
+            noPayloadNotice: string;
+            /** Says where maintenance-task runs went, so nobody hunts for them in this list. */
+            tasksNotice: string;
+            statusFilter: Record<string, string | undefined>;
+            columns: {
+                job: string;
+                queue: string;
+                status: string;
+                when: string;
+            };
+            statuses: Record<string, string | undefined>;
+            details: string;
+            detailsTitle: string;
+            connection: string;
+            queuedAt: string;
+            completedAt: string;
+            failedAt: string;
+            error: string;
+            retriedPill: string;
+            retry: string;
+            discard: string;
+            discardTitle: string;
+            discardConfirm: string;
+            retrySucceeded: string;
+            discarded: string;
+            actionFailed: string;
+            cancel: string;
+            confirm: string;
+        };
+        /** The audit trail, the queue and the task ledger — one screen, three tabs. */
+        logs: {
             title: string;
             description: string;
-            blockedOn: string;
+            tabs: {
+                audit: string;
+                jobs: string;
+                tasks: string;
+            };
+        };
+        adminAudit: {
             forbidden: string;
             loadFailed: string;
             empty: string;
-            loading: string;
-            loadMore: string;
             reset: string;
             details: string;
             detailsTitle: string;
             tableTitle: string;
+            tableDescription: string;
+            unit: string;
             searchPlaceholder: string;
             allEvents: string;
             systemActor: string;
@@ -1146,9 +1275,6 @@ export interface Dictionary {
                 verified: string;
                 broken: string;
             };
-            page: string;
-            previous: string;
-            next: string;
         };
     };
 }

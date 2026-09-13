@@ -12,8 +12,16 @@ namespace App\Domain\Subjects\DataTransferObjects;
  */
 final readonly class RegisterPfSubjectInput
 {
+    /**
+     * @param  list<string>  $registeringUserRoles  the platform roles the account carries, which
+     *                                              decide how many taxpayers it may own. Passed in
+     *                                              rather than looked up: this module does not
+     *                                              reach into Identity, and the caller already
+     *                                              holds the authenticated user.
+     */
     public function __construct(
         public string $registeringUserId,
+        public array $registeringUserRoles,
         public string $displayName,
         public string $firstName,
         public string $lastName,

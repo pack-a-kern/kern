@@ -22,6 +22,9 @@ namespace App\Domain\Wallet\Queries;
 final readonly class DepositFacts
 {
     public function __construct(
+        /** The deposit's own currency — a source it sits in may hold several, or none. */
+        public string $currencyCode,
+        public string $startsAt,
         public int $principalMinor,
         public string $maturityAt,
         public ?string $annualRate,
@@ -40,6 +43,8 @@ final readonly class DepositFacts
     public function toArray(): array
     {
         return [
+            'currency_code' => $this->currencyCode,
+            'starts_at' => $this->startsAt,
             'principal_minor' => $this->principalMinor,
             'maturity_at' => $this->maturityAt,
             'annual_rate' => $this->annualRate,

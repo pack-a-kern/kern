@@ -160,7 +160,3 @@ services:
         "--reload",
       ]
 
-  python-worker:
-    volumes:
-      - ./apps/processing/src:/app/src
-    read_only: false

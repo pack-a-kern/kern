@@ -151,6 +151,39 @@ export function vCursorPage<T>(item: Validator<T>): Validator<CursorPage<T>> {
     };
 }
 
+/**
+ * The numbered-pagination envelope, for endpoints a person pages through by hand rather than
+ * scrolls. Carries the total, which a cursor cannot: "page 7 of 12" and "1–25 of 300" are both
+ * questions about a set, and a cursor only knows about the row it points at.
+ */
+export interface NumberedPage<T> {
+    data: T[];
+    page: number;
+    perPage: number;
+    total: number;
+    lastPage: number;
+}
+
+export function vNumberedPage<T>(item: Validator<T>): Validator<NumberedPage<T>> {
+    return (value, path = '') => {
+        const parsed = vObject({
+            data: vArray(item),
+            current_page: vNumber,
+            per_page: vNumber,
+            total: vNumber,
+            last_page: vNumber,
+        })(value, path);
+
+        return {
+            data: parsed.data,
+            page: parsed.current_page,
+            perPage: parsed.per_page,
+            total: parsed.total,
+            lastPage: parsed.last_page,
+        };
+    };
+}
+
 /** Parses `text` as JSON, then validates it with `validator`. Throws on malformed JSON too. */
 export function parseJson<T>(text: string, validator: Validator<T>): T {
     let raw: unknown;

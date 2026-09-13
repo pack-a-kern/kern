@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Identity\Services\RegistrationPolicy;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -19,7 +20,14 @@ use Inertia\Inertia;
  */
 Route::get('/', fn () => Inertia::render('home'))->name('home');
 
-Route::get('/login', fn () => Inertia::render('auth/login'))->name('login');
+/*
+ * `registrationOpen` is passed here rather than shared globally: only this screen asks the
+ * question, and a shared prop would put a `settings` query on every Inertia response in the
+ * application — including the ones rendered before any of it is needed.
+ */
+Route::get('/login', fn (RegistrationPolicy $registration) => Inertia::render('auth/login', [
+    'registrationOpen' => $registration->isOpen(),
+]))->name('login');
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
@@ -34,8 +42,8 @@ Route::middleware('auth')->group(function (): void {
      * in `resources/js/components/AppShell.tsx`'s sidebar needs a real route so the product owner
      * can click through the whole planned product, not just the six screens with a working backend
      * — a link with nowhere to go is worse than an honestly-labelled placeholder. Every route below
-     * renders either a real screen (Security/Subjects/Privacy settings, reusing the exact
-     * components `/dashboard` already used) or `pages/**` components that render the shared
+     * renders either a real screen (the account and taxpayer screens, which
+     * carry real behaviour) or `pages/**` components that render the shared
      * `PlaceholderPage` — no controller, no domain model, same "no business logic here" shape the
      * six routes above already have.
      */
@@ -52,10 +60,18 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/legislatie', fn () => Inertia::render('legislation'))->name('legislation');
     Route::get('/spv', fn () => Inertia::render('spv'))->name('spv');
 
-    Route::get('/setari/profil', fn () => Inertia::render('settings/profile'))->name('settings.profile');
-    Route::get('/setari/securitate', fn () => Inertia::render('settings/security'))->name('settings.security');
-    Route::get('/setari/subiecte', fn () => Inertia::render('settings/subjects'))->name('settings.subjects');
-    Route::get('/setari/confidentialitate', fn () => Inertia::render('settings/privacy'))->name('settings.privacy');
+    /*
+     * Two screens where there were four. Profile, security, taxpayers and privacy were four routes
+     * for what a person thinks of as two things: "my account" and "the taxpayers I act for". The
+     * old paths are gone rather than redirected — nothing outside this file linked to them, and a
+     * redirect kept for nobody is a route to maintain forever.
+     */
+    Route::get('/contul-meu', fn () => Inertia::render('account/index'))->name('account');
+    // `counties` is a page prop rather than a shared one: only this screen's two dialogs offer the
+    // list, and sharing it would put 42 rows on every Inertia response in the application.
+    Route::get('/contribuabili', fn () => Inertia::render('subjects/index', [
+        'counties' => config('counties.ro'),
+    ]))->name('subjects');
 
     /*
      * Admin routes carry no server-side authorization yet — there is no role system to enforce
@@ -67,6 +83,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/admin/setari', fn () => Inertia::render('admin/settings'))->name('admin.settings');
     Route::get('/admin/parametri', fn () => Inertia::render('admin/parameters'))->name('admin.parameters');
     Route::get('/admin/utilizatori', fn () => Inertia::render('admin/users'))->name('admin.users');
-    Route::get('/admin/operatiuni', fn () => Inertia::render('admin/operations'))->name('admin.operations');
-    Route::get('/admin/audit', fn () => Inertia::render('admin/audit'))->name('admin.audit');
+
+    /*
+     * The audit trail, the queue and the task ledger, on one screen with three tabs.
+     *
+     * At the root rather than under `/admin`, because "what happened" is a question asked far more
+     * often than anything on the administration screens, and it is answered by reading rather than
+     * by changing configuration. Each tab still checks its own permission server-side.
+     */
+    Route::get('/jurnale', fn () => Inertia::render('logs'))->name('logs');
 });

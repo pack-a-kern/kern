@@ -122,3 +122,30 @@ scanned rental contract with no text layer — is a minority of volume, not the 
   behind the PyMuPDF → `pypdf` swap. This ADR's local-extraction-first decision is unaffected by
   it.
 - `docs/STATUS.md` blocked item #3 — external AI provider, region, and DPA not yet selected.
+
+## Amendment, 2026-09-11 — `python-worker` and `processing.ai` removed
+
+Two things were built for the OCR pipeline this ADR cancelled and were never reachable:
+
+- **`python-worker`** — `BLUEPRINT.md` §3.1 gave it "document/AI workers". With OCR dropped and
+  extraction running in the Laravel queue, it never got an entrypoint: its command printed a notice
+  and slept. Removed from `compose.yaml` and `compose.override.yaml`, and §3.1 amended.
+- **`apps/processing/src/processing/ai/`** — a complete LLM client, config, schemas and
+  structured-output helper, imported by no route and no other module. The provider that actually
+  runs is `App\Domain\Documents\ExternalAi\OpenAiCompatibleDocumentAiProvider`, in PHP. Two
+  implementations of one job, one of them wired to nothing. Removed, with its tests.
+
+Dropping them also dropped `httpx2` (used only by `processing.ai`) and `opencv-python-headless`,
+which had no caller anywhere — a leftover from the PaddleOCR plan sitting in an image whose own
+comments call it "slim, hardened".
+
+`python-api` keeps both live endpoints: `POST /v1/documents/extract-text` and `POST /v1/embeddings`.
+
+### The "external" in this ADR's title is deployment-dependent
+
+Written when the only option for reading a photograph was a hosted service. The current deployment
+points `AI_BASE_URL` at a self-hosted vision model on the operator's own network, so no document
+leaves the building — the consent gate, the audit event and the schema validation all still apply
+and are still correct, but the EU-region/no-training DPA requirement in point 3 is about a third
+party and does not bind a self-hosted endpoint. A reader should not conclude from this ADR alone
+that receipts are being sent to an outside processor.

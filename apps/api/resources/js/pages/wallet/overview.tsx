@@ -7,7 +7,7 @@ import { Page, Panel, PanelButton, Row, RowList, Stat, StatGrid } from '../../co
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
-import { formatMinor, type NetWorth, type WalletOverview as Overview } from '../../types/wallet';
+import { formatMinor, sourceName, type NetWorth, type WalletOverview as Overview } from '../../types/wallet';
 
 /**
  * These mirror `components/AppShell.tsx`'s sidebar hrefs and `routes/web.php`'s named routes. Named
@@ -172,24 +172,21 @@ export default function WalletOverview(): JSX.Element {
                             {overview.accounts.map((account) => (
                                 <Row
                                     key={account.id}
-                                    title={account.displayName}
-                                    subtitle={`${account.currencyCode}${
-                                        account.ibanLast4 === null ? '' : ` · •••• ${account.ibanLast4}`
-                                    }`}
+                                    title={sourceName(account, t((d) => d.pages.wallet.generalSource))}
+                                    subtitle={t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}
                                 >
-                                    <div className="text-right">
-                                        <div className="tabular-nums">
-                                            {account.balanceMinor === null
-                                                ? t((d) => d.pages.wallet.unknownBalance)
-                                                : formatMinor(account.balanceMinor, account.currencyCode, locale)}
-                                        </div>
-                                        <div className="note">
-                                            {t(
-                                                (d) =>
-                                                    d.pages.wallet.sources[account.balanceSource ?? ''] ??
-                                                    account.source,
-                                            )}
-                                        </div>
+                                    {/* One line per currency: a source may hold several, and a
+                                        single figure could only be right by accident. */}
+                                    <div className="text-right tabular-nums">
+                                        {account.balances.length === 0 ? (
+                                            <span className="note">{t((d) => d.pages.wallet.unknownBalance)}</span>
+                                        ) : (
+                                            account.balances.map((balance) => (
+                                                <div key={balance.currencyCode}>
+                                                    {formatMinor(balance.amountMinor, balance.currencyCode, locale)}
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </Row>
                             ))}
@@ -223,7 +220,7 @@ export default function WalletOverview(): JSX.Element {
                             {overview.maturing.map((deposit) => (
                                 <Row
                                     key={deposit.id}
-                                    title={deposit.institutionName}
+                                    title={deposit.displayName}
                                     subtitle={new Date(deposit.maturityAt).toLocaleDateString()}
                                 >
                                     <div className="text-right">

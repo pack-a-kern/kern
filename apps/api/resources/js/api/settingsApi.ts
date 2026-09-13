@@ -7,6 +7,9 @@ import {
     parseSettingGroups,
     parseSystemHealth,
 } from '../types/settings';
+// Both live in the Operations types because the services that produce them do — the settings screen
+// is where they are read, not where they are defined.
+import { type PlatformData, parsePlatformData } from '../types/operations';
 
 /**
  * `GET /api/v1/settings` — every group with each setting's effective value and provenance.
@@ -121,6 +124,16 @@ export async function fetchAiModels(draft: {
             : [],
         reason: typeof candidate.reason === 'string' ? candidate.reason : null,
     };
+}
+
+/**
+ * `GET /api/v1/settings/platform-data` — the official-source allowlist and how fresh each feed is.
+ *
+ * One request for both: "BNR is allowed" and "BNR last delivered nine days ago" are one answer split
+ * in half, and the screen shows them as neighbouring cards.
+ */
+export async function getPlatformData(): Promise<PlatformData> {
+    return parsePlatformData(JSON.parse(await apiRequest('/v1/settings/platform-data')));
 }
 
 /** `GET /api/v1/settings/health` — live state of the internal services this installation runs. */

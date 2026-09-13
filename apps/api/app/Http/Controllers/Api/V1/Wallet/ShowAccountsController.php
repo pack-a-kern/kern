@@ -25,16 +25,9 @@ final class ShowAccountsController extends Controller
 {
     public function __invoke(Request $request, WalletQuery $wallet, ConfigRepository $config): JsonResponse
     {
-        $validated = $request->validate([
-            'include_closed' => ['sometimes', 'boolean'],
-        ]);
-
-        $accounts = $wallet->accounts(
-            // `$request->boolean()`, not the validated array: the `boolean` rule validates the
-            // shape but hands back the raw `"1"` a query string carries, which is not `true` — so
-            // this switch silently did nothing and closed accounts were never listed.
-            includeClosed: $request->boolean('include_closed'),
-        );
+        // No `include_closed` any more: closing an account was a banking state this application
+        // had no use for, and a source is either there or deleted.
+        $accounts = $wallet->accounts();
 
         return response()->json([
             'accounts' => array_map(

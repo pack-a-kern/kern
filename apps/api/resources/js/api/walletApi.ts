@@ -28,25 +28,29 @@ export async function getWalletOverview(subjectId: string): Promise<WalletOvervi
  * There is no separate deposits call: a deposit *is* an account, distinguished by carrying terms.
  * The response also brings the deposit form's options, so the one add-form has one source for them.
  */
-export async function listAccounts(subjectId: string, includeClosed = false): Promise<AccountList> {
-    const query = includeClosed ? '?include_closed=1' : '';
-
+export async function listAccounts(subjectId: string): Promise<AccountList> {
     return parseAccounts(
-        JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts${query}`)),
+        JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts`)),
     );
 }
 
 /**
- * `PATCH .../wallet/accounts/{id}` — close an account, or reopen one.
+ * `PATCH .../wallet/accounts/{id}` — edit a source, and a deposit's terms with it.
  *
- * Closing is what deleting is not: the account stops appearing among the open ones and stops
- * counting toward totals, while every transaction it holds stays exactly where it is — because last
- * year's return was computed from them. `null` reopens it.
+ * Every field is optional and an omitted one is left alone, so a form that sends only what changed
+ * cannot blank the rest. `kind` is refused outright: it decides whether transactions may be recorded
+ * against the source at all, so changing it would reinterpret what is already stored.
+ *
+ * Editing a deposit re-computes the interest it has not yet paid, and leaves settled periods alone.
  */
-export async function setAccountClosedAt(subjectId: string, accountId: string, closedAt: string | null): Promise<void> {
+export async function updateAccount(
+    subjectId: string,
+    accountId: string,
+    body: UpdateAccountRequest,
+): Promise<void> {
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts/${encodeURIComponent(accountId)}`, {
         method: 'PATCH',
-        body: { closed_at: closedAt },
+        body,
     });
 }
 
@@ -89,10 +93,12 @@ export async function setDisplayCurrency(subjectId: string, currencyCode: string
 export interface OpenAccountRequest {
     display_name: string;
     kind: string;
-    currency_code: string;
-    institution_name?: string;
-    iban?: string;
-    opened_at?: string;
+    /** A default for the transaction form; required only for a deposit, which has one by nature. */
+    currency_code?: string;
+    /** A deposit's own start date — the day interest begins accruing. Deposits only. */
+    starts_at?: string;
+    /** What a cash holding is worth, in minor units. Cash only — it *is* the source's value. */
+    holding_amount_minor?: number;
 
     /*
      * Deposit terms. Sent only when `kind` is `TERM_DEPOSIT`, and rejected by the server for any
@@ -125,6 +131,14 @@ export interface OpenAccountRequest {
 }
 
 /**
+ * The editable half of a source.
+ *
+ * Structurally the same fields as opening one, minus `kind` — which the server rejects rather than
+ * ignores, so a caller cannot believe a change took effect that did not.
+ */
+export type UpdateAccountRequest = Partial<Omit<OpenAccountRequest, 'kind'>>;
+
+/**
  * `POST .../wallet/accounts` — the display name and IBAN are encrypted server-side under the
  * subject's own key, so both are sent as plain fields exactly once and never returned again.
  */
@@ -135,23 +149,6 @@ export async function openAccount(subjectId: string, body: OpenAccountRequest): 
     });
 }
 
-/**
- * `POST .../wallet/accounts/{id}/balance` — record an observed balance.
- *
- * A snapshot, not an update: an account has no balance column, only a history of observations. Each
- * one carries the date it was taken and whether a human verified it, so a figure derived from it
- * can say which observation it used.
- */
-export async function recordBalance(
-    subjectId: string,
-    accountId: string,
-    body: { balance_minor: number; as_of: string; is_verified?: boolean },
-): Promise<void> {
-    await apiRequest(
-        `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts/${encodeURIComponent(accountId)}/balance`,
-        { method: 'POST', body: { ...body } },
-    );
-}
 
 /** `GET .../wallet/transactions` — recent activity, newest first, capped. */
 export async function listTransactions(

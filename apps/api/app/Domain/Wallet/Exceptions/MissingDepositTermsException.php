@@ -20,10 +20,4 @@ final class MissingDepositTermsException extends InvalidArgumentException
     {
         return new self("An account of kind {$kind->value} requires deposit terms.");
     }
-
-    /** Interest is counted from the opening date, so a deposit without one cannot be computed. */
-    public static function withoutOpeningDate(): self
-    {
-        return new self('A term deposit requires an opening date to compute interest from.');
-    }
 }

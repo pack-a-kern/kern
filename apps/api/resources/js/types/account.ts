@@ -59,13 +59,28 @@ export function parseProfile(payload: unknown): Profile {
     };
 }
 
-export function parseSubjects(payload: unknown): TaxSubject[] {
+/** One page of taxpayers, in the shape the documents list already uses. */
+export interface SubjectsPage {
+    data: TaxSubject[];
+    page: number;
+    perPage: number;
+    total: number;
+    lastPage: number;
+}
+
+export function parseSubjectsPage(payload: unknown): SubjectsPage {
     const body = asRecord(payload, 'Subjects');
-    // The endpoint paginates; `data` is the page. A cursor is not surfaced yet because a person
-    // holding more tax subjects than one page is not a case this application has.
     const rows = Array.isArray(body.data) ? body.data : [];
 
-    return rows.map((entry): TaxSubject => {
+    // The pager's numbers, each falling back to what the page itself shows — an older response
+    // that omits them renders one honest page rather than an empty one.
+    const number = (key: string, fallback: number): number => {
+        const value = body[key];
+
+        return typeof value === 'number' ? value : fallback;
+    };
+
+    const data = rows.map((entry): TaxSubject => {
         const row = asRecord(entry, 'Subject');
 
         return {
@@ -79,4 +94,12 @@ export function parseSubjects(payload: unknown): TaxSubject[] {
             displayCurrency: str(row, 'display_currency'),
         };
     });
+
+    return {
+        data,
+        page: number('current_page', 1),
+        perPage: number('per_page', data.length),
+        total: number('total', data.length),
+        lastPage: number('last_page', 1),
+    };
 }

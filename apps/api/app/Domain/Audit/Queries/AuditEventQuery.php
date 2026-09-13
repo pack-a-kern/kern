@@ -20,36 +20,67 @@ use Illuminate\Support\Facades\DB;
  *    carries request context separately; inventing a severity here by classifying event types in
  *    the UI would put a judgement into an evidentiary record that the record does not make.
  *
- * Keyset pagination on `(chain_key, sequence)`, not `OFFSET`: the sequence is already the table's
- * natural, gapless order per chain, and an append-only log grows under the reader's feet, which is
- * exactly the case `OFFSET` gets wrong.
+ * ## Paging an append-only log by page number
+ *
+ * The screen offers numbered pages like every other list here, which needs a total and an offset —
+ * and an offset is exactly what a growing log gets wrong, because a row appended between two
+ * requests shifts every later page by one. So each run of paging is frozen to an **anchor**: the
+ * newest `occurred_at` at the moment the filters were applied. Every page, and the total, are
+ * computed within `occurred_at <= anchor`, so the window a person is reading through does not move
+ * while they read it, and events arriving meanwhile simply are not in it. The client sends the
+ * anchor back with each page and drops it when a filter changes.
+ *
+ * Ordered by `occurred_at`, not by `sequence`: `sequence` is per chain (`chain_key`), so ordering
+ * across chains by it interleaves unrelated counters. `id` breaks ties, so the order is total.
  */
 final readonly class AuditEventQuery
 {
     /**
-     * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, before_sequence?: int|null}  $filters
-     * @return array{events: list<array<string, mixed>>, next_cursor: int|null}
+     * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
+     * @return array{events: list<array<string, mixed>>, total: int, page: int, per_page: int, anchor: string|null}
      */
-    public function page(array $filters, int $limit): array
+    public function page(array $filters, int $perPage, int $page): array
     {
+        // Fixed before anything is counted or read, so the total and every page describe the same
+        // set of rows — see the class docblock.
+        $anchor = ($filters['anchor'] ?? null) ?? $this->newestOccurredAt($filters);
+        $filters['anchor'] = $anchor;
+
+        $total = $this->filtered($filters)->count();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max($page, 1), $pages);
+
         /** @var list<array<string, mixed>> $rows */
         $rows = $this->filtered($filters)
-            ->orderByDesc('a.sequence')
-            ->limit($limit + 1)
+            ->orderByDesc('a.occurred_at')
+            ->orderByDesc('a.id')
+            ->forPage($page, $perPage)
             ->get()
             ->map(static fn (object $row): array => (array) $row)
             ->all();
 
-        $hasMore = count($rows) > $limit;
-        $rows = array_slice($rows, 0, $limit);
-
-        $events = array_map($this->present(...), $rows);
-        $last = $events === [] ? null : $events[count($events) - 1]['sequence'];
-
         return [
-            'events' => $events,
-            'next_cursor' => $hasMore && is_int($last) ? $last : null,
+            'events' => array_map($this->present(...), $rows),
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'anchor' => $anchor,
         ];
+    }
+
+    /**
+     * The newest matching event's timestamp, which becomes the anchor for a run of paging.
+     *
+     * Null when nothing matches — there is then no window to freeze, and the filtered query leaves
+     * the bound off entirely.
+     *
+     * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
+     */
+    private function newestOccurredAt(array $filters): ?string
+    {
+        $newest = $this->filtered($filters)->max('a.occurred_at');
+
+        return is_scalar($newest) ? (string) $newest : null;
     }
 
     /**
@@ -80,7 +111,7 @@ final readonly class AuditEventQuery
     }
 
     /**
-     * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, before_sequence?: int|null}  $filters
+     * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
      */
     private function filtered(array $filters): QueryBuilder
     {
@@ -103,8 +134,8 @@ final readonly class AuditEventQuery
             $query->where('a.occurred_at', '>=', $filters['since']);
         }
 
-        if (($filters['before_sequence'] ?? null) !== null) {
-            $query->where('a.sequence', '<', $filters['before_sequence']);
+        if (($filters['anchor'] ?? null) !== null) {
+            $query->where('a.occurred_at', '<=', $filters['anchor']);
         }
 
         $term = $filters['q'] ?? null;

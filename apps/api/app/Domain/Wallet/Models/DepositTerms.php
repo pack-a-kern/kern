@@ -21,8 +21,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * account owns everything an account has; this row owns only what a *deposit* additionally is: a
  * principal locked for a term, at a rate, compounded or not, counted a particular way.
  *
- * `opened_at`, `currency_code` and `institution_name` are deliberately absent — read them from the
- * account. That is the whole point of the change.
+ * `starts_at` and `currency_code` moved back here once the account stopped being a bank
+ * relationship: a source may hold several products and cannot carry one start date or one currency
+ * for all of them, and `starts_at` is not metadata — it is the date interest begins accruing, the
+ * left edge of the span the rate periods must cover exactly.
  *
  * The primary key is `account_id`, so a second set of terms for the same account is not a state
  * this table can represent.
@@ -31,6 +33,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $tax_subject_id
  * @property string|null $funding_account_id
  * @property int $principal_minor
+ * @property \Illuminate\Support\Carbon $starts_at
+ * @property string $currency_code
  * @property \Illuminate\Support\Carbon $maturity_at
  * @property RateType $rate_type
  * @property InterestMethod $interest_method
@@ -57,6 +61,8 @@ final class DepositTerms extends Model
         'tax_subject_id',
         'funding_account_id',
         'principal_minor',
+        'starts_at',
+        'currency_code',
         'maturity_at',
         'rate_type',
         'interest_method',
@@ -68,6 +74,7 @@ final class DepositTerms extends Model
     /** @var array<string, string> */
     protected $casts = [
         'principal_minor' => 'integer',
+        'starts_at' => 'date',
         'maturity_at' => 'date',
         'rate_type' => RateType::class,
         'interest_method' => InterestMethod::class,

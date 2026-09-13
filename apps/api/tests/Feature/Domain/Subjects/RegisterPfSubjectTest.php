@@ -34,6 +34,7 @@ function registrationInput(string $userId, string $cnp = '1900101221144'): Regis
 {
     return new RegisterPfSubjectInput(
         registeringUserId: $userId,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Ion Popescu',
         firstName: 'Ion',
         lastName: 'Popescu',

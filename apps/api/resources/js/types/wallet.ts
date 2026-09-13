@@ -18,6 +18,9 @@
  * separate table and the separate screen it fed are what made them look like different things.
  */
 export interface DepositFacts {
+    /** The deposit's own currency — the source holding it may have none. */
+    currencyCode: string;
+    startsAt: string;
     principalMinor: number;
     maturityAt: string;
     /** The rate of the period covering today; a deposit has a series, not one rate. */
@@ -34,38 +37,34 @@ export interface DepositFacts {
     daysToMaturity: number;
 }
 
+/** One currency's worth of a source, summed from the transactions recorded against it. */
+export interface AccountBalance {
+    currencyCode: string;
+    amountMinor: number;
+}
+
 export interface AccountSummary {
     id: string;
     displayName: string;
-    institutionName: string;
     kind: string;
-    currencyCode: string;
-    /** Last four of the IBAN. The full value is encrypted and never sent to the browser. */
-    ibanLast4: string | null;
-    /** From the most recent balance snapshot. `null` means no observation yet — not zero. */
-    balanceMinor: number | null;
-    balanceAsOf: string | null;
-    balanceSource: string | null;
-    balanceVerified: boolean;
+    /** A default for the transaction form; null for a source that holds several currencies. */
+    currencyCode: string | null;
     /**
-     * True when the balance includes movements this system added on top of an observation — or when
-     * there was no observation at all and it is the movements alone.
+     * One figure per currency, derived from the transactions recorded against this source.
      *
-     * A snapshot is what a bank said on a day. Everything recorded since is arithmetic, and useful,
-     * but not the bank's word — so the screen says which it is showing.
+     * A list because a source is a folder: a broker holds euros and dollars, a crypto exchange
+     * holds several assets. An empty list means nothing has been recorded — which is different from
+     * zero, and the screen says so.
      */
-    balanceIsDerived: boolean;
+    balances: AccountBalance[];
     source: string;
-    openedAt: string | null;
-    closedAt: string | null;
-    closed: boolean;
-    /** Null for every kind of account except a term deposit. */
+    /** Null for every kind of source except a term deposit. */
     deposit: DepositFacts | null;
 }
 
 export interface DepositSummary {
     id: string;
-    institutionName: string;
+    displayName: string;
     currencyCode: string;
     principalMinor: number;
     /** The rate of the period covering today; a deposit has a series, not one rate. */
@@ -176,7 +175,50 @@ export interface WalletOverview {
  * a label, and the server re-validates with `Rule::enum`, so a stale entry here is rejected rather
  * than stored.
  */
-export const ACCOUNT_KINDS = ['BANK_CURRENT', 'BANK_SAVINGS', 'CASH', 'TERM_DEPOSIT', 'BROKER', 'OTHER'] as const;
+/**
+ * The kinds a source can be, in the order a form offers them.
+ *
+ * `GENERAL` is created with the taxpayer and never chosen from a form, so it is listed for labelling
+ * but filtered out of the "new source" select — see `STREAM_KINDS` for the split that decides where
+ * a transaction may be recorded.
+ */
+export const ACCOUNT_KINDS = ['GENERAL', 'CASH', 'TERM_DEPOSIT', 'BROKER', 'CRYPTO', 'OTHER'] as const;
+
+/**
+ * Sources that receive transactions: typed by hand or parsed out of a statement.
+ *
+ * The others — cash and term deposits — are a single declared value or a schedule computed from
+ * one, so posting an arbitrary transaction into them detaches the ledger from the thing it
+ * describes. The form offers only these; the server enforces the same rule where a form cannot.
+ */
+export const STREAM_KINDS = ['GENERAL', 'BROKER', 'CRYPTO', 'OTHER'] as const;
+
+export type StreamKind = (typeof STREAM_KINDS)[number];
+
+/**
+ * The kinds a person can actually open.
+ *
+ * `GENERAL` is not among them: it is created with the taxpayer and there is exactly one, so
+ * offering it in a form would invite a second that means nothing.
+ */
+export const OPENABLE_KINDS = ACCOUNT_KINDS.filter((kind) => kind !== 'GENERAL');
+
+/** Whether transactions may be recorded against a source of this kind. */
+export function isStreamKind(kind: string): boolean {
+    return (STREAM_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * What to call a source on screen.
+ *
+ * `GENERAL` is the system's own source — created with the taxpayer, never named by anyone — so it
+ * carries no stored name and the screen supplies one. Everything else is called what its owner
+ * called it.
+ */
+export function sourceName(account: { kind: string; displayName: string }, generalLabel: string): string {
+    return account.kind === 'GENERAL' ? generalLabel : account.displayName;
+}
+
 
 /**
  * Currencies offered in the forms. RON first because this is a Romanian tax product; the rest are
@@ -296,19 +338,17 @@ function parseAccount(payload: unknown): AccountSummary {
     return {
         id: str(row, 'id'),
         displayName: str(row, 'display_name'),
-        institutionName: str(row, 'institution_name'),
         kind: str(row, 'kind'),
-        currencyCode: str(row, 'currency_code'),
-        ibanLast4: nullableStr(row, 'iban_last4'),
-        balanceMinor: nullableNum(row, 'balance_minor'),
-        balanceAsOf: nullableStr(row, 'balance_as_of'),
-        balanceSource: nullableStr(row, 'balance_source'),
-        balanceVerified: row.balance_verified === true,
-        balanceIsDerived: row.balance_is_derived === true,
+        currencyCode: nullableStr(row, 'currency_code'),
+        balances: (Array.isArray(row.balances) ? row.balances : []).map((entry): AccountBalance => {
+            const balance = obj(entry);
+
+            return {
+                currencyCode: str(balance, 'currency_code'),
+                amountMinor: num(balance, 'amount_minor'),
+            };
+        }),
         source: str(row, 'source'),
-        openedAt: nullableStr(row, 'opened_at'),
-        closedAt: nullableStr(row, 'closed_at'),
-        closed: row.closed === true,
         deposit: parseDepositFacts(row.deposit),
     };
 }
@@ -321,6 +361,8 @@ function parseDepositFacts(payload: unknown): DepositFacts | null {
     const row = obj(payload);
 
     return {
+        currencyCode: str(row, 'currency_code'),
+        startsAt: str(row, 'starts_at'),
         principalMinor: num(row, 'principal_minor'),
         maturityAt: str(row, 'maturity_at'),
         annualRate: nullableStr(row, 'annual_rate'),
@@ -340,7 +382,7 @@ function parseDeposit(payload: unknown): DepositSummary {
 
     return {
         id: str(row, 'id'),
-        institutionName: str(row, 'institution_name'),
+        displayName: str(row, 'display_name'),
         currencyCode: str(row, 'currency_code'),
         principalMinor: num(row, 'principal_minor'),
         annualRate: nullableStr(row, 'annual_rate'),

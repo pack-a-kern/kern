@@ -8,7 +8,7 @@ use App\Domain\Operations\DataTransferObjects\TaskArgument;
 
 /**
  * The closed set of background operations an administrator may run or pause from
- * `/admin/operatiuni`.
+ * the Tasks tab of `/jurnale`.
  *
  * This enum is the allowlist, and it is an enum on purpose. The alternative — a table or a config
  * array holding the artisan command to execute — is remote code execution behind an administration

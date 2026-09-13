@@ -15,6 +15,8 @@ final readonly class RegisterPfaSubjectInput
 {
     public function __construct(
         public string $registeringUserId,
+        /** @var list<string> platform roles, which decide how many taxpayers the account may own. */
+        public array $registeringUserRoles,
         public string $displayName,
         public string $tradeName,
         public string $registrationNumber,

@@ -10,6 +10,7 @@ use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Http\Controllers\Controller;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,7 +40,18 @@ final class RecordTransactionController extends Controller
         TenantContext $tenant,
     ): JsonResponse {
         $validated = $request->validate([
-            'account_id' => ['required', 'uuid'],
+            // Only a source that receives transactions. A cash holding is one declared value and a
+            // deposit's entries are computed from its terms, so posting into either detaches the
+            // ledger from the thing it describes. Rejected here as a field error rather than left
+            // to `RecordFinancialTransaction`'s own guard, which is the backstop for an importer
+            // that never passed through a form.
+            'account_id' => ['required', 'uuid', function (string $attribute, mixed $value, Closure $fail): void {
+                $account = FinancialAccount::query()->find(is_string($value) ? $value : '');
+
+                if ($account !== null && $account->kind->isHolding()) {
+                    $fail("A {$account->kind->value} source does not receive transactions.");
+                }
+            }],
             // Signed minor units: money out is negative, money in positive. A separate
             // "direction" field would let the sign and the direction disagree.
             'amount_minor' => ['required', 'integer', 'not_in:0'],

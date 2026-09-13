@@ -25,8 +25,6 @@ enum WalletAuditEvent: string
     case TRANSACTION_UPDATED = 'WalletTransactionUpdated';
     case TRANSACTION_DELETED = 'WalletTransactionDeleted';
 
-    case BALANCE_RECORDED = 'WalletBalanceRecorded';
-
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
@@ -34,7 +32,6 @@ enum WalletAuditEvent: string
             self::TRANSACTION_RECORDED,
             self::TRANSACTION_UPDATED,
             self::TRANSACTION_DELETED => 'FinancialTransaction',
-            self::BALANCE_RECORDED => 'AccountBalanceSnapshot',
             default => 'FinancialAccount',
         };
     }

@@ -13,7 +13,7 @@
 #   edge_net        edge, app, reverb                              — not internal
 #   app_net         app, queue, scheduler, reverb,          — internal
 #                   redis, openbao
-#   processing_net  app, python-api, python-worker,         — not internal
+#   processing_net  app, python-api,                        — not internal
 #                   minio, clamav
 #   data_net        postgres, redis, minio, app, queue,     — internal
 #                   scheduler, reverb
@@ -439,47 +439,6 @@ services:
           memory: ${PYTHON_API_MEMORY:-1G}
     restart: unless-stopped
 
-  python-worker:
-    build:
-      context: .
-      dockerfile: docker/python/Dockerfile
-    # PLACEHOLDER: apps/processing has no distinct worker entrypoint yet
-    # (only the FastAPI app python-api also runs) — see
-    # docs/handoff/001-docker-topology.md "What is NOT done". This keeps the
-    # container up and observable instead of exiting, without pretending a
-    # real worker loop exists.
-    command:
-      [
-        "python",
-        "-c",
-        "import time; print('python-worker: no worker entrypoint yet — see docs/handoff/001-docker-topology.md', flush=True); time.sleep(2**31)",
-      ]
-    networks:
-      - processing_net
-    read_only: true
-    tmpfs:
-      - /tmp:mode=1777
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    healthcheck:
-      test: ["CMD", "pgrep", "-f", "python"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "2.00"
-          memory: 1024M
-    restart: unless-stopped
-
-  # -------------------------------------------------------------------------
-  # SPV browser worker — BLUEPRINT.md §13. No Postgres credentials, no
-  # persistent profile (ephemeral per session, §3.4).
-  # -------------------------------------------------------------------------
   spv-browser:
     build:
       context: .

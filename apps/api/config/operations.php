@@ -54,18 +54,9 @@ return [
         // start two imports over the same day. Longer than the slowest task, and self-expiring so
         // a crashed worker cannot wedge a task permanently.
         'lock_seconds' => (int) env('OPERATIONS_RUN_LOCK_SECONDS', 1800),
-        // Rows shown per page in the run history.
-        'page_size' => (int) env('OPERATIONS_RUNS_PAGE_SIZE', 20),
         // Hard cap on how much of a command's console output is stored on the run row. The output
         // is an operator diagnostic, not a log store.
         'max_output_bytes' => (int) env('OPERATIONS_RUN_MAX_OUTPUT_BYTES', 4000),
-    ],
-
-    // The background-activity feed merges `job_runs` with Laravel's `failed_jobs` in PHP rather than
-    // in SQL (see App\Domain\Operations\Services\ReadBackgroundActivity for why), so paging is
-    // bounded by how many rows it reads. This is how far back the feed can see.
-    'activity' => [
-        'window' => (int) env('OPERATIONS_ACTIVITY_WINDOW', 200),
     ],
 
     'freshness' => [
@@ -75,8 +66,6 @@ return [
         // A document that has sat in a non-terminal status longer than this is stuck, not busy.
         // Horizon's queue depth will not show these: the job already finished, unsuccessfully.
         'document_stuck_after_minutes' => (int) env('OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES', 60),
-        // Failed jobs are listed newest first; the screen never pretends to page through thousands.
-        'failed_jobs_limit' => (int) env('OPERATIONS_FAILED_JOBS_LIMIT', 50),
     ],
 
     'legislation' => [

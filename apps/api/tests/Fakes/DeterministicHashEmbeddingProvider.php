@@ -18,12 +18,22 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
  * one, so tests that assert "the hybrid ranking combines lexical and semantic signal" are testing
  * real arithmetic behaviour of `HybridLegislationSearch`'s SQL, not a canned fixture number.
  *
- * Dimension fixed at 64 to match `source_section_chunks.embedding`'s column type
- * (`2026_09_08_301101_create_source_section_chunks_table.php`).
+ * The dimension is read from `config('retrieval.embedding.dimension')` rather than fixed here.
+ * `source_section_chunks.embedding` is a `vector(N)` column and pgvector rejects any other width
+ * outright, so a literal in this file is a literal that has to be changed in lockstep with a
+ * migration — which is exactly what did not happen when
+ * `2026_09_09_600000_widen_source_section_chunk_embeddings.php` widened the column from the
+ * original 64 to 384 and left every embedding test failing with "expected 384 dimensions, not 64".
  */
 final class DeterministicHashEmbeddingProvider implements EmbeddingProvider
 {
-    public const int DIMENSION = 64;
+    /** The width the column actually has — the same value `EmbedIndexedChunks` asserts against. */
+    public static function dimension(): int
+    {
+        $configured = config('retrieval.embedding.dimension');
+
+        return is_int($configured) && $configured > 0 ? $configured : 384;
+    }
 
     public function embed(array $texts, EmbeddingPurpose $purpose = EmbeddingPurpose::PASSAGE): array
     {
@@ -37,7 +47,8 @@ final class DeterministicHashEmbeddingProvider implements EmbeddingProvider
 
     private function embedOne(string $text): EmbeddingVector
     {
-        $values = array_fill(0, self::DIMENSION, 0.0);
+        $dimension = self::dimension();
+        $values = array_fill(0, $dimension, 0.0);
 
         $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($text)) ?: [];
 
@@ -46,7 +57,7 @@ final class DeterministicHashEmbeddingProvider implements EmbeddingProvider
                 continue;
             }
 
-            $index = abs(crc32($word)) % self::DIMENSION;
+            $index = abs(crc32($word)) % $dimension;
             $values[$index] += 1.0;
         }
 
@@ -61,6 +72,6 @@ final class DeterministicHashEmbeddingProvider implements EmbeddingProvider
             $values[0] = 1.0;
         }
 
-        return new EmbeddingVector($values);
+        return new EmbeddingVector(array_values($values));
     }
 }

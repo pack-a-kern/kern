@@ -1,13 +1,15 @@
+import { AlignLeft, Banknote, Building2 } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { createTransactionFromDocument } from '../../api/documentsApi';
 import { listAccounts } from '../../api/walletApi';
 import { useEffect } from 'react';
+import { PanelDate } from '../PanelDatePicker';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import type { DocumentExtractionSummary, DocumentSummary } from '../../types/documents';
-import type { AccountSummary } from '../../types/wallet';
+import { CURRENCIES, isStreamKind, sourceName, type AccountSummary } from '../../types/wallet';
 import { ButtonGroup, Field, FieldGrid, PanelButton, PanelDialog, PanelInput, PanelSelect } from '../panel';
 
 /**
@@ -55,9 +57,9 @@ export default function CreateTransactionDialog({
         listAccounts(subjectId).then(
             (page) => {
                 if (active) {
-                    // Closed accounts are excluded: money cannot move through one, so offering it
-                    // would only produce a transaction nobody can explain.
-                    setAccounts(page.accounts.filter((account) => !account.closed));
+                    // Only sources that receive transactions. A cash holding is one declared value
+                    // and a deposit's entries come from its terms, so neither can take a document's.
+                    setAccounts(page.accounts.filter((account) => isStreamKind(account.kind)));
                 }
             },
             () => {
@@ -90,7 +92,10 @@ export default function CreateTransactionDialog({
             await createTransactionFromDocument(subjectId, document.id, {
                 account_id: account.id,
                 amount_minor: form.direction === 'out' ? -magnitude : magnitude,
-                currency_code: account.currencyCode,
+                // The source's default when it has one; otherwise the form's own choice.
+                // The source's default when it has one — a broker or a crypto source holds
+                // several currencies and carries none, so the first offered one stands in.
+                currency_code: account.currencyCode ?? CURRENCIES[0],
                 booked_at: form.booked_at,
                 description: form.description,
                 ...(form.counterparty === '' ? {} : { counterparty: form.counterparty }),
@@ -165,7 +170,12 @@ export default function CreateTransactionDialog({
                         }}
                         options={accounts.map((candidate) => ({
                             value: candidate.id,
-                            label: `${candidate.displayName} · ${candidate.currencyCode}`,
+                            // A source may hold several currencies and carry no default,
+                            // so only name it when there is one.
+                            label:
+                                candidate.currencyCode === null
+                                    ? sourceName(candidate, t((d) => d.pages.wallet.generalSource))
+                                    : `${sourceName(candidate, t((d) => d.pages.wallet.generalSource))} · ${candidate.currencyCode}`,
                         }))}
                     />
                 </Field>
@@ -193,6 +203,7 @@ export default function CreateTransactionDialog({
                     hint={t((d) => d.documentsReview.transactionAmountHint)}
                 >
                     <PanelInput
+                        icon={<Banknote className="size-3.5" />}
                         id="transaction-amount"
                         type="number"
                         min={0}
@@ -209,12 +220,10 @@ export default function CreateTransactionDialog({
                     htmlFor="transaction-date"
                     error={errors.get('booked_at')}
                 >
-                    <PanelInput
-                        id="transaction-date"
-                        type="date"
-                        value={form.booked_at}
-                        onChange={(event) => {
-                            setForm((current) => ({ ...current, booked_at: event.target.value }));
+                    <PanelDate
+                        value={form.booked_at === '' ? null : form.booked_at}
+                        onChange={(next) => {
+                            setForm((current) => ({ ...current, booked_at: next ?? '' }));
                         }}
                     />
                 </Field>
@@ -225,6 +234,7 @@ export default function CreateTransactionDialog({
                     error={errors.get('description')}
                 >
                     <PanelInput
+                        icon={<AlignLeft className="size-3.5" />}
                         id="transaction-description"
                         value={form.description}
                         onChange={(event) => {
@@ -239,6 +249,7 @@ export default function CreateTransactionDialog({
                     error={errors.get('counterparty')}
                 >
                     <PanelInput
+                        icon={<Building2 className="size-3.5" />}
                         id="transaction-counterparty"
                         value={form.counterparty}
                         onChange={(event) => {

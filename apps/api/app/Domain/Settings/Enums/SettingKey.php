@@ -49,6 +49,15 @@ enum SettingKey: string
     case SPV_REQUEST_TIMEOUT_SECONDS = 'spv.request_timeout_seconds';
 
     // Authentication (BLUEPRINT.md §4.7).
+    /**
+     * Whether a stranger can create an account.
+     *
+     * A runtime setting rather than an env var because "open for sign-ups" is an operational policy
+     * an owner changes — and changes back — not a property of the deployment. The switch is enforced
+     * by `RegistrationController`, not merely hidden in the interface.
+     */
+    case IDENTITY_REGISTRATION_ENABLED = 'identity.registration_enabled';
+
     case SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS = 'security.webauthn_challenge_ttl_seconds';
     case SECURITY_WEBAUTHN_TIMEOUT_MS = 'security.webauthn_timeout_ms';
     case SECURITY_SESSION_LIFETIME_MINUTES = 'security.session_lifetime_minutes';
@@ -113,6 +122,7 @@ enum SettingKey: string
             self::SPV_MESSAGES_WINDOW_DAYS, self::SPV_CHALLENGE_TTL_SECONDS,
             self::SPV_REQUEST_TIMEOUT_SECONDS => SettingGroup::SPV,
 
+            self::IDENTITY_REGISTRATION_ENABLED,
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
             self::SECURITY_SESSION_LIFETIME_MINUTES, self::CRYPTO_BLIND_INDEX_VERSION,
             self::CRYPTO_KMS_DRIVER, self::SECURITY_HASH_DRIVER => SettingGroup::SECURITY,
@@ -144,6 +154,7 @@ enum SettingKey: string
             self::SPV_MESSAGES_WINDOW_DAYS => 'spv.anaf_api.messages_window_days',
             self::SPV_CHALLENGE_TTL_SECONDS => 'spv.challenge_ttl_seconds',
             self::SPV_REQUEST_TIMEOUT_SECONDS => 'spv.browser_worker.timeout_seconds',
+            self::IDENTITY_REGISTRATION_ENABLED => 'identity.registration.enabled',
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS => 'webauthn.challenge_ttl_seconds',
             self::SECURITY_WEBAUTHN_TIMEOUT_MS => 'webauthn.timeout_ms',
             self::SECURITY_SESSION_LIFETIME_MINUTES => 'session.lifetime',
@@ -157,7 +168,7 @@ enum SettingKey: string
     public function type(): SettingType
     {
         return match ($this) {
-            self::AI_ENABLED => SettingType::BOOLEAN,
+            self::AI_ENABLED, self::IDENTITY_REGISTRATION_ENABLED => SettingType::BOOLEAN,
             self::AI_API_KEY => SettingType::SECRET,
             self::AI_BASE_URL, self::SOURCES_BNR_DAILY_URL,
             self::SOURCES_BNR_YEARLY_URL_TEMPLATE => SettingType::URL,

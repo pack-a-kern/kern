@@ -23,10 +23,10 @@ final class ListSubjectsController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
-        $cursor = $request->query('cursor');
+        $page = max(1, $request->integer('page', 1));
         $perPage = max(1, min(100, $request->integer('per_page', 20)));
 
-        $paginator = $listSubjects($user->id, is_string($cursor) ? $cursor : null, $perPage)
+        $paginator = $listSubjects($user->id, $page, $perPage)
             ->through(static fn (SubjectSummary $summary): array => $summary->toArray());
 
         return response()->json($paginator);

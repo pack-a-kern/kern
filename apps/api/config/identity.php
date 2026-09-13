@@ -6,6 +6,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registration
+    |--------------------------------------------------------------------------
+    |
+    | The fallback behind `SettingKey::IDENTITY_REGISTRATION_ENABLED`, used
+    | until someone saves a value from the settings screen. Open by default:
+    | an instance nobody has configured yet still has to let its first owner
+    | in, and `RegistrationController` keeps that possible even when this is
+    | off — see its docblock on the empty-instance case.
+    |
+    */
+
+    'registration' => [
+        'enabled' => (bool) env('REGISTRATION_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | TOTP (BLUEPRINT.md §4.7 — the MFA fallback)
     |--------------------------------------------------------------------------
     |

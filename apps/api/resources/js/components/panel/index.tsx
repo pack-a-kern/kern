@@ -1,4 +1,9 @@
-import { cloneElement, isValidElement } from 'react';
+import CustomSelect from '../CustomSelect';
+import { useTranslation } from '../../i18n';
+import { Link } from '@inertiajs/react';
+import { setPageHeader } from '../../lib/pageHeader';
+import { iconForInputType } from '../../lib/inputIcons';
+import { useEffect, cloneElement, isValidElement } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
 import { SearchIcon } from 'lucide-react';
 
@@ -7,7 +12,6 @@ import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '../../lib/utils';
 
 export { QrCode } from './QrCode';
@@ -31,58 +35,169 @@ export { QrCode } from './QrCode';
 export function Panel(props: {
     title: string;
     description?: string;
+    /** An icon for the head's leading tile. A card without one still aligns, it just has no mark. */
+    icon?: ReactNode;
     /** The body reaches the card's edges — for a table or a toolbar, which draw their own rules. */
     flush?: boolean;
-    /** Right-hand side of the card head — a switch, a status, a badge. */
+    /** Right-hand side of the card head — an action, a switch, a status. */
     aside?: ReactNode;
     children: ReactNode;
-    /** Left side of the foot: a short explanatory note, not a control. */
+    /** Left side of the foot: a short explanatory note or a count. */
     footNote?: ReactNode;
-    /** Right side of the foot: the card's actions, primary last. */
+    /** Right side of the foot: the card's actions. */
     footActions?: ReactNode;
+    /**
+     * The whole foot, for something that lays itself out across the full width — a pager, which is
+     * a summary at one end and controls at the other and has to own the space between them. Its
+     * children become direct children of the foot's flex row, so passing it through `footNote`
+     * instead nests them in a block and they stack.
+     */
+    foot?: ReactNode;
     className?: string;
 }): JSX.Element {
-    const hasFoot = props.footNote !== undefined || props.footActions !== undefined;
+    const hasFoot = props.footNote !== undefined || props.footActions !== undefined || props.foot !== undefined;
 
     return (
-        <Card
-            className={cn(
-                'panel mb-3.5 gap-0 break-inside-avoid',
-                props.flush === true && 'panel-flush',
-                props.className,
-            )}
-        >
+        <Card className={cn('panel gap-0 break-inside-avoid', props.flush === true && 'panel-flush', props.className)}>
             <div className="panel-head">
-                <div className="min-w-0">
-                    <h2 className="text-sm leading-tight font-semibold">{props.title}</h2>
-                    {props.description !== undefined ? <p className="note mt-1">{props.description}</p> : null}
+                <div className="flex min-w-0 items-center gap-2.5">
+                    {props.icon !== undefined && <div className="panel-head-icon">{props.icon}</div>}
+                    <div className="min-w-0">
+                        <h2 className="panel-title truncate">{props.title}</h2>
+                        {props.description !== undefined && <p className="panel-subtitle">{props.description}</p>}
+                    </div>
                 </div>
-                {props.aside !== undefined ? <div className="shrink-0">{props.aside}</div> : null}
+                {props.aside !== undefined && <div className="shrink-0">{props.aside}</div>}
             </div>
 
-            {props.children}
+            <div className="panel-body">{props.children}</div>
 
-            {hasFoot ? (
+            {hasFoot && (
                 <div className="panel-foot">
-                    <span className="note">{props.footNote}</span>
-                    <div className="flex shrink-0 gap-1.5">{props.footActions}</div>
+                    {props.foot ?? (
+                        <>
+                            <div className="text-muted-foreground min-w-0 text-[10px]">{props.footNote}</div>
+                            <div className="flex shrink-0 items-center gap-2">{props.footActions}</div>
+                        </>
+                    )}
                 </div>
-            ) : null}
+            )}
         </Card>
+    );
+}
+
+/**
+ * What a card shows when it has nothing to show.
+ *
+ * A sentence of grey text was doing this job, and a sentence reads as "something failed" rather
+ * than "there is nothing here yet". An empty state is a small composition: a mark, what is missing,
+ * one line explaining how it gets filled, and the action that fills it — so the screen stays a
+ * place you can start from instead of a dead end.
+ *
+ * Shared rather than per-page: every list in this app will need one, and they should be the same
+ * shape so an empty documents list and an empty accounts list do not look like different products.
+ */
+export function EmptyState(props: {
+    icon: ReactNode;
+    title: string;
+    description?: string;
+    action?: ReactNode;
+}): JSX.Element {
+    return (
+        <div className="flex flex-col items-center px-6 py-12 text-center">
+            <div className="bg-secondary text-muted-foreground grid size-11 place-items-center rounded-2xl">
+                {props.icon}
+            </div>
+            <p className="mt-3 text-sm font-semibold">{props.title}</p>
+            {props.description !== undefined && (
+                <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-5">{props.description}</p>
+            )}
+            {props.action !== undefined && <div className="mt-4">{props.action}</div>}
+        </div>
+    );
+}
+
+/**
+ * A row of related actions, joined into one control.
+ *
+ * Distinct from {@link ButtonGroup} above, which is a segmented *toggle*: that one picks a value
+ * and reports `aria-pressed`. This one runs commands — review or delete a row, rename or file a
+ * document — and nothing stays pressed afterwards.
+ *
+ * They share `.btn-group`'s joining, so a group of actions and a group of choices sit on the same
+ * grid and round the same way. Each segment is a real `PanelButton`, so hover, focus, disabled and
+ * the control height come from the same place as every other button in the app rather than from a
+ * parallel set of rules.
+ *
+ * An action may navigate instead of firing a handler — a link and a button look identical here and
+ * must, because "open this" and "delete this" sit side by side and read as one set.
+ */
+export function ActionGroup(props: {
+    actions: Array<{
+        key: string;
+        label: ReactNode;
+        icon?: ReactNode;
+        /** Colours the icon only. Whole-button colour would break the group into separate objects. */
+        tone?: 'primary' | 'destructive';
+        /** Shown instead of the label when the label is an icon alone. */
+        title?: string;
+        onClick?: () => void;
+        href?: string;
+        disabled?: boolean;
+    }>;
+    className?: string;
+}): JSX.Element {
+    return (
+        <div className={cn('btn-group', props.className)} role="group">
+            {props.actions.map((action) => {
+                const content = (
+                    <>
+                        {action.icon}
+                        {action.label}
+                    </>
+                );
+
+                return action.href === undefined ? (
+                    <Button
+                        key={action.key}
+                        type="button"
+                        variant="ghost"
+                        className="ctl font-semibold"
+                        data-tone={action.tone}
+                        aria-label={action.title}
+                        disabled={action.disabled ?? false}
+                        onClick={action.onClick}
+                    >
+                        {content}
+                    </Button>
+                ) : (
+                    <Button key={action.key} asChild variant="ghost" className="ctl font-semibold" data-tone={action.tone}>
+                        <Link href={action.href} aria-label={action.title}>
+                            {content}
+                        </Link>
+                    </Button>
+                );
+            })}
+        </div>
     );
 }
 
 /** The outer wrapper every screen uses: a vertical rhythm plus the page heading. */
 export function Page(props: { title: string; lede?: string; actions?: ReactNode; children: ReactNode }): JSX.Element {
+    // The title and lede are published to the shell's topbar rather than drawn here — one heading
+    // per screen, in the same place on every screen. `actions` stay with the content, where they
+    // act on what is below them.
+    useEffect(() => {
+        setPageHeader({ title: props.title, description: props.lede });
+
+        return () => {
+            setPageHeader(null);
+        };
+    }, [props.title, props.lede]);
+
     return (
         <div className="page-stack">
-            <header className="page-head">
-                <div>
-                    <h1 className="page-title">{props.title}</h1>
-                    {props.lede !== undefined ? <p className="page-lede max-w-2xl">{props.lede}</p> : null}
-                </div>
-                {props.actions}
-            </header>
+            {props.actions !== undefined && <header className="page-head justify-end">{props.actions}</header>}
 
             {props.children}
         </div>
@@ -108,11 +223,11 @@ export function FieldSpan({ children }: { children: ReactNode }): JSX.Element {
 export const CONTROL = 'ctl';
 
 /**
- * Label, optional right-hand marker, and hint, arranged identically for every control.
+ * Label, optional leading mark, and hint, arranged identically for every control.
  *
- * The label row is `justify-between`, so a marker sits flush against the field's right edge and
- * every marker on a card lines up in a column. Placing it right after the label text instead
- * leaves them at ragged positions, which reads as untidy across a page of cards.
+ * The mark goes *before* the label, never after it: at the row's right edge the marks land at
+ * ragged positions set by each label's length, while a leading column of them lines up down the
+ * card and can be scanned without reading a single label.
  */
 export function Field(props: {
     label: string;
@@ -123,7 +238,6 @@ export function Field(props: {
     /** Appended to the label in parentheses, e.g. `MB`. Never rendered inside the input: the unit
      *  would collide with a number input's spinner arrows. */
     unit?: string | undefined;
-    marker?: ReactNode;
     hint?: ReactNode;
     htmlFor?: string;
     children: ReactNode;
@@ -138,10 +252,9 @@ export function Field(props: {
         <div className={cn('min-w-0', invalid && 'field-invalid', props.className)}>
             <div className="field-label-row">
                 {props.mark}
-                <Label htmlFor={props.htmlFor} className={cn('field-label', props.marker != null && 'truncate')}>
+                <Label htmlFor={props.htmlFor} className="field-label truncate">
                     {props.unit !== undefined && props.unit !== '' ? `${props.label} (${props.unit})` : props.label}
                 </Label>
-                {props.marker}
             </div>
 
             {/* `aria-invalid` on the control as well, so it is announced as invalid and not only
@@ -188,12 +301,18 @@ export function MetricGrid({ children }: { children: ReactNode }): JSX.Element {
     return <div className="grid grid-cols-2 gap-[9px]">{children}</div>;
 }
 
-export function Metric(props: { label: string; value: string; marker?: ReactNode }): JSX.Element {
+export function Metric(props: {
+    label: string;
+    value: string;
+    /** A small state indicator shown *before* the label — provenance, a lock. As in {@link Field},
+     *  so a tile and a field carry the same mark in the same place. */
+    mark?: ReactNode;
+}): JSX.Element {
     return (
         <div className="metric bg-muted/30 border">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+                {props.mark}
                 <span className="metric-label truncate">{props.label}</span>
-                {props.marker}
             </div>
             <strong className="metric-value">{props.value}</strong>
         </div>
@@ -213,7 +332,7 @@ export function Metric(props: { label: string; value: string; marker?: ReactNode
  */
 export function PanelInput({
     className,
-    icon,
+    icon: passedIcon,
     iconPosition = 'leading',
     affix,
     addonStart,
@@ -222,7 +341,8 @@ export function PanelInput({
     actionEnd,
     ...props
 }: ComponentProps<typeof Input> & {
-    icon?: ReactNode;
+    /** Omit to take the icon the field's `type` implies; `null` for none at all. */
+    icon?: ReactNode | null;
     iconPosition?: 'leading' | 'trailing';
     affix?: ReactNode;
     /** A static cell fused to the field — a scheme, a currency, a unit. */
@@ -232,6 +352,10 @@ export function PanelInput({
     actionStart?: ReactNode;
     actionEnd?: ReactNode;
 }): JSX.Element {
+    // The type's own icon unless the caller named one. `icon={null}` is the opt-out, for a field
+    // whose type would suggest something misleading.
+    const icon = passedIcon === undefined ? iconForInputType(props.type) : (passedIcon ?? undefined);
+
     const grouped =
         addonStart !== undefined || addonEnd !== undefined || actionStart !== undefined || actionEnd !== undefined;
 
@@ -318,10 +442,10 @@ export function ButtonGroup<T extends string>(props: {
                     <Button
                         key={option.value}
                         type="button"
-                        variant={pressed ? 'secondary' : 'outline'}
+                        variant={pressed ? 'secondary' : 'ghost'}
                         aria-pressed={pressed}
                         title={option.title}
-                        className={cn('ctl px-2.5 font-semibold', pressed && 'border-ring')}
+                        className="ctl px-2.5 font-semibold"
                         onClick={() => {
                             props.onChange(option.value);
                         }}
@@ -364,35 +488,60 @@ export function PanelSelect(props: {
     placeholder?: string;
     /** Adds a first item that clears the selection, e.g. "All roles". */
     emptyLabel?: string;
-    options: Array<{ value: string; label: string }>;
+    /**
+     * The clearing row's own mark and hint.
+     *
+     * Without them that row is the one option in the list with no icon, which leaves a ragged
+     * column and — since the trigger shows the chosen option's mark — a control that loses its mark
+     * whenever the filter is off. "No filter" is a choice like any other and looks like one.
+     */
+    emptyIcon?: ReactNode;
+    emptyDescription?: string;
+    options: Array<{ value: string; label: string; description?: string; icon?: ReactNode }>;
+    /** Shows a search box above the list. Worth it past roughly a dozen options, not before. */
+    searchable?: boolean;
+    /** `tile` sets each option's icon in a rounded square; `bare` draws it as-is, for a dot. */
+    optionVisual?: 'tile' | 'bare';
     id?: string;
+    /** A select the viewer may read but not change — the same meaning `disabled` has on an input. */
+    disabled?: boolean;
     className?: string;
+    'aria-label'?: string;
 }): JSX.Element {
-    const selected = props.value === undefined || props.value === '' ? undefined : props.value;
+    const { t } = useTranslation();
+
+    // The clear-selection row is an option like any other, so it can be searched past and arrowed
+    // through rather than being a special case the keyboard has to know about.
+    const options =
+        props.emptyLabel === undefined
+            ? props.options
+            : [
+                  {
+                      value: NO_SELECTION,
+                      label: props.emptyLabel,
+                      ...(props.emptyIcon === undefined ? {} : { icon: props.emptyIcon }),
+                      ...(props.emptyDescription === undefined ? {} : { description: props.emptyDescription }),
+                  },
+                  ...props.options,
+              ];
 
     return (
-        <Select
-            {...(selected === undefined ? {} : { value: selected })}
-            onValueChange={(value) => {
-                props.onValueChange(value === NO_SELECTION ? '' : value);
+        <CustomSelect
+            options={options}
+            value={props.value === undefined || props.value === '' ? NO_SELECTION : props.value}
+            onChange={(value) => {
+                props.onValueChange(value === null || value === NO_SELECTION ? '' : String(value));
             }}
-        >
-            <SelectTrigger id={props.id} size="default" className={cn(CONTROL, 'w-full min-w-0', props.className)}>
-                <SelectValue placeholder={props.placeholder} />
-            </SelectTrigger>
-            <SelectContent sideOffset={4}>
-                {props.emptyLabel !== undefined ? (
-                    <SelectItem value={NO_SELECTION} className="text-xs">
-                        {props.emptyLabel}
-                    </SelectItem>
-                ) : null}
-                {props.options.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                        {option.label}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+            {...(props.placeholder === undefined ? {} : { placeholder: props.placeholder })}
+            {...(props.id === undefined ? {} : { id: props.id })}
+            {...(props.className === undefined ? {} : { className: props.className })}
+            {...(props['aria-label'] === undefined ? {} : { 'aria-label': props['aria-label'] })}
+            disabled={props.disabled ?? false}
+            searchable={props.searchable ?? false}
+            optionVisual={props.optionVisual ?? 'bare'}
+            searchPlaceholder={t((d) => d.common.search)}
+            emptyText={t((d) => d.common.noResults)}
+        />
     );
 }
 

@@ -1,0 +1,61 @@
+import type { JSX } from 'react';
+import { UserRoundIcon } from 'lucide-react';
+
+import { Detail, DetailList, Panel, Pill, Status } from '../../components/panel';
+import { Skeleton } from '../../components/ui/skeleton';
+import { useTranslation } from '../../i18n';
+import type { Profile } from '../../types/account';
+
+/**
+ * What the `users` row actually holds: an email, a status, the platform roles, a join date.
+ *
+ * Thin on purpose. Names, CNPs and addresses belong to a *taxpayer*, encrypted with that subject's
+ * own key — they live on the taxpayers screen, and saying so here is why the notice at the foot
+ * exists rather than leaving someone hunting for a name field that will never be on this card.
+ */
+export default function AccountCard({ profile }: { profile: Profile | null }): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <Panel
+            title={t((d) => d.pages.settingsProfile.accountTitle)}
+            description={t((d) => d.pages.settingsProfile.accountDescription)}
+            icon={<UserRoundIcon className="size-4" />}
+        >
+            {profile === null ? (
+                <Skeleton className="tile h-28 w-full" />
+            ) : (
+                <DetailList>
+                    <Detail label={t((d) => d.pages.settingsProfile.email)}>
+                        <span className="font-semibold">{profile.email}</span>
+                        {profile.emailVerifiedAt === null ? (
+                            <div>
+                                <Pill tone="locked">{t((d) => d.pages.settingsProfile.emailUnverified)}</Pill>
+                            </div>
+                        ) : null}
+                    </Detail>
+                    <Detail label={t((d) => d.pages.settingsProfile.status)}>
+                        <Status tone={profile.status === 'ACTIVE' ? 'ok' : 'warn'}>{profile.status ?? '—'}</Status>
+                    </Detail>
+                    <Detail label={t((d) => d.pages.settingsProfile.roles)}>
+                        {profile.roles.length === 0 ? (
+                            <span className="note">{t((d) => d.pages.settingsProfile.noRoles)}</span>
+                        ) : (
+                            <div className="flex flex-wrap gap-1">
+                                {profile.roles.map((role) => (
+                                    <Pill key={role} tone="accent">
+                                        {role}
+                                    </Pill>
+                                ))}
+                            </div>
+                        )}
+                    </Detail>
+                    <Detail label={t((d) => d.pages.settingsProfile.created)}>
+                        {profile.createdAt === null ? '—' : new Date(profile.createdAt).toLocaleDateString()}
+                    </Detail>
+                </DetailList>
+            )}
+            <p className="note mt-3">{t((d) => d.pages.settingsProfile.identityNotice)}</p>
+        </Panel>
+    );
+}

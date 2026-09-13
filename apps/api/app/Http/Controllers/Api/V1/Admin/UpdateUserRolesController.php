@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Domain\Access\Services\AccessCatalogue;
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
+use App\Domain\Identity\Enums\UserStatus;
 use App\Domain\Identity\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -37,6 +38,14 @@ final class UpdateUserRolesController extends Controller
         AccessCatalogue $catalogue,
         AuditChainService $audit,
     ): JsonResponse {
+        // Nothing to grant: an erased account cannot sign in, so a role on it is a permission
+        // nobody can exercise — and a row that reads like a live administrator.
+        abort_if(
+            $user->status === UserStatus::DELETED,
+            422,
+            'This account has been erased and cannot be changed.',
+        );
+
         $validated = $request->validate([
             'roles' => ['present', 'array'],
             'roles.*' => ['string', Rule::in($catalogue->roles())],

@@ -4,6 +4,8 @@ import {
     vArray,
     vCursorPage,
     vEnum,
+    type NumberedPage,
+    vNumberedPage,
     vNullable,
     vNumber,
     vObject,
@@ -28,6 +30,24 @@ export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export const DOCUMENT_STATUSES = ['QUARANTINE', 'SCANNED', 'PROCESSING', 'READY', 'REJECTED'] as const;
 
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+/**
+ * `App\Domain\Documents\Enums\DocumentStage` — where a document stands, in a person's terms.
+ *
+ * Derived on the server from the pipeline status plus whether anybody has acted on the document,
+ * because "acted on" means an accepted reading *or* a transaction made from it, and that rule lives
+ * in one place. The client renders this; it never computes it.
+ */
+export const DOCUMENT_STAGES = [
+    'CHECKING',
+    'QUEUED',
+    'PROCESSING',
+    'ACTION_NEEDED',
+    'DONE',
+    'REJECTED',
+] as const;
+
+export type DocumentStage = (typeof DOCUMENT_STAGES)[number];
 
 /** `App\Domain\Documents\Enums\RejectionReason`. */
 export const REJECTION_REASONS = [
@@ -76,9 +96,12 @@ export interface DocumentSummary {
     filename: string;
     type: DocumentType;
     status: DocumentStatus;
+    stage: DocumentStage;
     rejectionReason: RejectionReason | null;
     /** What the file was called on arrival. Provenance — never the label; see `filename`. */
     originalFilename: string;
+    /** The field names a correction may use, from `ExtractionSchema` for this document's type. */
+    extractionFields: { required: string[]; optional: string[] };
     aiExtractionOutcome: AiExtractionOutcome | null;
     aiExtractionAttemptedAt: string | null;
     mimeType: string;
@@ -94,8 +117,10 @@ export function parseDocumentSummary(text: string): DocumentSummary {
             filename: vString,
             type: vEnum(DOCUMENT_TYPES),
             status: vEnum(DOCUMENT_STATUSES),
+            stage: vEnum(DOCUMENT_STAGES),
             rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
             original_filename: vString,
+            extraction_fields: vObject({ required: vArray(vString), optional: vArray(vString) }),
             ai_extraction_outcome: vNullable(vEnum(AI_EXTRACTION_OUTCOMES)),
             ai_extraction_attempted_at: vNullable(vString),
             mime_type: vString,
@@ -109,8 +134,10 @@ export function parseDocumentSummary(text: string): DocumentSummary {
         filename: parsed.filename,
         type: parsed.type,
         status: parsed.status,
+        stage: parsed.stage,
         rejectionReason: parsed.rejection_reason,
         originalFilename: parsed.original_filename,
+        extractionFields: parsed.extraction_fields,
         aiExtractionOutcome: parsed.ai_extraction_outcome,
         aiExtractionAttemptedAt: parsed.ai_extraction_attempted_at,
         mimeType: parsed.mime_type,
@@ -136,21 +163,20 @@ export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];
 /**
  * One row of `App\Http\Controllers\Api\V1\Documents\ListDocumentsController` — the inbox.
  *
- * Carries two things the single-document endpoint does not: `source`, and `pendingExtractions` —
- * how many proposals are still waiting on a human, so the inbox can show a queue rather than making
- * someone open each document to find out.
+ * Carries `source`, which the single-document endpoint does not, and `stage` — where the document
+ * stands in a person's terms, so the inbox can be read without opening anything.
  */
 export interface DocumentListItem {
     id: string;
     filename: string;
     type: DocumentType;
     status: DocumentStatus;
+    stage: DocumentStage;
     rejectionReason: RejectionReason | null;
     mimeType: string;
     sizeBytes: number;
     source: DocumentSource;
     receivedAt: string;
-    pendingExtractions: number;
 }
 
 const documentListItemValidator = vObject({
@@ -158,18 +184,18 @@ const documentListItemValidator = vObject({
     filename: vString,
     type: vEnum(DOCUMENT_TYPES),
     status: vEnum(DOCUMENT_STATUSES),
+    stage: vEnum(DOCUMENT_STAGES),
     rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
     mime_type: vString,
     size_bytes: vNumber,
     source: vEnum(DOCUMENT_SOURCES),
     received_at: vString,
-    pending_extractions: vNumber,
 });
 
-export function parseDocumentsPage(text: string): CursorPage<DocumentListItem> {
+export function parseDocumentsPage(text: string): NumberedPage<DocumentListItem> {
     return parseJson(
         text,
-        vCursorPage((value, path = ''): DocumentListItem => {
+        vNumberedPage((value, path = ''): DocumentListItem => {
             const parsed = documentListItemValidator(value, path);
 
             return {
@@ -177,12 +203,12 @@ export function parseDocumentsPage(text: string): CursorPage<DocumentListItem> {
                 filename: parsed.filename,
                 type: parsed.type,
                 status: parsed.status,
+                stage: parsed.stage,
                 rejectionReason: parsed.rejection_reason,
                 mimeType: parsed.mime_type,
                 sizeBytes: parsed.size_bytes,
                 source: parsed.source,
                 receivedAt: parsed.received_at,
-                pendingExtractions: parsed.pending_extractions,
             };
         }),
     );

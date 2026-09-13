@@ -206,8 +206,7 @@ queue-default         php artisan horizon
 scheduler             php artisan schedule:work
 reverb                php artisan reverb:start
 
-python-api            FastAPI internal API
-python-worker          document/AI workers
+python-api            FastAPI internal API (extragere text PDF, embeddings)
 
 spv-browser            Playwright Chromium worker/pool
 clamav                 antivirus
@@ -275,7 +274,7 @@ Reguli:
 - `postgres` nu are outbound Internet.
 - `redis` nu are outbound Internet.
 - `minio` nu este public.
-- `python-worker` nu primește DB credentials Laravel.
+- `python-api` nu primește DB credentials Laravel.
 - `spv-browser` nu primește DB credentials.
 - `crawler`/python processing poate avea Internet outbound numai dacă jobul o cere.
 - `app` comunică cu processing services prin internal DNS/network.

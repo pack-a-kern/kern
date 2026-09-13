@@ -1,6 +1,19 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type JSX, type SyntheticEvent } from 'react';
+import {
+    Activity,
+    ArrowLeft,
+    CalendarDays,
+    FileType2,
+    FileUp,
+    Hash,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    ScrollText,
+    Tag,
+    Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode, type SyntheticEvent } from 'react';
 import AppShell from '../../components/AppShell';
 import CreateTransactionDialog from '../../components/documents/CreateTransactionDialog';
 import ErrorText from '../../components/ErrorText';
@@ -20,6 +33,13 @@ import { useCoalescedCallback } from '../../hooks/useCoalescedCallback';
 import { useDocumentsChannel } from '../../hooks/useDocumentsChannel';
 import { useTranslation } from '../../i18n';
 import { suggestDocumentName } from '../../lib/documentName';
+import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { formatDateTime } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
@@ -33,9 +53,12 @@ import {
     Detail,
     DetailList,
     Page,
+    ActionGroup,
     Panel,
     PanelButton,
+    PanelDialog,
     PanelInput,
+    PanelSelect,
     Pill,
     Status,
     type StatusTone,
@@ -67,6 +90,39 @@ function extractionTone(status: DocumentExtractionSummary['status']): StatusTone
 }
 
 /** Where a document sits in the pipeline. Rejected is a fault; everything else is progress. */
+/**
+ * One labelled fact in the summary band: a small uppercase caption over its value.
+ *
+ * Not a `DetailList` row — that stacks label and value down a column, and this band reads across
+ * four of them, so the caption sits above rather than beside.
+ */
+function SummaryFact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }): JSX.Element {
+    return (
+        <div>
+            <div className="fact-label">
+                {icon}
+                {label}
+            </div>
+            <div className="fact-value">{children}</div>
+        </div>
+    );
+}
+
+/**
+ * A status tone as a text colour, for the dot-and-label form the tables use.
+ *
+ * The same treatment as the inbox: the dot carries the colour and the label stays text, so the two
+ * screens describe a document's state identically.
+ */
+function statusToneClass(tone: StatusTone): string {
+    return {
+        ok: 'text-success',
+        warn: 'text-warning',
+        bad: 'text-destructive',
+        idle: 'text-muted-foreground',
+    }[tone];
+}
+
 function documentTone(status: DocumentSummary['status']): StatusTone {
     if (status === 'REJECTED') {
         return 'bad';
@@ -85,21 +141,22 @@ function documentTone(status: DocumentSummary['status']): StatusTone {
 function ConfidenceBar({ confidence }: { confidence: number }): JSX.Element {
     const { t } = useTranslation();
     const percent = Math.round(confidence * 100);
-    const tone = confidence >= 0.85 ? 'bg-emerald-500' : confidence >= 0.6 ? 'bg-amber-500' : 'bg-destructive';
+    // `--attention` is the palette's own "a person should look at this" colour, so a middling
+    // confidence is marked in the same hue as everything else asking for attention.
+    const tone = confidence >= 0.85 ? 'bg-success' : confidence >= 0.6 ? 'bg-[var(--attention)]' : 'bg-destructive';
 
     return (
         <div
-            className="flex items-center gap-2"
+            className="flex flex-1 items-center gap-2"
             role="meter"
             aria-valuenow={percent}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label={t((d) => d.documentsReview.confidenceLabel)}
         >
-            <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
-                <div className={`h-full ${tone}`} style={{ width: `${String(percent)}%` }} />
+            <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                <div className={`h-full rounded-full ${tone}`} style={{ width: `${String(percent)}%` }} />
             </div>
-            <span className="note tabular-nums">{percent}%</span>
         </div>
     );
 }
@@ -171,6 +228,21 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
     const isReading = document?.status === 'PROCESSING';
 
     /**
+     * The fields a correction may name, required ones first.
+     *
+     * From the server, which reads `ExtractionSchema` — the one place that decides what a receipt
+     * or an invoice is made of. A document type with no schema yet offers nothing, which is the
+     * honest answer rather than a free-text box that accepts anything.
+     */
+    const correctableFields = [
+        ...(document?.extractionFields.required ?? []).map((name) => ({ name, required: true })),
+        ...(document?.extractionFields.optional ?? []).map((name) => ({ name, required: false })),
+    ];
+
+    /** The newest reading's confidence, for the panel head. Null while nothing has been proposed. */
+    const newestConfidence = extractions.length === 0 ? null : Number(extractions[0]?.confidence ?? 0);
+
+    /**
      * A name built from whatever the newest proposal read out of this document.
      *
      * Null whenever nothing identifying was extracted — a suggestion of "bon-fiscal.png" for every
@@ -186,6 +258,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
               );
 
     const [renaming, setRenaming] = useState(false);
+    const [showingChain, setShowingChain] = useState(false);
     const [nameDraft, setNameDraft] = useState('');
     const [savingName, setSavingName] = useState(false);
     const [renameError, setRenameError] = useState<string | null>(null);
@@ -389,9 +462,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
             // than waiting for the first broadcast to arrive.
             await loadDocument();
         } catch (cause) {
-            setRetryError(
-                cause instanceof ApiError ? cause.message : t((d) => d.documentsReview.aiOutcomeRetryFailed),
-            );
+            setRetryError(cause instanceof ApiError ? cause.message : t((d) => d.documentsReview.aiOutcomeRetryFailed));
         } finally {
             setRetrying(false);
         }
@@ -528,140 +599,223 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
         null;
 
     return (
-        <AppShell contentClassName="max-w-5xl">
+        <AppShell>
             <Head title={t((d) => d.documentsReview.title)} />
             <Page
-                title={
-                    document?.filename === undefined || document.filename === ''
-                        ? t((d) => d.documentsReview.title)
-                        : document.filename
-                }
+                // The topbar says what this screen is; the document names itself below, next to the
+                // control that goes back to the list it came from.
+                title={t((d) => d.documentsReview.title)}
                 lede={t((d) => d.documentsReview.description)}
-                actions={
-                    <>
-                        <Link href="/documents" className="ctl-action-link">
-                            <ArrowLeft className="size-3.5" aria-hidden="true" /> {t((d) => d.documentsReview.back)}
-                        </Link>
-                        {/* Offered for any document with content, whether or not a parser read it:
-                            an unreadable receipt still becomes a transaction, typed from the page
-                            on screen, with the document attached exactly the same way. */}
-                        {document === null || document.status === 'REJECTED' ? null : (
-                            <PanelButton
-                                primary
-                                inline
-                                onClick={() => {
-                                    setCreatingTransaction(true);
-                                }}
-                            >
-                                {t((d) => d.documentsReview.createTransaction)}
-                            </PanelButton>
-                        )}
-                    </>
-                }
             >
                 <ErrorText message={documentError} />
 
-                {document === null ? null : (
+                {/* The document's header and its facts in one card: the way back, what it is
+                    called, what can be done to it, and everything known about it. Two stacked
+                    headers — a page row above a card head repeating it — said the same thing twice. */}
+                {document !== null && (
                     <Panel
-                        title={t((d) => d.documentType[document.type])}
-                        aside={
-                            <Status tone={documentTone(document.status)}>
-                                {t((d) => d.statusBadge[document.status])}
-                            </Status>
+                        icon={
+                            <Link
+                                href="/documents"
+                                className="grid size-full place-items-center"
+                                aria-label={t((d) => d.documentsReview.back)}
+                            >
+                                <ArrowLeft className="size-4" aria-hidden="true" />
+                            </Link>
                         }
-                    >
-                        <DetailList>
-                            <Detail label={t((d) => d.documentsReview.nameLabel)}>
-                                {renaming ? (
-                                    <div className="flex flex-col gap-2">
-                                        <PanelInput
-                                            value={nameDraft}
-                                            onChange={(event) => {
-                                                setNameDraft(event.target.value);
-                                            }}
-                                            aria-label={t((d) => d.documentsReview.nameLabel)}
-                                        />
-                                        {/* Offered, never applied. What a document is called is the
-                                            person's decision, like every other value read out of it. */}
-                                        {suggestedName !== null && suggestedName !== nameDraft && (
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="note">
-                                                    {t((d) => d.documentsReview.renameSuggestion)}:
-                                                </span>
-                                                <code className="text-xs break-all">{suggestedName}</code>
-                                                <PanelButton
-                                                    onClick={() => {
-                                                        setNameDraft(suggestedName);
+                        title={document.filename}
+                        aside={
+                            <>
+                                {/* Three labelled actions need room the card head does not have on a
+                                    phone. Same three, same order, behind one control — not a
+                                    different set, which would make the two screens disagree about
+                                    what you can do to a document. */}
+                                {/* The toggle sits on a wrapper, not on the button: `.shell-control`
+                                    is unlayered CSS, so its `display` beats `sm:hidden` and the
+                                    control would show at every width. */}
+                                <div className="sm:hidden">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="shell-control size-8 justify-center px-0"
+                                                aria-label={t((d) => d.documentsReview.actions)}
+                                            >
+                                                <MoreHorizontal className="size-4" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-52">
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    setNameDraft(document.filename);
+                                                    setRenameError(null);
+                                                    setRenaming(true);
+                                                }}
+                                            >
+                                                <Pencil className="size-4" />
+                                                {t((d) => d.documentsReview.rename)}
+                                            </DropdownMenuItem>
+                                            {document.status !== 'REJECTED' && (
+                                                <DropdownMenuItem
+                                                    onSelect={() => {
+                                                        setCreatingTransaction(true);
                                                     }}
                                                 >
-                                                    {t((d) => d.documentsReview.renameUseSuggestion)}
-                                                </PanelButton>
-                                            </div>
-                                        )}
-                                        <div className="flex flex-wrap gap-2">
-                                            <PanelButton
-                                                primary
-                                                disabled={savingName}
-                                                onClick={() => {
-                                                    void handleRename(nameDraft);
+                                                    <Plus className="size-4" />
+                                                    {t((d) => d.documentsReview.createTransaction)}
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    setShowingChain(true);
                                                 }}
                                             >
-                                                {t((d) => d.documentsReview.renameSave)}
-                                            </PanelButton>
-                                            <PanelButton
-                                                onClick={() => {
-                                                    void handleRename(null);
-                                                }}
-                                            >
-                                                {t((d) => d.documentsReview.renameCleared)}
-                                            </PanelButton>
-                                            <PanelButton
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    setRenaming(false);
-                                                }}
-                                            >
-                                                {t((d) => d.documentsReview.renameCancel)}
-                                            </PanelButton>
-                                        </div>
-                                        <ErrorText message={renameError} />
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="break-all">{document.filename}</span>
-                                        <PanelButton
-                                            onClick={() => {
-                                                setNameDraft(document.filename);
-                                                setRenameError(null);
-                                                setRenaming(true);
-                                            }}
-                                        >
-                                            {t((d) => d.documentsReview.rename)}
-                                        </PanelButton>
-                                    </div>
-                                )}
-                            </Detail>
-                            {/* Provenance: what the file was actually called when it arrived. Shown
-                                here and nowhere else — it is not the label. */}
-                            <Detail label={t((d) => d.documentsReview.originalFilenameLabel)}>
-                                <span className="break-all">{document.originalFilename}</span>
-                            </Detail>
-                            <Detail label={t((d) => d.documentsReview.receivedLabel)}>
-                                <time dateTime={document.receivedAt} className="tabular-nums">
-                                    {formatDateTime(document.receivedAt, locale)}
-                                </time>
-                            </Detail>
-                            <Detail label={t((d) => d.documentsReview.formatLabel)}>{document.mimeType}</Detail>
-                            {rejection === null ? null : (
-                                <Detail label={t((d) => d.documentsReview.rejectedLabel)}>
-                                    <span className="text-destructive">{t((d) => d.rejectionReason[rejection])}</span>
-                                </Detail>
+                                                <ScrollText className="size-4" />
+                                                {t((d) => d.documentsReview.chainTitle)}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
+                                <div className="hidden sm:block">
+                                    <ActionGroup
+                                        actions={[
+                                            {
+                                                key: 'rename',
+                                                label: t((d) => d.documentsReview.rename),
+                                                icon: <Pencil className="size-3.5" aria-hidden="true" />,
+                                                onClick: () => {
+                                                    setNameDraft(document.filename);
+                                                    setRenameError(null);
+                                                    setRenaming(true);
+                                                },
+                                            },
+                                            ...(document.status === 'REJECTED'
+                                                ? []
+                                                : [
+                                                      {
+                                                          key: 'transaction',
+                                                          label: t((d) => d.documentsReview.createTransaction),
+                                                          icon: <Plus className="size-3.5" aria-hidden="true" />,
+                                                          tone: 'primary' as const,
+                                                          onClick: () => {
+                                                              setCreatingTransaction(true);
+                                                          },
+                                                      },
+                                                  ]),
+                                            {
+                                                key: 'chain',
+                                                label: t((d) => d.documentsReview.chainTitle),
+                                                icon: <ScrollText className="size-3.5" aria-hidden="true" />,
+                                                onClick: () => {
+                                                    setShowingChain(true);
+                                                },
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                            </>
+                        }
+                    >
+                        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs lg:grid-cols-3">
+                                <SummaryFact
+                                    icon={<FileUp className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.originalFilenameLabel)}
+                                >
+                                    <span className="break-all">{document.originalFilename}</span>
+                                </SummaryFact>
+                                <SummaryFact
+                                    icon={<Tag className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.typeLabel)}
+                                >
+                                    {t((d) => d.documentType[document.type])}
+                                </SummaryFact>
+                                <SummaryFact
+                                    icon={<FileType2 className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.formatLabel)}
+                                >
+                                    {document.mimeType}
+                                </SummaryFact>
+                                <SummaryFact
+                                    icon={<CalendarDays className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.receivedLabel)}
+                                >
+                                    <time dateTime={document.receivedAt} className="tabular-nums">
+                                        {formatDateTime(document.receivedAt, locale)}
+                                    </time>
+                                </SummaryFact>
+                                <SummaryFact
+                                    icon={<Hash className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.documentIdLabel)}
+                                >
+                                    {/* The leading segment only: a UUIDv7's first block is the timestamp
+                                    and is what makes one recognisable without printing 36 characters. */}
+                                    <code className="fact-id">{document.id.split('-')[0]}</code>
+                                </SummaryFact>
+                                <SummaryFact
+                                    icon={<Activity className="size-3.5" />}
+                                    label={t((d) => d.documentsReview.statusLabel)}
+                                >
+                                    <span className={cn('status-dot', statusToneClass(documentTone(document.status)))}>
+                                        {t((d) => d.documentStage[document.stage])}
+                                    </span>
+                                </SummaryFact>
+                            </div>
+
+                            {/* What the security check found, beside the facts rather than in a card of
+                            its own at the foot: it is a fact about the file like the six on the
+                            left, not a separate subject. */}
+                            {history !== null && (
+                                <div className="border-border lg:border-l lg:pl-4">
+                                    <div className="eyebrow mb-2">{t((d) => d.documentsReview.scansTitle)}</div>
+                                    {history.scans.length === 0 ? (
+                                        // Never "clean by default": a document with no scan row was not
+                                        // scanned, and saying so is the point of keeping the rows at all.
+                                        <p className="note">{t((d) => d.documentsReview.noScans)}</p>
+                                    ) : (
+                                        <ul className="space-y-2">
+                                            {history.scans.map((scan) => (
+                                                <li key={scan.id}>
+                                                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                                        <Status tone={scan.outcome === 'INFECTED' ? 'bad' : 'ok'}>
+                                                            {t(
+                                                                (d) =>
+                                                                    d.documentsReview.scanOutcomes[scan.outcome] ??
+                                                                    scan.outcome,
+                                                            )}
+                                                        </Status>
+                                                        <span className="note tabular-nums">
+                                                            {formatDateTime(scan.scannedAt, locale)}
+                                                        </span>
+                                                    </div>
+                                                    <DetailList>
+                                                        <Detail label={t((d) => d.documentsReview.scannerLabel)}>
+                                                            {scan.scanner}
+                                                            {scan.scannerVersion === null
+                                                                ? ''
+                                                                : ` ${scan.scannerVersion}`}
+                                                        </Detail>
+                                                        <Detail label={t((d) => d.documentsReview.definitionsLabel)}>
+                                                            {scan.definitionsVersion ??
+                                                                t((d) => d.documentsReview.notRecorded)}
+                                                        </Detail>
+                                                    </DetailList>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
                             )}
-                        </DetailList>
+                        </div>
+
+                        {rejection !== null && (
+                            <p className="text-destructive mt-3 text-xs">{t((d) => d.rejectionReason[rejection])}</p>
+                        )}
                     </Panel>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)]">
                     <Panel title={t((d) => d.documentsReview.source)}>
                         <>
                             {document && !CONTENT_AVAILABLE_STATUSES.includes(document.status) && (
@@ -713,6 +867,17 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
 
                     <Panel
                         title={t((d) => d.documentsReview.proposedExtractions)}
+                        description={t((d) => d.documentsReview.proposedExtractionsHint)}
+                        aside={
+                            newestConfidence === null ? undefined : (
+                                <span className="head-chip">
+                                    {t((d) => d.documentsReview.confidenceChip).replace(
+                                        '{percent}',
+                                        String(Math.round(newestConfidence * 100)),
+                                    )}
+                                </span>
+                            )
+                        }
                         footNote={t((d) => d.documentsReview.noAutoConfirmNotice)}
                         footActions={
                             extractionsCursor === null ? undefined : (
@@ -769,9 +934,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                         </div>
 
                                         <p className="text-sm text-muted-foreground">
-                                            {t((d) => d.documentsReview.aiOutcomes)[
-                                                document.aiExtractionOutcome
-                                            ]}
+                                            {t((d) => d.documentsReview.aiOutcomes)[document.aiExtractionOutcome]}
                                         </p>
 
                                         {extractions.length === 0 && (
@@ -794,9 +957,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                             </div>
                                         )}
 
-                                        {retryNotice !== null && (
-                                            <p className="note mt-2">{retryNotice}</p>
-                                        )}
+                                        {retryNotice !== null && <p className="note mt-2">{retryNotice}</p>}
                                         <ErrorText message={retryError} />
                                     </div>
                                 )}
@@ -814,20 +975,24 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
 
                             <ul className="space-y-3">
                                 {extractions.map((extraction) => (
-                                    <li key={extraction.id} className="tile border-border border p-3">
-                                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                            <div>
-                                                <Pill>{t((d) => d.extractorType[extraction.extractorType])}</Pill>
-                                                <span className="note ml-2 tabular-nums">
-                                                    {formatDateTime(extraction.createdAt, locale)}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Status tone={extractionTone(extraction.status)}>
-                                                    {t((d) => d.extractionStatus[extraction.status])}
-                                                </Status>
-                                                <ConfidenceBar confidence={Number(extraction.confidence)} />
-                                            </div>
+                                    <li
+                                        key={extraction.id}
+                                        className="border-border border-t pt-3 first:border-t-0 first:pt-0"
+                                    >
+                                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                                            <Pill>{t((d) => d.extractorType[extraction.extractorType])}</Pill>
+                                            <span className="note tabular-nums">
+                                                {formatDateTime(extraction.createdAt, locale)}
+                                            </span>
+                                        </div>
+
+                                        {/* The reading's standing and how sure it is, on one line —
+                                            the bar takes whatever the label leaves, as drawn. */}
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <Status tone={extractionTone(extraction.status)}>
+                                                {t((d) => d.extractionStatus[extraction.status])}
+                                            </Status>
+                                            <ConfidenceBar confidence={Number(extraction.confidence)} />
                                         </div>
 
                                         <DetailList>
@@ -877,9 +1042,12 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                 <p className="note">{t((d) => d.documentsReview.correctionHint)}</p>
 
                                                 {correctionRows.map((row, index) => (
-                                                    <div key={index} className="flex gap-2">
-                                                        <PanelInput
-                                                            type="text"
+                                                    <div key={index} className="field-row">
+                                                        {/* The field names this document type
+                                                            actually has, not free text: a typed
+                                                            "amout" is accepted, stored, and useless
+                                                            to everything downstream. */}
+                                                        <PanelSelect
                                                             aria-label={t(
                                                                 (d) => d.documentsReview.fieldNamePlaceholder,
                                                             )}
@@ -887,10 +1055,22 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                                 (d) => d.documentsReview.fieldNamePlaceholder,
                                                             )}
                                                             value={row.key}
-                                                            onChange={(event) => {
-                                                                updateCorrectionRow(index, { key: event.target.value });
+                                                            onValueChange={(value) => {
+                                                                updateCorrectionRow(index, { key: value });
                                                             }}
-                                                            className="w-1/3"
+                                                            options={correctableFields.map((field) => ({
+                                                                value: field.name,
+                                                                // The wire name if nobody has
+                                                                // translated it yet — better a
+                                                                // reviewer sees `issuer_tax_id`
+                                                                // than an empty option.
+                                                                label:
+                                                                    t((d) => d.extractionField)[field.name] ??
+                                                                    field.name,
+                                                                description: field.required
+                                                                    ? t((d) => d.documentsReview.fieldRequired)
+                                                                    : t((d) => d.documentsReview.fieldOptional),
+                                                            }))}
                                                         />
                                                         <PanelInput
                                                             type="text"
@@ -906,7 +1086,6 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                                     value: event.target.value,
                                                                 });
                                                             }}
-                                                            className="flex-1"
                                                         />
                                                         <Button
                                                             type="button"
@@ -917,19 +1096,24 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                                 removeCorrectionRow(index);
                                                             }}
                                                         >
-                                                            <Trash2 className="size-4 text-destructive" />
+                                                            <Trash2 className="text-muted-foreground hover:text-destructive size-3.5" />
                                                         </Button>
                                                     </div>
                                                 ))}
 
-                                                <Button
+                                                {/* A dashed full-width row rather than a bare text
+                                                    link: it sits at the end of a column of field
+                                                    rows and should read as the next empty one,
+                                                    which is what pressing it produces. */}
+                                                <button
                                                     type="button"
-                                                    variant="link"
-                                                    className="h-auto p-0"
+                                                    className="add-row"
                                                     onClick={addCorrectionRow}
+                                                    disabled={correctableFields.length === 0}
                                                 >
-                                                    <Plus className="size-3.5" /> {t((d) => d.documentsReview.addField)}
-                                                </Button>
+                                                    <Plus className="size-3.5" aria-hidden="true" />
+                                                    {t((d) => d.documentsReview.addField)}
+                                                </button>
 
                                                 <div className="flex gap-2 pt-1">
                                                     {/* A real submit button, not a PanelButton: this is
@@ -954,85 +1138,6 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                         </div>
                     </Panel>
                 </div>
-
-                <Panel
-                    title={t((d) => d.documentsReview.historyTitle)}
-                    footNote={t((d) => d.documentsReview.historyHint)}
-                >
-                    {history === null ? (
-                        <p className="note">{t((d) => d.documentsReview.loading)}</p>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <div className="eyebrow mb-2">{t((d) => d.documentsReview.scansTitle)}</div>
-                                {history.scans.length === 0 ? (
-                                    // Never "clean by default": a document with no scan row was not
-                                    // scanned, and saying so is the point of keeping the rows at all.
-                                    <p className="note">{t((d) => d.documentsReview.noScans)}</p>
-                                ) : (
-                                    <ul className="space-y-2">
-                                        {history.scans.map((scan) => (
-                                            <li key={scan.id} className="tile border-border border p-3">
-                                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                                    <Status tone={scan.outcome === 'INFECTED' ? 'bad' : 'ok'}>
-                                                        {t(
-                                                            (d) =>
-                                                                d.documentsReview.scanOutcomes[scan.outcome] ??
-                                                                scan.outcome,
-                                                        )}
-                                                    </Status>
-                                                    <span className="note tabular-nums">
-                                                        {formatDateTime(scan.scannedAt, locale)}
-                                                    </span>
-                                                </div>
-                                                <DetailList>
-                                                    <Detail label={t((d) => d.documentsReview.scannerLabel)}>
-                                                        {scan.scanner}
-                                                        {scan.scannerVersion === null ? '' : ` ${scan.scannerVersion}`}
-                                                    </Detail>
-                                                    <Detail label={t((d) => d.documentsReview.definitionsLabel)}>
-                                                        {scan.definitionsVersion ??
-                                                            t((d) => d.documentsReview.notRecorded)}
-                                                    </Detail>
-                                                </DetailList>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-
-                            <div>
-                                <div className="eyebrow mb-2">{t((d) => d.documentsReview.chainTitle)}</div>
-                                {history.events.length === 0 ? (
-                                    <p className="note">{t((d) => d.documentsReview.noEvents)}</p>
-                                ) : (
-                                    <ul className="space-y-1">
-                                        {history.events.map((event) => (
-                                            <li
-                                                key={`${event.eventType}-${String(event.sequence)}`}
-                                                className="flex flex-wrap items-baseline justify-between gap-2 text-xs"
-                                            >
-                                                <span className="font-semibold">
-                                                    {t(
-                                                        (d) =>
-                                                            d.documentsReview.chainEvents[event.eventType] ??
-                                                            event.eventType,
-                                                    )}
-                                                </span>
-                                                <span className="note tabular-nums">
-                                                    #{event.sequence} · {formatDateTime(event.occurredAt, locale)} ·{' '}
-                                                    {/* The first bytes of the chain hash: enough to show the
-                                                        entry is anchored, short enough to sit on one line. */}
-                                                    <span title={event.eventHash}>{event.eventHash.slice(0, 12)}</span>
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </Panel>
             </Page>
 
             {/* Rendered only while open so its account fetch does not run on every review, and
@@ -1050,6 +1155,113 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                     }}
                 />
             ) : null}
+            {/* The immutable record, on request. It is what you consult when something is
+                disputed, not something the page needs to carry in front of you the rest of the time. */}
+            <PanelDialog
+                open={showingChain}
+                onOpenChange={setShowingChain}
+                size="lg"
+                title={t((d) => d.documentsReview.chainTitle)}
+                description={t((d) => d.documentsReview.historyHint)}
+                actions={
+                    <PanelButton
+                        onClick={() => {
+                            setShowingChain(false);
+                        }}
+                    >
+                        {t((d) => d.common.close)}
+                    </PanelButton>
+                }
+            >
+                {history === null ? (
+                    <p className="note">{t((d) => d.documentsReview.loading)}</p>
+                ) : (
+                    <div>
+                        <div className="eyebrow mb-2">{t((d) => d.documentsReview.chainTitle)}</div>
+                        {history.events.length === 0 ? (
+                            <p className="note">{t((d) => d.documentsReview.noEvents)}</p>
+                        ) : (
+                            <ul className="space-y-1">
+                                {history.events.map((event) => (
+                                    <li
+                                        key={`${event.eventType}-${String(event.sequence)}`}
+                                        className="flex flex-wrap items-baseline justify-between gap-2 text-xs"
+                                    >
+                                        <span className="font-semibold">
+                                            {t(
+                                                (d) =>
+                                                    d.documentsReview.chainEvents[event.eventType] ?? event.eventType,
+                                            )}
+                                        </span>
+                                        <span className="note tabular-nums">
+                                            #{event.sequence} · {formatDateTime(event.occurredAt, locale)} ·{' '}
+                                            {/* The first bytes of the chain hash: enough to show the
+                                                        entry is anchored, short enough to sit on one line. */}
+                                            <span title={event.eventHash}>{event.eventHash.slice(0, 12)}</span>
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                )}
+            </PanelDialog>
+
+            {/* A modal rather than a panel that pushes the page around: renaming is one field and
+                one decision, and the document behind it is the context you are naming from. */}
+            <PanelDialog
+                open={renaming}
+                onOpenChange={setRenaming}
+                title={t((d) => d.documentsReview.rename)}
+                description={t((d) => d.documentsReview.nameHint)}
+                actions={
+                    <>
+                        <PanelButton
+                            onClick={() => {
+                                void handleRename(null);
+                            }}
+                        >
+                            {t((d) => d.documentsReview.renameCleared)}
+                        </PanelButton>
+                        <PanelButton
+                            primary
+                            disabled={savingName}
+                            onClick={() => {
+                                void handleRename(nameDraft);
+                            }}
+                        >
+                            {t((d) => d.documentsReview.renameSave)}
+                        </PanelButton>
+                    </>
+                }
+            >
+                <div className="flex flex-col gap-2">
+                    <PanelInput
+                        icon={<Pencil className="size-3.5" />}
+                        value={nameDraft}
+                        onChange={(event) => {
+                            setNameDraft(event.target.value);
+                        }}
+                        aria-label={t((d) => d.documentsReview.nameLabel)}
+                    />
+                    {/* Offered, never applied. What a document is called is the person's decision,
+                        like every other value read out of it. */}
+                    {suggestedName !== null && suggestedName !== nameDraft && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="note">{t((d) => d.documentsReview.renameSuggestion)}:</span>
+                            <code className="text-xs break-all">{suggestedName}</code>
+                            <PanelButton
+                                onClick={() => {
+                                    setNameDraft(suggestedName);
+                                }}
+                            >
+                                {t((d) => d.documentsReview.renameUseSuggestion)}
+                            </PanelButton>
+                        </div>
+                    )}
+                    <ErrorText message={renameError} />
+                </div>
+            </PanelDialog>
         </AppShell>
     );
 }

@@ -30,7 +30,8 @@ final readonly class DepositSummary
 {
     public function __construct(
         public string $id,
-        public string $institutionName,
+        /** The source's own name — what a person recognises it by. */
+        public string $displayName,
         public string $currencyCode,
         public int $principalMinor,
         public ?string $annualRate,
@@ -50,7 +51,7 @@ final readonly class DepositSummary
     {
         return [
             'id' => $this->id,
-            'institution_name' => $this->institutionName,
+            'display_name' => $this->displayName,
             'currency_code' => $this->currencyCode,
             'principal_minor' => $this->principalMinor,
             'annual_rate' => $this->annualRate,

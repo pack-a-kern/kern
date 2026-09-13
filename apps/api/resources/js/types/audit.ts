@@ -24,7 +24,12 @@ export interface AuditEvent {
 
 export interface AuditPage {
     events: AuditEvent[];
-    nextCursor: number | null;
+    /** Rows in the whole frozen window, not on this page — what the pager counts. */
+    total: number;
+    page: number;
+    perPage: number;
+    /** The window this run of paging is frozen to; echoed back with each page. */
+    anchor: string | null;
 }
 
 export interface AuditSummary {
@@ -93,7 +98,10 @@ export function parseAuditPage(payload: unknown): AuditPage {
                 signatureKeyVersion: num(row, 'signature_key_version'),
             };
         }),
-        nextCursor: typeof body.next_cursor === 'number' ? body.next_cursor : null,
+        total: num(body, 'total'),
+        page: num(body, 'page'),
+        perPage: num(body, 'per_page'),
+        anchor: nullableStr(body, 'anchor'),
     };
 }
 

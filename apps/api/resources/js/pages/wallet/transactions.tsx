@@ -2,6 +2,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { deleteTransaction, listAccounts, listTransactions, recordTransaction } from '../../api/walletApi';
+import { AlignLeftIcon, UserIcon } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
@@ -23,6 +24,8 @@ import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
     CURRENCIES,
+    isStreamKind,
+    sourceName,
     type AccountSummary,
     type TransactionPage,
     type TransactionSummary,
@@ -97,12 +100,14 @@ export default function WalletTransactions(): JSX.Element {
             },
         );
 
-        // The account list feeds both the filter and the form's select; a transaction cannot exist
-        // without an account, so an empty list is a real answer rather than a loading state.
+        // Only sources that receive transactions. A cash holding is one declared value and a term
+        // deposit's entries are computed from its terms, so offering either here produced a
+        // transaction that detached the ledger from the thing it describes — the server refuses it
+        // now, and the form stops asking. The list feeds both the filter and the form's select.
         listAccounts(subjectId).then(
             (page) => {
                 if (active) {
-                    setAccounts(page.accounts);
+                    setAccounts(page.accounts.filter((account) => isStreamKind(account.kind)));
                 }
             },
             () => {
@@ -198,7 +203,10 @@ export default function WalletTransactions(): JSX.Element {
                             onValueChange={setAccountId}
                             placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
                             emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
-                            options={accounts.map((account) => ({ value: account.id, label: account.displayName }))}
+                            options={accounts.map((account) => ({
+                                value: account.id,
+                                label: sourceName(account, t((d) => d.pages.wallet.generalSource)),
+                            }))}
                         />
                     </Toolbar>
 
@@ -359,15 +367,18 @@ export default function WalletTransactions(): JSX.Element {
                                 setForm((current) => ({
                                     ...current,
                                     account_id: value,
-                                    // The currency follows the account: a transaction in a currency
-                                    // the account does not hold is a data-entry mistake, not a case
-                                    // to support.
+                                    // The source's default when it has one. A broker or a crypto
+                                    // source holds several currencies and carries none, so the
+                                    // choice already made stands.
                                     currency_code: account?.currencyCode ?? current.currency_code,
                                 }));
                             }}
                             options={accounts.map((account) => ({
                                 value: account.id,
-                                label: `${account.displayName} (${account.currencyCode})`,
+                                label:
+                                    account.currencyCode === null
+                                        ? sourceName(account, t((d) => d.pages.wallet.generalSource))
+                                        : `${sourceName(account, t((d) => d.pages.wallet.generalSource))} (${account.currencyCode})`,
                             }))}
                         />
                     </Field>
@@ -443,6 +454,7 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelInput
                             id="tx-counterparty"
+                            icon={<UserIcon className="size-3.5" />}
                             value={form.counterparty}
                             onChange={(event) => {
                                 setForm((current) => ({ ...current, counterparty: event.target.value }));
@@ -476,6 +488,7 @@ function FieldSpanDescription(props: {
             <Field label={props.label} htmlFor="tx-description" error={props.error}>
                 <PanelInput
                     id="tx-description"
+                    icon={<AlignLeftIcon className="size-3.5" />}
                     value={props.value}
                     onChange={(event) => {
                         props.onChange(event.target.value);

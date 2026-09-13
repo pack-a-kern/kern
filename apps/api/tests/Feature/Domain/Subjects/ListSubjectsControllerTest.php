@@ -85,8 +85,9 @@ it('lists every subject the user holds an active membership on, with role and de
             'role' => 'OWNER',
         ]);
 
-    // Cursor-pagination envelope (BLUEPRINT.md §18), not a bare array.
-    expect($response->json())->toHaveKeys(['data', 'path', 'per_page', 'next_cursor', 'prev_cursor']);
+    // Numbered-page envelope, not a bare array: the taxpayers table shows "how many" and offers a
+    // page to jump to, neither of which a cursor can answer.
+    expect($response->json())->toHaveKeys(['data', 'path', 'per_page', 'current_page', 'last_page', 'total']);
 });
 
 it('never lists a subject whose membership was revoked', function (): void {

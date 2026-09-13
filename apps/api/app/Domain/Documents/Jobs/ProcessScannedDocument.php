@@ -102,12 +102,30 @@ final class ProcessScannedDocument implements ShouldQueue
      */
     public int $tries = 1;
 
+
     public function __construct(public readonly string $documentId)
     {
         // Read through the catalogue rather than `config()` directly, so the job and the provider
         // that makes the call cannot disagree about what the configured timeout is.
         $this->timeout = app(AiProviderCatalogue::class)->extractionTimeoutSeconds()
             + self::TIMEOUT_MARGIN_SECONDS;
+
+        /*
+         * Its own queue, worked by exactly one process.
+         *
+         * The expensive part of this job is a single HTTP call to one model endpoint, and ten uploads
+         * used to mean ten of those at once — the default queue is worked by three processes locally and
+         * ten in production. A self-hosted model serves them by taking each one longer, so the batch
+         * finishes no sooner while every individual document creeps toward the timeout, and a document
+         * that would have taken 30 seconds alone can miss its deadline for no reason but company.
+         *
+         * Serial also makes the queue legible: one document is being read at a time, and the rest are
+         * waiting their turn, which is what the list can honestly say it is doing.
+         *
+         * Scanning stays parallel — `ScanQuarantinedDocument` talks to ClamAV, which is local and
+         * concurrent, and holding those up would delay every document's promotion for nothing.
+             */
+        $this->onQueue('documents-ai');
     }
 
     public function handle(
@@ -143,6 +161,17 @@ final class ProcessScannedDocument implements ShouldQueue
             $extractedText = $result->joinedText();
 
             $this->storeExtractedTextDerivative($document, $realStore, $extractedText->reveal());
+
+            // A scanned PDF — pages that are photographs of paper — has a text layer of nothing.
+            // `joinedText()` still returns a value, so every `!== null` check below passes and the
+            // document travels as though it had been read: the parsers run on an empty string and
+            // find nothing, and the AI request goes out carrying no document at all.
+            //
+            // Empty is not "read successfully"; it is "not read". Discarding it here puts a scanned
+            // PDF on the same footing as a photograph, which is what it is.
+            if (trim($extractedText->reveal()) === '') {
+                $extractedText = null;
+            }
         }
 
         $document->status = DocumentStatus::READY;

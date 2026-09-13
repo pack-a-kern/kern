@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\DeleteFinancialAccount;
 use App\Domain\Wallet\Exceptions\AccountNotEmptyException;
+use App\Domain\Wallet\Exceptions\UndeletableSourceException;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -32,9 +33,17 @@ final class DeleteAccountController extends Controller
 
         try {
             $delete($model, $this->actorId($request));
+        } catch (UndeletableSourceException $exception) {
+            // 422 rather than 409: nothing is in the way that could be cleared, the source simply
+            // is not a thing that can be removed.
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => 'GENERAL_SOURCE_UNDELETABLE',
+            ], 422);
         } catch (AccountNotEmptyException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),
+                'reason' => 'SOURCE_NOT_EMPTY',
                 'transactions' => $exception->transactionCount,
                 'interest_events' => $exception->interestEventCount,
             ], 409);

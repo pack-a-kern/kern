@@ -41,6 +41,21 @@ beforeEach(function (): void {
     );
 });
 
+/**
+ * How many "a document was sent to an external AI" events exist for this document.
+ *
+ * The question these tests ask is whether *this send* was recorded, which is not the same as
+ * whether the audit table is empty — other legitimate events (a consent grant, another test's
+ * committed rows) live there too.
+ */
+function sendEvents(Document $document): int
+{
+    return AuditEvent::query()
+        ->where('event_type', 'ExternalDocumentAiSendCompleted')
+        ->where('resource_id', $document->id)
+        ->count();
+}
+
 it('is bound to NullDocumentAiProvider by default — no real provider is chosen yet', function (): void {
     expect(app(ExternalDocumentAiProvider::class)::class)->toBe(NullDocumentAiProvider::class);
 });
@@ -58,7 +73,7 @@ it('refuses to call any provider when the subject has not consented, and writes 
     $action = app(RequestExternalDocumentExtraction::class);
 
     expect(fn () => $action($document, UntrustedDocumentText::wrap('some extracted text')))->toThrow(AiConsentRequiredException::class);
-    expect(AuditEvent::query()->count())->toBe(0);
+    expect(sendEvents($document))->toBe(0);
 });
 
 it('propagates "provider not configured" once consent exists, and writes no audit event', function (): void {
@@ -69,7 +84,10 @@ it('propagates "provider not configured" once consent exists, and writes no audi
 
     expect(fn () => $action($document, UntrustedDocumentText::wrap('some extracted text')))
         ->toThrow(ExternalDocumentAiProviderNotConfiguredException::class);
-    expect(AuditEvent::query()->count())->toBe(0);
+    // Scoped to the send, not a count of the whole table: granting consent above is itself an
+    // audited act, so a bare `count() === 0` asserts that nothing at all ever happened on this
+    // installation — which is a different, and false, claim.
+    expect(sendEvents($document))->toBe(0);
 });
 
 it('writes exactly one audit event, naming the document and provider, only after a real send succeeds', function (): void {

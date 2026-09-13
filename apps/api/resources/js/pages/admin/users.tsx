@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { EllipsisVertical, LogIn, Pencil, Plus, Trash2, UsersIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getAccessCatalogue, getAdminDirectory, updateUserRoles, updateUserStatus } from '../../api/adminApi';
+import {
+    eraseUser,
+    getAccessCatalogue,
+    getAdminDirectory,
+    impersonateUser,
+    updateUserRoles,
+    updateUserStatus,
+} from '../../api/adminApi';
 import AppShell from '../../components/AppShell';
 import {
     Check,
     DataTable,
+    Field,
+    FieldGrid,
     Identity,
+    Page,
     Panel,
     PanelButton,
+    PanelDialog,
     PanelSelect,
     Pill,
     SearchInput,
@@ -18,9 +30,20 @@ import {
     TabRail,
     Toolbar,
 } from '../../components/panel';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
+import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import NewUserDialog from './NewUserDialog';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
+import { describeApiFailure } from '../../lib/apiErrors';
+import { useSharedAuth } from '../../lib/sharedProps';
 import { ApiError } from '../../lib/http';
 import type { AccessCatalogue, AdminDirectory, AdminUser } from '../../types/admin';
 
@@ -56,30 +79,7 @@ export default function AdminUsers(): JSX.Element {
     const [editing, setEditing] = useState<AdminUser | null>(null);
     const [reloadToken, setReloadToken] = useState(0);
 
-    const describeFailure = useCallback(
-        (cause: unknown): string => {
-            if (cause instanceof ApiError) {
-                if (cause.reason === 'network') {
-                    return t((d) => d.errors.network);
-                }
-
-                const first = Object.values(cause.errors ?? {})[0]?.[0];
-
-                if (first !== undefined) {
-                    return first;
-                }
-
-                // 422 from the lockout guards carries its explanation in `message`, and it is the
-                // whole point of the response — "you cannot demote the last super administrator".
-                if (cause.status === 422 && cause.message !== '') {
-                    return cause.message;
-                }
-            }
-
-            return t((d) => d.errors.unexpected);
-        },
-        [t],
-    );
+    const describeFailure = useCallback((cause: unknown): string => describeApiFailure(cause, t), [t]);
 
     const reload = useCallback(() => {
         setDirectory(null);
@@ -134,6 +134,62 @@ export default function AdminUsers(): JSX.Element {
         };
     }, [reloadToken, describeFailure, t]);
 
+    /*
+     * Who is looking, and at whom.
+     *
+     * Acting *as* someone, and erasing them, are a super administrator's to take — and never on
+     * themselves: an administrator who impersonates their own account learns nothing, and one who
+     * erases it locks everybody out of the installation. Both come from the page's own shared
+     * props, so the check does not need a request of its own.
+     */
+    const auth = useSharedAuth();
+    const currentUserId = auth?.user.id ?? '';
+    const isSuperAdmin = auth?.user.roles.includes('SUPER_ADMIN') === true;
+
+    const [impersonating, setImpersonating] = useState<AdminUser | null>(null);
+    const [erasing, setErasing] = useState<AdminUser | null>(null);
+    const [acting, setActing] = useState(false);
+    const [creatingUser, setCreatingUser] = useState(false);
+
+    const startImpersonation = async (user: AdminUser): Promise<void> => {
+        setActing(true);
+
+        try {
+            await impersonateUser(user.id);
+            // A full load, not a client-side visit: every screen behind this one was rendered for
+            // somebody else, and the session that fetched it is no longer the session in force.
+            window.location.assign('/dashboard');
+        } catch (cause: unknown) {
+            toast.error(
+                t((d) => d.pages.adminUsers.loginAsFailed),
+                { description: describeFailure(cause) },
+            );
+            setActing(false);
+            setImpersonating(null);
+        }
+    };
+
+    const erase = async (user: AdminUser): Promise<void> => {
+        setActing(true);
+
+        try {
+            await eraseUser(user.id);
+            toast.success(t((d) => d.pages.adminUsers.erased));
+            setErasing(null);
+            reload();
+        } catch (cause: unknown) {
+            toast.error(
+                t((d) => d.pages.adminUsers.eraseFailed),
+                { description: describeFailure(cause) },
+            );
+        } finally {
+            setActing(false);
+        }
+    };
+
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+
     const visible = useMemo((): AdminUser[] => {
         const term = search.trim().toLowerCase();
 
@@ -144,6 +200,19 @@ export default function AdminUsers(): JSX.Element {
                 (roleFilter === '' || user.roles.includes(roleFilter)),
         );
     }, [directory, search, statusFilter, roleFilter]);
+
+    /*
+     * Paged in the browser, over what the directory returned.
+     *
+     * Not on the server, because the server cannot help: an email is encrypted at rest, so it can
+     * neither be searched nor sorted by SQL — which is why this screen loads the directory (capped
+     * at 200, with `truncated` saying so) and filters here. Paging the same list keeps the filters
+     * and the pager telling the same story; paging on the server would leave a search that only
+     * ever looked at the current page.
+     */
+    const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+    const currentPage = Math.min(page, pageCount);
+    const paged = visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const total = directory?.users.length ?? 0;
     const withMfa = (directory?.users ?? []).filter((user) => user.passkeys > 0 || user.totp).length;
@@ -183,16 +252,15 @@ export default function AdminUsers(): JSX.Element {
 
     return (
         <AppShell>
-            <div>
-                <header className="page-head">
-                    <div>
-                        <h1 className="page-title">{t((d) => d.pages.adminUsers.title)}</h1>
-                        <p className="page-lede max-w-2xl">{t((d) => d.pages.adminUsers.description)}</p>
-                    </div>
-
-                    {failed ? <PanelButton onClick={reload}>{t((d) => d.pages.adminUsers.retry)}</PanelButton> : null}
-                </header>
-
+            <Page
+                title={t((d) => d.pages.adminUsers.title)}
+                lede={t((d) => d.pages.adminUsers.description)}
+                actions={
+                    failed ? (
+                        <PanelButton onClick={reload}>{t((d) => d.pages.adminUsers.retry)}</PanelButton>
+                    ) : undefined
+                }
+            >
                 <TabRail
                     value={tab}
                     onChange={setTab}
@@ -241,17 +309,53 @@ export default function AdminUsers(): JSX.Element {
                             />
                         </StatGrid>
 
-                        <Panel title={t((d) => d.pages.adminUsers.usersTitle)} flush>
+                        <Panel
+                            title={t((d) => d.pages.adminUsers.usersTitle)}
+                            description={t((d) => d.pages.adminUsers.usersDescription)}
+                            icon={<UsersIcon className="size-4" />}
+                            flush
+                            aside={
+                                <PanelButton
+                                    primary
+                                    inline
+                                    onClick={() => {
+                                        setCreatingUser(true);
+                                    }}
+                                >
+                                    <Plus className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.adminUsers.newButton)}
+                                </PanelButton>
+                            }
+                            foot={
+                                <Pagination
+                                    page={currentPage}
+                                    pageSize={pageSize}
+                                    total={visible.length}
+                                    unit={t((d) => d.pages.adminUsers.unit)}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={(size) => {
+                                        setPageSize(size);
+                                        setPage(1);
+                                    }}
+                                />
+                            }
+                        >
                             <Toolbar>
                                 <SearchInput
                                     value={search}
                                     placeholder={t((d) => d.pages.adminUsers.searchPlaceholder)}
-                                    onChange={setSearch}
+                                    onChange={(next) => {
+                                        setSearch(next);
+                                        setPage(1);
+                                    }}
                                 />
                                 <PanelSelect
                                     className="filter-select"
                                     value={roleFilter}
-                                    onValueChange={setRoleFilter}
+                                    onValueChange={(next) => {
+                                        setRoleFilter(next);
+                                        setPage(1);
+                                    }}
                                     placeholder={t((d) => d.pages.adminUsers.allRoles)}
                                     emptyLabel={t((d) => d.pages.adminUsers.allRoles)}
                                     options={(access?.roles ?? []).map((role) => ({
@@ -262,7 +366,10 @@ export default function AdminUsers(): JSX.Element {
                                 <PanelSelect
                                     className="filter-select"
                                     value={statusFilter}
-                                    onValueChange={setStatusFilter}
+                                    onValueChange={(next) => {
+                                        setStatusFilter(next);
+                                        setPage(1);
+                                    }}
                                     placeholder={t((d) => d.pages.adminUsers.allStatuses)}
                                     emptyLabel={t((d) => d.pages.adminUsers.allStatuses)}
                                     options={['ACTIVE', 'SUSPENDED', 'DELETED'].map((value) => ({
@@ -275,6 +382,7 @@ export default function AdminUsers(): JSX.Element {
                                         setSearch('');
                                         setRoleFilter('');
                                         setStatusFilter('');
+                                        setPage(1);
                                     }}
                                 >
                                     {t((d) => d.pages.adminUsers.reset)}
@@ -291,6 +399,10 @@ export default function AdminUsers(): JSX.Element {
                                 <p className="note p-4">{t((d) => d.pages.adminUsers.empty)}</p>
                             ) : (
                                 <DataTable
+                                    // Stacked on a phone: the identity takes the first line and the
+                                    // rest flows under it, rather than scrolling six columns
+                                    // sideways out of reach.
+                                    stacked
                                     head={
                                         <>
                                             <th>{t((d) => d.pages.adminUsers.columns.user)}</th>
@@ -303,9 +415,9 @@ export default function AdminUsers(): JSX.Element {
                                         </>
                                     }
                                 >
-                                    {visible.map((user) => (
+                                    {paged.map((user) => (
                                         <tr key={user.id}>
-                                            <td>
+                                            <td className="col-primary">
                                                 <Identity
                                                     initials={initialsFor(user.email)}
                                                     name={user.email.split('@')[0] ?? user.email}
@@ -352,20 +464,73 @@ export default function AdminUsers(): JSX.Element {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="tabular-nums">{user.memberships.length}</td>
-                                            <td className="whitespace-nowrap">
+                                            <td className="col-hide tabular-nums">{user.memberships.length}</td>
+                                            <td className="col-hide whitespace-nowrap">
                                                 {user.lastSeenAt === null
                                                     ? t((d) => d.pages.adminUsers.never)
                                                     : new Date(user.lastSeenAt).toLocaleString()}
                                             </td>
-                                            <td className="text-right">
-                                                <PanelButton
-                                                    onClick={() => {
-                                                        setEditing(user);
-                                                    }}
-                                                >
-                                                    {t((d) => d.pages.adminUsers.edit)}
-                                                </PanelButton>
+                                            <td className="col-end">
+                                                <div className="flex justify-end">
+                                                    {/* An erased account has nothing left to act
+                                                        on: no credentials to sign in with, no role
+                                                        anyone could exercise, and no second
+                                                        erasure to perform. The server refuses all
+                                                        three; the row simply does not offer them. */}
+                                                    {user.status === 'DELETED' ? null : (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="row-menu"
+                                                                    aria-label={t((d) => d.common.actions)}
+                                                                    disabled={acting}
+                                                                >
+                                                                    <EllipsisVertical className="size-4" />
+                                                                </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-56">
+                                                                <DropdownMenuItem
+                                                                    onSelect={() => {
+                                                                        setEditing(user);
+                                                                    }}
+                                                                >
+                                                                    <Pencil className="size-4" />
+                                                                    {t((d) => d.pages.adminUsers.edit)}
+                                                                </DropdownMenuItem>
+
+                                                                {/* Both of these act *as* or *on* a
+                                                                person rather than on a record, so
+                                                                they are a super administrator's to
+                                                                take — and only on someone else. */}
+                                                                {isSuperAdmin && user.id !== currentUserId ? (
+                                                                    <>
+                                                                        <DropdownMenuItem
+                                                                            onSelect={() => {
+                                                                                setImpersonating(user);
+                                                                            }}
+                                                                        >
+                                                                            <LogIn className="size-4" />
+                                                                            {t((d) => d.pages.adminUsers.loginAs)}
+                                                                        </DropdownMenuItem>
+
+                                                                        <DropdownMenuSeparator />
+
+                                                                        <DropdownMenuItem
+                                                                            variant="destructive"
+                                                                            onSelect={() => {
+                                                                                setErasing(user);
+                                                                            }}
+                                                                        >
+                                                                            <Trash2 className="size-4" />
+                                                                            {t((d) => d.pages.adminUsers.erase)}
+                                                                        </DropdownMenuItem>
+                                                                    </>
+                                                                ) : null}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -431,6 +596,10 @@ export default function AdminUsers(): JSX.Element {
                         ) : (
                             <>
                                 <DataTable
+                                    // Stacked on a phone: the identity takes the first line and the
+                                    // rest flows under it, rather than scrolling six columns
+                                    // sideways out of reach.
+                                    stacked
                                     head={
                                         <>
                                             <th>{t((d) => d.pages.adminUsers.columns.permission)}</th>
@@ -481,9 +650,16 @@ export default function AdminUsers(): JSX.Element {
                         )}
                     </Panel>
                 ) : null}
-            </div>
+            </Page>
 
-            <EditUserSheet
+            <NewUserDialog
+                open={creatingUser}
+                onOpenChange={setCreatingUser}
+                roles={access?.roles ?? []}
+                onCreated={reload}
+            />
+
+            <EditUserDialog
                 user={editing}
                 roles={access?.roles ?? []}
                 onClose={() => {
@@ -491,118 +667,168 @@ export default function AdminUsers(): JSX.Element {
                 }}
                 onSave={save}
             />
+
+            {/* Both say plainly what will happen, because neither is obvious from its name: one
+                hands an administrator somebody else's encrypted data, the other keeps a trail it
+                cannot erase. */}
+            {impersonating !== null && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setImpersonating(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.adminUsers.loginAsTitle)}
+                    description={t((d) => d.pages.adminUsers.loginAsHint).replace('{email}', impersonating.email)}
+                    confirmLabel={t((d) => d.pages.adminUsers.loginAs)}
+                    cancelLabel={t((d) => d.pages.adminUsers.cancel)}
+                    onConfirm={async () => {
+                        await startImpersonation(impersonating);
+                    }}
+                />
+            )}
+
+            {erasing !== null && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setErasing(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.adminUsers.eraseTitle)}
+                    description={t((d) => d.pages.adminUsers.eraseHint).replace('{email}', erasing.email)}
+                    detail={<p className="note">{t((d) => d.pages.adminUsers.eraseAuditNote)}</p>}
+                    confirmLabel={t((d) => d.pages.adminUsers.erase)}
+                    cancelLabel={t((d) => d.pages.adminUsers.cancel)}
+                    onConfirm={async () => {
+                        await erase(erasing);
+                    }}
+                />
+            )}
         </AppShell>
     );
 }
 
 /** Edit drawer: platform roles and account status, the two things this screen can actually change. */
-function EditUserSheet(props: {
+/**
+ * Editing a user, in the same dialog every other screen uses.
+ *
+ * It was a right-hand drawer, which is a different shape for the same job — a short form with two
+ * choices and two buttons. One modal vocabulary means a person learns where Cancel lives once.
+ */
+function EditUserDialog(props: {
     user: AdminUser | null;
     roles: string[];
     onClose: () => void;
     onSave: (user: AdminUser, roles: string[], status: string) => Promise<void>;
-}): JSX.Element {
+}): JSX.Element | null {
     const { t } = useTranslation();
     const user = props.user;
+    const [draft, setDraft] = useState<{ role: string; status: string } | null>(null);
+    const [saving, setSaving] = useState(false);
+
+    if (user === null) {
+        return null;
+    }
+
+    const role = draft?.role ?? user.roles[0] ?? '';
+    const status = draft?.status ?? user.status;
 
     return (
-        <Sheet
-            open={user !== null}
+        <PanelDialog
+            open
             onOpenChange={(open) => {
                 if (!open) {
                     props.onClose();
                 }
             }}
+            title={t((d) => d.pages.adminUsers.editTitle)}
+            actions={
+                <>
+                    <PanelButton variant="outline" onClick={props.onClose}>
+                        {t((d) => d.common.cancel)}
+                    </PanelButton>
+                    <PanelButton
+                        primary
+                        disabled={saving}
+                        onClick={() => {
+                            setSaving(true);
+                            void props.onSave(user, role === '' ? [] : [role], status).finally(() => {
+                                setSaving(false);
+                            });
+                        }}
+                    >
+                        {saving ? t((d) => d.pages.adminUsers.saving) : t((d) => d.common.save)}
+                    </PanelButton>
+                </>
+            }
         >
-            <SheetContent side="right" className="drawer gap-0 p-0">
-                <SheetHeader className="border-b p-4">
-                    <SheetTitle className="dialog-title">{t((d) => d.pages.adminUsers.editTitle)}</SheetTitle>
-                </SheetHeader>
-
-                {user === null ? null : (
-                    // Keyed on the user: opening a different row discards this form's state rather
-                    // than re-seeding it from an effect, which React flags as a cascading render.
-                    <EditUserForm
-                        key={user.id}
-                        user={user}
-                        roles={props.roles}
-                        onClose={props.onClose}
-                        onSave={props.onSave}
-                    />
-                )}
-            </SheetContent>
-        </Sheet>
+            {/* Keyed on the user: opening a different row discards this form's state rather than
+                re-seeding it from an effect, which React flags as a cascading render. */}
+            <EditUserForm
+                key={user.id}
+                user={user}
+                roles={props.roles}
+                role={role}
+                status={status}
+                onChange={(next) => {
+                    setDraft(next);
+                }}
+            />
+        </PanelDialog>
     );
 }
 
 function EditUserForm(props: {
     user: AdminUser;
     roles: string[];
-    onClose: () => void;
-    onSave: (user: AdminUser, roles: string[], status: string) => Promise<void>;
+    role: string;
+    status: string;
+    onChange: (next: { role: string; status: string }) => void;
 }): JSX.Element {
     const { t } = useTranslation();
     const user = props.user;
-    const [role, setRole] = useState(user.roles[0] ?? '');
-    const [status, setStatus] = useState(user.status);
-    const [saving, setSaving] = useState(false);
 
     return (
-        <div className="space-y-4 overflow-auto p-4">
+        <div className="space-y-4">
             <Identity
                 initials={initialsFor(user.email)}
                 name={user.email.split('@')[0] ?? user.email}
                 sub={user.email}
             />
 
-            <div>
-                <div className="field-label-row">
-                    <span className="field-label">{t((d) => d.pages.adminUsers.columns.role)}</span>
-                </div>
-                <PanelSelect
-                    value={role}
-                    onValueChange={setRole}
-                    placeholder={t((d) => d.pages.adminUsers.noRole)}
-                    options={props.roles.map((value) => ({
-                        value,
-                        label: t((d) => d.pages.adminUsers.roles[value] ?? value),
-                    }))}
-                />
-            </div>
+            <FieldGrid>
+                <Field label={t((d) => d.pages.adminUsers.columns.role)}>
+                    <PanelSelect
+                        value={props.role}
+                        onValueChange={(next) => {
+                            props.onChange({ role: next, status: props.status });
+                        }}
+                        placeholder={t((d) => d.pages.adminUsers.noRole)}
+                        options={props.roles.map((value) => ({
+                            value,
+                            label: t((d) => d.pages.adminUsers.roles[value] ?? value),
+                        }))}
+                    />
+                </Field>
 
-            <div>
-                <div className="field-label-row">
-                    <span className="field-label">{t((d) => d.pages.adminUsers.columns.status)}</span>
-                </div>
-                <PanelSelect
-                    value={status}
-                    onValueChange={setStatus}
-                    options={['ACTIVE', 'SUSPENDED'].map((value) => ({
-                        value,
-                        label: t((d) => d.pages.adminUsers.statuses[value] ?? value),
-                    }))}
-                />
-            </div>
+                <Field label={t((d) => d.pages.adminUsers.columns.status)}>
+                    <PanelSelect
+                        value={props.status}
+                        onValueChange={(next) => {
+                            props.onChange({ role: props.role, status: next });
+                        }}
+                        options={['ACTIVE', 'SUSPENDED'].map((value) => ({
+                            value,
+                            label: t((d) => d.pages.adminUsers.statuses[value] ?? value),
+                        }))}
+                    />
+                </Field>
+            </FieldGrid>
 
             <p className="note">{t((d) => d.pages.adminUsers.editNotice)}</p>
-
-            <div className="flex justify-end gap-1.5">
-                <PanelButton variant="outline" onClick={props.onClose}>
-                    {t((d) => d.pages.adminUsers.cancel)}
-                </PanelButton>
-                <PanelButton
-                    primary
-                    disabled={saving}
-                    onClick={() => {
-                        setSaving(true);
-                        void props.onSave(user, role === '' ? [] : [role], status).finally(() => {
-                            setSaving(false);
-                        });
-                    }}
-                >
-                    {saving ? t((d) => d.pages.adminUsers.saving) : t((d) => d.pages.adminUsers.save)}
-                </PanelButton>
-            </div>
         </div>
     );
 }

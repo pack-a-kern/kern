@@ -56,6 +56,7 @@ it('never stores a PF subject\'s plaintext name, CNP, or address anywhere in the
 
     $subject = app(RegisterPfSubject::class)(new RegisterPfSubjectInput(
         registeringUserId: $registerer->id,
+        registeringUserRoles: ['ADMIN'],
         displayName: $plaintextDisplayName,
         firstName: $plaintextFirstName,
         lastName: $plaintextLastName,

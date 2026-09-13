@@ -43,6 +43,7 @@ function pfaRegistrationInput(string $userId, string $registrationNumber = 'J40/
 {
     return new RegisterPfaSubjectInput(
         registeringUserId: $userId,
+        registeringUserRoles: ['ADMIN'],
         displayName: 'Ion Popescu PFA',
         tradeName: 'Popescu Ion PFA',
         registrationNumber: $registrationNumber,

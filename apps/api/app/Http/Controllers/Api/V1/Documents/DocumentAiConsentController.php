@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\Documents;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * `POST`/`DELETE /api/v1/subjects/{subject}/document-ai-consent` — ADR 0005's "per-subject
@@ -16,16 +17,16 @@ use Illuminate\Http\JsonResponse;
  */
 final class DocumentAiConsentController extends Controller
 {
-    public function store(string $subject, DocumentAiConsentGate $gate): JsonResponse
+    public function store(Request $request, string $subject, DocumentAiConsentGate $gate): JsonResponse
     {
-        $gate->grant($subject);
+        $gate->grant($subject, $request->user()?->id);
 
         return response()->json(['consented' => true]);
     }
 
-    public function destroy(string $subject, DocumentAiConsentGate $gate): JsonResponse
+    public function destroy(Request $request, string $subject, DocumentAiConsentGate $gate): JsonResponse
     {
-        $gate->revoke($subject);
+        $gate->revoke($subject, $request->user()?->id);
 
         return response()->json(['consented' => false]);
     }

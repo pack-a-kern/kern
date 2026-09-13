@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
+use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\AccountNotEmptyException;
-use App\Domain\Wallet\Models\AccountBalanceSnapshot;
+use App\Domain\Wallet\Exceptions\UndeletableSourceException;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
@@ -14,22 +15,21 @@ use App\Domain\Wallet\Services\WalletAudit;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Deletes an account, and refuses when anything still explains a figure through it.
+ * Deletes a source, by a rule that differs with what the source is.
  *
- * ## Why this refuses rather than cascades
+ * **The general source is never deletable.** It is created with the taxpayer and is where everything
+ * lands that has nowhere else to go — a typed transaction, a receipt, a rental payment, a bank
+ * statement. Deleting it would leave a person with no way to record income at all, and the next
+ * thing they did would have to silently recreate it.
  *
- * The database would happily cascade — the foreign keys say so. That is exactly the behaviour to
- * avoid: deleting an account would take its transactions with it, and those transactions are what a
- * past year's income was computed from. A tax record that can disappear because someone tidied up
- * an account list is not a tax record.
+ * **A holding goes with its own rows.** A cash source's single transaction *is* its declared value
+ * and a term deposit's interest events are computed from its terms — neither was entered against
+ * the source, both are produced by it, and keeping them after the declaration is gone would leave
+ * figures nothing explains. So they are deleted together, deliberately, in one transaction.
  *
- * So deletion is for an account that should never have existed. For one that did, there is
- * `closed_at` — the history stays, the account stops appearing among the open ones, and last year's
- * return still explains itself.
- *
- * Balance snapshots are the one exception and go with the account. A snapshot is an observation
- * *of* the account and means nothing without it; unlike a transaction, nothing else ever points at
- * one.
+ * **A stream refuses while transactions point at it.** Those were typed or imported, a past year's
+ * income was computed from them, and a tax record that disappears because someone tidied up a list
+ * is not a tax record. The database would happily cascade; that is exactly what must not happen.
  */
 final readonly class DeleteFinancialAccount
 {
@@ -39,11 +39,17 @@ final readonly class DeleteFinancialAccount
 
     public function __invoke(FinancialAccount $account, ?string $actorId = null): void
     {
-        $transactions = FinancialTransaction::query()->where('account_id', $account->id)->count();
-        $interestEvents = DepositInterestEvent::query()->where('account_id', $account->id)->count();
+        if ($account->kind === AccountKind::GENERAL) {
+            throw UndeletableSourceException::forGeneral();
+        }
 
-        if ($transactions > 0 || $interestEvents > 0) {
-            throw AccountNotEmptyException::forCounts($transactions, $interestEvents);
+        if ($account->kind->isStream()) {
+            $transactions = FinancialTransaction::query()->where('account_id', $account->id)->count();
+            $interestEvents = DepositInterestEvent::query()->where('account_id', $account->id)->count();
+
+            if ($transactions > 0 || $interestEvents > 0) {
+                throw AccountNotEmptyException::forCounts($transactions, $interestEvents);
+            }
         }
 
         // Read before the delete: afterwards there is no row to read them from, and the audit entry
@@ -53,11 +59,13 @@ final readonly class DeleteFinancialAccount
         $kind = $account->kind->value;
         $currency = $account->currency_code;
 
-        DB::transaction(function () use ($account, $accountId): void {
-            AccountBalanceSnapshot::query()->where('account_id', $accountId)->delete();
+        DB::transaction(function () use ($account): void {
+            // A holding's rows are produced by the declaration being deleted, so they go with it.
+            // A stream reaches here only with nothing pointing at it, so these are no-ops there.
+            FinancialTransaction::query()->where('account_id', $account->id)->delete();
+            DepositInterestEvent::query()->where('account_id', $account->id)->delete();
 
-            // `deposit_terms` and `deposit_rate_periods` cascade from the account's own foreign
-            // keys; there are no interest events left, or the guard above would have refused.
+            // `deposit_terms` and `deposit_rate_periods` cascade from the account's own foreign keys.
             $account->delete();
         });
 

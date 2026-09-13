@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
-use App\Domain\Operations\Enums\JobRunTrigger;
+use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
 use App\Domain\Subjects\Tenancy\Exceptions\UnauthorizedSubjectAccessException;
@@ -149,7 +149,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // covered manual runs could not answer "did last night's import work", which is the
             // question this whole screen exists for. It also keeps the scheduler tick cheap — the
             // import itself happens on a queue worker, not inside `schedule:run`.
-            $schedule->job(new RunOperationTask($definition->task, JobRunTrigger::SCHEDULED, null))
+            $schedule->job(new RunOperationTask($definition->task, TaskRunTrigger::SCHEDULED, null))
                 ->cron($cronExpression)
                 ->timezone($definition->timezone)
                 ->name('operations:' . $definition->task->value)

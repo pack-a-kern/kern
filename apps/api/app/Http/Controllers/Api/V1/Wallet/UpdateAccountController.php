@@ -42,20 +42,22 @@ final class UpdateAccountController extends Controller
         $isDeposit = $model->kind === AccountKind::TERM_DEPOSIT;
 
         $validated = $request->validate([
-            // Rejected outright rather than ignored. Both are part of the account's identity —
-            // every transaction and interest event against it is denominated in that currency and
-            // shaped by that kind — and silently dropping the field would let a caller believe the
-            // change took effect. Getting either wrong means deleting the account and opening the
-            // right one, which is the honest correction.
+            // Rejected outright rather than ignored: `kind` decides whether transactions may be
+            // recorded against this source at all, so changing it would reinterpret what is already
+            // stored. Silently dropping the field would let a caller believe the change took
+            // effect. Getting it wrong means deleting the source and opening the right one.
             'kind' => ['prohibited'],
-            'currency_code' => ['prohibited'],
 
             'display_name' => ['sometimes', 'string', 'max:120'],
-            'institution_name' => ['sometimes', 'nullable', 'string', 'max:120'],
-            'iban' => ['sometimes', 'nullable', 'string', 'max:34'],
-            'opened_at' => ['sometimes', 'date'],
-            // An empty string reopens the account — "no closing date" has to be settable.
-            'closed_at' => ['sometimes', 'nullable', 'date'],
+            'holding_amount_minor' => [
+                $model->kind === AccountKind::CASH ? 'sometimes' : 'prohibited',
+                'integer',
+            ],
+            // A deposit's own dates and currency travel with its terms.
+            'starts_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date'],
+            // Editable on any kind: it pre-fills the transaction form and nothing that calculates
+            // reads it. A deposit's own currency travels with its terms, and this sets both.
+            'currency_code' => ['sometimes', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
 
             // Deposit terms, accepted only for an account that is one. A whole replacement rather
             // than a partial edit: the rate periods must cover the term without a gap, and that is
@@ -74,12 +76,9 @@ final class UpdateAccountController extends Controller
         $update($model, new UpdateFinancialAccountInput(
             actorId: $this->actorId($request),
             displayName: $this->optional($validated, 'display_name'),
-            institutionName: $this->optional($validated, 'institution_name'),
-            iban: $this->optional($validated, 'iban'),
-            openedAt: $this->optional($validated, 'opened_at'),
-            closedAt: array_key_exists('closed_at', $validated)
-                // Present-but-null is the reopen signal; the action reads an empty string as such.
-                ? (string) ($validated['closed_at'] ?? '')
+            currencyCode: $this->optional($validated, 'currency_code'),
+            holdingAmountMinor: array_key_exists('holding_amount_minor', $validated)
+                ? (int) self::str($validated, 'holding_amount_minor')
                 : null,
             depositTerms: $this->depositTerms($request, $validated, $model),
         ));
@@ -119,7 +118,6 @@ final class UpdateAccountController extends Controller
             ? self::str($validated, 'maturity_at')
             : $terms->maturity_at->toDateString();
 
-        $openedAt = $account->opened_at?->toDateString() ?? $maturityAt;
 
         // The current rate, unless the request supplied a new one. Read from the periods rather
         // than stored on the terms, because a deposit has a *series* of rates.
@@ -129,10 +127,20 @@ final class UpdateAccountController extends Controller
             ? self::str($validated, 'annual_rate')
             : ($currentPeriod === null ? '0' : $currentPeriod->annual_rate_decimal);
 
+        // The replacement's own start date, so the single rate period the screen sends covers
+        // exactly the span the validator will check.
+        $startsAt = array_key_exists('starts_at', $validated)
+            ? self::str($validated, 'starts_at')
+            : $terms->starts_at->toDateString();
+
         return new DepositTermsInput(
             principalMinor: array_key_exists('principal_minor', $validated)
                 ? (int) self::str($validated, 'principal_minor')
                 : $terms->principal_minor,
+            startsAt: $startsAt,
+            currencyCode: array_key_exists('currency_code', $validated)
+                ? strtoupper(self::str($validated, 'currency_code'))
+                : $terms->currency_code,
             maturityAt: $maturityAt,
             rateType: array_key_exists('rate_type', $validated)
                 ? RateType::from(self::str($validated, 'rate_type'))
@@ -147,7 +155,7 @@ final class UpdateAccountController extends Controller
                 ? DayCountConvention::from(self::str($validated, 'day_count_convention'))
                 : $terms->day_count_convention,
             ratePeriods: [new DepositRatePeriodInput(
-                validFrom: $openedAt,
+                validFrom: $startsAt,
                 validTo: $maturityAt,
                 annualRateDecimal: $annualRate,
             )],

@@ -7,6 +7,7 @@ namespace App\Domain\Operations\Services;
 use App\Domain\Operations\DataTransferObjects\QueueSnapshot;
 use Laravel\Horizon\Contracts\JobRepository;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
+use Laravel\Horizon\Contracts\MetricsRepository;
 use Laravel\Horizon\Contracts\WorkloadRepository;
 use Throwable;
 
@@ -34,6 +35,7 @@ final readonly class ProbeQueueStatus
         private JobRepository $jobs,
         private WorkloadRepository $workload,
         private MasterSupervisorRepository $masters,
+        private MetricsRepository $metrics,
     ) {
     }
 
@@ -49,6 +51,7 @@ final readonly class ProbeQueueStatus
                 supervisors: count($this->masters->all()),
                 masterStatus: $this->masterStatus(),
                 maxWaitSeconds: $this->maxWaitSeconds(),
+                throughput: $this->throughput(),
             );
         } catch (Throwable $exception) {
             report($exception);
@@ -73,6 +76,18 @@ final readonly class ProbeQueueStatus
         $status = $master->status;
 
         return is_string($status) && $status !== '' ? $status : null;
+    }
+
+    /**
+     * Jobs per minute, from Horizon's own metrics snapshots.
+     *
+     * The one figure that says whether the queue is *moving*, which neither a pending count nor a
+     * wait time answers on its own: a depth of zero is equally consistent with "caught up" and
+     * "nothing has been dispatched all day", and the two call for opposite reactions.
+     */
+    private function throughput(): float
+    {
+        return (float) $this->metrics->jobsProcessedPerMinute();
     }
 
     /**

@@ -30,7 +30,7 @@ final class FinancialAccountFactory extends Factory
     public function definition(): array
     {
         return [
-            'kind' => AccountKind::BANK_CURRENT,
+            'kind' => AccountKind::GENERAL,
             'currency_code' => 'RON',
             'display_name_ciphertext' => 'Test Account ' . Str::uuid(),
             'source' => RecordSource::MANUAL,

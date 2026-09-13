@@ -1,7 +1,9 @@
 import { useEffect, useState, type JSX } from 'react';
 
-import { deleteAccount, listAccounts, openAccount, recordBalance, setAccountClosedAt } from '../../api/walletApi';
+import { deleteAccount, listAccounts, openAccount, updateAccount } from '../../api/walletApi';
+import { PercentIcon, TagIcon } from 'lucide-react';
 import AppShell from '../../components/AppShell';
+import { PanelDate } from '../../components/PanelDatePicker';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
     DataTable,
@@ -18,16 +20,16 @@ import {
     Toolbar,
 } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Switch } from '../../components/ui/switch';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import { addMonths, daysBetween } from '../../lib/depositTerm';
-import { ApiError } from '../../lib/http';
+import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { toast } from 'sonner';
 
 import {
-    ACCOUNT_KINDS,
+    OPENABLE_KINDS,
+    sourceName,
     CURRENCIES,
     INTEREST_METHODS,
     PAYMENT_FREQUENCIES,
@@ -60,11 +62,12 @@ import {
  */
 interface AccountForm {
     display_name: string;
-    institution_name: string;
     kind: string;
     currency_code: string;
-    iban: string;
-    opened_at: string;
+    /** A deposit's own start date — the day interest begins accruing. Deposits only. */
+    starts_at: string;
+    /** What a cash holding is worth, in major units. Cash only. */
+    holding_amount: string;
 
     /* Term deposit only — see `AccountForm`. */
     principal: string;
@@ -76,15 +79,56 @@ interface AccountForm {
     auto_renewal: boolean;
 }
 
+/**
+ * The form pre-filled from an existing source.
+ *
+ * A deposit's term is derived back from its dates rather than stored: the form asks for a length in
+ * months because that is how a deposit is bought, and the maturity is recomputed from it — so
+ * round-tripping through months is what keeps editing consistent with opening.
+ */
+function formFor(account: AccountSummary): AccountForm {
+    const deposit = account.deposit;
+
+    return {
+        ...emptyForm(),
+        display_name: account.displayName,
+        kind: account.kind,
+        currency_code: account.currencyCode ?? deposit?.currencyCode ?? CURRENCIES[0],
+        holding_amount:
+            account.kind === 'CASH' && account.balances[0] !== undefined
+                ? String(account.balances[0].amountMinor / 100)
+                : '',
+        ...(deposit === null
+            ? {}
+            : {
+                  starts_at: deposit.startsAt,
+                  principal: String(deposit.principalMinor / 100),
+                  term_months: String(monthsBetween(deposit.startsAt, deposit.maturityAt)),
+                  annual_rate: deposit.annualRate ?? '',
+                  rate_type: deposit.rateType,
+                  interest_method: deposit.interestMethod,
+                  payment_frequency: deposit.paymentFrequency,
+                  auto_renewal: deposit.autoRenewal,
+              }),
+    };
+}
+
+/** Whole months between two ISO dates, which is the unit the deposit form works in. */
+function monthsBetween(from: string, to: string): number {
+    const start = new Date(from);
+    const end = new Date(to);
+
+    return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
+}
+
 function emptyForm(): AccountForm {
     return {
         display_name: '',
-        institution_name: '',
         // Defaults chosen so the commonest account is one field away: a RON current account.
-        kind: ACCOUNT_KINDS[0],
+        kind: OPENABLE_KINDS[0] ?? 'OTHER',
         currency_code: CURRENCIES[0],
-        iban: '',
-        opened_at: '',
+        starts_at: '',
+        holding_amount: '',
         principal: '',
         term_months: '',
         annual_rate: '',
@@ -100,26 +144,20 @@ export default function WalletAccounts(): JSX.Element {
     const { t, locale } = useTranslation();
     const subjectId = getActiveSubjectId();
 
-    // The filter is stored *with* the rows it produced, so "the data does not match the current
-    // filter" is what means loading. Nulling the rows inside the effect body would set state
-    // synchronously during render, which `react-hooks/set-state-in-effect` correctly rejects.
     const [loaded, setLoaded] = useState<{
-        includeClosed: boolean;
         rows: AccountSummary[];
         options: DepositFormOptions;
     } | null>(null);
-    const [includeClosed, setIncludeClosed] = useState(false);
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
     const errors = useFormErrors();
-    const balanceErrors = useFormErrors();
-    const [balanceFor, setBalanceFor] = useState<AccountSummary | null>(null);
     const [deleting, setDeleting] = useState<AccountSummary | null>(null);
-    const [balanceForm, setBalanceForm] = useState({ amount: '', as_of: '', is_verified: false });
     const [adding, setAdding] = useState(false);
+    /** The source being edited, or null when the dialog is opening a new one. */
+    const [editing, setEditing] = useState<AccountSummary | null>(null);
     const [saving, setSaving] = useState(false);
-    // Typed explicitly: `ACCOUNT_KINDS[0]` is a const-asserted tuple, so inference would pin
+    // Typed explicitly: `OPENABLE_KINDS[0]` is a const-asserted tuple, so inference would pin
     // `kind` to the literal 'BANK_CURRENT' and reject every other value the select offers.
     const [form, setForm] = useState<AccountForm>(emptyForm());
 
@@ -130,17 +168,17 @@ export default function WalletAccounts(): JSX.Element {
 
         let active = true;
 
-        listAccounts(subjectId, includeClosed).then(
+        listAccounts(subjectId).then(
             (page) => {
                 if (active) {
-                    setLoaded({ includeClosed, rows: page.accounts, options: page.formOptions });
+                    setLoaded({ rows: page.accounts, options: page.formOptions });
                     setFailed(false);
                 }
             },
             () => {
                 if (active) {
                     setFailed(true);
-                    setLoaded({ includeClosed, rows: [], options: { termsMonths: [] } });
+                    setLoaded({ rows: [], options: { termsMonths: [] } });
                 }
             },
         );
@@ -148,7 +186,7 @@ export default function WalletAccounts(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [subjectId, includeClosed, reloadKey]);
+    }, [subjectId, reloadKey]);
 
     if (subjectId === null) {
         return (
@@ -162,21 +200,24 @@ export default function WalletAccounts(): JSX.Element {
         );
     }
 
-    const accounts = loaded !== null && loaded.includeClosed === includeClosed ? loaded.rows : null;
+    const accounts = loaded?.rows ?? null;
 
     // A term deposit is an account with extra terms, so the form grows rather than the app offering
     // a second place to add one. This is the whole reason `deposits` stopped being its own table.
     const options: DepositFormOptions = loaded?.options ?? { termsMonths: [] };
     const isDeposit = form.kind === 'TERM_DEPOSIT';
+    // A cash source is one declared value rather than a container: the form asks for it, and
+    // nothing else can ever add to it.
+    const isCash = form.kind === 'CASH';
 
     // Derived on every render rather than stored: a second copy of the maturity could drift out of
     // step with the term that produced it, which is what asking for a term instead of a date fixes.
     const termMonths = Number(form.term_months);
     const maturityAt =
-        form.opened_at !== '' && Number.isInteger(termMonths) && termMonths > 0
-            ? addMonths(form.opened_at, termMonths)
+        form.starts_at !== '' && Number.isInteger(termMonths) && termMonths > 0
+            ? addMonths(form.starts_at, termMonths)
             : '';
-    const termDays = maturityAt === '' ? null : daysBetween(form.opened_at, maturityAt);
+    const termDays = maturityAt === '' ? null : daysBetween(form.starts_at, maturityAt);
 
     /** Labels a term the way it is sold — "6 luni", and the singular for one month. */
     const termLabel = (months: number): string =>
@@ -186,71 +227,17 @@ export default function WalletAccounts(): JSX.Element {
 
     // Neither handler re-checks `subjectId`: the early return above this point already narrowed it
     // to a string, and TypeScript rejects the redundant check as unreachable.
-    const submitBalance = async (): Promise<void> => {
-        if (balanceFor === null) {
-            return;
-        }
 
-        setSaving(true);
-        balanceErrors.reset();
-
-        try {
-            await recordBalance(subjectId, balanceFor.id, {
-                // Major units in the form, minor units on the wire — rounded once, here.
-                balance_minor: Math.round(Number(balanceForm.amount) * 100),
-                as_of: balanceForm.as_of,
-                is_verified: balanceForm.is_verified,
-            });
-
-            toast.success(t((d) => d.pages.walletAccounts.balanceRecorded));
-            setBalanceFor(null);
-            setReloadKey((current) => current + 1);
-        } catch (cause: unknown) {
-            if (!balanceErrors.capture(cause)) {
-                toast.error(t((d) => d.pages.walletAccounts.balanceFailed));
-            }
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    /**
-     * Closes an open account, or reopens a closed one.
-     *
-     * Dated today rather than asking: a person closing an account is recording that it is closed
-     * now, and a wrong date is fixable while an extra dialog in the way of the common case is not
-     * worth it.
-     */
-    const toggleClosed = async (account: AccountSummary): Promise<void> => {
-        try {
-            await setAccountClosedAt(
-                subjectId,
-                account.id,
-                account.closed ? null : new Date().toISOString().slice(0, 10),
-            );
-            toast.success(
-                account.closed
-                    ? t((d) => d.pages.walletAccounts.reopened)
-                    : t((d) => d.pages.walletAccounts.closedToast),
-            );
-            setReloadKey((current) => current + 1);
-        } catch {
-            toast.error(t((d) => d.pages.walletAccounts.closeFailed));
-        }
-    };
 
     const submit = async (): Promise<void> => {
         setSaving(true);
         errors.reset();
 
-        try {
-            await openAccount(subjectId, {
+        const body = {
                 display_name: form.display_name,
-                kind: form.kind,
                 currency_code: form.currency_code,
-                ...(form.institution_name === '' ? {} : { institution_name: form.institution_name }),
-                ...(form.iban === '' ? {} : { iban: form.iban }),
-                ...(form.opened_at === '' ? {} : { opened_at: form.opened_at }),
+                ...(form.starts_at === '' ? {} : { starts_at: form.starts_at }),
+                ...(isCash ? { holding_amount_minor: Math.round(Number(form.holding_amount) * 100) } : {}),
                 // A term deposit is an account with extra terms, sent in the same request. The
                 // server refuses these for any other kind, so they are only attached when the kind
                 // actually calls for them.
@@ -265,10 +252,24 @@ export default function WalletAccounts(): JSX.Element {
                           auto_renewal: form.auto_renewal,
                       }
                     : {}),
-            });
+        };
 
-            toast.success(t((d) => d.pages.walletAccounts.added));
+        try {
+            if (editing === null) {
+                await openAccount(subjectId, { ...body, kind: form.kind });
+            } else {
+                // `kind` is deliberately absent: the server rejects it outright rather than
+                // ignoring it, so a caller cannot believe a change took effect that did not.
+                await updateAccount(subjectId, editing.id, body);
+            }
+
+            toast.success(
+                editing === null
+                    ? t((d) => d.pages.walletAccounts.added)
+                    : t((d) => d.pages.walletAccounts.saved),
+            );
             setAdding(false);
+            setEditing(null);
             setForm(emptyForm());
             // Re-fetch rather than pushing the new row in locally: the server owns the id, and the
             // balance column comes from a snapshot that does not exist yet.
@@ -296,26 +297,17 @@ export default function WalletAccounts(): JSX.Element {
                             primary
                             onClick={() => {
                                 errors.reset();
-                                // Defaults set in the handler that opens the dialog, not an effect:
-                                // the terms arrive with the account list, so by the time this can be
-                                // pressed they are known.
-                                setForm((current) => ({
-                                    ...current,
-                                    term_months: String(options.termsMonths[0] ?? ''),
-                                }));
+                                // From `emptyForm()`, not from whatever was last typed: the dialog
+                                // is shared with editing, so carrying state over showed one
+                                // source's details under "Add". Defaults are set here rather than
+                                // in an effect because the terms arrive with the account list, so
+                                // by the time this can be pressed they are known.
+                                setForm({ ...emptyForm(), term_months: String(options.termsMonths[0] ?? '') });
                                 setAdding(true);
                             }}
                         >
                             {t((d) => d.pages.walletAccounts.add)}
                         </PanelButton>
-                        <label className="flex items-center gap-2 text-xs">
-                            <Switch
-                                checked={includeClosed}
-                                onCheckedChange={setIncludeClosed}
-                                aria-label={t((d) => d.pages.walletAccounts.includeClosed)}
-                            />
-                            {t((d) => d.pages.walletAccounts.includeClosed)}
-                        </label>
                     </Toolbar>
 
                     {accounts === null ? (
@@ -331,10 +323,7 @@ export default function WalletAccounts(): JSX.Element {
                                 <>
                                     <th>{t((d) => d.pages.walletAccounts.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.type)}</th>
-                                    <th>{t((d) => d.pages.walletAccounts.columns.currency)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.balance)}</th>
-                                    <th>{t((d) => d.pages.walletAccounts.columns.source)}</th>
-                                    <th>{t((d) => d.pages.walletAccounts.columns.lastUpdate)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.status)}</th>
                                     <th />
                                 </>
@@ -343,27 +332,24 @@ export default function WalletAccounts(): JSX.Element {
                             {accounts.map((account) => (
                                 <tr key={account.id}>
                                     <td className="col-primary">
-                                        <div className="font-semibold">{account.displayName}</div>
-                                        <div className="note">
-                                            {account.institutionName}
-                                            {account.ibanLast4 === null ? '' : ` · •••• ${account.ibanLast4}`}
+                                        <div className="font-semibold">
+                                            {sourceName(account, t((d) => d.pages.wallet.generalSource))}
                                         </div>
                                     </td>
                                     <td className="col-hide">
                                         <Pill>{t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}</Pill>
                                     </td>
-                                    <td>{account.currencyCode}</td>
                                     <td className="tabular-nums whitespace-nowrap">
-                                        {/* A deposit's money is its principal, not an observed
-                                            balance: nobody takes snapshots of a locked account, so
-                                            showing "unknown" there would be misleading. The interest
-                                            it will have earned by maturity goes underneath, because
+                                        {/* A deposit's money is its principal, not a running total:
+                                            nothing moves through a locked account, so summing
+                                            transactions there would report zero. The interest it
+                                            will have earned by maturity goes underneath, because
                                             that is the number a deposit is opened to find out. */}
                                         {account.deposit !== null ? (
                                             <>
                                                 {formatMinor(
                                                     account.deposit.principalMinor,
-                                                    account.currencyCode,
+                                                    account.deposit.currencyCode,
                                                     locale,
                                                 )}
                                                 <div className="note">
@@ -371,7 +357,7 @@ export default function WalletAccounts(): JSX.Element {
                                                         ? t((d) => d.pages.walletDeposits.notComputed)
                                                         : `+ ${formatMinor(
                                                               account.deposit.interestAtMaturityMinor,
-                                                              account.currencyCode,
+                                                              account.deposit.currencyCode,
                                                               locale,
                                                           )}`}
                                                     {account.deposit.annualRate === null
@@ -379,40 +365,24 @@ export default function WalletAccounts(): JSX.Element {
                                                         : ` · ${account.deposit.annualRate}%`}
                                                 </div>
                                             </>
-                                        ) : account.balanceMinor === null ? (
+                                        ) : account.balances.length === 0 ? (
                                             <span className="note">{t((d) => d.pages.wallet.unknownBalance)}</span>
                                         ) : (
-                                            formatMinor(account.balanceMinor, account.currencyCode, locale)
+                                            /* One line per currency. A source is a folder and may
+                                               hold several; adding them together would produce a
+                                               number that is not any quantity of anything. */
+                                            account.balances.map((balance) => (
+                                                <div key={balance.currencyCode}>
+                                                    {formatMinor(balance.amountMinor, balance.currencyCode, locale)}
+                                                </div>
+                                            ))
                                         )}
-                                    </td>
-                                    <td className="col-hide">
-                                        <Pill>
-                                            {t(
-                                                (d) =>
-                                                    d.pages.wallet.sources[account.balanceSource ?? account.source] ??
-                                                    account.source,
-                                            )}
-                                        </Pill>
-                                        {/* A balance is only as good as its verification: an imported
-                                            figure a bank confirmed and one typed in by hand are not
-                                            interchangeable when reconciling a tax year. */}
-                                        <div className="note">
-                                            {account.balanceMinor === null
-                                                ? ''
-                                                : account.balanceVerified
-                                                  ? t((d) => d.pages.wallet.verified)
-                                                  : account.balanceIsDerived
-                                                    ? t((d) => d.pages.wallet.derived)
-                                                    : t((d) => d.pages.wallet.unverified)}
-                                        </div>
-                                    </td>
-                                    <td className="col-hide whitespace-nowrap">
-                                        {account.balanceAsOf === null
-                                            ? t((d) => d.pages.walletAccounts.never)
-                                            : new Date(account.balanceAsOf).toLocaleDateString()}
+                                        <div className="note">{t((d) => d.pages.wallet.derived)}</div>
                                     </td>
                                     <td>
-                                        {account.deposit !== null && !account.closed ? (
+                                        {account.deposit === null ? (
+                                            <Status tone="ok">{t((d) => d.pages.walletAccounts.active)}</Status>
+                                        ) : (
                                             <Status tone={account.deposit.daysToMaturity < 0 ? 'idle' : 'ok'}>
                                                 {account.deposit.daysToMaturity < 0
                                                     ? t((d) => d.pages.walletDeposits.matured)
@@ -421,59 +391,41 @@ export default function WalletAccounts(): JSX.Element {
                                                           String(account.deposit.daysToMaturity),
                                                       )}
                                             </Status>
-                                        ) : (
-                                            <Status tone={account.closed ? 'idle' : 'ok'}>
-                                                {account.closed
-                                                    ? t((d) => d.pages.walletAccounts.closed)
-                                                    : t((d) => d.pages.walletAccounts.active)}
-                                            </Status>
                                         )}
                                     </td>
                                     <td className="col-end text-right">
+                                        {/* The general source is the system's own: it is created
+                                            with the taxpayer, labelled by this screen and cannot be
+                                            removed, so neither action means anything on it. */}
                                         <div className="flex justify-end gap-2">
-                                            {/* Not offered for a term deposit: its money is a fixed
-                                                principal locked until maturity, so there is no
-                                                observed balance to record. Showing the button would
-                                                invite a snapshot that means nothing. */}
-                                            {account.deposit === null ? (
-                                                <PanelButton
-                                                    disabled={account.closed}
-                                                    onClick={() => {
-                                                        balanceErrors.reset();
-                                                        setBalanceForm({
-                                                            amount: '',
-                                                            // Defaults to today: a balance is almost
-                                                            // always recorded as of now.
-                                                            as_of: new Date().toISOString().slice(0, 10),
-                                                            is_verified: false,
-                                                        });
-                                                        setBalanceFor(account);
-                                                    }}
-                                                >
-                                                    {t((d) => d.pages.walletAccounts.updateBalance)}
-                                                </PanelButton>
-                                            ) : null}
-                                            {/* Closing is the ordinary end of an account's life and
-                                                deleting is the exception, so the two sit together:
-                                                refusing a deletion and pointing at "close it
-                                                instead" is useless if there is nowhere to do it. */}
-                                            <PanelButton
-                                                onClick={() => {
-                                                    void toggleClosed(account);
-                                                }}
-                                            >
-                                                {account.closed
-                                                    ? t((d) => d.pages.walletAccounts.reopen)
-                                                    : t((d) => d.pages.walletAccounts.close)}
-                                            </PanelButton>
-                                            <PanelButton
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    setDeleting(account);
-                                                }}
-                                            >
-                                                {t((d) => d.common.delete)}
-                                            </PanelButton>
+                                            {account.kind === 'GENERAL' ? (
+                                                <span className="note">
+                                                    {t((d) => d.pages.walletAccounts.systemSource)}
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    {/* Editing is the only change a source takes:
+                                                        its name, its currency, and — for a deposit
+                                                        — the terms that produce its schedule. */}
+                                                    <PanelButton
+                                                        onClick={() => {
+                                                            errors.reset();
+                                                            setForm(formFor(account));
+                                                            setEditing(account);
+                                                        }}
+                                                    >
+                                                        {t((d) => d.pages.walletAccounts.edit)}
+                                                    </PanelButton>
+                                                    <PanelButton
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                            setDeleting(account);
+                                                        }}
+                                                    >
+                                                        {t((d) => d.common.delete)}
+                                                    </PanelButton>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -503,14 +455,13 @@ export default function WalletAccounts(): JSX.Element {
                             setDeleting(null);
                             setReloadKey((current) => current + 1);
                         } catch (cause: unknown) {
-                            // 409 is the server refusing because records still explain a figure
-                            // through this account — a different situation from a failed request,
-                            // and the remedy is to close it instead.
-                            toast.error(
-                                cause instanceof ApiError && cause.status === 409
-                                    ? t((d) => d.pages.walletAccounts.deleteBlocked)
-                                    : t((d) => d.common.deleteFailed),
-                            );
+                            // The server states *why* it refused — transactions still point at this
+                            // source, or it is the general one and cannot be removed at all. Both
+                            // are answers a person can act on, so the standard describer relays
+                            // them rather than a generic "deletion failed".
+                            toast.error(t((d) => d.common.deleteFailed), {
+                                description: describeApiFailure(cause, t),
+                            });
 
                             throw cause;
                         }
@@ -518,94 +469,29 @@ export default function WalletAccounts(): JSX.Element {
                 />
             )}
 
+
+            {/* One dialog for both, because they are the same form: the only difference is whether
+                the source already exists. `kind` is fixed once it does — it decides whether
+                transactions may be recorded against the source, so changing it would reinterpret
+                what is already stored. */}
             <PanelDialog
-                open={balanceFor !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setBalanceFor(null);
+                open={adding || editing !== null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        // Closed without saving: the form goes back to empty, so the next thing
+                        // opened — an "Add", or a different source — does not show what was typed
+                        // into this one.
+                        setAdding(false);
+                        setEditing(null);
+                        setForm(emptyForm());
+                        errors.reset();
                     }
                 }}
-                title={t((d) => d.pages.walletAccounts.updateBalance)}
-                description={t((d) => d.pages.walletAccounts.updateBalanceHint)}
-                actions={
-                    <>
-                        <PanelButton
-                            onClick={() => {
-                                setBalanceFor(null);
-                            }}
-                        >
-                            {t((d) => d.common.cancel)}
-                        </PanelButton>
-                        <PanelButton
-                            primary
-                            disabled={saving || balanceForm.amount.trim() === '' || balanceForm.as_of === ''}
-                            onClick={() => {
-                                void submitBalance();
-                            }}
-                        >
-                            {t((d) => d.common.save)}
-                        </PanelButton>
-                    </>
+                title={
+                    editing === null
+                        ? t((d) => d.pages.walletAccounts.add)
+                        : t((d) => d.pages.walletAccounts.edit)
                 }
-            >
-                {balanceFor === null ? null : (
-                    <div className="space-y-3">
-                        <p className="note">
-                            {balanceFor.displayName} · {balanceFor.currencyCode}
-                        </p>
-
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.balanceAmount)}
-                            htmlFor="balance-amount"
-                            error={balanceErrors.get('balance_minor')}
-                            hint={t((d) => d.pages.walletAccounts.balanceAmountHint)}
-                        >
-                            <PanelInput
-                                id="balance-amount"
-                                type="number"
-                                step="0.01"
-                                value={balanceForm.amount}
-                                onChange={(event) => {
-                                    setBalanceForm((current) => ({ ...current, amount: event.target.value }));
-                                }}
-                            />
-                        </Field>
-
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.balanceAsOf)}
-                            htmlFor="balance-as-of"
-                            error={balanceErrors.get('as_of')}
-                        >
-                            <PanelInput
-                                id="balance-as-of"
-                                type="date"
-                                value={balanceForm.as_of}
-                                onChange={(event) => {
-                                    setBalanceForm((current) => ({ ...current, as_of: event.target.value }));
-                                }}
-                            />
-                        </Field>
-
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.balanceVerified)}
-                            hint={t((d) => d.pages.walletAccounts.balanceVerifiedHint)}
-                        >
-                            <Switch
-                                checked={balanceForm.is_verified}
-                                onCheckedChange={(checked) => {
-                                    setBalanceForm((current) => ({ ...current, is_verified: checked }));
-                                }}
-                                aria-label={t((d) => d.pages.walletAccounts.balanceVerified)}
-                            />
-                        </Field>
-                    </div>
-                )}
-            </PanelDialog>
-
-            <PanelDialog
-                open={adding}
-                onOpenChange={setAdding}
-                title={t((d) => d.pages.walletAccounts.add)}
                 description={t((d) => d.pages.walletAccounts.addHint)}
                 size="lg"
                 actions={
@@ -613,6 +499,9 @@ export default function WalletAccounts(): JSX.Element {
                         <PanelButton
                             onClick={() => {
                                 setAdding(false);
+                                setEditing(null);
+                                setForm(emptyForm());
+                                errors.reset();
                             }}
                         >
                             {t((d) => d.common.cancel)}
@@ -622,6 +511,7 @@ export default function WalletAccounts(): JSX.Element {
                             disabled={
                                 saving ||
                                 form.display_name.trim() === '' ||
+                                (isCash && form.holding_amount.trim() === '') ||
                                 (isDeposit &&
                                     (form.principal.trim() === '' ||
                                         form.annual_rate.trim() === '' ||
@@ -645,23 +535,10 @@ export default function WalletAccounts(): JSX.Element {
                     >
                         <PanelInput
                             id="account-display-name"
+                            icon={<TagIcon className="size-3.5" />}
                             value={form.display_name}
                             onChange={(event) => {
                                 setForm((current) => ({ ...current, display_name: event.target.value }));
-                            }}
-                        />
-                    </Field>
-
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.institution)}
-                        htmlFor="account-institution"
-                        error={errors.get('institution_name')}
-                    >
-                        <PanelInput
-                            id="account-institution"
-                            value={form.institution_name}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, institution_name: event.target.value }));
                             }}
                         />
                     </Field>
@@ -677,7 +554,7 @@ export default function WalletAccounts(): JSX.Element {
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, kind: value }));
                             }}
-                            options={ACCOUNT_KINDS.map((kind) => ({
+                            options={OPENABLE_KINDS.map((kind) => ({
                                 value: kind,
                                 label: t((d) => d.pages.wallet.kinds[kind] ?? kind),
                             }))}
@@ -699,35 +576,41 @@ export default function WalletAccounts(): JSX.Element {
                         />
                     </Field>
 
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.iban)}
-                        htmlFor="account-iban"
-                        error={errors.get('iban')}
-                        hint={t((d) => d.pages.walletAccounts.form.ibanHint)}
-                    >
-                        <PanelInput
-                            id="account-iban"
-                            value={form.iban}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, iban: event.target.value }));
-                            }}
-                        />
-                    </Field>
+                    {isCash ? (
+                        <Field
+                            label={t((d) => d.pages.walletAccounts.form.holdingAmount)}
+                            htmlFor="account-holding"
+                            error={errors.get('holding_amount_minor')}
+                            hint={t((d) => d.pages.walletAccounts.form.holdingAmountHint)}
+                        >
+                            <PanelInput
+                                id="account-holding"
+                                inputMode="decimal"
+                                value={form.holding_amount}
+                                onChange={(event) => {
+                                    setForm((current) => ({ ...current, holding_amount: event.target.value }));
+                                }}
+                            />
+                        </Field>
+                    ) : null}
 
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.openedAt)}
-                        htmlFor="account-opened"
-                        error={errors.get('opened_at')}
-                    >
-                        <PanelInput
-                            id="account-opened"
-                            type="date"
-                            value={form.opened_at}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, opened_at: event.target.value }));
-                            }}
-                        />
-                    </Field>
+                    {/* A deposit's own start date, and only a deposit's: it is the day interest
+                        begins accruing and the left edge of the span its rate periods must cover,
+                        not metadata about a folder. */}
+                    {isDeposit ? (
+                        <Field
+                            label={t((d) => d.pages.walletAccounts.form.startsAt)}
+                            htmlFor="account-starts"
+                            error={errors.get('starts_at')}
+                        >
+                            <PanelDate
+                                value={form.starts_at === '' ? null : form.starts_at}
+                                onChange={(next) => {
+                                    setForm((current) => ({ ...current, starts_at: next ?? '' }));
+                                }}
+                            />
+                        </Field>
+                    ) : null}
 
                     {/* The deposit half. It appears when the kind calls for it rather than living on
                         a second screen — a term deposit is an account, and offering two places to
@@ -760,6 +643,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelInput
                                     id="account-rate"
+                                    icon={<PercentIcon className="size-3.5" />}
                                     inputMode="decimal"
                                     value={form.annual_rate}
                                     onChange={(event) => {

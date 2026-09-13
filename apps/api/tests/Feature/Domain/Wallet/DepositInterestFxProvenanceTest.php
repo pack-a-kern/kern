@@ -73,8 +73,9 @@ it('attaches a full FX provenance chain to a non-RON deposit\'s interest event',
         kind: AccountKind::TERM_DEPOSIT,
         displayName: 'Depozit',
         currencyCode: 'EUR',
-        openedAt: '2026-01-01',
         depositTerms: new DepositTermsInput(
+            startsAt: '2026-01-01',
+            currencyCode: 'EUR',
             principalMinor: 100_000, // 1000.00 EUR
             maturityAt: '2027-01-01',
             rateType: RateType::FIXED,
@@ -129,8 +130,9 @@ it('never attaches FX provenance to a RON deposit\'s interest event', function (
         kind: AccountKind::TERM_DEPOSIT,
         displayName: 'Depozit',
         currencyCode: 'RON',
-        openedAt: '2026-01-01',
         depositTerms: new DepositTermsInput(
+            startsAt: '2026-01-01',
+            currencyCode: 'RON',
             principalMinor: 100_000,
             maturityAt: '2027-01-01',
             rateType: RateType::FIXED,

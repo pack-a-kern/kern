@@ -12,9 +12,11 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Enums\SubjectType;
 use App\Domain\Subjects\Exceptions\DuplicateCnpException;
+use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
 use App\Domain\Subjects\Models\PfProfile;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
+use App\Domain\Subjects\Services\SubjectAllowance;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
 
@@ -66,11 +68,21 @@ final readonly class RegisterPfSubject
     public function __construct(
         private BlindIndexHasher $blindIndex,
         private AuditChainService $audit,
+        private SubjectAllowance $allowance,
     ) {
     }
 
     public function __invoke(RegisterPfSubjectInput $input): TaxSubject
     {
+        // Before the CNP is even hashed: an account that may not register another taxpayer gets
+        // the same answer whatever it typed, and checking here rather than in the controller means
+        // every caller is held to it, not only the one HTTP route.
+        if (! $this->allowance->hasRoom($input->registeringUserId, $input->registeringUserRoles)) {
+            throw SubjectLimitReachedException::of(
+                $this->allowance->limitFor($input->registeringUserRoles),
+            );
+        }
+
         $cnpBlindIndex = $this->blindIndex->compute(FiscalIdentifierKind::CNP->keyedValue($input->cnp));
 
         if (TaxSubject::query()->where('fiscal_identifier_blind_index', $cnpBlindIndex)->exists()) {
@@ -80,7 +92,7 @@ final readonly class RegisterPfSubject
         return DB::transaction(function () use ($input, $cnpBlindIndex): TaxSubject {
             $subject = new TaxSubject();
             $subject->type = SubjectType::PF;
-            $subject->country_code = 'RO';
+            $subject->country_code = $this->country();
             $subject->status = SubjectStatus::ACTIVE;
             $subject->save();
 
@@ -97,7 +109,7 @@ final readonly class RegisterPfSubject
                 'first_name_ciphertext' => $input->firstName,
                 'last_name_ciphertext' => $input->lastName,
                 'birth_date_ciphertext' => $input->birthDate,
-                'tax_residency_country' => 'RO',
+                'tax_residency_country' => $this->country(),
                 'county_code' => $input->countyCode,
                 'locality_ciphertext' => $input->locality,
                 'address_ciphertext' => $input->address,
@@ -124,5 +136,19 @@ final readonly class RegisterPfSubject
 
             return $subject;
         });
+    }
+
+    /**
+     * The country every taxpayer here belongs to.
+     *
+     * Configured rather than written into this method: the value is the same for every registration
+     * this product performs, but "the same everywhere" and "unchangeable" are different claims, and
+     * only one of them belongs in a domain action.
+     */
+    private function country(): string
+    {
+        $configured = config('subjects.default_country');
+
+        return is_string($configured) && $configured !== '' ? $configured : 'RO';
     }
 }

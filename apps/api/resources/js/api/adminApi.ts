@@ -20,3 +20,37 @@ export async function updateUserRoles(userId: string, roles: string[]): Promise<
 export async function updateUserStatus(userId: string, status: string): Promise<void> {
     await apiRequest(`/v1/admin/users/${userId}/status`, { method: 'PUT', body: { status } });
 }
+
+/**
+ * `DELETE /api/v1/admin/users/{id}` — erases a person: credentials, sessions, memberships and the
+ * email itself. Their audit trail stays, because a chain that can be edited is not a chain.
+ */
+export async function eraseUser(userId: string): Promise<void> {
+    await apiRequest(`/v1/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+}
+
+/** `POST /api/v1/admin/users/{id}/impersonate` — continue as that person until you stop. */
+export async function impersonateUser(userId: string): Promise<void> {
+    await apiRequest(`/v1/admin/users/${encodeURIComponent(userId)}/impersonate`, { method: 'POST' });
+}
+
+/** `POST /api/v1/admin/impersonation/stop` — back to your own account. */
+export async function stopImpersonating(): Promise<void> {
+    await apiRequest('/v1/admin/impersonation/stop', { method: 'POST' });
+}
+
+/**
+ * `POST /api/v1/admin/users` — opens an account for somebody else.
+ *
+ * The generated password comes back in this one response and cannot be retrieved afterwards: only
+ * its hash is stored. Whatever calls this owns showing it to the administrator once.
+ */
+export async function createUser(email: string, roles: string[]): Promise<{ id: string; password: string }> {
+    const payload: unknown = JSON.parse(await apiRequest('/v1/admin/users', { method: 'POST', body: { email, roles } }));
+    const row = (payload ?? {}) as Record<string, unknown>;
+
+    return {
+        id: typeof row.id === 'string' ? row.id : '',
+        password: typeof row.password === 'string' ? row.password : '',
+    };
+}

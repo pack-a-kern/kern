@@ -8,13 +8,13 @@ import {
     Page,
     Panel,
     PanelButton,
-    PanelInput,
     PanelSelect,
     Pill,
     SearchInput,
     Status,
     Toolbar,
 } from '../components/panel';
+import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
 import { useTranslation } from '../i18n';
 import { ApiError } from '../lib/http';
@@ -133,12 +133,10 @@ export default function Legislation(): JSX.Element {
                             htmlFor="legislation-as-of"
                             className="max-w-xs"
                         >
-                            <PanelInput
-                                id="legislation-as-of"
-                                type="date"
-                                value={asOf}
-                                onChange={(event) => {
-                                    setAsOf(event.target.value);
+                            <PanelDate
+                                value={asOf === '' ? null : asOf}
+                                onChange={(next) => {
+                                    setAsOf(next ?? '');
                                 }}
                             />
                         </Field>

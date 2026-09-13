@@ -1,9 +1,9 @@
-import { Head } from '@inertiajs/react';
-import { useState, type JSX, type SyntheticEvent } from 'react';
+import { Head, usePage } from '@inertiajs/react';
+import { useRef, useState, type ClipboardEvent, type JSX, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { startAuthentication } from '@simplewebauthn/browser';
-import { AtSignIcon, LockIcon, ShieldCheckIcon } from 'lucide-react';
+import { AtSignIcon, Eye, EyeOff, Fingerprint, KeyRound, LockIcon, ScrollText, ShieldCheck } from 'lucide-react';
 import ErrorText from '../../components/ErrorText';
-import GuestLanguageToggle from '../../components/GuestLanguageToggle';
+import { LanguageMenu, PaletteMenu, ThemeToggle } from '../../components/ShellControls';
 import {
     completeMfaChallenge,
     completePasskeyLogin,
@@ -12,14 +12,34 @@ import {
     requestPasskeyLoginOptions,
 } from '../../api/authApi';
 import { useTranslation } from '../../i18n';
+import type { Dictionary } from '../../i18n/dictionary';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { ApiError } from '../../lib/http';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, PanelInput } from '@/components/panel';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-type Mode = 'password' | 'mfa' | 'register';
+/**
+ * The one unauthenticated screen that does something: password, then the second factor.
+ *
+ * ## Why the second factor is two screens and one endpoint
+ *
+ * `CompleteMfaChallenge` takes a single `code` and tries it as a TOTP code first, then as a
+ * recovery code. The server therefore needs no mode flag — but a person does. A six-box grid asks
+ * for one thing and a 24-character field asks for another, and showing both at once would leave
+ * someone deciding which box their code goes in. So the step has two faces over one request.
+ *
+ * ## Recovery codes are uppercase on the wire
+ *
+ * They are hashed exactly as issued (`Hash::check`, no normalising), and issued as uppercase hex in
+ * four groups of five. The field therefore uppercases the *value*, not just its appearance — a CSS
+ * `text-transform` would show the right thing and submit the wrong one.
+ */
+
+type Mode = 'password' | 'mfa' | 'recovery' | 'register';
+
+/** How many boxes the authenticator grid has. TOTP is six digits everywhere this app talks to. */
+const OTP_LENGTH = 6;
 
 function goToDashboard(): void {
     // Full navigation, not an Inertia visit — the dashboard page is behind `auth` middleware and
@@ -31,10 +51,15 @@ function goToDashboard(): void {
 
 export default function Login(): JSX.Element {
     const { t } = useTranslation();
+    // Shared by `HandleInertiaRequests`. Absent only if this page were rendered outside Inertia,
+    // and "closed" is the safer reading of an unknown — the endpoint decides either way.
+    const registrationOpen = usePage().props.registrationOpen === true;
     const [mode, setMode] = useState<Mode>('password');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [code, setCode] = useState('');
+    const [passwordVisible, setPasswordVisible] = useState(false);
+    const [digits, setDigits] = useState<string[]>(Array.from({ length: OTP_LENGTH }, () => ''));
+    const [recoveryCode, setRecoveryCode] = useState('');
     const [error, setError] = useState<string | null>(null);
     const errors = useFormErrors();
     const [info, setInfo] = useState<string | null>(null);
@@ -54,249 +79,393 @@ export default function Login(): JSX.Element {
         return fallback;
     }
 
-    async function handlePasswordSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
-        event.preventDefault();
+    /** Runs a request that signs the person in, funnelling every failure to one place. */
+    async function attempt(work: () => Promise<void>, fallback: (d: Dictionary) => string): Promise<void> {
         setError(null);
         errors.reset();
         setBusy(true);
 
         try {
-            const result = await login(email, password);
-
-            if (result.mfaRequired) {
-                setMode('mfa');
-            } else {
-                goToDashboard();
-            }
+            await work();
         } catch (cause) {
             // A 422 names the field it rejected; the banner is for everything else.
             if (errors.capture(cause)) {
                 return;
             }
 
-            setError(
-                messageFor(
-                    cause,
-                    t((d) => d.auth.genericSignInError),
-                ),
-            );
+            setError(messageFor(cause, t(fallback)));
         } finally {
             setBusy(false);
         }
     }
 
-    async function handleMfaSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
+    async function handlePasswordSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
-        setError(null);
-        errors.reset();
-        setBusy(true);
 
-        try {
-            await completeMfaChallenge(code);
-            goToDashboard();
-        } catch (cause) {
-            // A 422 names the field it rejected; the banner is for everything else.
-            if (errors.capture(cause)) {
-                return;
-            }
+        await attempt(
+            async () => {
+                const result = await login(email, password);
 
-            setError(
-                messageFor(
-                    cause,
-                    t((d) => d.auth.genericMfaError),
-                ),
-            );
-        } finally {
-            setBusy(false);
-        }
+                if (result.mfaRequired) {
+                    setMode('mfa');
+                } else {
+                    goToDashboard();
+                }
+            },
+            (d) => d.auth.genericSignInError,
+        );
     }
 
     async function handleRegisterSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
-        setError(null);
-        errors.reset();
-        setBusy(true);
 
-        try {
-            await register(email, password);
-            setInfo(t((d) => d.auth.accountCreated));
-            setMode('password');
-            setPassword('');
-        } catch (cause) {
-            // A 422 names the field it rejected; the banner is for everything else.
-            if (errors.capture(cause)) {
-                return;
-            }
+        await attempt(
+            async () => {
+                await register(email, password);
+                setMode('password');
+                setPassword('');
+                setInfo(t((d) => d.auth.accountCreated));
+            },
+            (d) => d.auth.genericRegisterError,
+        );
+    }
 
-            setError(
-                messageFor(
-                    cause,
-                    t((d) => d.auth.genericRegisterError),
-                ),
-            );
-        } finally {
-            setBusy(false);
-        }
+    async function submitCode(code: string): Promise<void> {
+        await attempt(
+            async () => {
+                await completeMfaChallenge(code);
+                goToDashboard();
+            },
+            (d) => d.auth.genericMfaError,
+        );
     }
 
     async function handlePasskeyLogin(): Promise<void> {
-        if (!email) {
+        if (email.trim() === '') {
             setError(t((d) => d.auth.enterEmailForPasskey));
 
             return;
         }
 
+        await attempt(
+            async () => {
+                const optionsJson = (await requestPasskeyLoginOptions(email)) as unknown as Parameters<
+                    typeof startAuthentication
+                >[0]['optionsJSON'];
+                const assertion = await startAuthentication({ optionsJSON: optionsJson });
+                await completePasskeyLogin(email, assertion as unknown as Record<string, unknown>);
+                goToDashboard();
+            },
+            (d) => d.auth.genericPasskeyError,
+        );
+    }
+
+    const heading: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
+        password: {
+            eyebrow: t((d) => d.auth.eyebrow),
+            title: t((d) => d.auth.welcomeTitle),
+            subtitle: t((d) => d.auth.welcomeSubtitle),
+        },
+        mfa: {
+            eyebrow: t((d) => d.auth.mfaEyebrow),
+            title: t((d) => d.auth.mfaTitle),
+            subtitle: t((d) => d.auth.mfaSubtitle),
+        },
+        recovery: {
+            eyebrow: t((d) => d.auth.recoveryEyebrow),
+            title: t((d) => d.auth.recoveryTitle),
+            subtitle: t((d) => d.auth.recoverySubtitle),
+        },
+        register: {
+            eyebrow: t((d) => d.auth.registerEyebrow),
+            title: t((d) => d.auth.registerTitle),
+            subtitle: t((d) => d.auth.registerSubtitle),
+        },
+    };
+
+    function leaveSecondStep(): void {
+        setMode('password');
+        setDigits(Array.from({ length: OTP_LENGTH }, () => ''));
+        setRecoveryCode('');
         setError(null);
-        setBusy(true);
-
-        try {
-            const optionsJson = (await requestPasskeyLoginOptions(email)) as unknown as Parameters<
-                typeof startAuthentication
-            >[0]['optionsJSON'];
-            const assertion = await startAuthentication({ optionsJSON: optionsJson });
-            await completePasskeyLogin(email, assertion as unknown as Record<string, unknown>);
-            goToDashboard();
-        } catch (cause) {
-            // A 422 names the field it rejected; the banner is for everything else.
-            if (errors.capture(cause)) {
-                return;
-            }
-
-            setError(
-                messageFor(
-                    cause,
-                    t((d) => d.auth.genericPasskeyError),
-                ),
-            );
-        } finally {
-            setBusy(false);
-        }
+        errors.reset();
     }
 
     return (
         <>
             <Head title={t((d) => d.auth.signInTitle)} />
-            <GuestLanguageToggle />
-            <main className="flex min-h-dvh items-center justify-center bg-background px-4">
-                <Card className="w-full max-w-sm">
-                    <CardHeader>
-                        <CardTitle>{t((d) => d.auth.appName)}</CardTitle>
-                        <CardDescription>
-                            {mode === 'register' ? t((d) => d.auth.registerTitle) : t((d) => d.auth.signInTitle)}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <ErrorText message={error} />
-                        {info && (
-                            <Alert className="border-success/30 bg-success/10 text-success">
-                                <AlertDescription className="text-success">{info}</AlertDescription>
-                            </Alert>
-                        )}
 
-                        {mode === 'mfa' && (
-                            <form onSubmit={(event) => void handleMfaSubmit(event)} className="space-y-3">
-                                <Field
-                                    label={t((d) => d.auth.mfaCodeLabel)}
-                                    hint={t((d) => d.auth.mfaCodeHint)}
-                                    error={errors.get('code')}
-                                    htmlFor="mfa-code"
+            <div className="bg-background min-h-dvh lg:grid lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1.08fr)]">
+                <main className="bg-card flex min-h-dvh flex-col">
+                    <header className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
+                        <div className="flex items-center gap-2.5">
+                            <span className="bg-foreground text-background grid size-9 place-items-center rounded-[11px] text-xs font-bold">
+                                T
+                            </span>
+                            <span>
+                                <span className="block text-[13px] font-semibold tracking-tight">
+                                    {t((d) => d.auth.appName)}
+                                </span>
+                                <span className="text-muted-foreground block text-[10px]">
+                                    {t((d) => d.shell.appTagline)}
+                                </span>
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <LanguageMenu />
+                            <PaletteMenu />
+                            <ThemeToggle />
+                        </div>
+                    </header>
+
+                    <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
+                        <section className="w-full max-w-[420px]">
+                            <div className="mb-7">
+                                <span className="head-chip mb-3 inline-flex items-center gap-1.5">
+                                    <span className="bg-accent-500 size-1.5 rounded-full" aria-hidden="true" />
+                                    {heading[mode].eyebrow}
+                                </span>
+                                <h1 className="text-[26px] font-semibold tracking-[-0.045em]">{heading[mode].title}</h1>
+                                <p className="text-muted-foreground mt-1.5 text-xs leading-5">
+                                    {heading[mode].subtitle}
+                                </p>
+                            </div>
+
+                            <ErrorText message={error} />
+                            {info !== null && (
+                                <Alert className="border-success/30 bg-success/10 text-success mb-4">
+                                    <AlertDescription className="text-success">{info}</AlertDescription>
+                                </Alert>
+                            )}
+
+                            {(mode === 'password' || mode === 'register') && (
+                                <form
+                                    onSubmit={(event) =>
+                                        void (mode === 'register'
+                                            ? handleRegisterSubmit(event)
+                                            : handlePasswordSubmit(event))
+                                    }
+                                    className="space-y-4"
                                 >
-                                    <PanelInput
-                                        id="mfa-code"
-                                        icon={<ShieldCheckIcon className="size-3.5" />}
-                                        type="text"
-                                        inputMode="numeric"
-                                        autoFocus
-                                        value={code}
-                                        onChange={(event) => {
-                                            setCode(event.target.value);
-                                            errors.clear('code');
-                                        }}
-                                        placeholder={t((d) => d.auth.mfaCodePlaceholder)}
-                                    />
-                                </Field>
-                                <Button type="submit" disabled={busy} className="w-full">
-                                    {t((d) => d.auth.confirm)}
-                                </Button>
+                                    <Field
+                                        label={t((d) => d.auth.emailLabel)}
+                                        error={errors.get('email')}
+                                        htmlFor="email"
+                                    >
+                                        <PanelInput
+                                            id="email"
+                                            icon={<AtSignIcon className="size-3.5" />}
+                                            type="email"
+                                            autoComplete="email"
+                                            required
+                                            value={email}
+                                            onChange={(event) => {
+                                                setEmail(event.target.value);
+                                                errors.clear('email');
+                                            }}
+                                        />
+                                    </Field>
+
+                                    <Field
+                                        label={t((d) => d.auth.passwordLabel)}
+                                        error={errors.get('password')}
+                                        htmlFor="password"
+                                    >
+                                        <PanelInput
+                                            id="password"
+                                            icon={<LockIcon className="size-3.5" />}
+                                            type={passwordVisible ? 'text' : 'password'}
+                                            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                                            required
+                                            minLength={mode === 'register' ? 12 : undefined}
+                                            value={password}
+                                            onChange={(event) => {
+                                                setPassword(event.target.value);
+                                                errors.clear('password');
+                                            }}
+                                            actionEnd={
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={t((d) =>
+                                                        passwordVisible ? d.auth.hidePassword : d.auth.showPassword,
+                                                    )}
+                                                    aria-pressed={passwordVisible}
+                                                    onClick={() => {
+                                                        setPasswordVisible(!passwordVisible);
+                                                    }}
+                                                >
+                                                    {passwordVisible ? (
+                                                        <EyeOff className="size-3.5" />
+                                                    ) : (
+                                                        <Eye className="size-3.5" />
+                                                    )}
+                                                </Button>
+                                            }
+                                        />
+                                    </Field>
+
+                                    <Button type="submit" disabled={busy} className="h-10 w-full">
+                                        {mode === 'register'
+                                            ? t((d) => d.auth.submitRegister)
+                                            : t((d) => d.auth.submitSignIn)}
+                                    </Button>
+
+                                    {mode === 'password' && (
+                                        <>
+                                            <div className="flex items-center gap-3 py-1">
+                                                <span className="bg-border h-px flex-1" />
+                                                <span className="text-muted-foreground text-[10px]">
+                                                    {t((d) => d.auth.orSeparator)}
+                                                </span>
+                                                <span className="bg-border h-px flex-1" />
+                                            </div>
+
+                                            <Button
+                                                type="button"
+                                                variant="card"
+                                                disabled={busy}
+                                                onClick={() => void handlePasskeyLogin()}
+                                                className="h-10 w-full"
+                                            >
+                                                <KeyRound className="size-4" aria-hidden="true" />
+                                                {t((d) => d.auth.passkeySignIn)}
+                                            </Button>
+                                        </>
+                                    )}
+                                </form>
+                            )}
+
+                            {(mode === 'mfa' || mode === 'recovery') && (
+                                <>
+                                    <div className="bg-secondary border-border mb-5 flex items-start gap-3 rounded-2xl border p-3">
+                                        <span className="bg-accent-50 text-accent-700 grid size-9 shrink-0 place-items-center rounded-xl">
+                                            <ShieldCheck className="size-4" aria-hidden="true" />
+                                        </span>
+                                        <span>
+                                            <span className="block text-[11px] font-semibold">
+                                                {t((d) => d.auth.mfaPanelTitle)}
+                                            </span>
+                                            <span className="text-muted-foreground mt-0.5 block text-[10px] leading-4">
+                                                {t((d) =>
+                                                    mode === 'mfa' ? d.auth.mfaPanelBody : d.auth.recoveryCodeHint,
+                                                )}
+                                            </span>
+                                        </span>
+                                    </div>
+
+                                    {mode === 'mfa' ? (
+                                        <form
+                                            onSubmit={(event) => {
+                                                event.preventDefault();
+                                                void submitCode(digits.join(''));
+                                            }}
+                                            className="space-y-4"
+                                        >
+                                            <OtpGrid
+                                                digits={digits}
+                                                onChange={(next) => {
+                                                    setDigits(next);
+                                                    errors.clear('code');
+                                                }}
+                                                onComplete={(code) => void submitCode(code)}
+                                                label={t((d) => d.auth.mfaCodeLabel)}
+                                            />
+                                            {errors.get('code') !== undefined && (
+                                                <ErrorText message={errors.get('code') ?? null} />
+                                            )}
+
+                                            <Button
+                                                type="submit"
+                                                disabled={busy || digits.join('').length < OTP_LENGTH}
+                                                className="h-10 w-full"
+                                            >
+                                                {t((d) => d.auth.mfaVerify)}
+                                            </Button>
+
+                                            <div className="flex items-center justify-between text-[10px]">
+                                                <button
+                                                    type="button"
+                                                    className="text-accent-700 font-semibold"
+                                                    onClick={() => {
+                                                        setMode('recovery');
+                                                        setError(null);
+                                                        errors.reset();
+                                                    }}
+                                                >
+                                                    {t((d) => d.auth.useRecoveryCode)}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="text-muted-foreground font-semibold"
+                                                    onClick={leaveSecondStep}
+                                                >
+                                                    {t((d) => d.auth.back)}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <form
+                                            onSubmit={(event) => {
+                                                event.preventDefault();
+                                                void submitCode(recoveryCode);
+                                            }}
+                                            className="space-y-4"
+                                        >
+                                            <Field
+                                                label={t((d) => d.auth.recoveryCodeLabel)}
+                                                error={errors.get('code')}
+                                                htmlFor="recovery-code"
+                                            >
+                                                <PanelInput
+                                                    id="recovery-code"
+                                                    icon={<KeyRound className="size-3.5" />}
+                                                    className="recovery-field"
+                                                    autoFocus
+                                                    autoComplete="one-time-code"
+                                                    value={recoveryCode}
+                                                    placeholder={t((d) => d.auth.recoveryCodePlaceholder)}
+                                                    onChange={(event) => {
+                                                        // The value itself, not its appearance: codes are
+                                                        // hashed exactly as issued.
+                                                        setRecoveryCode(event.target.value.toUpperCase());
+                                                        errors.clear('code');
+                                                    }}
+                                                />
+                                            </Field>
+
+                                            <Button
+                                                type="submit"
+                                                disabled={busy || recoveryCode.trim() === ''}
+                                                className="h-10 w-full"
+                                            >
+                                                {t((d) => d.auth.recoveryVerify)}
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="card"
+                                                className="h-9 w-full"
+                                                onClick={() => {
+                                                    setMode('mfa');
+                                                    setError(null);
+                                                    errors.reset();
+                                                }}
+                                            >
+                                                {t((d) => d.auth.useAuthenticatorCode)}
+                                            </Button>
+                                        </form>
+                                    )}
+                                </>
+                            )}
+
+                            {mode === 'password' && registrationOpen && (
                                 <Button
                                     type="button"
                                     variant="link"
-                                    className="w-full"
-                                    onClick={() => {
-                                        setMode('password');
-                                        setError(null);
-                                    }}
-                                >
-                                    {t((d) => d.auth.back)}
-                                </Button>
-                            </form>
-                        )}
-
-                        {mode !== 'mfa' && (
-                            <form
-                                onSubmit={(event) =>
-                                    void (mode === 'register'
-                                        ? handleRegisterSubmit(event)
-                                        : handlePasswordSubmit(event))
-                                }
-                                className="space-y-3"
-                            >
-                                <Field label={t((d) => d.auth.emailLabel)} error={errors.get('email')} htmlFor="email">
-                                    <PanelInput
-                                        id="email"
-                                        icon={<AtSignIcon className="size-3.5" />}
-                                        type="email"
-                                        autoComplete="email"
-                                        required
-                                        value={email}
-                                        onChange={(event) => {
-                                            setEmail(event.target.value);
-                                            errors.clear('email');
-                                        }}
-                                    />
-                                </Field>
-                                <Field
-                                    label={t((d) => d.auth.passwordLabel)}
-                                    error={errors.get('password')}
-                                    htmlFor="password"
-                                >
-                                    <PanelInput
-                                        id="password"
-                                        icon={<LockIcon className="size-3.5" />}
-                                        type="password"
-                                        autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                                        required
-                                        minLength={mode === 'register' ? 12 : undefined}
-                                        value={password}
-                                        onChange={(event) => {
-                                            setPassword(event.target.value);
-                                            errors.clear('password');
-                                        }}
-                                    />
-                                </Field>
-                                <Button type="submit" disabled={busy} className="w-full">
-                                    {mode === 'register'
-                                        ? t((d) => d.auth.submitRegister)
-                                        : t((d) => d.auth.submitSignIn)}
-                                </Button>
-                            </form>
-                        )}
-
-                        {mode === 'password' && (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={busy}
-                                    onClick={() => void handlePasskeyLogin()}
-                                    className="w-full"
-                                >
-                                    {t((d) => d.auth.passkeySignIn)}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    className="w-full"
+                                    className="mt-4 w-full"
                                     onClick={() => {
                                         setMode('register');
                                         setError(null);
@@ -305,25 +474,183 @@ export default function Login(): JSX.Element {
                                 >
                                     {t((d) => d.auth.noAccount)}
                                 </Button>
-                            </>
-                        )}
+                            )}
 
-                        {mode === 'register' && (
-                            <Button
-                                type="button"
-                                variant="link"
-                                className="w-full"
-                                onClick={() => {
-                                    setMode('password');
-                                    setError(null);
-                                }}
-                            >
-                                {t((d) => d.auth.haveAccount)}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            </main>
+                            {mode === 'register' && (
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    className="mt-4 w-full"
+                                    onClick={() => {
+                                        setMode('password');
+                                        setError(null);
+                                    }}
+                                >
+                                    {t((d) => d.auth.haveAccount)}
+                                </Button>
+                            )}
+
+                            <p className="text-muted-foreground mt-7 text-center text-[10px] leading-4">
+                                {t((d) => d.auth.legalNote)}
+                            </p>
+                        </section>
+                    </div>
+
+                    <footer className="border-border text-muted-foreground flex min-h-12 items-center justify-between gap-3 border-t px-5 text-[10px] sm:px-8">
+                        <span>{t((d) => d.auth.footerCopyright)}</span>
+                    </footer>
+                </main>
+
+                <AuthAside />
+            </div>
         </>
+    );
+}
+
+/**
+ * Six boxes rather than one field.
+ *
+ * A code arrives as six separate characters — read off a phone one at a time — and the grid keeps
+ * that shape, moving focus as they land. Paste still works, and a pasted code fills every box at
+ * once, because people paste from password managers far more often than they type.
+ */
+function OtpGrid(props: {
+    digits: string[];
+    onChange: (digits: string[]) => void;
+    onComplete: (code: string) => void;
+    label: string;
+}): JSX.Element {
+    const refs = useRef<(HTMLInputElement | null)[]>([]);
+
+    function write(index: number, value: string): void {
+        const next = [...props.digits];
+        next[index] = value;
+        props.onChange(next);
+
+        if (value !== '' && index < OTP_LENGTH - 1) {
+            refs.current[index + 1]?.focus();
+        }
+
+        const code = next.join('');
+
+        if (code.length === OTP_LENGTH) {
+            props.onComplete(code);
+        }
+    }
+
+    function onKeyDown(index: number, event: KeyboardEvent<HTMLInputElement>): void {
+        // Backspace in an empty box steps back rather than doing nothing — otherwise correcting a
+        // typo means reaching for the mouse.
+        if (event.key === 'Backspace' && props.digits[index] === '' && index > 0) {
+            event.preventDefault();
+            refs.current[index - 1]?.focus();
+        }
+
+        if (event.key === 'ArrowLeft' && index > 0) {
+            event.preventDefault();
+            refs.current[index - 1]?.focus();
+        }
+
+        if (event.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+            event.preventDefault();
+            refs.current[index + 1]?.focus();
+        }
+    }
+
+    function onPaste(event: ClipboardEvent<HTMLInputElement>): void {
+        const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+
+        if (pasted === '') {
+            return;
+        }
+
+        event.preventDefault();
+        const next = Array.from({ length: OTP_LENGTH }, (_, index) => pasted[index] ?? '');
+        props.onChange(next);
+        refs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
+
+        if (pasted.length === OTP_LENGTH) {
+            props.onComplete(pasted);
+        }
+    }
+
+    return (
+        <div className="grid grid-cols-6 gap-2" role="group" aria-label={props.label}>
+            {props.digits.map((digit, index) => (
+                <input
+                    key={index}
+                    ref={(node) => {
+                        refs.current[index] = node;
+                    }}
+                    className="otp-box"
+                    inputMode="numeric"
+                    autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                    autoFocus={index === 0}
+                    maxLength={1}
+                    aria-label={`${props.label} ${String(index + 1)}`}
+                    value={digit}
+                    onChange={(event) => {
+                        write(index, event.target.value.replace(/\D/g, '').slice(-1));
+                    }}
+                    onKeyDown={(event) => {
+                        onKeyDown(index, event);
+                    }}
+                    onPaste={onPaste}
+                />
+            ))}
+        </div>
+    );
+}
+
+/**
+ * The panel beside the form.
+ *
+ * It says what protects the account, because that is the question a sign-in screen raises. Hidden
+ * below `lg`, where the form is the whole screen and anything else is in its way.
+ */
+function AuthAside(): JSX.Element {
+    const { t } = useTranslation();
+
+    const cards = [
+        { icon: KeyRound, title: t((d) => d.auth.asideStrongTitle), body: t((d) => d.auth.asideStrongBody) },
+        { icon: Fingerprint, title: t((d) => d.auth.asideDeviceTitle), body: t((d) => d.auth.asideDeviceBody) },
+        { icon: ScrollText, title: t((d) => d.auth.asideAuditTitle), body: t((d) => d.auth.asideAuditBody) },
+    ];
+
+    return (
+        <aside className="border-border bg-background relative hidden overflow-hidden border-l lg:block">
+            <span className="auth-aside-glow" aria-hidden="true" />
+
+            <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
+                <div className="max-w-[540px]">
+                    <span className="head-chip inline-flex items-center gap-1.5">
+                        <ShieldCheck className="text-accent-700 size-3.5" aria-hidden="true" />
+                        {t((d) => d.auth.asideBadge)}
+                    </span>
+                    <h2 className="mt-5 max-w-[520px] text-[34px] leading-[1.08] font-semibold tracking-[-0.05em] xl:text-[40px]">
+                        {t((d) => d.auth.asideTitle)}
+                    </h2>
+                    <p className="text-muted-foreground mt-4 max-w-[480px] text-[13px] leading-6">
+                        {t((d) => d.auth.asideBody)}
+                    </p>
+                </div>
+
+                <div className="border-border bg-card/75 max-w-[560px] rounded-[22px] border p-4 backdrop-blur">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        {cards.map((card) => (
+                            <div key={card.title} className="bg-card rounded-2xl p-3">
+                                <span className="bg-accent-50 text-accent-700 grid size-8 place-items-center rounded-xl">
+                                    <card.icon className="size-4" aria-hidden="true" />
+                                </span>
+                                <span className="mt-3 block text-[11px] font-semibold">{card.title}</span>
+                                <span className="text-muted-foreground mt-1 block text-[10px] leading-4">
+                                    {card.body}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </aside>
     );
 }
