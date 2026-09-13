@@ -31,6 +31,12 @@ export function PanelDate(props: {
     onChange: (value: string | null) => void;
     minDate?: string;
     maxDate?: string;
+    /** Refuses anything after today — a booking date, a payment received. */
+    disableFuture?: boolean;
+    /** Refuses anything before today — a maturity, a deadline. */
+    disablePast?: boolean;
+    /** Full width, for a field in a form rather than a filter in a toolbar. */
+    block?: boolean;
     disabled?: boolean;
     className?: string;
     title?: string;
@@ -49,8 +55,11 @@ export function PanelDate(props: {
             onChange={props.onChange}
             {...(props.minDate === undefined ? {} : { minDate: props.minDate })}
             {...(props.maxDate === undefined ? {} : { maxDate: props.maxDate })}
+            {...(props.disableFuture === undefined ? {} : { disableFuture: props.disableFuture })}
+            {...(props.disablePast === undefined ? {} : { disablePast: props.disablePast })}
             {...(props.disabled === undefined ? {} : { disabled: props.disabled })}
-            {...(props.className === undefined ? {} : { className: props.className })}
+            className={[props.block === true ? 'w-full' : '', props.className ?? ''].join(' ').trim()}
+            triggerClassName={props.block === true ? 'w-full justify-between' : ''}
             {...(props.title === undefined ? {} : { title: props.title })}
         />
     );
@@ -61,6 +70,12 @@ export function PanelDateRange(props: {
     onChange: (value: DateRangeValue) => void;
     minDate?: string;
     maxDate?: string;
+    /** Refuses anything after today — a booking date, a payment received. */
+    disableFuture?: boolean;
+    /** Refuses anything before today — a maturity, a deadline. */
+    disablePast?: boolean;
+    /** Full width, for a field in a form rather than a filter in a toolbar. */
+    block?: boolean;
     disabled?: boolean;
     className?: string;
     title?: string;
@@ -79,8 +94,11 @@ export function PanelDateRange(props: {
             onChange={props.onChange}
             {...(props.minDate === undefined ? {} : { minDate: props.minDate })}
             {...(props.maxDate === undefined ? {} : { maxDate: props.maxDate })}
+            {...(props.disableFuture === undefined ? {} : { disableFuture: props.disableFuture })}
+            {...(props.disablePast === undefined ? {} : { disablePast: props.disablePast })}
             {...(props.disabled === undefined ? {} : { disabled: props.disabled })}
-            {...(props.className === undefined ? {} : { className: props.className })}
+            className={[props.block === true ? 'w-full' : '', props.className ?? ''].join(' ').trim()}
+            triggerClassName={props.block === true ? 'w-full justify-between' : ''}
             {...(props.title === undefined ? {} : { title: props.title })}
         />
     );
