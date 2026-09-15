@@ -515,15 +515,13 @@ services:
     # No healthcheck override: the image ships its own verified
     # `clamdcheck.sh` HEALTHCHECK (docker inspect confirmed 2026-09-07).
     #
-    # `restart: unless-stopped` is not enough on its own here, and that is the second half of the
-    # same failure: clamd died *inside* a container that stayed up, so Docker saw nothing to
-    # restart. The container reported "running" with 764 KiB resident and a refused port for six
-    # hours, and the only symptom anybody saw was a document stuck in quarantine.
+    # `restart: unless-stopped` does not cover every failure: clamd can die *inside* a container
+    # that stays up, so Docker sees nothing to restart. It happened once — OOM-killed under the old
+    # 1 GB limit, "running" with a refused port for six hours, and the only symptom a document
+    # stuck in quarantine (failing closed, as intended). The memory limit below removes that cause.
     #
-    # `autoheal` (below) watches for the unhealthy state the image's own healthcheck already
-    # reports and restarts the container, turning a silent death into a few seconds of downtime.
-    labels:
-      - "autoheal=true"
+    # A watchdog container used to restart it on an unhealthy report. It was removed: it needed
+    # the Docker socket, which is root on the host, and no container in this file is given that.
     deploy:
       resources:
         limits:
@@ -538,43 +536,6 @@ services:
           # this is a limit, not a reservation: clamd uses what it needs and the cap only exists to
           # stop a runaway taking the machine with it.
           memory: 3072M
-    restart: unless-stopped
-
-  autoheal:
-    # Restarts any container that its own healthcheck reports as unhealthy.
-    #
-    # Exists because of a specific failure this stack could not otherwise notice: clamd was
-    # OOM-killed *inside* a container that stayed up, so Docker saw no exit and `restart:
-    # unless-stopped` never fired. The container sat "running" with a refused port for six hours,
-    # and the only visible symptom was one document stuck in quarantine — which is exactly the
-    # fail-closed behaviour working, and exactly why nothing looked broken.
-    #
-    # Opt-in per service via `labels: [autoheal=true]`, not blanket: restarting a database or an
-    # object store because it briefly failed a probe can turn a slow moment into an outage. Today
-    # only clamav is labelled, because only clamav has a process that can die while its container
-    # lives.
-    #
-    # This is the one container that gets the Docker socket, and it is worth being explicit about
-    # what that means: socket access is root-equivalent on the host. It is mounted read-only, the
-    # image does nothing but poll container health and restart, and it sits on no application
-    # network — it cannot reach postgres, minio, or anything holding data. Everything else in this
-    # file is denied the socket precisely so this stays the single, reviewed exception.
-    image: willfarrell/autoheal:1.2.0
-    environment:
-      AUTOHEAL_CONTAINER_LABEL: autoheal
-      # Give a restarted container time to load 3.6M signatures before judging it again.
-      AUTOHEAL_START_PERIOD: "300"
-      AUTOHEAL_INTERVAL: "30"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    network_mode: "none"
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 64M
     restart: unless-stopped
 
   # -------------------------------------------------------------------------

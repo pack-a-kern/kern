@@ -27,7 +27,6 @@ own isolated box, that talks to the others over a private network.
 | `python-api` | A small Python web service used only by the Laravel app internally. It extracts text from PDFs and (optionally) computes search embeddings for legislation. It never talks to the database directly. |
 | `spv-browser` | A real headless Chrome browser (via Playwright), used to log into ANAF's SPV portal (the Romanian tax authority's online portal) on the taxpayer's behalf and pull down documents. It gets no database password — if it's compromised, it still can't read the database. |
 | `clamav` | Antivirus scanner. Every uploaded file is scanned here before the app will use it. |
-| `autoheal` | A tiny watchdog. If a container reports itself "unhealthy" (right now, only `clamav` is watched), this restarts it. It has read-only access to Docker's own control socket and nothing else — it can't reach the database or object storage. |
 | `postgres` | The main database (PostgreSQL). All application data lives here (encrypted where required, see section 4). |
 | `redis` | An in-memory data store used for: the session store, the cache, the background job queues, and real-time broadcasting to `reverb`. |
 | `minio-init-perms` | Runs once at startup to fix file-ownership on the object storage volume, then exits. Not a long-running service. |
