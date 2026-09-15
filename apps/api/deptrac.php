@@ -41,6 +41,10 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('app/Domain/Fx/.*'),
     );
 
+    $banks = Layer::withName('Banks')->collectors(
+        DirectoryConfig::create('app/Domain/Banks/.*'),
+    );
+
     $wallet = Layer::withName('Wallet')->collectors(
         DirectoryConfig::create('app/Domain/Wallet/.*'),
     );
@@ -76,7 +80,7 @@ return static function (DeptracConfig $config): void {
     $config
         ->paths('app', 'database', 'routes')
         ->excludeFiles('#.*/tests/.*#')
-        ->layers($support, $identity, $subjects, $audit, $taxKnowledge, $fx, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $settings, $operations)
+        ->layers($support, $identity, $subjects, $audit, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $settings, $operations)
         ->rulesets(
             Ruleset::forLayer($support),
             // Identity -> Audit: this module's login/MFA/session/passkey actions
@@ -112,12 +116,18 @@ return static function (DeptracConfig $config): void {
             Ruleset::forLayer($taxKnowledge)->accesses($support, $taxEngine),
             // Fx -> TaxKnowledge: App\Domain\Fx\Actions\{ImportBnrDailyRates,BackfillBnrYear} call
             // App\Domain\TaxKnowledge\Services\SourceIngestionService (fetch/store/version the raw
-            // BNR XML) and App\Domain\Fx\Repositories\FxSourceRepository /
-            // App\Domain\Fx\Services\FxRateQuery call
+            // BNR XML) and App\Domain\Fx\Services\FxRateQuery and the BNR actions call
             // App\Domain\TaxKnowledge\Repositories\{OfficialSourceRepository,
             // SourceDocumentVersionRepository} — both are the sanctioned "application service" /
             // DTO cross-module shape (docs/AGENTS.md §6); Fx never imports a TaxKnowledge model.
             Ruleset::forLayer($fx)->accesses($support, $taxKnowledge),
+            // Banks -> TaxKnowledge: App\Domain\Banks\Actions\ImportBanks downloads through
+            // App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher and stores each file through
+            // App\Domain\TaxKnowledge\Services\SourceIngestionService — the same application-service
+            // crossing Fx makes for BNR's files. Banks never imports a TaxKnowledge model. Wallet does
+            // not access Banks: a deposit stores only `bank_id`, and the controllers that turn a bank
+            // into a name use App\Domain\Banks\Queries\BankDirectory from the HTTP layer.
+            Ruleset::forLayer($banks)->accesses($support, $taxKnowledge),
             // Wallet -> Subjects: every Wallet model uses App\Domain\Subjects\Tenancy\
             // ScopedToTaxSubject (a trait, not an Eloquent model import) and
             // App\Domain\Subjects\Tenancy\TenantContext (a scoped service) — exactly the reusable
@@ -171,27 +181,23 @@ return static function (DeptracConfig $config): void {
             Ruleset::forLayer($documents)->accesses($support, $subjects, $audit, $settings),
             // Rental -> Subjects: every Rental model uses App\Domain\Subjects\Tenancy\
             // ScopedToTaxSubject/TaxSubjectScope, the same reusable tenancy mechanism every other
-            // business module above adopts (docs/handoff/011-identity-tenancy.md). Rental never
-            // accesses Wallet, Documents, or TaxEngine: App\Domain\Rental\Services\Matching\
-            // TransactionMatchCandidateFinder reads Wallet's `financial_transactions` table via
-            // the plain query builder (never `App\Domain\Wallet\Models\FinancialTransaction`),
-            // `rental_contracts`/`rental_contract_versions`.source_document_id and
-            // `rental_payments.transaction_id` are real foreign keys at the migration/schema
-            // level only — the identical "a migration may reference another module's table
-            // without the application importing its Eloquent model" precedent
-            // `deposit_interest_events.fx_source_document_version_id` already establishes in this
-            // codebase — and rental income is surfaced to `Domain/TaxEngine` only via
-            // `App\Domain\Rental\Events\RentalAccrualRecorded`, a plain event class with no
-            // dependency in the other direction. See docs/handoff/025-rental-module.md.
-            Ruleset::forLayer($rental)->accesses($support, $subjects),
+            // business module above adopts (docs/handoff/011-identity-tenancy.md).
+            // Rental -> Audit: opening, changing, ending and deleting a rental each record an entry
+            // through App\Domain\Audit\Services\AuditChainService — the same sanctioned
+            // application-service crossing Wallet and Documents make for the same chain.
+            // Rental never accesses Wallet, Documents, or TaxEngine. A contract's income is what the
+            // contract owes (Codul fiscal art. 84), computed from its own terms; no transaction is
+            // read to establish it. `rental_contracts.source_document_id` is a foreign key at the
+            // schema level only, and rental income reaches `Domain/TaxEngine` only through
+            // App\Domain\Rental\Events\RentalAccrualRecorded, a plain event class.
+            Ruleset::forLayer($rental)->accesses($support, $subjects, $audit),
             // Declarations -> Subjects: App\Domain\Declarations\Models\Declaration uses
             // App\Domain\Subjects\Tenancy\ScopedToTaxSubject, the same reusable tenancy mechanism
             // every other business module above adopts (docs/handoff/011-identity-tenancy.md).
             // Declarations never accesses TaxEngine or Documents: App\Domain\Declarations\
             // Repositories\TaxAssessmentSnapshotReader reads Domain/TaxEngine's `tax_assessments`
             // table via the plain query builder (never `App\Domain\TaxEngine\Models\
-            // TaxAssessment`) — the identical sanctioned shape `App\Domain\Rental\Services\
-            // Matching\TransactionMatchCandidateFinder` already establishes in this codebase for
+            // TaxAssessment`) — the identical sanctioned shape `App\Domain\Documents\Queries\ResolveTransactionImportState` already establishes in this codebase for
             // `financial_transactions` (see docs/handoff/028-d212-declarations.md "Key
             // decisions"). `declarations.assessment_id -> tax_assessments` and
             // `declaration_submissions.receipt_document_id -> documents` are real foreign keys at
@@ -235,10 +241,10 @@ return static function (DeptracConfig $config): void {
             // 'REJECTED' as string literals in this module, which would silently stop matching the
             // day that lifecycle gains a state.
             //
-            // Operations accesses no other module. `fx_rates`, `source_documents`,
-            // `source_sections`, `source_section_chunks`, `documents` and `official_sources` are
+            // Operations accesses no other module. `ext_fx_rates`, `ext_source_documents`,
+            // `ext_source_sections`, `ext_source_section_chunks`, `documents` and `ext_official_sources` are
             // all read through the plain query builder — the identical crossing
-            // App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder already
+            // `App\Domain\Documents\Queries\ResolveTransactionImportState` already
             // establishes for `financial_transactions`. In particular there is no Settings grant:
             // App\Domain\Settings\Services\ProbeSystemHealth is composed into the operations
             // *overview response* by the HTTP controller, which belongs to no layer, not by

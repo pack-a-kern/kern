@@ -171,7 +171,6 @@ export interface Dictionary {
     dashboard: {
         title: string;
         lede: string;
-        empty: string;
     };
     subjects: {
         title: string;
@@ -233,6 +232,17 @@ export interface Dictionary {
         statusDuplicate: string;
         duplicateNote: string;
         batchProgress: string;
+        stagedHint: string;
+        groupThisFile: string;
+        groupedNotice: string;
+        uploadCount: string;
+        enhance: string;
+        enhanced: string;
+        enhanceFailed: string;
+        stopUpload: string;
+        stopUploadTitle: string;
+        stopUploadHint: string;
+        pageCount: string;
     };
     documentsInbox: {
         title: string;
@@ -245,6 +255,13 @@ export interface Dictionary {
         /** `{count}` is substituted. */
         selectedCount: string;
         deleteSelected: string;
+        /** Renames every selected document whose current name is not the one its reading proposed. */
+        acceptNames: string;
+        /** `{count}` is substituted. */
+        namesAccepted: string;
+        namesFailed: string;
+        /** Under a document's name while the name its reading proposed has not been taken. `{name}` is substituted. */
+        proposedName: string;
         deleteSelectedTitle: string;
         deleteSelectedHint: string;
         emptyFiltered: string;
@@ -294,6 +311,7 @@ export interface Dictionary {
         rejectedLabel: string;
         /** Alt text for the image preview — copy, so it belongs here rather than in the markup. */
         previewAlt: string;
+        page: string;
         previewPdfTitle: string;
         back: string;
         source: string;
@@ -324,8 +342,8 @@ export interface Dictionary {
         renameUseSuggestion: string;
         renameFailed: string;
         renameCleared: string;
-        aiOutcomeWorking: string;
-        aiOutcomeWorkingHint: string;
+        /** While the pipeline still has the document — keyed by the in-flight `DocumentStage`s. */
+        stageHint: Record<'CHECKING' | 'QUEUED' | 'PROCESSING', string>;
         aiOutcomeTitle: string;
         aiOutcomeAttemptedAt: string;
         aiOutcomeRetry: string;
@@ -334,6 +352,13 @@ export interface Dictionary {
         aiOutcomeRetryFailed: string;
         aiOutcomeRetryHint: string;
         /** Keyed by `App\Domain\Documents\Enums\AiExtractionOutcome`. */
+        showAiReply: string;
+        askedModel: string;
+        rowCount: string;
+        noCorrectableFields: string;
+        readBy: string;
+        tookSeconds: string;
+        tokensUsed: string;
         aiOutcomes: Record<AiExtractionOutcome, string>;
         accept: string;
         correct: string;
@@ -353,11 +378,24 @@ export interface Dictionary {
         acceptError: string;
         correctError: string;
         emptyCorrectionError: string;
+        /** Where a reader reported no confidence — never drawn as a bar at some default value. */
+        confidenceUnreported: string;
         confidenceLabel: string;
+        /** `{document}` and `{account}` are substituted. */
+        currencyMismatch: string;
         /** The human step that turns a reviewed document into a wallet transaction. */
         createTransaction: string;
         createTransactionHint: string;
+        /** The button, offered only once a person has accepted a reading. */
+        importTransaction: string;
+        importAwaitingAcceptance: string;
+        /** `{count}` is substituted. */
+        importBulkPending: string;
         createTransactionExisting: string;
+        /** A contract becomes a rental instead of a transaction. */
+        createRental: string;
+        createRentalHint: string;
+        rentalExisting: string;
         transactionAccount: string;
         transactionNoAccounts: string;
         transactionCurrencyHint: string;
@@ -377,6 +415,8 @@ export interface Dictionary {
         noScans: string;
         scannerLabel: string;
         definitionsLabel: string;
+        /** Shown only where one scan result covers several of a document's files. */
+        scanFilesLabel: string;
         /** Shown where a scanner answered a scan but not a version query. */
         notRecorded: string;
         scanOutcomes: Record<string, string | undefined>;
@@ -428,15 +468,9 @@ export interface Dictionary {
      * field appears here as a missing translation, not a type error.
      */
     extractionField: Record<string, string>;
-    documentType: {
-        RECEIPT: string;
-        INVOICE: string;
-        BANK_STATEMENT: string;
-        DEPOSIT_AGREEMENT: string;
-        RENTAL_CONTRACT: string;
-        ANAF_DECISION: string;
-        OTHER: string;
-    };
+    /** Shown wherever a type is expected and nothing has read the document yet. */
+    documentTypeUnknown: string;
+    documentType: Record<DocumentType, string>;
     /** One line saying what each document type is for — shown under its name in a picker. */
     documentTypeHint: Record<DocumentType, string>;
     subjectType: {
@@ -472,17 +506,9 @@ export interface Dictionary {
             /** Shared by all three wallet screens. */
             noSubject: string;
             loadFailed: string;
-            empty: string;
-            /** Why there is no single "total balance" across currencies. */
-            perCurrencyNote: string;
             /** The system's own name for the source every taxpayer has. Never a stored value. */
             generalSource: string;
             unknownBalance: string;
-            asOf: string;
-            verified: string;
-            /** The balance includes transactions added on top of (or instead of) an observation. */
-            derived: string;
-            unverified: string;
             sources: Record<string, string | undefined>;
             kinds: Record<string, string | undefined>;
             frequencies: Record<string, string | undefined>;
@@ -490,47 +516,64 @@ export interface Dictionary {
             interestMethods: Record<string, string | undefined>;
         };
         walletOverview: {
-            title: string;
-            description: string;
             /** Everything the subject holds, in one currency. An indication, never a fiscal figure. */
             netWorth: string;
             netWorthRate: string;
             netWorthDirect: string;
             netWorthPartial: string;
-            totalBalance: string;
-            acrossAccounts: string;
+            /** General and cash together — what can be spent today. */
+            available: string;
+            general: string;
+            /** Why General can read 0 while deposits were funded from it. */
+            generalNote: string;
             deposits: string;
+            /** `{count}` is substituted. */
             depositCount: string;
+            cash: string;
+            other: string;
             /** Forecast, not earned yet: what the running deposits will have produced by maturity. */
             interestAtMaturity: string;
-            grossAccrued: string;
+            interestAtMaturityHint: string;
+            interestReceived: string;
+            interestReceivedHint: string;
+            /** Lent and not yet paid back — shown beside what the subject has, never added to it. */
+            owedToMe: string;
+            owedToMeHint: string;
             recognisedIncome: string;
             recognisedHint: string;
-            accountsTitle: string;
-            accountsHint: string;
-            viewAll: string;
+            byBankTitle: string;
+            byBankHint: string;
+            noBank: string;
+            /** `{count}` is substituted in `bankDeposits`. */
+            bankDeposits: string;
+            bankDeposit: string;
+            /** `{date}` is substituted. */
+            nextMaturity: string;
+            /** `{amount}` is substituted. */
+            plusInterest: string;
+            viewAccounts: string;
             maturingTitle: string;
             maturingHint: string;
-            viewDeposits: string;
-            noAccounts: string;
-            noMaturing: string;
+            noDeposits: string;
         };
         walletAccounts: {
             title: string;
             description: string;
             edit: string;
-            /** Shown instead of the row's actions on the source nobody may change. */
-            systemSource: string;
             saved: string;
             columns: {
                 account: string;
-                type: string;
-                balance: string;
+                amount: string;
+                interest: string;
+                maturity: string;
                 status: string;
             };
-            active: string;
             add: string;
             unit: string;
+            /** The type filter's "everything" choice. */
+            allTypes: string;
+            /** When the type filter matches no source. */
+            noMatches: string;
             emptyTitle: string;
             emptyHint: string;
             deleteSelected: string;
@@ -552,13 +595,10 @@ export interface Dictionary {
             deleteTitle: string;
             deleteHint: string;
             deleted: string;
-            /** Shown on a 409: records still explain a figure through this source. */
-            deleteBlocked: string;
         };
         walletDeposits: {
             title: string;
             description: string;
-            includeMatured: string;
             columns: {
                 deposit: string;
                 principal: string;
@@ -570,9 +610,15 @@ export interface Dictionary {
                 status: string;
             };
             matured: string;
+            /** A deposit that matured and was settled — its money is back in the funding account. */
+            closed: string;
             daysLeft: string;
             totalDays: string;
-            autoRenewal: string;
+            running: string;
+            /** `{date}` is substituted: the day a deposit started. */
+            startedOn: string;
+            /** `{amount}` is substituted: interest already paid, net. */
+            receivedSoFar: string;
             noRate: string;
             notComputed: string;
             notComputedHint: string;
@@ -586,6 +632,14 @@ export interface Dictionary {
                 institution: string;
                 principal: string;
                 principalHint: string;
+                /** Which source the deposit's money came out of — the movement that keeps totals honest. */
+                fundingAccount: string;
+                fundingAccountHint: string;
+                fundingAccountNone: string;
+                bank: string;
+                bankHint: string;
+                bankPlaceholder: string;
+                bankEmpty: string;
                 currency: string;
                 openedAt: string;
                 /** The length a deposit is bought as; the maturity date is derived from it. */
@@ -596,12 +650,17 @@ export interface Dictionary {
                 maturityAt: string;
                 maturityCalculated: string;
                 maturityPending: string;
+                /** Added to the hint when the term ends on a weekend. */
+                maturityMoved: string;
                 annualRate: string;
                 annualRateHint: string;
                 rateType: string;
                 interestMethod: string;
                 paymentFrequency: string;
-                autoRenewal: string;
+                /** Under a field fixed because interest computed from it is already on the ledger. */
+                lockedAfterInterest: string;
+                /** At the top of a closed deposit, whose form is read-only. */
+                closedNotice: string;
             };
         };
         walletTransactions: {
@@ -614,6 +673,30 @@ export interface Dictionary {
                 allStatuses: string;
                 /** The empty option on the form: recording now, answering from the worklist later. */
                 later: string;
+            };
+            /** In the dialog of a transaction a deposit produced — its funding, interest or settlement. */
+            systemNotice: string;
+            /** Under the disabled account select when editing. */
+            accountLocked: string;
+            /** Lookalike transactions, gathered for a person to merge or keep — never refused at import. */
+            duplicates: {
+                /** The option in the status filter that switches the list to groups. */
+                filter: string;
+                /** `{count}` is substituted. */
+                groupTitle: string;
+                hint: string;
+                merge: string;
+                keep: string;
+                /** Marks the row a merge would keep. */
+                survivor: string;
+                hasDocument: string;
+                merged: string;
+                kept: string;
+                empty: string;
+                failed: string;
+                /** `{count}` is substituted. */
+                mergeConfirmTitle: string;
+                mergeConfirmHint: string;
             };
             /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
             categories: Record<string, string | undefined>;
@@ -654,7 +737,55 @@ export interface Dictionary {
                 counterpartyHint: string;
             };
         };
-        rentals: { title: string; description: string; blockedOn: string };
+        rentals: {
+            title: string;
+            description: string;
+            add: string;
+            addHint: string;
+            edit: string;
+            editHint: string;
+            changeRent: string;
+            changeRentHint: string;
+            end: string;
+            endHint: string;
+            emptyTitle: string;
+            emptyHint: string;
+            added: string;
+            saved: string;
+            deleted: string;
+            rentChanged: string;
+            ended: string;
+            saveFailed: string;
+            deleteTitle: string;
+            deleteHint: string;
+            /** `{year}` is substituted in `owed`. */
+            columns: { property: string; tenant: string; rent: string; period: string; owed: string; status: string };
+            openEnded: string;
+            active: string;
+            endedStatus: string;
+            /** `{percent}` is substituted. */
+            share: string;
+            fromContract: string;
+            propertyTypes: Record<string, string | undefined>;
+            tenantTypes: Record<string, string | undefined>;
+            form: {
+                propertyType: string;
+                address: string;
+                ownershipPercent: string;
+                ownershipPercentHint: string;
+                tenantType: string;
+                tenantName: string;
+                startDate: string;
+                endDate: string;
+                endDateHint: string;
+                currency: string;
+                rent: string;
+                rentHint: string;
+                paymentFrequency: string;
+                termsLocked: string;
+                effectiveFrom: string;
+            };
+        };
         taxes: { title: string; description: string; blockedOn: string };
         taxesExplain: { title: string; description: string; blockedOn: string };
         declarations: { title: string; description: string; blockedOn: string };
@@ -1029,6 +1160,7 @@ export interface Dictionary {
                     tier: string;
                     url: string;
                     enabled: string;
+                    priority: string;
                     state: string;
                 };
                 allowed: string;
@@ -1051,17 +1183,17 @@ export interface Dictionary {
             truncated: string;
             usersTitle: string;
             usersDescription: string;
-                        unit: string;
-                        loginAs: string;
-                        erase: string;
-                        erased: string;
-                        eraseFailed: string;
-                        eraseTitle: string;
-                        eraseHint: string;
-                        eraseAuditNote: string;
-                        loginAsTitle: string;
-                        loginAsHint: string;
-                        loginAsFailed: string;
+            unit: string;
+            loginAs: string;
+            erase: string;
+            erased: string;
+            eraseFailed: string;
+            eraseTitle: string;
+            eraseHint: string;
+            eraseAuditNote: string;
+            loginAsTitle: string;
+            loginAsHint: string;
+            loginAsFailed: string;
             searchPlaceholder: string;
             allStatuses: string;
             mfaNone: string;

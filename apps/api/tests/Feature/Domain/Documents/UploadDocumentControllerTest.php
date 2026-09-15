@@ -6,7 +6,7 @@ namespace Tests\Feature\Domain\Documents\UploadDocumentControllerTest;
 
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Events\DocumentUploaded;
-use App\Domain\Documents\Jobs\ScanQuarantinedDocument;
+use App\Domain\Documents\Jobs\ScanQuarantinedPart;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Identity\Models\User;
@@ -15,9 +15,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +41,7 @@ beforeEach(function (): void {
     Storage::fake('quarantine');
     Storage::fake('s3');
 
-    Bus::fake([ScanQuarantinedDocument::class]);
+    Bus::fake([ScanQuarantinedPart::class]);
 });
 
 /** @return array{0: User, 1: TaxSubject} */
@@ -80,18 +78,19 @@ it('accepts a valid PDF, quarantines it, and dispatches the scan job', function 
 
     $document = Document::query()->findOrFail($documentId);
     expect($document->tax_subject_id)->toBe($subject->id)
-        ->and($document->mime_type)->toBe('application/pdf')
+        ->and($document->part_count)->toBe(1)
+        ->and($document->firstPart()?->mime_type)->toBe('application/pdf')
         ->and($document->status)->toBe(DocumentStatus::QUARANTINE);
 
-    $key = ObjectKey::forDocument($subject->id, $document->id, DocumentObjectKind::ORIGINAL);
-    $stream = app(QuarantineObjectStore::class)->get($key);
+    $part = $document->parts->sole();
+    $stream = app(QuarantineObjectStore::class)->get($part->objectKey());
     expect(stream_get_contents($stream))->toBe(FileFixtures::minimalPdf());
     fclose($stream);
 
     // Never reachable through the real store before scanning.
     expect(Storage::disk('s3')->allFiles())->toBe([]);
 
-    Bus::assertDispatched(ScanQuarantinedDocument::class, fn (ScanQuarantinedDocument $job): bool => $job->documentId === $document->id);
+    Bus::assertDispatched(ScanQuarantinedPart::class, fn (ScanQuarantinedPart $job): bool => $job->documentPartId === $part->id);
 
     Event::assertDispatched(DocumentUploaded::class, function (DocumentUploaded $event) use ($document): bool {
         $payload = $event->broadcastWith();
@@ -204,7 +203,7 @@ it('leaves no document row behind when the bytes cannot be stored', function ():
     expect(Document::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
 
     // And nothing downstream was told about a document that does not exist.
-    Bus::assertNotDispatched(ScanQuarantinedDocument::class);
+    Bus::assertNotDispatched(ScanQuarantinedPart::class);
 });
 
 it('records the upload in the subject audit chain, attributed to the uploader', function (): void {

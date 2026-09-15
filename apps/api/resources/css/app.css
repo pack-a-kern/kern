@@ -1222,9 +1222,19 @@ label:has(
  * Header, body and footer are separated by hairlines so the dialog reads as three zones rather
  * than one column of text — the body is where the work happens and should look like it. Padding
  * moves to the zones, since the divider has to reach the dialog's edges. */
+/* A dialog taller than the window keeps its title and its buttons on screen and scrolls only its body.
+ *
+ * Without a cap the dialog grew with its form: it is centred on the viewport, so a long form pushed
+ * both the header and the footer past the window edges, and nothing inside could scroll to them. The
+ * rows are header, body, footer, with the body given what is left (`minmax(0, 1fr)` rather than `1fr`,
+ * so it may shrink below its content and scroll instead of stretching the grid). Menus and date
+ * pickers render into the page body, not in here, so the clipping cannot cut them off. */
 .dialog-panel {
     gap: 0;
     padding: 0;
+    max-height: calc(100dvh - 2rem);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
 }
 .dialog-panel > [data-slot='dialog-header'] {
     padding: 1rem;
@@ -1232,6 +1242,9 @@ label:has(
 }
 .dialog-body {
     padding: 1rem;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 .dialog-footer {
     display: flex;
@@ -1470,6 +1483,28 @@ label:has(
 .detail-grid dd {
     margin: 0;
     min-width: 0;
+}
+
+/* Two pairs per row where there is width for it — a reading of an invoice is a dozen short values,
+   and one pair per row turns that into a column of scrolling nobody reads to the end of. */
+@media (min-width: 640px) {
+    .detail-grid-wide {
+        grid-template-columns: 110px minmax(0, 1fr) 110px minmax(0, 1fr);
+    }
+}
+
+/* The label, with room for the icon that says what kind of value follows. */
+.detail-grid dt {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.detail-grid dt svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    opacity: 0.6;
 }
 
 /* Tabs — a flat underline rail, not the boxed default. */
@@ -2271,4 +2306,68 @@ label:has(
 
 .add-row:disabled {
     opacity: 0.45;
+}
+
+/* A value that is also a way in — a row count that opens the rows. Reads as text until hovered, so
+   a list of values does not become a list of links. */
+.link-quiet {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.link-quiet:hover {
+    color: var(--accent-600);
+}
+
+/* A modal's own scrolling region — a list long enough to need one, bounded so the dialog keeps its
+   header and actions on screen. */
+.modal-scroll {
+    max-height: 60vh;
+    overflow: auto;
+}
+
+/* A reading's list, as a table. Dense on purpose: the point is to scan a column of figures, not to
+   read each row, so the rules are hairlines and the header is the only thing that stands out. */
+.row-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+}
+
+.row-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    background: var(--card);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.row-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+    vertical-align: top;
+}
+
+.row-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.row-table tbody tr:hover td {
+    background: color-mix(in oklab, var(--muted) 40%, transparent);
+}
+
+/* The row number: present so a person can say "line 7", never competing with the data. */
+.row-table-index {
+    width: 2.25rem;
+    color: var(--muted-foreground);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }

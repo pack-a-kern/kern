@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState, type JSX } from 'react';
-
-import { deleteAccount, listAccounts, openAccount, updateAccount } from '../../api/walletApi';
 import { Banknote, LandmarkIcon, PercentIcon, PlusIcon, TagIcon, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
+import { toast } from 'sonner';
+
+import { deleteAccount, listAccounts, listBanks, openAccount, updateAccount } from '../../api/walletApi';
 import AppShell from '../../components/AppShell';
-import { PanelDate } from '../../components/PanelDatePicker';
+import BulkActions from '../../components/BulkActions';
+import Checkbox from '../../components/Checkbox';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import Pagination from '../../components/Pagination';
+import { PanelDate } from '../../components/PanelDatePicker';
 import {
     ActionGroup,
     DataTable,
@@ -21,45 +25,46 @@ import {
     Status,
     Toolbar,
 } from '../../components/panel';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useFormErrors } from '../../hooks/useFormErrors';
-import BulkActions from '../../components/BulkActions';
-import Checkbox from '../../components/Checkbox';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
-import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useTranslation } from '../../i18n';
-import { cn } from '../../lib/utils';
-import { addMonths, daysBetween } from '../../lib/depositTerm';
 import { describeApiFailure } from '../../lib/apiErrors';
+import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
+import { formatDate } from '../../lib/format';
 import { getActiveSubjectId } from '../../lib/subjectStore';
-import { toast } from 'sonner';
-
+import { cn } from '../../lib/utils';
 import {
     OPENABLE_KINDS,
+    isStreamKind,
     sourceName,
     CURRENCIES,
     INTEREST_METHODS,
     PAYMENT_FREQUENCIES,
     RATE_TYPES,
     type AccountSummary,
+    type Bank,
+    type DepositFacts,
     type DepositFormOptions,
+    bankLabel,
     formatMinor,
 } from '../../types/wallet';
 
 /**
- * Bank accounts for the active tax subject.
+ * The taxpayer's deposits, cash and other accounts, in one table.
  *
- * Two columns carry more meaning than they look like they do:
+ * **General is not listed.** It is where transactions land, created with the taxpayer and never
+ * edited or deleted, so a row for it offered nothing to do. It is still where the funding select
+ * points by default, and everywhere a transaction is recorded.
  *
- * **Balance** is the most recent *observation*, not a live figure — an account has no balance of its
- * own in this schema, only a history of snapshots. So the date it was observed is shown beside it;
- * a balance without its age is a number nobody can act on. An account with no snapshot yet shows
- * "unknown", never zero.
+ * **Every column says something about the row it is on.** Interest, maturity and status belong to a
+ * deposit, so a cash holding or a broker account leaves them empty — the table used to put "Active"
+ * on a pile of cash, where it meant nothing.
  *
- * **Source** says where that observation came from — typed by hand, imported, or read from SPV —
- * because a manually entered balance and a bank-confirmed one are not equally trustworthy, and the
- * person reconciling them needs to see which is which.
+ * The order comes from the server — running deposits by maturity, then settled ones, then cash, then
+ * the others by name — because only the server can sort by a name that is encrypted at rest.
  */
 /**
  * One form for every kind of account.
@@ -76,6 +81,16 @@ interface AccountForm {
     starts_at: string;
     /** What a cash holding is worth, in major units. Cash only. */
     holding_amount: string;
+    /**
+     * Which source the deposit's money came out of. Deposits only, '' for "not one I track".
+     *
+     * Without it the principal is added to net worth while nothing leaves the account it came
+     * from, and the same money is counted twice — see `OpenFinancialAccount`.
+     */
+    funding_account_id: string;
+
+    /** The bank a deposit is at, chosen from the imported list. Deposits only — it names them. */
+    bank_id: string;
 
     /* Term deposit only — see `AccountForm`. */
     principal: string;
@@ -84,7 +99,6 @@ interface AccountForm {
     rate_type: string;
     interest_method: string;
     payment_frequency: string;
-    auto_renewal: boolean;
 }
 
 /**
@@ -110,23 +124,16 @@ function formFor(account: AccountSummary): AccountForm {
             ? {}
             : {
                   starts_at: deposit.startsAt,
+                  funding_account_id: deposit.fundingAccountId ?? '',
+                  bank_id: deposit.bankId ?? '',
                   principal: String(deposit.principalMinor / 100),
-                  term_months: String(monthsBetween(deposit.startsAt, deposit.maturityAt)),
+                  term_months: String(monthsOfTerm(deposit.startsAt, deposit.maturityAt)),
                   annual_rate: deposit.annualRate ?? '',
                   rate_type: deposit.rateType,
                   interest_method: deposit.interestMethod,
                   payment_frequency: deposit.paymentFrequency,
-                  auto_renewal: deposit.autoRenewal,
               }),
     };
-}
-
-/** Whole months between two ISO dates, which is the unit the deposit form works in. */
-function monthsBetween(from: string, to: string): number {
-    const start = new Date(from);
-    const end = new Date(to);
-
-    return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
 }
 
 function emptyForm(): AccountForm {
@@ -137,6 +144,8 @@ function emptyForm(): AccountForm {
         currency_code: CURRENCIES[0],
         starts_at: '',
         holding_amount: '',
+        funding_account_id: '',
+        bank_id: '',
         principal: '',
         term_months: '',
         annual_rate: '',
@@ -144,7 +153,6 @@ function emptyForm(): AccountForm {
         interest_method: INTEREST_METHODS[0],
         // At maturity: the commonest Romanian retail deposit pays once, at the end.
         payment_frequency: PAYMENT_FREQUENCIES[4],
-        auto_renewal: false,
     };
 }
 
@@ -158,8 +166,12 @@ export default function WalletAccounts(): JSX.Element {
     } | null>(null);
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    /** The account type shown, or '' for every type. */
+    const [kindFilter, setKindFilter] = useRememberedState<string>('wallet.accounts.type', '', {
+        perSubject: true,
+        isValid: (value) => value === '' || (OPENABLE_KINDS as readonly string[]).includes(value),
+    });
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('wallet.accounts', { perSubject: true });
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
 
@@ -174,8 +186,7 @@ export default function WalletAccounts(): JSX.Element {
     const [form, setForm] = useState<AccountForm>(emptyForm());
 
     useEffect(() => {
-    
-    if (subjectId === null) {
+        if (subjectId === null) {
             return;
         }
 
@@ -201,18 +212,57 @@ export default function WalletAccounts(): JSX.Element {
         };
     }, [subjectId, reloadKey]);
 
+    // The same list for every taxpayer, loaded once: it changes only when the bank import runs.
+    const [banks, setBanks] = useState<Bank[]>([]);
+
+    useEffect(() => {
+        if (subjectId === null) {
+            return;
+        }
+
+        let active = true;
+
+        listBanks(subjectId).then(
+            (loadedBanks) => {
+                if (active) {
+                    setBanks(loadedBanks);
+                }
+            },
+            () => {
+                if (active) {
+                    setBanks([]);
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, [subjectId]);
+
     const accounts = loaded?.rows ?? null;
 
+    // Where a deposit's money comes from unless somebody says otherwise. The general source is the
+    // one every taxpayer has and the one everything lands in by default, so it is the honest guess
+    // — and a deposit funded from nothing at all is the case worth making a person choose.
+    const generalAccountId = accounts?.find((account) => account.kind === 'GENERAL')?.id ?? '';
+
+    // General is where transactions land, not something managed here — see the component docblock.
+    const listed = useMemo(
+        () =>
+            (accounts ?? []).filter(
+                (account) => account.kind !== 'GENERAL' && (kindFilter === '' || account.kind === kindFilter),
+            ),
+        [accounts, kindFilter],
+    );
+
     /*
-     * Paged in the browser, over the whole list.
-     *
-     * The endpoint returns every source for the subject — there are a handful, not thousands — so
-     * asking the server for a page would be a round trip to slice an array that is already here.
-     * The pager still exists because a broker, three banks and two deposits is enough to want one.
+     * Paged in the browser: the endpoint returns every source for the subject — a handful, not
+     * thousands — so asking the server for a page would be a round trip to slice an array already here.
      */
-    const pageCount = Math.max(1, Math.ceil((accounts?.length ?? 0) / pageSize));
+    const pageCount = Math.max(1, Math.ceil(listed.length / pageSize));
     const currentPage = Math.min(page, pageCount);
-    const paged = (accounts ?? []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const paged = listed.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const pageIds = useMemo(() => paged.map((account) => account.id), [paged]);
     const selection = useRowSelection(pageIds);
 
@@ -228,7 +278,6 @@ export default function WalletAccounts(): JSX.Element {
         );
     }
 
-
     // A term deposit is an account with extra terms, so the form grows rather than the app offering
     // a second place to add one. This is the whole reason `deposits` stopped being its own table.
     const options: DepositFormOptions = loaded?.options ?? { termsMonths: [] };
@@ -236,14 +285,20 @@ export default function WalletAccounts(): JSX.Element {
     // A cash source is one declared value rather than a container: the form asks for it, and
     // nothing else can ever add to it.
     const isCash = form.kind === 'CASH';
+    // What an edit may still change, mirroring `UpdateFinancialAccount`. A settled deposit is a
+    // record rather than a running product; once interest is on the ledger, the figures it was
+    // computed from are part of that record too. Shown disabled, not left editable to fail on save.
+    const depositClosed = editing?.deposit?.closed === true;
+    const termsLocked = depositClosed || editing?.deposit?.interestPosted === true;
+    const lockedHint = t((d) => d.pages.walletDeposits.form.lockedAfterInterest);
 
     // Derived on every render rather than stored: a second copy of the maturity could drift out of
     // step with the term that produced it, which is what asking for a term instead of a date fixes.
     const termMonths = Number(form.term_months);
-    const maturityAt =
-        form.starts_at !== '' && Number.isInteger(termMonths) && termMonths > 0
-            ? addMonths(form.starts_at, termMonths)
-            : '';
+    const hasTerm = form.starts_at !== '' && Number.isInteger(termMonths) && termMonths > 0;
+    // A term ending on a weekend matures on the Monday after — see `maturityFor`.
+    const maturityAt = hasTerm ? maturityFor(form.starts_at, termMonths) : '';
+    const movedToWorkingDay = hasTerm && maturityAt !== addMonths(form.starts_at, termMonths);
     const termDays = maturityAt === '' ? null : daysBetween(form.starts_at, maturityAt);
 
     /** Labels a term the way it is sold — "6 luni", and the singular for one month. */
@@ -255,7 +310,6 @@ export default function WalletAccounts(): JSX.Element {
     // Neither handler re-checks `subjectId`: the early return above this point already narrowed it
     // to a string, and TypeScript rejects the redundant check as unreachable.
 
-
     const deleteSelected = async (): Promise<void> => {
         setBulkDeleting(true);
 
@@ -263,9 +317,8 @@ export default function WalletAccounts(): JSX.Element {
 
         try {
             // One request each: there is no bulk endpoint, and inventing one would skip the audit
-            // event every single delete already writes. Sequential rather than parallel so a
-            // partial failure leaves a coherent list — and each source is judged on its own, so a
-            // refusal stops the run rather than silently skipping to the next.
+            // event every single delete already writes. Sequential, so a refusal stops the run with a
+            // coherent list rather than silently skipping to the next source.
             for (const id of selection.ids) {
                 await deleteAccount(subjectId, id);
                 removed += 1;
@@ -273,7 +326,10 @@ export default function WalletAccounts(): JSX.Element {
 
             toast.success(t((d) => d.pages.walletAccounts.deleted));
         } catch (cause: unknown) {
-            toast.error(t((d) => d.common.deleteFailed), { description: describeApiFailure(cause, t) });
+            toast.error(
+                t((d) => d.common.deleteFailed),
+                { description: describeApiFailure(cause, t) },
+            );
         } finally {
             setBulkDeleting(false);
             setConfirmingBulkDelete(false);
@@ -290,24 +346,28 @@ export default function WalletAccounts(): JSX.Element {
         errors.reset();
 
         const body = {
-                display_name: form.display_name,
-                currency_code: form.currency_code,
-                ...(form.starts_at === '' ? {} : { starts_at: form.starts_at }),
-                ...(isCash ? { holding_amount_minor: Math.round(Number(form.holding_amount) * 100) } : {}),
-                // A term deposit is an account with extra terms, sent in the same request. The
-                // server refuses these for any other kind, so they are only attached when the kind
-                // actually calls for them.
-                ...(isDeposit
-                    ? {
-                          principal_minor: Math.round(Number(form.principal) * 100),
-                          maturity_at: maturityAt,
-                          annual_rate: form.annual_rate,
-                          rate_type: form.rate_type,
-                          interest_method: form.interest_method,
-                          payment_frequency: form.payment_frequency,
-                          auto_renewal: form.auto_renewal,
-                      }
-                    : {}),
+            // A deposit is named after its bank, so it sends the bank and never a name.
+            ...(isDeposit ? { bank_id: form.bank_id } : { display_name: form.display_name }),
+            currency_code: form.currency_code,
+            ...(form.starts_at === '' ? {} : { starts_at: form.starts_at }),
+            ...(isCash ? { holding_amount_minor: Math.round(Number(form.holding_amount) * 100) } : {}),
+            // A term deposit is an account with extra terms, sent in the same request. The
+            // server refuses these for any other kind, so they are only attached when the kind
+            // actually calls for them.
+            ...(isDeposit
+                ? {
+                      principal_minor: Math.round(Number(form.principal) * 100),
+                      maturity_at: maturityAt,
+                      // '' is a real answer — a deposit opened out of an account nobody tracked —
+                      // and it has to reach the server as null rather than be omitted, or editing
+                      // could never clear a funding account once set.
+                      funding_account_id: form.funding_account_id === '' ? null : form.funding_account_id,
+                      annual_rate: form.annual_rate,
+                      rate_type: form.rate_type,
+                      interest_method: form.interest_method,
+                      payment_frequency: form.payment_frequency,
+                  }
+                : {}),
         };
 
         try {
@@ -320,9 +380,7 @@ export default function WalletAccounts(): JSX.Element {
             }
 
             toast.success(
-                editing === null
-                    ? t((d) => d.pages.walletAccounts.added)
-                    : t((d) => d.pages.walletAccounts.saved),
+                editing === null ? t((d) => d.pages.walletAccounts.added) : t((d) => d.pages.walletAccounts.saved),
             );
             setAdding(false);
             setEditing(null);
@@ -340,6 +398,61 @@ export default function WalletAccounts(): JSX.Element {
         }
     };
 
+    const bankCodes = new Map(banks.map((bank) => [bank.id, bank.code]));
+
+    const openAdd = (): void => {
+        errors.reset();
+        // From `emptyForm()`, not from whatever was last typed: the dialog is shared with editing, so
+        // carrying state over showed one source's details under "Add". The terms arrive with the
+        // account list, so by the time this can be pressed they are known.
+        setForm({
+            ...emptyForm(),
+            term_months: String(options.termsMonths[0] ?? ''),
+            funding_account_id: generalAccountId,
+        });
+        setAdding(true);
+    };
+
+    /** Edit and delete, in the one control every row in this application draws them as. */
+    const rowActions = (account: AccountSummary): JSX.Element => (
+        <div className="flex justify-end">
+            <ActionGroup
+                actions={[
+                    {
+                        key: 'edit',
+                        label: t((d) => d.pages.walletAccounts.edit),
+                        onClick: () => {
+                            errors.reset();
+                            setForm(formFor(account));
+                            setEditing(account);
+                        },
+                    },
+                    {
+                        key: 'delete',
+                        label: t((d) => d.common.delete),
+                        tone: 'destructive' as const,
+                        onClick: () => {
+                            setDeleting(account);
+                        },
+                    },
+                ]}
+            />
+        </div>
+    );
+
+    /**
+     * Running, matured, or closed. Matured-but-open lasts until the nightly settlement returns the
+     * money, which is why it is its own state rather than folded into either neighbour.
+     */
+    const depositStatus = (deposit: DepositFacts): JSX.Element =>
+        deposit.closed ? (
+            <Status tone="idle">{t((d) => d.pages.walletDeposits.closed)}</Status>
+        ) : deposit.daysToMaturity < 0 ? (
+            <Status tone="warn">{t((d) => d.pages.walletDeposits.matured)}</Status>
+        ) : (
+            <Status tone="ok">{t((d) => d.pages.walletDeposits.running)}</Status>
+        );
+
     return (
         <AppShell>
             <Page title={t((d) => d.pages.walletAccounts.title)} lede={t((d) => d.pages.walletAccounts.description)}>
@@ -349,20 +462,7 @@ export default function WalletAccounts(): JSX.Element {
                     icon={<LandmarkIcon className="size-4" />}
                     flush
                     aside={
-                        <PanelButton
-                            primary
-                            inline
-                            onClick={() => {
-                                errors.reset();
-                                // From `emptyForm()`, not from whatever was last typed: the dialog
-                                // is shared with editing, so carrying state over showed one
-                                // source's details under "Add". Defaults are set here rather than
-                                // in an effect because the terms arrive with the account list, so
-                                // by the time this can be pressed they are known.
-                                setForm({ ...emptyForm(), term_months: String(options.termsMonths[0] ?? '') });
-                                setAdding(true);
-                            }}
-                        >
+                        <PanelButton primary inline onClick={openAdd}>
                             <PlusIcon className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.walletAccounts.add)}
                         </PanelButton>
@@ -371,7 +471,7 @@ export default function WalletAccounts(): JSX.Element {
                         <Pagination
                             page={currentPage}
                             pageSize={pageSize}
-                            total={accounts?.length ?? 0}
+                            total={listed.length}
                             unit={t((d) => d.pages.walletAccounts.unit)}
                             onPageChange={setPage}
                             onPageSizeChange={(size) => {
@@ -381,11 +481,23 @@ export default function WalletAccounts(): JSX.Element {
                         />
                     }
                 >
-                    {/* Only once something is ticked — see `BulkActions`. Deleting is the one thing
-                        several sources can sensibly have done to them at once, and the same refusals
-                        apply to each: the general source is never removed, and one holding
-                        transactions is refused rather than cascaded. */}
+                    {/* Only once something is ticked — see `BulkActions`. Each source is judged on its
+                        own: one that still has transactions is refused rather than cascaded. */}
                     <Toolbar>
+                        <PanelSelect
+                            className="filter-select"
+                            value={kindFilter}
+                            onValueChange={(value) => {
+                                setKindFilter(value);
+                                setPage(1);
+                            }}
+                            placeholder={t((d) => d.pages.walletAccounts.allTypes)}
+                            emptyLabel={t((d) => d.pages.walletAccounts.allTypes)}
+                            options={OPENABLE_KINDS.map((kind) => ({
+                                value: kind,
+                                label: t((d) => d.pages.wallet.kinds[kind] ?? kind),
+                            }))}
+                        />
                         <BulkActions count={selection.size} disabled={bulkDeleting}>
                             <DropdownMenuItem
                                 variant="destructive"
@@ -403,7 +515,9 @@ export default function WalletAccounts(): JSX.Element {
                         <TableSkeleton />
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.pages.wallet.loadFailed)}</p>
-                    ) : accounts.length === 0 ? (
+                    ) : listed.length === 0 && kindFilter !== '' ? (
+                        <p className="note p-4">{t((d) => d.pages.walletAccounts.noMatches)}</p>
+                    ) : listed.length === 0 ? (
                         <EmptyState
                             icon={<LandmarkIcon className="size-5" />}
                             title={t((d) => d.pages.walletAccounts.emptyTitle)}
@@ -423,20 +537,24 @@ export default function WalletAccounts(): JSX.Element {
                                         />
                                     </th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.account)}</th>
-                                    <th>{t((d) => d.pages.walletAccounts.columns.type)}</th>
-                                    <th>{t((d) => d.pages.walletAccounts.columns.balance)}</th>
+                                    <th>{t((d) => d.pages.walletAccounts.columns.amount)}</th>
+                                    <th>{t((d) => d.pages.walletAccounts.columns.interest)}</th>
+                                    <th>{t((d) => d.pages.walletAccounts.columns.maturity)}</th>
                                     <th>{t((d) => d.pages.walletAccounts.columns.status)}</th>
                                     <th />
                                 </>
                             }
                         >
-                            {paged.map((account) => (
-                                <tr key={account.id} className={cn(selection.has(account.id) && 'row-selected')}>
-                                    {/* The general source is never removed, so it is never ticked:
-                                        a checkbox that cannot lead to an action is a control that
-                                        lies about what is possible. */}
-                                    <td className="col-hide w-8">
-                                        {account.kind === 'GENERAL' ? null : (
+                            {paged.map((account) => {
+                                const deposit = account.deposit;
+                                const code =
+                                    deposit === null || deposit.bankId === null
+                                        ? null
+                                        : (bankCodes.get(deposit.bankId) ?? null);
+
+                                return (
+                                    <tr key={account.id} className={cn(selection.has(account.id) && 'row-selected')}>
+                                        <td className="col-hide w-8">
                                             <Checkbox
                                                 checked={selection.has(account.id)}
                                                 onCheckedChange={(next) => {
@@ -444,106 +562,101 @@ export default function WalletAccounts(): JSX.Element {
                                                 }}
                                                 aria-label={account.displayName}
                                             />
-                                        )}
-                                    </td>
-                                    <td className="col-primary">
-                                        <div className="font-semibold">
-                                            {sourceName(account, t((d) => d.pages.wallet.generalSource))}
-                                        </div>
-                                    </td>
-                                    <td className="col-hide">
-                                        <Pill>{t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}</Pill>
-                                    </td>
-                                    <td className="tabular-nums whitespace-nowrap">
-                                        {/* A deposit's money is its principal, not a running total:
-                                            nothing moves through a locked account, so summing
-                                            transactions there would report zero. The interest it
-                                            will have earned by maturity goes underneath, because
-                                            that is the number a deposit is opened to find out. */}
-                                        {account.deposit !== null ? (
-                                            <>
-                                                {formatMinor(
-                                                    account.deposit.principalMinor,
-                                                    account.deposit.currencyCode,
-                                                    locale,
-                                                )}
-                                                <div className="note">
-                                                    {account.deposit.interestAtMaturityMinor === null
-                                                        ? t((d) => d.pages.walletDeposits.notComputed)
-                                                        : `+ ${formatMinor(
-                                                              account.deposit.interestAtMaturityMinor,
-                                                              account.deposit.currencyCode,
-                                                              locale,
-                                                          )}`}
-                                                    {account.deposit.annualRate === null
-                                                        ? ''
-                                                        : ` · ${account.deposit.annualRate}%`}
-                                                </div>
-                                            </>
-                                        ) : account.balances.length === 0 ? (
-                                            <span className="note">{t((d) => d.pages.wallet.unknownBalance)}</span>
-                                        ) : (
-                                            /* One line per currency. A source is a folder and may
-                                               hold several; adding them together would produce a
-                                               number that is not any quantity of anything. */
-                                            account.balances.map((balance) => (
-                                                <div key={balance.currencyCode}>
-                                                    {formatMinor(balance.amountMinor, balance.currencyCode, locale)}
-                                                </div>
-                                            ))
-                                        )}
-                                        <div className="note">{t((d) => d.pages.wallet.derived)}</div>
-                                    </td>
-                                    <td>
-                                        {account.deposit === null ? (
-                                            <Status tone="ok">{t((d) => d.pages.walletAccounts.active)}</Status>
-                                        ) : (
-                                            <Status tone={account.deposit.daysToMaturity < 0 ? 'idle' : 'ok'}>
-                                                {account.deposit.daysToMaturity < 0
-                                                    ? t((d) => d.pages.walletDeposits.matured)
-                                                    : t((d) => d.pages.walletDeposits.daysLeft).replace(
-                                                          '{days}',
-                                                          String(account.deposit.daysToMaturity),
-                                                      )}
-                                            </Status>
-                                        )}
-                                    </td>
-                                    <td className="col-end text-right">
-                                        {/* One control holding both actions, the way every other
-                                            row in this application draws them — a tile with a
-                                            divider, not two loose buttons. */}
-                                        {account.kind === 'GENERAL' ? (
-                                            <span className="note">
-                                                {t((d) => d.pages.walletAccounts.systemSource)}
-                                            </span>
-                                        ) : (
-                                            <div className="flex justify-end">
-                                                <ActionGroup
-                                                    actions={[
-                                                        {
-                                                            key: 'edit',
-                                                            label: t((d) => d.pages.walletAccounts.edit),
-                                                            onClick: () => {
-                                                                errors.reset();
-                                                                setForm(formFor(account));
-                                                                setEditing(account);
-                                                            },
-                                                        },
-                                                        {
-                                                            key: 'delete',
-                                                            label: t((d) => d.common.delete),
-                                                            tone: 'destructive' as const,
-                                                            onClick: () => {
-                                                                setDeleting(account);
-                                                            },
-                                                        },
-                                                    ]}
-                                                />
+                                        </td>
+                                        <td className="col-primary">
+                                            <div className="flex items-center gap-2 font-semibold">
+                                                {account.displayName}
+                                                {code === null ? null : <Pill>{code}</Pill>}
                                             </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                                            <div className="note">
+                                                {t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}
+                                                {deposit === null
+                                                    ? ''
+                                                    : ` · ${t((d) => d.pages.walletDeposits.startedOn).replace(
+                                                          '{date}',
+                                                          formatDate(deposit.startsAt, locale),
+                                                      )}`}
+                                            </div>
+                                        </td>
+                                        <td
+                                            className="tabular-nums whitespace-nowrap"
+                                            data-label={t((d) => d.pages.walletAccounts.columns.amount)}
+                                        >
+                                            {/* A deposit's money is its principal; anything else is what
+                                                has been recorded in it, one line per currency. */}
+                                            {deposit !== null ? (
+                                                formatMinor(deposit.principalMinor, deposit.currencyCode, locale)
+                                            ) : account.balances.length === 0 ? (
+                                                <span className="note">{t((d) => d.pages.wallet.unknownBalance)}</span>
+                                            ) : (
+                                                account.balances.map((balance) => (
+                                                    <div key={balance.currencyCode}>
+                                                        {formatMinor(balance.amountMinor, balance.currencyCode, locale)}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </td>
+                                        <td
+                                            className="tabular-nums whitespace-nowrap"
+                                            data-label={t((d) => d.pages.walletAccounts.columns.interest)}
+                                        >
+                                            {deposit === null ? null : (
+                                                <>
+                                                    {deposit.interestAtMaturityMinor === null ? (
+                                                        <span className="note">
+                                                            {t((d) => d.pages.walletDeposits.notComputed)}
+                                                        </span>
+                                                    ) : (
+                                                        `+ ${formatMinor(deposit.interestAtMaturityMinor, deposit.currencyCode, locale)}`
+                                                    )}
+                                                    <div className="note">
+                                                        {deposit.annualRate === null
+                                                            ? t((d) => d.pages.walletDeposits.noRate)
+                                                            : `${deposit.annualRate}%`}
+                                                    </div>
+                                                    {deposit.interestReceivedMinor > 0 ? (
+                                                        <div className="note">
+                                                            {t((d) => d.pages.walletDeposits.receivedSoFar).replace(
+                                                                '{amount}',
+                                                                formatMinor(
+                                                                    deposit.interestReceivedMinor,
+                                                                    deposit.currencyCode,
+                                                                    locale,
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    ) : null}
+                                                </>
+                                            )}
+                                        </td>
+                                        <td
+                                            className="whitespace-nowrap"
+                                            data-label={t((d) => d.pages.walletAccounts.columns.maturity)}
+                                        >
+                                            {deposit === null ? null : (
+                                                <>
+                                                    {formatDate(deposit.maturityAt, locale)}
+                                                    <div className="note">
+                                                        {deposit.closed || deposit.daysToMaturity < 0
+                                                            ? t((d) => d.pages.walletDeposits.totalDays).replace(
+                                                                  '{days}',
+                                                                  String(deposit.totalDays),
+                                                              )
+                                                            : t((d) => d.pages.walletDeposits.daysLeft).replace(
+                                                                  '{days}',
+                                                                  String(deposit.daysToMaturity),
+                                                              )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </td>
+                                        <td data-label={t((d) => d.pages.walletAccounts.columns.status)}>
+                                            {deposit === null ? null : depositStatus(deposit)}
+                                        </td>
+                                        <td className="col-end text-right">{rowActions(account)}</td>
+                                    </tr>
+                                );
+                            })}
                         </DataTable>
                     )}
                 </Panel>
@@ -589,16 +702,18 @@ export default function WalletAccounts(): JSX.Element {
                             // source, or it is the general one and cannot be removed at all. Both
                             // are answers a person can act on, so the standard describer relays
                             // them rather than a generic "deletion failed".
-                            toast.error(t((d) => d.common.deleteFailed), {
-                                description: describeApiFailure(cause, t),
-                            });
+                            toast.error(
+                                t((d) => d.common.deleteFailed),
+                                {
+                                    description: describeApiFailure(cause, t),
+                                },
+                            );
 
                             throw cause;
                         }
                     }}
                 />
             )}
-
 
             {/* One dialog for both, because they are the same form: the only difference is whether
                 the source already exists. `kind` is fixed once it does — it decides whether
@@ -617,11 +732,7 @@ export default function WalletAccounts(): JSX.Element {
                         errors.reset();
                     }
                 }}
-                title={
-                    editing === null
-                        ? t((d) => d.pages.walletAccounts.add)
-                        : t((d) => d.pages.walletAccounts.edit)
-                }
+                title={editing === null ? t((d) => d.pages.walletAccounts.add) : t((d) => d.pages.walletAccounts.edit)}
                 description={t((d) => d.pages.walletAccounts.addHint)}
                 size="lg"
                 actions={
@@ -640,7 +751,8 @@ export default function WalletAccounts(): JSX.Element {
                             primary
                             disabled={
                                 saving ||
-                                form.display_name.trim() === '' ||
+                                depositClosed ||
+                                (isDeposit ? form.bank_id === '' : form.display_name.trim() === '') ||
                                 (isCash && form.holding_amount.trim() === '') ||
                                 (isDeposit &&
                                     (form.principal.trim() === '' ||
@@ -657,29 +769,65 @@ export default function WalletAccounts(): JSX.Element {
                 }
             >
                 <FieldGrid>
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.displayName)}
-                        htmlFor="account-display-name"
-                        error={errors.get('display_name')}
-                        hint={t((d) => d.pages.walletAccounts.form.displayNameHint)}
-                    >
-                        <PanelInput
-                            id="account-display-name"
-                            icon={<TagIcon className="size-3.5" />}
-                            value={form.display_name}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, display_name: event.target.value }));
-                            }}
-                        />
-                    </Field>
+                    {depositClosed ? (
+                        <p className="note sm:col-span-2">{t((d) => d.pages.walletDeposits.form.closedNotice)}</p>
+                    ) : null}
+
+                    {/* A deposit is at a bank, and that bank is its name: chosen from the list the bank import
+                        keeps, never typed, so two deposits at one bank cannot be spelled two ways. */}
+                    {isDeposit ? (
+                        <Field
+                            label={t((d) => d.pages.walletDeposits.form.bank)}
+                            htmlFor="account-bank"
+                            error={errors.get('bank_id')}
+                            hint={
+                                banks.length === 0
+                                    ? t((d) => d.pages.walletDeposits.form.bankEmpty)
+                                    : t((d) => d.pages.walletDeposits.form.bankHint)
+                            }
+                        >
+                            <PanelSelect
+                                id="account-bank"
+                                disabled={depositClosed}
+                                value={form.bank_id}
+                                placeholder={t((d) => d.pages.walletDeposits.form.bankPlaceholder)}
+                                // Sixty-odd banks, and more once another country is configured. The
+                                // label carries the 4-letter code, so searching "BTRL" finds it too.
+                                searchable
+                                onValueChange={(value) => {
+                                    setForm((current) => ({ ...current, bank_id: value }));
+                                }}
+                                options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                            />
+                        </Field>
+                    ) : (
+                        <Field
+                            label={t((d) => d.pages.walletAccounts.form.displayName)}
+                            htmlFor="account-display-name"
+                            error={errors.get('display_name')}
+                            hint={t((d) => d.pages.walletAccounts.form.displayNameHint)}
+                        >
+                            <PanelInput
+                                id="account-display-name"
+                                icon={<TagIcon className="size-3.5" />}
+                                value={form.display_name}
+                                onChange={(event) => {
+                                    setForm((current) => ({ ...current, display_name: event.target.value }));
+                                }}
+                            />
+                        </Field>
+                    )}
 
                     <Field
                         label={t((d) => d.pages.walletAccounts.form.kind)}
                         htmlFor="account-kind"
                         error={errors.get('kind')}
                     >
+                        {/* Fixed once the source exists: the server refuses `kind` on an edit, because
+                            it decides whether transactions may be recorded against the source at all. */}
                         <PanelSelect
                             id="account-kind"
+                            disabled={editing !== null}
                             value={form.kind}
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, kind: value }));
@@ -695,9 +843,11 @@ export default function WalletAccounts(): JSX.Element {
                         label={t((d) => d.pages.walletAccounts.form.currency)}
                         htmlFor="account-currency"
                         error={errors.get('currency_code')}
+                        {...(isDeposit && termsLocked ? { hint: lockedHint } : {})}
                     >
                         <PanelSelect
                             id="account-currency"
+                            disabled={isDeposit && termsLocked}
                             value={form.currency_code}
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, currency_code: value }));
@@ -733,8 +883,11 @@ export default function WalletAccounts(): JSX.Element {
                             label={t((d) => d.pages.walletAccounts.form.startsAt)}
                             htmlFor="account-starts"
                             error={errors.get('starts_at')}
+                            {...(termsLocked ? { hint: lockedHint } : {})}
                         >
                             <PanelDate
+                                block
+                                disabled={termsLocked}
                                 value={form.starts_at === '' ? null : form.starts_at}
                                 onChange={(next) => {
                                     setForm((current) => ({ ...current, starts_at: next ?? '' }));
@@ -749,13 +902,42 @@ export default function WalletAccounts(): JSX.Element {
                     {isDeposit ? (
                         <>
                             <Field
+                                label={t((d) => d.pages.walletDeposits.form.fundingAccount)}
+                                htmlFor="account-funding"
+                                error={errors.get('funding_account_id')}
+                                hint={
+                                    termsLocked ? lockedHint : t((d) => d.pages.walletDeposits.form.fundingAccountHint)
+                                }
+                            >
+                                <PanelSelect
+                                    id="account-funding"
+                                    disabled={termsLocked}
+                                    value={form.funding_account_id}
+                                    placeholder={t((d) => d.pages.walletDeposits.form.fundingAccountNone)}
+                                    onValueChange={(value) => {
+                                        setForm((current) => ({ ...current, funding_account_id: value }));
+                                    }}
+                                    options={(accounts ?? [])
+                                        .filter((candidate) => isStreamKind(candidate.kind))
+                                        .map((candidate) => ({
+                                            value: candidate.id,
+                                            label: sourceName(
+                                                candidate,
+                                                t((d) => d.pages.wallet.generalSource),
+                                            ),
+                                        }))}
+                                />
+                            </Field>
+
+                            <Field
                                 label={t((d) => d.pages.walletDeposits.form.principal)}
                                 htmlFor="account-principal"
                                 error={errors.get('principal_minor')}
-                                hint={t((d) => d.pages.walletDeposits.form.principalHint)}
+                                hint={termsLocked ? lockedHint : t((d) => d.pages.walletDeposits.form.principalHint)}
                             >
                                 <PanelInput
                                     id="account-principal"
+                                    disabled={termsLocked}
                                     type="number"
                                     min={0}
                                     step="0.01"
@@ -774,6 +956,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelInput
                                     id="account-rate"
+                                    disabled={depositClosed}
                                     icon={<PercentIcon className="size-3.5" />}
                                     inputMode="decimal"
                                     value={form.annual_rate}
@@ -790,6 +973,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelSelect
                                     id="account-term"
+                                    disabled={depositClosed}
                                     value={form.term_months}
                                     onValueChange={(value) => {
                                         setForm((current) => ({ ...current, term_months: value }));
@@ -810,10 +994,15 @@ export default function WalletAccounts(): JSX.Element {
                                 hint={
                                     termDays === null
                                         ? t((d) => d.pages.walletDeposits.form.maturityPending)
-                                        : t((d) => d.pages.walletDeposits.form.maturityCalculated).replace(
-                                              '{days}',
-                                              String(termDays),
-                                          )
+                                        : [
+                                              t((d) => d.pages.walletDeposits.form.maturityCalculated).replace(
+                                                  '{days}',
+                                                  String(termDays),
+                                              ),
+                                              ...(movedToWorkingDay
+                                                  ? [t((d) => d.pages.walletDeposits.form.maturityMoved)]
+                                                  : []),
+                                          ].join(' ')
                                 }
                             >
                                 <PanelInput id="account-maturity" type="date" value={maturityAt} disabled readOnly />
@@ -826,6 +1015,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelSelect
                                     id="account-rate-type"
+                                    disabled={termsLocked}
                                     value={form.rate_type}
                                     onValueChange={(value) => {
                                         setForm((current) => ({ ...current, rate_type: value }));
@@ -844,6 +1034,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelSelect
                                     id="account-method"
+                                    disabled={termsLocked}
                                     value={form.interest_method}
                                     onValueChange={(value) => {
                                         setForm((current) => ({ ...current, interest_method: value }));
@@ -862,6 +1053,7 @@ export default function WalletAccounts(): JSX.Element {
                             >
                                 <PanelSelect
                                     id="account-frequency"
+                                    disabled={termsLocked}
                                     value={form.payment_frequency}
                                     onValueChange={(value) => {
                                         setForm((current) => ({ ...current, payment_frequency: value }));

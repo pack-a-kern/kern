@@ -12,7 +12,7 @@ use App\Domain\Fx\Models\FxPeriodAverage;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Services\FxPeriodAverageCalculator;
 use App\Domain\Fx\ValueObjects\DecimalRate;
-use Database\Factories\FxSourceFactory;
+use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
 
@@ -25,10 +25,10 @@ function calculator(): FxPeriodAverageCalculator
     return new FxPeriodAverageCalculator(roundingScale: 6, verificationTolerance: '0.0001');
 }
 
-function seedDailyRate(\App\Domain\Fx\Models\FxSource $source, string $versionId, string $date, string $currency, int $multiplier, string $value): void
+function seedDailyRate(\App\Domain\TaxKnowledge\Models\OfficialSource $source, string $versionId, string $date, string $currency, int $multiplier, string $value): void
 {
     FxRate::query()->create([
-        'fx_source_id' => $source->id,
+        'official_source_id' => $source->id,
         'rate_date' => $date,
         'currency_code' => $currency,
         'multiplier' => $multiplier,
@@ -38,7 +38,7 @@ function seedDailyRate(\App\Domain\Fx\Models\FxSource $source, string $versionId
 }
 
 it('computes the monthly average as the arithmetic mean of only the published daily rates, ignoring missing (non-banking) days', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     // January 2026 has 31 calendar days; only 3 banking-day rates are seeded, simulating
@@ -47,7 +47,7 @@ it('computes the monthly average as the arithmetic mean of only the published da
     seedDailyRate($source, $version->id, '2026-01-06', 'EUR', 1, '4.980000');
     seedDailyRate($source, $version->id, '2026-01-07', 'EUR', 1, '4.990000');
 
-    $average = calculator()->calculateMonthly($source, 'EUR', 2026, 1);
+    $average = calculator()->calculateMonthly($source->id, 'EUR', 2026, 1);
 
     expect($average->period_type)->toBe(PeriodType::MONTH)
         ->and($average->period_start->format('Y-m-d'))->toBe('2026-01-01')
@@ -58,33 +58,33 @@ it('computes the monthly average as the arithmetic mean of only the published da
 });
 
 it('divides the multiplier out before averaging a currency quoted per more than one unit', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     seedDailyRate($source, $version->id, '2026-01-05', 'HUF', 100, '1278.000000');
     seedDailyRate($source, $version->id, '2026-01-06', 'HUF', 100, '1282.000000');
 
-    $average = calculator()->calculateMonthly($source, 'HUF', 2026, 1);
+    $average = calculator()->calculateMonthly($source->id, 'HUF', 2026, 1);
 
     // Per-unit rates are 12.78 and 12.82 → mean 12.80, not the un-divided mean of 1280.00.
     expect($average->calculated_value_decimal)->toBe('12.800000');
 });
 
 it('throws when no daily rates exist at all for the requested month', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
 
-    calculator()->calculateMonthly($source, 'EUR', 2026, 2);
+    calculator()->calculateMonthly($source->id, 'EUR', 2026, 2);
 })->throws(NoDailyRatesForPeriodException::class);
 
 it('recomputing a monthly average is safe and overwrites the calculated value in place', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     seedDailyRate($source, $version->id, '2026-01-05', 'EUR', 1, '4.970000');
-    $first = calculator()->calculateMonthly($source, 'EUR', 2026, 1);
+    $first = calculator()->calculateMonthly($source->id, 'EUR', 2026, 1);
 
     seedDailyRate($source, $version->id, '2026-01-06', 'EUR', 1, '4.990000');
-    $second = calculator()->calculateMonthly($source, 'EUR', 2026, 1);
+    $second = calculator()->calculateMonthly($source->id, 'EUR', 2026, 1);
 
     expect(FxPeriodAverage::query()->count())->toBe(1)
         ->and($first->calculated_value_decimal)->toBe('4.970000')
@@ -92,11 +92,11 @@ it('recomputing a monthly average is safe and overwrites the calculated value in
 });
 
 it('computes the annual average as the arithmetic mean of the 12 monthly averages', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
 
     for ($month = 1; $month <= 12; $month++) {
         FxPeriodAverage::query()->create([
-            'fx_source_id' => $source->id,
+            'official_source_id' => $source->id,
             'period_type' => PeriodType::MONTH->value,
             'period_start' => sprintf('2026-%02d-01', $month),
             'currency_code' => 'EUR',
@@ -106,7 +106,7 @@ it('computes the annual average as the arithmetic mean of the 12 monthly average
         ]);
     }
 
-    $annual = calculator()->calculateAnnual($source, 'EUR', 2026);
+    $annual = calculator()->calculateAnnual($source->id, 'EUR', 2026);
 
     expect($annual->period_type)->toBe(PeriodType::YEAR)
         ->and($annual->period_start->format('Y-m-d'))->toBe('2026-01-01')
@@ -115,11 +115,11 @@ it('computes the annual average as the arithmetic mean of the 12 monthly average
 });
 
 it('refuses to compute an annual average from an incomplete set of monthly averages', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
 
     for ($month = 1; $month <= 11; $month++) {
         FxPeriodAverage::query()->create([
-            'fx_source_id' => $source->id,
+            'official_source_id' => $source->id,
             'period_type' => PeriodType::MONTH->value,
             'period_start' => sprintf('2026-%02d-01', $month),
             'currency_code' => 'EUR',
@@ -129,15 +129,15 @@ it('refuses to compute an annual average from an incomplete set of monthly avera
         ]);
     }
 
-    calculator()->calculateAnnual($source, 'EUR', 2026);
+    calculator()->calculateAnnual($source->id, 'EUR', 2026);
 })->throws(IncompleteMonthlyAveragesException::class);
 
 it('marks VERIFIED when the official published value is within tolerance', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
     seedDailyRate($source, $version->id, '2026-01-05', 'EUR', 1, '4.980000');
 
-    $average = calculator()->calculateMonthly($source, 'EUR', 2026, 1);
+    $average = calculator()->calculateMonthly($source->id, 'EUR', 2026, 1);
     $updated = calculator()->recordOfficialPublishedValue($average, DecimalRate::fromString('4.980050'));
 
     expect($updated->verification_status)->toBe(VerificationStatus::VERIFIED)
@@ -146,11 +146,11 @@ it('marks VERIFIED when the official published value is within tolerance', funct
 });
 
 it('marks MISMATCH when the official published value is outside tolerance, never silently preferring one value', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
     seedDailyRate($source, $version->id, '2026-01-05', 'EUR', 1, '4.980000');
 
-    $average = calculator()->calculateMonthly($source, 'EUR', 2026, 1);
+    $average = calculator()->calculateMonthly($source->id, 'EUR', 2026, 1);
     $updated = calculator()->recordOfficialPublishedValue($average, DecimalRate::fromString('5.100000'));
 
     expect($updated->verification_status)->toBe(VerificationStatus::MISMATCH)

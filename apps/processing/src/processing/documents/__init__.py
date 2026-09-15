@@ -27,6 +27,7 @@ from processing.documents.errors import (
     TooManyPagesError,
 )
 from processing.documents.extraction import extract_document
+from processing.documents.page_count import count_pdf_pages
 from processing.documents.schemas import (
     DocumentExtractionResult,
     OcrDecision,
@@ -51,4 +52,5 @@ __all__ = [
     "TooManyPagesError",
     "UntrustedDocumentText",
     "extract_document",
+    "count_pdf_pages",
 ]

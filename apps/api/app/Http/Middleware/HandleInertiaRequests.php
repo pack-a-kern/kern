@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domain\Documents\FileSecurity\SniffedFileType;
+use App\Domain\Settings\Services\AiProviderCatalogue;
 use App\Domain\Subjects\Queries\ListSubjectsForUser;
 use App\Domain\Subjects\Queries\SubjectSummary;
 use Illuminate\Http\Request;
@@ -79,6 +81,14 @@ final class HandleInertiaRequests extends Middleware
                     ],
                     app(ListSubjectsForUser::class)($user->id)->items(),
                 ),
+            ],
+            // What the upload picker may offer, from the one list that decides what the server
+            // will actually accept. Shared rather than retyped in the dialog: a hand-maintained
+            // copy drifts, and the way it drifts is a picker offering a file the server refuses.
+            'documents' => [
+                'accept' => SniffedFileType::acceptAttribute(),
+                // Whether the upload screen may offer to clean up a photograph before sending it.
+                'enhances' => app(AiProviderCatalogue::class)->supportsEnhancement(),
             ],
         ];
     }

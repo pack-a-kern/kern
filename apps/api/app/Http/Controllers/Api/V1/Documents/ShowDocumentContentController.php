@@ -7,10 +7,8 @@ namespace App\Http\Controllers\Api\V1\Documents;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Http\Controllers\Controller;
-use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -58,10 +56,20 @@ final class ShowDocumentContentController extends Controller
             ], 409);
         }
 
-        $key = ObjectKey::forDocument($model->tax_subject_id, $model->id, DocumentObjectKind::ORIGINAL);
+        // The first file, because that is what "the document's content" means for the documents
+        // that have one. A document made of several pages is paged through by
+        // `ShowDocumentPartContentController`, which this deliberately does not try to replace —
+        // concatenating four photographs into one response would produce a file nothing can open.
+        $part = $model->firstPart();
+
+        if ($part === null) {
+            throw new NotFoundHttpException('This document has no stored content.');
+        }
+
+        $part->setRelation('document', $model);
 
         try {
-            $plaintext = $store->get($key);
+            $plaintext = $store->get($part->objectKey());
         } catch (ObjectNotFoundException $exception) {
             throw new NotFoundHttpException('This document has no stored content.', $exception);
         }
@@ -69,8 +77,8 @@ final class ShowDocumentContentController extends Controller
         return response()->streamDownload(static function () use ($plaintext): void {
             fpassthru($plaintext);
             fclose($plaintext);
-        }, $model->original_filename_ciphertext, [
-            'Content-Type' => $model->mime_type,
+        }, $part->original_filename_ciphertext, [
+            'Content-Type' => $part->mime_type,
             'Cache-Control' => 'private, no-store',
         ], 'inline');
     }

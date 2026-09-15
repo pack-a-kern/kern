@@ -142,8 +142,10 @@ export interface SourceRegistryEntry {
     trustTier: string;
     baseUrl: string;
     enabled: boolean;
+    /** Which source is preferred when two publish the same data: 1 before 2. Null if the entry declares none. */
+    priority: number | null;
     /**
-     * Whether an `official_sources` row exists yet. The table is filled lazily, on first fetch, so
+     * Whether an `ext_official_sources` row exists yet. The table is filled lazily, on first fetch, so
      * `false` means declared and allowed but never used — which is what an entire empty table looks
      * like after a restore, and is very different from "nothing is allowlisted".
      */
@@ -351,6 +353,7 @@ export function parsePlatformData(payload: unknown): PlatformData {
                 trustTier: str(row, 'trust_tier'),
                 baseUrl: str(row, 'base_url'),
                 enabled: bool(row, 'enabled'),
+                priority: typeof row.priority === 'number' ? row.priority : null,
                 mirrored: bool(row, 'mirrored'),
             };
         }),

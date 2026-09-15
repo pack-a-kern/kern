@@ -33,6 +33,7 @@ beforeEach(function (): void {
             'allowed_hosts' => ['legislatie-fixture.test'],
             'user_agent' => 'TaxOS-Test-Fetcher/1.0',
             'enabled' => true,
+            'priority' => 1,
         ],
         'sources.storage.disk' => 's3',
         'sources.storage.prefix' => 'sources',

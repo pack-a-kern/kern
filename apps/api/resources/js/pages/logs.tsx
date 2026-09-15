@@ -1,13 +1,16 @@
-import { useState, type JSX } from 'react';
+import { type JSX } from 'react';
 
 import AppShell from '../components/AppShell';
 import { Page, TabRail } from '../components/panel';
+import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
 import AuditTab from './logs/AuditTab';
 import JobsTab from './logs/JobsTab';
 import TasksTab from './logs/TasksTab';
 
 type Tab = 'audit' | 'jobs' | 'tasks';
+
+const TABS: readonly Tab[] = ['audit', 'jobs', 'tasks'];
 
 /**
  * Everything this installation writes down about itself.
@@ -31,7 +34,8 @@ type Tab = 'audit' | 'jobs' | 'tasks';
  */
 export default function Logs(): JSX.Element {
     const { t } = useTranslation();
-    const [tab, setTab] = useState<Tab>('audit');
+    // The tab last opened, so coming back to the logs lands where the person was.
+    const [tab, setTab] = useRememberedState<Tab>('logs.tab', 'audit', { isValid: (value) => TABS.includes(value) });
 
     return (
         <AppShell>

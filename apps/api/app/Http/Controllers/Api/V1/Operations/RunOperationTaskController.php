@@ -27,7 +27,7 @@ use Illuminate\Validation\Rule;
  *
  * The lock is taken *here*, before dispatch, and handed to the job. That is what turns a double
  * click into an answer — 409, "already running" — instead of two concurrent imports racing on the
- * same `source_document_versions` rows, which is a provenance defect rather than merely wasted
+ * same `ext_source_document_versions` rows, which is a provenance defect rather than merely wasted
  * work (`BLUEPRINT.md` §7.1).
  *
  * Recorded in the audit chain as well as the run ledger, and the two are not redundant: the ledger

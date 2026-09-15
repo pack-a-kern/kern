@@ -13,6 +13,7 @@ use App\Domain\Wallet\Exceptions\ZeroAmountTransactionException;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Domain\Wallet\Services\WalletAudit;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
@@ -31,6 +32,7 @@ final readonly class RecordFinancialTransaction
     public function __construct(
         private BlindIndexHasher $blindIndex,
         private WalletAudit $audit,
+        private TaxCategoryCatalogue $categories,
     ) {
     }
 
@@ -45,6 +47,8 @@ final readonly class RecordFinancialTransaction
         $this->assertSourceAcceptsTransactions($input->accountId);
 
         $this->assertSplitsMatchTotal($input);
+
+        $this->categories->assertSplitsFit($input->amountMinor, $input->splits);
 
         return DB::transaction(function () use ($input): FinancialTransaction {
             $transaction = new FinancialTransaction([

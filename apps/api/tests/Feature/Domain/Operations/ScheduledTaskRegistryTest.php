@@ -24,7 +24,11 @@ it('registers a scheduled task only while it is enabled', function (): void {
 
     $registry->setEnabled(OperationTask::FX_IMPORT_DAILY, false, null);
 
-    expect($registry->schedulable())->toBe([]);
+    // The task disabled here, not the whole list: other tasks are scheduled too.
+    expect(array_map(
+        static fn (ScheduledTaskDefinition $definition): string => $definition->task->value,
+        $registry->schedulable(),
+    ))->not->toContain(OperationTask::FX_IMPORT_DAILY->value);
 });
 
 it('never registers a task the code does not declare schedulable', function (): void {

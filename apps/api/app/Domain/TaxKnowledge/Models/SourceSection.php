@@ -12,10 +12,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `source_sections` — see `2026_09_08_301001_create_source_sections_table.php`'s docblock for the
+ * `ext_source_sections` — see `2026_09_08_301001_create_source_sections_table.php`'s docblock for the
  * two columns added beyond `BLUEPRINT.md`'s literal list (`effective_from`/`effective_until`).
  * Immutable once created for a given `document_version_id`, in the same sense
- * `source_document_versions` is: never edited in place; a re-parse
+ * `ext_source_document_versions` is: never edited in place; a re-parse
  * ({@see \App\Domain\TaxKnowledge\Services\LegislationSectionPersister}) replaces the whole set for
  * that version rather than mutating rows, because these are a *derived* index of the immutable
  * raw bytes, not the raw source itself (`docs/AGENTS.md` rule 17 governs the raw bytes, not their
@@ -40,6 +40,8 @@ final class SourceSection extends Model
     /** @use HasFactory<SourceSectionFactory> */
     use HasFactory;
     use HasUuidPrimaryKey;
+
+    protected $table = 'ext_source_sections';
 
     /** @var list<string> */
     protected $fillable = [

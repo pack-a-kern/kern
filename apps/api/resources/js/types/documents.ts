@@ -17,10 +17,10 @@ import {
 export const DOCUMENT_TYPES = [
     'RECEIPT',
     'INVOICE',
-    'BANK_STATEMENT',
-    'DEPOSIT_AGREEMENT',
-    'RENTAL_CONTRACT',
-    'ANAF_DECISION',
+    'ACCOUNT_STATEMENT',
+    'TAX_DOCUMENT',
+    'CONTRACT',
+    'CORPORATE',
     'OTHER',
 ] as const;
 
@@ -43,6 +43,7 @@ export const DOCUMENT_STAGES = [
     'QUEUED',
     'PROCESSING',
     'ACTION_NEEDED',
+    'TO_IMPORT',
     'DONE',
     'REJECTED',
 ] as const;
@@ -89,23 +90,58 @@ export const AI_EXTRACTION_OUTCOMES = [
 
 export type AiExtractionOutcome = (typeof AI_EXTRACTION_OUTCOMES)[number];
 
+/**
+ * `App\Domain\Documents\Enums\TransactionImportState` — whether this document may still become a
+ * transaction.
+ *
+ * Decided on the server, never re-derived here: the button and the endpoint's own refusal have to
+ * be the same rule, and a second copy would drift into promising something the server declines.
+ */
+export const TRANSACTION_IMPORT_STATES = ['UNAVAILABLE', 'AWAITING_ACCEPTANCE', 'AVAILABLE', 'IMPORTED'] as const;
+
+export type TransactionImportState = (typeof TRANSACTION_IMPORT_STATES)[number];
+
+/** One file of a document — a page of it, in the order the pages are in. */
+export interface DocumentPart {
+    id: string;
+    /** 1-based, the same number the review screen shows. */
+    position: number;
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: number;
+    /** Per file, because scanning is: a document can be refused because one page was. */
+    status: DocumentStatus;
+    rejectionReason: RejectionReason | null;
+}
+
 /** `App\Http\Controllers\Api\V1\Documents\ShowDocumentController` response — metadata only. */
 export interface DocumentSummary {
     id: string;
     /** Decrypted server-side for the owning subject — see `ShowDocumentController`. */
     filename: string;
-    type: DocumentType;
+    /** Null until something has read the document; a person can correct it on review. */
+    type: DocumentType | null;
     status: DocumentStatus;
     stage: DocumentStage;
     rejectionReason: RejectionReason | null;
-    /** What the file was called on arrival. Provenance — never the label; see `filename`. */
-    originalFilename: string;
+    /** What the first file was called on arrival. Provenance — never the label; see `filename`. */
+    originalFilename: string | null;
     /** The field names a correction may use, from `ExtractionSchema` for this document's type. */
     extractionFields: { required: string[]; optional: string[] };
     aiExtractionOutcome: AiExtractionOutcome | null;
     aiExtractionAttemptedAt: string | null;
-    mimeType: string;
+    /** What the model last returned — shown when a reading was refused, so it can be diagnosed. */
+    aiReply: string | null;
+    /** Which model was asked last — recorded even when the attempt failed. */
+    aiModelProvider: string | null;
+    aiModelName: string | null;
+    /** Whether an import is offered, and if not, why not. See `TRANSACTION_IMPORT_STATES`. */
+    transactionImport: TransactionImportState;
+    mimeType: string | null;
+    /** Every part's size added up — what the document weighs, not what page 1 weighs. */
     sizeBytes: number;
+    /** The files this document is made of, in page order. Never empty for a stored document. */
+    parts: DocumentPart[];
     receivedAt: string;
 }
 
@@ -115,16 +151,31 @@ export function parseDocumentSummary(text: string): DocumentSummary {
         vObject({
             id: vString,
             filename: vString,
-            type: vEnum(DOCUMENT_TYPES),
+            type: vNullable(vEnum(DOCUMENT_TYPES)),
             status: vEnum(DOCUMENT_STATUSES),
             stage: vEnum(DOCUMENT_STAGES),
             rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
-            original_filename: vString,
+            original_filename: vNullable(vString),
             extraction_fields: vObject({ required: vArray(vString), optional: vArray(vString) }),
             ai_extraction_outcome: vNullable(vEnum(AI_EXTRACTION_OUTCOMES)),
             ai_extraction_attempted_at: vNullable(vString),
-            mime_type: vString,
+            ai_reply: vNullable(vString),
+            ai_model_provider: vNullable(vString),
+            ai_model_name: vNullable(vString),
+            transaction_import: vEnum(TRANSACTION_IMPORT_STATES),
+            mime_type: vNullable(vString),
             size_bytes: vNumber,
+            parts: vArray(
+                vObject({
+                    id: vString,
+                    position: vNumber,
+                    original_filename: vString,
+                    mime_type: vString,
+                    size_bytes: vNumber,
+                    status: vEnum(DOCUMENT_STATUSES),
+                    rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
+                }),
+            ),
             received_at: vString,
         }),
     );
@@ -140,8 +191,21 @@ export function parseDocumentSummary(text: string): DocumentSummary {
         extractionFields: parsed.extraction_fields,
         aiExtractionOutcome: parsed.ai_extraction_outcome,
         aiExtractionAttemptedAt: parsed.ai_extraction_attempted_at,
+        aiReply: parsed.ai_reply,
+        aiModelProvider: parsed.ai_model_provider,
+        aiModelName: parsed.ai_model_name,
+        transactionImport: parsed.transaction_import,
         mimeType: parsed.mime_type,
         sizeBytes: parsed.size_bytes,
+        parts: parsed.parts.map((part) => ({
+            id: part.id,
+            position: part.position,
+            originalFilename: part.original_filename,
+            mimeType: part.mime_type,
+            sizeBytes: part.size_bytes,
+            status: part.status,
+            rejectionReason: part.rejection_reason,
+        })),
         receivedAt: parsed.received_at,
     };
 }
@@ -169,12 +233,16 @@ export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];
 export interface DocumentListItem {
     id: string;
     filename: string;
-    type: DocumentType;
+    type: DocumentType | null;
     status: DocumentStatus;
     stage: DocumentStage;
     rejectionReason: RejectionReason | null;
-    mimeType: string;
+    mimeType: string | null;
     sizeBytes: number;
+    /** How many files this document is made of — 1 for almost all of them. */
+    partCount: number;
+    /** The name the newest reading proposed, as the model wrote it — null when none did. */
+    proposedName: string | null;
     source: DocumentSource;
     receivedAt: string;
 }
@@ -182,12 +250,14 @@ export interface DocumentListItem {
 const documentListItemValidator = vObject({
     id: vString,
     filename: vString,
-    type: vEnum(DOCUMENT_TYPES),
+    type: vNullable(vEnum(DOCUMENT_TYPES)),
     status: vEnum(DOCUMENT_STATUSES),
     stage: vEnum(DOCUMENT_STAGES),
     rejection_reason: vNullable(vEnum(REJECTION_REASONS)),
-    mime_type: vString,
+    mime_type: vNullable(vString),
     size_bytes: vNumber,
+    part_count: vNumber,
+    proposed_name: vNullable(vString),
     source: vEnum(DOCUMENT_SOURCES),
     received_at: vString,
 });
@@ -207,6 +277,8 @@ export function parseDocumentsPage(text: string): NumberedPage<DocumentListItem>
                 rejectionReason: parsed.rejection_reason,
                 mimeType: parsed.mime_type,
                 sizeBytes: parsed.size_bytes,
+                partCount: parsed.part_count,
+                proposedName: parsed.proposed_name,
                 source: parsed.source,
                 receivedAt: parsed.received_at,
             };
@@ -347,6 +419,11 @@ export function parseDocumentLifecycleEvent(raw: unknown): DocumentLifecycleEven
 }
 
 /** `App\Domain\Documents\Enums\ExtractorType`. */
+/** Which way money moves for the filing subject — derived here, never asked of a model. */
+export const PAYMENT_DIRECTIONS = ['IN', 'OUT'] as const;
+
+export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
+
 export const EXTRACTOR_TYPES = [
     'NATIVE_PDF_TEXT',
     'EXTERNAL_DOCUMENT_AI',
@@ -372,10 +449,31 @@ export type ExtractionStatus = (typeof EXTRACTION_STATUSES)[number];
 export interface DocumentExtractionSummary {
     id: string;
     extractorType: ExtractorType;
+    /** Which reader produced this, and which version — a parser name, or a model. */
+    extractorVersion: string;
+    modelProvider: string | null;
+    modelName: string | null;
+    /** What the reading cost. Null where nobody measured it — a parser, or a quiet provider. */
+    durationMs: number | null;
+    promptTokens: number | null;
+    completionTokens: number | null;
     schemaVersion: string;
     /** A decimal string (e.g. `"0.9500"`), never parsed to a lossy float for storage — only
-     * converted to a number transiently for display (`Number(confidence)` in a percentage bar). */
-    confidence: string;
+     * converted to a number transiently for display (`Number(confidence)` in a percentage bar).
+     *
+     * Null where the reader reported none — a parser has no opinion, and a model that omitted the
+     * field measured nothing. A placeholder here would be drawn as a real assessment. */
+    confidence: string | null;
+    /**
+     * Which side of each payment this subject is on, in payment order.
+     *
+     * Derived on the server against the subject's own name and fiscal identifier — never asked of
+     * the model, which cannot see who is filing. Kept beside `proposedFields` rather than mixed
+     * into it: the reading is a record of the document and stays true whoever reads it, while this
+     * is what it means for one taxpayer. Both null where neither party is them — a dividend
+     * decision names every associate and only one of them is filing.
+     */
+    paymentParties: { direction: PaymentDirection | null; counterparty: string | null }[];
     status: ExtractionStatus;
     reviewedBy: string | null;
     proposedFields: Record<string, unknown>;
@@ -386,8 +484,20 @@ export interface DocumentExtractionSummary {
 const documentExtractionSummaryValidator = vObject({
     id: vString,
     extractor_type: vEnum(EXTRACTOR_TYPES),
+    extractor_version: vString,
+    model_provider: vNullable(vString),
+    model_name: vNullable(vString),
+    duration_ms: vNullable(vNumber),
+    prompt_tokens: vNullable(vNumber),
+    completion_tokens: vNullable(vNumber),
     schema_version: vString,
-    confidence: vString,
+    confidence: vNullable(vString),
+    payment_parties: vArray(
+        vObject({
+            direction: vNullable(vEnum(PAYMENT_DIRECTIONS)),
+            counterparty: vNullable(vString),
+        }),
+    ),
     status: vEnum(EXTRACTION_STATUSES),
     reviewed_by: vNullable(vString),
     proposed_fields: vRecord,
@@ -401,8 +511,15 @@ function toDocumentExtractionSummary(
     return {
         id: parsed.id,
         extractorType: parsed.extractor_type,
+        extractorVersion: parsed.extractor_version,
+        modelProvider: parsed.model_provider,
+        modelName: parsed.model_name,
+        durationMs: parsed.duration_ms,
+        promptTokens: parsed.prompt_tokens,
+        completionTokens: parsed.completion_tokens,
         schemaVersion: parsed.schema_version,
         confidence: parsed.confidence,
+        paymentParties: parsed.payment_parties,
         status: parsed.status,
         reviewedBy: parsed.reviewed_by,
         proposedFields: parsed.proposed_fields,
@@ -476,4 +593,17 @@ export function parseCorrectedExtraction(text: string): CorrectedExtraction {
         supersedesExtractionId: parsed.supersedes_extraction_id,
         proposedFields: parsed.proposed_fields,
     };
+}
+
+/**
+ * What to call a document's type on screen.
+ *
+ * Null until something has read the document — the type is decided by the reading, not by a picker
+ * at upload — and every screen has to say that the same way.
+ */
+export function documentTypeLabel(
+    type: DocumentType | null,
+    t: (pick: (d: { documentType: Record<string, string>; documentTypeUnknown: string }) => string) => string,
+): string {
+    return type === null ? t((d) => d.documentTypeUnknown) : t((d) => d.documentType[type] ?? '');
 }

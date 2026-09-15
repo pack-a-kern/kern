@@ -9,8 +9,10 @@ use App\Domain\Wallet\Actions\RecordFinancialTransaction;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
 use App\Domain\Wallet\Enums\RecordSource;
+use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
+use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use App\Http\Controllers\Controller;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -26,17 +28,14 @@ use Illuminate\Validation\Rule;
  * recognise rows it already holds instead of duplicating them. None of that machinery exists yet,
  * so this is the manual path, and it deliberately sets neither field.
  *
- * Why transactions matter beyond bookkeeping: `App\Domain\Rental\Services\Matching\
- * TransactionMatchCandidateFinder` reads this table to answer "is this 2,500 RON the rent for
- * Apt 12?". Without them, rental income is asserted; with them, it is matched against money that
- * actually arrived.
- *
  * Splits are accepted by the action (one transaction divided across categories) but not offered
  * here — the screen has nowhere to express them yet, and an endpoint that took them would be
  * accepting input nothing can produce.
  */
 final class RecordTransactionController extends Controller
 {
+    use RespondsToCategoryDirection;
+
     public function __invoke(
         Request $request,
         RecordFinancialTransaction $record,
@@ -79,24 +78,28 @@ final class RecordTransactionController extends Controller
         // Answered while it is being typed, or left for the worklist.
         $category = $this->nullableString($validated, 'category_code');
 
-        $transaction = $record(new RecordFinancialTransactionInput(
-            taxSubjectId: $tenant->currentSubjectId(),
-            accountId: (string) $validated['account_id'],
-            bookedAt: (string) $validated['booked_at'],
-            amountMinor: (int) $validated['amount_minor'],
-            currencyCode: (string) $validated['currency_code'],
-            description: (string) $validated['description'],
-            // Encrypted at rest like the description: a counterparty name is personal data about
-            // someone who never used this application.
-            counterparty: is_string($validated['counterparty'] ?? null) ? $validated['counterparty'] : '',
-            source: RecordSource::MANUAL,
-            actorId: $this->actorId($request),
-            splits: $category === null ? [] : [new TransactionSplitInput(
+        try {
+            $transaction = $record(new RecordFinancialTransactionInput(
+                taxSubjectId: $tenant->currentSubjectId(),
+                accountId: (string) $validated['account_id'],
+                bookedAt: (string) $validated['booked_at'],
                 amountMinor: (int) $validated['amount_minor'],
-                categoryCode: $category,
-                countryCode: $this->nullableString($validated, 'country_code'),
-            )],
-        ));
+                currencyCode: (string) $validated['currency_code'],
+                description: (string) $validated['description'],
+                // Encrypted at rest like the description: a counterparty name is personal data about
+                // someone who never used this application.
+                counterparty: is_string($validated['counterparty'] ?? null) ? $validated['counterparty'] : '',
+                source: RecordSource::MANUAL,
+                actorId: $this->actorId($request),
+                splits: $category === null ? [] : [new TransactionSplitInput(
+                    amountMinor: (int) $validated['amount_minor'],
+                    categoryCode: $category,
+                    countryCode: $this->nullableString($validated, 'country_code'),
+                )],
+            ));
+        } catch (CategoryDirectionException $exception) {
+            return $this->categoryDirection($exception);
+        }
 
         $key = $transaction->getKey();
 

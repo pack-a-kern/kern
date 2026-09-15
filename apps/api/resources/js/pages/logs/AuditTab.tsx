@@ -17,7 +17,8 @@ import {
     Status,
     Toolbar,
 } from '../../components/panel';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
@@ -52,8 +53,9 @@ export default function AdminAudit(): JSX.Element {
     const [summary, setSummary] = useState<AuditSummary | null>(null);
     const [events, setEvents] = useState<AuditEvent[] | null>(null);
     const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    // Remembered, with the filters below: coming back to the trail lands on the page and the filters
+    // it was left on. A page past the end is clamped by the server, as it already is after a filter.
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('logs.audit');
     /*
      * The window this run of paging is frozen to.
      *
@@ -66,9 +68,11 @@ export default function AdminAudit(): JSX.Element {
     const [forbidden, setForbidden] = useState(false);
     const [selected, setSelected] = useState<AuditEvent | null>(null);
 
-    const [search, setSearch] = useState('');
-    const [eventType, setEventType] = useState('');
-    const [range, setRange] = useState('h24');
+    const [search, setSearch] = useRememberedState<string>('logs.audit.search', '');
+    const [eventType, setEventType] = useRememberedState<string>('logs.audit.eventType', '');
+    const [range, setRange] = useRememberedState<string>('logs.audit.range', 'h24', {
+        isValid: (value) => RANGES.some((entry) => entry.key === value),
+    });
 
     const describeFailure = useCallback((cause: unknown): string => describeApiFailure(cause, t), [t]);
 
@@ -135,7 +139,7 @@ export default function AdminAudit(): JSX.Element {
             active = false;
             window.clearTimeout(timer);
         };
-    }, [search, eventType, range, page, pageSize, sinceFor, describeFailure, t]);
+    }, [search, eventType, range, page, pageSize, setPage, sinceFor, describeFailure, t]);
 
     useEffect(() => {
         let active = true;
@@ -348,7 +352,6 @@ export default function AdminAudit(): JSX.Element {
                             ))}
                         </DataTable>
                     )}
-
                 </Panel>
             </div>
 

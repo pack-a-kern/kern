@@ -11,9 +11,7 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
@@ -56,7 +54,15 @@ function memberAndSubject(): array
 function storeOriginalBytes(Document $document, string $content): void
 {
     $store = app(EncryptedObjectStore::class);
-    $key = ObjectKey::forDocument($document->tax_subject_id, $document->id, DocumentObjectKind::ORIGINAL);
+    // The first part's key: `/content` serves the document's first file, which is the whole
+    // document for everything that has one.
+    $part = $document->parts->first();
+
+    if ($part === null) {
+        throw new RuntimeException('The document has no part to store bytes for.');
+    }
+
+    $key = $part->objectKey();
 
     $stream = fopen('php://temp', 'w+b');
     if ($stream === false) {
@@ -76,12 +82,7 @@ function storeOriginalBytes(Document $document, string $content): void
 it('streams the decrypted original bytes for a ready document', function (): void {
     [$user, $subject] = memberAndSubject();
     $content = 'REAL-DOCUMENT-BYTES-' . bin2hex(random_bytes(8));
-    $document = Document::factory()->create([
-        'tax_subject_id' => $subject->id,
-        'status' => DocumentStatus::READY,
-        'mime_type' => 'application/pdf',
-        'original_filename_ciphertext' => 'factura.pdf',
-    ]);
+    $document = Document::factory()->part(['mime_type' => 'application/pdf', 'original_filename_ciphertext' => 'factura.pdf'])->create(['tax_subject_id' => $subject->id, 'status' => DocumentStatus::READY]);
     storeOriginalBytes($document, $content);
 
     $response = $this->actingAs($user, 'web')

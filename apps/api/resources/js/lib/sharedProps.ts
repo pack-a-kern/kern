@@ -54,3 +54,33 @@ export function useSharedAuth(): SharedAuth | null {
         }),
     };
 }
+
+/**
+ * What the upload picker may offer, decided by the server.
+ *
+ * `SniffedFileType::acceptAttribute()` is the one list of types the pipeline accepts; this carries
+ * it to the `accept` attribute instead of the dialog keeping its own copy, which drifted the moment
+ * a type was added on the server.
+ *
+ * The fallback is the two types that have always been accepted: a missing prop should narrow the
+ * picker, never open it to files the server will refuse.
+ */
+export function useAcceptedUploadTypes(): string {
+    const payload = usePage().props.documents as { accept?: unknown } | null | undefined;
+    const accept = payload?.accept;
+
+    return typeof accept === 'string' && accept !== '' ? accept : 'application/pdf,image/jpeg,image/png';
+}
+
+/**
+ * Whether the configured provider can clean up a photographed document.
+ *
+ * A capability of the endpoint, not a preference — the `docscanner` extension is something a
+ * gateway either implements or does not. False by default so the upload screen never offers
+ * something that would fail.
+ */
+export function useProviderEnhances(): boolean {
+    const payload = usePage().props.documents as { enhances?: unknown } | null | undefined;
+
+    return payload?.enhances === true;
+}

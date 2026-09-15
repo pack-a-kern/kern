@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Turns one section's {@see \App\Domain\TaxKnowledge\Chunking\SourceSectionChunk} DTOs
- * (`SourceSectionChunkAssembler::chunksFor()`, M3) into persisted `source_section_chunks` rows —
+ * (`SourceSectionChunkAssembler::chunksFor()`, M3) into persisted `ext_source_section_chunks` rows —
  * text and metadata only, no embedding. Embedding is a deliberately separate step
  * ({@see EmbedIndexedChunks}) — this action never calls
  * `App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider`, so lexical/fuzzy retrieval over

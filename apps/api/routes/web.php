@@ -12,6 +12,9 @@ use Inertia\Inertia;
  * no props beyond a raw route parameter, and no domain model is imported (`docs/AGENTS.md` §6:
  * this module has no business logic of its own to protect by binding one).
  *
+ * Every path is English, whatever language the screen is shown in: a URL is an identifier, and one
+ * that changed with the interface language could not be bookmarked or linked to.
+ *
  * `/dashboard` and everything under `/documents` are behind Laravel's default `auth` middleware
  * alias (guard `web`, `config/auth.php` — `docs/handoff/017-authentication.md`), which is
  * registered by the framework itself and needs no alias of its own in `bootstrap/app.php`. This
@@ -47,22 +50,22 @@ Route::middleware('auth')->group(function (): void {
      * `PlaceholderPage` — no controller, no domain model, same "no business logic here" shape the
      * six routes above already have.
      */
-    Route::get('/portofel', fn () => Inertia::render('wallet/overview'))->name('wallet.overview');
-    Route::get('/portofel/conturi', fn () => Inertia::render('wallet/accounts'))->name('wallet.accounts');
+    // Wallet has no page of its own: its summary is the dashboard, and in the menu it only opens these.
+    Route::get('/wallet/accounts', fn () => Inertia::render('wallet/accounts'))->name('wallet.accounts');
     // `countries` is a page prop rather than a shared one, for the same reason `counties` is:
     // only the classification dialog offers the list, and sharing it would put it on every Inertia
     // response in the application.
-    Route::get('/portofel/tranzactii', fn () => Inertia::render('wallet/transactions', [
+    Route::get('/wallet/transactions', fn () => Inertia::render('wallet/transactions', [
         'countries' => config('countries.all'),
     ]))->name('wallet.transactions');
 
-    Route::get('/chirii', fn () => Inertia::render('rentals'))->name('rentals');
+    Route::get('/rentals', fn () => Inertia::render('rentals'))->name('rentals');
 
-    Route::get('/impozite', fn () => Inertia::render('taxes/overview'))->name('taxes.overview');
-    Route::get('/impozite/explica', fn () => Inertia::render('taxes/explain'))->name('taxes.explain');
+    Route::get('/taxes', fn () => Inertia::render('taxes/overview'))->name('taxes.overview');
+    Route::get('/taxes/explain', fn () => Inertia::render('taxes/explain'))->name('taxes.explain');
 
-    Route::get('/declaratii', fn () => Inertia::render('declarations'))->name('declarations');
-    Route::get('/legislatie', fn () => Inertia::render('legislation'))->name('legislation');
+    Route::get('/declarations', fn () => Inertia::render('declarations'))->name('declarations');
+    Route::get('/legislation', fn () => Inertia::render('legislation'))->name('legislation');
     Route::get('/spv', fn () => Inertia::render('spv'))->name('spv');
 
     /*
@@ -71,10 +74,10 @@ Route::middleware('auth')->group(function (): void {
      * old paths are gone rather than redirected — nothing outside this file linked to them, and a
      * redirect kept for nobody is a route to maintain forever.
      */
-    Route::get('/contul-meu', fn () => Inertia::render('account/index'))->name('account');
+    Route::get('/account', fn () => Inertia::render('account/index'))->name('account');
     // `counties` is a page prop rather than a shared one: only this screen's two dialogs offer the
     // list, and sharing it would put 42 rows on every Inertia response in the application.
-    Route::get('/contribuabili', fn () => Inertia::render('subjects/index', [
+    Route::get('/taxpayers', fn () => Inertia::render('subjects/index', [
         'counties' => config('counties.ro'),
     ]))->name('subjects');
 
@@ -85,9 +88,9 @@ Route::middleware('auth')->group(function (): void {
      * same client-only `PlaceholderPage`. Gating these for real is explicitly out of this task's
      * scope — see the handoff's "Admin navigation" section.
      */
-    Route::get('/admin/setari', fn () => Inertia::render('admin/settings'))->name('admin.settings');
-    Route::get('/admin/parametri', fn () => Inertia::render('admin/parameters'))->name('admin.parameters');
-    Route::get('/admin/utilizatori', fn () => Inertia::render('admin/users'))->name('admin.users');
+    Route::get('/admin/settings', fn () => Inertia::render('admin/settings'))->name('admin.settings');
+    Route::get('/admin/parameters', fn () => Inertia::render('admin/parameters'))->name('admin.parameters');
+    Route::get('/admin/users', fn () => Inertia::render('admin/users'))->name('admin.users');
 
     /*
      * The audit trail, the queue and the task ledger, on one screen with three tabs.
@@ -96,5 +99,5 @@ Route::middleware('auth')->group(function (): void {
      * often than anything on the administration screens, and it is answered by reading rather than
      * by changing configuration. Each tab still checks its own permission server-side.
      */
-    Route::get('/jurnale', fn () => Inertia::render('logs'))->name('logs');
+    Route::get('/logs', fn () => Inertia::render('logs'))->name('logs');
 });

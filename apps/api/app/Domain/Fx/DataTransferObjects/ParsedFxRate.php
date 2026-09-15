@@ -8,7 +8,7 @@ use App\Domain\Fx\ValueObjects\DecimalRate;
 
 /**
  * One `<Rate>` entry for one currency on one day, exactly as published: `rateDecimal` is the RON
- * amount for `multiplier` units of `currencyCode`, never pre-divided (see `fx_rates` migration's
+ * amount for `multiplier` units of `currencyCode`, never pre-divided (see `ext_fx_rates` migration's
  * docblock for why that division is deferred to every read instead).
  */
 final readonly class ParsedFxRate

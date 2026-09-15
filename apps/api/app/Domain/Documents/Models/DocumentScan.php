@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $scanner_version
  * @property string|null $definitions_version
  * @property int|null $duration_ms
+ * @property string|null $document_part_id
  * @property \Illuminate\Support\Carbon $scanned_at
  */
 final class DocumentScan extends Model
@@ -36,6 +37,7 @@ final class DocumentScan extends Model
     /** @var list<string> */
     protected $fillable = [
         'document_id',
+        'document_part_id',
         'outcome',
         'scanner',
         'scanner_version',

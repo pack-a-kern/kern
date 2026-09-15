@@ -15,7 +15,7 @@ use RuntimeException;
 use stdClass;
 
 /**
- * Hybrid lexical + semantic + temporal/tier retrieval over `source_section_chunks`, in **one**
+ * Hybrid lexical + semantic + temporal/tier retrieval over `ext_source_section_chunks`, in **one**
  * SQL statement — `docs/adr/0006-pgvector-over-qdrant.md`'s entire reason for choosing pgvector
  * over a second vector store: "hybrid retrieval becomes a single SQL query per stage rather than
  * a cross-store merge." See `docs/handoff/029-hybrid-retrieval.md` for the exact query shape and
@@ -125,12 +125,12 @@ final readonly class HybridLegislationSearch
                         THEN 'CONFIRMED'
                         ELSE 'OUT_OF_RANGE'
                     END AS temporal_status
-                FROM source_section_chunks c
+                FROM ext_source_section_chunks c
                 CROSS JOIN params p
-                JOIN source_sections s ON s.id = c.section_id
-                JOIN source_document_versions dv ON dv.id = s.document_version_id
-                JOIN source_documents sd ON sd.id = dv.source_document_id
-                JOIN official_sources os ON os.id = sd.official_source_id
+                JOIN ext_source_sections s ON s.id = c.section_id
+                JOIN ext_source_document_versions dv ON dv.id = s.document_version_id
+                JOIN ext_source_documents sd ON sd.id = dv.source_document_id
+                JOIN ext_official_sources os ON os.id = sd.official_source_id
                 WHERE 1 = 1{$filterSql}
             )
             SELECT

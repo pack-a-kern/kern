@@ -16,7 +16,7 @@ use DateTimeImmutable;
  * (`fiscal_parameter_versions`/`tax_rule_sources` linkage is Milestone 4/5's job) — carrying an
  * always-null placeholder for them would be exactly the unused, speculative field
  * `docs/CODE-QUALITY.md` §2 forbids (the same judgement `docs/handoff/014-source-registry-bnr.md`
- * applied to `fx_rate_anomalies.resolved_at`). Whoever wires that classification extends this DTO
+ * applied to `ext_fx_rate_anomalies.resolved_at`). Whoever wires that classification extends this DTO
  * then.
  */
 final readonly class ChunkableSection

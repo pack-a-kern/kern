@@ -58,7 +58,12 @@ final readonly class AllowlistedHttpFetcher
                     'Accept' => 'application/xml, text/xml;q=0.9, */*;q=0.5',
                 ])
                 ->timeout($this->timeoutSeconds)
-                ->withOptions(['allow_redirects' => false])
+                ->withOptions([
+                    'allow_redirects' => false,
+                    // Only for a source that declares its own groups — see `tls_curves` in
+                    // config/sources.php for the server that needs it and why.
+                    ...($definition->tlsCurves === null ? [] : ['curl' => [CURLOPT_SSL_EC_CURVES => $definition->tlsCurves]]),
+                ])
                 ->get($currentUrl);
 
             if (in_array($response->status(), self::REDIRECT_STATUSES, true)) {

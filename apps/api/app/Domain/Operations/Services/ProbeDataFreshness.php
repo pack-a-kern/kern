@@ -21,8 +21,8 @@ use Throwable;
  * These probes measure the data, not the machinery.
  *
  * Every table is read through the plain query builder, never through another module's Eloquent
- * models — the same crossing `App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder`
- * already establishes for `financial_transactions` (`docs/AGENTS.md` §6). The one import from
+ * models — the same crossing `App\Domain\Documents\Queries\ResolveTransactionImportState`
+ * already makes into `financial_transactions` (`docs/AGENTS.md` §6). The one import from
  * another module is {@see DocumentStatus}, a backed enum: restating `'READY'`/`'REJECTED'` as
  * string literals here would silently stop matching the day that lifecycle gains a state.
  *
@@ -58,14 +58,14 @@ final readonly class ProbeDataFreshness
      */
     private function fxRates(): FreshnessItem
     {
-        $total = DB::table('fx_rates')->count();
+        $total = DB::table('ext_fx_rates')->count();
 
         if ($total === 0) {
             return new FreshnessItem('fx_rates', 'bad', '0', null);
         }
 
         /** @var string|null $latest */
-        $latest = DB::table('fx_rates')->max('rate_date');
+        $latest = DB::table('ext_fx_rates')->max('rate_date');
 
         if ($latest === null) {
             return new FreshnessItem('fx_rates', 'warn', (string) $total, null);
@@ -87,8 +87,8 @@ final readonly class ProbeDataFreshness
     /** Ingested legislation. Nothing ingested is `bad`: retrieval has nothing to cite. */
     private function legislation(): FreshnessItem
     {
-        $documents = DB::table('source_documents')->count();
-        $sections = DB::table('source_sections')->count();
+        $documents = DB::table('ext_source_documents')->count();
+        $sections = DB::table('ext_source_sections')->count();
 
         return new FreshnessItem(
             key: 'legislation',
@@ -105,8 +105,8 @@ final readonly class ProbeDataFreshness
      */
     private function retrievalIndex(): FreshnessItem
     {
-        $chunks = DB::table('source_section_chunks')->count();
-        $embedded = DB::table('source_section_chunks')->whereNotNull('embedded_at')->count();
+        $chunks = DB::table('ext_source_section_chunks')->count();
+        $embedded = DB::table('ext_source_section_chunks')->whereNotNull('embedded_at')->count();
 
         return new FreshnessItem(
             key: 'retrieval_index',

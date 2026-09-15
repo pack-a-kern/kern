@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { classifyTransaction, deleteTransaction, listAccounts, listTransactions, recordTransaction, updateTransaction } from '../../api/walletApi';
+import {
+    classifyTransaction,
+    deleteTransaction,
+    keepDuplicateTransactions,
+    listAccounts,
+    listDuplicateTransactions,
+    listTransactions,
+    mergeDuplicateTransactions,
+    recordTransaction,
+    updateTransaction,
+} from '../../api/walletApi';
 import { AlignLeftIcon, UserIcon, ArrowLeftRight, PlusIcon, Trash2 } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
+    ButtonGroup,
     DataTable,
     EmptyState,
     Field,
@@ -22,9 +33,10 @@ import {
 import BulkActions from '../../components/BulkActions';
 import { PanelDate } from '../../components/PanelDatePicker';
 import Checkbox from '../../components/Checkbox';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Skeleton } from '../../components/ui/skeleton';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
@@ -33,10 +45,15 @@ import { describeApiFailure } from '../../lib/apiErrors';
 import { cn } from '../../lib/utils';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
+    categoriesFor,
+    categoryFor,
+    signedMinor,
+    type MoneyDirection,
     CURRENCIES,
     isStreamKind,
     sourceName,
     type AccountSummary,
+    type DuplicateGroup,
     type TransactionPage,
     type TransactionSummary,
     formatMinor,
@@ -44,11 +61,6 @@ import {
 
 /**
  * Money moving through the accounts.
- *
- * This is the table `App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder` reads to
- * answer "is this 2,500 RON the rent for Apt 12?" — which is why the tax-status column exists.
- * Without transactions, rental income is asserted; with them, it is matched against money that
- * actually arrived.
  *
  * Everything here is entered by hand today. The underlying table carries `import_batch_id` and a
  * blind-indexed external id because it was designed for bank-statement import, where a batch groups
@@ -63,6 +75,7 @@ import {
  */
 interface TransactionForm {
     account_id: string;
+    direction: MoneyDirection;
     amount: string;
     currency_code: string;
     booked_at: string;
@@ -75,6 +88,8 @@ interface TransactionForm {
 function emptyTransactionForm(): TransactionForm {
     return {
         account_id: '',
+        // Money in: what a tax return reads, and never given a category until someone chooses one.
+        direction: 'in',
         amount: '',
         currency_code: CURRENCIES[0],
         booked_at: '',
@@ -96,14 +111,38 @@ export default function WalletTransactions(): JSX.Element {
     /** The transaction being corrected, or null when the dialog is recording a new one. */
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
-    const [classification, setClassification] = useState('all');
-    const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const [classification, setClassification] = useRememberedState<string>(
+        'wallet.transactions.classification',
+        'all',
+        {
+            perSubject: true,
+            isValid: (value) => ['all', 'unclassified', 'classified', 'duplicates'].includes(value),
+        },
+    );
+    const {
+        page: pageNumber,
+        pageSize,
+        setPage: setPageNumber,
+        setPageSize,
+    } = useRememberedPaging('wallet.transactions', {
+        perSubject: true,
+    });
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
-    const [accountId, setAccountId] = useState('');
+    const [accountId, setAccountId] = useRememberedState<string>('wallet.transactions.account', '', {
+        perSubject: true,
+    });
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
+    /**
+     * Lookalike groups, tagged with the load they belong to — the same pattern as `loaded` above, so
+     * a merge that triggers a reload never shows the set that was just merged.
+     */
+    const [loadedDuplicates, setLoadedDuplicates] = useState<{ reloadKey: number; groups: DuplicateGroup[] } | null>(
+        null,
+    );
+    /** The group waiting for a person to confirm a merge. Merging deletes rows, so it is asked. */
+    const [merging, setMerging] = useState<DuplicateGroup | null>(null);
 
     const errors = useFormErrors();
     const [adding, setAdding] = useState(false);
@@ -132,14 +171,19 @@ export default function WalletTransactions(): JSX.Element {
             },
         );
 
-        // Only sources that receive transactions. A cash holding is one declared value and a term
-        // deposit's entries are computed from its terms, so offering either here produced a
-        // transaction that detached the ledger from the thing it describes — the server refuses it
-        // now, and the form stops asking. The list feeds both the filter and the form's select.
+        // Every source, for the filter: a deposit's interest and a cash declaration are transactions
+        // too, and a filter that cannot reach them hides them. The form narrows this to the sources
+        // that receive transactions — see `streamAccounts`.
         listAccounts(subjectId).then(
             (page) => {
                 if (active) {
-                    setAccounts(page.accounts.filter((account) => isStreamKind(account.kind)));
+                    setAccounts(page.accounts);
+
+                    // A remembered filter naming an account since deleted would filter to nothing under
+                    // a select that reads "all accounts".
+                    if (accountId !== '' && !page.accounts.some((account) => account.id === accountId)) {
+                        setAccountId('');
+                    }
                 }
             },
             () => {
@@ -152,15 +196,72 @@ export default function WalletTransactions(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [subjectId, accountId, reloadKey]);
+    }, [subjectId, accountId, reloadKey, setAccountId]);
+
+    // Only while the duplicates view is open: it decrypts every candidate row's counterparty, which
+    // is work nobody asked for while reading the ordinary list.
+    useEffect(() => {
+        if (subjectId === null || classification !== 'duplicates') {
+            return;
+        }
+
+        let active = true;
+
+        listDuplicateTransactions(subjectId).then(
+            (groups) => {
+                if (active) {
+                    setLoadedDuplicates({ reloadKey, groups });
+                }
+            },
+            () => {
+                if (active) {
+                    setLoadedDuplicates({ reloadKey, groups: [] });
+                    toast.error(t((d) => d.pages.walletTransactions.duplicates.failed));
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, [subjectId, classification, reloadKey, t]);
 
     const page = loaded !== null && loaded.accountId === accountId ? loaded.page : null;
+    const duplicates =
+        loadedDuplicates !== null && loadedDuplicates.reloadKey === reloadKey ? loadedDuplicates.groups : null;
 
+    // What a new transaction can be recorded against. A cash holding is one declared value and a
+    // deposit's entries come from its terms, so the server refuses either — and the form does not ask.
+    const streamAccounts = accounts.filter((account) => isStreamKind(account.kind));
+    // A deposit's funding, interest or settlement. Shown, never changed: the deposit rewrites it.
+    const isSystem = editing?.source === 'SYSTEM';
+
+    // No confirmation, unlike a merge: keeping deletes nothing, and a group kept by mistake comes
+    // back the moment another identical payment arrives.
+    const keepGroup = async (group: DuplicateGroup): Promise<void> => {
+        if (subjectId === null) {
+            return;
+        }
+
+        try {
+            await keepDuplicateTransactions(
+                subjectId,
+                group.transactions.map((transaction) => transaction.id),
+            );
+            toast.success(t((d) => d.pages.walletTransactions.duplicates.kept));
+            setReloadKey((current) => current + 1);
+        } catch {
+            toast.error(t((d) => d.pages.walletTransactions.duplicates.failed));
+        }
+    };
+
+    // The worklist is money that came in with no answer yet. Money going out is spending unless someone
+    // says otherwise, and never becomes a declared figure, so it is not work left to do.
     const rows = (page?.transactions ?? []).filter((transaction) =>
         classification === 'all'
             ? true
             : classification === 'unclassified'
-              ? transaction.splits.length === 0
+              ? transaction.splits.length === 0 && transaction.amountMinor > 0
               : transaction.splits.length > 0,
     );
 
@@ -174,7 +275,12 @@ export default function WalletTransactions(): JSX.Element {
     const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
     const currentPage = Math.min(pageNumber, pageCount);
     const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    const pageIds = useMemo(() => paged.map((transaction) => transaction.id), [paged]);
+    // A deposit's own rows are never selectable: bulk delete would be refused for them, and a tick
+    // that can only lead to an error is a control that lies about what is possible.
+    const pageIds = useMemo(
+        () => paged.filter((transaction) => transaction.source !== 'SYSTEM').map((transaction) => transaction.id),
+        [paged],
+    );
     const selection = useRowSelection(pageIds);
 
     if (subjectId === null) {
@@ -188,7 +294,6 @@ export default function WalletTransactions(): JSX.Element {
             </AppShell>
         );
     }
-
 
     // Filtered here rather than on the server: the list is already a capped window the server sent
     // in one go, so narrowing it is a property of what is on screen, not another request.
@@ -209,7 +314,10 @@ export default function WalletTransactions(): JSX.Element {
 
             toast.success(t((d) => d.pages.walletTransactions.deleted));
         } catch (cause: unknown) {
-            toast.error(t((d) => d.common.deleteFailed), { description: describeApiFailure(cause, t) });
+            toast.error(
+                t((d) => d.common.deleteFailed),
+                { description: describeApiFailure(cause, t) },
+            );
         } finally {
             setBulkDeleting(false);
             setConfirmingBulkDelete(false);
@@ -227,11 +335,13 @@ export default function WalletTransactions(): JSX.Element {
 
         try {
             if (editing !== null) {
-                // Correcting one. The source and the currency are absent on purpose: a transaction
-                // recorded against the wrong source is a different transaction, and moving it would
-                // reinterpret a balance that has already been read.
+                // Correcting one. The source is absent on purpose: a transaction recorded against the
+                // wrong source is a different transaction, and moving it would reinterpret a balance
+                // that has already been read. The currency is not — a payment typed in the wrong
+                // currency is the same payment with a mistake in it.
                 await updateTransaction(subjectId, editing.id, {
-                    amount_minor: Math.round(Number(form.amount) * 100),
+                    amount_minor: signedMinor(form.amount, form.direction),
+                    currency_code: form.currency_code,
                     booked_at: form.booked_at,
                     description: form.description,
                     counterparty: form.counterparty === '' ? null : form.counterparty,
@@ -248,7 +358,7 @@ export default function WalletTransactions(): JSX.Element {
                         ? []
                         : [
                               {
-                                  amount_minor: Math.round(Number(form.amount) * 100),
+                                  amount_minor: signedMinor(form.amount, form.direction),
                                   category_code: form.category_code,
                                   country_code: form.country_code === 'RO' ? null : form.country_code,
                               },
@@ -265,9 +375,9 @@ export default function WalletTransactions(): JSX.Element {
 
             await recordTransaction(subjectId, {
                 account_id: form.account_id,
-                // Signed minor units: the form takes a signed major amount, so money out is typed
-                // with a minus rather than chosen from a direction control that could disagree.
-                amount_minor: Math.round(Number(form.amount) * 100),
+                // Signed minor units: the amount is typed without a sign and the toggle supplies it,
+                // the same as the document import dialog.
+                amount_minor: signedMinor(form.amount, form.direction),
                 currency_code: form.currency_code,
                 booked_at: form.booked_at,
                 description: form.description,
@@ -275,9 +385,7 @@ export default function WalletTransactions(): JSX.Element {
                 // Answered here rather than in a second dialog afterwards: someone typing a
                 // transaction already knows what it was. Romania is the absence of a country.
                 ...(form.category_code === '' ? {} : { category_code: form.category_code }),
-                ...(form.category_code === '' || form.country_code === 'RO'
-                    ? {}
-                    : { country_code: form.country_code }),
+                ...(form.category_code === '' || form.country_code === 'RO' ? {} : { country_code: form.country_code }),
             });
 
             toast.success(t((d) => d.pages.walletTransactions.added));
@@ -350,7 +458,10 @@ export default function WalletTransactions(): JSX.Element {
                             emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
                             options={accounts.map((account) => ({
                                 value: account.id,
-                                label: sourceName(account, t((d) => d.pages.wallet.generalSource)),
+                                label: sourceName(
+                                    account,
+                                    t((d) => d.pages.wallet.generalSource),
+                                ),
                             }))}
                         />
                         {/* What turns a list into a worklist: "Neclasificate" is the only view that
@@ -382,11 +493,33 @@ export default function WalletTransactions(): JSX.Element {
                                     value: 'classified',
                                     label: t((d) => d.pages.walletTransactions.classify.classified),
                                 },
+                                {
+                                    value: 'duplicates',
+                                    label: t((d) => d.pages.walletTransactions.duplicates.filter),
+                                },
                             ]}
                         />
                     </Toolbar>
 
-                    {page === null ? (
+                    {classification === 'duplicates' ? (
+                        duplicates === null ? (
+                            <TableSkeleton />
+                        ) : duplicates.length === 0 ? (
+                            <EmptyState
+                                icon={<ArrowLeftRight className="size-5" />}
+                                title={t((d) => d.pages.walletTransactions.duplicates.empty)}
+                                description={t((d) => d.pages.walletTransactions.duplicates.hint)}
+                            />
+                        ) : (
+                            <DuplicateGroups
+                                groups={duplicates}
+                                onMerge={setMerging}
+                                onKeep={(group) => {
+                                    void keepGroup(group);
+                                }}
+                            />
+                        )
+                    ) : page === null ? (
                         failed ? (
                             <p className="note p-4">{t((d) => d.pages.wallet.loadFailed)}</p>
                         ) : (
@@ -426,18 +559,25 @@ export default function WalletTransactions(): JSX.Element {
                                     className={cn(selection.has(transaction.id) && 'row-selected')}
                                 >
                                     <td className="col-hide w-8">
-                                        <Checkbox
-                                            checked={selection.has(transaction.id)}
-                                            onCheckedChange={(next) => {
-                                                selection.toggle(transaction.id, next);
-                                            }}
-                                            aria-label={transaction.description}
-                                        />
+                                        {transaction.source === 'SYSTEM' ? null : (
+                                            <Checkbox
+                                                checked={selection.has(transaction.id)}
+                                                onCheckedChange={(next) => {
+                                                    selection.toggle(transaction.id, next);
+                                                }}
+                                                aria-label={transaction.description}
+                                            />
+                                        )}
                                     </td>
                                     <td className="col-primary whitespace-nowrap tabular-nums">
                                         {new Date(transaction.bookedAt).toLocaleDateString()}
                                     </td>
-                                    <td className="col-hide">{transaction.accountName}</td>
+                                    <td className="col-hide">
+                                        {sourceName(
+                                            { kind: transaction.accountKind, displayName: transaction.accountName },
+                                            t((d) => d.pages.wallet.generalSource),
+                                        )}
+                                    </td>
                                     <td>
                                         <div>{transaction.description}</div>
                                         {transaction.counterparty === null ? null : (
@@ -459,9 +599,7 @@ export default function WalletTransactions(): JSX.Element {
                                             checking for. An unanswered row stays a plain pill so it
                                             reads as the thing still to do. */}
                                         {transaction.splits.length === 0 ? (
-                                            <Pill>
-                                                {t((d) => d.pages.walletTransactions.classify.unclassified)}
-                                            </Pill>
+                                            <Pill>{t((d) => d.pages.walletTransactions.classify.unclassified)}</Pill>
                                         ) : (
                                             <div className="flex flex-wrap gap-1">
                                                 {transaction.splits.map((split, index) => (
@@ -480,38 +618,39 @@ export default function WalletTransactions(): JSX.Element {
                                     </td>
                                     <td className="col-end text-right">
                                         <div className="flex justify-end gap-1.5">
-                                        {/* One button, because there is one thing to change: the
+                                            {/* One button, because there is one thing to change: the
                                             figures and what the money was are the same dialog. A
                                             separate "classify" opened a second dialog to edit one
                                             field the first was already showing. */}
-                                        <PanelButton
-                                            onClick={() => {
-                                                errors.reset();
-                                                setForm({
-                                                    account_id: transaction.accountId,
-                                                    amount: String(transaction.amountMinor / 100),
-                                                    currency_code: transaction.currencyCode,
-                                                    booked_at: transaction.bookedAt.slice(0, 10),
-                                                    description: transaction.description,
-                                                    counterparty: transaction.counterparty ?? '',
-                                                    category_code:
-                                                        transaction.splits[0]?.categoryCode ?? '',
-                                                    country_code:
-                                                        transaction.splits[0]?.countryCode ?? 'RO',
-                                                });
-                                                setEditing(transaction);
-                                            }}
-                                        >
-                                            {t((d) => d.common.edit)}
-                                        </PanelButton>
-                                        <PanelButton
-                                            variant="ghost"
-                                            onClick={() => {
-                                                setDeleting(transaction);
-                                            }}
-                                        >
-                                            {t((d) => d.common.delete)}
-                                        </PanelButton>
+                                            <PanelButton
+                                                onClick={() => {
+                                                    errors.reset();
+                                                    setForm({
+                                                        account_id: transaction.accountId,
+                                                        direction: transaction.amountMinor < 0 ? 'out' : 'in',
+                                                        amount: String(Math.abs(transaction.amountMinor) / 100),
+                                                        currency_code: transaction.currencyCode,
+                                                        booked_at: transaction.bookedAt.slice(0, 10),
+                                                        description: transaction.description,
+                                                        counterparty: transaction.counterparty ?? '',
+                                                        category_code: transaction.splits[0]?.categoryCode ?? '',
+                                                        country_code: transaction.splits[0]?.countryCode ?? 'RO',
+                                                    });
+                                                    setEditing(transaction);
+                                                }}
+                                            >
+                                                {t((d) => d.common.edit)}
+                                            </PanelButton>
+                                            {transaction.source === 'SYSTEM' ? null : (
+                                                <PanelButton
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        setDeleting(transaction);
+                                                    }}
+                                                >
+                                                    {t((d) => d.common.delete)}
+                                                </PanelButton>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -542,6 +681,39 @@ export default function WalletTransactions(): JSX.Element {
                     onConfirm={deleteSelected}
                 />
             ) : null}
+
+            {merging === null ? null : (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setMerging(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.walletTransactions.duplicates.mergeConfirmTitle).replace(
+                        '{count}',
+                        String(merging.transactions.length),
+                    )}
+                    description={t((d) => d.pages.walletTransactions.duplicates.mergeConfirmHint)}
+                    confirmLabel={t((d) => d.pages.walletTransactions.duplicates.merge)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={async () => {
+                        try {
+                            await mergeDuplicateTransactions(
+                                subjectId,
+                                merging.transactions.map((transaction) => transaction.id),
+                            );
+                            toast.success(t((d) => d.pages.walletTransactions.duplicates.merged));
+                            setMerging(null);
+                            setReloadKey((current) => current + 1);
+                        } catch (cause: unknown) {
+                            toast.error(t((d) => d.pages.walletTransactions.duplicates.failed));
+
+                            throw cause;
+                        }
+                    }}
+                />
+            )}
 
             {deleting === null ? null : (
                 <ConfirmDialog
@@ -590,11 +762,7 @@ export default function WalletTransactions(): JSX.Element {
                         errors.reset();
                     }
                 }}
-                title={
-                    editing === null
-                        ? t((d) => d.pages.walletTransactions.add)
-                        : t((d) => d.common.edit)
-                }
+                title={editing === null ? t((d) => d.pages.walletTransactions.add) : t((d) => d.common.edit)}
                 description={t((d) => d.pages.walletTransactions.addHint)}
                 size="lg"
                 actions={
@@ -613,6 +781,7 @@ export default function WalletTransactions(): JSX.Element {
                             primary
                             disabled={
                                 saving ||
+                                isSystem ||
                                 form.account_id === '' ||
                                 form.amount.trim() === '' ||
                                 form.booked_at === '' ||
@@ -628,13 +797,19 @@ export default function WalletTransactions(): JSX.Element {
                 }
             >
                 <FieldGrid>
+                    {isSystem ? (
+                        <p className="note sm:col-span-2">{t((d) => d.pages.walletTransactions.systemNotice)}</p>
+                    ) : null}
+
                     <Field
                         label={t((d) => d.pages.walletTransactions.form.account)}
                         htmlFor="tx-account"
                         error={errors.get('account_id')}
+                        {...(editing === null ? {} : { hint: t((d) => d.pages.walletTransactions.accountLocked) })}
                     >
                         <PanelSelect
                             id="tx-account"
+                            disabled={editing !== null}
                             value={form.account_id}
                             onValueChange={(value) => {
                                 const account = accounts.find((candidate) => candidate.id === value);
@@ -648,12 +823,18 @@ export default function WalletTransactions(): JSX.Element {
                                     currency_code: account?.currencyCode ?? current.currency_code,
                                 }));
                             }}
-                            options={accounts.map((account) => ({
+                            options={(editing === null ? streamAccounts : accounts).map((account) => ({
                                 value: account.id,
                                 label:
                                     account.currencyCode === null
-                                        ? sourceName(account, t((d) => d.pages.wallet.generalSource))
-                                        : `${sourceName(account, t((d) => d.pages.wallet.generalSource))} (${account.currencyCode})`,
+                                        ? sourceName(
+                                              account,
+                                              t((d) => d.pages.wallet.generalSource),
+                                          )
+                                        : `${sourceName(
+                                              account,
+                                              t((d) => d.pages.wallet.generalSource),
+                                          )} (${account.currencyCode})`,
                             }))}
                         />
                     </Field>
@@ -665,11 +846,33 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelSelect
                             id="tx-currency"
+                            disabled={isSystem}
                             value={form.currency_code}
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, currency_code: value }));
                             }}
                             options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                        />
+                    </Field>
+
+                    <Field label={t((d) => d.documentsReview.transactionDirection)}>
+                        {/* The sign is the direction, chosen here rather than typed as a minus — and
+                            switching it drops a category that cannot move that way. */}
+                        <ButtonGroup
+                            stretch
+                            disabled={isSystem}
+                            value={form.direction}
+                            onChange={(value) => {
+                                setForm((current) => ({
+                                    ...current,
+                                    direction: value,
+                                    category_code: categoryFor(page?.categories ?? [], current.category_code, value),
+                                }));
+                            }}
+                            options={[
+                                { value: 'out', label: t((d) => d.documentsReview.directionOut) },
+                                { value: 'in', label: t((d) => d.documentsReview.directionIn) },
+                            ]}
                         />
                     </Field>
 
@@ -681,7 +884,9 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelInput
                             id="tx-amount"
+                            disabled={isSystem}
                             type="number"
+                            min={0}
                             step="0.01"
                             value={form.amount}
                             onChange={(event) => {
@@ -698,6 +903,7 @@ export default function WalletTransactions(): JSX.Element {
                         <PanelDate
                             block
                             disableFuture
+                            disabled={isSystem}
                             value={form.booked_at === '' ? null : form.booked_at}
                             onChange={(next) => {
                                 setForm((current) => ({ ...current, booked_at: next ?? '' }));
@@ -713,6 +919,7 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelInput
                             id="tx-counterparty"
+                            disabled={isSystem}
                             icon={<UserIcon className="size-3.5" />}
                             value={form.counterparty}
                             onChange={(event) => {
@@ -728,6 +935,7 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelInput
                             id="tx-description"
+                            disabled={isSystem}
                             icon={<AlignLeftIcon className="size-3.5" />}
                             value={form.description}
                             onChange={(event) => {
@@ -746,17 +954,16 @@ export default function WalletTransactions(): JSX.Element {
                     >
                         <PanelSelect
                             searchable
+                            disabled={isSystem}
                             value={form.category_code}
                             placeholder={t((d) => d.pages.walletTransactions.classify.later)}
                             emptyLabel={t((d) => d.pages.walletTransactions.classify.later)}
                             onValueChange={(next) => {
                                 setForm((current) => ({ ...current, category_code: next }));
                             }}
-                            options={(page?.categories ?? []).map((category) => ({
+                            options={categoriesFor(page?.categories ?? [], form.direction).map((category) => ({
                                 value: category.code,
-                                label: t(
-                                    (d) => d.pages.walletTransactions.categories[category.code] ?? category.code,
-                                ),
+                                label: t((d) => d.pages.walletTransactions.categories[category.code] ?? category.code),
                             }))}
                         />
                     </Field>
@@ -767,6 +974,7 @@ export default function WalletTransactions(): JSX.Element {
                         <Field label={t((d) => d.pages.walletTransactions.classify.country)}>
                             <PanelSelect
                                 searchable
+                                disabled={isSystem}
                                 value={form.country_code}
                                 onValueChange={(next) => {
                                     setForm((current) => ({ ...current, country_code: next }));
@@ -784,6 +992,114 @@ export default function WalletTransactions(): JSX.Element {
     );
 }
 
+/**
+ * Lookalike transactions, a group at a time, with the two things a person can do about them.
+ *
+ * Grouped rather than flagged in the ordinary list: a duplicate is a relation between rows, and the
+ * decision is about the set — whether they are one payment at all, and which row stays — so the rows
+ * are shown together, with the one a merge keeps marked before anyone presses Merge.
+ */
+function DuplicateGroups({
+    groups,
+    onMerge,
+    onKeep,
+}: {
+    groups: DuplicateGroup[];
+    onMerge: (group: DuplicateGroup) => void;
+    onKeep: (group: DuplicateGroup) => void;
+}): JSX.Element {
+    const { t, locale } = useTranslation();
+
+    return (
+        <div className="space-y-4 p-3">
+            <p className="note">{t((d) => d.pages.walletTransactions.duplicates.hint)}</p>
+
+            {groups.map((group) => (
+                <section key={group.survivorId} className="rounded-md border border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+                        <span className="text-sm font-medium">
+                            {t((d) => d.pages.walletTransactions.duplicates.groupTitle).replace(
+                                '{count}',
+                                String(group.transactions.length),
+                            )}
+                        </span>
+                        <div className="flex gap-1.5">
+                            <PanelButton
+                                onClick={() => {
+                                    onKeep(group);
+                                }}
+                            >
+                                {t((d) => d.pages.walletTransactions.duplicates.keep)}
+                            </PanelButton>
+                            <PanelButton
+                                primary
+                                onClick={() => {
+                                    onMerge(group);
+                                }}
+                            >
+                                {t((d) => d.pages.walletTransactions.duplicates.merge)}
+                            </PanelButton>
+                        </div>
+                    </div>
+
+                    <DataTable
+                        stacked
+                        head={
+                            <>
+                                <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
+                                <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
+                                <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
+                                <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                                <th />
+                            </>
+                        }
+                    >
+                        {group.transactions.map((transaction) => (
+                            <tr key={transaction.id}>
+                                <td className="col-primary whitespace-nowrap tabular-nums">
+                                    {new Date(transaction.bookedAt).toLocaleDateString()}
+                                </td>
+                                <td className="col-hide">
+                                    {sourceName(
+                                        { kind: transaction.accountKind, displayName: transaction.accountName },
+                                        t((d) => d.pages.wallet.generalSource),
+                                    )}
+                                </td>
+                                <td>
+                                    <div>{transaction.description}</div>
+                                    {transaction.counterparty === null ? null : (
+                                        <div className="note">{transaction.counterparty}</div>
+                                    )}
+                                </td>
+                                <td
+                                    className={`tabular-nums whitespace-nowrap${
+                                        transaction.amountMinor < 0 ? ' text-destructive' : ''
+                                    }`}
+                                >
+                                    {formatMinor(transaction.amountMinor, transaction.currencyCode, locale)}
+                                </td>
+                                <td className="col-end text-right">
+                                    {/* Which row stays, said before the button is pressed: the server
+                                        decided it by the same rule the merge applies. */}
+                                    <div className="flex flex-wrap justify-end gap-1">
+                                        {transaction.id === group.survivorId ? (
+                                            <Pill tone="accent">
+                                                {t((d) => d.pages.walletTransactions.duplicates.survivor)}
+                                            </Pill>
+                                        ) : null}
+                                        {transaction.documentId === null ? null : (
+                                            <Pill>{t((d) => d.pages.walletTransactions.duplicates.hasDocument)}</Pill>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </DataTable>
+                </section>
+            ))}
+        </div>
+    );
+}
 
 function TableSkeleton(): JSX.Element {
     return (

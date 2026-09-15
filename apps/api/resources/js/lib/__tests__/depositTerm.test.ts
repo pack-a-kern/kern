@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { addMonths, daysBetween } from '../depositTerm';
+import { addMonths, daysBetween, maturityFor, nextWorkingDay, termMonths } from '../depositTerm';
 
 describe('addMonths', () => {
     it('adds whole months', () => {
@@ -45,5 +45,55 @@ describe('daysBetween', () => {
     it('is null when either endpoint is not a date', () => {
         expect(daysBetween('', '2026-01-01')).toBeNull();
         expect(daysBetween('2026-01-01', 'soon')).toBeNull();
+    });
+});
+
+describe('nextWorkingDay', () => {
+    it('leaves a weekday alone', () => {
+        // Tuesday 1 September 2026.
+        expect(nextWorkingDay('2026-09-01')).toBe('2026-09-01');
+    });
+
+    it('moves a Saturday or a Sunday to the Monday after', () => {
+        expect(nextWorkingDay('2027-05-01')).toBe('2027-05-03');
+        expect(nextWorkingDay('2027-05-02')).toBe('2027-05-03');
+    });
+
+    it('crosses into the next month and year when the weekend does', () => {
+        expect(nextWorkingDay('2026-10-31')).toBe('2026-11-02');
+        expect(nextWorkingDay('2028-12-31')).toBe('2029-01-01');
+    });
+
+    it('returns an empty string for a half-typed date', () => {
+        expect(nextWorkingDay('2026-09')).toBe('');
+    });
+});
+
+describe('maturityFor', () => {
+    it('is the term end when that is a working day', () => {
+        // 1 September 2027 is a Wednesday.
+        expect(maturityFor('2026-09-01', 12)).toBe('2027-09-01');
+    });
+
+    it('moves a term ending on a weekend to the Monday', () => {
+        // 1 May 2027 is a Saturday.
+        expect(maturityFor('2026-05-01', 12)).toBe('2027-05-03');
+    });
+});
+
+describe('termMonths', () => {
+    it('reads a moved maturity back as the term it was bought for', () => {
+        // Five months from 31 May 2026 ends on Saturday 31 October, maturing Monday 2 November —
+        // six calendar months away, and still a five-month term.
+        expect(maturityFor('2026-05-31', 5)).toBe('2026-11-02');
+        expect(termMonths('2026-05-31', '2026-11-02')).toBe(5);
+    });
+
+    it('reads an unmoved maturity as its calendar months', () => {
+        expect(termMonths('2026-09-01', '2027-09-01')).toBe(12);
+    });
+
+    it('falls back to the calendar months for a maturity no term produces', () => {
+        expect(termMonths('2026-09-01', '2027-09-15')).toBe(12);
     });
 });

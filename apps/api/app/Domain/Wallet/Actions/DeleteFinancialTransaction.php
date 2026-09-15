@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
+use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\WalletAudit;
@@ -29,6 +31,11 @@ final readonly class DeleteFinancialTransaction
 
     public function __invoke(FinancialTransaction $transaction, ?string $actorId = null): void
     {
+        // Produced from a deposit's terms. The change belongs on the deposit, which rewrites it.
+        if ($transaction->source === RecordSource::SYSTEM) {
+            throw SystemTransactionException::forTransaction($transaction->id);
+        }
+
         // Read before deleting: afterwards the audit entry is the only trace left.
         $subjectId = $transaction->tax_subject_id;
         $transactionId = $transaction->id;

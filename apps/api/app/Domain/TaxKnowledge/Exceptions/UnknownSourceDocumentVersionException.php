@@ -10,6 +10,6 @@ final class UnknownSourceDocumentVersionException extends RuntimeException
 {
     public static function forId(string $id): self
     {
-        return new self(sprintf('No source_document_versions row with id "%s".', $id));
+        return new self(sprintf('No ext_source_document_versions row with id "%s".', $id));
     }
 }

@@ -8,7 +8,7 @@ namespace App\Domain\Operations\DataTransferObjects;
  * One entry of the official-source allowlist (`BLUEPRINT.md` §7.1), as declared in
  * `config/sources.php`.
  *
- * `mirrored` is whether an `official_sources` row exists for this code yet. The table is populated
+ * `mirrored` is whether an `ext_official_sources` row exists for this code yet. The table is populated
  * lazily — `App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository::resolve()` upserts a row
  * the first time a source is actually fetched — so an entry with `mirrored => false` is declared
  * and allowed but has never been used. Without this flag the panel could not distinguish "the
@@ -22,11 +22,13 @@ final readonly class SourceRegistryEntry
         public string $trustTier,
         public string $baseUrl,
         public bool $enabled,
+        /** Null where the config entry declares none — shown as missing rather than guessed. */
+        public ?int $priority,
         public bool $mirrored,
     ) {
     }
 
-    /** @return array{code: string, trust_tier: string, base_url: string, enabled: bool, mirrored: bool} */
+    /** @return array{code: string, trust_tier: string, base_url: string, enabled: bool, priority: int|null, mirrored: bool} */
     public function toArray(): array
     {
         return [
@@ -34,6 +36,7 @@ final readonly class SourceRegistryEntry
             'trust_tier' => $this->trustTier,
             'base_url' => $this->baseUrl,
             'enabled' => $this->enabled,
+            'priority' => $this->priority,
             'mirrored' => $this->mirrored,
         ];
     }

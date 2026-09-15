@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
+use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
 use App\Domain\Wallet\DataTransferObjects\UpdateFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Exceptions\DepositClosedException;
+use App\Domain\Wallet\Exceptions\DepositTermsLockedException;
 use App\Domain\Wallet\Exceptions\InvalidDateRangeException;
 use App\Domain\Wallet\Exceptions\NonPositivePrincipalException;
+use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\DepositRatePeriod;
+use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use App\Domain\Wallet\Services\WalletAudit;
 use DateTimeImmutable;
@@ -43,6 +49,7 @@ final readonly class UpdateFinancialAccount
     public function __construct(
         private DepositRateCoverageValidator $coverageValidator,
         private GenerateDepositInterestSchedule $generateSchedule,
+        private DepositMovements $movements,
         private WalletAudit $audit,
     ) {
     }
@@ -50,6 +57,12 @@ final readonly class UpdateFinancialAccount
     public function __invoke(FinancialAccount $account, UpdateFinancialAccountInput $input): FinancialAccount
     {
         $terms = $account->depositTerms;
+
+        // Settled: its interest is paid and its principal returned, and every figure it produced is
+        // already on the ledger. Nothing about it can change without contradicting those.
+        if ($terms !== null && $terms->closed_at !== null) {
+            throw DepositClosedException::forAccount($account->id);
+        }
 
         return DB::transaction(function () use ($account, $input, $terms): FinancialAccount {
             $changed = [];
@@ -105,6 +118,7 @@ final readonly class UpdateFinancialAccount
             }
 
             $this->coverageValidator->validateAndNormalize($replacement->ratePeriods, $opened, $maturity);
+            $this->assertOnlyUnlockedTermsChange($account, $terms, $replacement);
 
             $terms->fill([
                 'principal_minor' => $replacement->principalMinor,
@@ -115,10 +129,14 @@ final readonly class UpdateFinancialAccount
                 'interest_method' => $replacement->interestMethod,
                 'payment_frequency' => $replacement->paymentFrequency,
                 'day_count_convention' => $replacement->dayCountConvention,
-                'auto_renewal' => $replacement->autoRenewal,
                 'funding_account_id' => $replacement->fundingAccountId,
+                'bank_id' => $replacement->bankId,
             ]);
             $terms->save();
+
+            // The money that left the funding account follows the terms: a new principal is a
+            // different amount out, a cleared funding account is no movement at all.
+            $this->movements->syncFunding($account, $terms);
 
             // Replaced wholesale — see the class docblock for why patching in place cannot be shown
             // to preserve coverage.
@@ -154,5 +172,52 @@ final readonly class UpdateFinancialAccount
 
             return $account;
         });
+    }
+
+    /**
+     * Refuses a change to anything posted interest was computed from.
+     *
+     * Once a period is a transaction, the principal, start date, currency, method, frequency and day
+     * count it was calculated from are part of that transaction's explanation; so is the account the
+     * principal came out of. The rate and the maturity only reach periods not yet posted, so they
+     * stay open — except that the maturity cannot move back past a period already paid.
+     *
+     * Compared by value, not by presence: the form sends every field on every save, and an unchanged
+     * principal arriving again is not an attempt to change it.
+     */
+    private function assertOnlyUnlockedTermsChange(
+        FinancialAccount $account,
+        DepositTerms $terms,
+        DepositTermsInput $replacement,
+    ): void {
+        $lastPosted = DepositInterestEvent::query()
+            ->where('account_id', $account->id)
+            ->whereNotNull('transaction_id')
+            ->max('accrual_to');
+
+        if (! is_string($lastPosted)) {
+            return;
+        }
+
+        $changed = array_keys(array_filter([
+            'principal_minor' => $replacement->principalMinor !== $terms->principal_minor,
+            'starts_at' => $replacement->startsAt !== $terms->starts_at->toDateString(),
+            'currency_code' => strtoupper($replacement->currencyCode) !== strtoupper($terms->currency_code),
+            'funding_account_id' => $replacement->fundingAccountId !== $terms->funding_account_id,
+            'rate_type' => $replacement->rateType !== $terms->rate_type,
+            'interest_method' => $replacement->interestMethod !== $terms->interest_method,
+            'payment_frequency' => $replacement->paymentFrequency !== $terms->payment_frequency,
+            'day_count_convention' => $replacement->dayCountConvention !== $terms->day_count_convention,
+        ]));
+
+        if ($changed !== []) {
+            throw DepositTermsLockedException::afterInterestPosted($changed);
+        }
+
+        $lastPostedDate = substr($lastPosted, 0, 10);
+
+        if ($replacement->maturityAt < $lastPostedDate) {
+            throw DepositTermsLockedException::maturityBeforePostedInterest($replacement->maturityAt, $lastPostedDate);
+        }
     }
 }

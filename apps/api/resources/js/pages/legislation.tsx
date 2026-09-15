@@ -3,19 +3,10 @@ import { toast } from 'sonner';
 
 import { searchLegislation } from '../api/legislationApi';
 import AppShell from '../components/AppShell';
-import {
-    Field,
-    Page,
-    Panel,
-    PanelButton,
-    PanelSelect,
-    Pill,
-    SearchInput,
-    Status,
-    Toolbar,
-} from '../components/panel';
+import { Field, Page, Panel, PanelButton, PanelSelect, Pill, SearchInput, Status, Toolbar } from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
+import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
 import { ApiError } from '../lib/http';
 import type { LegislationHit, LegislationSearchResult } from '../types/legislation';
@@ -36,8 +27,12 @@ const TIERS = ['A', 'B', 'C', 'D'];
 export default function Legislation(): JSX.Element {
     const { t } = useTranslation();
 
-    const [query, setQuery] = useState('');
-    const [tier, setTier] = useState('');
+    // What was searched for is remembered; the results are not — searching again is one click, and a
+    // stored result would show texts as they read on a date nobody chose.
+    const [query, setQuery] = useRememberedState<string>('legislation.query', '');
+    const [tier, setTier] = useRememberedState<string>('legislation.tier', '', {
+        isValid: (value) => value === '' || TIERS.includes(value),
+    });
     const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
 
     const [result, setResult] = useState<LegislationSearchResult | null>(null);

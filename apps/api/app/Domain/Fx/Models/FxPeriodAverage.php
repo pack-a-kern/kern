@@ -10,12 +10,12 @@ use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `fx_period_averages` (`BLUEPRINT.md` §6.9/§7.4) — see that migration's docblock for why this table,
- * unlike `fx_rates`, is safely recomputed/overwritten (it is a derived cache, always reproducible
- * from `fx_rates`), and for the two-values-kept-side-by-side rule.
+ * `ext_fx_period_averages` (`BLUEPRINT.md` §6.9/§7.4) — see that migration's docblock for why this table,
+ * unlike `ext_fx_rates`, is safely recomputed/overwritten (it is a derived cache, always reproducible
+ * from `ext_fx_rates`), and for the two-values-kept-side-by-side rule.
  *
  * @property string $id
- * @property string $fx_source_id
+ * @property string $official_source_id
  * @property PeriodType $period_type
  * @property \Illuminate\Support\Carbon $period_start
  * @property string $currency_code
@@ -30,9 +30,11 @@ final class FxPeriodAverage extends Model
 {
     use HasUuidPrimaryKey;
 
+    protected $table = 'ext_fx_period_averages';
+
     /** @var list<string> */
     protected $fillable = [
-        'fx_source_id',
+        'official_source_id',
         'period_type',
         'period_start',
         'currency_code',

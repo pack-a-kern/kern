@@ -20,7 +20,7 @@ import type { DocumentStatus, DocumentType, RejectionReason } from '../types/doc
  */
 
 const DB_NAME = 'taxos-pwa';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CAPTURE_STORE = 'captureQueue';
 const DOCUMENTS_STORE = 'knownDocuments';
 
@@ -37,14 +37,26 @@ const DOCUMENTS_STORE = 'knownDocuments';
  */
 export type CaptureStatus = 'queued' | 'uploading' | 'uploaded' | 'failed' | 'rejected' | 'duplicate';
 
-export interface CaptureItem {
-    localId: string;
-    subjectId: string;
-    type: DocumentType;
+/** One file of a queued document, held here until it reaches the server. */
+export interface CaptureFile {
     fileName: string;
     mimeType: string;
     sizeBytes: number;
     blob: Blob;
+}
+
+export interface CaptureItem {
+    localId: string;
+    subjectId: string;
+    /**
+     * The files this document is made of, in page order — one for almost every document, several
+     * when an invoice was photographed page by page.
+     *
+     * A queued *document*, not a queued file, because that is what gets uploaded: sending four
+     * photographs as four documents and merging them afterwards would mean four extractions to
+     * throw away, and a window in which the person sees four rows appear and disappear.
+     */
+    files: CaptureFile[];
     status: CaptureStatus;
     attempts: number;
     errorMessage: string | null;
@@ -56,7 +68,8 @@ export interface CaptureItem {
 export interface KnownDocument {
     id: string;
     subjectId: string;
-    type: DocumentType;
+    /** Null until something has read the document and said what it is. */
+    type: DocumentType | null;
     status: DocumentStatus;
     rejectionReason: RejectionReason | null;
     mimeType: string;
@@ -71,13 +84,15 @@ function openDb(): Promise<IDBDatabase> {
     dbPromise ??= new Promise((resolve, reject) => {
         const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onupgradeneeded = (): void => {
+        request.onupgradeneeded = (event: IDBVersionChangeEvent): void => {
             const db = request.result;
 
             if (!db.objectStoreNames.contains(CAPTURE_STORE)) {
                 const store = db.createObjectStore(CAPTURE_STORE, { keyPath: 'localId' });
                 store.createIndex('bySubject', 'subjectId');
                 store.createIndex('byStatus', 'status');
+            } else if (event.oldVersion < 2) {
+                migrateCaptureItemsToFiles(request.transaction);
             }
 
             if (!db.objectStoreNames.contains(DOCUMENTS_STORE)) {
@@ -95,6 +110,51 @@ function openDb(): Promise<IDBDatabase> {
     });
 
     return dbPromise;
+}
+
+/**
+ * v1 queued one file per item; v2 queues a document made of files.
+ *
+ * Rewritten in place rather than dropped, because the whole point of this store is that a file
+ * photographed on a train survives the app being closed — discarding the queue on upgrade would
+ * lose exactly the documents it exists to protect. An item whose shape is already v2, or is too
+ * damaged to read, is left alone: the queue screen shows it and the person can remove it.
+ */
+function migrateCaptureItemsToFiles(transaction: IDBTransaction | null): void {
+    if (transaction === null) {
+        return;
+    }
+
+    const store = transaction.objectStore(CAPTURE_STORE);
+    const cursorRequest = store.openCursor();
+
+    cursorRequest.onsuccess = (): void => {
+        const cursor = cursorRequest.result;
+
+        if (!cursor) {
+            return;
+        }
+
+        const legacy = cursor.value as Partial<CaptureItem> & Partial<CaptureFile>;
+
+        if (!Array.isArray(legacy.files) && legacy.blob instanceof Blob) {
+            const { fileName, mimeType, sizeBytes, blob, ...rest } = legacy;
+
+            cursor.update({
+                ...rest,
+                files: [
+                    {
+                        fileName: fileName ?? '',
+                        mimeType: mimeType ?? blob.type,
+                        sizeBytes: sizeBytes ?? blob.size,
+                        blob,
+                    },
+                ],
+            });
+        }
+
+        cursor.continue();
+    };
 }
 
 function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
@@ -161,6 +221,43 @@ export async function listKnownDocuments(subjectId: string): Promise<KnownDocume
     const items = await promisifyRequest(index.getAll(subjectId) as IDBRequest<KnownDocument[]>);
 
     return items.sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
+}
+
+/**
+ * Replace this subject's cached documents with what the server just said.
+ *
+ * The cache only ever grew: an upload added a row and nothing removed it, so a document deleted on
+ * the server stayed on the device forever — and the moment the list request failed, the inbox fell
+ * back to the cache and showed documents that no longer exist, indistinguishable from ones that do.
+ *
+ * Replacing rather than merging is the point. The server's list *is* the answer; anything this
+ * device still holds that is not in it is gone, and keeping it would be the device insisting on a
+ * past the server has moved on from.
+ *
+ * Scoped to one subject, and only called with a *complete* list — a filtered or paginated view must
+ * never be written here, or it would delete every document the current filter happens to exclude.
+ */
+export async function replaceKnownDocuments(subjectId: string, documents: KnownDocument[]): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction(DOCUMENTS_STORE, 'readwrite');
+    const store = tx.objectStore(DOCUMENTS_STORE);
+    const existing = await promisifyRequest(store.index('bySubject').getAllKeys(subjectId));
+    const keep = new Set(documents.map((document) => document.id));
+
+    for (const key of existing) {
+        if (typeof key === 'string' && ! keep.has(key)) {
+            store.delete(key);
+        }
+    }
+
+    for (const document of documents) {
+        store.put(document);
+    }
+}
+
+/** Forget one document, when it is deleted. */
+export async function deleteKnownDocument(id: string): Promise<void> {
+    await withStore(DOCUMENTS_STORE, 'readwrite', (store) => store.delete(id));
 }
 
 export function generateLocalId(): string {

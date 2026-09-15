@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Wallet;
 
+use App\Domain\Banks\Queries\BankDirectory;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
@@ -15,6 +16,7 @@ use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Http\Controllers\Controller;
+use App\Rules\StreamSource;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,9 +41,23 @@ final class OpenAccountController extends Controller
         OpenFinancialAccount $open,
         TenantContext $tenant,
         ConfigRepository $config,
+        BankDirectory $banks,
     ): JsonResponse {
         $validated = $request->validate([
-            'display_name' => ['required', 'string', 'max:120'],
+            // A deposit is named after its bank, chosen from the imported list rather than typed —
+            // so its name is never sent, and its bank always is.
+            'display_name' => [
+                'required_unless:kind,' . AccountKind::TERM_DEPOSIT->value,
+                'prohibited_if:kind,' . AccountKind::TERM_DEPOSIT->value,
+                'string',
+                'max:120',
+            ],
+            'bank_id' => [
+                'required_if:kind,' . AccountKind::TERM_DEPOSIT->value,
+                'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value,
+                'uuid',
+                Rule::exists('ext_banks', 'id')->where('active', true),
+            ],
             'kind' => ['required', Rule::enum(AccountKind::class)],
             // ISO 4217, and optional: this is the currency the transaction form pre-fills, not a
             // property of the source. A broker or a crypto exchange holds several at once and
@@ -68,7 +84,11 @@ final class OpenAccountController extends Controller
             // `required_if`/`prohibited_unless` express both directions in the validator, so the
             // caller gets a field-level message instead of a 500 from the action's own invariant.
             'principal_minor' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'integer', 'min:1'],
-            'maturity_at' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'date', 'after:starts_at'],
+            // After today as well as after the start: maturity closes a deposit, so one entered
+            // already matured would be settled the night it was typed in. Here, on what a person
+            // enters, and not in `OpenFinancialAccount`: a deposit that matured in the past is a
+            // perfectly valid fact for recording a previous year's interest by other means.
+            'maturity_at' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'date', 'after:starts_at', 'after:today'],
             // A decimal string, never a float: binary floating point cannot represent 5.40, and
             // this figure multiplies into a tax return. Percent per annum.
             'annual_rate' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'string', 'regex:/^\d{1,3}(\.\d{1,6})?$/'],
@@ -78,8 +98,7 @@ final class OpenAccountController extends Controller
             // Optional, and the screen never sends it: the convention comes from the bank's
             // contract, not from a form, so the default lives in `config/wallet.php`.
             'day_count_convention' => ['sometimes', Rule::enum(DayCountConvention::class)],
-            'auto_renewal' => ['sometimes', 'boolean'],
-            'funding_account_id' => ['sometimes', 'nullable', 'uuid'],
+            'funding_account_id' => ['sometimes', 'nullable', 'uuid', new StreamSource()],
         ]);
 
         $kind = AccountKind::from((string) $validated['kind']);
@@ -87,13 +106,15 @@ final class OpenAccountController extends Controller
         $account = $open(new OpenFinancialAccountInput(
             taxSubjectId: $tenant->currentSubjectId(),
             kind: $kind,
-            displayName: (string) $validated['display_name'],
+            displayName: $kind === AccountKind::TERM_DEPOSIT
+                ? (string) $banks->find(self::str($validated, 'bank_id'))?->name
+                : self::str($validated, 'display_name'),
             currencyCode: $this->nullableString($validated, 'currency_code'),
             holdingAmountMinor: array_key_exists('holding_amount_minor', $validated)
                 ? self::int($validated, 'holding_amount_minor')
                 : null,
             depositTerms: $kind === AccountKind::TERM_DEPOSIT
-                ? $this->depositTerms($request, $validated, $config)
+                ? $this->depositTerms($validated, $config)
                 : null,
             actorId: $this->actorId($request),
         ));
@@ -122,7 +143,7 @@ final class OpenAccountController extends Controller
      *
      * @param  array<string, mixed>  $validated
      */
-    private function depositTerms(Request $request, array $validated, ConfigRepository $config): DepositTermsInput
+    private function depositTerms(array $validated, ConfigRepository $config): DepositTermsInput
     {
         // Narrowed through `self::str()`/`self::int()` rather than cast directly: `$validated`
         // is `array<string, mixed>`, and a bare cast on `mixed` is a static-analysis error and, on
@@ -147,8 +168,8 @@ final class OpenAccountController extends Controller
                 validTo: $maturityAt,
                 annualRateDecimal: self::str($validated, 'annual_rate'),
             )],
-            autoRenewal: $request->boolean('auto_renewal'),
             fundingAccountId: $this->nullableString($validated, 'funding_account_id'),
+            bankId: $this->nullableString($validated, 'bank_id'),
         );
     }
 

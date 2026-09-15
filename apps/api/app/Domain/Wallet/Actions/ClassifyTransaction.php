@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
+use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Domain\Wallet\Services\WalletAudit;
 use Illuminate\Support\Facades\DB;
 
@@ -23,8 +26,8 @@ use Illuminate\Support\Facades\DB;
  * ## Replace, never append
  *
  * Classifying a transaction replaces its splits entirely. A correction is the normal case — someone
- * labelled a payment `SALARY` and then realised it was `FREELANCE` — and merging the old answer with
- * the new one would leave a transaction claiming to be both, with amounts that no longer add up.
+ * labelled a payment `OTHER_INCOME` and then realised it was `FREELANCE` — and merging the old answer
+ * with the new one would leave a transaction claiming to be both, with amounts that no longer add up.
  * Sending an empty list is a legitimate act: it returns the transaction to the unclassified worklist.
  *
  * ## The amounts must add up, exactly
@@ -35,8 +38,10 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class ClassifyTransaction
 {
-    public function __construct(private WalletAudit $audit)
-    {
+    public function __construct(
+        private WalletAudit $audit,
+        private TaxCategoryCatalogue $categories,
+    ) {
     }
 
     /**
@@ -47,7 +52,14 @@ final readonly class ClassifyTransaction
         array $splits,
         ?string $actorId = null,
     ): FinancialTransaction {
+        // Produced from a deposit's terms. The change belongs on the deposit, which rewrites it.
+        if ($transaction->source === RecordSource::SYSTEM) {
+            throw SystemTransactionException::forTransaction($transaction->id);
+        }
+
         $this->assertSplitsMatchTotal($transaction->amount_minor, $splits);
+
+        $this->categories->assertSplitsFit($transaction->amount_minor, $splits);
 
         DB::transaction(function () use ($transaction, $splits): void {
             TransactionSplit::query()->where('transaction_id', $transaction->id)->delete();

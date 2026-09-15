@@ -53,10 +53,12 @@ function streamOf(string $content)
 it('never stores a document\'s plaintext original filename anywhere in the raw documents row', function (): void {
     $recognisableFilename = 'Extras-Cont-Recognisable-BT-2026.pdf';
 
-    $document = Document::factory()->create(['original_filename_ciphertext' => $recognisableFilename]);
+    $document = Document::factory()->part(['original_filename_ciphertext' => $recognisableFilename])->create([]);
 
+    // `document_parts`, because that is where a file's name lives now — asking `documents` would
+    // pass trivially by looking at a column that no longer exists.
     /** @var object{original_filename_ciphertext: string}|null $raw */
-    $raw = DB::table('documents')->where('id', $document->id)->first();
+    $raw = DB::table('document_parts')->where('document_id', $document->id)->first();
     expect($raw)->not->toBeNull();
     assert($raw !== null);
 

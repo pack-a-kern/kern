@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services;
 
+use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
+use App\Domain\Wallet\Enums\CategoryDirection;
+use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
@@ -30,48 +33,79 @@ final readonly class TaxCategoryCatalogue
      */
     public function codes(): array
     {
-        return [...$this->income(), ...$this->notIncome()];
-    }
-
-    /** @return list<string> */
-    public function income(): array
-    {
-        return $this->group('income');
-    }
-
-    /** @return list<string> */
-    public function notIncome(): array
-    {
-        return $this->group('not_income');
-    }
-
-    public function isIncome(string $code): bool
-    {
-        return in_array($code, $this->income(), true);
+        return array_keys([...$this->group('income'), ...$this->group('not_income')]);
     }
 
     /**
-     * The catalogue as a screen needs it: each code with whether it is income.
+     * Refuses a split whose category cannot have the transaction's direction.
+     *
+     * In the actions rather than only the request validators: a document import reaches them with a
+     * category a model proposed, and never passes through the form that filters the list.
+     *
+     * @param  list<TransactionSplitInput>  $splits
+     */
+    public function assertSplitsFit(int $amountMinor, array $splits): void
+    {
+        $directions = [...$this->group('income'), ...$this->group('not_income')];
+
+        foreach ($splits as $split) {
+            $direction = $directions[$split->categoryCode] ?? null;
+
+            if ($direction !== null && ! $direction->allows($amountMinor)) {
+                throw CategoryDirectionException::forCategory($split->categoryCode, $amountMinor);
+            }
+        }
+    }
+
+    /**
+     * The catalogue as a screen needs it: each code with its group, its direction, and whether it is
+     * offered already chosen.
      *
      * The label is not here — it is translated in the browser, like every other enum this
      * application shows, so a category added to the config file appears immediately and a new
      * language costs no server change.
      *
-     * @return list<array{code: string, income: bool}>
+     * @return list<array{code: string, income: bool, direction: string, preselected: bool}>
      */
     public function toArray(): array
     {
-        return [
-            ...array_map(static fn (string $code): array => ['code' => $code, 'income' => true], $this->income()),
-            ...array_map(static fn (string $code): array => ['code' => $code, 'income' => false], $this->notIncome()),
-        ];
+        $preselected = $this->config->get('tax_categories.preselected');
+        $preselected = is_array($preselected) ? $preselected : [];
+        $entries = [];
+
+        foreach (['income' => true, 'not_income' => false] as $group => $income) {
+            foreach ($this->group($group) as $code => $direction) {
+                $entries[] = [
+                    'code' => $code,
+                    'income' => $income,
+                    'direction' => $direction->value,
+                    'preselected' => in_array($code, $preselected, true),
+                ];
+            }
+        }
+
+        return $entries;
     }
 
-    /** @return list<string> */
+    /**
+     * One group's codes with their directions. An entry whose direction is not a known one is left
+     * out, so a typo in the file removes a category instead of letting it through unchecked.
+     *
+     * @return array<string, CategoryDirection>
+     */
     private function group(string $key): array
     {
-        $codes = $this->config->get("tax_categories.{$key}");
+        $listed = $this->config->get("tax_categories.{$key}");
+        $codes = [];
 
-        return is_array($codes) ? array_values(array_filter($codes, is_string(...))) : [];
+        foreach (is_array($listed) ? $listed : [] as $code => $direction) {
+            $known = is_string($direction) ? CategoryDirection::tryFrom($direction) : null;
+
+            if (is_string($code) && $known !== null) {
+                $codes[$code] = $known;
+            }
+        }
+
+        return $codes;
     }
 }

@@ -55,7 +55,7 @@ use Throwable;
  *   {@see TextExtractionUnavailableException} — this client has no way to distinguish "the service
  *   failed" from itself, by construction.
  */
-final readonly class HttpTextExtractionGateway implements TextExtractionGateway
+final readonly class HttpTextExtractionGateway implements PdfPageCounter, TextExtractionGateway
 {
     /** @var array<string, RejectionReason> Python `error` code => Laravel's closed reason. */
     private const array REJECTION_REASONS_BY_ERROR_CODE = [
@@ -77,7 +77,33 @@ final readonly class HttpTextExtractionGateway implements TextExtractionGateway
     ) {
     }
 
+    public function countPages($pdfStream): int
+    {
+        $body = $this->call($pdfStream, '/v1/documents/page-count');
+        $count = is_array($body) ? ($body['page_count'] ?? null) : null;
+
+        if (! is_int($count) || $count < 1) {
+            throw TextExtractionUnavailableException::malformedResponse();
+        }
+
+        return $count;
+    }
+
     public function extractNativeText($pdfStream): NativeTextExtractionResult
+    {
+        return $this->parse($this->call($pdfStream, '/v1/documents/extract-text'));
+    }
+
+    /**
+     * One call to the service, with the rejection handling both endpoints share.
+     *
+     * Extracted because the two differ only in path and in what they make of the body: everything
+     * about *failing* — an unconfigured token, a rejected one, a documented "this document is bad"
+     * code, an unreachable service — is the same question with the same answer.
+     *
+     * @param  resource  $pdfStream
+     */
+    private function call($pdfStream, string $path): mixed
     {
         if ($this->authToken === '') {
             throw TextExtractionUnavailableException::authenticationNotConfigured();
@@ -94,7 +120,7 @@ final readonly class HttpTextExtractionGateway implements TextExtractionGateway
                 ->timeout($this->timeoutSeconds)
                 ->withToken($this->authToken)
                 ->attach('file', $bytes, 'document.pdf')
-                ->post(rtrim($this->baseUrl, '/') . '/v1/documents/extract-text');
+                ->post(rtrim($this->baseUrl, '/') . $path);
         } catch (ConnectionException $exception) {
             throw TextExtractionUnavailableException::requestFailed($exception);
         } catch (Throwable $exception) {
@@ -109,7 +135,7 @@ final readonly class HttpTextExtractionGateway implements TextExtractionGateway
             $this->throwForFailedResponse($response);
         }
 
-        return $this->parse($response->json());
+        return $response->json();
     }
 
     /**

@@ -17,7 +17,7 @@ import {
  * switching here does a full navigation rather than a client-side state update, guaranteeing every
  * already-mounted page re-reads the new value instead of a subset silently going stale. Only the
  * first page of subjects is listed — a user with more than that manages the rest from
- * `/setari/subiecte` (`resources/js/pages/settings/subjects.tsx`, linked below), which already
+ * `/taxpayers` (`resources/js/pages/settings/subjects.tsx`, linked below), which already
  * paginates.
  */
 /**

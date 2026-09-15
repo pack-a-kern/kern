@@ -9,12 +9,10 @@ use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\NullDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\OpenAiCompatibleDocumentAiProvider;
 use App\Domain\Documents\Extraction\HttpTextExtractionGateway;
+use App\Domain\Documents\Extraction\PdfPageCounter;
 use App\Domain\Documents\Extraction\TextExtractionGateway;
 use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\FileSecurity\FileSecurityValidator;
-use App\Domain\Documents\FileSecurity\MagicByteSniffer;
-use App\Domain\Documents\Parsing\ParserRegistry;
-use App\Domain\Documents\Parsing\Parsers\RomanianReceiptParser;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ClamdVirusScanner;
 use App\Domain\Documents\Scanning\VirusScanner;
@@ -42,17 +40,16 @@ final class DocumentsServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(MagicByteSniffer::class);
         $this->app->singleton(FilenameSanitizer::class);
 
         $this->app->singleton(FileSecurityValidator::class, static function (Application $app): FileSecurityValidator {
             $config = $app->make(ConfigRepository::class);
 
             return new FileSecurityValidator(
-                $app->make(MagicByteSniffer::class),
                 $app->make(FilenameSanitizer::class),
                 $config->integer('documents.max_pdf_bytes'),
                 $config->integer('documents.max_image_bytes'),
+                $config->integer('documents.max_text_bytes'),
                 $config->integer('documents.max_image_pixels'),
             );
         });
@@ -69,7 +66,9 @@ final class DocumentsServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->bind(TextExtractionGateway::class, static function (Application $app): TextExtractionGateway {
+        // One object answers both contracts, because both are the same service asked a different
+        // question — and binding them separately would open two HTTP clients to one endpoint.
+        $this->app->singleton(HttpTextExtractionGateway::class, static function (Application $app): HttpTextExtractionGateway {
             $config = $app->make(ConfigRepository::class);
 
             return new HttpTextExtractionGateway(
@@ -80,13 +79,9 @@ final class DocumentsServiceProvider extends ServiceProvider
             );
         });
 
-        // Deterministic parsers, in priority order: a parser written for one specific layout is
-        // offered the text before a generic one. Registered in code rather than configuration for
-        // the same reason `OperationTask` is a closed enum — a parser decides what a figure on a
-        // tax return says, so adding one is a code change and a review.
-        $this->app->singleton(ParserRegistry::class, static fn (): ParserRegistry => new ParserRegistry([
-            new RomanianReceiptParser(),
-        ]));
+        $this->app->bind(TextExtractionGateway::class, HttpTextExtractionGateway::class);
+        $this->app->bind(PdfPageCounter::class, HttpTextExtractionGateway::class);
+
 
         // A real provider only once one is actually configured. `ResolveAiProviderCredentials`
         // merges the stored settings with the env fallback, so this covers both — and until a base

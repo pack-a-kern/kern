@@ -17,7 +17,8 @@ import {
     Status,
     type StatusTone,
 } from '../../components/panel';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
@@ -63,15 +64,16 @@ export default function AdminJobs(): JSX.Element {
     const [busy, setBusy] = useState(false);
 
     /*
-     * Opens on failures, not on "everything".
+     * Opens on every list, and on whichever one was chosen last.
      *
-     * Horizon trims recent, pending and completed at 60 minutes, so on a quiet installation "all"
-     * is an empty table under a tile reporting real failures — a screen that looks broken while
-     * being correct. Failures keep 7 days and are what someone opens this page to find.
+     * Horizon trims recent, pending and completed jobs at 60 minutes, so on a quiet installation "all"
+     * can be an empty table under a tile reporting real failures — the failures list is one click away,
+     * and once chosen it is what this tab opens on next time.
      */
-    const [status, setStatus] = useState<string>('failed');
-    const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const [status, setStatus] = useRememberedState<string>('logs.jobs.status', 'all', {
+        isValid: (value) => (STATUSES as readonly string[]).includes(value),
+    });
+    const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('logs.jobs');
 
     const [selected, setSelected] = useState<QueueJob | null>(null);
     const [toDiscard, setToDiscard] = useState<QueueJob | null>(null);
@@ -119,7 +121,7 @@ export default function AdminJobs(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [status, pageNumber, pageSize, reloadToken, describeFailure, t]);
+    }, [status, pageNumber, pageSize, setPageNumber, reloadToken, describeFailure, t]);
 
     const reload = (): void => {
         setReloadToken((token) => token + 1);
@@ -289,9 +291,7 @@ export default function AdminJobs(): JSX.Element {
                                         name invented for it here would be a name nothing else uses. */}
                                     <td className="col-primary">
                                         <div className="font-semibold break-all">{shortClass(job.name)}</div>
-                                        {job.retried ? (
-                                            <Pill>{t((d) => d.pages.adminJobs.retriedPill)}</Pill>
-                                        ) : null}
+                                        {job.retried ? <Pill>{t((d) => d.pages.adminJobs.retriedPill)}</Pill> : null}
                                     </td>
                                     <td className="col-hide">
                                         <span className="mono">{job.queue}</span>
@@ -305,7 +305,9 @@ export default function AdminJobs(): JSX.Element {
                                         className="whitespace-nowrap tabular-nums"
                                         data-label={t((d) => d.pages.adminJobs.columns.when)}
                                     >
-                                        {occurredAt(job) === null ? '—' : new Date(occurredAt(job) ?? '').toLocaleString()}
+                                        {occurredAt(job) === null
+                                            ? '—'
+                                            : new Date(occurredAt(job) ?? '').toLocaleString()}
                                     </td>
                                     <td className="col-end text-right">
                                         <div className="flex justify-end gap-1.5">

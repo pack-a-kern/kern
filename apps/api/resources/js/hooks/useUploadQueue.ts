@@ -11,7 +11,7 @@ import {
     upsertKnownDocument,
     type CaptureItem,
 } from '../lib/db';
-import { REJECTION_REASONS, type DocumentType, type RejectionReason } from '../types/documents';
+import { REJECTION_REASONS, type RejectionReason } from '../types/documents';
 import { useOnlineStatus } from './useOnlineStatus';
 
 function isKnownRejectionReason(value: string): value is RejectionReason {
@@ -45,7 +45,8 @@ export function useUploadQueue(
     onUploaded?: () => void,
 ): {
     items: CaptureItem[];
-    enqueue: (type: DocumentType, file: File) => Promise<void>;
+    /** One document, made of the given files in that order. What it is gets decided by reading it. */
+    enqueue: (files: File[]) => Promise<void>;
     retry: (localId: string) => Promise<void>;
     remove: (localId: string) => Promise<void>;
     processing: boolean;
@@ -128,9 +129,7 @@ export function useUploadQueue(
                     try {
                         const uploaded = await uploadDocument(
                             subjectId,
-                            item.type,
-                            item.blob,
-                            item.fileName,
+                            item.files,
                             (fraction) => {
                                 // Kept in memory, never in IndexedDB: a write per progress event
                                 // would be hundreds of transactions for one file, to persist a
@@ -142,11 +141,11 @@ export function useUploadQueue(
                         await upsertKnownDocument({
                             id: uploaded.id,
                             subjectId,
-                            type: item.type,
+                            type: null,
                             status: uploaded.status,
                             rejectionReason: null,
-                            mimeType: item.mimeType,
-                            sizeBytes: item.sizeBytes,
+                            mimeType: item.files[0]?.mimeType ?? '',
+                            sizeBytes: item.files.reduce((total, file) => total + file.sizeBytes, 0),
                             receivedAt: new Date().toISOString(),
                             lastSyncedAt: Date.now(),
                         });
@@ -212,7 +211,7 @@ export function useUploadQueue(
     }, [online, processQueue]);
 
     const enqueue = useCallback(
-        async (type: DocumentType, file: File) => {
+        async (files: File[]) => {
             if (!subjectId) {
                 // A developer message, deliberately not Romanian copy: no screen renders this
                 // string — every caller already refuses to show the picker without an active
@@ -220,16 +219,24 @@ export function useUploadQueue(
                 throw new Error('useUploadQueue.enqueue called with no active subject.');
             }
 
-            const prepared = await compressImageIfNeeded(file);
+            if (files.length === 0) {
+                return;
+            }
+
+            // Compressed before queueing, not before uploading: the point of the queue is that what
+            // is in it is what will be sent, so a phone photograph is shrunk once, here, and the
+            // size shown beside it is the size that will actually travel.
+            const prepared = await Promise.all(files.map((file) => compressImageIfNeeded(file)));
 
             const item: CaptureItem = {
                 localId: generateLocalId(),
                 subjectId,
-                type,
-                fileName: prepared.name,
-                mimeType: prepared.type,
-                sizeBytes: prepared.size,
-                blob: prepared,
+                files: prepared.map((file) => ({
+                    fileName: file.name,
+                    mimeType: file.type,
+                    sizeBytes: file.size,
+                    blob: file,
+                })),
                 status: 'queued',
                 attempts: 0,
                 errorMessage: null,

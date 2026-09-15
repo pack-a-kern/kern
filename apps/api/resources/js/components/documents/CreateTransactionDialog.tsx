@@ -3,13 +3,24 @@ import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { createTransactionFromDocument } from '../../api/documentsApi';
-import { listAccounts } from '../../api/walletApi';
+import { listAccounts, listTaxCategories } from '../../api/walletApi';
 import { useEffect } from 'react';
 import { PanelDate } from '../PanelDatePicker';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import { currencyFrom, entryAt, groupOf, readString, subjectPaymentIndex } from '../../lib/readingFields';
 import { useTranslation } from '../../i18n';
 import type { DocumentExtractionSummary, DocumentSummary } from '../../types/documents';
-import { CURRENCIES, isStreamKind, sourceName, type AccountSummary } from '../../types/wallet';
+import {
+    CURRENCIES,
+    categoriesFor,
+    categoryFor,
+    isStreamKind,
+    signedMinor,
+    sourceName,
+    type AccountSummary,
+    type MoneyDirection,
+    type TaxCategory,
+} from '../../types/wallet';
 import { ButtonGroup, Field, FieldGrid, PanelButton, PanelDialog, PanelInput, PanelSelect } from '../panel';
 
 /**
@@ -48,11 +59,34 @@ export default function CreateTransactionDialog({
     const errors = useFormErrors();
 
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+    // From the catalogue the endpoint validates against, not a list kept here — the same vocabulary
+    // the transactions screen's classification offers, so the two cannot disagree.
+    const [categories, setCategories] = useState<TaxCategory[]>([]);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(() => prefill(extraction, document));
 
     useEffect(() => {
         let active = true;
+
+        listTaxCategories(subjectId).then(
+            (loaded) => {
+                if (active) {
+                    setCategories(loaded);
+                    // The reading may propose a code the catalogue does not have, or one that cannot move
+                    // the way the payment did — a model answers whatever it likes. Replaced rather than
+                    // sent, or save would be refused; money out starts from the catalogue's preselection.
+                    setForm((current) => ({
+                        ...current,
+                        category: categoryFor(loaded, current.category, current.direction),
+                    }));
+                }
+            },
+            () => {
+                if (active) {
+                    setCategories([]);
+                }
+            },
+        );
 
         listAccounts(subjectId).then(
             (page) => {
@@ -76,6 +110,16 @@ export default function CreateTransactionDialog({
 
     const account = accounts.find((candidate) => candidate.id === form.account_id) ?? accounts[0];
 
+    // The account's own currency, where it has one. A broker or a crypto source holds several and
+    // carries none, which is exactly when the choice below matters.
+    const accountCurrency = account?.currencyCode ?? null;
+    const currencyWarning =
+        accountCurrency !== null && form.currency_code !== accountCurrency
+            ? t((d) => d.documentsReview.currencyMismatch)
+                  .replace('{document}', form.currency_code)
+                  .replace('{account}', accountCurrency)
+            : undefined;
+
     const submit = async (): Promise<void> => {
         if (account === undefined) {
             return;
@@ -85,20 +129,20 @@ export default function CreateTransactionDialog({
         errors.reset();
 
         try {
-            // Major units in the form, minor units on the wire — rounded once, here, so no
-            // fractional bani ever reaches the API. The direction is applied as the sign.
-            const magnitude = Math.round(Number(form.amount) * 100);
-
             await createTransactionFromDocument(subjectId, document.id, {
                 account_id: account.id,
-                amount_minor: form.direction === 'out' ? -magnitude : magnitude,
-                // The source's default when it has one; otherwise the form's own choice.
-                // The source's default when it has one — a broker or a crypto source holds
-                // several currencies and carries none, so the first offered one stands in.
-                currency_code: account.currencyCode ?? CURRENCIES[0],
+                // Major units in the form, signed minor units on the wire: the direction is the sign.
+                amount_minor: signedMinor(form.amount, form.direction),
+                // Chosen, not inherited. This used to send the source's currency, falling back to
+                // whichever code happened to be first in the list — so a dividend paid in USD into
+                // a multi-currency source was recorded in the alphabetically first currency.
+                currency_code: form.currency_code,
                 booked_at: form.booked_at,
                 description: form.description,
                 ...(form.counterparty === '' ? {} : { counterparty: form.counterparty }),
+                // One split for the whole amount, so the transaction is stored classified. Omitted
+                // when nothing was chosen, which leaves it UNCLASSIFIED — a real state, not a gap.
+                ...(form.category === '' ? {} : { category: form.category }),
                 ...(extraction === null ? {} : { document_extraction_id: extraction.id }),
             });
 
@@ -174,8 +218,14 @@ export default function CreateTransactionDialog({
                             // so only name it when there is one.
                             label:
                                 candidate.currencyCode === null
-                                    ? sourceName(candidate, t((d) => d.pages.wallet.generalSource))
-                                    : `${sourceName(candidate, t((d) => d.pages.wallet.generalSource))} · ${candidate.currencyCode}`,
+                                    ? sourceName(
+                                          candidate,
+                                          t((d) => d.pages.wallet.generalSource),
+                                      )
+                                    : `${sourceName(
+                                          candidate,
+                                          t((d) => d.pages.wallet.generalSource),
+                                      )} · ${candidate.currencyCode}`,
                         }))}
                     />
                 </Field>
@@ -185,9 +235,14 @@ export default function CreateTransactionDialog({
                         can be either and a refund is money in, so this is chosen rather than
                         inferred from the document type. */}
                     <ButtonGroup
+                        stretch
                         value={form.direction}
                         onChange={(value) => {
-                            setForm((current) => ({ ...current, direction: value }));
+                            setForm((current) => ({
+                                ...current,
+                                direction: value,
+                                category: categoryFor(categories, current.category, value),
+                            }));
                         }}
                         options={[
                             { value: 'out', label: t((d) => d.documentsReview.directionOut) },
@@ -216,11 +271,49 @@ export default function CreateTransactionDialog({
                 </Field>
 
                 <Field
+                    label={t((d) => d.pages.walletTransactions.form.currency)}
+                    htmlFor="transaction-currency"
+                    error={errors.get('currency_code')}
+                    // Only when the two actually disagree — otherwise it is a sentence restating
+                    // the select next to it.
+                    hint={currencyWarning}
+                >
+                    <PanelSelect
+                        id="transaction-currency"
+                        value={form.currency_code}
+                        onValueChange={(value) => {
+                            setForm((current) => ({ ...current, currency_code: value }));
+                        }}
+                        options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                    />
+                </Field>
+
+                <Field
+                    label={t((d) => d.pages.walletTransactions.classify.category)}
+                    htmlFor="transaction-category"
+                    error={errors.get('category')}
+                >
+                    <PanelSelect
+                        id="transaction-category"
+                        value={form.category}
+                        placeholder={t((d) => d.pages.walletTransactions.classify.later)}
+                        onValueChange={(value) => {
+                            setForm((current) => ({ ...current, category: value }));
+                        }}
+                        options={categoriesFor(categories, form.direction).map((category) => ({
+                            value: category.code,
+                            label: t((d) => d.pages.walletTransactions.categories[category.code] ?? category.code),
+                        }))}
+                    />
+                </Field>
+
+                <Field
                     label={t((d) => d.documentsReview.transactionDate)}
                     htmlFor="transaction-date"
                     error={errors.get('booked_at')}
                 >
                     <PanelDate
+                        block
                         value={form.booked_at === '' ? null : form.booked_at}
                         onChange={(next) => {
                             setForm((current) => ({ ...current, booked_at: next ?? '' }));
@@ -264,11 +357,22 @@ export default function CreateTransactionDialog({
 
 interface TransactionForm {
     account_id: string;
-    direction: 'out' | 'in';
+    direction: MoneyDirection;
     amount: string;
+    currency_code: string;
+    /** '' means "not classified", which is a real answer and the transaction's default state. */
+    category: string;
     booked_at: string;
     description: string;
     counterparty: string;
+}
+
+/**
+ * The category the reading proposed, as a starting point. Checked against the catalogue once that
+ * has loaded — see the effect above — because a model may answer a code nobody has defined.
+ */
+function categoryFrom(payment: Record<string, unknown>): string {
+    return readString(payment, 'category').toUpperCase();
 }
 
 /**
@@ -277,26 +381,39 @@ interface TransactionForm {
  * Field names come from `ExtractionSchema`, so a reading by a parser, by a model, or typed by a
  * human all pre-fill identically. Anything the document did not yield starts empty rather than
  * guessed — an empty box a person fills is honest; a plausible wrong value they skim past is not.
+ *
+ * The money comes from the first `payments` entry, not from a top-level amount: a document says
+ * what it obliges, and a document obliging more than one payment is ordinary (an ANAF obligation
+ * with several lines, a dividend decision with several beneficiaries). Only the first is offered
+ * here because this dialog builds one transaction; the rest are what the bulk import is for.
  */
 function prefill(extraction: DocumentExtractionSummary | null, document: DocumentSummary): TransactionForm {
     const fields = extraction?.proposedFields ?? {};
-    const read = (name: string): string => {
-        const value = fields[name];
-
-        return typeof value === 'string' ? value : '';
-    };
-
-    const merchant = read('merchant');
+    const index = subjectPaymentIndex(extraction);
+    const payment = entryAt(fields, 'payments', index);
+    // Which side of this payment the subject is on, worked out on the server against their own
+    // name — the reading itself only says who paid and who was paid, as printed.
+    const parties = extraction?.paymentParties[index] ?? { direction: null, counterparty: null };
+    const issuer = readString(groupOf(fields, 'issuer'), 'name');
 
     return {
         account_id: '',
-        // A receipt is money going out; anything else is the user's call.
-        direction: document.type === 'RECEIPT' ? 'out' : 'out',
-        amount: read('amount'),
-        // Falls back to the day the document arrived, which is closer than nothing and visibly a
-        // date the person can correct.
-        booked_at: read('date') || document.receivedAt.slice(0, 10),
-        description: merchant === '' ? document.filename : merchant,
-        counterparty: merchant,
+        // 'out' where the subject was found on neither side of the payment: a default the person
+        // can flip, never a claim. Guessing the other way round would be equally arbitrary.
+        direction: parties.direction === 'IN' ? 'in' : 'out',
+        // What the document was actually paid in, where it says so — the amount above is in that
+        // currency, and inheriting the account's instead is how 211588 USD became 211588 RON.
+        currency_code: currencyFrom(payment),
+        category: categoryFrom(payment),
+        // What was actually handed over. `amount_stated` is the same money in the currency the
+        // document computes in, and belongs to a conversion this form does not do.
+        amount: readString(payment, 'amount_paid'),
+        // The payment's own date where it has one, else the document's, else the day it arrived —
+        // each closer than nothing and visibly a date the person can correct.
+        booked_at: readString(payment, 'date') || readString(fields, 'date') || document.receivedAt.slice(0, 10),
+        // What the document *is*, in its own words. This used to be the counterparty, so a receipt
+        // read "Kaufland" in both boxes and explained nothing.
+        description: readString(payment, 'description') || readString(fields, 'description') || document.filename,
+        counterparty: parties.counterparty ?? issuer,
     };
 }

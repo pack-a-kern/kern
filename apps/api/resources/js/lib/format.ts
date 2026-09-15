@@ -17,6 +17,22 @@ export function formatDateTime(iso: string, locale: string): string {
 }
 
 /**
+ * A calendar date (`YYYY-MM-DD`), with no time and no timezone.
+ *
+ * Read and formatted in UTC: a date-only value parsed in the viewer's zone lands on the previous day
+ * anywhere west of Greenwich, and a contract's start date is a day, not an instant.
+ */
+export function formatDate(isoDate: string, locale: string): string {
+    try {
+        return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(
+            new Date(`${isoDate.slice(0, 10)}T00:00:00Z`),
+        );
+    } catch {
+        return isoDate;
+    }
+}
+
+/**
  * A byte count as a human size.
  *
  * `Intl.NumberFormat`'s unit style rather than a hand-rolled `/1024` and a literal "KB": both the

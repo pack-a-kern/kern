@@ -46,6 +46,8 @@ return [
             // Just after midnight: a period closes at the end of a day, so the first run after it
             // is the earliest honest moment to post the interest.
             'deposit.post_interest' => env('OPERATIONS_CRON_DEPOSIT_POST_INTEREST', '15 0 * * *'),
+            // Monthly: GLEIF publishes its BIC file once a month, and banks change far less often.
+            'banks.import' => env('OPERATIONS_CRON_BANKS_IMPORT', '30 5 2 * *'),
         ],
     ],
 
@@ -75,7 +77,7 @@ return [
         // The document categories the ingest form offers. In config, not in the enum: an operator
         // adding "CIRCULARA" should not need a code change.
         //
-        // Not a domain constraint — `source_documents.document_type` is an unconstrained string,
+        // Not a domain constraint — `ext_source_documents.document_type` is an unconstrained string,
         // owned by whichever module ingests (the BNR importer writes `FX_DAILY`/`FX_YEARLY` through
         // the same column). This list is only what this screen offers.
         //

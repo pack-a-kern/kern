@@ -7,7 +7,9 @@ namespace Tests\Feature\Domain\Documents\ListDocumentsControllerTest;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Enums\ExtractionStatus;
+use App\Domain\Documents\Enums\ExtractorType;
 use App\Domain\Documents\Models\Document;
+use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
@@ -19,7 +21,6 @@ use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
@@ -70,48 +71,33 @@ function memberAndSubject(): array
 }
 
 /**
- * A raw `document_extractions` row.
+ * A `document_extractions` row with a given status.
  *
- * Written through the query builder rather than the model: `DocumentExtraction` encrypts
- * `result_ciphertext` under the subject's DEK, and these tests only care that a row with a given
- * status exists — the endpoint counts rows, it never decrypts them.
+ * Through the model, encrypted like every real reading: the list decrypts the newest reading of each
+ * document for the name it proposed, so a row written in clear would be one production never holds.
  */
-function insertExtraction(string $documentId, ExtractionStatus $status): void
+function insertExtraction(Document $document, ExtractionStatus $status): void
 {
-    DB::table('document_extractions')->insert([
-        'id' => (string) Str::uuid7(),
-        'document_id' => $documentId,
-        'extractor_type' => 'NATIVE_PDF_TEXT',
-        'extractor_version' => '1.0.0',
-        'schema_version' => '1',
-        'result_ciphertext' => '{}',
-        'confidence_decimal' => '0.9000',
-        'status' => $status->value,
-        'created_at' => now('UTC'),
-        'updated_at' => now('UTC'),
-    ]);
+    $extraction = DocumentExtraction::propose($document, ExtractorType::NATIVE_PDF_TEXT, '1.0.0', null, null, '1', [], '0.9000');
+
+    DB::table('document_extractions')->where('id', $extraction->id)->update(['status' => $status->value]);
 }
 
 it('lists the subject documents newest first, under the name each is presented by', function (): void {
     [$user, $subject] = memberAndSubject();
 
-    Document::factory()->create([
-        'tax_subject_id' => $subject->id,
-        // Named by its owner, so that is what the list shows.
-        'display_name_ciphertext' => 'chirie-ianuarie.pdf',
-        'mime_type' => 'application/pdf',
-        'received_at' => Carbon::parse('2026-01-10T09:00:00Z'),
-    ]);
-    Document::factory()->create([
-        'tax_subject_id' => $subject->id,
-        // Never named, and the file arrived called `IMG_0042.jpg` — which is what every photograph
-        // a phone takes is called, so it identifies nothing and is not used as the label.
-        'original_filename_ciphertext' => 'IMG_0042.jpg',
-        'display_name_ciphertext' => null,
-        'mime_type' => 'image/jpeg',
-        'sha256' => str_repeat('deadbeef', 8),
-        'received_at' => Carbon::parse('2026-03-02T09:00:00Z'),
-    ]);
+    Document::factory()->part(['mime_type' => 'application/pdf'])->create(['tax_subject_id' => $subject->id, // Named by its owner, so that is what the list shows.
+        'display_name_ciphertext' => 'chirie-ianuarie.pdf', 'received_at' => Carbon::parse('2026-01-10T09:00:00Z')]);
+    // Never named, and the file arrived called `IMG_0042.jpg` — which is what every photograph a
+    // phone takes is called, so it identifies nothing and is not used as the label.
+    Document::factory()
+        ->part(['mime_type' => 'image/jpeg', 'original_filename_ciphertext' => 'IMG_0042.jpg'])
+        ->create([
+            'tax_subject_id' => $subject->id,
+            'display_name_ciphertext' => null,
+            'sha256' => str_repeat('deadbeef', 8),
+            'received_at' => Carbon::parse('2026-03-02T09:00:00Z'),
+        ]);
 
     $response = $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk();
 
@@ -201,21 +187,51 @@ it('filters by received date inclusively at both ends', function (): void {
         ->assertJsonCount(2, 'data');
 });
 
-it('reports a document a person has accepted a reading of as done', function (): void {
+it('separates a reading waiting to be accepted from one waiting to be imported', function (): void {
     [$user, $subject] = memberAndSubject();
     $document = Document::factory()->create([
         'tax_subject_id' => $subject->id,
         'status' => DocumentStatus::READY,
     ]);
 
-    insertExtraction($document->id, ExtractionStatus::PROPOSED);
-    insertExtraction($document->id, ExtractionStatus::ACCEPTED);
+    insertExtraction($document, ExtractionStatus::PROPOSED);
+    insertExtraction($document, ExtractionStatus::ACCEPTED);
 
-    // A still-pending proposal alongside an accepted one does not drag it back: somebody decided,
-    // and the stage says so. `READY` on its own could not — it is the pipeline finishing, not a
-    // person.
+    // Accepting used to end it. It no longer does: accepting is the middle of the flow — a person
+    // agrees to what was read, and *then* imports it — and the two halves are different stages so
+    // that a list can say which of them it is asking for.
     $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk()
-        ->assertJsonPath('data.0.stage', 'DONE');
+        ->assertJsonPath('data.0.stage', 'TO_IMPORT');
+});
+
+it('narrows to the documents waiting to be imported, and to those waiting to be read', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $unread = Document::factory()->create(['tax_subject_id' => $subject->id, 'status' => DocumentStatus::READY]);
+    insertExtraction($unread, ExtractionStatus::PROPOSED);
+
+    $accepted = Document::factory()->create(['tax_subject_id' => $subject->id, 'status' => DocumentStatus::READY]);
+    insertExtraction($accepted, ExtractionStatus::ACCEPTED);
+
+    // Nothing could read it at all — the reading failed, so there is no proposal. It belongs with
+    // the documents waiting on a person, not with the ones waiting to be imported: there is nothing
+    // to import from a document nothing was read from.
+    $unreadable = Document::factory()->create(['tax_subject_id' => $subject->id, 'status' => DocumentStatus::READY]);
+
+    // The filter and the badge are computed by different code — SQL narrowing a list, PHP labelling
+    // a row — so each assertion checks that the rows returned carry the stage that was asked for.
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subject->id}/documents?stage=ACTION_NEEDED")->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.id', $unreadable->id)
+        ->assertJsonPath('data.0.stage', 'ACTION_NEEDED')
+        ->assertJsonPath('data.1.id', $unread->id);
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subject->id}/documents?stage=TO_IMPORT")->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $accepted->id)
+        ->assertJsonPath('data.0.stage', 'TO_IMPORT');
 });
 
 it('reports a read document nobody has decided on as needing attention', function (): void {
@@ -225,7 +241,7 @@ it('reports a read document nobody has decided on as needing attention', functio
         'status' => DocumentStatus::READY,
     ]);
 
-    insertExtraction($document->id, ExtractionStatus::PROPOSED);
+    insertExtraction($document, ExtractionStatus::PROPOSED);
 
     $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk()
         ->assertJsonPath('data.0.stage', 'ACTION_NEEDED');
@@ -241,12 +257,12 @@ it('narrows to documents nobody has dealt with yet', function (): void {
         'status' => DocumentStatus::READY,
     ]);
 
-    // Dealt with: a person accepted a reading of it.
+    // Also outstanding: accepted, but nothing has been imported from it yet.
     $accepted = Document::factory()->create([
         'tax_subject_id' => $subject->id,
         'status' => DocumentStatus::READY,
     ]);
-    insertExtraction($accepted->id, ExtractionStatus::ACCEPTED);
+    insertExtraction($accepted, ExtractionStatus::ACCEPTED);
 
     // Not READY, so not actionable at all yet.
     Document::factory()->create([
@@ -256,8 +272,9 @@ it('narrows to documents nobody has dealt with yet', function (): void {
 
     $this->actingAs($user, 'web')
         ->getJson("/api/v1/subjects/{$subject->id}/documents?needs_review=1")->assertOk()
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.id', $outstanding->id);
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.1.id', $outstanding->id)
+        ->assertJsonPath('data.0.id', $accepted->id);
 });
 
 it('treats a document already turned into a transaction as dealt with', function (): void {
@@ -348,4 +365,29 @@ it('counts only what the filters match, so the pager does not offer empty pages'
         ->getJson("/api/v1/subjects/{$subject->id}/documents?type=INVOICE")->assertOk()
         ->assertJsonPath('total', 1)
         ->assertJsonPath('last_page', 1);
+});
+
+it('carries the name the newest reading proposed, and none for a document nothing has read', function (): void {
+    [$user, $subject] = memberAndSubject();
+
+    $read = Document::factory()->part(['mime_type' => 'application/pdf'])->create([
+        'tax_subject_id' => $subject->id,
+        'received_at' => Carbon::parse('2026-01-10T09:00:00Z'),
+    ]);
+
+    foreach (['factura-veche', 'factura-enel-martie-2026'] as $name) {
+        DocumentExtraction::propose($read, ExtractorType::EXTERNAL_DOCUMENT_AI, '1.0.0', 'test', 'test-model', '1', ['suggested_filename' => $name], null);
+        // Ids are UUIDv7, ordered by the millisecond they were made in: two readings made in the same
+        // one would have no newest between them.
+        usleep(2_000);
+    }
+
+    Document::factory()->part(['mime_type' => 'application/pdf'])->create([
+        'tax_subject_id' => $subject->id,
+        'received_at' => Carbon::parse('2026-02-10T09:00:00Z'),
+    ]);
+
+    $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents")->assertOk()
+        ->assertJsonPath('data.0.proposed_name', null)
+        ->assertJsonPath('data.1.proposed_name', 'factura-enel-martie-2026');
 });

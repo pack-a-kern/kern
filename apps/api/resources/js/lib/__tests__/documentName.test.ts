@@ -2,9 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { suggestDocumentName } from '../documentName';
 
 describe('suggestDocumentName', () => {
-    it('builds a name from the type, the merchant and the date', () => {
+    it('uses the name the model itself proposed, when it proposed one', () => {
+        // It saw the document; this function sees only the fields that survived extraction.
         expect(
-            suggestDocumentName('Bon fiscal', { merchant: 'KAUFLAND ROMANIA SCS', date: '2026-03-14' }, 'a1b2c3.png'),
+            suggestDocumentName(
+                'Bon fiscal',
+                { suggested_filename: 'Bon Kaufland 14 martie 2026', date: '2026-03-14' },
+                'a1b2c3.png',
+            ),
+        ).toBe('bon-kaufland-14-martie-2026.png');
+    });
+
+    it('builds a name from the type, the issuer and the date when none was proposed', () => {
+        expect(
+            suggestDocumentName(
+                'Bon fiscal',
+                { issuer: { name: 'KAUFLAND ROMANIA SCS' }, date: '2026-03-14' },
+                'a1b2c3.png',
+            ),
         ).toBe('bon-fiscal-kaufland-romania-scs-2026-03-14.png');
     });
 
@@ -27,7 +42,7 @@ describe('suggestDocumentName', () => {
     });
 
     it('keeps the extension of the name it replaces', () => {
-        expect(suggestDocumentName('Bon', { merchant: 'Lidl' }, 'deadbeefdeadbeef.jpg')).toBe('bon-lidl.jpg');
+        expect(suggestDocumentName('Bon', { counterparty: 'Lidl' }, 'deadbeefdeadbeef.jpg')).toBe('bon-lidl.jpg');
     });
 
     it('never ends a name with a separator when it has to truncate', () => {

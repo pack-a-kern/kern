@@ -10,7 +10,7 @@ use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Models\FxRateAnomaly;
 use App\Domain\Fx\Services\FxRateImporter;
 use App\Domain\Fx\ValueObjects\DecimalRate;
-use Database\Factories\FxSourceFactory;
+use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -19,12 +19,12 @@ beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
 });
 
-it('creates a new fx_rates row when none exists for that source/date/currency', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+it('creates a new ext_fx_rates row when none exists for that source/date/currency', function (): void {
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     $outcome = (new FxRateImporter())->import(
-        $source,
+        $source->id,
         new DateTimeImmutable('2026-01-15'),
         new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')),
         $version->id,
@@ -40,13 +40,13 @@ it('creates a new fx_rates row when none exists for that source/date/currency', 
 });
 
 it('is idempotent: importing the identical value twice leaves exactly one row and no anomaly', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
     $rate = new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400'));
     $importer = new FxRateImporter();
 
-    $first = $importer->import($source, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
-    $second = $importer->import($source, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
+    $first = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
+    $second = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
 
     expect($first)->toBe(FxRateImportOutcome::CREATED)
         ->and($second)->toBe(FxRateImportOutcome::UNCHANGED)
@@ -55,32 +55,32 @@ it('is idempotent: importing the identical value twice leaves exactly one row an
 });
 
 it('treats a value written with more trailing zeros as unchanged, not an anomaly', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
-    $outcome = $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')), $version->id);
+    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
+    $outcome = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')), $version->id);
 
     expect($outcome)->toBe(FxRateImportOutcome::UNCHANGED)
         ->and(FxRateAnomaly::query()->count())->toBe(0);
 });
 
 it('records an anomaly instead of overwriting when a historical value changes, leaving the original row untouched', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $originalVersion = SourceDocumentVersionFactory::new()->createOne();
     $conflictingVersion = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
     $importer->import(
-        $source,
+        $source->id,
         new DateTimeImmutable('2026-01-15'),
         new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')),
         $originalVersion->id,
     );
 
     $outcome = $importer->import(
-        $source,
+        $source->id,
         new DateTimeImmutable('2026-01-15'),
         new ParsedFxRate('EUR', 1, DecimalRate::fromString('5.100000')),
         $conflictingVersion->id,
@@ -90,7 +90,7 @@ it('records an anomaly instead of overwriting when a historical value changes, l
         ->and(FxRate::query()->count())->toBe(1)
         ->and(FxRateAnomaly::query()->count())->toBe(1);
 
-    // The original fx_rates row must be byte-for-byte untouched — never a silent overwrite.
+    // The original ext_fx_rates row must be byte-for-byte untouched — never a silent overwrite.
     $row = FxRate::query()->firstOrFail();
     expect((string) $row->rate_decimal)->toBe('4.976400')
         ->and($row->source_document_version_id)->toBe($originalVersion->id);
@@ -102,26 +102,26 @@ it('records an anomaly instead of overwriting when a historical value changes, l
 });
 
 it('records an anomaly when only the multiplier changes, even if the raw rate number is identical', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version1 = SourceDocumentVersionFactory::new()->createOne();
     $version2 = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 100, DecimalRate::fromString('1279.99')), $version1->id);
-    $outcome = $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 1, DecimalRate::fromString('1279.99')), $version2->id);
+    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 100, DecimalRate::fromString('1279.99')), $version1->id);
+    $outcome = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 1, DecimalRate::fromString('1279.99')), $version2->id);
 
     expect($outcome)->toBe(FxRateImportOutcome::ANOMALY)
         ->and(FxRateAnomaly::query()->count())->toBe(1);
 });
 
 it('scopes rows independently per currency and per date', function (): void {
-    $source = FxSourceFactory::new()->createOne();
+    $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
-    $importer->import($source, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('USD', 1, DecimalRate::fromString('4.5821')), $version->id);
-    $importer->import($source, new DateTimeImmutable('2026-01-16'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9778')), $version->id);
+    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
+    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('USD', 1, DecimalRate::fromString('4.5821')), $version->id);
+    $importer->import($source->id, new DateTimeImmutable('2026-01-16'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9778')), $version->id);
 
     expect(FxRate::query()->count())->toBe(3)
         ->and(FxRateAnomaly::query()->count())->toBe(0);

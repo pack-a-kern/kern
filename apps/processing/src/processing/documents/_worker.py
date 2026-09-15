@@ -31,6 +31,35 @@ WorkerPage = tuple[float, float, str]
 WorkerResult = tuple[str, int | str | list[WorkerPage] | None]
 
 
+def count_worker(pdf_bytes: bytes, max_memory_bytes: int, conn: Connection) -> None:
+    """Counts `pdf_bytes`' pages, entirely in this process.
+
+    Separate from `extract_worker` because it is a different job with a
+    different cost: walking the page tree answers in milliseconds where
+    extracting every page's text takes multiples of that, and a caller that
+    only needs to refuse an over-long document should never pay for reading
+    it. Same isolation, same one-message contract, same never-raises rule.
+    """
+    with contextlib.suppress(ValueError, OSError):
+        resource.setrlimit(resource.RLIMIT_AS, (max_memory_bytes, max_memory_bytes))
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        if reader.is_encrypted:
+            # Never call .decrypt(), not even with an empty password —
+            # `BLUEPRINT.md` §14.2 requires rejecting encrypted PDFs outright.
+            conn.send(("encrypted", None))
+            return
+        conn.send(("ok", len(reader.pages)))
+    except PyPdfError as exc:
+        conn.send(("malformed", str(exc)))
+    except MemoryError as exc:
+        conn.send(("malformed", f"memory limit exceeded: {exc}"))
+    except Exception as exc:  # deliberately broad: reported to the parent, never swallowed
+        conn.send(("error", repr(exc)))
+    finally:
+        conn.close()
+
+
 def extract_worker(
     pdf_bytes: bytes, max_pages: int, max_memory_bytes: int, conn: Connection
 ) -> None:

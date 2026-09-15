@@ -170,14 +170,43 @@ export default function CustomSelect<TMeta = unknown>({
             }
         };
 
+        // A dialog traps focus: Radix listens on the document and pulls focus back into the dialog the
+        // moment it lands anywhere else — and this menu is portalled to the body, outside it. Inside a
+        // dialog the search box took focus and lost it in the same tick, so typing went nowhere.
+        //
+        // Focus events are stopped on their way up instead: every one from the menu, and the trigger's
+        // own `focusout` when focus is moving into the menu. The same shape as `onWheel` below, which
+        // keeps a dialog's scroll lock from reaching this list. Outside a dialog nothing listens, so
+        // nothing changes.
+        const menu = menuRef.current;
+        const trigger = triggerRef.current;
+        const stayInMenu = (event: FocusEvent): void => {
+            event.stopPropagation();
+        };
+        const leaveForMenu = (event: FocusEvent): void => {
+            if (menu !== null && event.relatedTarget instanceof Node && menu.contains(event.relatedTarget)) {
+                event.stopPropagation();
+            }
+        };
+
         document.addEventListener('mousedown', onPointerDown);
         window.addEventListener('scroll', reposition, true);
         window.addEventListener('resize', reposition);
+        menu?.addEventListener('focusin', stayInMenu);
+        menu?.addEventListener('focusout', stayInMenu);
+        trigger?.addEventListener('focusout', leaveForMenu);
+
+        // Focused here rather than through `autoFocus`: that fires while React commits, before this
+        // effect has attached the listeners above, so the dialog would already have taken it back.
+        searchRef.current?.focus();
 
         return () => {
             document.removeEventListener('mousedown', onPointerDown);
             window.removeEventListener('scroll', reposition, true);
             window.removeEventListener('resize', reposition);
+            menu?.removeEventListener('focusin', stayInMenu);
+            menu?.removeEventListener('focusout', stayInMenu);
+            trigger?.removeEventListener('focusout', leaveForMenu);
         };
     }, [open]);
 
@@ -255,7 +284,6 @@ export default function CustomSelect<TMeta = unknown>({
                         <input
                             ref={searchRef}
                             value={query}
-                            autoFocus
                             onChange={(event) => {
                                 setQuery(event.target.value);
                                 setActiveIndex(0);

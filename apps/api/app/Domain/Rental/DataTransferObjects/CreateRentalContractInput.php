@@ -20,7 +20,6 @@ final readonly class CreateRentalContractInput
         public RentalPaymentFrequency $paymentFrequency,
         public ?string $endDate = null,
         public ?int $paymentDay = null,
-        public ?int $depositMinor = null,
         public ?string $sourceDocumentId = null,
         public ?string $extractionId = null,
     ) {

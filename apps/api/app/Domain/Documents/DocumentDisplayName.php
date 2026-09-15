@@ -32,9 +32,11 @@ final readonly class DocumentDisplayName
 
     private const string UNKNOWN_EXTENSION = 'bin';
 
-    public static function forContent(string $sha256, string $mimeType): string
+    public static function forContent(string $sha256, ?string $mimeType): string
     {
-        $extension = SniffedFileType::tryFrom($mimeType)?->allowedExtensions()[0] ?? self::UNKNOWN_EXTENSION;
+        // Null when the document has no files — possible only for a row mid-deletion, and an
+        // extension-less name is a better answer there than a crash on a list screen.
+        $extension = SniffedFileType::tryFrom($mimeType ?? '')?->allowedExtensions()[0] ?? self::UNKNOWN_EXTENSION;
 
         return substr($sha256, 0, self::HASH_LENGTH) . '.' . $extension;
     }

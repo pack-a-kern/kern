@@ -16,7 +16,7 @@ use Illuminate\Http\JsonResponse;
  * `GET /api/v1/settings/platform-data` — what this installation has ingested, and where from.
  *
  * Both halves belong with configuration rather than with the queue. The official-source allowlist is
- * `config/sources.php` mirrored into `official_sources`, read-only by design — see
+ * `config/sources.php` mirrored into `ext_official_sources`, read-only by design — see
  * {@see ReadSourceAllowlist}. Data freshness is the other side of the same question: which of those
  * sources has actually produced something recently, and how stale it is allowed to get before the
  * screen says so (`config/operations.php`'s `freshness` block).

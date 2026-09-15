@@ -4,47 +4,38 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Actions;
 
-use App\Domain\Rental\Enums\AccrualStatus;
+use App\Domain\Rental\DataTransferObjects\RentPeriod;
 use App\Domain\Rental\Events\RentalAccrualRecorded;
 use App\Domain\Rental\Models\RentalAccrual;
 use App\Domain\Rental\Models\RentalContract;
-use App\Domain\Rental\Models\RentalContractVersion;
-use App\Domain\Rental\Services\AccrualPeriodBuilder;
-use App\Domain\Rental\Services\OwnershipShareCalculator;
-use App\Domain\Rental\Services\RentalDueDateCalculator;
+use App\Domain\Rental\Services\RentSchedule;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * (Re)computes a rental contract's `rental_accruals` through `$until` (exclusive) and persists
- * them, dispatching `App\Domain\Rental\Events\RentalAccrualRecorded` for each period after the
- * transaction commits — the exact idempotent-regeneration idiom `App\Domain\Wallet\Actions\
- * GenerateDepositInterestSchedule` establishes for `deposit_interest_events`.
+ * (Re)computes a rental contract's `rental_accruals` through `$until` (exclusive) and persists them,
+ * dispatching {@see RentalAccrualRecorded} for each period after the transaction commits.
  *
- * **The temporal model that makes an amendment produce correct accruals on both sides**: every
- * `rental_contract_versions` row is scheduled *independently*, from its own `valid_from` to
- * `min(valid_to ?? $until, $until)`, via `App\Domain\Rental\Services\AccrualPeriodBuilder`. A rent
- * change recorded by `App\Domain\Rental\Actions\AmendRentalContract` always lands exactly on a
- * period boundary for this reason — the old version's schedule stops there and the new version's
- * schedule starts there, so no single `rental_accruals` row is ever asked to represent two
- * different rent amounts.
+ * An accrual is rent the contract makes **owed** for a period — the income a tax return counts for a
+ * rental, which is set by the contract "indiferent de momentul încasării chiriei" (Codul fiscal,
+ * art. 84). Whether the tenant paid is not recorded here, because it does not change the figure.
+ *
+ * The periods themselves come from {@see RentSchedule}, which the rentals screen also reads directly;
+ * this action is only what stores them.
  *
  * **Idempotent and safe to re-run**, matched by the unique `(rental_contract_id, period_start,
- * period_end)` key, with the identical three-way behaviour `GenerateDepositInterestSchedule`
- * documents: a period with no existing row is inserted; an existing, not-yet-`PAID` row is
- * recalculated and updated in place; an existing `PAID` row is left completely untouched — a
- * settled accrual is immutable (`docs/AGENTS.md` §1 rule 17's spirit).
+ * period_end)` key: a period with no row is inserted, a period with a row is recalculated in place,
+ * and a row the current terms no longer produce is deleted. The last matters: an amendment or an
+ * ending moves period boundaries, and without it the old periods stayed beside the new ones — the
+ * same fault a deposit's interest schedule had until it gained the same rule.
  *
  * Requires an active `App\Domain\Subjects\Tenancy\TenantContext` authorized for the contract's own
  * `tax_subject_id` — every model this action reads/writes is tenant-scoped.
  */
 final readonly class GenerateRentalAccruals
 {
-    public function __construct(
-        private AccrualPeriodBuilder $periodBuilder,
-        private OwnershipShareCalculator $shareCalculator,
-        private RentalDueDateCalculator $dueDateCalculator,
-    ) {
+    public function __construct(private RentSchedule $schedule)
+    {
     }
 
     /**
@@ -53,25 +44,15 @@ final readonly class GenerateRentalAccruals
     public function __invoke(RentalContract $contract, DateTimeImmutable $until): array
     {
         $property = $contract->property()->firstOrFail();
-        $versions = $contract->versions()->get();
+        $periods = $this->schedule->periods($contract, $property, $contract->versions()->get(), $until);
 
-        $accruals = DB::transaction(function () use ($contract, $property, $versions, $until): array {
-            $recorded = [];
+        $accruals = DB::transaction(function () use ($contract, $periods): array {
+            $recorded = array_map(fn (RentPeriod $period): RentalAccrual => $this->upsert($contract, $period), $periods);
 
-            foreach ($versions as $version) {
-                /** @var RentalContractVersion $version */
-                $validFrom = $version->valid_from->toImmutable();
-                $validTo = $version->valid_to?->toImmutable() ?? $until;
-                $effectiveEnd = $validTo < $until ? $validTo : $until;
-
-                if (($effectiveEnd <=> $validFrom) <= 0) {
-                    continue;
-                }
-
-                foreach ($this->periodBuilder->build($version->payment_frequency, $validFrom, $effectiveEnd) as [$periodStart, $periodEnd]) {
-                    $recorded[] = $this->upsertPeriod($contract, $version, $property->ownership_percent_decimal, $periodStart, $periodEnd);
-                }
-            }
+            RentalAccrual::query()
+                ->where('rental_contract_id', $contract->id)
+                ->whereNotIn('id', array_map(static fn (RentalAccrual $accrual): string => $accrual->id, $recorded))
+                ->delete();
 
             return $recorded;
         });
@@ -95,44 +76,31 @@ final readonly class GenerateRentalAccruals
         return $accruals;
     }
 
-    private function upsertPeriod(
-        RentalContract $contract,
-        RentalContractVersion $version,
-        string $ownershipPercentDecimal,
-        DateTimeImmutable $periodStart,
-        DateTimeImmutable $periodEnd,
-    ): RentalAccrual {
-        /** @var RentalAccrual|null $existing */
-        $existing = RentalAccrual::query()
-            ->where('rental_contract_id', $contract->id)
-            ->whereDate('period_start', $periodStart->format('Y-m-d'))
-            ->whereDate('period_end', $periodEnd->format('Y-m-d'))
-            ->first();
-
-        if ($existing !== null && $existing->status === AccrualStatus::PAID) {
-            return $existing;
-        }
-
-        $grossMinor = $this->shareCalculator->shareOf($version->rent_minor, $ownershipPercentDecimal);
-        $dueDate = $this->dueDateCalculator->forPeriod($periodStart, $periodEnd, $version->payment_day);
-
+    private function upsert(RentalContract $contract, RentPeriod $period): RentalAccrual
+    {
         $attributes = [
             'tax_subject_id' => $contract->tax_subject_id,
             'rental_contract_id' => $contract->id,
-            'rental_contract_version_id' => $version->id,
-            'period_start' => $periodStart->format('Y-m-d'),
-            'period_end' => $periodEnd->format('Y-m-d'),
-            'due_date' => $dueDate->format('Y-m-d'),
-            'gross_minor' => $grossMinor,
+            'rental_contract_version_id' => $period->version->id,
+            'period_start' => $period->periodStart->format('Y-m-d'),
+            'period_end' => $period->periodEnd->format('Y-m-d'),
+            'due_date' => $period->dueDate->format('Y-m-d'),
+            'gross_minor' => $period->shareMinor,
         ];
 
-        if ($existing !== null) {
-            $existing->fill($attributes);
-            $existing->save();
+        $existing = RentalAccrual::query()
+            ->where('rental_contract_id', $contract->id)
+            ->whereDate('period_start', $attributes['period_start'])
+            ->whereDate('period_end', $attributes['period_end'])
+            ->first();
 
-            return $existing;
+        if ($existing === null) {
+            return RentalAccrual::create($attributes);
         }
 
-        return RentalAccrual::create($attributes);
+        $existing->fill($attributes);
+        $existing->save();
+
+        return $existing;
     }
 }

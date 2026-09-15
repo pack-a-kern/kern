@@ -48,6 +48,22 @@ final class ExternalDocumentAiProviderFailedException extends RuntimeException i
         return $exception;
     }
 
+    /**
+     * What the model said, when the failure is about what it said.
+     *
+     * Carried on the exception rather than logged: it is a reading of somebody's document, so it
+     * belongs under their own encryption key on their own document row, not in a log file. Null for
+     * the failures that happened before any reply existed — a timeout, a refused connection.
+     */
+    public ?string $rawReply = null;
+
+    public function withReply(?string $reply): self
+    {
+        $this->rawReply = $reply;
+
+        return $this;
+    }
+
     public static function malformedReply(): self
     {
         $exception = new self('The AI provider returned a response with no readable reply.');

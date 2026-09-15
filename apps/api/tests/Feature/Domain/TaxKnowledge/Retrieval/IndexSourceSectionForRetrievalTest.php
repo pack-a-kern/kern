@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 /**
- * pgvector-backed retrieval: `source_section_chunks.embedding` is a `vector` column that only
+ * pgvector-backed retrieval: `ext_source_section_chunks.embedding` is a `vector` column that only
  * exists on Postgres, so these must skip elsewhere rather than fail. Matches the convention the
  * Audit suite already uses for its Postgres-only trigger and locking tests.
  */

@@ -47,7 +47,10 @@ use RuntimeException;
  * @property string|null $model_name
  * @property string $schema_version
  * @property string $result_ciphertext
- * @property string $confidence_decimal
+ * @property string|null $confidence_decimal
+ * @property int|null $duration_ms
+ * @property int|null $prompt_tokens
+ * @property int|null $completion_tokens
  * @property ExtractionStatus $status
  * @property string|null $reviewed_by
  */
@@ -67,6 +70,9 @@ final class DocumentExtraction extends Model implements EncryptsWithSubjectDek
         'schema_version',
         'result_ciphertext',
         'confidence_decimal',
+        'duration_ms',
+        'prompt_tokens',
+        'completion_tokens',
         'reviewed_by',
     ];
 
@@ -83,8 +89,11 @@ final class DocumentExtraction extends Model implements EncryptsWithSubjectDek
      *
      * @param array<array-key, mixed> $result the structured extraction result — JSON-encoded,
      *                                         then encrypted, never stored as plaintext.
-     * @param string $confidenceDecimal a decimal string in `[0, 1]`, e.g. `"0.9200"` — never a
-     *                                   PHP float (`docs/CODE-QUALITY.md` §4).
+     * @param ?string $confidenceDecimal a decimal string in `[0, 1]`, e.g. `"0.9200"` — never a
+     *                                    PHP float (`docs/CODE-QUALITY.md` §4). Null where the
+     *                                    reader reported none: a parser has no opinion, and a model
+     *                                    that omitted the field did not measure anything. A
+     *                                    placeholder here would be drawn as a real assessment.
      */
     public static function propose(
         Document $document,
@@ -94,7 +103,11 @@ final class DocumentExtraction extends Model implements EncryptsWithSubjectDek
         ?string $modelName,
         string $schemaVersion,
         array $result,
-        string $confidenceDecimal,
+        ?string $confidenceDecimal,
+        /** What the reading cost, where the reader reported it. A parser reports nothing. */
+        ?int $durationMs = null,
+        ?int $promptTokens = null,
+        ?int $completionTokens = null,
     ): self {
         $extraction = new self();
         $extraction->encryptionSubjectIdOverride = $document->tax_subject_id;
@@ -108,6 +121,9 @@ final class DocumentExtraction extends Model implements EncryptsWithSubjectDek
             'schema_version' => $schemaVersion,
             'result_ciphertext' => json_encode($result, JSON_THROW_ON_ERROR),
             'confidence_decimal' => $confidenceDecimal,
+            'duration_ms' => $durationMs,
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
         ]);
         $extraction->status = ExtractionStatus::PROPOSED;
         $extraction->save();

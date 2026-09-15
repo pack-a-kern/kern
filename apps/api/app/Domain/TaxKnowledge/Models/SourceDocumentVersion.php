@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `source_document_versions` (`BLUEPRINT.md` §6.8/§9.1).
+ * `ext_source_document_versions` (`BLUEPRINT.md` §6.8/§9.1).
  *
  * **Identity is immutable, parsing metadata is not — these are different columns, deliberately.**
  * `source_document_id`/`content_sha256`/`raw_object_path`/`retrieved_at`/`size_bytes`/
@@ -43,6 +43,8 @@ final class SourceDocumentVersion extends Model
     /** @use HasFactory<SourceDocumentVersionFactory> */
     use HasFactory;
     use HasUuidPrimaryKey;
+
+    protected $table = 'ext_source_document_versions';
 
     /** @var list<string> */
     protected $fillable = [

@@ -29,7 +29,16 @@ export interface DepositFacts {
     interestMethod: string;
     paymentFrequency: string;
     dayCountConvention: string;
-    autoRenewal: boolean;
+    /** Matured and settled: its money is back where it came from, and nothing about it changes. */
+    closed: boolean;
+    /** Interest is on the ledger, so the terms it was computed from can no longer change. */
+    interestPosted: boolean;
+    /** Interest already paid into it, net; 0 until the first period is posted. */
+    interestReceivedMinor: number;
+    /** Which source the principal came out of; null when it came from one nobody tracks. */
+    fundingAccountId: string | null;
+    /** The bank it is at; null for a deposit recorded before banks were imported. */
+    bankId: string | null;
     /** Gross interest over the whole term — what it will have earned by maturity, not so far. */
     interestAtMaturityMinor: number | null;
     totalDays: number;
@@ -73,7 +82,7 @@ export interface DepositSummary {
     paymentFrequency: string;
     openedAt: string;
     maturityAt: string;
-    autoRenewal: boolean;
+    closed: boolean;
     /**
      * Gross interest over the deposit's **whole term**, not the part earned so far — computed when
      * the deposit is opened, from inputs that are all fixed at that moment. `null` only when no
@@ -118,17 +127,53 @@ export interface TransactionSplit {
     countryCode: string | null;
 }
 
+/** Which way money moves. The sign of a stored amount, chosen in a form as a toggle. */
+export type MoneyDirection = 'in' | 'out';
+
 /** A category a transaction may be said to be, from `config/tax_categories.php`. */
 export interface TaxCategory {
     code: string;
     /** Groups the dropdown, and says which totals it joins. Not a tax rule. */
     income: boolean;
+    /** The way money filed under it can move; the server refuses any other. */
+    direction: MoneyDirection | 'either';
+    /** Offered already chosen when money moves in this category's only direction. */
+    preselected: boolean;
+}
+
+/** The categories money moving this way can be given. */
+export function categoriesFor(categories: TaxCategory[], direction: MoneyDirection): TaxCategory[] {
+    return categories.filter((category) => category.direction === 'either' || category.direction === direction);
+}
+
+/**
+ * The category to show once the direction is known: the one already chosen while it still fits,
+ * otherwise the catalogue's preselection for that direction, otherwise none. Flipping the toggle on a
+ * dividend must not leave "Dividends" selected on money going out, which the server would refuse.
+ */
+export function categoryFor(categories: TaxCategory[], code: string, direction: MoneyDirection): string {
+    const fitting = categoriesFor(categories, direction);
+
+    if (fitting.some((category) => category.code === code)) {
+        return code;
+    }
+
+    return fitting.find((category) => category.preselected && category.direction === direction)?.code ?? '';
+}
+
+/** A typed major amount and a direction as signed minor units — rounded once, so no fractional bani reach the API. */
+export function signedMinor(amount: string, direction: MoneyDirection): number {
+    const magnitude = Math.round(Math.abs(Number(amount)) * 100);
+
+    return direction === 'out' ? -magnitude : magnitude;
 }
 
 export interface TransactionSummary {
     id: string;
     accountId: string;
     accountName: string;
+    /** The source's kind. The general source has no stored name; the screen names it by kind. */
+    accountKind: string;
     bookedAt: string;
     amountMinor: number;
     currencyCode: string;
@@ -139,6 +184,15 @@ export interface TransactionSummary {
     /** What it was said to be. Empty until someone answers. */
     splits: TransactionSplit[];
     source: string;
+    /** The document it was built from. A merge keeps the document-backed row. */
+    documentId: string | null;
+}
+
+/** Lookalike transactions gathered for a person to merge or keep. */
+export interface DuplicateGroup {
+    /** The row a merge keeps — decided on the server by the same rule the merge applies. */
+    survivorId: string;
+    transactions: TransactionSummary[];
 }
 
 export interface TransactionPage {
@@ -171,22 +225,53 @@ export interface NetWorth {
     complete: boolean;
 }
 
+/** Amounts per currency, and the same amounts in the display currency. */
+export interface Holding {
+    amounts: Record<string, number>;
+    converted: NetWorth;
+}
+
 export interface WalletTotals {
-    balances: Record<string, number>;
-    deposits: Record<string, number>;
-    /** What the running deposits will have earned by maturity — a forecast, labelled as one. */
-    interestAtMaturity: Record<string, number>;
-    accounts: number;
+    /** Everything added together in the display currency — an indication, never a fiscal figure. */
+    netWorth: NetWorth;
+    holdings: {
+        /** Recorded in General, never below zero. */
+        general: Holding;
+        /** Running principal, plus interest paid into a deposit and not yet settled. */
+        deposits: Holding;
+        cash: Holding;
+        /** Broker, crypto and other accounts, never below zero. */
+        other: Holding;
+        /** What can be spent today: General and cash together. */
+        available: Holding;
+    };
     depositCount: number;
+    /** What the running deposits will have earned by maturity — gross, a forecast. */
+    interestAtMaturity: Holding;
+    /** Interest already paid, net. */
+    interestReceived: Holding;
+    /** Lent and not yet paid back. Beside what the taxpayer has, never part of it. */
+    owedToMe: Holding;
     /** Safe to show as one number: already converted at the BNR rate for each accrual date. */
     recognisedRonMinor: number | null;
-    netWorth: NetWorth;
+}
+
+/** The running deposits at one bank. */
+export interface BankDeposits {
+    /** Null, with `name` and `code`, for deposits recorded before banks were imported. */
+    bankId: string | null;
+    name: string | null;
+    code: string | null;
+    depositCount: number;
+    principal: Record<string, number>;
+    interestAtMaturity: Record<string, number>;
+    converted: NetWorth;
+    nextMaturityAt: string;
 }
 
 export interface WalletOverview {
     totals: WalletTotals;
-    accounts: AccountSummary[];
-    accountsTotal: number;
+    banks: BankDeposits[];
     maturing: DepositSummary[];
     maturingTotal: number;
 }
@@ -241,7 +326,6 @@ export function isStreamKind(kind: string): boolean {
 export function sourceName(account: { kind: string; displayName: string }, generalLabel: string): string {
     return account.kind === 'GENERAL' ? generalLabel : account.displayName;
 }
-
 
 /**
  * Currencies offered in the forms. RON first because this is a Romanian tax product; the rest are
@@ -393,7 +477,11 @@ function parseDepositFacts(payload: unknown): DepositFacts | null {
         interestMethod: str(row, 'interest_method'),
         paymentFrequency: str(row, 'payment_frequency'),
         dayCountConvention: str(row, 'day_count_convention'),
-        autoRenewal: row.auto_renewal === true,
+        closed: row.closed === true,
+        interestPosted: row.interest_posted === true,
+        interestReceivedMinor: num(row, 'interest_received_minor'),
+        fundingAccountId: nullableStr(row, 'funding_account_id'),
+        bankId: nullableStr(row, 'bank_id'),
         interestAtMaturityMinor: nullableNum(row, 'interest_at_maturity_minor'),
         totalDays: num(row, 'total_days'),
         daysToMaturity: num(row, 'days_to_maturity'),
@@ -413,7 +501,7 @@ function parseDeposit(payload: unknown): DepositSummary {
         paymentFrequency: str(row, 'payment_frequency'),
         openedAt: str(row, 'opened_at'),
         maturityAt: str(row, 'maturity_at'),
-        autoRenewal: row.auto_renewal === true,
+        closed: row.closed === true,
         interestAtMaturityMinor: nullableNum(row, 'interest_at_maturity_minor'),
         totalDays: num(row, 'total_days'),
         daysToMaturity: nullableNum(row, 'days_to_maturity'),
@@ -440,61 +528,152 @@ export function parseAccounts(payload: unknown): AccountList {
     };
 }
 
+/** One catalogue entry, from `ShowTaxCategoriesController` or the transactions list. */
+function parseCategory(entry: unknown): TaxCategory {
+    const category = obj(entry);
+
+    const direction = str(category, 'direction');
+
+    return {
+        code: str(category, 'code'),
+        income: category.income === true,
+        // An unknown value reads as the narrowest answer rather than as "either": offering a category
+        // nowhere is a missing option, offering it everywhere is a refused save.
+        direction: direction === 'in' || direction === 'out' || direction === 'either' ? direction : 'in',
+        preselected: category.preselected === true,
+    };
+}
+
+/** A bank a deposit can be opened at, from the imported ECB list. */
+export interface Bank {
+    id: string;
+    /** Built from the registered name — "Banca Transilvania", not "BANCA TRANSILVANIA S.A.". */
+    name: string;
+    /** The 4-letter code from the bank's BIC, or null where none is mapped. */
+    code: string | null;
+    countryCode: string;
+}
+
+export function parseBanks(payload: unknown): Bank[] {
+    const body = obj(payload);
+
+    return (Array.isArray(body.banks) ? body.banks : []).map((entry): Bank => {
+        const row = obj(entry);
+
+        return {
+            id: str(row, 'id'),
+            name: str(row, 'name'),
+            code: nullableStr(row, 'code'),
+            countryCode: str(row, 'country_code'),
+        };
+    });
+}
+
+/** How a bank reads in a list: its name, and its code beside it where it has one. */
+export function bankLabel(bank: Bank): string {
+    return bank.code === null ? bank.name : `${bank.name} · ${bank.code}`;
+}
+
+export function parseTaxCategories(payload: unknown): TaxCategory[] {
+    const body = obj(payload);
+
+    return (Array.isArray(body.categories) ? body.categories : []).map(parseCategory);
+}
+
+/** One transaction row — shared by the list and the duplicates view, so they read it identically. */
+function parseTransactionRow(entry: unknown): TransactionSummary {
+    const row = obj(entry);
+
+    return {
+        id: str(row, 'id'),
+        accountId: str(row, 'account_id'),
+        accountName: str(row, 'account_name'),
+        accountKind: str(row, 'account_kind'),
+        bookedAt: str(row, 'booked_at'),
+        amountMinor: num(row, 'amount_minor'),
+        currencyCode: str(row, 'currency_code'),
+        description: str(row, 'description'),
+        counterparty: nullableStr(row, 'counterparty'),
+        classificationStatus: str(row, 'classification_status'),
+        splits: (Array.isArray(row.splits) ? row.splits : []).map((splitEntry): TransactionSplit => {
+            const split = obj(splitEntry);
+
+            return {
+                amountMinor: num(split, 'amount_minor'),
+                categoryCode: str(split, 'category_code'),
+                countryCode: nullableStr(split, 'country_code'),
+            };
+        }),
+        source: str(row, 'source'),
+        documentId: nullableStr(row, 'document_id'),
+    };
+}
+
+export function parseDuplicateGroups(payload: unknown): DuplicateGroup[] {
+    const body = obj(payload);
+
+    return (Array.isArray(body.groups) ? body.groups : []).map((entry): DuplicateGroup => {
+        const group = obj(entry);
+
+        return {
+            survivorId: str(group, 'survivor_id'),
+            transactions: (Array.isArray(group.transactions) ? group.transactions : []).map(parseTransactionRow),
+        };
+    });
+}
+
 export function parseTransactions(payload: unknown): TransactionPage {
     const body = obj(payload);
 
     return {
-        transactions: (Array.isArray(body.transactions) ? body.transactions : []).map((entry): TransactionSummary => {
-            const row = obj(entry);
-
-            return {
-                id: str(row, 'id'),
-                accountId: str(row, 'account_id'),
-                accountName: str(row, 'account_name'),
-                bookedAt: str(row, 'booked_at'),
-                amountMinor: num(row, 'amount_minor'),
-                currencyCode: str(row, 'currency_code'),
-                description: str(row, 'description'),
-                counterparty: nullableStr(row, 'counterparty'),
-                classificationStatus: str(row, 'classification_status'),
-                splits: (Array.isArray(row.splits) ? row.splits : []).map((entry): TransactionSplit => {
-                    const split = obj(entry);
-
-                    return {
-                        amountMinor: num(split, 'amount_minor'),
-                        categoryCode: str(split, 'category_code'),
-                        countryCode: nullableStr(split, 'country_code'),
-                    };
-                }),
-                source: str(row, 'source'),
-            };
-        }),
+        transactions: (Array.isArray(body.transactions) ? body.transactions : []).map(parseTransactionRow),
         limit: num(body, 'limit'),
         capped: body.capped === true,
-        categories: (Array.isArray(body.categories) ? body.categories : []).map((entry): TaxCategory => {
-            const category = obj(entry);
-
-            return { code: str(category, 'code'), income: category.income === true };
-        }),
+        categories: parseTaxCategories(payload),
     };
+}
+
+function parseHolding(payload: unknown): Holding {
+    const row = obj(payload);
+
+    return { amounts: money(row.amounts), converted: parseNetWorth(row.converted) };
 }
 
 export function parseWalletOverview(payload: unknown): WalletOverview {
     const body = obj(payload);
     const totals = obj(body.totals);
+    const holdings = obj(totals.holdings);
 
     return {
         totals: {
-            balances: money(totals.balances),
-            deposits: money(totals.deposits),
-            interestAtMaturity: money(totals.interest_at_maturity),
-            accounts: num(totals, 'accounts'),
-            depositCount: num(totals, 'deposit_count'),
-            recognisedRonMinor: nullableNum(totals, 'recognised_ron_minor'),
             netWorth: parseNetWorth(totals.net_worth),
+            holdings: {
+                general: parseHolding(holdings.general),
+                deposits: parseHolding(holdings.deposits),
+                cash: parseHolding(holdings.cash),
+                other: parseHolding(holdings.other),
+                available: parseHolding(holdings.available),
+            },
+            depositCount: num(totals, 'deposit_count'),
+            interestAtMaturity: parseHolding(totals.interest_at_maturity),
+            interestReceived: parseHolding(totals.interest_received),
+            owedToMe: parseHolding(totals.owed_to_me),
+            recognisedRonMinor: nullableNum(totals, 'recognised_ron_minor'),
         },
-        accounts: (Array.isArray(body.accounts) ? body.accounts : []).map(parseAccount),
-        accountsTotal: num(body, 'accounts_total'),
+        banks: (Array.isArray(body.banks) ? body.banks : []).map((entry): BankDeposits => {
+            const row = obj(entry);
+
+            return {
+                bankId: nullableStr(row, 'bank_id'),
+                name: nullableStr(row, 'name'),
+                code: nullableStr(row, 'code'),
+                depositCount: num(row, 'deposit_count'),
+                principal: money(row.principal),
+                interestAtMaturity: money(row.interest_at_maturity),
+                converted: parseNetWorth(row.converted),
+                nextMaturityAt: str(row, 'next_maturity_at'),
+            };
+        }),
         maturing: (Array.isArray(body.maturing) ? body.maturing : []).map(parseDeposit),
         maturingTotal: num(body, 'maturing_total'),
     };

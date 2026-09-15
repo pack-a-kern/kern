@@ -7,13 +7,16 @@ namespace App\Http\Controllers\Api\V1\Documents;
 use App\Domain\Documents\Enums\DocumentStage;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\Enums\ExtractionStatus;
+use App\Domain\Documents\Enums\TransactionImportState;
 use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Queries\SettledDocuments;
+use App\Domain\Documents\Models\DocumentExtraction;
+use App\Domain\Documents\Parsing\ExtractionSchema;
+use App\Domain\Documents\Queries\ResolveTransactionImportState;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -60,7 +63,7 @@ final class ListDocumentsController extends Controller
         Request $request,
         string $subject,
         TenantContext $tenant,
-        SettledDocuments $settledDocuments,
+        ResolveTransactionImportState $importState,
     ): JsonResponse {
         $validated = $request->validate([
             'status' => ['sometimes', Rule::enum(DocumentStatus::class)],
@@ -98,7 +101,9 @@ final class ListDocumentsController extends Controller
         // The one behavioural difference is worth stating: this orders by when a document *arrived*
         // rather than by a `received_at` an importer might backdate. For an inbox that is the more
         // useful order, and the date filter below still reads `received_at`.
-        $query = Document::query()->orderByDesc('id');
+        // Parts eager-loaded: every row shows a type and a total size, both of which come from
+        // them, and asking per row is the N+1 a list screen cannot afford.
+        $query = Document::query()->with('parts')->orderByDesc('id');
 
         if (isset($validated['status'])) {
             $query->where('status', (string) $validated['status']);
@@ -128,35 +133,13 @@ final class ListDocumentsController extends Controller
             // nothing needed reviewing, because no parser had proposed anything for it. Both were
             // true and together they were nonsense.
             //
-            // A document is done when a person has acted on it: accepted a reading, or turned it
-            // into a transaction. Everything else that is `READY` is outstanding, whether a parser
-            // could read it or not — which matters, because most documents are photographs no
-            // parser can read and they need a human precisely *because* of that.
-            // Both exclusions are constrained to this subject. Neither could leak another subject's
-            // data outward — the outer query is scoped and these only ever *remove* rows — but an
-            // unscoped subquery lets a stranger's row decide what appears in someone's list, and
-            // "the ids could never collide" is precisely the reasoning that produces tenancy bugs.
+            // It spans two stages now: a reading waiting to be accepted, and one accepted but not
+            // yet imported. Both are outstanding, which is all this flag ever claimed to mean — the
+            // stages are the finer question, and they are what the screen drives.
             $subjectId = $tenant->currentSubjectId();
 
             $query->where('status', DocumentStatus::READY->value)
-                ->whereNotIn('id', function ($sub) use ($subjectId): void {
-                    // `document_extractions` carries no `tax_subject_id` of its own — it is reached
-                    // through its document — so the boundary is enforced by joining back to it.
-                    $sub->from('document_extractions')
-                        ->join('documents', 'documents.id', '=', 'document_extractions.document_id')
-                        ->where('documents.tax_subject_id', $subjectId)
-                        ->select('document_extractions.document_id')
-                        ->whereIn('document_extractions.status', [
-                            ExtractionStatus::ACCEPTED->value,
-                            ExtractionStatus::REVIEWED->value,
-                        ]);
-                })
-                ->whereNotIn('id', function ($sub) use ($subjectId): void {
-                    $sub->from('financial_transactions')
-                        ->select('document_id')
-                        ->where('tax_subject_id', $subjectId)
-                        ->whereNotNull('document_id');
-                });
+                ->whereNotIn('id', self::documentsThatProducedRecords($subjectId));
         }
 
         $perPage = max(1, min(self::MAX_PER_PAGE, (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE)));
@@ -180,39 +163,85 @@ final class ListDocumentsController extends Controller
 
         /** @var list<Document> $documents */
         $documents = $paginator->items();
-        $settled = $settledDocuments(
+        $imports = $importState->forMany(
             $tenant->currentSubjectId(),
-            array_map(static fn (Document $document): string => $document->id, $documents),
+            $documents,
         );
+        $proposedNames = self::proposedNames($documents);
 
         return response()->json(
             $paginator->through(static fn (Document $document): array => [
                 'id' => $document->id,
                 'filename' => $document->presentedFilename(),
-                'type' => $document->type->value,
+                'type' => $document->type?->value,
                 'status' => $document->status->value,
                 // What the pipeline is doing, said in the terms a person uses. `status` stays
                 // beside it: the two answer different questions and the screen needs both.
-                'stage' => DocumentStage::of($document->status, isset($settled[$document->id]))->value,
+                'stage' => DocumentStage::of(
+                    $document->status,
+                    $imports[$document->id] ?? TransactionImportState::UNAVAILABLE,
+                )->value,
                 'rejection_reason' => $document->rejection_reason?->value,
-                'mime_type' => $document->mime_type,
-                'size_bytes' => $document->size_bytes,
+                'mime_type' => $document->firstPart()?->mime_type,
+                'size_bytes' => $document->parts->sum('size_bytes'),
+                // How many files this document is made of, so a row can say "4 pagini" without the
+                // list asking the parts table once per row.
+                'part_count' => $document->part_count,
+                // What the newest reading proposed calling it, so the list can say when that name was
+                // never taken — and offer to take it for many documents at once.
+                'proposed_name' => $proposedNames[$document->id] ?? null,
                 'source' => $document->source->value,
                 'received_at' => $document->received_at->toIso8601String(),
             ])->toArray(),
         );
     }
 
+    /**
+     * The name the newest reading of each document proposed, keyed by document id.
+     *
+     * One query for the page rather than one per row. Only the newest reading of each document is
+     * decrypted: the cast decrypts on access, and the older ones are skipped before anything reads
+     * them. Documents come from the scoped query, so no other subject's reading can be reached.
+     *
+     * @param  list<Document>  $documents
+     * @return array<string, string>
+     */
+    private static function proposedNames(array $documents): array
+    {
+        $subjects = [];
+
+        foreach ($documents as $document) {
+            $subjects[$document->id] = $document->tax_subject_id;
+        }
+
+        $names = [];
+        $seen = [];
+
+        foreach (DocumentExtraction::query()->whereIn('document_id', array_keys($subjects))->orderByDesc('id')->get() as $extraction) {
+            if (isset($seen[$extraction->document_id])) {
+                continue;
+            }
+
+            $seen[$extraction->document_id] = true;
+
+            $fields = json_decode($extraction->withEncryptionSubjectId($subjects[$extraction->document_id])->result_ciphertext, true);
+            $name = is_array($fields) ? ($fields[ExtractionSchema::FIELD_SUGGESTED_FILENAME] ?? null) : null;
+
+            if (is_string($name) && trim($name) !== '') {
+                $names[$extraction->document_id] = trim($name);
+            }
+        }
+
+        return $names;
+    }
 
     /**
      * Narrow to one stage.
      *
-     * Four of the six are a plain status. The other two split `READY` by whether a person has dealt
-     * with the document — the same rule `SettledDocuments` uses for the badge, expressed here as
-     * subqueries because a list cannot be narrowed by a value computed after the rows are fetched.
-     *
-     * `ACTION_NEEDED` is exactly what the `needs_review` flag already means. Both are kept: the flag
-     * is part of the API other callers may use, and this is the one the screen now drives.
+     * Four of the seven are a plain status. The other three split `READY` the same way
+     * {@see ResolveTransactionImportState} does — expressed here as subqueries, because a list
+     * cannot be narrowed by a value computed after the rows have been fetched. The two must agree,
+     * and the tests hold them to it: a row shown under a stage must carry that stage's badge.
      *
      * @param  \Illuminate\Contracts\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<Document>  $query
      */
@@ -223,40 +252,77 @@ final class ListDocumentsController extends Controller
             DocumentStage::QUEUED => DocumentStatus::SCANNED,
             DocumentStage::PROCESSING => DocumentStatus::PROCESSING,
             DocumentStage::REJECTED => DocumentStatus::REJECTED,
-            DocumentStage::ACTION_NEEDED, DocumentStage::DONE => DocumentStatus::READY,
+            DocumentStage::ACTION_NEEDED, DocumentStage::TO_IMPORT, DocumentStage::DONE => DocumentStatus::READY,
         };
 
         $query->where('status', $status->value);
 
-        if ($stage !== DocumentStage::ACTION_NEEDED && $stage !== DocumentStage::DONE) {
+        $imported = self::documentsThatProducedRecords($subjectId);
+
+        if ($stage === DocumentStage::DONE) {
+            $query->whereIn('id', $imported);
+
             return;
         }
 
-        $settled = static function ($sub) use ($subjectId): void {
+        if ($stage !== DocumentStage::ACTION_NEEDED && $stage !== DocumentStage::TO_IMPORT) {
+            return;
+        }
+
+        $query->whereNotIn('id', $imported);
+
+        $accepted = self::documentsWithAcceptedReading($subjectId);
+
+        if ($stage === DocumentStage::ACTION_NEEDED) {
+            // Includes documents nothing could read: there is no proposal to accept, but the person
+            // still has to decide what to do about that — retry it, or let it go.
+            $query->whereNotIn('id', $accepted);
+
+            return;
+        }
+
+        $query->whereIn('id', $accepted);
+    }
+
+    /**
+     * Documents this subject has already built a transaction from.
+     *
+     * Constrained to the subject, like every subquery here. Neither could leak another subject's
+     * data outward — the outer query is scoped — but an unscoped subquery lets a stranger's row
+     * decide what appears in someone's list, and "the ids could never collide" is precisely the
+     * reasoning that produces tenancy bugs.
+     */
+    private static function documentsThatProducedRecords(string $subjectId): callable
+    {
+        return static function ($sub) use ($subjectId): void {
+            // A transaction built from it, or — for a rental contract — the rental created from it.
+            $sub->from('financial_transactions')
+                ->select('document_id')
+                ->where('tax_subject_id', $subjectId)
+                ->whereNotNull('document_id')
+                ->union(
+                    DB::table('rental_contracts')
+                        ->select('source_document_id')
+                        ->where('tax_subject_id', $subjectId)
+                        ->whereNotNull('source_document_id'),
+                );
+        };
+    }
+
+    /**
+     * Documents with a reading a person has been through.
+     *
+     * `document_extractions` carries no `tax_subject_id` of its own, so the boundary is enforced by
+     * joining back to the document.
+     */
+    private static function documentsWithAcceptedReading(string $subjectId): callable
+    {
+        return static function ($sub) use ($subjectId): void {
             $sub->from('document_extractions')
                 ->join('documents', 'documents.id', '=', 'document_extractions.document_id')
                 ->where('documents.tax_subject_id', $subjectId)
                 ->select('document_extractions.document_id')
-                ->whereIn('document_extractions.status', [
-                    ExtractionStatus::ACCEPTED->value,
-                    ExtractionStatus::REVIEWED->value,
-                ]);
+                ->whereIn('document_extractions.status', ResolveTransactionImportState::ACCEPTED_STATUSES);
         };
-        $used = static function ($sub) use ($subjectId): void {
-            $sub->from('financial_transactions')
-                ->select('document_id')
-                ->where('tax_subject_id', $subjectId)
-                ->whereNotNull('document_id');
-        };
-
-        if ($stage === DocumentStage::DONE) {
-            $query->where(static function ($outer) use ($settled, $used): void {
-                $outer->whereIn('id', $settled)->orWhereIn('id', $used);
-            });
-
-            return;
-        }
-
-        $query->whereNotIn('id', $settled)->whereNotIn('id', $used);
     }
 }

@@ -19,11 +19,7 @@ function makeItem(subjectId: string, overrides: Partial<CaptureItem> = {}): Capt
     return {
         localId: generateLocalId(),
         subjectId,
-        type: 'RECEIPT',
-        fileName: 'bon.jpg',
-        mimeType: 'image/jpeg',
-        sizeBytes: 1024,
-        blob: new Blob(['x']),
+        files: [{ fileName: 'bon.jpg', mimeType: 'image/jpeg', sizeBytes: 1024, blob: new Blob(['x']) }],
         status: 'queued',
         attempts: 0,
         errorMessage: null,
@@ -57,7 +53,7 @@ describe('capture queue store', () => {
         const [updated] = await listCaptureItems(subjectId);
         expect(updated?.status).toBe('failed');
         expect(updated?.errorMessage).toBe('boom');
-        expect(updated?.fileName).toBe('bon.jpg');
+        expect(updated?.files[0]?.fileName).toBe('bon.jpg');
     });
 
     it('deletes an item', async () => {

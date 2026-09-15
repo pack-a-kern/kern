@@ -27,9 +27,7 @@ use RuntimeException;
  * sources of truth for "the current rent" that could silently drift the moment an amendment is
  * recorded on one but not the other; §6.5's own text says an amended contract "must produce
  * correct accruals on both sides of the change", which is only possible if there is exactly one
- * place the rent for a given date is read from. `deposit_minor` stays here: a security deposit is
- * a one-time fact of the original contract, not something `App\Domain\Rental\Actions\
- * AmendRentalContract` versions.
+ * place the rent for a given date is read from.
  *
  * @property string $id
  * @property string $tax_subject_id
@@ -39,7 +37,6 @@ use RuntimeException;
  * @property \Illuminate\Support\Carbon $start_date
  * @property \Illuminate\Support\Carbon|null $end_date
  * @property string $currency_code
- * @property int|null $deposit_minor
  * @property RentalContractStatus $status
  * @property string|null $source_document_id
  * @property string|null $extraction_id
@@ -51,8 +48,7 @@ final class RentalContract extends Model implements EncryptsWithSubjectDek
     use ScopedToTaxSubject;
 
     /**
-     * Laravel's documented "default attribute values" mechanism — unlike `RentalAccrual.status`/
-     * `RentalPayment.transaction_match_status`, `status` here *is* fillable, so
+     * Laravel's documented "default attribute values" mechanism. `status` is fillable, so
      * `App\Domain\Rental\Actions\CreateRentalContract` sets it explicitly; this default exists as
      * defense in depth for any other caller that omits it, so a freshly `::create()`d instance
      * never disagrees in memory with what the database's own column default would supply.
@@ -72,7 +68,6 @@ final class RentalContract extends Model implements EncryptsWithSubjectDek
         'start_date',
         'end_date',
         'currency_code',
-        'deposit_minor',
         'status',
         'source_document_id',
         'extraction_id',
@@ -84,7 +79,6 @@ final class RentalContract extends Model implements EncryptsWithSubjectDek
         'tenant_identity_ciphertext' => Encrypted::class,
         'start_date' => 'date',
         'end_date' => 'date',
-        'deposit_minor' => 'integer',
         'status' => RentalContractStatus::class,
     ];
 

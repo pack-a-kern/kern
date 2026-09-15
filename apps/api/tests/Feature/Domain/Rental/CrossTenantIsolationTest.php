@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Domain\Rental\CrossTenantIsolationTest;
 
 use App\Domain\Identity\Models\User;
-use App\Domain\Rental\Enums\AccrualStatus;
 use App\Domain\Rental\Enums\PropertyType;
 use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
@@ -13,7 +12,6 @@ use App\Domain\Rental\Models\Property;
 use App\Domain\Rental\Models\RentalAccrual;
 use App\Domain\Rental\Models\RentalContract;
 use App\Domain\Rental\Models\RentalContractVersion;
-use App\Domain\Rental\Models\RentalPayment;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -146,31 +144,6 @@ function rentalRowFactories(): array
                 'period_end' => '2026-02-01',
                 'due_date' => '2026-01-01',
                 'gross_minor' => 100_000,
-                'status' => AccrualStatus::PENDING,
-            ]);
-        },
-        RentalPayment::class => static function (string $subjectId): RentalPayment {
-            $property = Property::create([
-                'tax_subject_id' => $subjectId,
-                'type' => PropertyType::APARTMENT,
-                'address_ciphertext' => 'Payment owner property',
-                'ownership_percent_decimal' => '100.00',
-            ]);
-            $contract = RentalContract::create([
-                'tax_subject_id' => $subjectId,
-                'property_id' => $property->id,
-                'tenant_type' => TenantType::PF,
-                'tenant_identity_ciphertext' => 'Payment owner tenant',
-                'start_date' => '2026-01-01',
-                'currency_code' => 'RON',
-            ]);
-
-            return RentalPayment::create([
-                'tax_subject_id' => $subjectId,
-                'rental_contract_id' => $contract->id,
-                'amount_minor' => 100_000,
-                'currency_code' => 'RON',
-                'paid_at' => '2026-01-05',
             ]);
         },
     ];

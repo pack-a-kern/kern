@@ -6,8 +6,10 @@ namespace App\Domain\Documents\ExternalAi;
 
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
+use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentContent;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderFailedException;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
+use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Settings\Services\AiProviderCatalogue;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -44,8 +46,6 @@ final readonly class OpenAiCompatibleDocumentAiProvider implements ExternalDocum
      * Not measured — no endpoint here reports one — so it is a constant, and named rather than
      * inline so nobody mistakes it for something the provider said.
      */
-    private const string UNMEASURED_CONFIDENCE = '0.6000';
-
     private const string SCHEMA_VERSION = '1';
 
     public function __construct(
@@ -61,19 +61,14 @@ final readonly class OpenAiCompatibleDocumentAiProvider implements ExternalDocum
         $credentials = $request->credentials;
         $baseUrl = $credentials->baseUrl;
         $model = $credentials->model;
-        $type = $request->documentType;
 
-        if ($baseUrl === null || $model === null || $type === null) {
+        if ($baseUrl === null || $model === null) {
             throw ExternalDocumentAiProviderNotConfiguredException::noProviderBound();
         }
 
-        $schema = $this->validator->jsonSchema($type);
-
-        if ($schema === null) {
-            // No agreed field set for this document type, so there is nothing to ask for. Refusing
-            // beats sending the document somewhere to answer a question nobody has defined.
-            throw ExternalDocumentAiProviderNotConfiguredException::noProviderBound();
-        }
+        // The union, always: the model classifies on every read, so the reply may turn out to
+        // describe any kind and the schema has to allow all of them.
+        $schema = $this->validator->jsonSchema(null);
 
         $dialect = $this->catalogue->dialectFor($credentials->provider);
 
@@ -81,10 +76,14 @@ final readonly class OpenAiCompatibleDocumentAiProvider implements ExternalDocum
             $dialect->extractionBody(
                 model: $model,
                 systemPrompt: $this->prompt->system(),
-                instruction: $this->prompt->instruction($type),
+                instruction: $this->prompt->instruction(),
                 documentText: $request->extractedText?->reveal(),
-                image: $request->content?->toDialectImage(),
+                images: array_map(
+                    static fn (DocumentContent $content): array => $content->toDialectImage(),
+                    $request->contents,
+                ),
                 maxTokens: $this->catalogue->extractionMaxTokens(),
+                attachments: $request->attachments,
             ),
             $dialect->jsonFormat($schema),
         );
@@ -92,6 +91,8 @@ final readonly class OpenAiCompatibleDocumentAiProvider implements ExternalDocum
         $headers = $credentials->apiKey === null
             ? $dialect->unauthenticatedHeaders($this->catalogue->anthropicVersion())
             : $dialect->authHeaders($credentials->apiKey, $this->catalogue->anthropicVersion());
+
+        $startedAt = microtime(true);
 
         try {
             $response = $this->http
@@ -125,22 +126,76 @@ final readonly class OpenAiCompatibleDocumentAiProvider implements ExternalDocum
         // The reasoning text itself is never used as an answer: it is the model talking to itself
         // about someone's document, and treating it as data would be inventing a reading.
         if (trim($reply) === '' && is_array($body) && data_get($body, 'choices.0.message.reasoning') !== null) {
-            throw ExternalDocumentAiProviderFailedException::exhaustedByReasoning();
+            throw ExternalDocumentAiProviderFailedException::exhaustedByReasoning()
+                ->withReply($this->replyForDiagnosis($body, $reply));
         }
 
-        $fields = $this->validator->validate($type, $this->decode($reply));
+        // Null, not the document's stored type: the reply says what the document is, every read.
+        $extraction = $this->validator->validate(null, $this->decode($reply));
 
-        if ($fields === null) {
-            throw ExternalDocumentAiProviderFailedException::schemaViolation();
+        if ($extraction === null) {
+            throw ExternalDocumentAiProviderFailedException::schemaViolation()->withReply($reply);
         }
 
         return new DocumentAiResponse(
             modelProvider: $credentials->provider ?? 'custom',
             modelName: $model,
             schemaVersion: self::SCHEMA_VERSION,
-            result: $fields,
-            confidenceDecimal: self::UNMEASURED_CONFIDENCE,
+            result: $extraction->fields,
+            confidenceDecimal: $this->confidenceOf($extraction->fields),
+            documentType: $extraction->type,
+            rawReply: $reply,
+            durationMs: (int) round((microtime(true) - $startedAt) * 1000),
+            // The provider's own accounting, where it keeps any. A model that reports nothing leaves
+            // these null rather than being given a guess that would read as measurement.
+            promptTokens: $this->tokenCount($body, 'usage.prompt_tokens'),
+            completionTokens: $this->tokenCount($body, 'usage.completion_tokens'),
         );
+    }
+
+    private function tokenCount(mixed $body, string $path): ?int
+    {
+        $value = data_get($body, $path);
+
+        return is_int($value) && $value >= 0 ? $value : null;
+    }
+
+    /**
+     * The model's own confidence, or null when it did not report one.
+     *
+     * Null, not a placeholder. This used to return 0.6000 for a reading that said nothing, and the
+     * review screen drew that as a 60% bar — the same thing it draws for a model that looked at a
+     * blurred photograph and genuinely concluded 60%. A number nobody measured, shown as a
+     * measurement, is worse than an empty space that says so.
+     *
+     * Clamped when it *is* reported, because a self-reported number is a claim rather than a
+     * measurement and nothing downstream should have to defend against "1.4".
+     *
+     * @param  array<string, mixed>  $fields
+     */
+    private function confidenceOf(array $fields): ?string
+    {
+        $reported = $fields[ExtractionSchema::FIELD_CONFIDENCE] ?? null;
+
+        if (! is_string($reported) || ! is_numeric($reported)) {
+            return null;
+        }
+
+        return number_format(max(0.0, min(1.0, (float) $reported)), 4, '.', '');
+    }
+
+    /**
+     * What to keep when a model produced nothing usable.
+     *
+     * An empty `content` with a `reasoning` field beside it is a model that spent its budget
+     * thinking; the reasoning is the only thing that explains why, so it is what gets kept. It is
+     * never treated as an answer — see the callers — only shown to a person asking what went wrong.
+     */
+    private function replyForDiagnosis(mixed $body, string $reply): string
+    {
+        $reasoning = is_array($body) ? data_get($body, 'choices.0.message.reasoning') : null;
+
+        return trim($reply) !== '' || ! is_string($reasoning) ? $reply : $reasoning;
     }
 
     /**

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `official_sources` (`BLUEPRINT.md` §6.8). Mirrors one `config/sources.php` entry — see that
+ * `ext_official_sources` (`BLUEPRINT.md` §6.8). Mirrors one `config/sources.php` entry — see that
  * migration's docblock for why this table is a cache of the config, not an independent source of
  * truth. Never constructed directly by application code; always through
  * {@see \App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository::resolve()}.
@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property TrustTier $trust_tier
  * @property string|null $base_url
  * @property bool $enabled
+ * @property int $priority
  */
 #[UseFactory(OfficialSourceFactory::class)]
 final class OfficialSource extends Model
@@ -30,17 +31,21 @@ final class OfficialSource extends Model
     use HasFactory;
     use HasUuidPrimaryKey;
 
+    protected $table = 'ext_official_sources';
+
     /** @var list<string> */
     protected $fillable = [
         'code',
         'trust_tier',
         'base_url',
         'enabled',
+        'priority',
     ];
 
     /** @var array<string, string> */
     protected $casts = [
         'trust_tier' => TrustTier::class,
         'enabled' => 'boolean',
+        'priority' => 'integer',
     ];
 }

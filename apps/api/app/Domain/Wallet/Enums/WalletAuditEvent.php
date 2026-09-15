@@ -31,6 +31,15 @@ enum WalletAuditEvent: string
     /** A matured interest period became a transaction — see PostMaturedDepositInterest. */
     case DEPOSIT_INTEREST_POSTED = 'WalletDepositInterestPosted';
 
+    /** Lookalike transactions combined into one. The survivor is the resource. */
+    case TRANSACTIONS_MERGED = 'WalletTransactionsMerged';
+
+    /** Lookalike transactions a person said are genuinely separate payments. */
+    case DUPLICATES_KEPT = 'WalletDuplicatesKept';
+
+    /** A deposit reached maturity and its money went back to where it came from. */
+    case DEPOSIT_CLOSED = 'WalletDepositClosed';
+
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
@@ -39,7 +48,9 @@ enum WalletAuditEvent: string
             self::TRANSACTION_UPDATED,
             self::TRANSACTION_DELETED,
             self::TRANSACTION_CLASSIFIED,
-            self::DEPOSIT_INTEREST_POSTED => 'FinancialTransaction',
+            self::DEPOSIT_INTEREST_POSTED,
+            self::TRANSACTIONS_MERGED,
+            self::DUPLICATES_KEPT => 'FinancialTransaction',
             default => 'FinancialAccount',
         };
     }

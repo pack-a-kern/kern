@@ -24,10 +24,42 @@ enum SettingKey: string
     case AI_MODEL = 'ai.model';
     case AI_API_KEY = 'ai.api_key';
 
+    /**
+     * How long the model's reply may be.
+     *
+     * Editable because it is a property of the *model*, not of the deployment: a reasoning model
+     * spends this budget thinking before it answers and needs thousands, an instruct model answers
+     * directly and needs far fewer — and both are chosen from this same screen. Pairing a new model
+     * with a cap that suits it should not need a deploy.
+     */
+    case AI_EXTRACTION_MAX_TOKENS = 'ai.extraction_max_tokens';
+
+    /**
+     * How long to wait for the model's reply.
+     *
+     * Editable for the same reason as the cap, and needed more often: reading a long statement on a
+     * self-hosted model takes minutes, and a ceiling that suits a receipt reports a working model as
+     * unreachable. Distinct from `EXTRACTION_TIMEOUT_SECONDS`, which bounds the local PDF text
+     * service — that one is fast and unrelated.
+     */
+    case AI_EXTRACTION_TIMEOUT_SECONDS = 'ai.extraction_timeout_seconds';
+
+    /**
+     * Whether this provider can clean up a photographed document before it is read.
+     *
+     * A capability of the endpoint, not a preference: the `docscanner` extension is something a
+     * gateway either implements or does not, and OpenAI does not. Off means the upload screen never
+     * offers it, rather than offering something that fails.
+     */
+    case AI_SUPPORTS_ENHANCEMENT = 'ai.supports_enhancement';
+
     // Upload limits and abuse controls (BLUEPRINT.md §14.2).
     case DOCUMENTS_MAX_PDF_BYTES = 'documents.max_pdf_bytes';
     case DOCUMENTS_MAX_IMAGE_BYTES = 'documents.max_image_bytes';
     case DOCUMENTS_MAX_IMAGE_PIXELS = 'documents.max_image_pixels';
+
+    /** Pages, not bytes: length is what costs a provider its time. */
+    case DOCUMENTS_MAX_PAGES = 'documents.max_pages';
     case DOCUMENTS_UPLOAD_MAX_ATTEMPTS = 'documents.upload_rate_limit_max_attempts';
     case DOCUMENTS_UPLOAD_DECAY_SECONDS = 'documents.upload_rate_limit_decay_seconds';
     case EXTRACTION_TIMEOUT_SECONDS = 'extraction.timeout_seconds';
@@ -36,6 +68,9 @@ enum SettingKey: string
     // endpoint move without a code change — BNR relocated its feeds to curs.bnr.ro in 2026.
     case SOURCES_BNR_DAILY_URL = 'sources.bnr_daily_url';
     case SOURCES_BNR_YEARLY_URL_TEMPLATE = 'sources.bnr_yearly_url_template';
+    case SOURCES_ECB_INSTITUTION_LIST_PAGE_URL = 'sources.ecb_institution_list_page_url';
+    case SOURCES_GLEIF_BIC_LEI_PAGE_URL = 'sources.gleif_bic_lei_page_url';
+    case SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL = 'sources.gleif_legal_forms_page_url';
     case SOURCES_FETCH_TIMEOUT_SECONDS = 'sources.fetch_timeout_seconds';
     case SOURCES_FETCH_MAX_BYTES = 'sources.fetch_max_bytes';
     case SOURCES_FETCH_MAX_REDIRECTS = 'sources.fetch_max_redirects';
@@ -106,14 +141,18 @@ enum SettingKey: string
     {
         return match ($this) {
             self::AI_ENABLED, self::AI_PROVIDER, self::AI_BASE_URL, self::AI_MODEL,
-            self::AI_API_KEY => SettingGroup::AI,
+            self::AI_API_KEY, self::AI_EXTRACTION_MAX_TOKENS,
+            self::AI_EXTRACTION_TIMEOUT_SECONDS, self::AI_SUPPORTS_ENHANCEMENT => SettingGroup::AI,
 
             self::DOCUMENTS_MAX_PDF_BYTES, self::DOCUMENTS_MAX_IMAGE_BYTES,
-            self::DOCUMENTS_MAX_IMAGE_PIXELS, self::DOCUMENTS_UPLOAD_MAX_ATTEMPTS,
+            self::DOCUMENTS_MAX_IMAGE_PIXELS, self::DOCUMENTS_MAX_PAGES,
+            self::DOCUMENTS_UPLOAD_MAX_ATTEMPTS,
             self::DOCUMENTS_UPLOAD_DECAY_SECONDS,
             self::EXTRACTION_TIMEOUT_SECONDS => SettingGroup::DOCUMENTS,
 
             self::SOURCES_BNR_DAILY_URL, self::SOURCES_BNR_YEARLY_URL_TEMPLATE,
+            self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL, self::SOURCES_GLEIF_BIC_LEI_PAGE_URL,
+            self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL,
             self::SOURCES_FETCH_TIMEOUT_SECONDS, self::SOURCES_FETCH_MAX_BYTES,
             self::SOURCES_FETCH_MAX_REDIRECTS => SettingGroup::SOURCES,
 
@@ -138,14 +177,21 @@ enum SettingKey: string
             self::AI_BASE_URL => 'settings.ai.env_fallback.base_url',
             self::AI_MODEL => 'settings.ai.env_fallback.model',
             self::AI_API_KEY => 'settings.ai.env_fallback.api_key',
+            self::AI_EXTRACTION_MAX_TOKENS => 'ai_providers.extraction_max_tokens',
+            self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai_providers.extraction_timeout_seconds',
+            self::AI_SUPPORTS_ENHANCEMENT => 'ai_providers.supports_enhancement',
             self::DOCUMENTS_MAX_PDF_BYTES => 'documents.max_pdf_bytes',
             self::DOCUMENTS_MAX_IMAGE_BYTES => 'documents.max_image_bytes',
             self::DOCUMENTS_MAX_IMAGE_PIXELS => 'documents.max_image_pixels',
+            self::DOCUMENTS_MAX_PAGES => 'documents.max_pages',
             self::DOCUMENTS_UPLOAD_MAX_ATTEMPTS => 'documents.rate_limits.upload_per_subject.max_attempts',
             self::DOCUMENTS_UPLOAD_DECAY_SECONDS => 'documents.rate_limits.upload_per_subject.decay_seconds',
             self::EXTRACTION_TIMEOUT_SECONDS => 'documents.text_extraction.timeout_seconds',
             self::SOURCES_BNR_DAILY_URL => 'sources.entries.BNR.endpoints.daily_xml',
             self::SOURCES_BNR_YEARLY_URL_TEMPLATE => 'sources.entries.BNR.endpoints.yearly_xml_template',
+            self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL => 'sources.entries.ECB.endpoints.institution_list_page',
+            self::SOURCES_GLEIF_BIC_LEI_PAGE_URL => 'sources.entries.GLEIF.endpoints.bic_lei_page',
+            self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL => 'sources.entries.GLEIF.endpoints.legal_forms_page',
             self::SOURCES_FETCH_TIMEOUT_SECONDS => 'sources.fetch.timeout_seconds',
             self::SOURCES_FETCH_MAX_BYTES => 'sources.fetch.max_response_bytes',
             self::SOURCES_FETCH_MAX_REDIRECTS => 'sources.fetch.max_redirects',
@@ -168,10 +214,12 @@ enum SettingKey: string
     public function type(): SettingType
     {
         return match ($this) {
-            self::AI_ENABLED, self::IDENTITY_REGISTRATION_ENABLED => SettingType::BOOLEAN,
+            self::AI_ENABLED, self::AI_SUPPORTS_ENHANCEMENT,
+            self::IDENTITY_REGISTRATION_ENABLED => SettingType::BOOLEAN,
             self::AI_API_KEY => SettingType::SECRET,
             self::AI_BASE_URL, self::SOURCES_BNR_DAILY_URL,
-            self::SOURCES_BNR_YEARLY_URL_TEMPLATE => SettingType::URL,
+            self::SOURCES_BNR_YEARLY_URL_TEMPLATE, self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL,
+            self::SOURCES_GLEIF_BIC_LEI_PAGE_URL, self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL => SettingType::URL,
             self::FX_VERIFICATION_TOLERANCE => SettingType::DECIMAL,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER => SettingType::STRING,

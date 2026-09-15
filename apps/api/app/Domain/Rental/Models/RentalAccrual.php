@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Models;
 
-use App\Domain\Rental\Enums\AccrualStatus;
 use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * `rental_accruals` (`BLUEPRINT.md` §6.5). `rental_contract_version_id` is a justified addition
@@ -21,15 +19,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * `BLUEPRINT.md` §33's co-ownership constraint. No encrypted fields: an amount and a date range carry
  * no PII on their own.
  *
- * `status` is deliberately **not** in `$fillable` — mass-assignment can never move a row to `PAID`
- * from outside this module's own code; only `App\Domain\Rental\Actions\RecordRentalPayment`
- * assigns it directly (`$accrual->status = ...`, bypassing the guard rail intentionally, the same
- * way `App\Domain\Documents\Models\DocumentExtraction::review()` is the one sanctioned exception
- * to its own identical rule). Because it is not fillable, a freshly `::create()`d instance would
- * otherwise hold `null` in memory for this attribute until re-fetched from the database (Eloquent
- * does not re-read a column's DB-level `default()` after `INSERT`) — `$attributes` below supplies
- * the identical default at the PHP object level, Laravel's documented "default attribute values"
- * mechanism, so a just-created instance and a freshly-queried one always agree.
+ * Rent **owed**, not rent received: there is no paid/unpaid state. Rental income is set by the
+ * contract "indiferent de momentul încasării chiriei" (Codul fiscal, art. 84), so whether the tenant
+ * paid does not change any figure a tax return takes from here.
  *
  * @property string $id
  * @property string $tax_subject_id
@@ -39,17 +31,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon $period_end
  * @property \Illuminate\Support\Carbon $due_date
  * @property int $gross_minor
- * @property AccrualStatus $status
  */
 final class RentalAccrual extends Model
 {
     use HasUuidPrimaryKey;
     use ScopedToTaxSubject;
-
-    /** @var array<string, string> */
-    protected $attributes = [
-        'status' => 'PENDING',
-    ];
 
     /** @var list<string> */
     protected $fillable = [
@@ -68,7 +54,6 @@ final class RentalAccrual extends Model
         'period_end' => 'date',
         'due_date' => 'date',
         'gross_minor' => 'integer',
-        'status' => AccrualStatus::class,
     ];
 
     /** @return BelongsTo<RentalContract, $this> */
@@ -81,11 +66,5 @@ final class RentalAccrual extends Model
     public function version(): BelongsTo
     {
         return $this->belongsTo(RentalContractVersion::class, 'rental_contract_version_id');
-    }
-
-    /** @return HasMany<RentalPayment, $this> */
-    public function payments(): HasMany
-    {
-        return $this->hasMany(RentalPayment::class, 'accrual_id');
     }
 }

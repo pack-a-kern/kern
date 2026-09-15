@@ -11,6 +11,7 @@ use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -211,11 +212,13 @@ it('recomputes a deposit schedule when its terms change, leaving settled periods
     [$user, $subjectId] = mutationSubject();
 
     $created = $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-12-31',
+        // A year from today: a deposit must mature after today, and a fixed date would make this
+        // test pass only until that day arrives.
+        'starts_at' => now('UTC')->toDateString(),
+        'maturity_at' => now('UTC')->addYear()->toDateString(),
         'principal_minor' => 100_000_00,
         'annual_rate' => '6.00',
         'rate_type' => 'FIXED',
@@ -320,11 +323,13 @@ it('refuses a transaction recorded against a term deposit', function (): void {
     [$user, $subjectId] = mutationSubject();
 
     $created = $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-12-31',
+        // A year from today: a deposit must mature after today, and a fixed date would make this
+        // test pass only until that day arrives.
+        'starts_at' => now('UTC')->toDateString(),
+        'maturity_at' => now('UTC')->addYear()->toDateString(),
         'principal_minor' => 100_000_00,
         'annual_rate' => '6.00',
         'rate_type' => 'FIXED',
@@ -345,4 +350,59 @@ it('refuses a transaction recorded against a term deposit', function (): void {
         'booked_at' => '2026-02-03',
         'description' => 'Nu ar trebui',
     ])->assertStatus(422);
+});
+
+it('takes a deposit’s principal out of the account that funded it', function (): void {
+    $startsAt = now('UTC')->toDateString();
+    [$user, $subjectId] = mutationSubject();
+    $funding = openCurrentAccount($this, $user, $subjectId);
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
+        'bank_id' => BankFactory::new()->createOne()->id,
+        'kind' => 'TERM_DEPOSIT',
+        'currency_code' => 'RON',
+        'starts_at' => $startsAt,
+        'principal_minor' => 5000000,
+        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'annual_rate' => '6.5000',
+        'rate_type' => 'FIXED',
+        'interest_method' => 'SIMPLE',
+        'payment_frequency' => 'AT_MATURITY',
+        'funding_account_id' => $funding,
+    ])->assertCreated();
+
+    $movement = DB::table('financial_transactions')->where('account_id', $funding)->sole();
+
+    // Opening a deposit does not make anybody richer: the principal is declared on the deposit and
+    // added to net worth, so without this the same money sat in two places at once.
+    expect($movement->amount_minor)->toBe(-5000000)
+        // Dated to the day it opened, not today — a deposit entered late still took its money out
+        // when it started.
+        ->and($movement->booked_at)->toBe($startsAt)
+        ->and($movement->classification_status)->toBe('CLASSIFIED');
+
+    expect(DB::table('transaction_splits')->where('transaction_id', $movement->id)->sole()->category_code)
+        ->toBe('TRANSFER');
+});
+
+it('records no movement for a deposit funded from an account nobody tracks', function (): void {
+    $startsAt = now('UTC')->toDateString();
+    [$user, $subjectId] = mutationSubject();
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
+        'bank_id' => BankFactory::new()->createOne()->id,
+        'kind' => 'TERM_DEPOSIT',
+        'currency_code' => 'RON',
+        'starts_at' => $startsAt,
+        'principal_minor' => 5000000,
+        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'annual_rate' => '6.5000',
+        'rate_type' => 'FIXED',
+        'interest_method' => 'SIMPLE',
+        'payment_frequency' => 'AT_MATURITY',
+    ])->assertCreated();
+
+    // The one case where the total legitimately jumps: there is no movement to record, because the
+    // money came out of somewhere this application has never seen.
+    expect(DB::table('financial_transactions')->count())->toBe(0);
 });

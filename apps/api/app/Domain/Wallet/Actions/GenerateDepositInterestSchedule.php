@@ -30,7 +30,9 @@ use Illuminate\Support\Facades\DB;
  *   minor` is recomputed from it and the new gross figure);
  * - a period whose row exists **and has** `paid_at` set is left completely untouched — a realized,
  *   already-paid interest event is immutable, never silently recalculated
- *   (`docs/AGENTS.md` §1 rule 17's spirit: never overwrite a settled record).
+ *   (`docs/AGENTS.md` §1 rule 17's spirit: never overwrite a settled record);
+ * - an unpaid row the current terms no longer produce is deleted, so an edit that moves the dates
+ *   replaces the schedule instead of adding a second one beside it.
  *
  * Requires an active `App\Domain\Subjects\Tenancy\TenantContext` authorized for the deposit's own
  * `tax_subject_id` — every model this action reads/writes is tenant-scoped
@@ -137,6 +139,17 @@ final readonly class GenerateDepositInterestSchedule
                     $recorded[] = DepositInterestEvent::create($attributes);
                 }
             }
+
+            // Periods the current terms no longer produce. Rows are matched by their dates, so a
+            // moved maturity or start date yields periods with new dates that match nothing — the
+            // new schedule was inserted beside the old one, and the deposit reported both summed.
+            // Only unpaid rows go; a posted period is a transaction and stays whatever the terms say.
+            DepositInterestEvent::query()
+                ->where('account_id', $account->id)
+                ->whereNull('paid_at')
+                ->whereNull('transaction_id')
+                ->whereNotIn('id', array_map(static fn (DepositInterestEvent $event): string => $event->id, $recorded))
+                ->delete();
 
             return $recorded;
         });

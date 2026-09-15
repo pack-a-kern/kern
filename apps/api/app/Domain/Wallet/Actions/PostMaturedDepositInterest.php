@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Models\DepositInterestEvent;
-use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Domain\Wallet\Models\FinancialAccount;
+use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\WalletAudit;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -42,17 +41,20 @@ use Illuminate\Support\Facades\DB;
  * withheld figure stay on the interest event, which is where a tax fact will read them from —
  * `tax_facts` has `withheld_tax_minor` for exactly this.
  *
- * Written straight to the table rather than through {@see RecordFinancialTransaction}, which refuses
+ * Written through {@see DepositMovements} rather than {@see RecordFinancialTransaction}, which refuses
  * a holding source by design. That refusal is about *typed* movements: a deposit's entries come from
- * its own terms, and this is those terms producing one.
+ * its own terms, and this is those terms producing one — classified `INTEREST` as it is written,
+ * because there is no question about what a deposit's interest is.
  *
  * Idempotent: a period that already carries a `transaction_id` is skipped, so running this twice
  * cannot pay the same interest twice.
  */
 final readonly class PostMaturedDepositInterest
 {
-    public function __construct(private WalletAudit $audit)
-    {
+    public function __construct(
+        private DepositMovements $movements,
+        private WalletAudit $audit,
+    ) {
     }
 
     /**
@@ -78,26 +80,21 @@ final readonly class PostMaturedDepositInterest
 
         foreach ($due as $event) {
             DB::transaction(function () use ($event): void {
-                // `create()` builds its query through `newQuery()`, which applies the tenant
-                // scope — so even an insert that names its own subject asks the context for one.
-                // Opted out for the same reason the read above is.
-                $transaction = FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->create([
-                    'tax_subject_id' => $event->tax_subject_id,
-                    'account_id' => $event->account_id,
+                $deposit = FinancialAccount::query()->withoutGlobalScope(TaxSubjectScope::class)->find($event->account_id);
+
+                $transaction = $this->movements->write(
+                    subjectId: $event->tax_subject_id,
+                    accountId: $event->account_id,
                     // The day the period closed, not the day this ran: a run that happens late must
                     // not move the income into a different fiscal year.
-                    'booked_at' => $event->accrual_to->toDateString(),
-                    'amount_minor' => $event->net_interest_minor,
-                    'currency_code' => $event->currency_code,
-                    'description_ciphertext' => 'Dobândă depozit',
-                    'counterparty_ciphertext' => '',
-                    'classification_status' => TransactionClassificationStatus::UNCLASSIFIED,
-                    // Not MANUAL: nobody typed this, and a person reading the row should be able to
-                    // tell that the system produced it from the deposit's terms.
-                    'source' => RecordSource::SYSTEM,
-                ]);
+                    bookedAt: $event->accrual_to->toDateString(),
+                    amountMinor: $event->net_interest_minor,
+                    currencyCode: $event->currency_code,
+                    description: DepositMovements::nameOf($deposit),
+                    category: DepositMovements::INTEREST,
+                );
 
-                $event->transaction_id = $transaction->id;
+                $event->transaction_id = DepositMovements::id($transaction);
                 $event->paid_at = $event->accrual_to;
                 $event->save();
             });

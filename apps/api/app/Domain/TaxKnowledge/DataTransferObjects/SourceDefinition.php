@@ -25,6 +25,13 @@ final readonly class SourceDefinition
         public array $allowedHosts,
         public string $userAgent,
         public bool $enabled,
+        /** Which source is preferred when two publish the same data: 1 before 2. */
+        public int $priority,
+        /**
+         * The TLS key-exchange groups to offer, colon-separated as OpenSSL writes them, or null for the
+         * library's default. For a server whose firewall refuses the default handshake.
+         */
+        public ?string $tlsCurves = null,
     ) {
     }
 

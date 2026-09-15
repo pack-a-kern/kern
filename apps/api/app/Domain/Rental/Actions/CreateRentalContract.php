@@ -45,7 +45,6 @@ final readonly class CreateRentalContract
                 'start_date' => $input->startDate,
                 'end_date' => $input->endDate,
                 'currency_code' => strtoupper($input->currencyCode),
-                'deposit_minor' => $input->depositMinor,
                 'status' => RentalContractStatus::ACTIVE,
                 'source_document_id' => $input->sourceDocumentId,
                 'extraction_id' => $input->extractionId,

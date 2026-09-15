@@ -8,7 +8,7 @@ use App\Domain\Operations\DataTransferObjects\TaskArgument;
 
 /**
  * The closed set of background operations an administrator may run or pause from
- * the Tasks tab of `/jurnale`.
+ * the Tasks tab of `/logs`.
  *
  * This enum is the allowlist, and it is an enum on purpose. The alternative — a table or a config
  * array holding the artisan command to execute — is remote code execution behind an administration
@@ -39,7 +39,7 @@ enum OperationTask: string
     /** BLUEPRINT.md §7.3 — one year from the BNR yearly archive. Manual: it is a recovery action. */
     case FX_BACKFILL_YEAR = 'fx.backfill_year';
 
-    /** Rebuild `source_sections` and the retrieval chunk index from already-stored bytes. */
+    /** Rebuild `ext_source_sections` and the retrieval chunk index from already-stored bytes. */
     case LEGISLATION_REINDEX = 'legislation.reindex';
 
     /** BLUEPRINT.md §4.8 — walk every audit chain and recompute every hash. */
@@ -52,12 +52,19 @@ enum OperationTask: string
     case ACCESS_SYNC = 'access.sync';
 
     /**
-     * Turn deposit interest that has now accrued into transactions.
+     * Settle deposits: turn interest that has now accrued into transactions, and close deposits that
+     * have matured by returning their money to the account that funded them.
      *
      * Daily, because maturity is a date passing rather than an action: nothing is running when a
      * period closes, and a person should not have to remember to claim their own interest.
      */
     case DEPOSIT_POST_INTEREST = 'deposit.post_interest';
+
+    /**
+     * Refresh the bank list a deposit's bank is chosen from: the ECB's institutions, GLEIF's BICs.
+     * Scheduled, because both lists change without anyone here knowing — a merger, a new licence.
+     */
+    case BANKS_IMPORT = 'banks.import';
 
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
@@ -70,6 +77,7 @@ enum OperationTask: string
             self::AUDIT_VERIFY_CHAINS => 'taxos:audit:verify',
             self::ACCESS_SYNC => 'taxos:access:sync',
             self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
+            self::BANKS_IMPORT => 'taxos:banks:import',
         };
     }
 
@@ -80,7 +88,9 @@ enum OperationTask: string
      */
     public function isScheduled(): bool
     {
-        return $this === self::FX_IMPORT_DAILY;
+        // The deposit task was described as daily and given a cron expression, but never listed
+        // here — so nothing ran it, interest never posted, and a matured deposit's money vanished.
+        return in_array($this, [self::FX_IMPORT_DAILY, self::DEPOSIT_POST_INTEREST, self::BANKS_IMPORT], true);
     }
 
     /**

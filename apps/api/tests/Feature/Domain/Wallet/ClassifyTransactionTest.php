@@ -85,7 +85,7 @@ it('splits one payment into two meanings', function (): void {
         ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
             'splits' => [
                 ['amount_minor' => 400_000, 'category_code' => 'RENT'],
-                ['amount_minor' => 50_000, 'category_code' => 'REIMBURSEMENT'],
+                ['amount_minor' => 50_000, 'category_code' => 'NOT_INCOME'],
             ],
         ])
         ->assertNoContent();
@@ -122,7 +122,7 @@ it('refuses a category that is not in the catalogue', function (): void {
 it('replaces a previous answer instead of adding to it', function (): void {
     [$user, $subjectId, $transactionId] = classifiable($this);
 
-    foreach (['SALARY', 'FREELANCE'] as $category) {
+    foreach (['SALARY_PENSION', 'FREELANCE'] as $category) {
         $this->actingAs($user)
             ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
                 'splits' => [['amount_minor' => 450_000, 'category_code' => $category]],
@@ -179,20 +179,27 @@ it('offers the screen exactly the categories it will accept', function (): void 
 
     $response = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions")->assertOk();
 
-    /** @var list<array{code: string, income: bool}> $categories */
+    /** @var list<array{code: string, income: bool, direction: string, preselected: bool}> $categories */
     $categories = $response->json('categories');
     $codes = array_column($categories, 'code');
 
     // One source for the dropdown and the validator: two lists drift, and the way that shows up is
     // an option refused on save.
-    /** @var list<string> $income */
+    /** @var array<string, string> $income */
     $income = config('tax_categories.income');
-    /** @var list<string> $notIncome */
+    /** @var array<string, string> $notIncome */
     $notIncome = config('tax_categories.not_income');
+    $byCode = array_column($categories, null, 'code');
 
-    expect($codes)->toBe([...$income, ...$notIncome])
-        ->and(array_column($categories, 'income', 'code')['RENT'])->toBeTrue()
-        ->and(array_column($categories, 'income', 'code')['TRANSFER'])->toBeFalse();
+    expect($codes)->toBe([...array_keys($income), ...array_keys($notIncome)])
+        ->and($byCode['RENT']['income'])->toBeTrue()
+        ->and($byCode['TRANSFER']['income'])->toBeFalse()
+        // The screen filters by these, so a list it shows can never hold a category the save refuses.
+        ->and($byCode['DIVIDENDS']['direction'])->toBe('in')
+        ->and($byCode['EXPENSE']['direction'])->toBe('out')
+        ->and($byCode['LOAN']['direction'])->toBe('either')
+        ->and($byCode['EXPENSE']['preselected'])->toBeTrue()
+        ->and($byCode['DIVIDENDS']['preselected'])->toBeFalse();
 });
 
 it('accepts the answer while the transaction is being typed', function (): void {
@@ -245,7 +252,7 @@ it('changes the figures and the answer in one edit', function (): void {
 
     $this->actingAs($user)
         ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
-            'splits' => [['amount_minor' => 450_000, 'category_code' => 'SALARY']],
+            'splits' => [['amount_minor' => 450_000, 'category_code' => 'SALARY_PENSION']],
         ])
         ->assertNoContent();
 
@@ -271,4 +278,42 @@ it('changes the figures and the answer in one edit', function (): void {
         ->and($splits[0]->category_code)->toBe('RENT')
         ->and($splits[0]->amount_minor)->toBe(500_000)
         ->and(FinancialTransaction::query()->findOrFail($transactionId)->amount_minor)->toBe(500_000);
+});
+
+it('refuses a category that cannot have the direction of the money', function (): void {
+    // Money in: an expense cannot be what arrived.
+    [$user, $subjectId, $transactionId] = classifiable($this);
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
+            'splits' => [['amount_minor' => 450_000, 'category_code' => 'EXPENSE']],
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'CATEGORY_DIRECTION');
+
+    expect(TransactionSplit::query()->where('transaction_id', $transactionId)->count())->toBe(0);
+});
+
+it('refuses income typed on money going out, and lets a loan go either way', function (): void {
+    [$user, $subjectId, $transactionId] = classifiable($this);
+    $accountId = FinancialTransaction::query()->findOrFail($transactionId)->account_id;
+
+    $outgoing = static fn (string $category): array => [
+        'account_id' => $accountId,
+        'amount_minor' => -120_000,
+        'currency_code' => 'RON',
+        'booked_at' => '2026-03-04',
+        'description' => 'Plată',
+        'category_code' => $category,
+    ];
+
+    // A dividend recorded on money that left would be declared as income nobody received.
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $outgoing('DIVIDENDS'))
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'CATEGORY_DIRECTION');
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $outgoing('LOAN'))
+        ->assertCreated();
 });

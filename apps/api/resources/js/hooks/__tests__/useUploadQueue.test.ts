@@ -44,7 +44,7 @@ describe('useUploadQueue', () => {
         // call starts the queue; the rest land while it is already running.
         await act(async () => {
             for (const name of ['a.jpg', 'b.jpg', 'c.jpg']) {
-                await result.current.enqueue('RECEIPT', file(name));
+                await result.current.enqueue([file(name)]);
             }
         });
 
@@ -65,7 +65,7 @@ describe('useUploadQueue', () => {
         const { result } = renderHook(() => useUploadQueue(subjectId));
 
         await act(async () => {
-            await result.current.enqueue('RECEIPT', file('a.jpg'));
+            await result.current.enqueue([file('a.jpg')]);
         });
 
         // The drain loop re-reads the queue until it is empty. A failed item stays in it, so

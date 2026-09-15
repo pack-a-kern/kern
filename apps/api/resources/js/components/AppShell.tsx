@@ -48,8 +48,8 @@ interface NavLink {
     /**
      * Where the row goes. Omitted for a group that is only a container — "My account" has no page
      * of its own, so its row folds the group open instead of navigating to a route that does not
-     * exist. `Portofel` and `Impozite` do have pages, so they keep an href and get a separate
-     * chevron.
+     * exist. Wallet is one of those: its summary is the dashboard. `Impozite` has a page, so it keeps
+     * an href and gets a separate chevron.
      */
     href?: string;
     label: (d: Dictionary) => string;
@@ -77,48 +77,48 @@ interface NavLink {
 const MAIN_ITEMS: NavLink[] = [
     { href: '/dashboard', label: (d) => d.nav.dashboard, icon: LayoutDashboard },
     {
-        href: '/portofel',
+        id: 'wallet',
         label: (d) => d.nav.wallet,
         icon: Wallet,
         children: [
-            { href: '/portofel/conturi', label: (d) => d.nav.walletAccounts, icon: Landmark },
-            { href: '/portofel/tranzactii', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
+            { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
+            { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
             { href: '/documents', label: (d) => d.nav.documents, icon: Files },
         ],
     },
-    { href: '/chirii', label: (d) => d.nav.rentals, icon: Building2 },
+    { href: '/rentals', label: (d) => d.nav.rentals, icon: Building2 },
     {
-        href: '/impozite',
+        href: '/taxes',
         label: (d) => d.nav.taxes,
         icon: Calculator,
-        children: [{ href: '/impozite/explica', label: (d) => d.nav.taxesExplain, icon: CircleHelp }],
+        children: [{ href: '/taxes/explain', label: (d) => d.nav.taxesExplain, icon: CircleHelp }],
     },
-    { href: '/declaratii', label: (d) => d.nav.declarations, icon: FileCheck2 },
-    { href: '/legislatie', label: (d) => d.nav.legislation, icon: Gavel },
+    { href: '/declarations', label: (d) => d.nav.declarations, icon: FileCheck2 },
+    { href: '/legislation', label: (d) => d.nav.legislation, icon: Gavel },
     { href: '/spv', label: (d) => d.nav.spv, icon: Landmark },
 ];
 
-/* The account has a page of its own *and* a child, the way `Portofel` does: taxpayers belong to an
+/* The account has a page of its own *and* a child, the way `Impozite` does: taxpayers belong to an
    account, so the row navigates and the chevron folds the child in. */
 const ACCOUNT_GROUP: NavLink = {
-    href: '/contul-meu',
+    href: '/account',
     label: (d) => d.nav.accountGroup,
     icon: UserRound,
-    children: [{ href: '/contribuabili', label: (d) => d.nav.settingsSubjects, icon: Users }],
+    children: [{ href: '/taxpayers', label: (d) => d.nav.settingsSubjects, icon: Users }],
 };
 
 /* Above the administration group, not inside it: reading what happened is not administering the
    installation, and the people who do the first outnumber the people who do the second. */
-const LOGS_ITEM: NavLink = { href: '/jurnale', label: (d) => d.nav.logs, icon: ScrollText };
+const LOGS_ITEM: NavLink = { href: '/logs', label: (d) => d.nav.logs, icon: ScrollText };
 
 const ADMIN_GROUP: NavLink = {
     id: 'admin',
     label: (d) => d.nav.adminGroup,
     icon: Settings,
     children: [
-        { href: '/admin/setari', label: (d) => d.nav.adminSettings, icon: Settings },
-        { href: '/admin/parametri', label: (d) => d.nav.adminParameters, icon: Scale },
-        { href: '/admin/utilizatori', label: (d) => d.nav.adminUsers, icon: Users },
+        { href: '/admin/settings', label: (d) => d.nav.adminSettings, icon: Settings },
+        { href: '/admin/parameters', label: (d) => d.nav.adminParameters, icon: Scale },
+        { href: '/admin/users', label: (d) => d.nav.adminUsers, icon: Users },
     ],
 };
 
@@ -220,10 +220,10 @@ function UserMenu(): JSX.Element {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                    <Link href="/contul-meu">{t((d) => d.nav.accountGroup)}</Link>
+                    <Link href="/account">{t((d) => d.nav.accountGroup)}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <Link href="/contribuabili">{t((d) => d.nav.settingsSubjects)}</Link>
+                    <Link href="/taxpayers">{t((d) => d.nav.settingsSubjects)}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => void handleLogout()}>
@@ -397,8 +397,8 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
     function isOpen(item: NavLink): boolean {
         const key = groupKey(item);
         // The group you are *in* — which includes standing on the group's own page, not only on one
-        // of its children. Landing on `/portofel` and finding Wallet folded shut is the same
-        // surprise as landing on `/portofel/conturi` and finding it shut.
+        // of its children. Landing on `/taxes` and finding Taxes folded shut is the same surprise as
+        // landing on `/wallet/accounts` and finding Wallet shut.
         const containsCurrent =
             (item.href !== undefined && isActive(currentUrl, item.href)) ||
             (item.children ?? []).some((child) => isActive(currentUrl, child.href));

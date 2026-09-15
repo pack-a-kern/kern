@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature\Domain\Documents\RequestExternalDocumentExtractionSettingsTest;
 
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
+use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
 use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction;
-use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Identity\Models\User;
 use App\Domain\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
@@ -27,6 +27,33 @@ use Tests\Fakes\InMemorySubjectDekRepository;
  * one process, with a settings change in between, exactly as an admin saving the settings screen
  * while the application keeps running would produce.
  */
+/**
+ * A document with bytes the action can actually send.
+ *
+ * The action reads the document's own parts now rather than being handed text, so a factory row
+ * with no stored object has nothing to send and is refused before a provider is ever reached.
+ */
+function sendableDocument(): Document
+{
+    $document = Document::factory()->part(['mime_type' => 'application/pdf'])->create([
+        'status' => \App\Domain\Documents\Enums\DocumentStatus::SCANNED,
+    ]);
+    $part = $document->parts->sole();
+
+    $stream = fopen('php://temp', 'w+b');
+
+    if ($stream === false) {
+        throw new \RuntimeException('Unable to open a memory stream.');
+    }
+
+    fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
+    rewind($stream);
+    app(\App\Support\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
+    fclose($stream);
+
+    return $document->fresh(['parts']) ?? $document;
+}
+
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();
 
@@ -64,23 +91,23 @@ function recordingProvider(): object
         {
             $this->received[] = $request;
 
-            return new DocumentAiResponse('acme-ai', 'acme-extractor', '1.0.0', ['field' => 'value'], '0.9000');
+            return new DocumentAiResponse('acme-ai', 'acme-extractor', '1.0.0', ['field' => 'value'], '0.9000', DocumentType::RECEIPT);
         }
     };
 }
 
 it('refuses to call the provider while ai.enabled is false, the default', function (): void {
-    $document = Document::factory()->create();
+    $document = sendableDocument();
     app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
 
     $action = app(RequestExternalDocumentExtraction::class);
 
-    expect(fn () => $action($document, UntrustedDocumentText::wrap('text')))
+    expect(fn () => $action($document))
         ->toThrow(ExternalDocumentAiProviderNotConfiguredException::class, 'ai.enabled=false');
 });
 
 it('picks up a settings change on the very next call, with no restart, no re-resolution needed', function (): void {
-    $document = Document::factory()->create();
+    $document = sendableDocument();
     app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
 
     $provider = recordingProvider();
@@ -92,7 +119,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
     $action = app(RequestExternalDocumentExtraction::class);
 
     // 1. Disabled — refused, exactly like a fresh deployment before anyone has touched settings.
-    expect(fn () => $action($document, UntrustedDocumentText::wrap('text')))
+    expect(fn () => $action($document))
         ->toThrow(ExternalDocumentAiProviderNotConfiguredException::class);
     expect($provider->received)->toBeEmpty();
 
@@ -108,7 +135,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
 
     // 3. The very next call, on the same $action instance, now succeeds and forwards the
     // freshly-saved credentials.
-    $action($document, UntrustedDocumentText::wrap('text'));
+    $action($document);
     expect($provider->received)->toHaveCount(1);
     expect($provider->received[0]->credentials->provider)->toBe('openai')
         ->and($provider->received[0]->credentials->baseUrl)->toBe('https://api.openai.example')
@@ -124,7 +151,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
         apiKey: 'sk-second-key',
     ), fakeUserId());
 
-    $action($document, UntrustedDocumentText::wrap('text'));
+    $action($document);
     expect($provider->received)->toHaveCount(2);
     expect($provider->received[1]->credentials->provider)->toBe('anthropic')
         ->and($provider->received[1]->credentials->baseUrl)->toBe('https://api.anthropic.example')
@@ -139,7 +166,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
         apiKey: null,
     ), fakeUserId());
 
-    expect(fn () => $action($document, UntrustedDocumentText::wrap('text')))
+    expect(fn () => $action($document))
         ->toThrow(ExternalDocumentAiProviderNotConfiguredException::class);
     expect($provider->received)->toHaveCount(2);
 });
@@ -153,14 +180,14 @@ it('falls back to the env-configured provider only until a setting is explicitly
         'settings.ai.env_fallback.api_key' => 'sk-from-env',
     ]);
 
-    $document = Document::factory()->create();
+    $document = sendableDocument();
     app(DocumentAiConsentGate::class)->grant($document->tax_subject_id);
 
     $provider = recordingProvider();
     $this->app->instance(ExternalDocumentAiProvider::class, $provider);
 
     $action = app(RequestExternalDocumentExtraction::class);
-    $action($document, UntrustedDocumentText::wrap('text'));
+    $action($document);
 
     expect($provider->received[0]->credentials->provider)->toBe('env-openai')
         ->and($provider->received[0]->credentials->apiKey)->toBe('sk-from-env');
@@ -175,7 +202,7 @@ it('falls back to the env-configured provider only until a setting is explicitly
         apiKey: null,
     ), fakeUserId());
 
-    $action($document, UntrustedDocumentText::wrap('text'));
+    $action($document);
     expect($provider->received[1]->credentials->provider)->toBe('db-openai')
         // api_key was never saved to the database, so it still falls back to env.
         ->and($provider->received[1]->credentials->apiKey)->toBe('sk-from-env');

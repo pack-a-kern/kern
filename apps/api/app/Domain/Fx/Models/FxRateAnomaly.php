@@ -8,11 +8,11 @@ use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `fx_rate_anomalies` — written instead of overwriting an existing `fx_rates` row whose value
- * differs from an incoming fetch (`BLUEPRINT.md` §7.2 step 9). Append-only, like `fx_rates` itself.
+ * `ext_fx_rate_anomalies` — written instead of overwriting an existing `ext_fx_rates` row whose value
+ * differs from an incoming fetch (`BLUEPRINT.md` §7.2 step 9). Append-only, like `ext_fx_rates` itself.
  *
  * @property string $id
- * @property string $fx_source_id
+ * @property string $official_source_id
  * @property \Illuminate\Support\Carbon $rate_date
  * @property string $currency_code
  * @property int $existing_multiplier
@@ -26,9 +26,11 @@ final class FxRateAnomaly extends Model
 {
     use HasUuidPrimaryKey;
 
+    protected $table = 'ext_fx_rate_anomalies';
+
     /** @var list<string> */
     protected $fillable = [
-        'fx_source_id',
+        'official_source_id',
         'rate_date',
         'currency_code',
         'existing_multiplier',

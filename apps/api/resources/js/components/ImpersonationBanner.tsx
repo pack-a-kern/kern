@@ -35,7 +35,7 @@ export default function ImpersonationBanner(): JSX.Element | null {
             await stopImpersonating();
             // A full load: every screen behind this was rendered for the other account, and the
             // session that fetched it is no longer the session in force.
-            window.location.assign('/admin/utilizatori');
+            window.location.assign('/admin/users');
         } catch (cause: unknown) {
             toast.error(t((d) => d.shell.impersonationStopFailed), { description: describeApiFailure(cause, t) });
             setLeaving(false);

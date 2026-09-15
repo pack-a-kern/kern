@@ -6,10 +6,10 @@ namespace Tests\Feature\Domain\Wallet\DisplayCurrencyTest;
 
 use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxSource;
 use App\Domain\Fx\Services\FxRateQuery;
+use App\Domain\TaxKnowledge\Models\OfficialSource;
 use App\Domain\Wallet\Services\Fx\DisplayCurrencyConverter;
-use Database\Factories\FxSourceFactory;
+use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -28,14 +28,14 @@ beforeEach(function (): void {
 /**
  * One published BNR rate, with the source document version that carries its provenance.
  *
- * Built through the factories the FX module already ships rather than by hand: `fx_sources` hangs
- * off an `official_sources` row, and reconstructing that chain per test is how a fixture drifts out
+ * Built through the factories the FX module already ships rather than by hand: a rate hangs
+ * off an `ext_official_sources` row, and reconstructing that chain per test is how a fixture drifts out
  * of step with the schema.
  */
 function publishRate(string $currency, string $date, string $rate): void
 {
-    $source = FxSource::query()->where('code', 'BNR')->first()
-        ?? FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    $source = OfficialSource::query()->where('code', 'BNR')->first()
+        ?? OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
 
     $version = SourceDocumentVersionFactory::new()->createOne([
         'content_sha256' => hash('sha256', $date . $currency),
@@ -43,7 +43,7 @@ function publishRate(string $currency, string $date, string $rate): void
     ]);
 
     FxRate::query()->updateOrCreate(
-        ['fx_source_id' => $source->id, 'rate_date' => $date, 'currency_code' => $currency],
+        ['official_source_id' => $source->id, 'rate_date' => $date, 'currency_code' => $currency],
         ['multiplier' => 1, 'rate_decimal' => $rate, 'source_document_version_id' => $version->id],
     );
 }

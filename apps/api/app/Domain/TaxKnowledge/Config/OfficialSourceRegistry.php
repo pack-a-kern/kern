@@ -69,6 +69,8 @@ final readonly class OfficialSourceRegistry
         $allowedHosts = $entry['allowed_hosts'] ?? null;
         $userAgent = $entry['user_agent'] ?? null;
         $enabled = $entry['enabled'] ?? null;
+        $priority = $entry['priority'] ?? null;
+        $tlsCurves = $entry['tls_curves'] ?? null;
 
         if (! is_string($trustTier) || TrustTier::tryFrom($trustTier) === null) {
             throw new RuntimeException(sprintf('config/sources.php entry "%s" has an invalid or missing trust_tier.', $code));
@@ -100,6 +102,14 @@ final readonly class OfficialSourceRegistry
             throw new RuntimeException(sprintf('config/sources.php entry "%s" must declare a boolean enabled flag.', $code));
         }
 
+        if (! is_int($priority) || $priority < 1) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" must declare a priority of 1 or more.', $code));
+        }
+
+        if ($tlsCurves !== null && (! is_string($tlsCurves) || $tlsCurves === '')) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" has a tls_curves that is not a non-empty string.', $code));
+        }
+
         return new SourceDefinition(
             code: $code,
             trustTier: TrustTier::from($trustTier),
@@ -107,6 +117,8 @@ final readonly class OfficialSourceRegistry
             allowedHosts: $normalizedHosts,
             userAgent: $userAgent,
             enabled: $enabled,
+            priority: $priority,
+            tlsCurves: $tlsCurves,
         );
     }
 }

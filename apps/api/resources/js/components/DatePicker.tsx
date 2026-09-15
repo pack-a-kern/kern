@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export type DatePickerMode = 'single' | 'range';
-export type DatePickerSize = 'sm' | 'md';
 /**
  * An ISO date, or the literal `today`.
  *
@@ -25,7 +24,6 @@ export type DatePickerPreset = {
 };
 
 type CommonProps = {
-    size?: DatePickerSize;
     compact?: boolean;
     title?: string;
     locale?: string;
@@ -114,7 +112,6 @@ const DEFAULT_RANGE_PRESETS: DatePickerPreset[] = [
 
 export function DatePicker(props: DatePickerProps) {
     const {
-        size = 'md',
         compact = false,
         title = 'Choose date',
         locale = 'en-GB',
@@ -180,10 +177,15 @@ export function DatePicker(props: DatePickerProps) {
     const [viewYear, setViewYear] = useState(initialView.year);
     const [viewMonth, setViewMonth] = useState(initialView.month);
 
+    // Range only, by type: `presets` does not exist on the single-mode props, so it is read once
+    // through the narrowed union rather than asked for again inside the memo — which is what lets
+    // the dependency be a plain value the linter can check.
+    const configuredPresets = props.mode === 'range' ? props.presets : undefined;
+
     const presets = useMemo(() => {
-        if (props.mode !== 'range' || !props.presets) return [];
-        return Array.isArray(props.presets) ? props.presets : DEFAULT_RANGE_PRESETS;
-    }, [props.mode, props.mode === 'range' ? props.presets : false]);
+        if (configuredPresets === undefined || configuredPresets === false) return [];
+        return Array.isArray(configuredPresets) ? configuredPresets : DEFAULT_RANGE_PRESETS;
+    }, [configuredPresets]);
 
     // Re-measured while open, with `capture` on scroll so a scroll in any ancestor is caught rather
     // than only the window's.
@@ -203,6 +205,22 @@ export function DatePicker(props: DatePickerProps) {
         };
     }, [open]);
 
+    /*
+     * The outside-press listener is registered once and reaches the current close through a ref.
+     *
+     * Closing over `setOpenSafe` directly would pin the first render's `disabled` and
+     * `onOpenChange` for the life of the component: a picker that mounted disabled would never
+     * close again, and a caller that passes a fresh `onOpenChange` each render would stop hearing
+     * about it. Re-subscribing instead is not an option — the function is rebuilt every render.
+     */
+    const closeRef = useRef<() => void>(() => undefined);
+
+    useEffect(() => {
+        closeRef.current = () => {
+            setOpenSafe(false);
+        };
+    });
+
     useEffect(() => {
         const onPointerDown = (event: MouseEvent) => {
             const target = event.target as Node;
@@ -210,7 +228,7 @@ export function DatePicker(props: DatePickerProps) {
             // The panel lives in `document.body`, so it is not inside the root: both have to be checked
             // or clicking a day would close the picker before the click landed.
             if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
-                setOpenSafe(false);
+                closeRef.current();
             }
         };
         document.addEventListener('mousedown', onPointerDown);
@@ -402,13 +420,13 @@ export function DatePicker(props: DatePickerProps) {
                     className={[
                         'inline-flex h-8 items-center justify-center gap-1.5 rounded-xl',
                         'border border-border bg-popover px-2.5 text-xs font-medium text-ink-500',
-                        'transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50',
+                        'transition-colors hover:border-ring disabled:cursor-not-allowed disabled:opacity-50',
                         '',
                         triggerClassName,
                     ].join(' ')}
                 >
                     <CalendarDays className="size-4" />
-                    <span>{formattedValue || 'Any date'}</span>
+                    <span>{formattedValue || 'Select date'}</span>
                 </button>
             )}
 
@@ -434,15 +452,11 @@ export function DatePicker(props: DatePickerProps) {
                             'pointer-events-auto z-50 overflow-visible rounded-2xl',
                             'border border-border bg-popover shadow-[0_18px_45px_rgba(16,24,40,.12),0_3px_10px_rgba(16,24,40,.06)]',
                             '',
-                            size === 'sm' ? 'w-[304px]' : 'w-[332px]',
+                            'w-[332px]',
                             popoverClassName,
                         ].join(' ')}
                     >
-                        <div
-                            className={['relative border-b border-border', size === 'sm' ? 'px-2.5 py-2' : 'p-3'].join(
-                                ' ',
-                            )}
-                        >
+                        <div className={['relative border-b border-border', 'p-3'].join(' ')}>
                             <div className="flex items-center justify-between gap-3">
                                 {props.mode === 'range' && presets.length ? (
                                     <button
@@ -453,7 +467,7 @@ export function DatePicker(props: DatePickerProps) {
                                         }}
                                         className={[
                                             'flex items-center gap-1 rounded-lg px-1 py-1 font-semibold hover:bg-secondary',
-                                            size === 'sm' ? 'text-[11px]' : 'text-xs',
+                                            'text-xs',
                                         ].join(' ')}
                                     >
                                         <span>{title}</span>
@@ -462,13 +476,7 @@ export function DatePicker(props: DatePickerProps) {
                                         />
                                     </button>
                                 ) : (
-                                    <span
-                                        className={
-                                            size === 'sm' ? 'text-[11px] font-semibold' : 'text-xs font-semibold'
-                                        }
-                                    >
-                                        {title}
-                                    </span>
+                                    <span className={'text-xs font-semibold'}>{title}</span>
                                 )}
 
                                 {showClear && (
@@ -477,7 +485,7 @@ export function DatePicker(props: DatePickerProps) {
                                         onClick={clear}
                                         className={[
                                             'font-semibold text-accent-600 hover:text-accent-700',
-                                            size === 'sm' ? 'text-[9px]' : 'text-[10px]',
+                                            'text-[10px]',
                                         ].join(' ')}
                                     >
                                         Clear
@@ -486,7 +494,7 @@ export function DatePicker(props: DatePickerProps) {
                             </div>
 
                             {presetMenuOpen && props.mode === 'range' && presets.length > 0 && (
-                                <div className="absolute left-3 right-3 top-10 z-20 rounded-xl border border-border bg-popover p-1.5 shadow-[0_10px_28px_rgba(16,24,40,.10)] ">
+                                <div className="absolute left-3 right-3 top-10 z-20 rounded-xl border border-border bg-popover p-1.5 shadow-[0_10px_28px_rgba(16,24,40,.10)]">
                                     {presets.map((preset) => (
                                         <button
                                             key={preset.id}
@@ -497,7 +505,7 @@ export function DatePicker(props: DatePickerProps) {
                                             className={[
                                                 'flex w-full items-center justify-between gap-3 rounded-lg text-left font-semibold',
                                                 'text-ink-700 hover:bg-secondary',
-                                                size === 'sm' ? 'px-2 py-1.5 text-[9px]' : 'px-2.5 py-2 text-[10px]',
+                                                'px-2.5 py-2 text-[10px]',
                                             ].join(' ')}
                                         >
                                             <span>{preset.label}</span>
@@ -512,18 +520,11 @@ export function DatePicker(props: DatePickerProps) {
                             )}
 
                             {!compact && (
-                                <div
-                                    className={
-                                        size === 'sm'
-                                            ? 'mt-2 flex items-center gap-1.5'
-                                            : 'mt-3 flex items-center gap-2'
-                                    }
-                                >
+                                <div className={'mt-3 flex items-center gap-2'}>
                                     <DateField
                                         label={props.mode === 'range' ? 'From' : 'Date'}
                                         value={currentRange.from}
                                         active={props.mode === 'single' || activeField === 'from'}
-                                        size={size}
                                         locale={locale}
                                         onClick={() => {
                                             setPresetMenuOpen(false);
@@ -539,7 +540,6 @@ export function DatePicker(props: DatePickerProps) {
                                                 label="To"
                                                 value={currentRange.to}
                                                 active={activeField === 'to'}
-                                                size={size}
                                                 locale={locale}
                                                 onClick={() => {
                                                     setPresetMenuOpen(false);
@@ -553,14 +553,8 @@ export function DatePicker(props: DatePickerProps) {
                             )}
                         </div>
 
-                        <div className={size === 'sm' ? 'relative p-2.5' : 'relative p-3'}>
-                            <div
-                                className={
-                                    size === 'sm'
-                                        ? 'mb-1.5 flex items-center justify-between'
-                                        : 'mb-2 flex items-center justify-between'
-                                }
-                            >
+                        <div className={'relative p-3'}>
+                            <div className={'mb-2 flex items-center justify-between'}>
                                 <NavButton
                                     disabled={navBackDisabled}
                                     onClick={() => {
@@ -581,7 +575,7 @@ export function DatePicker(props: DatePickerProps) {
                                         monthYearNavigation && navLevel === 'calendar'
                                             ? 'hover:bg-secondary'
                                             : 'cursor-default',
-                                        size === 'sm' ? 'text-[11px]' : 'text-xs',
+                                        'text-xs',
                                     ].join(' ')}
                                 >
                                     <span>{navTitle}</span>
@@ -607,7 +601,7 @@ export function DatePicker(props: DatePickerProps) {
                                                 key={day}
                                                 className={[
                                                     'grid place-items-center font-bold uppercase text-ink-400',
-                                                    size === 'sm' ? 'h-5 text-[8px]' : 'h-6 text-[9px]',
+                                                    'h-6 text-[9px]',
                                                 ].join(' ')}
                                             >
                                                 {day}
@@ -627,6 +621,8 @@ export function DatePicker(props: DatePickerProps) {
                                                 iso > currentRange.from &&
                                                 iso < currentRange.to;
 
+                                            // Either end of a range, or the one date in single mode.
+                                            const isEdge = selectedStart || selectedEnd;
                                             const disabledDay = isDateDisabled(
                                                 iso,
                                                 resolvedMinDate,
@@ -644,21 +640,32 @@ export function DatePicker(props: DatePickerProps) {
                                                     }}
                                                     className={[
                                                         'relative grid place-items-center font-medium transition-colors',
-                                                        size === 'sm'
-                                                            ? 'h-[30px] rounded-lg text-[10px]'
-                                                            : 'h-[34px] rounded-[9px] text-[11px]',
+                                                        'h-[34px] rounded-[9px] text-[11px]',
                                                         day.inCurrentMonth ? 'text-ink-700' : 'text-ink-400',
-                                                        !disabledDay
-                                                            ? 'hover:bg-secondary'
-                                                            : 'cursor-not-allowed opacity-30',
-                                                        inRange ? '!rounded-none bg-[rgb(var(--brand-rgb)/11%)]' : '',
-                                                        selectedStart || selectedEnd
+                                                        /*
+                                                         * An end of the range is *also* inside it, so it used to
+                                                         * receive both sets of classes — and two conflicting
+                                                         * utilities on one element are not settled by the order
+                                                         * they are written in, but by their order in the
+                                                         * stylesheet. That is how a selected day ended up square
+                                                         * (`!rounded-none` beating `!rounded-[9px]`) and grey on
+                                                         * hover (`hover:bg-secondary` beating the brand).
+                                                         *
+                                                         * So the conflicting class is never emitted: an edge is
+                                                         * drawn as an edge, and nothing else claims it.
+                                                         */
+                                                        !disabledDay && !isEdge ? 'hover:bg-secondary' : '',
+                                                        disabledDay ? 'cursor-not-allowed opacity-35' : '',
+                                                        inRange && !isEdge
+                                                            ? '!rounded-none bg-[rgb(var(--brand-rgb)/11%)]'
+                                                            : '',
+                                                        isEdge
                                                             ? '!rounded-[9px] bg-accent-500 font-bold text-primary-foreground hover:bg-accent-600'
                                                             : '',
                                                     ].join(' ')}
                                                 >
                                                     {day.day}
-                                                    {iso === today && !selectedStart && !selectedEnd && (
+                                                    {iso === today && !isEdge && (
                                                         <span className="absolute bottom-1 size-[3px] rounded-full bg-accent-500" />
                                                     )}
                                                 </button>
@@ -673,7 +680,6 @@ export function DatePicker(props: DatePickerProps) {
                                     year={viewYear}
                                     minDate={resolvedMinDate}
                                     maxDate={resolvedMaxDate}
-                                    size={size}
                                     onSelect={(year) => {
                                         setViewYear(year);
                                         setNavLevel('year');
@@ -686,7 +692,6 @@ export function DatePicker(props: DatePickerProps) {
                                     year={viewYear}
                                     minDate={resolvedMinDate}
                                     maxDate={resolvedMaxDate}
-                                    size={size}
                                     onSelect={(year) => {
                                         setViewYear(year);
                                         setNavLevel('month');
@@ -701,7 +706,6 @@ export function DatePicker(props: DatePickerProps) {
                                     locale={locale}
                                     minDate={resolvedMinDate}
                                     maxDate={resolvedMaxDate}
-                                    size={size}
                                     onSelect={(month) => {
                                         setViewMonth(month);
                                         setNavLevel('calendar');
@@ -713,10 +717,10 @@ export function DatePicker(props: DatePickerProps) {
                         <div
                             className={[
                                 'flex items-center justify-between gap-3 border-t border-border bg-secondary',
-                                size === 'sm' ? 'px-2.5 py-2' : 'px-3 py-2.5',
+                                'px-3 py-2.5',
                             ].join(' ')}
                         >
-                            <span className={size === 'sm' ? 'text-[9px] text-ink-400' : 'text-[10px] text-ink-400'}>
+                            <span className={'text-[10px] text-ink-500'}>
                                 {draftFormatted ||
                                     (props.mode === 'range' ? 'No date range selected' : 'No date selected')}
                             </span>
@@ -727,7 +731,7 @@ export function DatePicker(props: DatePickerProps) {
                                     onClick={commit}
                                     className={[
                                         'rounded-xl bg-accent-800 font-semibold text-primary-foreground hover:bg-accent-700',
-                                        size === 'sm' ? 'h-7 px-2.5 text-[10px]' : 'h-8 px-3 text-xs',
+                                        'h-8 px-3 text-xs',
                                     ].join(' ')}
                                 >
                                     Apply
@@ -756,7 +760,12 @@ function NavButton({
             type="button"
             disabled={disabled}
             onClick={onClick}
-            className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-25"
+            className={[
+                'grid size-8 place-items-center rounded-lg text-ink-400',
+                // An arrow that cannot move must not light up under the pointer: `:hover` still
+                // matches a disabled button, so the class is withheld rather than overridden.
+                disabled ? 'cursor-not-allowed opacity-25' : 'hover:bg-secondary hover:text-foreground',
+            ].join(' ')}
         >
             <Icon className="size-4" />
         </button>
@@ -767,13 +776,11 @@ function DecadeGrid({
     year,
     minDate,
     maxDate,
-    size,
     onSelect,
 }: {
     year: number;
     minDate?: string | undefined;
     maxDate?: string | undefined;
-    size: DatePickerSize;
     onSelect: (year: number) => void;
 }) {
     const start = decadeBlockStart(year);
@@ -793,7 +800,7 @@ function DecadeGrid({
                         onClick={() => {
                             onSelect(decade);
                         }}
-                        className={selectorClass(size, active, allowed)}
+                        className={selectorClass(active, allowed)}
                     >
                         {decade}s
                     </button>
@@ -807,13 +814,11 @@ function YearGrid({
     year,
     minDate,
     maxDate,
-    size,
     onSelect,
 }: {
     year: number;
     minDate?: string | undefined;
     maxDate?: string | undefined;
-    size: DatePickerSize;
     onSelect: (year: number) => void;
 }) {
     const start = Math.floor(year / 10) * 10;
@@ -834,7 +839,7 @@ function YearGrid({
                         onClick={() => {
                             onSelect(itemYear);
                         }}
-                        className={`${selectorClass(size, active, allowed)} ${edge ? 'opacity-60' : ''}`}
+                        className={`${selectorClass(active, allowed)} ${edge ? 'opacity-60' : ''}`}
                     >
                         {itemYear}
                     </button>
@@ -850,7 +855,6 @@ function MonthGrid({
     locale,
     minDate,
     maxDate,
-    size,
     onSelect,
 }: {
     year: number;
@@ -858,7 +862,6 @@ function MonthGrid({
     locale: string;
     minDate?: string | undefined;
     maxDate?: string | undefined;
-    size: DatePickerSize;
     onSelect: (month: number) => void;
 }) {
     return (
@@ -874,7 +877,7 @@ function MonthGrid({
                         onClick={() => {
                             onSelect(i);
                         }}
-                        className={selectorClass(size, i === month, allowed)}
+                        className={selectorClass(i === month, allowed)}
                     >
                         {monthName(i, locale).slice(0, 3)}
                     </button>
@@ -884,12 +887,13 @@ function MonthGrid({
     );
 }
 
-function selectorClass(size: DatePickerSize, active: boolean, allowed: boolean) {
+function selectorClass(active: boolean, allowed: boolean) {
     return [
         'rounded-[10px] font-semibold transition-colors',
-        size === 'sm' ? 'h-8 text-[10px]' : 'h-[38px] text-[11px]',
-        active ? 'bg-secondary text-accent-700' : 'text-ink-500 hover:bg-secondary hover:text-foreground',
-        !allowed ? 'cursor-not-allowed opacity-25 hover:bg-transparent dark:hover:bg-transparent' : '',
+        'h-[38px] text-[11px]',
+        active ? 'bg-secondary text-accent-700' : 'text-ink-500',
+        !active && allowed ? 'hover:bg-secondary hover:text-foreground' : '',
+        !allowed ? 'cursor-not-allowed opacity-25' : '',
     ].join(' ');
 }
 
@@ -897,14 +901,12 @@ function DateField({
     label,
     value,
     active,
-    size,
     locale,
     onClick,
 }: {
     label: string;
     value: string | null;
     active: boolean;
-    size: DatePickerSize;
     locale: string;
     onClick: () => void;
 }) {
@@ -916,26 +918,12 @@ function DateField({
                 'flex min-w-0 flex-1 items-center justify-between gap-2 text-left border bg-popover',
                 'hover:border-ring',
                 active ? 'border-accent-500 bg-secondary' : 'border-border',
-                size === 'sm' ? 'h-[34px] rounded-[10px] px-2.5' : 'h-[38px] rounded-[11px] px-2.5',
+                'h-[38px] rounded-[11px] px-2.5',
             ].join(' ')}
         >
             <span className="min-w-0">
-                <span
-                    className={
-                        size === 'sm'
-                            ? 'block text-[8px] uppercase tracking-[.08em] text-ink-400'
-                            : 'block text-[9px] uppercase tracking-[.08em] text-ink-400'
-                    }
-                >
-                    {label}
-                </span>
-                <span
-                    className={
-                        size === 'sm'
-                            ? 'mt-0.5 block truncate text-[10px] font-semibold'
-                            : 'mt-0.5 block truncate text-[11px] font-semibold'
-                    }
-                >
+                <span className={'block text-[9px] uppercase tracking-[.08em] text-ink-400'}>{label}</span>
+                <span className={'mt-0.5 block truncate text-[11px] font-semibold'}>
                     {formatDate(value, locale) || 'Select date'}
                 </span>
             </span>

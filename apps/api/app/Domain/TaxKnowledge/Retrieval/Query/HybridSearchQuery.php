@@ -20,7 +20,7 @@ use InvalidArgumentException;
 final readonly class HybridSearchQuery
 {
     /**
-     * @param list<string>|null $sourceCodes restrict to these `official_sources.code` values (e.g. `['LEGISLATIE']`)
+     * @param list<string>|null $sourceCodes restrict to these `ext_official_sources.code` values (e.g. `['LEGISLATIE']`)
      * @param list<TrustTier>|null $trustTiers restrict to these trust tiers
      */
     public function __construct(

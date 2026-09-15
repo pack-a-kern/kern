@@ -19,8 +19,8 @@ use Illuminate\Database\QueryException;
  * The module's public entry point (`docs/AGENTS.md` §6 — other modules depend on an application
  * service, never on this module's Eloquent models directly). Implements the full ingestion
  * pipeline `BLUEPRINT.md` §9/§7.2 describes: fetch through the host allowlist, sanity-check the
- * response, store the raw bytes immutably and content-addressed, and record a `source_documents`/
- * `source_document_versions` row — creating a new version only if the content actually changed.
+ * response, store the raw bytes immutably and content-addressed, and record a `ext_source_documents`/
+ * `ext_source_document_versions` row — creating a new version only if the content actually changed.
  *
  * Idempotent by construction: re-ingesting byte-identical content resolves to the same
  * content-addressed storage path ({@see RawSourceObjectStore}) and the same

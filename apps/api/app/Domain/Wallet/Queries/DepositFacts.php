@@ -32,7 +32,25 @@ final readonly class DepositFacts
         public string $interestMethod,
         public string $paymentFrequency,
         public string $dayCountConvention,
-        public bool $autoRenewal,
+        /** Matured and settled — its money is back where it came from, and nothing about it can change. */
+        public bool $closed,
+        /**
+         * At least one interest period is on the ledger. From then on, the terms that interest was
+         * computed from are fixed; the screen shows them, disabled, rather than letting a save fail.
+         */
+        public bool $interestPosted,
+        /**
+         * Which source the principal came out of, where one was named.
+         *
+         * Null means the deposit was funded from somewhere this application does not track — the
+         * one case where opening it legitimately raises net worth, because there was no movement to
+         * record against it. See {@see \App\Domain\Wallet\Actions\OpenFinancialAccount}.
+         */
+        public ?string $fundingAccountId,
+        /** The bank it is at; null for a deposit recorded before banks were imported. */
+        public ?string $bankId,
+        /** Interest already paid into it, net; 0 until the first period is posted. */
+        public int $interestReceivedMinor,
         public ?int $interestAtMaturityMinor,
         public int $totalDays,
         public int $daysToMaturity,
@@ -52,7 +70,11 @@ final readonly class DepositFacts
             'interest_method' => $this->interestMethod,
             'payment_frequency' => $this->paymentFrequency,
             'day_count_convention' => $this->dayCountConvention,
-            'auto_renewal' => $this->autoRenewal,
+            'closed' => $this->closed,
+            'interest_posted' => $this->interestPosted,
+            'funding_account_id' => $this->fundingAccountId,
+            'bank_id' => $this->bankId,
+            'interest_received_minor' => $this->interestReceivedMinor,
             'interest_at_maturity_minor' => $this->interestAtMaturityMinor,
             'total_days' => $this->totalDays,
             'days_to_maturity' => $this->daysToMaturity,

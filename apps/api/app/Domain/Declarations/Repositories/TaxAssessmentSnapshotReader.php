@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\DB;
  * (`docs/handoff/023-taxengine-boundary-inversion.md`) — doing the same here would require adding
  * an adapter class inside `app/Domain/TaxEngine/**`, outside this task's path scope
  * (`apps/api/app/Domain/Declarations/**` only). This class is instead the identical, already
- * sanctioned interim shape `App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder`
- * establishes for reading `Domain/Wallet`'s `financial_transactions` table: a raw, read-only query
+ * sanctioned interim shape `App\Domain\Documents\Queries\ResolveTransactionImportState`
+ * uses for reading `Domain/Wallet`'s `financial_transactions` table: a raw, read-only query
  * against a stable table this module does not own, confined to exactly this one class.
  *
  * **What this cannot do**: `tax_assessments` stores only `input_snapshot_hash` (a SHA-256 digest),

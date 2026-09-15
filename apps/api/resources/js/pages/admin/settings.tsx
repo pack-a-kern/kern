@@ -33,6 +33,7 @@ import {
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { Switch } from '../../components/ui/switch';
+import Checkbox from '../../components/Checkbox';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { ApiError } from '../../lib/http';
@@ -637,6 +638,9 @@ function AiPanel(props: {
     const apiKeyDraft = props.drafts['ai.api_key'] ?? '';
     const apiKeySetting = settingOf('ai.api_key');
     const enabledSetting = settingOf('ai.enabled');
+    const maxTokensSetting = settingOf('ai.extraction_max_tokens');
+    const timeoutSetting = settingOf('ai.extraction_timeout_seconds');
+    const enhancementSetting = settingOf('ai.supports_enhancement');
     const enabled = valueOf('ai.enabled') === '1' || valueOf('ai.enabled') === 'true';
 
     // Live models win once fetched; before that the preset's own list is offered, and a value
@@ -943,6 +947,76 @@ function AiPanel(props: {
                                 }
                             />
                         </Field>
+                    </FieldSpan>
+
+                    {/* Sits with the model because it is a property of the model: a reasoning model
+                        spends this budget thinking before it answers and needs thousands of it, an
+                        instruct model answers directly and needs far fewer. Both are chosen here. */}
+                    <Field
+                        label={t(
+                            (d) =>
+                                d.pages.adminSettings.settingLabels['ai.extraction_max_tokens'] ??
+                                'ai.extraction_max_tokens',
+                        )}
+                        mark={maxTokensSetting ? <SourceMark setting={maxTokensSetting} /> : null}
+                    >
+                        <PanelInput
+                            type="number"
+                            min={1}
+                            value={valueOf('ai.extraction_max_tokens')}
+                            onChange={(event) => {
+                                props.onDraft('ai.extraction_max_tokens', event.target.value);
+                            }}
+                        />
+                    </Field>
+
+                    {/* Reading a long statement on a self-hosted model takes minutes; a ceiling that
+                        suits a receipt reports a working model as unreachable. */}
+                    <Field
+                        label={t(
+                            (d) =>
+                                d.pages.adminSettings.settingLabels['ai.extraction_timeout_seconds'] ??
+                                'ai.extraction_timeout_seconds',
+                        )}
+                        mark={timeoutSetting ? <SourceMark setting={timeoutSetting} /> : null}
+                    >
+                        <PanelInput
+                            type="number"
+                            min={1}
+                            value={valueOf('ai.extraction_timeout_seconds')}
+                            onChange={(event) => {
+                                props.onDraft('ai.extraction_timeout_seconds', event.target.value);
+                            }}
+                        />
+                    </Field>
+
+                    {/* A capability of the endpoint, not a preference: `docscanner` is something a
+                        gateway either implements or does not, and OpenAI does not. Off means the
+                        upload screen never offers it, rather than offering something that fails. */}
+                    <FieldSpan>
+                        <label className="flex items-start gap-2 text-xs">
+                            <Checkbox
+                                checked={valueOf('ai.supports_enhancement') === '1'}
+                                onCheckedChange={(next) => {
+                                    props.onDraft('ai.supports_enhancement', next ? '1' : '0');
+                                }}
+                                aria-label={t(
+                                    (d) =>
+                                        d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
+                                        'ai.supports_enhancement',
+                                )}
+                            />
+                            <span className="min-w-0">
+                                {t(
+                                    (d) =>
+                                        d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
+                                        'ai.supports_enhancement',
+                                )}
+                                {enhancementSetting ? (
+                                    <SourceMark setting={enhancementSetting} />
+                                ) : null}
+                            </span>
+                        </label>
                     </FieldSpan>
                 </FieldGrid>
             </Panel>
@@ -1351,6 +1425,7 @@ function OfficialSourcesPanel({ platform }: { platform: PlatformData | null }): 
                             <th>{t((d) => d.pages.adminSettings.sources.columns.tier)}</th>
                             <th>{t((d) => d.pages.adminSettings.sources.columns.url)}</th>
                             <th>{t((d) => d.pages.adminSettings.sources.columns.enabled)}</th>
+                            <th>{t((d) => d.pages.adminSettings.sources.columns.priority)}</th>
                             <th>{t((d) => d.pages.adminSettings.sources.columns.state)}</th>
                         </>
                     }
@@ -1373,6 +1448,12 @@ function OfficialSourcesPanel({ platform }: { platform: PlatformData | null }): 
                                         ? t((d) => d.pages.adminSettings.sources.allowed)
                                         : t((d) => d.pages.adminSettings.sources.blocked)}
                                 </Status>
+                            </td>
+                            <td
+                                className="tabular-nums"
+                                data-label={t((d) => d.pages.adminSettings.sources.columns.priority)}
+                            >
+                                {source.priority ?? '—'}
                             </td>
                             <td className="col-end" data-label={t((d) => d.pages.adminSettings.sources.columns.state)}>
                                 {source.mirrored ? (

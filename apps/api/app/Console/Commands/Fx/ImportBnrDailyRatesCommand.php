@@ -61,7 +61,7 @@ final class ImportBnrDailyRatesCommand extends Command
 
         if ($summary->anomalies > 0) {
             $this->components->warn(
-                "{$summary->anomalies} anomaly/anomalies recorded in fx_rate_anomalies — a previously stored rate changed value for the same date; review before trusting it.",
+                "{$summary->anomalies} anomaly/anomalies recorded in ext_fx_rate_anomalies — a previously stored rate changed value for the same date; review before trusting it.",
             );
         }
 

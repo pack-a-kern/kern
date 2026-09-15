@@ -10,7 +10,6 @@ use App\Domain\Documents\FileSecurity\Exceptions\ImagePixelLimitExceededExceptio
 use App\Domain\Documents\FileSecurity\Exceptions\UnsupportedFileTypeException;
 use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\FileSecurity\FileSecurityValidator;
-use App\Domain\Documents\FileSecurity\MagicByteSniffer;
 use App\Domain\Documents\FileSecurity\SniffedFileType;
 use RuntimeException;
 use Tests\Fixtures\Documents\FileFixtures;
@@ -20,9 +19,9 @@ use Tests\Fixtures\Documents\FileFixtures;
  * own upload handling hands the validator), never against in-memory strings, so `filesize()`/
  * `hash_file()`/`getimagesize()` are exercised exactly as production does.
  */
-function makeValidator(int $maxPdfBytes = 1_000_000, int $maxImageBytes = 1_000_000, int $maxImagePixels = 1_000_000): FileSecurityValidator
+function makeValidator(int $maxPdfBytes = 1_000_000, int $maxImageBytes = 1_000_000, int $maxTextBytes = 1_000_000, int $maxImagePixels = 1_000_000): FileSecurityValidator
 {
-    return new FileSecurityValidator(new MagicByteSniffer(), new FilenameSanitizer(), $maxPdfBytes, $maxImageBytes, $maxImagePixels);
+    return new FileSecurityValidator(new FilenameSanitizer(), $maxPdfBytes, $maxImageBytes, $maxTextBytes, $maxImagePixels);
 }
 
 /** @return string the temp file path; the OS cleans it up, same as PHP's own upload tmp files. */
@@ -125,4 +124,24 @@ it('sanitizes a dangerous filename while still validating real content', functio
     $result = makeValidator()->validate($path, '../../etc/passwd.pdf');
 
     expect($result->sanitizedFilename)->toBe('passwd.pdf');
+});
+
+it('accepts a spreadsheet and holds it to the text size limit', function (): void {
+    $csv = "Data,Suma,Detalii\n2026-01-05,123.45,Chirie\n";
+    $path = tempnam(sys_get_temp_dir(), 'csv');
+    file_put_contents($path, $csv);
+
+    expect(makeValidator()->validate($path, 'extras.csv')->sniffedType)->toBe(SniffedFileType::CSV);
+
+    // Its own ceiling, not the PDF one: a text file that large is not a statement anybody exported.
+    expect(fn () => makeValidator(maxTextBytes: 10)->validate($path, 'extras.csv'))
+        ->toThrow(FileTooLargeException::class);
+});
+
+it('refuses a spreadsheet whose declared extension disagrees with its bytes', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'csv');
+    file_put_contents($path, "Data,Suma\n2026-01-05,1.00\n");
+
+    expect(fn () => makeValidator()->validate($path, 'extras.pdf'))
+        ->toThrow(ExtensionMismatchException::class);
 });

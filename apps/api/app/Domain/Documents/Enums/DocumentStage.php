@@ -13,10 +13,10 @@ namespace App\Domain\Documents\Enums;
  * "waiting to be read". And `READY` — the pipeline's "I am finished with this" — read as though
  * the *document* were finished, when it is the moment a person's work begins.
  *
- * So this is a presentation of the pipeline state plus one fact the pipeline does not hold: whether
- * anybody has acted on the document yet. Derived on the server rather than in the client, because
- * "acted on" means an accepted reading *or* a transaction made from it, and that rule already
- * exists in one place — the inbox's `needs_review` filter — and must not grow a second version.
+ * So this is a presentation of the pipeline state plus one fact the pipeline does not hold: how far
+ * a person has got with the document. That second half is {@see TransactionImportState}, which is
+ * the one place the rule lives — the badge, the inbox filter and the import button are all read off
+ * it, so they cannot drift into telling three different stories about the same document.
  */
 enum DocumentStage: string
 {
@@ -29,27 +29,39 @@ enum DocumentStage: string
     /** Being read right now. */
     case PROCESSING = 'PROCESSING';
 
-    /** Read, and waiting on a person — whether or not anything was extracted from it. */
+    /** Read, and the reading is still a proposal: somebody has to accept or correct it. */
     case ACTION_NEEDED = 'ACTION_NEEDED';
 
-    /** A person has accepted a reading or made a transaction from it. Nothing left to do. */
+    /**
+     * Agreed to, and not yet in the ledger.
+     *
+     * Split out of `ACTION_NEEDED`, which used to cover both halves of the review — a document
+     * nobody had looked at and one already accepted looked identical in a list, so it could not
+     * tell you which of the two things you were being asked to do.
+     */
+    case TO_IMPORT = 'TO_IMPORT';
+
+    /** Its transactions exist. Nothing left to do. */
     case DONE = 'DONE';
 
     /** Refused, and terminal: infected, unreadable, or a type this app does not accept. */
     case REJECTED = 'REJECTED';
 
-    /**
-     * @param  bool  $settled  whether anybody has accepted a reading of this document or built a
-     *                         transaction from it
-     */
-    public static function of(DocumentStatus $status, bool $settled): self
+    public static function of(DocumentStatus $status, TransactionImportState $import): self
     {
         return match ($status) {
             DocumentStatus::QUARANTINE => self::CHECKING,
             DocumentStatus::SCANNED => self::QUEUED,
             DocumentStatus::PROCESSING => self::PROCESSING,
             DocumentStatus::REJECTED => self::REJECTED,
-            DocumentStatus::READY => $settled ? self::DONE : self::ACTION_NEEDED,
+            // `UNAVAILABLE` cannot reach here — it is what the import state says *because* the
+            // document is not `READY` — but a match must be total, and "waiting on a person" is the
+            // honest answer for a state this enum was not told how to name.
+            DocumentStatus::READY => match ($import) {
+                TransactionImportState::IMPORTED => self::DONE,
+                TransactionImportState::AVAILABLE => self::TO_IMPORT,
+                TransactionImportState::AWAITING_ACCEPTANCE, TransactionImportState::UNAVAILABLE => self::ACTION_NEEDED,
+            },
         };
     }
 

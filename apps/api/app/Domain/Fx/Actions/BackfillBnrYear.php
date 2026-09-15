@@ -7,8 +7,8 @@ namespace App\Domain\Fx\Actions;
 use App\Domain\Fx\DataTransferObjects\FxImportSummary;
 use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use App\Domain\Fx\Parsing\BnrXmlParser;
-use App\Domain\Fx\Repositories\FxSourceRepository;
 use App\Domain\Fx\Services\FxRateImporter;
+use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
@@ -25,7 +25,7 @@ final readonly class BackfillBnrYear
         private ConfigRepository $config,
         private SourceIngestionService $ingestion,
         private BnrXmlParser $parser,
-        private FxSourceRepository $fxSources,
+        private OfficialSourceRepository $officialSources,
         private FxRateImporter $importer,
     ) {
     }
@@ -43,7 +43,7 @@ final readonly class BackfillBnrYear
         $ingested = $this->ingestion->ingest('BNR', $url, 'FX_YEARLY', externalIdentifier: (string) $year, expectXml: true);
         $days = $this->parser->parse($ingested->rawBytes);
 
-        $source = $this->fxSources->resolve('BNR');
+        $sourceId = $this->officialSources->idForCode('BNR');
         $summary = FxImportSummary::empty($ingested->isNewVersion);
 
         foreach ($days as $day) {
@@ -51,7 +51,7 @@ final readonly class BackfillBnrYear
 
             foreach ($day->rates as $rate) {
                 $summary = $summary->withRate(
-                    $this->importer->import($source, $day->date, $rate, $ingested->sourceDocumentVersionId),
+                    $this->importer->import($sourceId, $day->date, $rate, $ingested->sourceDocumentVersionId),
                 );
             }
         }

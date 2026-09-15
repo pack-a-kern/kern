@@ -76,7 +76,7 @@ final readonly class EmbedIndexedChunks
             foreach ($chunks->values() as $index => $chunk) {
                 $vector = $vectors[$index];
 
-                DB::table('source_section_chunks')
+                DB::table('ext_source_section_chunks')
                     ->where('id', $chunk->id)
                     ->update([
                         'embedding' => $vector->toPgvectorLiteral(),

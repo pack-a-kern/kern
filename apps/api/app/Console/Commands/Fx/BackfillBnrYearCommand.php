@@ -73,7 +73,7 @@ final class BackfillBnrYearCommand extends Command
 
         if ($summary->anomalies > 0) {
             $this->components->warn(
-                "{$summary->anomalies} anomaly/anomalies recorded in fx_rate_anomalies — review before trusting the affected date(s).",
+                "{$summary->anomalies} anomaly/anomalies recorded in ext_fx_rate_anomalies — review before trusting the affected date(s).",
             );
         }
 

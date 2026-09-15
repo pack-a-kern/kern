@@ -10,18 +10,17 @@ use App\Domain\Fx\Exceptions\IncompleteMonthlyAveragesException;
 use App\Domain\Fx\Exceptions\NoDailyRatesForPeriodException;
 use App\Domain\Fx\Models\FxPeriodAverage;
 use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxSource;
 use App\Domain\Fx\ValueObjects\DecimalRate;
 use Carbon\CarbonImmutable;
 
 /**
  * `BLUEPRINT.md` §7.4: monthly average = arithmetic mean of the published daily rates in that month;
  * annual average = arithmetic mean of that year's 12 monthly averages. Both are computed purely
- * from already-imported `fx_rates`/`fx_period_averages` rows — never from a live fetch — so
+ * from already-imported `ext_fx_rates`/`ext_fx_period_averages` rows — never from a live fetch — so
  * recomputing is always safe and always reproducible (§7.5).
  *
  * A calendar month with no banking-day rates published on some days (weekends, public holidays)
- * needs no special handling here: `fx_rates` simply has no row for those dates (BNR never
+ * needs no special handling here: `ext_fx_rates` simply has no row for those dates (BNR never
  * publishes one), so the arithmetic mean is already computed over exactly the days that exist,
  * never over an assumed 28-31-day denominator and never treating a missing day as zero.
  */
@@ -40,13 +39,13 @@ final readonly class FxPeriodAverageCalculator
     ) {
     }
 
-    public function calculateMonthly(FxSource $source, string $currencyCode, int $year, int $month): FxPeriodAverage
+    public function calculateMonthly(string $officialSourceId, string $currencyCode, int $year, int $month): FxPeriodAverage
     {
         $periodStart = new CarbonImmutable(sprintf('%04d-%02d-01 00:00:00', $year, $month));
         $periodEnd = $periodStart->endOfMonth();
 
         $dailyRates = FxRate::query()
-            ->where('fx_source_id', $source->id)
+            ->where('official_source_id', $officialSourceId)
             ->where('currency_code', $currencyCode)
             ->whereBetween('rate_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get();
@@ -66,16 +65,16 @@ final readonly class FxPeriodAverageCalculator
 
         $average = $sum->divideByInt($dailyRates->count(), self::INTERNAL_SCALE)->roundedTo($this->roundingScale);
 
-        return $this->upsertCalculated($source, PeriodType::MONTH, $periodStart, $currencyCode, $average, calculatedFromDaily: true, method: 'ARITHMETIC_MEAN_OF_DAILY_RATES');
+        return $this->upsertCalculated($officialSourceId, PeriodType::MONTH, $periodStart, $currencyCode, $average, calculatedFromDaily: true, method: 'ARITHMETIC_MEAN_OF_DAILY_RATES');
     }
 
-    public function calculateAnnual(FxSource $source, string $currencyCode, int $year): FxPeriodAverage
+    public function calculateAnnual(string $officialSourceId, string $currencyCode, int $year): FxPeriodAverage
     {
         $periodStart = new CarbonImmutable(sprintf('%04d-01-01 00:00:00', $year));
         $periodEnd = $periodStart->endOfYear();
 
         $monthlyAverages = FxPeriodAverage::query()
-            ->where('fx_source_id', $source->id)
+            ->where('official_source_id', $officialSourceId)
             ->where('currency_code', $currencyCode)
             ->where('period_type', PeriodType::MONTH->value)
             ->whereBetween('period_start', [$periodStart->toDateString(), $periodEnd->toDateString()])
@@ -93,7 +92,7 @@ final readonly class FxPeriodAverageCalculator
 
         $average = $sum->divideByInt(12, self::INTERNAL_SCALE)->roundedTo($this->roundingScale);
 
-        return $this->upsertCalculated($source, PeriodType::YEAR, $periodStart, $currencyCode, $average, calculatedFromDaily: false, method: 'ARITHMETIC_MEAN_OF_MONTHLY_AVERAGES');
+        return $this->upsertCalculated($officialSourceId, PeriodType::YEAR, $periodStart, $currencyCode, $average, calculatedFromDaily: false, method: 'ARITHMETIC_MEAN_OF_MONTHLY_AVERAGES');
     }
 
     /**
@@ -122,7 +121,7 @@ final readonly class FxPeriodAverageCalculator
     }
 
     private function upsertCalculated(
-        FxSource $source,
+        string $officialSourceId,
         PeriodType $periodType,
         CarbonImmutable $periodStart,
         string $currencyCode,
@@ -133,7 +132,7 @@ final readonly class FxPeriodAverageCalculator
         /** @var FxPeriodAverage $model */
         $model = FxPeriodAverage::query()->updateOrCreate(
             [
-                'fx_source_id' => $source->id,
+                'official_source_id' => $officialSourceId,
                 'period_type' => $periodType->value,
                 'period_start' => $periodStart->toDateString(),
                 'currency_code' => $currencyCode,

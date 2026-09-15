@@ -55,4 +55,19 @@ enum SettingType: string
             default => null,
         };
     }
+
+    /**
+     * A stored string back to a whole number, or null when there is no usable one.
+     *
+     * Null rather than zero for anything unparseable: a caller falling back to its configured
+     * default is right, and a silent zero would be a ceiling of nothing.
+     */
+    public static function decodeInteger(?string $stored): ?int
+    {
+        if ($stored === null || trim($stored) === '' || ! ctype_digit(ltrim(trim($stored), '-'))) {
+            return null;
+        }
+
+        return (int) trim($stored);
+    }
 }

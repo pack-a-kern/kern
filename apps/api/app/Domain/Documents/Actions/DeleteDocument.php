@@ -8,7 +8,7 @@ use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentDerivative;
-use App\Support\ObjectStore\DocumentObjectKind;
+use App\Domain\Documents\Models\DocumentPart;
 use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
 use App\Support\ObjectStore\ObjectKey;
@@ -54,11 +54,16 @@ final readonly class DeleteDocument
         // Read before deleting: afterwards the audit entry is the only trace left.
         $subjectId = $document->tax_subject_id;
         $documentId = $document->id;
-        $type = $document->type->value;
+        $type = $document->type?->value;
         $sha256 = $document->sha256;
 
         /** @var list<DocumentDerivative> $derivatives */
         $derivatives = DocumentDerivative::query()->where('document_id', $documentId)->get()->all();
+
+        // Read before the rows go: each part knows where its own bytes are, and once
+        // `forceDelete()` has cascaded there is nothing left to ask. A document made of four
+        // photographs has four objects to forget, not one.
+        $partKeys = $document->parts->map(static fn (DocumentPart $part): ObjectKey => $part->objectKey())->all();
 
         DB::transaction(function () use ($document, $documentId): void {
             DocumentDerivative::query()->where('document_id', $documentId)->delete();
@@ -70,7 +75,9 @@ final readonly class DeleteDocument
 
         // After the commit: an object deleted for a row that then failed to commit would be
         // unrecoverable, while an orphaned object is merely inert.
-        $this->forget(ObjectKey::forDocument($subjectId, $documentId, DocumentObjectKind::ORIGINAL));
+        foreach ($partKeys as $key) {
+            $this->forget($key);
+        }
 
         foreach ($derivatives as $derivative) {
             $this->forget(ObjectKey::forDocument($subjectId, $documentId, $derivative->kind));
@@ -84,7 +91,11 @@ final readonly class DeleteDocument
             resourceId: $documentId,
             // The content hash, not the filename: the filename is encrypted at rest and an audit
             // payload is not the place to undo that, while the hash is what identifies the bytes.
-            payloadHash: $this->audit->hashPayload(['type' => $type, 'sha256' => $sha256]),
+            payloadHash: $this->audit->hashPayload([
+                'type' => $type,
+                'sha256' => $sha256,
+                'part_count' => count($partKeys),
+            ]),
         ));
     }
 

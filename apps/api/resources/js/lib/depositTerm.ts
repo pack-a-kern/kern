@@ -15,6 +15,12 @@
 /** A calendar date with no time and no zone — the only shape these functions accept or return. */
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+const DAY_MS = 86_400_000;
+
+/** `Date.getUTCDay()` numbering. */
+const SUNDAY = 0;
+const SATURDAY = 6;
+
 /**
  * `date` plus `months`, clamped to the end of the target month.
  *
@@ -50,6 +56,57 @@ export function addMonths(date: string, months: number): string {
 }
 
 /**
+ * The first working day on or after `date`: a Saturday or a Sunday becomes the Monday after.
+ *
+ * A bank pays a deposit out on a day it is open, so a term that ends on a weekend matures on the
+ * Monday — and interest runs to that day, which is why the maturity itself moves rather than only
+ * the payout. Public holidays are not moved: nothing in this application lists them yet.
+ *
+ * Returns an empty string for anything that is not an ISO date.
+ */
+export function nextWorkingDay(date: string): string {
+    const time = parse(date);
+
+    if (time === null) {
+        return '';
+    }
+
+    const weekday = new Date(time).getUTCDay();
+    const daysToMonday = weekday === SATURDAY ? 2 : weekday === SUNDAY ? 1 : 0;
+
+    return format(new Date(time + daysToMonday * DAY_MS));
+}
+
+/** When a deposit started on `startsAt` for `months` matures: the term's end, moved off a weekend. */
+export function maturityFor(startsAt: string, months: number): string {
+    return nextWorkingDay(addMonths(startsAt, months));
+}
+
+/**
+ * The term, in months, that produced a stored maturity — the inverse of {@link maturityFor}.
+ *
+ * Not a plain month difference: a term ending on Saturday 31 October matures on Monday
+ * 2 November, and counting calendar months would read that back as one month longer than it was
+ * bought for. The neighbours of the calendar count are tried, and the one whose maturity matches
+ * wins; a maturity no term produces falls back to the calendar count.
+ */
+export function termMonths(startsAt: string, maturityAt: string): number {
+    const start = ISO_DATE.exec(startsAt);
+    const end = ISO_DATE.exec(maturityAt);
+
+    if (start === null || end === null) {
+        return 1;
+    }
+
+    const calendar = (Number(end[1]) - Number(start[1])) * 12 + (Number(end[2]) - Number(start[2]));
+    const matching = [calendar, calendar - 1, calendar + 1].find(
+        (months) => months >= 1 && maturityFor(startsAt, months) === maturityAt,
+    );
+
+    return matching ?? Math.max(1, calendar);
+}
+
+/**
  * Whole days from `from` to `to`, or `null` if either is not an ISO date.
  *
  * Both endpoints are UTC midnight, so this is an exact difference in days with no DST hour to round
@@ -63,7 +120,7 @@ export function daysBetween(from: string, to: string): number | null {
         return null;
     }
 
-    return Math.round((end - start) / 86_400_000);
+    return Math.round((end - start) / DAY_MS);
 }
 
 function parse(date: string): number | null {

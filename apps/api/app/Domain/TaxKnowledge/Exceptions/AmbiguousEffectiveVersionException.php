@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use RuntimeException;
 
 /**
- * More than one `source_document_versions` row claims an effective range covering the requested
+ * More than one `ext_source_document_versions` row claims an effective range covering the requested
  * date. This is a data-integrity defect, not something
  * {@see \App\Domain\TaxKnowledge\Services\LegislationTemporalQuery} may resolve by picking the
  * newest/most-specific/any other heuristic — `docs/AGENTS.md` §2 forbids guessing, and silently

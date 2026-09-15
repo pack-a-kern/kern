@@ -1,8 +1,15 @@
-import { Camera, FolderOpen } from 'lucide-react';
-import { useRef, useState, type ChangeEvent, type JSX } from 'react';
+import { Camera, FileText, FolderOpen, Wand2 } from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
+import Checkbox from '../Checkbox';
+import ConfirmDialog from '../ConfirmDialog';
+import { enhanceImage } from '../../api/documentsApi';
+import { ApiError } from '../../lib/http';
+import { generateLocalId } from '../../lib/db';
+import { useAcceptedUploadTypes, useProviderEnhances } from '../../lib/sharedProps';
+import type { CaptureItem } from '../../lib/db';
 
 import ErrorText from '../ErrorText';
-import { Field, FieldGrid, PanelButton, PanelDialog, PanelSelect, Status, type StatusTone } from '../panel';
+import { PanelButton, PanelDialog, Status, type StatusTone } from '../panel';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useCanTakePhoto } from '../../hooks/useMediaQuery';
 import { useUploadQueue } from '../../hooks/useUploadQueue';
@@ -11,7 +18,6 @@ import type { Dictionary } from '../../i18n/dictionary';
 import type { CaptureStatus } from '../../lib/db';
 import { takeSelectedFiles } from '../../lib/fileInput';
 import { formatBytes } from '../../lib/format';
-import { DOCUMENT_TYPES, type DocumentType } from '../../types/documents';
 
 const QUEUE_STATUS_KEYS: Record<CaptureStatus, keyof Dictionary['documentsCapture']> = {
     queued: 'statusQueued',
@@ -50,6 +56,56 @@ const QUEUE_STATUS_TONES: Record<CaptureStatus, StatusTone> = {
  * IndexedDB and drains on its own), but watching a document leave the queue is how a person knows
  * it arrived.
  */
+/**
+ * What a queued document is called in the list.
+ *
+ * The first file's name, because a document photographed page by page has no name of its own until
+ * the server gives it one — and "page 1 of it" is the only honest label available on this device.
+ */
+function queuedName(item: CaptureItem): string {
+    return item.files[0]?.fileName ?? '';
+}
+
+/** A file picked but not yet sent, and what has been decided about it. */
+interface StagedFile {
+    id: string;
+    file: File;
+    /** Ticked to make this one of the pages of a single document. */
+    grouped: boolean;
+    enhanced?: boolean;
+    /**
+     * An object URL for a picked image, so the row can show what it is.
+     *
+     * Held per file and replaced when the file is — cleaning a photograph produces different bytes,
+     * and the point of showing it is to see whether the cleaning helped. Revoked whenever it is
+     * replaced or the file leaves, because an object URL lives until it is released.
+     */
+    preview?: string;
+}
+
+/**
+ * A filename whose extension matches the bytes it now holds.
+ *
+ * The server decides a file's type from its content and refuses one whose extension disagrees, so a
+ * name is not cosmetic here — it is part of what makes the upload valid.
+ */
+function renamedFor(name: string, mimeType: string): string {
+    const extension = { 'image/png': 'png', 'image/jpeg': 'jpg' }[mimeType];
+
+    if (extension === undefined) {
+        return name;
+    }
+
+    const stem = name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name;
+
+    return `${stem}.${extension}`;
+}
+
+/** What the whole document weighs — every page, not the first one. */
+function queuedSize(item: CaptureItem): number {
+    return item.files.reduce((total, file) => total + file.sizeBytes, 0);
+}
+
 export default function AddDocumentDialog({
     subjectId,
     open,
@@ -63,8 +119,41 @@ export default function AddDocumentDialog({
     onUploaded?: () => void;
 }): JSX.Element {
     const { t, locale } = useTranslation();
-    const [type, setType] = useState<DocumentType>('RECEIPT');
     const [pickError, setPickError] = useState<string | null>(null);
+    /**
+     * Files picked but not yet sent.
+     *
+     * Nothing uploads on selection any more. A pick used to start immediately, which meant the one
+     * decision that cannot be made afterwards — which files are pages of the same document — had to
+     * be made before the files were even visible. Now they are listed, grouped, and sent on a
+     * button press.
+     */
+    const [staged, setStaged] = useState<StagedFile[]>([]);
+    const [enhancing, setEnhancing] = useState<string | null>(null);
+    const [confirmingClose, setConfirmingClose] = useState(false);
+    const accepted = useAcceptedUploadTypes();
+    const canEnhance = useProviderEnhances();
+    const stagedRef = useRef<StagedFile[]>([]);
+
+    // Kept in an effect, not assigned during render: a ref written while rendering is read back by
+    // nothing reliable, and the only reader here runs when this unmounts.
+    useEffect(() => {
+        stagedRef.current = staged;
+    }, [staged]);
+
+    // An object URL lives until it is released, so whatever is still staged when this closes is
+    // freed rather than left holding a picked photograph in memory for the life of the tab.
+    useEffect(
+        () => () => {
+            for (const entry of stagedRef.current) {
+                if (entry.preview !== undefined) {
+                    URL.revokeObjectURL(entry.preview);
+                }
+            }
+        },
+        [],
+    );
+    const groupedCount = staged.filter((entry) => entry.grouped).length;
     const online = useOnlineStatus();
     const { items, enqueue, retry, remove, processing, progress } = useUploadQueue(subjectId, onUploaded);
     const canTakePhoto = useCanTakePhoto();
@@ -86,7 +175,7 @@ export default function AddDocumentDialog({
     const cameraInputRef = useRef<HTMLInputElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    async function handleFiles(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    function handleFiles(event: ChangeEvent<HTMLInputElement>): void {
         setPickError(null);
 
         // Copied out of the live `FileList` before the input is reset — see `takeSelectedFiles`.
@@ -97,14 +186,47 @@ export default function AddDocumentDialog({
             return;
         }
 
-        // A pick that arrives while the queue is still draining joins the batch in progress; one
-        // that arrives after it has emptied starts a new count, rather than adding to a total
-        // nobody is watching any more.
-        setBatchTotal((current) => (outstanding === 0 ? selected.length : current + selected.length));
+        setStaged((current) => [
+            ...current,
+            ...selected.map((file) => ({
+                id: generateLocalId(),
+                file,
+                grouped: false,
+                ...(file.type.startsWith('image/') ? { preview: URL.createObjectURL(file) } : {}),
+            })),
+        ]);
+    }
+
+    /**
+     * Send what is staged: every ticked file as one document, each unticked file as its own.
+     *
+     * The grouping is a tick rather than a mode, because one pick is often both — five separate
+     * receipts and one invoice photographed across three pages.
+     */
+    async function upload(): Promise<void> {
+        setPickError(null);
+
+        const grouped = staged.filter((entry) => entry.grouped).map((entry) => entry.file);
+        const alone = staged.filter((entry) => !entry.grouped).map((entry) => [entry.file]);
+        const documents = grouped.length > 0 ? [grouped, ...alone] : alone;
+
+        if (documents.length === 0) {
+            return;
+        }
+
+        setBatchTotal((current) => (outstanding === 0 ? documents.length : current + documents.length));
+
+        for (const entry of staged) {
+            if (entry.preview !== undefined) {
+                URL.revokeObjectURL(entry.preview);
+            }
+        }
+
+        setStaged([]);
 
         try {
-            for (const file of selected) {
-                await enqueue(type, file);
+            for (const files of documents) {
+                await enqueue(files);
             }
         } catch {
             // The page's own translated copy, never `error.message`: everything `enqueue` throws is
@@ -115,55 +237,92 @@ export default function AddDocumentDialog({
         }
     }
 
+    /**
+     * Replace a staged photograph with a cleaned-up version of itself.
+     *
+     * Before the upload rather than after, so what is stored is the file a person looked at and
+     * accepted — one file, not an original and a correction. One at a time because the provider
+     * serves one at a time, and a queue of five would simply look frozen.
+     */
+    async function enhance(entry: StagedFile): Promise<void> {
+        setPickError(null);
+        setEnhancing(entry.id);
+
+        try {
+            const improved = await enhanceImage(subjectId, entry.file);
+            // Renamed to match what came back. Cleaning a JPEG can return a PNG, and the upload
+            // refuses a file whose extension disagrees with its own bytes — so keeping the original
+            // name turns a successful enhancement into a rejected upload.
+            const replacement = new File([improved], renamedFor(entry.file.name, improved.type), {
+                type: improved.type,
+            });
+
+            setStaged((current) =>
+                current.map((candidate) => {
+                    if (candidate.id !== entry.id) {
+                        return candidate;
+                    }
+
+                    if (candidate.preview !== undefined) {
+                        URL.revokeObjectURL(candidate.preview);
+                    }
+
+                    return {
+                        ...candidate,
+                        file: replacement,
+                        enhanced: true,
+                        preview: URL.createObjectURL(replacement),
+                    };
+                }),
+            );
+        } catch (cause) {
+            setPickError(cause instanceof ApiError ? cause.message : t((d) => d.documentsCapture.enhanceFailed));
+        } finally {
+            setEnhancing(null);
+        }
+    }
+
     return (
+        <>
         <PanelDialog
             open={open}
-            onOpenChange={onOpenChange}
+            // While files are moving, a stray click outside must not abandon them: the dialog is the
+            // only place the queue's progress is visible, and closing it silently is how an upload
+            // appears to have finished when it has not.
+            dismissable={outstanding === 0}
+            onOpenChange={(next) => {
+                if (next || outstanding === 0) {
+                    onOpenChange(next);
+
+                    return;
+                }
+
+                setConfirmingClose(true);
+            }}
             title={t((d) => d.documentsCapture.addTitle)}
             description={t((d) => d.documentsCapture.intro)}
             size="lg"
             actions={
-                <PanelButton
-                    onClick={() => {
-                        onOpenChange(false);
-                    }}
-                >
-                    {t((d) => d.common.close)}
-                </PanelButton>
-            }
-        >
-            {/* The type and the buttons act on the same decision — what am I adding — so they sit on
-                one row where there is width for it, and stack only when there is not. */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                    <FieldGrid>
-                        <Field
-                            label={t((d) => d.documentsCapture.typeLabel)}
-                            htmlFor="document-type"
-                            hint={t((d) => d.documentsCapture.typeHint)}
-                        >
-                            <PanelSelect
-                                id="document-type"
-                                value={type}
-                                onValueChange={(value) => {
-                                    setType(value as DocumentType);
-                                }}
-                                options={DOCUMENT_TYPES.map((value) => ({
-                                    value,
-                                    label: t((d) => d.documentType[value]),
-                                }))}
-                            />
-                        </Field>
-                    </FieldGrid>
-                </div>
+                <>
+                    <PanelButton
+                        className="mr-auto"
+                        onClick={() => {
+                            if (outstanding === 0) {
+                                onOpenChange(false);
 
-                <div className="flex flex-wrap gap-2 sm:pb-[1.4rem]">
+                                return;
+                            }
+
+                            setConfirmingClose(true);
+                        }}
+                    >
+                        {t((d) => d.common.close)}
+                    </PanelButton>
+
                     {/* Only where `capture` means anything. A desktop browser ignores it and opens
                         the ordinary picker, making this a second "Choose files" with a camera icon. */}
                     {canTakePhoto && (
                         <PanelButton
-                            primary
-                            inline
                             onClick={() => {
                                 cameraInputRef.current?.click();
                             }}
@@ -172,9 +331,9 @@ export default function AddDocumentDialog({
                             {t((d) => d.documentsCapture.takePhoto)}
                         </PanelButton>
                     )}
+
                     <PanelButton
-                        primary={!canTakePhoto}
-                        inline
+                        primary={staged.length === 0}
                         onClick={() => {
                             fileInputRef.current?.click();
                         }}
@@ -182,8 +341,114 @@ export default function AddDocumentDialog({
                         <FolderOpen className="size-3.5" aria-hidden="true" />
                         {t((d) => d.documentsCapture.chooseFiles)}
                     </PanelButton>
+
+                    {staged.length > 0 && (
+                        <PanelButton
+                            primary
+                            disabled={enhancing !== null}
+                            onClick={() => {
+                                void upload();
+                            }}
+                        >
+                            {t((d) => d.documentsCapture.uploadCount).replace(
+                                '{count}',
+                                String(staged.length),
+                            )}
+                        </PanelButton>
+                    )}
+                </>
+            }
+        >
+            {staged.length > 0 && (
+                <div className="mt-3">
+                    {/* The grouping is a tick per file rather than a mode, because one pick is often
+                        both: five separate receipts and one invoice photographed across three pages. */}
+                    <p className="note mb-2">{t((d) => d.documentsCapture.stagedHint)}</p>
+
+                    {/* Said plainly once two are ticked, because the consequence of the ticks is the
+                        one thing that cannot be changed after the upload starts. */}
+                    {groupedCount > 1 && (
+                        <p className="note mb-2 font-medium">
+                            {t((d) => d.documentsCapture.groupedNotice).replace(
+                                '{count}',
+                                String(groupedCount),
+                            )}
+                        </p>
+                    )}
+
+                    <ul className="grid gap-1.5">
+                        {staged.map((entry) => (
+                            <li key={entry.id} className="tile border-border flex flex-wrap items-center gap-2 border p-2">
+                                {/* What the file is, before its name: a phone calls every photograph
+                                    IMG_0042, so the picture identifies it and the name does not. */}
+                                {entry.preview === undefined ? (
+                                    <span className="row-mark">
+                                        <FileText className="size-4" aria-hidden="true" />
+                                    </span>
+                                ) : (
+                                    <img
+                                        src={entry.preview}
+                                        alt={entry.file.name}
+                                        className="h-12 w-12 shrink-0 rounded-lg border border-border object-cover"
+                                    />
+                                )}
+
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-xs">{entry.file.name}</span>
+                                    <span className="note tabular-nums">
+                                        {formatBytes(entry.file.size, locale)}
+                                    </span>
+                                    {/* The label is written out, not left to a bare tick: someone
+                                        meeting this form for the first time has no way to guess what
+                                        ticking an unlabelled box next to a file would do. */}
+                                    <label className="mt-1 flex items-center gap-1.5 text-xs">
+                                        <Checkbox
+                                            checked={entry.grouped}
+                                            onCheckedChange={(next) => {
+                                                setStaged((current) =>
+                                                    current.map((candidate) =>
+                                                        candidate.id === entry.id
+                                                            ? { ...candidate, grouped: next }
+                                                            : candidate,
+                                                    ),
+                                                );
+                                            }}
+                                            aria-label={t((d) => d.documentsCapture.groupThisFile)}
+                                        />
+                                        {t((d) => d.documentsCapture.groupThisFile)}
+                                    </label>
+                                </span>
+
+                                {canEnhance && entry.file.type.startsWith('image/') && (
+                                    <PanelButton
+                                        disabled={enhancing !== null || entry.enhanced === true}
+                                        onClick={() => {
+                                            void enhance(entry);
+                                        }}
+                                    >
+                                        <Wand2 className="size-3.5" aria-hidden="true" />
+                                        {entry.enhanced === true
+                                            ? t((d) => d.documentsCapture.enhanced)
+                                            : t((d) => d.documentsCapture.enhance)}
+                                    </PanelButton>
+                                )}
+
+                                <PanelButton
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setStaged((current) =>
+                                            current.filter((candidate) => candidate.id !== entry.id),
+                                        );
+                                    }}
+                                >
+                                    {t((d) => d.documentsCapture.remove)}
+                                </PanelButton>
+                            </li>
+                        ))}
+                    </ul>
+
                 </div>
-            </div>
+            )}
 
             <ErrorText message={pickError} />
 
@@ -199,18 +464,22 @@ export default function AddDocumentDialog({
                     className="hidden"
                     aria-hidden="true"
                     tabIndex={-1}
-                    onChange={(event) => void handleFiles(event)}
+                    onChange={(event) => {
+                        handleFiles(event);
+                    }}
                 />
             )}
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept={accepted}
                 multiple
                 className="hidden"
                 aria-hidden="true"
                 tabIndex={-1}
-                onChange={(event) => void handleFiles(event)}
+                onChange={(event) => {
+                        handleFiles(event);
+                    }}
             />
 
             <div className="mt-4">
@@ -254,12 +523,20 @@ export default function AddDocumentDialog({
                                 <li key={item.localId} className="tile border-border border p-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="min-w-0">
-                                            <p className="text-xs font-semibold break-all">{item.fileName}</p>
+                                            <p className="text-xs font-semibold break-all">{queuedName(item)}</p>
                                             <p className="note">
-                                                {t((d) => d.documentType[item.type])} ·{' '}
                                                 <span className="tabular-nums">
-                                                    {formatBytes(item.sizeBytes, locale)}
+                                                    {formatBytes(queuedSize(item), locale)}
                                                 </span>
+                                                {item.files.length > 1 && (
+                                                    <>
+                                                        {' · '}
+                                                        {t((d) => d.documentsCapture.pageCount).replace(
+                                                            '{count}',
+                                                            String(item.files.length),
+                                                        )}
+                                                    </>
+                                                )}
                                             </p>
                                             {message === null || message === '' ? null : (
                                                 <p className="text-destructive mt-1 text-xs">{message}</p>
@@ -305,7 +582,7 @@ export default function AddDocumentDialog({
                                                 aria-valuemin={0}
                                                 aria-valuemax={100}
                                                 aria-valuenow={percent}
-                                                aria-label={item.fileName}
+                                                aria-label={queuedName(item)}
                                             >
                                                 <div
                                                     className="bg-primary h-full rounded-full transition-[width] duration-150"
@@ -322,5 +599,21 @@ export default function AddDocumentDialog({
                 )}
             </div>
         </PanelDialog>
+
+            <ConfirmDialog
+                open={confirmingClose}
+                onOpenChange={setConfirmingClose}
+                title={t((d) => d.documentsCapture.stopUploadTitle)}
+                description={t((d) => d.documentsCapture.stopUploadHint)}
+                confirmLabel={t((d) => d.documentsCapture.stopUpload)}
+                cancelLabel={t((d) => d.common.cancel)}
+                onConfirm={() => {
+                    setConfirmingClose(false);
+                    onOpenChange(false);
+
+                    return Promise.resolve();
+                }}
+            />
+        </>
     );
 }

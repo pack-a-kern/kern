@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Documents\ExternalAi;
 
 use App\Domain\Documents\Enums\DocumentType;
+use App\Domain\Documents\Parsing\ExtractionField;
+use App\Domain\Documents\Parsing\ExtractionFieldKind;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
@@ -52,38 +54,81 @@ final readonly class ExtractionPrompt
         return $this->string('system', 'You extract structured data from financial documents.');
     }
 
-    /** The per-type instruction, naming exactly the fields `ExtractionSchema` expects. */
-    public function instruction(DocumentType $type): string
+    /**
+     * What to ask of this document. One shape, every time.
+     *
+     * The model is always asked to classify as well as extract, including on a re-read of a
+     * document that already has a type. That type came from the *previous* reading — nothing else
+     * sets it — so asserting it back meant a first misclassification was permanent: a retry was
+     * told the wrong kind as a fact and extracted against the wrong schema, which is precisely the
+     * thing somebody retries in order to fix.
+     *
+     * Asking every time costs one field and removes a whole branch, along with the sentence "already
+     * identified as CORPORATE", which read as though a person had decided it.
+     */
+    public function instruction(): string
     {
-        $schema = ExtractionSchema::for($type);
+        $schema = ExtractionSchema::union();
 
-        if ($schema === null) {
-            return 'Extract nothing: this document type has no agreed field set.';
-        }
-
-        $opening = str_replace(
-            ':type',
-            // `BANK_STATEMENT` reads as "bank statement" — the enum's own name, not a second list
-            // of human labels to keep in step with it.
-            str_replace('_', ' ', strtolower($type->value)),
-            $this->string('instruction', 'Read this :type and return JSON with these fields:'),
-        );
-
-        $lines = [$opening];
-
-        foreach ($schema->required as $field) {
-            $lines[] = sprintf('- %s (required): %s', $field, $this->describe($field));
-        }
-
-        foreach ($schema->optional as $field) {
-            $lines[] = sprintf('- %s (optional): %s', $field, $this->describe($field));
-        }
+        $lines = [
+            $this->string('instruction', 'Read this document, decide what kind it is, and return JSON with these fields:'),
+            ...$this->describeFields($schema->fields, 0, ''),
+        ];
 
         foreach ($this->formatRules() as $rule) {
             $lines[] = $rule;
         }
 
+        // Only the fields that belong to what it decided. Without this a model classifies a receipt
+        // and then dutifully fills in the statement fields as well, because they were on the list.
+        $lines[] = $this->string(
+            'only_relevant_fields',
+            'Return only the fields that apply to the kind you chose: an invoice has no transactions, an account statement has no items.',
+        );
+
         return implode("\n", $lines);
+    }
+
+    /**
+     * One line per field, indented to show what belongs to what.
+     *
+     * A group and a list are introduced by their own line and then their children are listed under
+     * it, so the model is told what an invoice line contains rather than left to invent the keys —
+     * and the words come from the same definition the JSON schema and the validator are built from,
+     * which is what stops the prompt asking for a shape the reply is then rejected for having.
+     *
+     * @param  list<ExtractionField>  $fields
+     * @param  string  $parent  the enclosing group's name, so a child can be described in terms of
+     *                          where it sits — `payments.amount` is unsigned where
+     *                          `transactions.amount` is signed, and one sentence cannot say both
+     * @return list<string>
+     */
+    private function describeFields(array $fields, int $depth, string $parent): array
+    {
+        $indent = str_repeat('  ', $depth);
+        $lines = [];
+
+        foreach ($fields as $field) {
+            $description = $this->describe($field->name, $parent);
+
+            $lines[] = sprintf(
+                '%s- %s (%s): %s',
+                $indent,
+                $field->name,
+                $field->required ? 'required' : 'optional',
+                match ($field->kind) {
+                    ExtractionFieldKind::SCALAR => $description,
+                    ExtractionFieldKind::OBJECT => $description . ' — an object with:',
+                    ExtractionFieldKind::LIST => $description . ' — a list, each entry with:',
+                },
+            );
+
+            if ($field->children !== []) {
+                $lines = [...$lines, ...$this->describeFields($field->children, $depth + 1, $field->name)];
+            }
+        }
+
+        return $lines;
     }
 
     /**
@@ -93,14 +138,97 @@ final readonly class ExtractionPrompt
      * The alternative — omitting it, or emitting an empty description — would quietly ask the model
      * for something nobody explained.
      */
-    private function describe(string $field): string
+    private function describe(string $field, string $parent): string
     {
         $descriptions = $this->config->get('ai_providers.prompt.field_descriptions');
-        $description = is_array($descriptions) ? ($descriptions[$field] ?? null) : null;
+        $descriptions = is_array($descriptions) ? $descriptions : [];
 
-        return is_string($description) && trim($description) !== ''
+        // `payments.amount` before `amount`. The same name means different things in different
+        // places — a payment's amount is unsigned, a statement row's is signed — and writing one
+        // sentence that covers both produced a line that said "at the top level … inside a row …"
+        // for a field that only ever appears in one of the two.
+        $description = $descriptions[$parent . '.' . $field] ?? $descriptions[$field] ?? null;
+
+        $text = is_string($description) && trim($description) !== ''
             ? $description
             : $this->string('default_field_description', 'as printed on the document');
+
+        return $text . $this->choicesFor($field);
+    }
+
+    /**
+     * The closed list a field must choose from, appended to its description.
+     *
+     * Two fields are a choice rather than a reading, and both used to be a hand-typed sentence in
+     * config listing the options. That is how a prompt comes to offer `ANAF_DECISION` when nothing
+     * downstream can store one: the list and the code that accepts it were two separate texts.
+     * These are generated, so a kind that exists is offered and a kind that does not cannot be.
+     */
+    private function choicesFor(string $field): string
+    {
+        $choices = match ($field) {
+            ExtractionSchema::FIELD_DOCUMENT_KIND => $this->documentKinds(),
+            // The categories a payment or a statement row can be filed under. A suggestion only:
+            // `category_code` feeds the tax engine, so what a model picks is proposed to a person
+            // and never written as a fact on its own.
+            'category' => $this->transactionCategories(),
+            default => [],
+        };
+
+        return $choices === [] ? '' : ' — one of: ' . implode('; ', $choices);
+    }
+
+    /**
+     * Every document kind, each with the line that says what it is.
+     *
+     * The descriptions are the whole point. A model given six bare enum names is guessing between
+     * them, which is how a Romanian invoice came back classified as an ANAF decision.
+     *
+     * @return list<string>
+     */
+    private function documentKinds(): array
+    {
+        $descriptions = $this->config->get('ai_providers.prompt.document_kinds');
+        $descriptions = is_array($descriptions) ? $descriptions : [];
+        $kinds = [];
+
+        foreach (DocumentType::cases() as $case) {
+            $description = $descriptions[$case->value] ?? null;
+
+            $kinds[] = is_string($description) && trim($description) !== ''
+                ? $case->value . ' (' . $description . ')'
+                : $case->value;
+        }
+
+        return $kinds;
+    }
+
+    /**
+     * The categories a payment may be filed under — `config/tax_categories.php`, both groups.
+     *
+     * The same vocabulary `App\Domain\Wallet\Services\TaxCategoryCatalogue` validates against,
+     * so the model cannot be offered a category the endpoint that records the transaction would
+     * refuse. Read from config directly rather than through that service because `Documents` may
+     * not depend on `Wallet` (`deptrac.php`); the file is the one source either way.
+     *
+     * @return list<string>
+     */
+    private function transactionCategories(): array
+    {
+        $codes = [];
+
+        foreach (['income', 'not_income'] as $group) {
+            $listed = $this->config->get("tax_categories.{$group}");
+
+            // Keyed by code; the value is the direction, which the model is not asked about.
+            foreach (is_array($listed) ? array_keys($listed) : [] as $code) {
+                if (is_string($code) && trim($code) !== '') {
+                    $codes[] = $code;
+                }
+            }
+        }
+
+        return $codes;
     }
 
     /** @return list<string> */

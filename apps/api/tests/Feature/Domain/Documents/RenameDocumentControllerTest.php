@@ -45,12 +45,7 @@ function memberAndSubject(): array
 
 it('shows a hash-derived name until someone renames the document', function (): void {
     [$user, $subject] = memberAndSubject();
-    $document = Document::factory()->create([
-        'tax_subject_id' => $subject->id,
-        'original_filename_ciphertext' => 'IMG_0042.jpg',
-        'mime_type' => 'image/jpeg',
-        'sha256' => str_repeat('a1b2c3d4', 8),
-    ]);
+    $document = Document::factory()->part(['original_filename_ciphertext' => 'IMG_0042.jpg', 'mime_type' => 'image/jpeg'])->create(['tax_subject_id' => $subject->id, 'sha256' => str_repeat('a1b2c3d4', 8)]);
 
     $response = $this->actingAs($user, 'web')->getJson("/api/v1/subjects/{$subject->id}/documents/{$document->id}");
 
@@ -112,11 +107,7 @@ it('sanitises a submitted name rather than trusting it', function (): void {
 
 it('returns the document to its hash-derived name when the name is cleared', function (): void {
     [$user, $subject] = memberAndSubject();
-    $document = Document::factory()->create([
-        'tax_subject_id' => $subject->id,
-        'mime_type' => 'application/pdf',
-        'sha256' => str_repeat('f', 64),
-    ]);
+    $document = Document::factory()->part(['mime_type' => 'application/pdf'])->create(['tax_subject_id' => $subject->id, 'sha256' => str_repeat('f', 64)]);
 
     $url = "/api/v1/subjects/{$subject->id}/documents/{$document->id}";
 

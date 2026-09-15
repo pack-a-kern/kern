@@ -19,7 +19,7 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
  * real arithmetic behaviour of `HybridLegislationSearch`'s SQL, not a canned fixture number.
  *
  * The dimension is read from `config('retrieval.embedding.dimension')` rather than fixed here.
- * `source_section_chunks.embedding` is a `vector(N)` column and pgvector rejects any other width
+ * `ext_source_section_chunks.embedding` is a `vector(N)` column and pgvector rejects any other width
  * outright, so a literal in this file is a literal that has to be changed in lockstep with a
  * migration — which is exactly what did not happen when
  * `2026_09_09_600000_widen_source_section_chunk_embeddings.php` widened the column from the

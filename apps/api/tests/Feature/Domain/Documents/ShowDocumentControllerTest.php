@@ -52,7 +52,7 @@ it('returns document status metadata, never content', function (): void {
     $response->assertOk()->assertJson([
         'id' => $document->id,
         'status' => $document->status->value,
-        'mime_type' => $document->mime_type,
+        'mime_type' => $document->firstPart()?->mime_type,
     ]);
     expect($response->json())->not->toHaveKey('original_filename_ciphertext')
         ->and($response->json())->not->toHaveKey('object_path');

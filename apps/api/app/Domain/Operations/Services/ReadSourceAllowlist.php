@@ -13,10 +13,10 @@ use Throwable;
  * The official-source allowlist, read from `config/sources.php` — which is where it lives.
  *
  * This class exists in its current shape because the first version got the authority backwards. It
- * read `official_sources` and offered a toggle over that table's `enabled` column, which is wrong
+ * read `ext_official_sources` and offered a toggle over that table's `enabled` column, which is wrong
  * twice over:
  *
- *  1. **`official_sources` is a mirror, not the source of truth.**
+ *  1. **`ext_official_sources` is a mirror, not the source of truth.**
  *     `App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository::resolve()` upserts
  *     `trust_tier`/`base_url`/`enabled` from the current config on *every* call, so a value written
  *     to that table survives only until the next fetch resolves the source.
@@ -62,12 +62,14 @@ final readonly class ReadSourceAllowlist
 
             $trustTier = $entry['trust_tier'] ?? null;
             $baseUrl = $entry['base_url'] ?? null;
+            $priority = $entry['priority'] ?? null;
 
             $allowlist[] = new SourceRegistryEntry(
                 code: $code,
                 trustTier: is_string($trustTier) ? $trustTier : '',
                 baseUrl: is_string($baseUrl) ? $baseUrl : '',
                 enabled: ($entry['enabled'] ?? null) === true,
+                priority: is_int($priority) ? $priority : null,
                 mirrored: in_array($code, $mirrored, true),
             );
         }
@@ -76,7 +78,7 @@ final readonly class ReadSourceAllowlist
     }
 
     /**
-     * Codes with a row in `official_sources`. Read through the plain query builder, never through
+     * Codes with a row in `ext_official_sources`. Read through the plain query builder, never through
      * `Domain/TaxKnowledge`'s Eloquent model — the same crossing every other probe in this module
      * uses (`docs/AGENTS.md` §6). Degrades to "none mirrored" rather than failing the overview.
      *
@@ -86,7 +88,7 @@ final readonly class ReadSourceAllowlist
     {
         try {
             /** @var list<string> $codes */
-            $codes = DB::table('official_sources')->pluck('code')->all();
+            $codes = DB::table('ext_official_sources')->pluck('code')->all();
 
             return $codes;
         } catch (Throwable $exception) {

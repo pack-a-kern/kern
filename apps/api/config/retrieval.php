@@ -32,7 +32,7 @@ return [
         // because a config default changed under it.
         'enabled' => filter_var(env('RETRIEVAL_EMBEDDING_ENABLED', false), FILTER_VALIDATE_BOOL),
 
-        // Must equal `source_section_chunks.embedding`'s declared `vector(N)` *and* the Python
+        // Must equal `ext_source_section_chunks.embedding`'s declared `vector(N)` *and* the Python
         // service's `EMBEDDING_DIMENSION`. All three are asserted against each other at runtime
         // rather than trusted — a mismatch writes vectors into the wrong space, which retrieves
         // plausible-looking nonsense instead of failing.

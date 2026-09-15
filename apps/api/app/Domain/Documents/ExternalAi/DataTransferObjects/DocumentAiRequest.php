@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\ExternalAi\DataTransferObjects;
 
-use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
 
@@ -27,7 +26,7 @@ final readonly class DocumentAiRequest
     public function __construct(
         public string $documentId,
         public string $subjectId,
-        public string $mimeType,
+        public ?string $mimeType,
         public ?UntrustedDocumentText $extractedText,
         public AiProviderCredentials $credentials,
         /**
@@ -40,9 +39,26 @@ final readonly class DocumentAiRequest
          * Null for a document with usable text — which keeps the smaller, cheaper and more private
          * path the default, exactly as ADR 0005 intends.
          */
-        public ?DocumentContent $content = null,
-        /** Which document type's schema the reply must satisfy (`BLUEPRINT.md` §14.4). */
-        public ?DocumentType $documentType = null,
+        /**
+         * The document's pictures, in part order — every image file it is made of.
+         *
+         * A list because a document is a list of files: an invoice photographed across four pages
+         * has to reach the model as four pictures in one request, or it answers confidently about
+         * the quarter it was shown.
+         *
+         * @var list<DocumentContent>
+         */
+        public array $contents = [],
+        /**
+         * Files the provider reads itself, in part order.
+         *
+         * A PDF goes this way rather than as text we pulled out of it: a gateway that understands
+         * documents keeps a statement's columns apart, and a model handed a flat text layer
+         * misreads which number is the amount and which is the balance.
+         *
+         * @var list<array{filename: string, mime_type: string, base64: string}>
+         */
+        public array $attachments = [],
     ) {
     }
 }

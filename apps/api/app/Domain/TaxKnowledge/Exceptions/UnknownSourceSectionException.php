@@ -10,6 +10,6 @@ final class UnknownSourceSectionException extends RuntimeException
 {
     public static function forId(string $id): self
     {
-        return new self(sprintf('No source_sections row with id "%s".', $id));
+        return new self(sprintf('No ext_source_sections row with id "%s".', $id));
     }
 }

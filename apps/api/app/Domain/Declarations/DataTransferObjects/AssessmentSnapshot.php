@@ -9,8 +9,8 @@ namespace App\Domain\Declarations\DataTransferObjects;
  * `App\Domain\Declarations\Repositories\TaxAssessmentSnapshotReader` through the plain query
  * builder — this module never imports `App\Domain\TaxEngine\Models\TaxAssessment`
  * (`docs/AGENTS.md` §6; the same "read another module's table via `DB::table()`, never its
- * Eloquent model" shape `App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder`
- * already establishes for `financial_transactions`).
+ * Eloquent model" shape `App\Domain\Documents\Queries\ResolveTransactionImportState`
+ * already uses for `financial_transactions`).
  *
  * `$status` is the raw `tax_assessments.status` string (`'DRAFT'` or `'FINAL'`, `App\Domain\
  * TaxEngine\Enums\AssessmentStatus`'s case values) — kept as a string rather than importing that

@@ -39,10 +39,13 @@ final readonly class DepositSummary
         public string $paymentFrequency,
         public string $openedAt,
         public string $maturityAt,
-        public bool $autoRenewal,
+        /** Matured and settled. */
+        public bool $closed,
         public ?int $interestAtMaturityMinor,
         public int $totalDays,
         public ?int $daysToMaturity,
+        /** The bank it is at; null for a deposit recorded before banks were imported. */
+        public ?string $bankId = null,
     ) {
     }
 
@@ -59,10 +62,11 @@ final readonly class DepositSummary
             'payment_frequency' => $this->paymentFrequency,
             'opened_at' => $this->openedAt,
             'maturity_at' => $this->maturityAt,
-            'auto_renewal' => $this->autoRenewal,
+            'closed' => $this->closed,
             'interest_at_maturity_minor' => $this->interestAtMaturityMinor,
             'total_days' => $this->totalDays,
             'days_to_maturity' => $this->daysToMaturity,
+            'bank_id' => $this->bankId,
         ];
     }
 }

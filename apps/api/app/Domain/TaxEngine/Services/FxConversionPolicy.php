@@ -31,13 +31,13 @@ use RuntimeException;
  * `App\Domain\TaxKnowledge` — never an `Fx` Eloquent model). `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE`
  * are computed here from repeated spot lookups rather than by calling
  * `App\Domain\Fx\Services\FxPeriodAverageCalculator`, because that calculator's public methods
- * take `App\Domain\Fx\Models\{FxSource,FxPeriodAverage}` Eloquent models as parameters/return
+ * take `App\Domain\Fx\Models\FxPeriodAverage` Eloquent models as parameters/return
  * values — there is no DTO-based read surface for a pre-calculated average, and extending `Fx` to
  * add one is outside this task's path scope. The arithmetic (`BLUEPRINT.md` §7.4: monthly = mean of
  * that month's daily rates; annual = mean of the year's 12 monthly averages, never of daily rates
  * directly) is the same published methodology, independently applied to the one primitive `Fx`
  * does expose (`FxRateQuery::rateWithProvenance()`) — see `docs/handoff/020-tax-engine.md` "Open
- * questions" for the reconciliation gap this leaves against `Fx`'s own `fx_period_averages` cache.
+ * questions" for the reconciliation gap this leaves against `Fx`'s own `ext_fx_period_averages` cache.
  */
 final readonly class FxConversionPolicy
 {

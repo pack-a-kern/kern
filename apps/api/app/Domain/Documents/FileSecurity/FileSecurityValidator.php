@@ -28,13 +28,11 @@ use RuntimeException;
  */
 final readonly class FileSecurityValidator
 {
-    private const int SNIFF_WINDOW_BYTES = 1024;
-
     public function __construct(
-        private MagicByteSniffer $sniffer,
         private FilenameSanitizer $filenameSanitizer,
         private int $maxPdfBytes,
         private int $maxImageBytes,
+        private int $maxTextBytes,
         private int $maxImagePixels,
     ) {
     }
@@ -47,13 +45,20 @@ final readonly class FileSecurityValidator
             throw new RuntimeException("Unable to read the size of the uploaded temp file at \"{$tempFilePath}\".");
         }
 
-        $sniffedType = $this->sniffer->sniff($this->readLeadingBytes($tempFilePath));
+        $sniffedType = SniffedFileType::sniff($this->readLeadingBytes($tempFilePath));
 
         if ($sniffedType === null) {
             throw UnsupportedFileTypeException::unrecognized();
         }
 
-        $maxBytes = $sniffedType->isImage() ? $this->maxImageBytes : $this->maxPdfBytes;
+        // Per type, because the reasons differ: a PDF is large because it is a document, an image
+        // because it is a photograph, and a spreadsheet that is tens of megabytes of text is not a
+        // statement anybody exported.
+        $maxBytes = match ($sniffedType) {
+            SniffedFileType::PDF => $this->maxPdfBytes,
+            SniffedFileType::JPEG, SniffedFileType::PNG => $this->maxImageBytes,
+            SniffedFileType::CSV => $this->maxTextBytes,
+        };
 
         if ($sizeBytes > $maxBytes) {
             throw FileTooLargeException::exceeds($maxBytes);
@@ -88,7 +93,7 @@ final readonly class FileSecurityValidator
         }
 
         try {
-            $bytes = fread($handle, self::SNIFF_WINDOW_BYTES);
+            $bytes = fread($handle, SniffedFileType::SNIFF_WINDOW_BYTES);
 
             return $bytes === false ? '' : $bytes;
         } finally {

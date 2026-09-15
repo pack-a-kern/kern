@@ -7,8 +7,8 @@ namespace App\Domain\Fx\Actions;
 use App\Domain\Fx\DataTransferObjects\FxImportSummary;
 use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use App\Domain\Fx\Parsing\BnrXmlParser;
-use App\Domain\Fx\Repositories\FxSourceRepository;
 use App\Domain\Fx\Services\FxRateImporter;
+use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use RuntimeException;
@@ -29,7 +29,7 @@ final readonly class ImportBnrDailyRates
         private ConfigRepository $config,
         private SourceIngestionService $ingestion,
         private BnrXmlParser $parser,
-        private FxSourceRepository $fxSources,
+        private OfficialSourceRepository $officialSources,
         private FxRateImporter $importer,
     ) {
     }
@@ -53,12 +53,12 @@ final readonly class ImportBnrDailyRates
         }
 
         $day = $days[0];
-        $source = $this->fxSources->resolve('BNR');
+        $sourceId = $this->officialSources->idForCode('BNR');
         $summary = FxImportSummary::empty($ingested->isNewVersion)->withDayProcessed();
 
         foreach ($day->rates as $rate) {
             $summary = $summary->withRate(
-                $this->importer->import($source, $day->date, $rate, $ingested->sourceDocumentVersionId),
+                $this->importer->import($sourceId, $day->date, $rate, $ingested->sourceDocumentVersionId),
             );
         }
 

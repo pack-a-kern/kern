@@ -31,6 +31,7 @@ from processing.documents import (
     extract_document,
 )
 from processing.documents.http_schemas import ErrorResponse, ExtractTextResponse
+from processing.documents.page_count import count_pdf_pages
 from processing.internal_auth import require_internal_auth
 
 logger = logging.getLogger("processing.documents.http")
@@ -53,6 +54,51 @@ _ERROR_STATUS: dict[type[DocumentExtractionError], tuple[int, str]] = {
     ExtractionTimeoutError: (422, "extraction_timeout"),
 }
 _UNKNOWN_ERROR_STATUS = (422, "extraction_failed")
+
+
+@router.post(
+    "/v1/documents/page-count",
+    responses={
+        401: {"model": ErrorResponse},
+        413: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+    },
+)
+async def page_count(
+    file: Annotated[
+        UploadFile,
+        File(description="Raw PDF bytes. Content-type is ignored; only the bytes decide."),
+    ],
+    _authenticated: Annotated[None, Depends(require_internal_auth)],
+) -> JSONResponse:
+    """How many pages a PDF has, so a caller can refuse an over-long one cheaply.
+
+    Deliberately separate from `/extract-text`: walking the page tree answers
+    in milliseconds where reading every page costs multiples of that, and the
+    whole point of this endpoint is to reject a document *before* anything
+    expensive — local or remote — has looked at it.
+    """
+    content = await file.read()
+
+    try:
+        pages = await run_in_threadpool(count_pdf_pages, content)
+    except DocumentExtractionError as exc:
+        status_code, error_code = _ERROR_STATUS.get(type(exc), _UNKNOWN_ERROR_STATUS)
+        logger.info(
+            "document_page_count_rejected",
+            extra={"event": "document_page_count_rejected", "error_code": error_code},
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content=ErrorResponse(error=error_code, message=str(exc)).model_dump(),
+        )
+
+    logger.info(
+        "document_page_count_completed",
+        extra={"event": "document_page_count_completed", "page_count": pages},
+    )
+
+    return JSONResponse(status_code=200, content={"page_count": pages})
 
 
 @router.post(

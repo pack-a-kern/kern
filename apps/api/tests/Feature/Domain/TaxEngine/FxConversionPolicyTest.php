@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxSource;
 use App\Domain\Fx\Services\FxRateQuery;
 use App\Domain\TaxEngine\Enums\FxConversionMethod;
 use App\Domain\TaxEngine\Enums\RoundingMode;
@@ -11,7 +10,7 @@ use App\Domain\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
 use App\Domain\TaxEngine\Exceptions\IncompleteFiscalYearAveragesException;
 use App\Domain\TaxEngine\Services\FxConversionPolicy;
 use App\Domain\TaxEngine\ValueObjects\Money;
-use App\Domain\TaxKnowledge\Repositories\SourceDocumentVersionRepository;
+use App\Domain\TaxKnowledge\Models\OfficialSource;
 use Database\Factories\SourceDocumentVersionFactory;
 
 /**
@@ -21,11 +20,11 @@ use Database\Factories\SourceDocumentVersionFactory;
  */
 function seedSyntheticFxRate(string $currencyCode, string $date, string $rateDecimal, int $multiplier = 1): void
 {
-    $fxSource = FxSource::query()->where('code', 'BNR')->first() ?? FxSource::factory()->create(['code' => 'BNR']);
+    $fxSource = OfficialSource::query()->where('code', 'BNR')->first() ?? OfficialSource::factory()->create(['code' => 'BNR']);
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     FxRate::create([
-        'fx_source_id' => $fxSource->id,
+        'official_source_id' => $fxSource->id,
         'rate_date' => $date,
         'currency_code' => $currencyCode,
         'multiplier' => $multiplier,
@@ -36,7 +35,7 @@ function seedSyntheticFxRate(string $currencyCode, string $date, string $rateDec
 
 function makeFxConversionPolicy(): FxConversionPolicy
 {
-    return new FxConversionPolicy(new FxRateQuery(new SourceDocumentVersionRepository()));
+    return new FxConversionPolicy(app(FxRateQuery::class));
 }
 
 it('converts using the SPOT method for an exact date', function (): void {

@@ -6,9 +6,12 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\ClassifyTransaction;
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
+use App\Domain\Wallet\Exceptions\CategoryDirectionException;
+use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
+use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +29,8 @@ use Illuminate\Validation\Rule;
  */
 final class ClassifyTransactionController extends Controller
 {
+    use RespondsToCategoryDirection;
+
     public function __invoke(
         Request $request,
         string $subject,
@@ -63,6 +68,11 @@ final class ClassifyTransactionController extends Controller
                 ),
                 $this->actorId($request),
             );
+        } catch (SystemTransactionException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => 'SYSTEM_TRANSACTION',
+            ], 409);
         } catch (TransactionSplitMismatchException $exception) {
             // 422 with the two figures: splits partition a transaction rather than annotate it, and
             // the remedy is arithmetic the person can do once they can see both numbers.
@@ -70,6 +80,8 @@ final class ClassifyTransactionController extends Controller
                 'message' => $exception->getMessage(),
                 'reason' => 'SPLIT_TOTAL_MISMATCH',
             ], 422);
+        } catch (CategoryDirectionException $exception) {
+            return $this->categoryDirection($exception);
         }
 
         return response()->json([], 204);

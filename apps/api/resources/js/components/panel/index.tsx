@@ -171,7 +171,13 @@ export function ActionGroup(props: {
                         {content}
                     </Button>
                 ) : (
-                    <Button key={action.key} asChild variant="ghost" className="ctl font-semibold" data-tone={action.tone}>
+                    <Button
+                        key={action.key}
+                        asChild
+                        variant="ghost"
+                        className="ctl font-semibold"
+                        data-tone={action.tone}
+                    >
                         <Link href={action.href} aria-label={action.title}>
                             {content}
                         </Link>
@@ -431,10 +437,13 @@ export function ButtonGroup<T extends string>(props: {
     value: T;
     onChange: (value: T) => void;
     options: Array<{ value: T; label: ReactNode; title?: string }>;
+    /** Fills its field and splits evenly — a choice in a form, not a control in a toolbar. */
+    stretch?: boolean;
+    disabled?: boolean;
     className?: string;
 }): JSX.Element {
     return (
-        <div className={cn('btn-group', props.className)} role="group">
+        <div className={cn('btn-group', props.stretch === true && 'w-full', props.className)} role="group">
             {props.options.map((option) => {
                 const pressed = option.value === props.value;
 
@@ -444,8 +453,9 @@ export function ButtonGroup<T extends string>(props: {
                         type="button"
                         variant={pressed ? 'secondary' : 'ghost'}
                         aria-pressed={pressed}
+                        disabled={props.disabled}
                         title={option.title}
-                        className="ctl px-2.5 font-semibold"
+                        className={cn('ctl px-2.5 font-semibold', props.stretch === true && 'flex-1')}
                         onClick={() => {
                             props.onChange(option.value);
                         }}
@@ -561,10 +571,32 @@ export function PanelDialog(props: {
     size?: 'sm' | 'md' | 'lg';
     children: ReactNode;
     actions: ReactNode;
+    /**
+     * Whether a click outside or Escape may close this.
+     *
+     * `true` by default. Set false while work is moving that the dialog is the only view of — an
+     * upload in progress, say: dismissing it silently is how a person concludes something finished
+     * when it did not. The dialog still closes, through whatever control the screen provides.
+     */
+    dismissable?: boolean;
 }): JSX.Element {
+    const dismissable = props.dismissable !== false;
+
     return (
         <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-            <DialogContent className={cn('dialog-panel', `dialog-${props.size ?? 'md'}`)}>
+            <DialogContent
+                className={cn('dialog-panel', `dialog-${props.size ?? 'md'}`)}
+                onPointerDownOutside={(event) => {
+                    if (!dismissable) {
+                        event.preventDefault();
+                    }
+                }}
+                onEscapeKeyDown={(event) => {
+                    if (!dismissable) {
+                        event.preventDefault();
+                    }
+                }}
+            >
                 <DialogHeader className="gap-1">
                     <DialogTitle className="dialog-title">{props.title}</DialogTitle>
                     {props.description !== undefined ? (
@@ -628,14 +660,17 @@ export function DataTable(props: {
 }
 
 /** Key/value pairs in a detail drawer. */
-export function DetailList({ children }: { children: ReactNode }): JSX.Element {
-    return <dl className="detail-grid">{children}</dl>;
+export function DetailList({ children, wide }: { children: ReactNode; wide?: boolean }): JSX.Element {
+    return <dl className={cn('detail-grid', wide === true && 'detail-grid-wide')}>{children}</dl>;
 }
 
-export function Detail(props: { label: string; children: ReactNode }): JSX.Element {
+export function Detail(props: { label: string; children: ReactNode; icon?: ReactNode }): JSX.Element {
     return (
         <>
-            <dt>{props.label}</dt>
+            <dt>
+                {props.icon}
+                <span className="truncate">{props.label}</span>
+            </dt>
             <dd>{props.children}</dd>
         </>
     );

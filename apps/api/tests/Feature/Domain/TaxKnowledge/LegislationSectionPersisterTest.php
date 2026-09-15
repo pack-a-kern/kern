@@ -34,7 +34,7 @@ function syntheticParsedDocument(?DateTimeImmutable $publicationDate = null): Pa
     return new ParsedLegislationDocument($publicationDate, [$article]);
 }
 
-it('persists a parsed tree as source_sections rows with correct parent/child links', function (): void {
+it('persists a parsed tree as ext_source_sections rows with correct parent/child links', function (): void {
     $version = SourceDocumentVersion::factory()->create();
 
     $result = app(LegislationSectionPersister::class)->persist($version->id, syntheticParsedDocument());
@@ -103,7 +103,7 @@ it('replaces the whole section set on re-parse rather than duplicating', functio
         ->and(SourceSection::query()->first()?->citation_label)->toBe('Art. 2');
 });
 
-it('backfills source_documents.publication_date once, and never overwrites it on a later parse', function (): void {
+it('backfills ext_source_documents.publication_date once, and never overwrites it on a later parse', function (): void {
     $version = SourceDocumentVersion::factory()->create();
     $persister = app(LegislationSectionPersister::class);
 

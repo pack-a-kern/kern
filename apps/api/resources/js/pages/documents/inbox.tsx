@@ -2,28 +2,31 @@ import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import {
     Building2,
     FileQuestion,
+    FileSignature,
     FileText,
     FolderOpen,
     Gavel,
     Image as ImageIcon,
     Landmark,
     Layers3,
-    PiggyBank,
     Plus,
     ReceiptText,
     SearchX,
+    Sparkles,
     Trash2,
+    type LucideIcon,
 } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 import { toast } from 'sonner';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
-import { deleteDocument, listDocuments, type DocumentListFilters } from '../../api/documentsApi';
+import { deleteDocument, listDocuments, renameDocument, type DocumentListFilters } from '../../api/documentsApi';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AddDocumentDialog from '../../components/documents/AddDocumentDialog';
@@ -44,8 +47,9 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { useCoalescedCallback } from '../../hooks/useCoalescedCallback';
 import { useDocumentsChannel } from '../../hooks/useDocumentsChannel';
 import { useTranslation } from '../../i18n';
+import { formatProposedName } from '../../lib/documentName';
 import { formatBytes, formatDateTime } from '../../lib/format';
-import { listKnownDocuments, type KnownDocument } from '../../lib/db';
+import { deleteKnownDocument, listKnownDocuments, replaceKnownDocuments, type KnownDocument } from '../../lib/db';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
     DOCUMENT_STAGES,
@@ -55,6 +59,7 @@ import {
     type DocumentStage,
     type DocumentStatus,
     type DocumentType,
+    documentTypeLabel,
 } from '../../types/documents';
 
 /**
@@ -78,21 +83,39 @@ import {
  * re-reads the list over HTTPS rather than trusting the broadcast payload (`BLUEPRINT.md` §16).
  * That is also why there is no polling here.
  */
+/** A remembered date filter, or none. Anything else in storage falls back to no filter. */
+function isIsoDateOrEmpty(value: string): boolean {
+    return value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 export default function DocumentsInbox(): JSX.Element {
     const { t, locale } = useTranslation();
     const [subjectId] = useState(() => getActiveSubjectId());
 
-    const [stage, setStage] = useState<DocumentStage | ''>('');
-    const [type, setType] = useState<DocumentType | ''>('');
-    const [receivedFrom, setReceivedFrom] = useState('');
-    const [receivedTo, setReceivedTo] = useState('');
+    // Remembered per taxpayer, with the page: coming back to the inbox lands on the filters it was left on.
+    const [stage, setStage] = useRememberedState<DocumentStage | ''>('documents.inbox.stage', '', {
+        perSubject: true,
+        isValid: (value) => value === '' || (DOCUMENT_STAGES as readonly string[]).includes(value),
+    });
+    const [type, setType] = useRememberedState<DocumentType | ''>('documents.inbox.type', '', {
+        perSubject: true,
+        isValid: (value) => value === '' || (DOCUMENT_TYPES as readonly string[]).includes(value),
+    });
+    const [receivedFrom, setReceivedFrom] = useRememberedState<string>('documents.inbox.receivedFrom', '', {
+        perSubject: true,
+        isValid: isIsoDateOrEmpty,
+    });
+    const [receivedTo, setReceivedTo] = useRememberedState<string>('documents.inbox.receivedTo', '', {
+        perSubject: true,
+        isValid: isIsoDateOrEmpty,
+    });
     const [reloadKey, setReloadKey] = useState(0);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('documents.inbox', { perSubject: true });
     const [adding, setAdding] = useState(false);
     const [deleting, setDeleting] = useState<DocumentListItem | null>(null);
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+    const [bulkRenaming, setBulkRenaming] = useState(false);
 
     // Rows are stored together with the filters that produced them, so "the loaded filters do not
     // match the current ones" is what means *loading*. Resetting to null inside the effect that
@@ -109,8 +132,7 @@ export default function DocumentsInbox(): JSX.Element {
     const [failed, setFailed] = useState(false);
 
     // "Nothing here" and "nothing matches" are different situations with different remedies.
-    const hasFilters =
-        stage !== '' || type !== '' || receivedFrom !== '' || receivedTo !== '';
+    const hasFilters = stage !== '' || type !== '' || receivedFrom !== '' || receivedTo !== '';
 
     const filters: DocumentListFilters = {
         ...(stage === '' ? {} : { stage }),
@@ -133,6 +155,39 @@ export default function DocumentsInbox(): JSX.Element {
                 if (active) {
                     setLoaded({ key: filterKey, rows: result.data, total: result.total, stale: false });
                     setFailed(false);
+
+                    // A remembered page past the end of a list that has since shrunk lands on its last page.
+                    if (result.data.length === 0 && result.total > 0 && page > 1) {
+                        setPage(Math.max(1, Math.ceil(result.total / pageSize)));
+                    }
+                }
+
+                // Only an unfiltered view that holds everything may rewrite the cache. A filtered or
+                // paginated one would delete every document it happens to exclude, and the next
+                // offline visit would show a fraction of the person's documents as though it were
+                // all of them.
+                const complete =
+                    stage === '' &&
+                    type === '' &&
+                    receivedFrom === '' &&
+                    receivedTo === '' &&
+                    result.data.length === result.total;
+
+                if (complete) {
+                    void replaceKnownDocuments(
+                        subjectId,
+                        result.data.map((row) => ({
+                            id: row.id,
+                            subjectId,
+                            type: row.type,
+                            status: row.status,
+                            rejectionReason: row.rejectionReason,
+                            mimeType: row.mimeType ?? '',
+                            sizeBytes: row.sizeBytes,
+                            receivedAt: row.receivedAt,
+                            lastSyncedAt: Date.now(),
+                        })),
+                    );
                 }
             },
             () => {
@@ -145,7 +200,12 @@ export default function DocumentsInbox(): JSX.Element {
                 void listKnownDocuments(subjectId).then(
                     (cached) => {
                         if (active) {
-                            setLoaded({ key: filterKey, rows: cached.map(fromCache), total: cached.length, stale: true });
+                            setLoaded({
+                                key: filterKey,
+                                rows: cached.map(fromCache),
+                                total: cached.length,
+                                stale: true,
+                            });
                             setFailed(cached.length === 0);
                         }
                     },
@@ -163,7 +223,7 @@ export default function DocumentsInbox(): JSX.Element {
             active = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `filterKey` is the serialised form of every filter
-    }, [subjectId, filterKey]);
+    }, [setPage, subjectId, filterKey]);
 
     const reload = useCoalescedCallback(() => {
         setReloadKey((current) => current + 1);
@@ -244,6 +304,19 @@ export default function DocumentsInbox(): JSX.Element {
     const pageIds = useMemo(() => documents?.map((document) => document.id) ?? [], [documents]);
     const selection = useRowSelection(pageIds);
 
+    /**
+     * The name a document's reading proposed, while it has not been taken. Compared after formatting,
+     * the same formatting the rename would store, so an accepted proposal never shows again as a change.
+     */
+    const pendingName = (document: DocumentListItem): string | null => {
+        const proposed =
+            document.proposedName === null ? null : formatProposedName(document.proposedName, document.filename);
+
+        return proposed === document.filename ? null : proposed;
+    };
+    const selectedWithNames = (documents ?? []).filter(
+        (document) => selection.has(document.id) && pendingName(document) !== null,
+    );
 
     if (subjectId === null) {
         return (
@@ -276,10 +349,42 @@ export default function DocumentsInbox(): JSX.Element {
             // Sequential rather than parallel so a partial failure leaves a coherent list.
             for (const id of selection.ids) {
                 await deleteDocument(subjectId, id);
+                await deleteKnownDocument(id);
             }
         } finally {
             selection.clear();
             setBulkDeleting(false);
+            setReloadKey((current) => current + 1);
+        }
+    }
+
+    async function acceptSelectedNames(): Promise<void> {
+        if (!subjectId) {
+            return;
+        }
+
+        setBulkRenaming(true);
+
+        let renamed = 0;
+
+        try {
+            // One request each, as with deleting: the rename endpoint records an audit event per
+            // document, and going in order leaves a partial failure at a clear point in the list.
+            for (const document of selectedWithNames) {
+                const name = pendingName(document);
+
+                if (name !== null) {
+                    await renameDocument(subjectId, document.id, name);
+                    renamed += 1;
+                }
+            }
+
+            toast.success(t((d) => d.documentsInbox.namesAccepted).replace('{count}', String(renamed)));
+        } catch {
+            toast.error(t((d) => d.documentsInbox.namesFailed));
+        } finally {
+            selection.clear();
+            setBulkRenaming(false);
             setReloadKey((current) => current + 1);
         }
     }
@@ -295,18 +400,12 @@ export default function DocumentsInbox(): JSX.Element {
     return (
         <AppShell>
             <Head title={t((d) => d.documentsInbox.title)} />
-            <Page
-                title={t((d) => d.documentsInbox.title)}
-                lede={t((d) => d.documentsInbox.description)}
-            >
+            <Page title={t((d) => d.documentsInbox.title)} lede={t((d) => d.documentsInbox.description)}>
                 <Panel
                     flush
                     icon={<FolderOpen className="size-4" />}
                     title={t((d) => d.documentsInbox.title)}
-                    description={t((d) => d.documentsInbox.count).replace(
-                        '{count}',
-                        String(current?.total ?? 0),
-                    )}
+                    description={t((d) => d.documentsInbox.count).replace('{count}', String(current?.total ?? 0))}
                     aside={
                         <div className="flex items-center gap-2">
                             {current?.stale === true && (
@@ -396,7 +495,17 @@ export default function DocumentsInbox(): JSX.Element {
                         {/* Only once something is ticked. A permanently-present "0 selected" button
                             is a control that does nothing most of the time, and the row it sits in
                             is already full of filters. */}
-                        <BulkActions count={selection.size} disabled={bulkDeleting}>
+                        <BulkActions count={selection.size} disabled={bulkDeleting || bulkRenaming}>
+                            {/* Offered only when a ticked document still has a proposed name to take. */}
+                            <DropdownMenuItem
+                                disabled={selectedWithNames.length === 0}
+                                onSelect={() => {
+                                    void acceptSelectedNames();
+                                }}
+                            >
+                                <Sparkles className="size-4" />
+                                {t((d) => d.documentsInbox.acceptNames)}
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                                 variant="destructive"
                                 onSelect={() => {
@@ -470,12 +579,10 @@ export default function DocumentsInbox(): JSX.Element {
                                 // indexing the dictionary with `reason ?? ''` would widen the key
                                 // back to a string the dictionary has no entry for.
                                 const reason = document.rejectionReason;
+                                const proposed = pendingName(document);
 
                                 return (
-                                    <tr
-                                        key={document.id}
-                                        className={cn(selection.has(document.id) && 'row-selected')}
-                                    >
+                                    <tr key={document.id} className={cn(selection.has(document.id) && 'row-selected')}>
                                         <td>
                                             <Checkbox
                                                 checked={selection.has(document.id)}
@@ -497,9 +604,25 @@ export default function DocumentsInbox(): JSX.Element {
                                                 <div className="min-w-0">
                                                     <div className="truncate">
                                                         {document.filename === ''
-                                                            ? t((d) => d.documentType[document.type])
+                                                            ? documentTypeLabel(document.type, t)
                                                             : document.filename}
                                                     </div>
+                                                    {document.partCount > 1 && (
+                                                        <div className="row-note">
+                                                            {t((d) => d.documentsCapture.pageCount).replace(
+                                                                '{count}',
+                                                                String(document.partCount),
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {proposed !== null && (
+                                                        <div className="row-note truncate">
+                                                            {t((d) => d.documentsInbox.proposedName).replace(
+                                                                '{name}',
+                                                                proposed,
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     {reason !== null && (
                                                         <div className="text-destructive row-note">
                                                             {t((d) => d.rejectionReason[reason])}
@@ -508,7 +631,7 @@ export default function DocumentsInbox(): JSX.Element {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="whitespace-nowrap">{t((d) => d.documentType[document.type])}</td>
+                                        <td className="whitespace-nowrap">{documentTypeLabel(document.type, t)}</td>
                                         <td className="col-hide whitespace-nowrap">
                                             <time dateTime={document.receivedAt} className="tabular-nums">
                                                 {formatDateTime(document.receivedAt, locale)}
@@ -529,6 +652,7 @@ export default function DocumentsInbox(): JSX.Element {
                                                 <ActionGroup
                                                     actions={[
                                                         ...(document.stage === 'ACTION_NEEDED' ||
+                                                        document.stage === 'TO_IMPORT' ||
                                                         document.stage === 'DONE'
                                                             ? [
                                                                   {
@@ -606,6 +730,7 @@ export default function DocumentsInbox(): JSX.Element {
                     onConfirm={async () => {
                         try {
                             await deleteDocument(subjectId, deleting.id);
+                            await deleteKnownDocument(deleting.id);
                             toast.success(t((d) => d.documentsInbox.deleted));
                             setDeleting(null);
                             setReloadKey((current) => current + 1);
@@ -667,6 +792,11 @@ function fromCache(document: KnownDocument): DocumentListItem {
         rejectionReason: document.rejectionReason,
         mimeType: document.mimeType,
         sizeBytes: document.sizeBytes,
+        // The cache predates parts and stores one size for the whole document, so it cannot say how
+        // many files that was. One is the honest floor — it never claims pages it cannot see.
+        partCount: 1,
+        // Nothing in the cache was read, so nothing proposed a name.
+        proposedName: null,
         source: 'USER_UPLOAD',
         receivedAt: document.receivedAt,
     };
@@ -687,13 +817,13 @@ function fromCache(document: KnownDocument): DocumentListItem {
  * at before it reads. Defined once so the same type never appears under two different marks.
  */
 function DocumentTypeIcon({ type }: { type: DocumentType }): JSX.Element {
-    const Icon = {
+    const Icon: LucideIcon = {
         RECEIPT: ReceiptText,
         INVOICE: FileText,
-        BANK_STATEMENT: Landmark,
-        DEPOSIT_AGREEMENT: PiggyBank,
-        RENTAL_CONTRACT: Building2,
-        ANAF_DECISION: Gavel,
+        ACCOUNT_STATEMENT: Landmark,
+        TAX_DOCUMENT: Gavel,
+        CONTRACT: FileSignature,
+        CORPORATE: Building2,
         OTHER: FileQuestion,
     }[type];
 
@@ -705,8 +835,9 @@ function DocumentTypeIcon({ type }: { type: DocumentType }): JSX.Element {
  *
  * `ACTION_NEEDED` is `warn` and `DONE` is `ok` — the opposite of how the pipeline sees them, and
  * correct: a document the machine has finished with is precisely the one still asking something of
- * a person, and the green one is the one nobody has to look at again. In-flight stages are `idle`
- * because there is nothing to do about them but wait.
+ * a person, and the green one is the one nobody has to look at again. `TO_IMPORT` is `warn` too,
+ * for the same reason: it is still waiting on somebody. In-flight stages are `idle` because there
+ * is nothing to do about them but wait.
  */
 function stageTone(stage: DocumentStage): StatusTone {
     return {
@@ -714,11 +845,11 @@ function stageTone(stage: DocumentStage): StatusTone {
         QUEUED: 'idle',
         PROCESSING: 'idle',
         ACTION_NEEDED: 'warn',
+        TO_IMPORT: 'warn',
         DONE: 'ok',
         REJECTED: 'bad',
     }[stage] as StatusTone;
 }
-
 
 function statusToneClass(tone: StatusTone): string {
     return {

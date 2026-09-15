@@ -7,8 +7,7 @@ namespace Tests\Feature\Domain\Fx\FxRateQueryTest;
 use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Services\FxRateQuery;
-use App\Domain\TaxKnowledge\Repositories\SourceDocumentVersionRepository;
-use Database\Factories\FxSourceFactory;
+use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -18,11 +17,11 @@ beforeEach(function (): void {
 });
 
 it('returns the reproducible per-unit rate for an exact source/currency/date match', function (): void {
-    $source = FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    $source = OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     FxRate::query()->create([
-        'fx_source_id' => $source->id,
+        'official_source_id' => $source->id,
         'rate_date' => '2026-01-15',
         'currency_code' => 'EUR',
         'multiplier' => 1,
@@ -30,18 +29,18 @@ it('returns the reproducible per-unit rate for an exact source/currency/date mat
         'source_document_version_id' => $version->id,
     ]);
 
-    $query = new FxRateQuery(new SourceDocumentVersionRepository());
+    $query = app(FxRateQuery::class);
     $rate = $query->rate('EUR', new DateTimeImmutable('2026-01-15'));
 
     expect($rate->toString())->toBe('4.9764000000');
 });
 
 it('divides the multiplier out of the per-unit rate', function (): void {
-    $source = FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    $source = OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
     $version = SourceDocumentVersionFactory::new()->createOne();
 
     FxRate::query()->create([
-        'fx_source_id' => $source->id,
+        'official_source_id' => $source->id,
         'rate_date' => '2026-01-15',
         'currency_code' => 'HUF',
         'multiplier' => 100,
@@ -49,21 +48,21 @@ it('divides the multiplier out of the per-unit rate', function (): void {
         'source_document_version_id' => $version->id,
     ]);
 
-    $query = new FxRateQuery(new SourceDocumentVersionRepository());
+    $query = app(FxRateQuery::class);
     $rate = $query->rate('HUF', new DateTimeImmutable('2026-01-15'));
 
     expect($rate->toString())->toBe('12.7999000000');
 });
 
 it('returns the raw document hash, path, and fetch time as provenance alongside the rate', function (): void {
-    $source = FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    $source = OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
     $version = SourceDocumentVersionFactory::new()->createOne([
         'content_sha256' => str_repeat('a', 64),
         'raw_object_path' => 'sources/bnr/deadbeef',
     ]);
 
     FxRate::query()->create([
-        'fx_source_id' => $source->id,
+        'official_source_id' => $source->id,
         'rate_date' => '2026-01-15',
         'currency_code' => 'EUR',
         'multiplier' => 1,
@@ -71,7 +70,7 @@ it('returns the raw document hash, path, and fetch time as provenance alongside 
         'source_document_version_id' => $version->id,
     ]);
 
-    $query = new FxRateQuery(new SourceDocumentVersionRepository());
+    $query = app(FxRateQuery::class);
     $withProvenance = $query->rateWithProvenance('EUR', new DateTimeImmutable('2026-01-15'));
 
     expect($withProvenance->contentSha256)->toBe(str_repeat('a', 64))
@@ -83,13 +82,13 @@ it('returns the raw document hash, path, and fetch time as provenance alongside 
 });
 
 it('throws rather than interpolating when no exact rate exists for that date', function (): void {
-    FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
 
-    $query = new FxRateQuery(new SourceDocumentVersionRepository());
+    $query = app(FxRateQuery::class);
     $query->rate('EUR', new DateTimeImmutable('2026-01-17'));
 })->throws(FxRateNotFoundException::class);
 
 it('throws when the fx source itself does not exist yet', function (): void {
-    $query = new FxRateQuery(new SourceDocumentVersionRepository());
+    $query = app(FxRateQuery::class);
     $query->rate('EUR', new DateTimeImmutable('2026-01-17'));
 })->throws(FxRateNotFoundException::class);

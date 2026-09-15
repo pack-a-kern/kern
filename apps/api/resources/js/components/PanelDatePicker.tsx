@@ -9,12 +9,10 @@ import { useTranslation } from '../i18n';
  * everywhere in TaxOS, so they live here: repeating them at every call site is how two filters end
  * up looking different, and how changing the house style becomes a sweep instead of an edit.
  *
- * Defaults come from the build environment so a deployment can differ without a code change —
- * `VITE_DATEPICKER_SIZE` and `VITE_DATEPICKER_COMPACT`, the same shape `lib/palette.ts` uses for
- * the default palette. An unrecognised value falls back rather than leaving a control unstyled.
+ * The one size question left is density: `VITE_DATEPICKER_COMPACT`, the same shape
+ * `lib/palette.ts` uses for the default palette. An unrecognised value falls back rather than
+ * leaving a control unstyled.
  */
-const SIZE = import.meta.env.VITE_DATEPICKER_SIZE === 'md' ? 'md' : 'sm';
-
 const COMPACT = import.meta.env.VITE_DATEPICKER_COMPACT !== 'false';
 
 /**
@@ -46,7 +44,6 @@ export function PanelDate(props: {
     return (
         <DatePicker
             mode="single"
-            size={SIZE}
             compact={COMPACT}
             weekStartsOn={WEEK_STARTS_ON}
             locale={locale}
@@ -85,7 +82,6 @@ export function PanelDateRange(props: {
     return (
         <DatePicker
             mode="range"
-            size={SIZE}
             compact={COMPACT}
             presets
             weekStartsOn={WEEK_STARTS_ON}

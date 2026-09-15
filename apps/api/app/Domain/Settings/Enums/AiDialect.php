@@ -83,9 +83,12 @@ enum AiDialect: string
      * serve OpenAI, Anthropic, Ollama, OpenRouter and any other gateway from one dropdown
      * (`docs/adr/0007-provider-agnostic-ai.md`).
      *
-     * `$documentText` and `$image` are mutually exclusive: a PDF arrives as text already pulled out
-     * locally by PyMuPDF, a photograph as bytes for the model to look at. Sending both would ask
-     * the model to reconcile two versions of the same document.
+     * A document can carry both text and pictures, because a document can be several files: a PDF
+     * invoice with a photographed annex gives its text layer *and* the photographs. What is never
+     * sent is two versions of the same file — a PDF part contributes its text or, if it has no text
+     * layer, nothing, never both.
+     *
+     * Images follow the text, in part order, because that is the order the pages are in.
      *
      * **The document is data, never instructions** (`BLUEPRINT.md` §14.5). It is placed in a *user*
      * message, never the system one, and the system prompt says so explicitly — a receipt that
@@ -94,7 +97,8 @@ enum AiDialect: string
      * `temperature: 0` throughout: extraction has one right answer, and a figure that changes
      * between two runs of the same document is not one anybody can defend later.
      *
-     * @param  array{mime_type: string, base64: string}|null  $image
+     * @param  list<array{mime_type: string, base64: string}>  $images  in part order
+     * @param  list<array{filename: string, mime_type: string, base64: string}>  $attachments
      * @return array<string, mixed>
      */
     public function extractionBody(
@@ -102,13 +106,23 @@ enum AiDialect: string
         string $systemPrompt,
         string $instruction,
         ?string $documentText,
-        ?array $image,
+        array $images,
         int $maxTokens,
+        array $attachments = [],
     ): array {
-        $userContent = match (true) {
-            $image !== null => $this->documentImageContent($instruction, $image),
-            default => $this->documentTextContent($instruction, $documentText ?? ''),
-        };
+        $userContent = $this->documentContent($instruction, $documentText, $images);
+
+        // A file the provider reads itself, rather than text we extracted for it. PDFs go this way
+        // because a gateway that understands documents separates a statement's columns, which a
+        // flat text layer does not — and a model given glued columns misreads which number is the
+        // amount. Top-level, beside `messages`, per the gateway's own extension.
+        $attached = $attachments === [] ? [] : ['attachments' => array_map(
+            static fn (array $file): array => [
+                'filename' => $file['filename'],
+                'data' => "data:{$file['mime_type']};base64,{$file['base64']}",
+            ],
+            $attachments,
+        )];
 
         return match ($this) {
             self::OPENAI => [
@@ -119,6 +133,7 @@ enum AiDialect: string
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $userContent],
                 ],
+                ...$attached,
             ],
             self::ANTHROPIC => [
                 'model' => $model,
@@ -127,56 +142,60 @@ enum AiDialect: string
                 // Anthropic carries the system prompt as a top-level field rather than a message.
                 'system' => $systemPrompt,
                 'messages' => [['role' => 'user', 'content' => $userContent]],
+                ...$attached,
             ],
         };
     }
 
     /**
-     * The user message carrying a document image.
+     * The user message carrying the document: the instruction, then its text, then its pictures.
+     *
+     * Text is fenced so the model can tell the instruction from the document — the boundary that
+     * makes "this is data" enforceable rather than merely stated. A document with no text layer
+     * still gets the instruction, and the pictures follow it either way.
+     *
+     * @param  list<array{mime_type: string, base64: string}>  $images
+     * @return list<array<string, mixed>>
+     */
+    private function documentContent(string $instruction, ?string $documentText, array $images): array
+    {
+        $text = $documentText === null || $documentText === ''
+            ? $instruction
+            : $instruction . "\n\n<document>\n" . $documentText . "\n</document>";
+
+        $content = [['type' => 'text', 'text' => $text]];
+
+        foreach ($images as $image) {
+            $content[] = $this->imageBlock($image);
+        }
+
+        return $content;
+    }
+
+    /**
+     * One picture, in this dialect's shape.
      *
      * @param  array{mime_type: string, base64: string}  $image
-     * @return list<array<string, mixed>>
+     * @return array<string, mixed>
      */
-    private function documentImageContent(string $instruction, array $image): array
+    private function imageBlock(array $image): array
     {
         return match ($this) {
+            // A `data:` URI rather than a link: the document is encrypted at rest and must never be
+            // published somewhere a provider could fetch it from.
             self::OPENAI => [
-                ['type' => 'text', 'text' => $instruction],
-                [
-                    'type' => 'image_url',
-                    // A `data:` URI rather than a link: the document is encrypted at rest and must
-                    // never be published somewhere a provider could fetch it from.
-                    'image_url' => ['url' => "data:{$image['mime_type']};base64,{$image['base64']}"],
-                ],
+                'type' => 'image_url',
+                'image_url' => ['url' => "data:{$image['mime_type']};base64,{$image['base64']}"],
             ],
             self::ANTHROPIC => [
-                ['type' => 'text', 'text' => $instruction],
-                [
-                    'type' => 'image',
-                    'source' => [
-                        'type' => 'base64',
-                        'media_type' => $image['mime_type'],
-                        'data' => $image['base64'],
-                    ],
+                'type' => 'image',
+                'source' => [
+                    'type' => 'base64',
+                    'media_type' => $image['mime_type'],
+                    'data' => $image['base64'],
                 ],
             ],
         };
-    }
-
-    /**
-     * The user message carrying document text.
-     *
-     * Both dialects accept a plain string here, but the text is fenced so the model can tell the
-     * instruction from the document — the boundary that makes "this is data" enforceable rather
-     * than merely stated.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function documentTextContent(string $instruction, string $documentText): array
-    {
-        $fenced = $instruction . "\n\n<document>\n" . $documentText . "\n</document>";
-
-        return [['type' => 'text', 'text' => $fenced]];
     }
 
     /**

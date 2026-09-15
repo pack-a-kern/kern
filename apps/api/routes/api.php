@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\Documents\CorrectDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\CreateTransactionFromDocumentController;
 use App\Http\Controllers\Api\V1\Documents\DeleteDocumentController;
 use App\Http\Controllers\Api\V1\Documents\DocumentAiConsentController;
+use App\Http\Controllers\Api\V1\Documents\EnhanceImageController;
 use App\Http\Controllers\Api\V1\Documents\ListDocumentExtractionsController;
 use App\Http\Controllers\Api\V1\Documents\ListDocumentsController;
 use App\Http\Controllers\Api\V1\Documents\RenameDocumentController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Api\V1\Documents\ShowDocumentAiConsentsController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentContentController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
+use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
@@ -46,6 +48,12 @@ use App\Http\Controllers\Api\V1\Operations\ShowOperationsOverviewController;
 use App\Http\Controllers\Api\V1\Operations\ShowQueueJobsController;
 use App\Http\Controllers\Api\V1\Operations\ShowTaskRunsController;
 use App\Http\Controllers\Api\V1\Operations\UpdateScheduledTaskController;
+use App\Http\Controllers\Api\V1\Rentals\ChangeRentalRentController;
+use App\Http\Controllers\Api\V1\Rentals\DeleteRentalController;
+use App\Http\Controllers\Api\V1\Rentals\EndRentalController;
+use App\Http\Controllers\Api\V1\Rentals\OpenRentalController;
+use App\Http\Controllers\Api\V1\Rentals\ShowRentalsController;
+use App\Http\Controllers\Api\V1\Rentals\UpdateRentalController;
 use App\Http\Controllers\Api\V1\Settings\ClearAiApiKeyController;
 use App\Http\Controllers\Api\V1\Settings\ListAiModelsController;
 use App\Http\Controllers\Api\V1\Settings\ShowAiProvidersController;
@@ -64,9 +72,14 @@ use App\Http\Controllers\Api\V1\Subjects\UpdatePfSubjectController;
 use App\Http\Controllers\Api\V1\Wallet\ClassifyTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteAccountController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteTransactionController;
+use App\Http\Controllers\Api\V1\Wallet\KeepDuplicateTransactionsController;
+use App\Http\Controllers\Api\V1\Wallet\MergeDuplicateTransactionsController;
 use App\Http\Controllers\Api\V1\Wallet\OpenAccountController;
 use App\Http\Controllers\Api\V1\Wallet\RecordTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\ShowAccountsController;
+use App\Http\Controllers\Api\V1\Wallet\ShowBanksController;
+use App\Http\Controllers\Api\V1\Wallet\ShowDuplicateTransactionsController;
+use App\Http\Controllers\Api\V1\Wallet\ShowTaxCategoriesController;
 use App\Http\Controllers\Api\V1\Wallet\ShowTransactionsController;
 use App\Http\Controllers\Api\V1\Wallet\ShowWalletOverviewController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateAccountController;
@@ -149,6 +162,9 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('documents', UploadDocumentController::class)
         ->middleware('throttle:documents-upload-per-subject');
     // The subject's own documents, from the server rather than from whichever device uploaded them.
+    // A photograph, cleaned up before it is uploaded. Stores nothing; the screen sends the result.
+    Route::post('documents/enhance', EnhanceImageController::class)
+        ->middleware('throttle:documents-upload-per-subject');
     Route::get('documents', ListDocumentsController::class);
     Route::get('documents/{document}', ShowDocumentController::class);
     // Removes the row, its derivatives and the encrypted bytes. A transaction built from it keeps
@@ -157,6 +173,8 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::patch('documents/{document}', RenameDocumentController::class);
     Route::delete('documents/{document}', DeleteDocumentController::class);
     Route::get('documents/{document}/content', ShowDocumentContentController::class);
+    // One page of a document made of several files; the review screen pages through these.
+    Route::get('documents/{document}/parts/{part}/content', ShowDocumentPartContentController::class);
     // What was done to this document: the virus-scan records, and this document's own entries in
     // the subject's audit chain. Subject-scoped, unlike the cross-tenant /v1/audit screens.
     Route::get('documents/{document}/history', ShowDocumentHistoryController::class);
@@ -202,7 +220,20 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
 
 
+    // Rentals: what a contract owes, per year. A rental never creates a transaction — see `RentalQuery`.
+    Route::get('rentals', ShowRentalsController::class);
+    Route::post('rentals', OpenRentalController::class);
+    Route::patch('rentals/{rental}', UpdateRentalController::class)->where('rental', '[0-9a-f-]{36}');
+    Route::delete('rentals/{rental}', DeleteRentalController::class)->where('rental', '[0-9a-f-]{36}');
+    Route::post('rentals/{rental}/rent', ChangeRentalRentController::class)->where('rental', '[0-9a-f-]{36}');
+    Route::post('rentals/{rental}/end', EndRentalController::class)->where('rental', '[0-9a-f-]{36}');
+    Route::get('wallet/categories', ShowTaxCategoriesController::class);
+    Route::get('wallet/banks', ShowBanksController::class);
     Route::get('wallet/transactions', ShowTransactionsController::class);
+    // Lookalikes: gathered for a person, never refused at import. See `DuplicateTransactionGroups`.
+    Route::get('wallet/transactions/duplicates', ShowDuplicateTransactionsController::class);
+    Route::post('wallet/transactions/duplicates/merge', MergeDuplicateTransactionsController::class);
+    Route::post('wallet/transactions/duplicates/keep', KeepDuplicateTransactionsController::class);
     Route::post('wallet/transactions', RecordTransactionController::class);
     Route::patch('wallet/transactions/{transaction}', UpdateTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
     Route::delete('wallet/transactions/{transaction}', DeleteTransactionController::class)->where('transaction', '[0-9a-f-]{36}');
@@ -264,7 +295,7 @@ Route::prefix('v1/audit')->middleware(['auth:web', 'permission:audit.view'])->gr
 });
 
 /*
- * Legislation search (`/legislatie`) — hybrid lexical + semantic retrieval over ingested sources
+ * Legislation search (`/legislation`) — hybrid lexical + semantic retrieval over ingested sources
  * (`BLUEPRINT.md` §15.2).
  *
  * `auth:web` and nothing more: this is public law, not tenant data, so there is no `{subject}` to
@@ -275,7 +306,7 @@ Route::prefix('v1/audit')->middleware(['auth:web', 'permission:audit.view'])->gr
 Route::get('v1/legislation/search', SearchLegislationController::class)->middleware('auth:web');
 
 /*
- * Background operations — the Tasks and Jobs tabs of `/jurnale`.
+ * Background operations — the Tasks and Jobs tabs of `/logs`.
  *
  * Two permissions, not one, and the split is deliberate: reading whether the nightly import
  * succeeded is something a support engineer needs, while starting an import, pausing the schedule,
@@ -309,7 +340,7 @@ Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): voi
 
         // No route writes the official-source allowlist, deliberately. It is declared in
         // `config/sources.php`, and `App\Domain\TaxKnowledge\Repositories\
-        // OfficialSourceRepository::resolve()` upserts `official_sources` from that config on every
+        // OfficialSourceRepository::resolve()` upserts `ext_official_sources` from that config on every
         // fetch — so a value written here would survive only until the next import, while
         // `AllowlistedHttpFetcher` never consulted the row in the first place. The screen renders
         // the allowlist read-only rather than offering a switch that reports a state it cannot hold.

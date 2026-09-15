@@ -11,6 +11,7 @@ use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use Carbon\CarbonImmutable;
+use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
@@ -103,26 +104,29 @@ it('totals balances per currency and never sums across them', function (): void 
     // Two currencies stay two figures. Adding them would produce a number that is not any quantity
     // of anything — which is exactly what the previous single-balance-per-account version did.
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
-        ->assertJsonPath('totals.balances.RON', 72_480_00)
-        ->assertJsonPath('totals.balances.EUR', 1_200_00);
+        ->assertJsonPath('totals.holdings.other.amounts.RON', 72_480_00)
+        ->assertJsonPath('totals.holdings.other.amounts.EUR', 1_200_00);
 });
 
 it('rejects a deposit whose maturity precedes its opening', function (): void {
     [$user, $subjectId] = walletSubject();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 50_000_00,
         'currency_code' => 'RON',
-        'starts_at' => '2026-09-01',
-        'maturity_at' => '2026-08-01',
+        // Both in the future, so the only thing wrong is their order — a maturity in the past is
+        // refused by a different rule, and would let this test pass without testing this one.
+        'starts_at' => CarbonImmutable::now('UTC')->addMonths(2)->toDateString(),
+        'maturity_at' => CarbonImmutable::now('UTC')->addMonth()->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
         'day_count_convention' => 'ACTUAL_365',
         'annual_rate' => '5.40',
-    ])->assertStatus(422);
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors(['maturity_at']);
 });
 
 it('opens a deposit and reports its current rate and days to maturity', function (): void {
@@ -131,7 +135,7 @@ it('opens a deposit and reports its current rate and days to maturity', function
     $maturity = CarbonImmutable::now('UTC')->addMonths(5)->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 70_000_00,
         'currency_code' => 'RON',
@@ -231,12 +235,13 @@ it('computes the whole interest schedule when the deposit is opened', function (
     // A RON deposit: no FX annotation is involved, so this isolates the interest calculation from
     // the BNR lookup a foreign-currency deposit would also need.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 100_000_00,
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-12-31',
+        // A year from today rather than a calendar year: a deposit must mature after today.
+        'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
+        'maturity_at' => CarbonImmutable::now('UTC')->addYear()->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -271,7 +276,7 @@ it('reports the full term interest, not only the part already elapsed', function
     $maturity = CarbonImmutable::now('UTC')->addYear()->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 200_000_00,
         'currency_code' => 'RON',
@@ -325,12 +330,14 @@ it('applies the configured day-count convention to a deposit opened without one'
 
     // Exactly what the screen sends: no `day_count_convention` at all.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-07-01',
+        // Relative to today: a deposit must mature after today, and a fixed date would turn this
+        // test into one about the calendar on the day the suite runs.
+        'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
+        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -346,12 +353,14 @@ it('still accepts an explicit convention, for a contract that states a different
     config()->set('wallet.deposit.default_day_count', 'ACTUAL_365');
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-07-01',
+        // Relative to today: a deposit must mature after today, and a fixed date would turn this
+        // test into one about the calendar on the day the suite runs.
+        'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
+        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -368,18 +377,22 @@ it('rejects a day-count convention that is not a real one', function (): void {
     // Optional does not mean unvalidated: a garbage value must fail loudly rather than fall through
     // to the configured default, which would silently apply a denominator nobody asked for.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'RON',
-        'starts_at' => '2026-01-01',
-        'maturity_at' => '2026-07-01',
+        // Relative to today: a deposit must mature after today, and a fixed date would turn this
+        // test into one about the calendar on the day the suite runs.
+        'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
+        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
         'day_count_convention' => 'ACTUAL/365',
         'annual_rate' => '4.00',
-    ])->assertStatus(422);
+    ])->assertStatus(422)
+        // Named, so a request refused for some other reason cannot pass this test by accident.
+        ->assertJsonValidationErrors(['day_count_convention']);
 });
 
 it('opens a foreign-currency deposit whose schedule runs past the last published FX rate', function (): void {
@@ -390,7 +403,7 @@ it('opens a foreign-currency deposit whose schedule runs past the last published
     // equivalent is not. Before this was handled, opening any foreign-currency deposit maturing in
     // the future failed outright.
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
-        'display_name' => 'Depozit',
+        'bank_id' => BankFactory::new()->createOne()->id,
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 10_000_00,
         'currency_code' => 'EUR',

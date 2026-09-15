@@ -7,8 +7,8 @@ namespace App\Domain\Fx\Services;
 use App\Domain\Fx\DataTransferObjects\FxRateWithProvenance;
 use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxSource;
 use App\Domain\Fx\ValueObjects\DecimalRate;
+use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Repositories\SourceDocumentVersionRepository;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -30,6 +30,7 @@ final readonly class FxRateQuery
 
     public function __construct(
         private SourceDocumentVersionRepository $sourceVersions,
+        private OfficialSourceRepository $officialSources,
     ) {
     }
 
@@ -65,16 +66,15 @@ final readonly class FxRateQuery
      */
     public function latestRateOnOrBefore(string $currencyCode, DateTimeImmutable $date, string $sourceCode = 'BNR'): ?FxRateWithProvenance
     {
-        /** @var FxSource|null $source */
-        $source = FxSource::query()->where('code', $sourceCode)->first();
+        $sourceId = $this->officialSources->findIdForCode($sourceCode);
 
-        if ($source === null) {
+        if ($sourceId === null) {
             return null;
         }
 
         /** @var FxRate|null $rate */
         $rate = FxRate::query()
-            ->where('fx_source_id', $source->id)
+            ->where('official_source_id', $sourceId)
             ->where('currency_code', strtoupper($currencyCode))
             ->whereDate('rate_date', '<=', $date->format('Y-m-d'))
             ->orderByDesc('rate_date')
@@ -87,17 +87,16 @@ final readonly class FxRateQuery
     {
         $dateString = $date->format('Y-m-d');
 
-        /** @var FxSource|null $source */
-        $source = FxSource::query()->where('code', $sourceCode)->first();
+        $sourceId = $this->officialSources->findIdForCode($sourceCode);
 
         /** @var FxRate|null $rate */
-        $rate = $source === null ? null : FxRate::query()
-            ->where('fx_source_id', $source->id)
+        $rate = $sourceId === null ? null : FxRate::query()
+            ->where('official_source_id', $sourceId)
             ->where('rate_date', $dateString)
             ->where('currency_code', strtoupper($currencyCode))
             ->first();
 
-        if ($source === null || $rate === null) {
+        if ($sourceId === null || $rate === null) {
             throw FxRateNotFoundException::forQuery($sourceCode, $currencyCode, $dateString);
         }
 
@@ -105,7 +104,7 @@ final readonly class FxRateQuery
     }
 
     /**
-     * One `fx_rates` row as the value object callers receive, provenance and all.
+     * One `ext_fx_rates` row as the value object callers receive, provenance and all.
      *
      * Shared by the strict lookup and the display-only one so the two can never disagree about how
      * a published rate becomes a per-unit rate — the division by `multiplier` in particular, which

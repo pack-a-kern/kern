@@ -7,7 +7,7 @@ namespace App\Domain\TaxKnowledge\DataTransferObjects;
 use DateTimeImmutable;
 
 /**
- * The single `source_document_versions` row
+ * The single `ext_source_document_versions` row
  * {@see \App\Domain\TaxKnowledge\Services\LegislationTemporalQuery::versionInForceOn()} resolved
  * for a given document + date — never ambiguous, never a guess (see that service's docblock).
  */

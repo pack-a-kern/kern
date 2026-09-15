@@ -40,8 +40,9 @@ final readonly class DepositTermsInput
         public PaymentFrequency $paymentFrequency,
         public DayCountConvention $dayCountConvention,
         public array $ratePeriods,
-        public bool $autoRenewal = false,
         public ?string $fundingAccountId = null,
+        /** The bank the deposit is at, from `ext_banks`. Null only for a deposit recorded before banks were. */
+        public ?string $bankId = null,
     ) {
     }
 }

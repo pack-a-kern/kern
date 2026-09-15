@@ -8,19 +8,21 @@ use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
+use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\ExtractorType;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
 use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentContent;
 use App\Domain\Documents\ExternalAi\Exceptions\DocumentNotSendableForExtractionException;
+use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderFailedException;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
 use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
+use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
+use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
 use App\Domain\Settings\Services\AiProviderCatalogue;
 use App\Domain\Settings\Services\ResolveAiProviderCredentials;
-use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\ObjectKey;
 
 /**
  * ADR 0005's consent-gated external send, end to end: the gate, the actual call, and the audit
@@ -56,6 +58,9 @@ final readonly class RequestExternalDocumentExtraction
 {
     private const string EXTRACTOR_VERSION = '2026.09.0';
 
+    /** Enough for a long statement's rows, far short of anything that would bloat a row. */
+    private const int MAX_KEPT_REPLY_BYTES = 200_000;
+
     public function __construct(
         private DocumentAiConsentGate $consentGate,
         private ExternalDocumentAiProvider $provider,
@@ -72,7 +77,7 @@ final readonly class RequestExternalDocumentExtraction
      * @throws DocumentNotSendableForExtractionException
      * @throws Exceptions\ExternalDocumentAiProviderFailedException
      */
-    public function __invoke(Document $document, ?UntrustedDocumentText $extractedText): DocumentExtraction
+    public function __invoke(Document $document): DocumentExtraction
     {
         $this->consentGate->assertConsented($document->tax_subject_id);
 
@@ -82,31 +87,49 @@ final readonly class RequestExternalDocumentExtraction
             throw ExternalDocumentAiProviderNotConfiguredException::disabledBySettings();
         }
 
-        // A document with no text has to be *looked at*, so the bytes go instead. This is the send
-        // ADR 0005 gates: the consent check above has already passed, or nothing reached here.
+        // The pictures the document is made of. Every image part goes, in order: an invoice
+        // photographed across four pages is one document, and a model shown one page of it answers
+        // about one page of it. This is the send ADR 0005 gates — the consent check above has
+        // already passed, or nothing reached here.
         //
-        // Text wins where there is any. It is smaller, cheaper, and reveals less — a PDF's text
-        // layer carries the words without the letterhead, the signature or whatever else is in the
-        // image — so the picture is a fallback, never the default.
-        $content = $extractedText === null ? $this->readContent($document) : null;
+        // A PDF part contributes its text instead, extracted locally: smaller, cheaper, and
+        // revealing less than the page image would. So a document is sent as its text plus its
+        // photographs, and never as two versions of the same file.
+        $contents = $this->readImageParts($document);
+        $attachments = $this->readFileParts($document);
+        $text = $this->readTextParts($document);
 
-        // Neither words nor a picture. Sending anyway would ask a model to read a document it was
-        // never given, and the only reply it could produce is an invented one — the single failure
-        // mode a system built on provenance must not have. Refused here, recorded by the caller.
-        if ($extractedText === null && $content === null) {
+        // Nothing readable at all. Sending anyway would ask a model to read a document it was never
+        // given, and the only reply it could produce is an invented one — the single failure mode a
+        // system built on provenance must not have. Refused here, recorded by the caller.
+        if ($text === null && $contents === [] && $attachments === []) {
             throw DocumentNotSendableForExtractionException::nothingToSend();
         }
 
-        $response = $this->provider->sendForExtraction(new DocumentAiRequest(
-            documentId: $document->id,
-            subjectId: $document->tax_subject_id,
-            mimeType: $document->mime_type,
-            extractedText: $extractedText,
-            credentials: $credentials,
-            content: $content,
-            // The schema the reply must satisfy is the document's own type's.
-            documentType: $document->type,
-        ));
+        try {
+            $response = $this->provider->sendForExtraction(new DocumentAiRequest(
+                documentId: $document->id,
+                subjectId: $document->tax_subject_id,
+                mimeType: $document->firstPart()?->mime_type,
+                extractedText: $text,
+                credentials: $credentials,
+                contents: $contents,
+                attachments: $attachments,
+            ));
+        } catch (ExternalDocumentAiProviderFailedException $exception) {
+            // Kept before rethrowing, so "the reading was missing values this type requires" can be
+            // followed by what the model actually said. Under the subject's own key, like every
+            // other reading of their document.
+            $this->rememberAttempt($document, $credentials, $exception->rawReply);
+
+            throw $exception;
+        }
+
+        // Null on success, deliberately. The accepted reading is already stored — validated, and
+        // under the same key — in `document_extractions.result_ciphertext`, and keeping the raw
+        // reply beside it would be a second encrypted copy of the same financial detail, for a
+        // screen that only ever shows it when something went wrong.
+        $this->rememberAttempt($document, $credentials, null);
 
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: $document->tax_subject_id,
@@ -121,6 +144,14 @@ final readonly class RequestExternalDocumentExtraction
             ]),
         ));
 
+        // What the model decided this is. A document uploaded untyped has no other source for it,
+        // and saving it here keeps the two reading paths symmetric — the parser does the same the
+        // moment it recognises a layout.
+        if ($document->type !== $response->documentType) {
+            $document->type = $response->documentType;
+            $document->save();
+        }
+
         return DocumentExtraction::propose(
             document: $document,
             extractorType: ExtractorType::EXTERNAL_DOCUMENT_AI,
@@ -130,41 +161,159 @@ final readonly class RequestExternalDocumentExtraction
             schemaVersion: $response->schemaVersion,
             result: $response->result,
             confidenceDecimal: $response->confidenceDecimal,
+            durationMs: $response->durationMs,
+            promptTokens: $response->promptTokens,
+            completionTokens: $response->completionTokens,
         );
     }
 
     /**
-     * The document's own bytes, or null when they should not be sent.
+     * What was asked and what came back, replacing whatever the last attempt left.
+     *
+     * The model is recorded here rather than only on a successful extraction row, because the
+     * question "it failed — on which model?" is the one an administrator asks after changing models,
+     * and a failure creates no extraction row to hold the answer.
+     *
+     * The reply is kept only when the attempt failed, because that is the only case nothing else
+     * records: a successful reading is already stored, validated, in `document_extractions`. It is
+     * also bounded — a model that ignores its instructions can emit a great deal, and an unbounded
+     * column is how one bad answer becomes a database problem.
+     */
+    private function rememberAttempt(Document $document, AiProviderCredentials $credentials, ?string $reply): void
+    {
+        $document->ai_model_provider = $credentials->provider;
+        $document->ai_model_name = $credentials->model;
+        $document->ai_reply_ciphertext = $reply === null || trim($reply) === ''
+            ? null
+            : mb_strimwidth($reply, 0, self::MAX_KEPT_REPLY_BYTES, '…');
+        $document->save();
+    }
+
+    /**
+     * The document's file parts, for the provider to read itself.
+     *
+     * PDFs only. A spreadsheet is already text and there is nothing for a document-understanding
+     * pass to add; an image is looked at, not read. Bounded by the same ceiling as an image,
+     * because base64 inflates both the same way.
+     *
+     * @return list<array{filename: string, mime_type: string, base64: string}>
+     */
+    private function readFileParts(Document $document): array
+    {
+        $maxBytes = $this->catalogue->extractionMaxImageBytes();
+        $files = [];
+
+        foreach ($document->parts as $part) {
+            if ($part->status !== DocumentStatus::SCANNED || $part->size_bytes > $maxBytes) {
+                continue;
+            }
+
+            if (SniffedFileType::tryFrom($part->mime_type) !== SniffedFileType::PDF) {
+                continue;
+            }
+
+            $stream = $this->objectStore->get($part->objectKey());
+
+            try {
+                $bytes = stream_get_contents($stream);
+            } finally {
+                fclose($stream);
+            }
+
+            if ($bytes !== false) {
+                $files[] = [
+                    // A name the provider can show in an error, never the person's own filename —
+                    // that is encrypted at rest and has no business leaving the building.
+                    'filename' => 'document-' . (string) $part->position . '.pdf',
+                    'mime_type' => $part->mime_type,
+                    'base64' => base64_encode($bytes),
+                ];
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * The document's text parts, which is to say its spreadsheets.
+     *
+     * A CSV *is* text: there is nothing to extract and no reason to make a provider re-parse what
+     * arrived readable. Joined in part order, like everything else about a document.
+     */
+    private function readTextParts(Document $document): ?UntrustedDocumentText
+    {
+        $texts = [];
+
+        foreach ($document->parts as $part) {
+            if ($part->status !== DocumentStatus::SCANNED) {
+                continue;
+            }
+
+            if (SniffedFileType::tryFrom($part->mime_type) !== SniffedFileType::CSV) {
+                continue;
+            }
+
+            $stream = $this->objectStore->get($part->objectKey());
+
+            try {
+                $bytes = stream_get_contents($stream);
+            } finally {
+                fclose($stream);
+            }
+
+            if ($bytes !== false && trim($bytes) !== '') {
+                $texts[] = UntrustedDocumentText::wrap($bytes);
+            }
+        }
+
+        return $texts === [] ? null : UntrustedDocumentText::join($texts);
+    }
+
+    /**
+     * The document's picture parts, as bytes the model can look at.
      *
      * Refuses anything over the configured ceiling rather than truncating: half a receipt is not a
      * smaller receipt, and base64 inflates a payload by a third on top of whatever the image
-     * already was. A document too large to send is reported as a failed extraction, and the person
-     * types it in — which is what they would have done anyway.
+     * already was. A part too large to send is skipped and the rest still go — a four-page invoice
+     * with one oversized page is more readable than nothing at all — and a document where *every*
+     * part is refused and there is no text is reported as not sendable by the caller.
      *
-     * Only image types. A format nothing can read locally *and* no model can look at has nothing to
-     * gain from being uploaded somewhere.
+     * Only image types. A PDF part has already given its text, and a format nothing can read
+     * locally *and* no model can look at has nothing to gain from being uploaded somewhere.
+     *
+     * @return list<DocumentContent>
      */
-    private function readContent(Document $document): ?DocumentContent
+    private function readImageParts(Document $document): array
     {
-        if (! str_starts_with($document->mime_type, 'image/')) {
-            return null;
-        }
-
         $maxBytes = $this->catalogue->extractionMaxImageBytes();
+        $contents = [];
 
-        if ($document->size_bytes > $maxBytes) {
-            return null;
+        foreach ($document->parts as $part) {
+            if ($part->status !== DocumentStatus::SCANNED) {
+                continue;
+            }
+
+            // Asked of the type, not of its MIME string: a `str_starts_with('image/')` here used
+            // to admit `image/webp`, which nothing else in this pipeline accepts.
+            $type = SniffedFileType::tryFrom($part->mime_type);
+
+            if ($type === null || ! $type->isImage() || $part->size_bytes > $maxBytes) {
+                continue;
+            }
+
+            $stream = $this->objectStore->get($part->objectKey());
+
+            try {
+                $bytes = stream_get_contents($stream);
+            } finally {
+                fclose($stream);
+            }
+
+            if ($bytes !== false) {
+                $contents[] = DocumentContent::fromBytes($bytes, $part->mime_type);
+            }
         }
 
-        $key = ObjectKey::forDocument($document->tax_subject_id, $document->id, DocumentObjectKind::ORIGINAL);
-        $stream = $this->objectStore->get($key);
-
-        try {
-            $bytes = stream_get_contents($stream);
-        } finally {
-            fclose($stream);
-        }
-
-        return $bytes === false ? null : DocumentContent::fromBytes($bytes, $document->mime_type);
+        return $contents;
     }
 }

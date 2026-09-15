@@ -19,7 +19,7 @@ uses(TestCase::class)->in('Feature');
 /**
  * Database isolation, applied per-directory rather than globally — deliberately.
  *
- * These suites insert fixed rows (an `fx_sources` row for BNR, a source registry entry, …) and
+ * These suites insert fixed rows (an `ext_official_sources` row for BNR, a source registry entry, …) and
  * relied on sqlite handing every test a brand-new in-memory database. Against a real Postgres the
  * rows persist and the next test collides with `UniqueConstraintViolationException`. RefreshDatabase
  * wraps each test in a transaction that is rolled back afterwards, which fixes that.
@@ -29,6 +29,7 @@ uses(TestCase::class)->in('Feature');
  * suite-wide transaction would make those children see an empty table and would silently destroy
  * the strongest concurrency guarantee in the codebase. See docs/handoff/015-m1-integration-repairs.md.
  */
+uses(RefreshDatabase::class)->in('Feature/Domain/Banks');
 uses(RefreshDatabase::class)->in('Feature/Domain/Fx');
 uses(RefreshDatabase::class)->in('Feature/Domain/TaxKnowledge');
 uses(RefreshDatabase::class)->in('Feature/Domain/Subjects');

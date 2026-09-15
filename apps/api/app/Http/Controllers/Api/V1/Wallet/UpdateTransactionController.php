@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\UpdateFinancialTransaction;
+use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -34,18 +35,28 @@ final class UpdateTransactionController extends Controller
             'booked_at' => ['sometimes', 'date'],
             'description' => ['sometimes', 'string', 'max:500'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
+            // A payment typed in the wrong currency is the same payment with a mistake in it.
+            'currency_code' => ['sometimes', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
         ]);
 
-        $update(
-            transaction: $model,
-            amountMinor: array_key_exists('amount_minor', $validated) ? (int) $validated['amount_minor'] : null,
-            bookedAt: $this->optional($validated, 'booked_at'),
-            description: $this->optional($validated, 'description'),
-            counterparty: array_key_exists('counterparty', $validated)
-                ? (string) ($validated['counterparty'] ?? '')
-                : null,
-            actorId: $this->actorId($request),
-        );
+        try {
+            $update(
+                transaction: $model,
+                amountMinor: array_key_exists('amount_minor', $validated) ? (int) $validated['amount_minor'] : null,
+                bookedAt: $this->optional($validated, 'booked_at'),
+                description: $this->optional($validated, 'description'),
+                counterparty: array_key_exists('counterparty', $validated)
+                    ? (string) ($validated['counterparty'] ?? '')
+                    : null,
+                actorId: $this->actorId($request),
+                currencyCode: $this->optional($validated, 'currency_code'),
+            );
+        } catch (SystemTransactionException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => 'SYSTEM_TRANSACTION',
+            ], 409);
+        }
 
         return response()->json(['id' => $model->id]);
     }

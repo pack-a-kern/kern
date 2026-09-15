@@ -11,7 +11,7 @@ use Illuminate\Support\ServiceProvider;
 
 /**
  * Binds the one class in this module needing scalar values out of `config/sources.php`'s `fx.*`
- * block. Everything else (`FxSourceRepository`, `FxRateImporter`, `FxRateQuery`,
+ * block. Everything else (`FxRateImporter`, `FxRateQuery`,
  * `App\Domain\Fx\Actions\*`) has only class-typed dependencies the container resolves on its own.
  */
 final class FxServiceProvider extends ServiceProvider

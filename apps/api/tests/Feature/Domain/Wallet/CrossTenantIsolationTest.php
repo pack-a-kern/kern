@@ -215,7 +215,6 @@ function depositAccountFor(string $subjectId): FinancialAccount
         'interest_method' => InterestMethod::SIMPLE,
         'payment_frequency' => PaymentFrequency::AT_MATURITY,
         'day_count_convention' => DayCountConvention::ACTUAL_365,
-        'auto_renewal' => false,
     ]);
 
     return $account;

@@ -14,6 +14,15 @@ return [
     // source_section_id applies.
     'max_pdf_bytes' => (int) env('DOCUMENTS_MAX_PDF_BYTES', 25 * 1024 * 1024),
     'max_image_bytes' => (int) env('DOCUMENTS_MAX_IMAGE_BYTES', 15 * 1024 * 1024),
+    // A spreadsheet is text, so it is bounded by what a person plausibly exports rather than by
+    // what a scanner produces: two years of one account's transactions is well under a megabyte,
+    // and a text file in the tens of megabytes is not a statement anybody meant to upload.
+    // How many pages a document may have before it is refused unread. Counting is milliseconds;
+    // a provider reading a 260-page statement is minutes, so this is what makes the rest affordable.
+    'max_pages' => (int) env('DOCUMENTS_MAX_PAGES', 10),
+
+    'max_text_bytes' => (int) env('DOCUMENTS_MAX_TEXT_BYTES', 10 * 1024 * 1024),
+
     'max_image_pixels' => (int) env('DOCUMENTS_MAX_IMAGE_PIXELS', 40_000_000),
 
     'clamav' => [

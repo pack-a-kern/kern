@@ -18,7 +18,7 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\Exceptions\EmbeddingProviderNotC
  * real provider requires".
  *
  * **Note the asymmetry ADR 0006 records with ADR 0005**: the corpus this interface embeds is
- * `source_sections`/`source_section_chunks` text — public Romanian legislation, not PII. Sending
+ * `ext_source_sections`/`ext_source_section_chunks` text — public Romanian legislation, not PII. Sending
  * it to an external embedding provider is a materially lower-risk decision than ADR 0005's
  * consent-gated, per-document external send for user-submitted documents. That still does not
  * make this task's job "just call an API" — no provider is chosen, and inventing one would violate
@@ -41,7 +41,7 @@ interface EmbeddingProvider
 
     /**
      * Names the concrete model/provider that produced (or would produce) a call's vectors —
-     * stored per row as `source_section_chunks.embedding_model`, the same per-result provenance
+     * stored per row as `ext_source_section_chunks.embedding_model`, the same per-result provenance
      * shape `document_extractions.model_provider`/`.model_name` already establishes (`BLUEPRINT.md`
      * §6.6, ADR 0007).
      */

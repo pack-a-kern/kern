@@ -21,7 +21,7 @@ use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
-use Database\Factories\FxSourceFactory;
+use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
 
@@ -51,14 +51,14 @@ it('attaches a full FX provenance chain to a non-RON deposit\'s interest event',
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 
-    $fxSource = FxSourceFactory::new()->createOne(['code' => 'BNR']);
+    $fxSource = OfficialSourceFactory::new()->createOne(['code' => 'BNR']);
     $sourceVersion = SourceDocumentVersionFactory::new()->createOne([
         'content_sha256' => str_repeat('b', 64),
         'raw_object_path' => 'sources/bnr/eur-2027-01-01',
     ]);
 
     FxRate::query()->create([
-        'fx_source_id' => $fxSource->id,
+        'official_source_id' => $fxSource->id,
         'rate_date' => '2027-01-01',
         'currency_code' => 'EUR',
         'multiplier' => 1,

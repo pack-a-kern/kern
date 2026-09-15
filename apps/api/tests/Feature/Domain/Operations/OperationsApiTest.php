@@ -267,10 +267,10 @@ it('answers 404 for a task key that is not in the enum', function (): void {
 });
 
 it('lists the allowlist from config, not from the table that mirrors it', function (): void {
-    // The regression this pins: the panel first read `official_sources`, which is populated lazily
+    // The regression this pins: the panel first read `ext_official_sources`, which is populated lazily
     // on first fetch. After a restore the table is empty and the screen showed no sources at all —
     // indistinguishable from "nothing is allowlisted", which is the opposite of the truth.
-    expect(DB::table('official_sources')->count())->toBe(0);
+    expect(DB::table('ext_official_sources')->count())->toBe(0);
 
     $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/settings/platform-data')->assertOk();
 
@@ -287,7 +287,7 @@ it('lists the allowlist from config, not from the table that mirrors it', functi
 });
 
 it('marks a source as mirrored once a row exists for it', function (): void {
-    DB::table('official_sources')->insert([
+    DB::table('ext_official_sources')->insert([
         'id' => (string) Str::uuid7(),
         'code' => 'BNR',
         'trust_tier' => 'A',
@@ -312,7 +312,7 @@ it('marks a source as mirrored once a row exists for it', function (): void {
 });
 
 it('exposes no way to write the official-source allowlist', function (): void {
-    // `official_sources.enabled` is overwritten from config by `OfficialSourceRepository::resolve()`
+    // `ext_official_sources.enabled` is overwritten from config by `OfficialSourceRepository::resolve()`
     // on every fetch, and `AllowlistedHttpFetcher` checks the config definition rather than the row.
     // A write endpoint here would have appeared to disable a source while every import kept running.
     $this->actingAs(operationsUser('SUPER_ADMIN'))

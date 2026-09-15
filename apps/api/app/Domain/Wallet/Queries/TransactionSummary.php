@@ -21,6 +21,11 @@ final readonly class TransactionSummary
         public string $id,
         public string $accountId,
         public string $accountName,
+        /**
+         * The source's kind, so a screen can name it. The general source has no stored name — the
+         * screen supplies its label — and without the kind every row in it showed an empty column.
+         */
+        public string $accountKind,
         public string $bookedAt,
         /** Signed: negative is money out. */
         public int $amountMinor,
@@ -39,6 +44,11 @@ final readonly class TransactionSummary
          */
         public array $splits,
         public string $source,
+        /**
+         * The document this transaction was built from, if any. A merge keeps the document-backed
+         * row, so the duplicates view needs to show which one that is.
+         */
+        public ?string $documentId = null,
     ) {
     }
 
@@ -49,6 +59,7 @@ final readonly class TransactionSummary
             'id' => $this->id,
             'account_id' => $this->accountId,
             'account_name' => $this->accountName,
+            'account_kind' => $this->accountKind,
             'booked_at' => $this->bookedAt,
             'amount_minor' => $this->amountMinor,
             'currency_code' => $this->currencyCode,
@@ -57,6 +68,7 @@ final readonly class TransactionSummary
             'classification_status' => $this->classificationStatus,
             'splits' => $this->splits,
             'source' => $this->source,
+            'document_id' => $this->documentId,
         ];
     }
 }

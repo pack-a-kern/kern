@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `source_documents` (`BLUEPRINT.md` §6.8) — see that migration's docblock for the identity rule
+ * `ext_source_documents` (`BLUEPRINT.md` §6.8) — see that migration's docblock for the identity rule
  * `(official_source_id, document_type, external_identifier)`.
  *
  * @property string $id
@@ -29,6 +29,8 @@ final class SourceDocument extends Model
     /** @use HasFactory<SourceDocumentFactory> */
     use HasFactory;
     use HasUuidPrimaryKey;
+
+    protected $table = 'ext_source_documents';
 
     /** @var list<string> */
     protected $fillable = [

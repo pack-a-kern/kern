@@ -20,7 +20,7 @@ import multiprocessing
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 
-from processing.documents._worker import WorkerPage, WorkerResult, extract_worker
+from processing.documents._worker import WorkerPage, WorkerResult, count_worker, extract_worker
 from processing.documents.errors import (
     EncryptedPdfRejectedError,
     ExtractionTimeoutError,
@@ -32,6 +32,41 @@ from processing.documents.errors import (
 # (an ASGI server) that must not be duplicated into the child. Slightly
 # slower to start than `fork`, and worth it for that safety.
 _MP_CONTEXT = multiprocessing.get_context("spawn")
+
+
+def count_pages_isolated(
+    pdf_bytes: bytes,
+    *,
+    max_memory_bytes: int,
+    timeout_seconds: float,
+) -> int:
+    """Runs `count_worker` in an isolated subprocess and returns the page count.
+
+    Raises `ExtractionTimeoutError`, `EncryptedPdfRejectedError` or
+    `MalformedPdfError` — never returns a guess.
+    """
+    parent_conn, child_conn = _MP_CONTEXT.Pipe(duplex=False)
+    process = _MP_CONTEXT.Process(
+        target=count_worker,
+        args=(pdf_bytes, max_memory_bytes, child_conn),
+        daemon=True,
+    )
+    process.start()
+    child_conn.close()
+
+    status, payload = _receive_within_timeout(parent_conn, process, timeout_seconds)
+
+    if status == "ok":
+        if not isinstance(payload, int):
+            raise MalformedPdfError(
+                f"worker returned unexpected payload shape for status 'ok': {payload!r}"
+            )
+        return payload
+    if status == "encrypted":
+        raise EncryptedPdfRejectedError("PDF is encrypted; rejected without attempting a password")
+    if status == "malformed":
+        raise MalformedPdfError(str(payload))
+    raise MalformedPdfError(f"unexpected parser failure: status={status!r} payload={payload!r}")
 
 
 def parse_and_extract_pages(

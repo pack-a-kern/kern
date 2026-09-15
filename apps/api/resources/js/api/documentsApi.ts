@@ -37,20 +37,29 @@ export class DocumentRejectedError extends Error {
 }
 
 /**
- * `POST /api/v1/subjects/{subject}/documents` — multipart upload. `BLUEPRINT.md` §14.1's "upload
- * ticket" step; a `202` means the document exists and entered `QUARANTINE`, not that processing
- * finished — the caller follows up over the Reverb `tax-subjects.{subject}.documents` channel.
+ * `POST /api/v1/subjects/{subject}/documents` — multipart upload of one document, which may be
+ * several files: an invoice photographed page by page is one document with four pages, in the order
+ * given here.
+ *
+ * `BLUEPRINT.md` §14.1's "upload ticket" step; a `202` means the document exists and entered
+ * `QUARANTINE`, not that processing finished — the caller follows up over the Reverb
+ * `tax-subjects.{subject}.documents` channel.
  */
 export async function uploadDocument(
     subjectId: string,
-    type: DocumentType,
-    file: File | Blob,
-    filename: string,
+    /** The files this one document is made of, in page order. */
+    files: readonly { blob: Blob; fileName: string }[],
     onProgress?: (fraction: number) => void,
 ): Promise<UploadAccepted> {
+    // No `type`: the server decides what a document is from what is read out of it. Sending a guess
+    // from a picker is what made an invoice get asked a receipt's questions.
     const form = new FormData();
-    form.set('type', type);
-    form.set('file', file, filename);
+
+    // Always `files[]`, even for one: the server accepts both shapes, and a client that switches
+    // between them is a client with two upload paths to keep working.
+    for (const file of files) {
+        form.append('files[]', file.blob, file.fileName);
+    }
 
     try {
         const text = await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/documents`, form, onProgress);
@@ -380,10 +389,17 @@ export class DocumentContentNotAvailableError extends Error {
  * held in memory (an `URL.createObjectURL()` the caller revokes when done) — never written to
  * `localStorage`/IndexedDB (`BLUEPRINT.md` §17: decrypted documents are never persisted client-side).
  */
-export async function fetchDocumentContent(subjectId: string, documentId: string): Promise<Blob> {
+export async function fetchDocumentContent(
+    subjectId: string,
+    documentId: string,
+    /** One page of a document made of several files; omitted means the first. */
+    partId?: string,
+): Promise<Blob> {
+    const base = `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}`;
+
     try {
         return await apiRequestBinary(
-            `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}/content`,
+            partId === undefined ? `${base}/content` : `${base}/parts/${encodeURIComponent(partId)}/content`,
         );
     } catch (error) {
         if (error instanceof ApiError && error.status === 409 && error.reason === 'CONTENT_NOT_AVAILABLE') {
@@ -392,4 +408,21 @@ export async function fetchDocumentContent(subjectId: string, documentId: string
 
         throw error;
     }
+}
+
+/**
+ * `POST .../documents/enhance` — a photograph, cleaned up before it is uploaded.
+ *
+ * Returns a `data:` URI of the improved image, or throws. Stores nothing: the caller decides
+ * whether to keep the result, and only the kept version is ever uploaded.
+ */
+export async function enhanceImage(subjectId: string, file: File): Promise<Blob> {
+    const form = new FormData();
+    form.set('file', file, file.name);
+
+    const text = await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/documents/enhance`, form);
+    const parsed = parseJson(text, vObject({ image: vString }));
+    const response = await fetch(parsed.image);
+
+    return await response.blob();
 }

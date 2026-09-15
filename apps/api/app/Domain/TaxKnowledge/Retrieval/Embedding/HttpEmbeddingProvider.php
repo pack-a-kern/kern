@@ -25,7 +25,7 @@ use Throwable;
  *  - **Order.** The service returns vectors positionally. A reordered response would attach every
  *    section's meaning to a different section, and retrieval would still "work" — returning
  *    confident nonsense. The count is asserted; the order is the documented contract.
- *  - **Dimension.** The vector width must match `source_section_chunks.embedding`'s `vector(N)`.
+ *  - **Dimension.** The vector width must match `ext_source_section_chunks.embedding`'s `vector(N)`.
  *    Postgres rejects a wrong width on write, so this check is not what prevents corruption — it
  *    exists to fail with a sentence an operator can act on rather than a driver-level type error
  *    thousands of rows into a backfill.

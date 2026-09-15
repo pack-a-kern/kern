@@ -1,9 +1,15 @@
 import { apiRequest } from '../lib/http';
 import {
     type AccountList,
+    type Bank,
+    type DuplicateGroup,
+    type TaxCategory,
     type TransactionPage,
     type WalletOverview,
     parseAccounts,
+    parseBanks,
+    parseDuplicateGroups,
+    parseTaxCategories,
     parseTransactions,
     parseWalletOverview,
 } from '../types/wallet';
@@ -29,9 +35,7 @@ export async function getWalletOverview(subjectId: string): Promise<WalletOvervi
  * The response also brings the deposit form's options, so the one add-form has one source for them.
  */
 export async function listAccounts(subjectId: string): Promise<AccountList> {
-    return parseAccounts(
-        JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts`)),
-    );
+    return parseAccounts(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts`)));
 }
 
 /**
@@ -43,11 +47,7 @@ export async function listAccounts(subjectId: string): Promise<AccountList> {
  *
  * Editing a deposit re-computes the interest it has not yet paid, and leaves settled periods alone.
  */
-export async function updateAccount(
-    subjectId: string,
-    accountId: string,
-    body: UpdateAccountRequest,
-): Promise<void> {
+export async function updateAccount(subjectId: string, accountId: string, body: UpdateAccountRequest): Promise<void> {
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts/${encodeURIComponent(accountId)}`, {
         method: 'PATCH',
         body,
@@ -78,7 +78,13 @@ export async function deleteAccount(subjectId: string, accountId: string): Promi
 export async function updateTransaction(
     subjectId: string,
     transactionId: string,
-    body: { amount_minor?: number; booked_at?: string; description?: string; counterparty?: string | null },
+    body: {
+        amount_minor?: number;
+        booked_at?: string;
+        description?: string;
+        counterparty?: string | null;
+        currency_code?: string;
+    },
 ): Promise<void> {
     await apiRequest(
         `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/${encodeURIComponent(transactionId)}`,
@@ -129,7 +135,8 @@ export async function setDisplayCurrency(subjectId: string, currencyCode: string
 
 /** Fields the "add account" form collects. Amounts and codes only — nothing derived. */
 export interface OpenAccountRequest {
-    display_name: string;
+    /** Every kind but a deposit, which is named after its bank instead. */
+    display_name?: string;
     kind: string;
     /** A default for the transaction form; required only for a deposit, which has one by nature. */
     currency_code?: string;
@@ -164,8 +171,10 @@ export interface OpenAccountRequest {
      * usual Actual/365.
      */
     day_count_convention?: string;
-    auto_renewal?: boolean;
-    funding_account_id?: string;
+    /** Null clears it — a deposit funded from an account this application does not track. */
+    funding_account_id?: string | null;
+    /** The bank a deposit is at. Deposits only, and required for one. */
+    bank_id?: string;
 }
 
 /**
@@ -187,8 +196,44 @@ export async function openAccount(subjectId: string, body: OpenAccountRequest): 
     });
 }
 
-
 /** `GET .../wallet/transactions` — recent activity, newest first, capped. */
+/** `GET wallet/transactions/duplicates` — lookalike transactions, grouped for a person to settle. */
+export async function listDuplicateTransactions(subjectId: string): Promise<DuplicateGroup[]> {
+    return parseDuplicateGroups(
+        JSON.parse(
+            await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/duplicates`),
+        ) as unknown,
+    );
+}
+
+/** Combine lookalikes into one. The server picks the survivor and folds their documents together. */
+export async function mergeDuplicateTransactions(subjectId: string, transactionIds: string[]): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/duplicates/merge`, {
+        method: 'POST',
+        body: { transaction_ids: transactionIds },
+    });
+}
+
+/** These lookalikes are genuinely separate payments — stop raising them. */
+export async function keepDuplicateTransactions(subjectId: string, transactionIds: string[]): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/transactions/duplicates/keep`, {
+        method: 'POST',
+        body: { transaction_ids: transactionIds },
+    });
+}
+
+/** `GET wallet/categories` — the vocabulary a transaction can be classified with. */
+/** `GET .../wallet/banks` — the banks a deposit can be opened at, from the imported ECB list. */
+export async function listBanks(subjectId: string): Promise<Bank[]> {
+    return parseBanks(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks`)));
+}
+
+export async function listTaxCategories(subjectId: string): Promise<TaxCategory[]> {
+    return parseTaxCategories(
+        JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/categories`)) as unknown,
+    );
+}
+
 export async function listTransactions(
     subjectId: string,
     filters: { accountId?: string; limit?: number } = {},

@@ -11,7 +11,7 @@ use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 
 /**
- * Loads one `source_sections` row and its full ancestry (version, document, official source),
+ * Loads one `ext_source_sections` row and its full ancestry (version, document, official source),
  * assembles a {@see ChunkableSection}, and delegates to {@see SourceSectionChunker}. This is the
  * database-integrated half of chunking; the chunker itself stays pure and independently testable.
  *

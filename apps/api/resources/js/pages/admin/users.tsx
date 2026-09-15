@@ -37,7 +37,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
+import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import NewUserDialog from './NewUserDialog';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -48,6 +49,8 @@ import { ApiError } from '../../lib/http';
 import type { AccessCatalogue, AdminDirectory, AdminUser } from '../../types/admin';
 
 type Tab = 'users' | 'roles' | 'permissions';
+
+const TABS: readonly Tab[] = ['users', 'roles', 'permissions'];
 
 /** Initials for the avatar disc. We hold no display name, so the email's local part is the name. */
 function initialsFor(email: string): string {
@@ -68,14 +71,18 @@ function initialsFor(email: string): string {
 export default function AdminUsers(): JSX.Element {
     const { t } = useTranslation();
 
-    const [tab, setTab] = useState<Tab>('users');
+    const [tab, setTab] = useRememberedState<Tab>('admin.users.tab', 'users', {
+        isValid: (value) => TABS.includes(value),
+    });
     const [directory, setDirectory] = useState<AdminDirectory | null>(null);
     const [access, setAccess] = useState<AccessCatalogue | null>(null);
     const [forbidden, setForbidden] = useState(false);
     const [failed, setFailed] = useState(false);
-    const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
+    const [search, setSearch] = useRememberedState<string>('admin.users.search', '');
+    const [roleFilter, setRoleFilter] = useRememberedState<string>('admin.users.role', '');
+    const [statusFilter, setStatusFilter] = useRememberedState<string>('admin.users.status', '', {
+        isValid: (value) => ['', 'ACTIVE', 'SUSPENDED', 'DELETED'].includes(value),
+    });
     const [editing, setEditing] = useState<AdminUser | null>(null);
     const [reloadToken, setReloadToken] = useState(0);
 
@@ -187,8 +194,7 @@ export default function AdminUsers(): JSX.Element {
         }
     };
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('admin.users');
 
     const visible = useMemo((): AdminUser[] => {
         const term = search.trim().toLowerCase();

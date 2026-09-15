@@ -13,7 +13,7 @@ use App\Domain\TaxKnowledge\Storage\RawSourceObjectStore;
 use DateTimeImmutable;
 
 /**
- * Structurally (re-)parses one already-ingested `source_document_versions` row by id — the
+ * Structurally (re-)parses one already-ingested `ext_source_document_versions` row by id — the
  * standalone entry point for re-parsing after a parser upgrade, or for parsing a version that was
  * ingested earlier without being parsed. Reads raw bytes back from
  * {@see RawSourceObjectStore} rather than requiring a caller to still have them in memory.

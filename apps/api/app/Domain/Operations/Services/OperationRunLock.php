@@ -14,7 +14,7 @@ use RuntimeException;
  * One in-flight run per task, across every process.
  *
  * Two imports of the same BNR day are not merely wasteful: they race on the same
- * `source_document_versions` rows and can record two versions of identical bytes, which is a
+ * `ext_source_document_versions` rows and can record two versions of identical bytes, which is a
  * provenance defect (`BLUEPRINT.md` §7.1), not a performance one. The lock is therefore taken in
  * the HTTP request — so a double-click is *refused* with an answer, rather than silently queued
  * twice — and released by the worker when the run ends.
@@ -51,7 +51,7 @@ final readonly class OperationRunLock
      * application configures — Redis in every real environment, array under test — implement it, so
      * reaching this exception means the cache driver was changed to one that cannot make the
      * guarantee this class exists to provide, and silently dropping it would let two imports race
-     * on the same `source_document_versions` rows with nothing reporting why.
+     * on the same `ext_source_document_versions` rows with nothing reporting why.
      */
     private function store(): LockProvider
     {

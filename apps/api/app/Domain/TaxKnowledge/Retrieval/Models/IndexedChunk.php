@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * `source_section_chunks` — see that migration's docblock for why this is deliberately not
+ * `ext_source_section_chunks` — see that migration's docblock for why this is deliberately not
  * denormalized (dates/tier are read via `JOIN`, never copied here) and why the embedding
  * dimension is a fixed, explicit placeholder.
  *
@@ -47,7 +47,7 @@ final class IndexedChunk extends Model
     use HasFactory;
     use HasUuidPrimaryKey;
 
-    protected $table = 'source_section_chunks';
+    protected $table = 'ext_source_section_chunks';
 
     /** @var list<string> */
     protected $fillable = [

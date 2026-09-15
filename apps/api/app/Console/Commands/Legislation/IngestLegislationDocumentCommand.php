@@ -14,7 +14,7 @@ use Throwable;
 /**
  * Thin CLI wrapper over {@see IngestAndParseLegislationDocument} — fetch through the existing
  * allowlisted fetcher/source registry (`App\Domain\TaxKnowledge\Services\SourceIngestionService`,
- * M2), store immutably, and structurally parse into `source_sections` (M3,
+ * M2), store immutably, and structurally parse into `ext_source_sections` (M3,
  * `docs/handoff/018-legislation-ingestion.md`). No fiscal or parsing logic is added here
  * (`docs/AGENTS.md` §6) — this class only resolves the action, reports its
  * {@see \App\Domain\TaxKnowledge\DataTransferObjects\LegislationParsingResult}, and maps outcomes
@@ -30,8 +30,8 @@ final class IngestLegislationDocumentCommand extends Command
     protected $signature = 'taxos:legislation:ingest
         {source : Official source code from config/sources.php, e.g. LEGISLATIE}
         {url : The document URL to fetch}
-        {--type=LEGE : document_type recorded on source_documents (e.g. LEGE, DECIZIE, ORDIN)}
-        {--external-id= : Optional external_identifier for source_documents}
+        {--type=LEGE : document_type recorded on ext_source_documents (e.g. LEGE, DECIZIE, ORDIN)}
+        {--external-id= : Optional external_identifier for ext_source_documents}
         {--dry-run : Validate the source/host without fetching or writing anything}';
 
     /** @var string */
@@ -90,7 +90,7 @@ final class IngestLegislationDocumentCommand extends Command
         }
 
         $this->components->info(sprintf(
-            'Ingested %s (%s) — document version %s: %d source_sections, status %s%s.',
+            'Ingested %s (%s) — document version %s: %d ext_source_sections, status %s%s.',
             $sourceCode,
             $url,
             $result->sourceDocumentVersionId,

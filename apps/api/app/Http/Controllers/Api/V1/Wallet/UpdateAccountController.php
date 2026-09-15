@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Wallet;
 
+use App\Domain\Banks\Queries\BankDirectory;
 use App\Domain\Wallet\Actions\UpdateFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
@@ -13,8 +14,11 @@ use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
+use App\Domain\Wallet\Exceptions\DepositClosedException;
+use App\Domain\Wallet\Exceptions\DepositTermsLockedException;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Http\Controllers\Controller;
+use App\Rules\StreamSource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,6 +40,7 @@ final class UpdateAccountController extends Controller
         string $subject,
         string $account,
         UpdateFinancialAccount $update,
+        BankDirectory $banks,
     ): JsonResponse {
         // Tenant-scoped: another subject's account is not found rather than edited.
         $model = FinancialAccount::query()->findOrFail($account);
@@ -48,7 +53,17 @@ final class UpdateAccountController extends Controller
             // effect. Getting it wrong means deleting the source and opening the right one.
             'kind' => ['prohibited'],
 
-            'display_name' => ['sometimes', 'string', 'max:120'],
+            // A deposit is named after its bank: changing the bank renames it, and a typed name is refused.
+            'display_name' => [$isDeposit ? 'prohibited' : 'sometimes', 'string', 'max:120'],
+            'bank_id' => [
+                $isDeposit ? 'sometimes' : 'prohibited',
+                'uuid',
+                // An active bank, or the one this deposit is already at: a bank that has since left the
+                // list must not make the rest of the deposit uneditable.
+                Rule::exists('ext_banks', 'id')->where(static function ($query) use ($model): void {
+                    $query->where('active', true)->orWhere('id', $model->depositTerms?->bank_id);
+                }),
+            ],
             'holding_amount_minor' => [
                 $model->kind === AccountKind::CASH ? 'sometimes' : 'prohibited',
                 'integer',
@@ -63,25 +78,33 @@ final class UpdateAccountController extends Controller
             // than a partial edit: the rate periods must cover the term without a gap, and that is
             // provable for a replacement and not for a patch.
             'principal_minor' => [$isDeposit ? 'sometimes' : 'prohibited', 'integer', 'min:1'],
-            'maturity_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date'],
+            'maturity_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date', 'after:today'],
             'annual_rate' => [$isDeposit ? 'sometimes' : 'prohibited', 'string', 'regex:/^\d{1,3}(\.\d{1,6})?$/'],
             'rate_type' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(RateType::class)],
             'interest_method' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(InterestMethod::class)],
             'payment_frequency' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(PaymentFrequency::class)],
             'day_count_convention' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(DayCountConvention::class)],
-            'auto_renewal' => [$isDeposit ? 'sometimes' : 'prohibited', 'boolean'],
-            'funding_account_id' => [$isDeposit ? 'sometimes' : 'prohibited', 'nullable', 'uuid'],
+            'funding_account_id' => [$isDeposit ? 'sometimes' : 'prohibited', 'nullable', 'uuid', new StreamSource()],
         ]);
 
-        $update($model, new UpdateFinancialAccountInput(
-            actorId: $this->actorId($request),
-            displayName: $this->optional($validated, 'display_name'),
-            currencyCode: $this->optional($validated, 'currency_code'),
-            holdingAmountMinor: array_key_exists('holding_amount_minor', $validated)
-                ? (int) self::str($validated, 'holding_amount_minor')
-                : null,
-            depositTerms: $this->depositTerms($request, $validated, $model),
-        ));
+        try {
+            $update($model, new UpdateFinancialAccountInput(
+                actorId: $this->actorId($request),
+                displayName: $isDeposit && array_key_exists('bank_id', $validated)
+                    ? $banks->find(self::str($validated, 'bank_id'))?->name
+                    : $this->optional($validated, 'display_name'),
+                currencyCode: $this->optional($validated, 'currency_code'),
+                holdingAmountMinor: array_key_exists('holding_amount_minor', $validated)
+                    ? (int) self::str($validated, 'holding_amount_minor')
+                    : null,
+                depositTerms: $this->depositTerms($validated, $model),
+            ));
+        } catch (DepositClosedException $exception) {
+            // 409: nothing about the request is malformed, the deposit is simply over.
+            return response()->json(['message' => $exception->getMessage(), 'reason' => 'DEPOSIT_CLOSED'], 409);
+        } catch (DepositTermsLockedException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'reason' => 'DEPOSIT_TERMS_LOCKED'], 422);
+        }
 
         return response()->json(['id' => $model->id]);
     }
@@ -94,7 +117,7 @@ final class UpdateAccountController extends Controller
      *
      * @param  array<string, mixed>  $validated
      */
-    private function depositTerms(Request $request, array $validated, FinancialAccount $account): ?DepositTermsInput
+    private function depositTerms(array $validated, FinancialAccount $account): ?DepositTermsInput
     {
         $terms = $account->depositTerms;
 
@@ -102,10 +125,11 @@ final class UpdateAccountController extends Controller
             return null;
         }
 
+        // `starts_at` and `currency_code` included: they travel with the terms, and leaving them out
+        // meant a request changing only the start date was treated as changing nothing.
         $depositKeys = [
-            'principal_minor', 'maturity_at', 'annual_rate', 'rate_type',
-            'interest_method', 'payment_frequency', 'day_count_convention',
-            'auto_renewal', 'funding_account_id',
+            'principal_minor', 'starts_at', 'currency_code', 'maturity_at', 'annual_rate', 'rate_type',
+            'interest_method', 'payment_frequency', 'day_count_convention', 'funding_account_id', 'bank_id',
         ];
 
         $touched = array_filter($depositKeys, static fn (string $key): bool => array_key_exists($key, $validated));
@@ -159,12 +183,12 @@ final class UpdateAccountController extends Controller
                 validTo: $maturityAt,
                 annualRateDecimal: $annualRate,
             )],
-            autoRenewal: array_key_exists('auto_renewal', $validated)
-                ? $request->boolean('auto_renewal')
-                : $terms->auto_renewal,
             fundingAccountId: array_key_exists('funding_account_id', $validated)
                 ? $this->optional($validated, 'funding_account_id')
                 : $terms->funding_account_id,
+            bankId: array_key_exists('bank_id', $validated)
+                ? $this->optional($validated, 'bank_id')
+                : $terms->bank_id,
         );
     }
 

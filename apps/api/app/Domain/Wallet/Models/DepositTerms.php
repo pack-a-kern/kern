@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $account_id
  * @property string $tax_subject_id
  * @property string|null $funding_account_id
+ * @property string|null $bank_id
  * @property int $principal_minor
  * @property \Illuminate\Support\Carbon $starts_at
  * @property string $currency_code
@@ -40,7 +41,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property InterestMethod $interest_method
  * @property PaymentFrequency $payment_frequency
  * @property DayCountConvention $day_count_convention
- * @property bool $auto_renewal
+ * @property string|null $funding_transaction_id the money that left the funding account, when there is one
+ * @property string|null $settlement_transaction_id the money that came back to it at maturity
+ * @property \Illuminate\Support\Carbon|null $closed_at when the deposit matured and was settled
  */
 final class DepositTerms extends Model
 {
@@ -60,6 +63,7 @@ final class DepositTerms extends Model
         'account_id',
         'tax_subject_id',
         'funding_account_id',
+        'bank_id',
         'principal_minor',
         'starts_at',
         'currency_code',
@@ -68,7 +72,9 @@ final class DepositTerms extends Model
         'interest_method',
         'payment_frequency',
         'day_count_convention',
-        'auto_renewal',
+        'funding_transaction_id',
+        'settlement_transaction_id',
+        'closed_at',
     ];
 
     /** @var array<string, string> */
@@ -80,7 +86,7 @@ final class DepositTerms extends Model
         'interest_method' => InterestMethod::class,
         'payment_frequency' => PaymentFrequency::class,
         'day_count_convention' => DayCountConvention::class,
-        'auto_renewal' => 'boolean',
+        'closed_at' => 'date',
     ];
 
     /** @return BelongsTo<FinancialAccount, $this> */

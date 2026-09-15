@@ -23,13 +23,14 @@ beforeEach(function (): void {
             'allowed_hosts' => ['src-fixture.test'],
             'user_agent' => 'TaxOS-Test-Fetcher/1.0',
             'enabled' => true,
+            'priority' => 1,
         ],
         'sources.storage.disk' => 's3',
         'sources.storage.prefix' => 'sources',
     ]);
 });
 
-it('mirrors the config entry into an official_sources row on first use', function (): void {
+it('mirrors the config entry into an ext_official_sources row on first use', function (): void {
     Http::fake(['https://src-fixture.test/doc.xml' => Http::response('<a/>', 200, ['Content-Type' => 'application/xml'])]);
 
     app(SourceIngestionService::class)->ingest('TESTSRC', 'https://src-fixture.test/doc.xml', 'FX_DAILY');

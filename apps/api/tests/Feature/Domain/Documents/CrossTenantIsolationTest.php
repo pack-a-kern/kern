@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\CrossTenantIsolationTest;
 
+use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
@@ -60,16 +61,28 @@ it('never returns another subject\'s document from a list query', function (): v
     [$userB, $subjectB] = ownerAndSubject();
 
     activateAs($userA, $subjectA);
-    Document::factory()->create(['tax_subject_id' => $subjectA->id, 'original_filename_ciphertext' => 'subject-a-secret.pdf']);
+    nameDocument(Document::factory()->create(['tax_subject_id' => $subjectA->id]), 'subject-a-secret.pdf');
 
     activateAs($userB, $subjectB);
-    Document::factory()->create(['tax_subject_id' => $subjectB->id, 'original_filename_ciphertext' => 'subject-b.pdf']);
+    nameDocument(Document::factory()->create(['tax_subject_id' => $subjectB->id]), 'subject-b.pdf');
 
     $visible = Document::query()->get();
 
     expect($visible)->toHaveCount(1)
-        ->and($visible->sole()->original_filename_ciphertext)->toBe('subject-b.pdf');
+        ->and($visible->sole()->firstPart()?->original_filename_ciphertext)->toBe('subject-b.pdf');
 });
+
+function nameDocument(Document $document, string $filename): Document
+{
+    $part = $document->parts->first();
+
+    if ($part !== null) {
+        $part->original_filename_ciphertext = $filename;
+        $part->save();
+    }
+
+    return $document;
+}
 
 it('never returns another subject\'s document from a single-record lookup', function (): void {
     [$userA, $subjectA] = ownerAndSubject();
@@ -91,7 +104,7 @@ it('cannot update another subject\'s document', function (): void {
     $documentA = Document::factory()->create(['tax_subject_id' => $subjectA->id]);
 
     activateAs($userB, $subjectB);
-    $affected = Document::query()->where('id', $documentA->id)->update(['mime_type' => 'image/png']);
+    $affected = Document::query()->where('id', $documentA->id)->update(['type' => DocumentType::INVOICE]);
 
     expect($affected)->toBe(0);
 });

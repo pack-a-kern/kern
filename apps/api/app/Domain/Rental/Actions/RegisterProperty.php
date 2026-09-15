@@ -20,7 +20,7 @@ final readonly class RegisterProperty
 
     public function __invoke(RegisterPropertyInput $input): Property
     {
-        $this->assertValidOwnershipPercent($input->ownershipPercentDecimal);
+        self::assertValidOwnershipPercent($input->ownershipPercentDecimal);
 
         return Property::create([
             'tax_subject_id' => $input->taxSubjectId,
@@ -32,7 +32,7 @@ final readonly class RegisterProperty
         ]);
     }
 
-    private function assertValidOwnershipPercent(string $value): void
+    public static function assertValidOwnershipPercent(string $value): void
     {
         if (preg_match(self::OWNERSHIP_PERCENT_PATTERN, $value) !== 1) {
             throw InvalidOwnershipPercentException::forValue($value);

@@ -7,6 +7,9 @@ namespace App\Domain\Settings\Services;
 use App\Domain\Settings\DataTransferObjects\AiModelListShape;
 use App\Domain\Settings\DataTransferObjects\AiProviderPreset;
 use App\Domain\Settings\Enums\AiDialect;
+use App\Domain\Settings\Enums\SettingKey;
+use App\Domain\Settings\Enums\SettingType;
+use App\Domain\Settings\Repositories\SettingsRepository;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use RuntimeException;
 
@@ -19,8 +22,10 @@ use RuntimeException;
  */
 final readonly class AiProviderCatalogue
 {
-    public function __construct(private ConfigRepository $config)
-    {
+    public function __construct(
+        private ConfigRepository $config,
+        private SettingsRepository $settings,
+    ) {
     }
 
     /**
@@ -109,9 +114,43 @@ final readonly class AiProviderCatalogue
      */
     public function extractionTimeoutSeconds(): int
     {
+        $stored = SettingType::decodeInteger($this->settings->get(SettingKey::AI_EXTRACTION_TIMEOUT_SECONDS));
+
+        if ($stored !== null && $stored > 0) {
+            return $stored;
+        }
+
         $timeout = $this->config->get('ai_providers.extraction_timeout_seconds');
 
         return is_int($timeout) && $timeout > 0 ? $timeout : 120;
+    }
+
+    /** Whether the configured endpoint can clean up a photographed document before reading it. */
+    public function supportsEnhancement(): bool
+    {
+        $stored = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_SUPPORTS_ENHANCEMENT));
+
+        return $stored ?? (bool) $this->config->get('ai_providers.supports_enhancement', false);
+    }
+
+    /**
+     * How many pages a document may have before it is refused unread.
+     *
+     * The gate that makes everything downstream affordable: a provider reading a 260-page statement
+     * costs minutes, and counting the pages to refuse it costs milliseconds. Editable because what
+     * is reasonable depends entirely on the model and the patience behind it.
+     */
+    public function maxDocumentPages(): int
+    {
+        $stored = SettingType::decodeInteger($this->settings->get(SettingKey::DOCUMENTS_MAX_PAGES));
+
+        if ($stored !== null && $stored > 0) {
+            return $stored;
+        }
+
+        $max = $this->config->get('documents.max_pages');
+
+        return is_int($max) && $max > 0 ? $max : 1;
     }
 
     /**
@@ -142,11 +181,28 @@ final readonly class AiProviderCatalogue
      * thought and returns empty `content`, which then fails schema validation and looks exactly
      * like a model that could not read the document.
      */
+    /**
+     * How long the model's reply may be.
+     *
+     * Read through `SettingsRepository`, so an administrator changing it on the settings screen
+     * takes effect on the very next document — the same per-call resolution the provider and model
+     * already use. The stored value falls back to `config/ai_providers.php`, which is the only
+     * place the number itself is written down.
+     */
     public function extractionMaxTokens(): int
     {
+        $stored = SettingType::decodeInteger($this->settings->get(SettingKey::AI_EXTRACTION_MAX_TOKENS));
+
+        if ($stored !== null && $stored > 0) {
+            return $stored;
+        }
+
         $max = $this->config->get('ai_providers.extraction_max_tokens');
 
-        return is_int($max) && $max > 0 ? $max : 4096;
+        // A blanked-out or non-numeric config value must not make extraction impossible, so the
+        // floor is the smallest reply that could hold a reading rather than a second copy of the
+        // default — which would be the duplicate this method exists to avoid.
+        return is_int($max) && $max > 0 ? $max : 1;
     }
 
     /**

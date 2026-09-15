@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\DeleteFinancialTransaction;
+use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +28,14 @@ final class DeleteTransactionController extends Controller
     ): JsonResponse {
         $model = FinancialTransaction::query()->findOrFail($transaction);
 
-        $delete($model, $this->actorId($request));
+        try {
+            $delete($model, $this->actorId($request));
+        } catch (SystemTransactionException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => 'SYSTEM_TRANSACTION',
+            ], 409);
+        }
 
         return response()->json([], 204);
     }

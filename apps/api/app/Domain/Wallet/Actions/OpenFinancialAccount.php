@@ -18,6 +18,7 @@ use App\Domain\Wallet\Models\DepositRatePeriod;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use App\Domain\Wallet\Services\WalletAudit;
 use Carbon\CarbonImmutable;
@@ -27,12 +28,29 @@ use Illuminate\Support\Facades\DB;
 /**
  * Opens one manually-entered `financial_accounts` row (`BLUEPRINT.md` §34: no bank-API sync — every
  * account this milestone can create is `RecordSource::MANUAL`).
+ *
+ * ## Why opening a deposit moves money
+ *
+ * A deposit's principal is a declared figure while an account's balance is derived from what has
+ * been recorded, and `WalletQuery::totals()` adds the two together. So the same money was counted
+ * twice: a dividend arrived in a current account, a deposit was opened with it, and net worth rose
+ * by the principal while nothing had left the account it came from. Opening a deposit does not make
+ * anybody richer.
+ *
+ * A deposit funded from an account therefore records the outgoing transaction that actually
+ * happened, categorised `TRANSFER`. The funding account falls by exactly what the deposit
+ * gained and the total does not move, which is the only arithmetic that can be right.
+ *
+ * `fundingAccountId` stays nullable on purpose: a deposit opened years ago, out of an account this
+ * application never tracked, has no movement to record. That is the one case where the total
+ * legitimately jumps, and it is declared rather than derived.
  */
 final readonly class OpenFinancialAccount
 {
     public function __construct(
         private DepositRateCoverageValidator $coverageValidator,
         private GenerateDepositInterestSchedule $generateSchedule,
+        private DepositMovements $movements,
         private WalletAudit $audit,
     ) {
     }
@@ -126,10 +144,11 @@ final readonly class OpenFinancialAccount
                 return $account;
             }
 
-            DepositTerms::create([
+            $depositTerms = DepositTerms::create([
                 'account_id' => $account->id,
                 'tax_subject_id' => $input->taxSubjectId,
                 'funding_account_id' => $terms->fundingAccountId,
+                'bank_id' => $terms->bankId,
                 'principal_minor' => $terms->principalMinor,
                 'starts_at' => $terms->startsAt,
                 'currency_code' => strtoupper($terms->currencyCode),
@@ -138,8 +157,11 @@ final readonly class OpenFinancialAccount
                 'interest_method' => $terms->interestMethod,
                 'payment_frequency' => $terms->paymentFrequency,
                 'day_count_convention' => $terms->dayCountConvention,
-                'auto_renewal' => $terms->autoRenewal,
             ]);
+
+            // Linked to the deposit, so an edit or a deletion can find it again — see
+            // `DepositMovements::syncFunding()`.
+            $this->movements->syncFunding($account, $depositTerms);
 
             foreach ($terms->ratePeriods as $period) {
                 DepositRatePeriod::create([

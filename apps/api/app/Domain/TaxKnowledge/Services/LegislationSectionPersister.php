@@ -18,14 +18,14 @@ use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Turns one {@see ParsedLegislationDocument} into persisted `source_sections` rows for a given
- * `source_document_versions` row, and updates that version's parsing bookkeeping columns.
+ * Turns one {@see ParsedLegislationDocument} into persisted `ext_source_sections` rows for a given
+ * `ext_source_document_versions` row, and updates that version's parsing bookkeeping columns.
  *
  * **Re-parsing an already-parsed version is supported and safe**: existing sections for that
  * version are deleted and replaced inside one transaction. This is *not* "overwriting a raw
  * official source" (`docs/AGENTS.md` rule 17) — the raw bytes in
- * `App\Domain\TaxKnowledge\Storage\RawSourceObjectStore` and the `source_document_versions` row's
- * own identity/hash are never touched; `source_sections` is a derived, recomputable index of that
+ * `App\Domain\TaxKnowledge\Storage\RawSourceObjectStore` and the `ext_source_document_versions` row's
+ * own identity/hash are never touched; `ext_source_sections` is a derived, recomputable index of that
  * immutable content, and re-deriving it under a newer `parser_version` is exactly what should
  * happen when the parser improves.
  *
@@ -110,7 +110,7 @@ final readonly class LegislationSectionPersister
     }
 
     /**
-     * `source_documents.publication_date` is only ever set once, from the first version that
+     * `ext_source_documents.publication_date` is only ever set once, from the first version that
      * genuinely carries one — never overwritten with a different value by a later re-parse (a
      * changed publication date would be a data anomaly worth a human's attention, not a silent
      * correction, and no such workflow exists yet).

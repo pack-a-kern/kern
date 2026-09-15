@@ -6,10 +6,11 @@ import { listDocumentAiConsents, listSubjects, setDocumentAiConsent, setSubjectS
 import { setDisplayCurrency } from '../../api/walletApi';
 import AppShell from '../../components/AppShell';
 import { DataTable, Identity, Page, Panel, PanelButton, PanelSelect, Pill, Status } from '../../components/panel';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
 import { Switch } from '../../components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { Skeleton } from '../../components/ui/skeleton';
+import { useRememberedPaging } from '../../hooks/useRememberedState';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import type { SubjectsPage, TaxSubject } from '../../types/account';
@@ -51,8 +52,7 @@ export default function SubjectsPage(): JSX.Element {
     const { t } = useTranslation();
 
     const [page, setPage] = useState<SubjectsPage | null>(null);
-    const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[1]);
+    const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('subjects');
     const [consent, setConsent] = useState<Record<string, boolean>>({});
     const [busy, setBusy] = useState<string | null>(null);
     const [failed, setFailed] = useState(false);
@@ -73,6 +73,11 @@ export default function SubjectsPage(): JSX.Element {
             .then(([loaded, consented]) => {
                 if (active) {
                     setPage(loaded);
+
+                    // A remembered page past the end of a list that has since shrunk lands on its last page.
+                    if (loaded.data.length === 0 && loaded.total > 0) {
+                        setPageNumber(Math.max(1, Math.ceil(loaded.total / loaded.perPage)));
+                    }
                     setConsent(
                         Object.fromEntries(loaded.data.map((subject) => [subject.id, consented.has(subject.id)])),
                     );
@@ -93,7 +98,7 @@ export default function SubjectsPage(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [reloadToken, pageNumber, pageSize, describeFailure, t]);
+    }, [reloadToken, pageNumber, pageSize, setPageNumber, describeFailure, t]);
 
     const toggleConsent = async (subject: TaxSubject, next: boolean): Promise<void> => {
         setBusy(subject.id);

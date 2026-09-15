@@ -18,6 +18,9 @@ use App\Domain\Documents\Parsing\ExtractionSchema;
  * The field list comes from the schemas themselves rather than from the `FIELD_*` constants: a
  * constant no document type uses cannot appear in the interface, and demanding a label for it would
  * be asking for translation of something nobody can see.
+ *
+ * `document_kind` is not among them — it is what the reading turned out to be, recorded on the
+ * document rather than kept as a field of the reading, so it never reaches this map.
  */
 
 /**
@@ -30,13 +33,7 @@ function extractionFieldNames(): array
     $names = [];
 
     foreach (DocumentType::cases() as $type) {
-        $schema = ExtractionSchema::for($type);
-
-        if ($schema === null) {
-            continue;
-        }
-
-        $names = [...$names, ...$schema->required, ...$schema->optional];
+        $names = [...$names, ...ExtractionSchema::for($type)->allFieldNames()];
     }
 
     return array_values(array_unique($names));

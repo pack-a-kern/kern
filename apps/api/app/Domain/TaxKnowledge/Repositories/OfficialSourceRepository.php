@@ -8,7 +8,7 @@ use App\Domain\TaxKnowledge\Config\OfficialSourceRegistry;
 use App\Domain\TaxKnowledge\Models\OfficialSource;
 
 /**
- * Mirrors `config/sources.php` into the `official_sources` table on demand. The config file is
+ * Mirrors `config/sources.php` into the `ext_official_sources` table on demand. The config file is
  * always authoritative (see that migration's docblock) — `resolve()` upserts the DB row's
  * `trust_tier`/`base_url`/`enabled` from the current config every time, so the two can never
  * silently drift apart.
@@ -35,6 +35,7 @@ final readonly class OfficialSourceRepository
                 'trust_tier' => $definition->trustTier->value,
                 'base_url' => $definition->baseUrl,
                 'enabled' => $definition->enabled,
+                'priority' => $definition->priority,
             ],
         );
     }
@@ -42,5 +43,16 @@ final readonly class OfficialSourceRepository
     public function idForCode(string $code): string
     {
         return $this->resolve($code)->id;
+    }
+
+    /**
+     * The id of a source already in the table, without writing it there. For reads — a rate lookup
+     * must not create a source row as a side effect of asking whether it has any rates.
+     */
+    public function findIdForCode(string $code): ?string
+    {
+        $id = OfficialSource::query()->where('code', $code)->value('id');
+
+        return is_string($id) ? $id : null;
     }
 }

@@ -26,6 +26,7 @@ beforeEach(function (): void {
             'allowed_hosts' => ['src-fixture.test'],
             'user_agent' => 'TaxOS-Test-Fetcher/1.0',
             'enabled' => true,
+            'priority' => 1,
         ],
         'sources.fetch.max_redirects' => 3,
         'sources.fetch.max_response_bytes' => 1024,

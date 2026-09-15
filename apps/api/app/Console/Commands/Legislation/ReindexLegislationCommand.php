@@ -16,7 +16,7 @@ use Illuminate\Console\Command;
 use Throwable;
 
 /**
- * Rebuilds `source_sections` and `source_section_chunks` from already-stored raw bytes — no
+ * Rebuilds `ext_source_sections` and `ext_source_section_chunks` from already-stored raw bytes — no
  * network fetch, ever (`docs/AGENTS.md` rule 17: the raw source is never re-fetched just to
  * re-derive an index of it). This is the "start button" for two already-built, previously
  * uninvoked capabilities:
@@ -41,12 +41,12 @@ final class ReindexLegislationCommand extends Command
 {
     /** @var string */
     protected $signature = 'taxos:legislation:reindex
-        {--document-version= : Reindex only this source_document_versions id (default: every LEGISLATIE-sourced version)}
+        {--document-version= : Reindex only this ext_source_document_versions id (default: every LEGISLATIE-sourced version)}
         {--embed : Also attempt to embed newly-indexed chunks (no-op today — no embedding provider is configured)}
         {--dry-run : Report what would be reindexed without writing anything}';
 
     /** @var string */
-    protected $description = 'Rebuild source_sections and the retrieval chunk index from already-stored legislation bytes.';
+    protected $description = 'Rebuild ext_source_sections and the retrieval chunk index from already-stored legislation bytes.';
 
     public function handle(
         OfficialSourceRepository $officialSources,
@@ -72,7 +72,7 @@ final class ReindexLegislationCommand extends Command
 
         if ($versions === [] && is_string($documentVersionOption) && $documentVersionOption !== '') {
             $this->components->error(
-                "No LEGISLATIE source_document_versions row with id \"{$documentVersionOption}\" was found (or it belongs to a different source).",
+                "No LEGISLATIE ext_source_document_versions row with id \"{$documentVersionOption}\" was found (or it belongs to a different source).",
             );
 
             return self::FAILURE;

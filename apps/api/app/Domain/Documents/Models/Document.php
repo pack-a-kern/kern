@@ -19,14 +19,19 @@ use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use RuntimeException;
 
 /**
  * `documents` (`BLUEPRINT.md` §6.6) — one row per uploaded document, tenant-scoped to the owning
- * `TaxSubject` (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject`). The row never holds the
- * document's own bytes — only its verified metadata and its `App\Support\ObjectStore\ObjectKey`
- * value (`object_path`); the encrypted content lives in the object store.
+ * `TaxSubject` (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject`).
+ *
+ * A document is an *ordered list of files*, not a file: the object keys, MIME types, sizes and
+ * per-file hashes live on {@see DocumentPart}. What stays here is what describes the document as a
+ * whole — its type, where it came from, how far through the pipeline it is, and what was read out
+ * of it. One PDF is still one document with one part; an invoice photographed four times is one
+ * document with four.
  *
  * Unlike `TaxSubject`/`User`, `encryptionSubjectId()` returns the already-existing
  * `tax_subject_id` foreign key, not this row's own id — so, unlike those two models, a `Document`
@@ -36,19 +41,19 @@ use RuntimeException;
  *
  * @property string $id
  * @property string $tax_subject_id
- * @property DocumentType $type
+ * @property DocumentType|null $type  null until something has read the document and said what it is
  * @property DocumentStatus $status
  * @property RejectionReason|null $rejection_reason
- * @property string $original_filename_ciphertext
  * @property string|null $display_name_ciphertext
  * @property AiExtractionOutcome|null $ai_extraction_outcome
  * @property \Illuminate\Support\Carbon|null $ai_extraction_attempted_at
- * @property string $mime_type
- * @property int $size_bytes
+ * @property string|null $ai_reply_ciphertext  what the model last said, accepted or not
+ * @property string|null $ai_model_provider
+ * @property string|null $ai_model_name
  * @property string $sha256
- * @property string $object_path
- * @property int $object_encryption_version
+ * @property int $part_count
  * @property DocumentSource $source
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, DocumentPart> $parts
  * @property \Illuminate\Support\Carbon $received_at
  */
 #[UseFactory(DocumentFactory::class)]
@@ -69,13 +74,12 @@ final class Document extends Model implements EncryptsWithSubjectDek
         'rejection_reason',
         'ai_extraction_outcome',
         'ai_extraction_attempted_at',
-        'original_filename_ciphertext',
+        'ai_reply_ciphertext',
+        'ai_model_provider',
+        'ai_model_name',
         'display_name_ciphertext',
-        'mime_type',
-        'size_bytes',
         'sha256',
-        'object_path',
-        'object_encryption_version',
+        'part_count',
         'source',
         'received_at',
     ];
@@ -87,10 +91,9 @@ final class Document extends Model implements EncryptsWithSubjectDek
         'rejection_reason' => RejectionReason::class,
         'ai_extraction_outcome' => AiExtractionOutcome::class,
         'ai_extraction_attempted_at' => 'datetime',
-        'original_filename_ciphertext' => Encrypted::class,
+        'ai_reply_ciphertext' => Encrypted::class,
         'display_name_ciphertext' => Encrypted::class,
-        'size_bytes' => 'integer',
-        'object_encryption_version' => 'integer',
+        'part_count' => 'integer',
         'source' => DocumentSource::class,
         'received_at' => 'datetime',
     ];
@@ -113,7 +116,40 @@ final class Document extends Model implements EncryptsWithSubjectDek
             return $chosen;
         }
 
-        return DocumentDisplayName::forContent($this->sha256, $this->mime_type);
+        // The first part's type, because that is the document a person recognises: an invoice
+        // scanned as a PDF with a photographed annex is a PDF to them. The hash is the document's
+        // composite one, so a multi-part document gets its own name rather than borrowing page 1's.
+        return DocumentDisplayName::forContent($this->sha256, $this->firstPart()?->mime_type);
+    }
+
+    /** @return HasMany<DocumentPart, $this> */
+    public function parts(): HasMany
+    {
+        return $this->hasMany(DocumentPart::class)->orderBy('position');
+    }
+
+    public function firstPart(): ?DocumentPart
+    {
+        return $this->relationLoaded('parts')
+            ? $this->parts->first()
+            : $this->parts()->first();
+    }
+
+    /**
+     * This document's identity as content: the hash of its parts' hashes, in order.
+     *
+     * Order is included rather than sorted away, because two photographs of an invoice in the other
+     * order are a different document — page 2 first reads differently and extracts differently.
+     *
+     * A one-part document hashes a single hash rather than being that hash, so that adding a second
+     * page to a document always changes its identity. Were the one-part case passed through
+     * unchanged, a document and its own first page would be indistinguishable.
+     *
+     * @param  list<string>  $partHashes  in position order
+     */
+    public static function contentHash(array $partHashes): string
+    {
+        return hash('sha256', implode("\n", $partHashes));
     }
 
     public function encryptionSubjectId(): string
