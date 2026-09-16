@@ -73,9 +73,9 @@ final class DocumentsServiceProvider extends ServiceProvider
 
             return new HttpTextExtractionGateway(
                 $app->make(HttpFactory::class),
-                $config->string('documents.text_extraction.base_url'),
+                $config->string('services.processing.base_url'),
                 $config->integer('documents.text_extraction.timeout_seconds'),
-                $config->string('documents.text_extraction.auth_token'),
+                $config->string('services.processing.auth_token'),
             );
         });
 

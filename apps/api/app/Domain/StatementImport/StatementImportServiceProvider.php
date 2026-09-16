@@ -27,9 +27,9 @@ final class StatementImportServiceProvider extends ServiceProvider
 
             return new HttpStatementParseGateway(
                 $app->make(HttpFactory::class),
-                $config->string('statement_import.parser.base_url'),
+                $config->string('services.processing.base_url'),
                 $config->integer('statement_import.parser.timeout_seconds'),
-                $config->string('statement_import.parser.auth_token'),
+                $config->string('services.processing.auth_token'),
             );
         });
     }

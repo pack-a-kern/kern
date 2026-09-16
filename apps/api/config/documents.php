@@ -36,16 +36,9 @@ return [
     // The native-PDF-text-extraction HTTP endpoint (docs/handoff/024-extraction-endpoint.md).
     // App\Domain\Documents\Extraction\HttpTextExtractionGateway's own docblock documents the
     // exact, verified contract.
+    // The address and token are `services.processing`, shared by every feature using that service.
     'text_extraction' => [
-        'base_url' => env('DOCUMENTS_TEXT_EXTRACTION_URL', 'http://python-api:8000'),
         'timeout_seconds' => (int) env('DOCUMENTS_TEXT_EXTRACTION_TIMEOUT_SECONDS', 30),
-
-        // Shared secret sent as `Authorization: Bearer <token>` — must equal the Python
-        // service's own `INTERNAL_SERVICE_AUTH_TOKEN` (compose.yaml/.env.example wire the same
-        // value into both containers). Empty by default so a missing value fails closed
-        // (HttpTextExtractionGateway::authenticationNotConfigured()) rather than silently
-        // sending an unauthenticated request — BLUEPRINT.md §4.10, never logged.
-        'auth_token' => env('INTERNAL_SERVICE_AUTH_TOKEN', ''),
     ],
 
     'rate_limits' => [

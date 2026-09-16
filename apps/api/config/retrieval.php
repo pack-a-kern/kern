@@ -10,21 +10,16 @@ declare(strict_types=1);
 return [
 
     'embedding' => [
-        // The `python-api` service, over the internal `processing_net` network — the same service
-        // and the same shared secret document extraction already uses. Self-hosted rather than an
-        // external embedding API: `docs/STATUS.md` blocked item #3 (provider, region, DPA) gates
-        // every external AI call, and the model running in our own container sidesteps it for this
-        // corpus. The text embedded is public legislation; the *queries* that reach it may not be.
-        'base_url' => env('RETRIEVAL_EMBEDDING_URL', 'http://python-api:8000'),
+        // The `python-api` service, over the internal `processing_net` network — its address and
+        // token are `services.processing`, shared with document extraction and statement reading.
+        // Self-hosted rather than an external embedding API: `docs/STATUS.md` blocked item #3
+        // (provider, region, DPA) gates every external AI call, and the model running in our own
+        // container sidesteps it for this corpus. The text embedded is public legislation; the
+        // *queries* that reach it may not be.
 
         // Generous next to the document-extraction timeout: the very first call downloads ~2.3 GB
         // of weights and builds an ONNX session. Later calls are milliseconds.
         'timeout_seconds' => (int) env('RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS', 900),
-
-        // Empty by default so a missing value fails closed rather than sending an unauthenticated
-        // request (`BLUEPRINT.md` §4.10). Must equal the Python service's own
-        // `INTERNAL_SERVICE_AUTH_TOKEN`.
-        'auth_token' => env('INTERNAL_SERVICE_AUTH_TOKEN', ''),
 
         // The switch between `UnconfiguredEmbeddingProvider` (throws, the default this project
         // shipped with) and the real one. Off by default: an installation that has not built the

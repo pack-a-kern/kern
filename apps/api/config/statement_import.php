@@ -21,12 +21,10 @@ return [
      * credentials, and the PHP image has no `zip` extension for `.xlsx` (`docker/php/Dockerfile`).
      */
     'parser' => [
-        'base_url' => env('STATEMENT_PARSE_URL', 'http://python-api:8000'),
-        // Generous next to a document read: a workbook with thousands of rows is slow to open, and
-        // this runs in a queue job rather than in front of a person waiting on a request.
+        // The address and token are `services.processing`. Generous next to a document read: a
+        // workbook with thousands of rows is slow to open, and this runs in a queue job rather than
+        // in front of a person waiting on a request.
         'timeout_seconds' => (int) env('STATEMENT_PARSE_TIMEOUT_SECONDS', 120),
-        // The same shared secret every Laravel-to-processing call uses.
-        'auth_token' => env('INTERNAL_SERVICE_AUTH_TOKEN', ''),
     ],
 
     /*

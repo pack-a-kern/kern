@@ -25,7 +25,7 @@ use Throwable;
  * handoff's "Differences from handoff 022's assumed contract" for the full diff this class closes:
  *
  *   `POST {base_url}/v1/documents/extract-text`
- *   `Authorization: Bearer <documents.text_extraction.auth_token>` — required; the same shared
+ *   `Authorization: Bearer <services.processing.auth_token>` — required; the same shared
  *   secret as the Python service's `INTERNAL_SERVICE_AUTH_TOKEN` (`compose.yaml`, `.env.example`).
  *   Multipart body, field `file` = the raw PDF bytes.
  *

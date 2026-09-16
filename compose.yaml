@@ -137,7 +137,8 @@ x-php-image: &php-image
     # Legislation retrieval's embedding half (BLUEPRINT.md §15.2). `..._DIMENSION` must equal the
     # python-api service's EMBEDDING_DIMENSION and the `vector(N)` on source_section_chunks.
     RETRIEVAL_EMBEDDING_ENABLED: ${RETRIEVAL_EMBEDDING_ENABLED:-false}
-    RETRIEVAL_EMBEDDING_URL: ${RETRIEVAL_EMBEDDING_URL:-http://python-api:8000}
+    # The processing service's address, read once by every feature using it (config/services.php).
+    PROCESSING_URL: ${PROCESSING_URL:-http://python-api:8000}
     RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS: ${RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS:-900}
     RETRIEVAL_EMBEDDING_MODEL: ${RETRIEVAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
     RETRIEVAL_EMBEDDING_DIMENSION: ${RETRIEVAL_EMBEDDING_DIMENSION:-384}

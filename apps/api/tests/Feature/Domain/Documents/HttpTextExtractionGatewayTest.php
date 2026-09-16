@@ -18,7 +18,7 @@ use RuntimeException;
  * test here.
  */
 beforeEach(function (): void {
-    config(['documents.text_extraction.auth_token' => 'test-shared-secret']);
+    config(['services.processing.auth_token' => 'test-shared-secret']);
 });
 
 /** @return resource */
@@ -115,7 +115,7 @@ it('sends the shared bearer token on every request', function (): void {
 });
 
 it('fails closed without sending a request when no auth token is configured', function (): void {
-    config(['documents.text_extraction.auth_token' => '']);
+    config(['services.processing.auth_token' => '']);
 
     Http::fake();
 

@@ -55,7 +55,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
             return [];
         }
 
-        $token = $this->stringConfig('retrieval.embedding.auth_token');
+        $token = $this->stringConfig('services.processing.auth_token');
 
         if ($token === '') {
             // Same failure this module already uses for "no provider": the caller is expected to
@@ -151,7 +151,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
 
     private function baseUrl(): string
     {
-        return rtrim($this->stringConfig('retrieval.embedding.base_url'), '/');
+        return rtrim($this->stringConfig('services.processing.base_url'), '/');
     }
 
     /** @return int<1, max> */

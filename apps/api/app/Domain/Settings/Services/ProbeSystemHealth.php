@@ -63,7 +63,9 @@ final readonly class ProbeSystemHealth
                 return $disk;
             }),
             $this->probe('processing', function (): ?string {
-                $baseUrl = $this->stringConfig('documents.text_extraction.base_url');
+                // The one address every feature using the service reads, so "up" here means up for all
+                // of them — not only for document extraction.
+                $baseUrl = $this->stringConfig('services.processing.base_url');
                 $response = $this->http->timeout($this->config->integer('operations.health.timeout_seconds'))->get(rtrim($baseUrl, '/') . '/health');
 
                 if ($response->failed()) {

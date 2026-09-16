@@ -36,7 +36,7 @@ final class TextExtractionUnavailableException extends RuntimeException
     }
 
     /**
-     * `documents.text_extraction.auth_token` is empty — Laravel's own fail-closed check, mirroring
+     * `services.processing.auth_token` is empty — Laravel's own fail-closed check, mirroring
      * the Python endpoint's own "setting unset -> 401" behaviour (`docs/handoff/024`, decision
      * #1). Never send a request with no bearer token at all; fail before the call is made.
      */
