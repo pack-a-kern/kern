@@ -48,9 +48,9 @@ final class RegisterPfSubjectController extends Controller
             // Shape only here; `CnpParser` below decides whether it is a CNP this application
             // accepts, and says precisely why when it is not.
             'cnp' => ['required', 'string', 'max:32'],
-            // From `config/counties.php`, the same list the form offers — a dropdown is a
+            // From `config/reference/counties.php`, the same list the form offers — a dropdown is a
             // convenience, this is the rule.
-            'county_code' => ['nullable', 'string', Rule::in(array_keys((array) config('counties.ro')))],
+            'county_code' => ['nullable', 'string', Rule::in(array_keys((array) config('reference.counties.ro')))],
             'locality' => ['nullable', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:500'],
             'anaf_tax_office_code' => ['nullable', 'string', 'max:50'],

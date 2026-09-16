@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 
 /**
- * The countries this screen was handed by its route, from `config/countries.php`.
+ * The countries this screen was handed by its route, from `config/reference/countries.php`.
  *
  * A page prop rather than a shared one: only the classification dialog offers the list, and putting
  * it on every Inertia response in the application would be a cost every other screen pays for

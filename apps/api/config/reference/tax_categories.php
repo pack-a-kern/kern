@@ -14,7 +14,7 @@ declare(strict_types=1);
  *
  * ## Why a config file and not an enum
  *
- * Adding a category is not a code change. `config/counties.php` set the precedent for the same
+ * Adding a category is not a code change. `config/reference/counties.php` set the precedent for the same
  * reason: this is a vocabulary, and a vocabulary grows. A PHP enum would make every addition a
  * deployment, and the set is validated against this file on the way in either way.
  *

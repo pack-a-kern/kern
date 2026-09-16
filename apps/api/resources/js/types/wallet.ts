@@ -151,7 +151,7 @@ export function parseTags(payload: unknown): Tag[] {
     });
 }
 
-/** A category a transaction may be said to be, from `config/tax_categories.php`. */
+/** A category a transaction may be said to be, from `config/reference/tax_categories.php`. */
 export interface TaxCategory {
     code: string;
     /** Groups the dropdown, and says which totals it joins. Not a tax rule. */

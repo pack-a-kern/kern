@@ -31,7 +31,7 @@ use DateTimeImmutable;
  * string.
  *
  * The county *table* is the opposite: it is data about Romania, not arithmetic, and it is shared
- * with the address field, so it lives in `config/counties.php`.
+ * with the address field, so it lives in `config/reference/counties.php`.
  */
 final readonly class CnpParser
 {
@@ -138,7 +138,7 @@ final readonly class CnpParser
      */
     private static function locality(string $countyNumber): ?string
     {
-        $map = config('counties.cnp_localities');
+        $map = config('reference.counties.cnp_localities');
         $locality = is_array($map) ? ($map[$countyNumber] ?? null) : null;
 
         return is_string($locality) && $locality !== '' ? $locality : null;
@@ -146,7 +146,7 @@ final readonly class CnpParser
 
     private static function countyCode(string $countyNumber): string
     {
-        $map = config('counties.cnp');
+        $map = config('reference.counties.cnp');
         $code = is_array($map) ? ($map[$countyNumber] ?? null) : null;
 
         if (! is_string($code) || $code === '') {

@@ -875,7 +875,7 @@ export interface Dictionary {
                 mergeConfirmTitle: string;
                 mergeConfirmHint: string;
             };
-            /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
+            /** Labels for `config/reference/tax_categories.php`. A code with no label renders as the code. */
             /** Narrowing the ledger: bank, tag, direction and a date range. */
             filters: {
                 allBanks: string;

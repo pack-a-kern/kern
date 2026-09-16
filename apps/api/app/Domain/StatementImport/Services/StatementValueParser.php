@@ -79,7 +79,7 @@ final readonly class StatementValueParser
     }
 
     /**
-     * A date whose month is a word, read against the names in `config/statement_import.months`.
+     * A date whose month is a word, read against the names in `config/reference/months.php`.
      *
      * The month is matched without diacritics and in lower case: an export may write "Septembrie",
      * "septembrie" or "SEPTEMBRIE", and none of those is a different month.
@@ -91,7 +91,7 @@ final readonly class StatementValueParser
         }
 
         /** @var array<string, int> $months */
-        $months = $this->config->array('statement_import.months');
+        $months = $this->config->array('reference.months');
         $name = LabelKey::for($matches[2]);
         $month = null;
 

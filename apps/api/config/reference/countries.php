@@ -12,7 +12,7 @@ return [
     | ISO 3166-1 alpha-2, keyed by the code that is stored on a transaction
     | split; the name is what a person picks from.
     |
-    | Here rather than in the frontend for the same reason `config/counties.php`
+    | Here rather than in the frontend for the same reason `config/reference/counties.php`
     | is: the server has to be able to refuse a code that does not exist, and a
     | list only the browser knows is a dropdown rather than a rule. The screen is
     | handed this same array as a page prop, so the form and the validator cannot

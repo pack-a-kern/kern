@@ -44,7 +44,7 @@ final readonly class WalletQuery
 
     private const string OTHER = 'other';
 
-    /** The categories that say money was lent or paid back — `config/tax_categories.php`. */
+    /** The categories that say money was lent or paid back — `config/reference/tax_categories.php`. */
     private const string LOAN = 'LOAN';
 
     private const string LOAN_REPAYMENT = 'LOAN_REPAYMENT';

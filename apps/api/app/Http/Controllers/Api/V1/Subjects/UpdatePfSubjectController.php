@@ -35,7 +35,7 @@ final class UpdatePfSubjectController extends Controller
             'display_name' => ['sometimes', 'string', 'max:255'],
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name' => ['sometimes', 'string', 'max:255'],
-            'county_code' => ['sometimes', 'nullable', 'string', Rule::in(array_keys((array) config('counties.ro')))],
+            'county_code' => ['sometimes', 'nullable', 'string', Rule::in(array_keys((array) config('reference.counties.ro')))],
             'locality' => ['sometimes', 'nullable', 'string', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);

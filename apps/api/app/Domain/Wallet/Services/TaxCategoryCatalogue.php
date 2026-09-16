@@ -10,7 +10,7 @@ use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
- * The categories a person may give a transaction, read from `config/tax_categories.php`.
+ * The categories a person may give a transaction, read from `config/reference/tax_categories.php`.
  *
  * One source for both halves of the job: the validator rejects a code that is not in the file, and
  * the screen offers exactly the codes it will accept. Two lists would drift, and the way that drift
@@ -90,7 +90,7 @@ final readonly class TaxCategoryCatalogue
      */
     public function toArray(): array
     {
-        $preselected = $this->config->get('tax_categories.preselected');
+        $preselected = $this->config->get('reference.tax_categories.preselected');
         $preselected = is_array($preselected) ? $preselected : [];
         $entries = [];
 
@@ -116,7 +116,7 @@ final readonly class TaxCategoryCatalogue
      */
     private function group(string $key): array
     {
-        $listed = $this->config->get("tax_categories.{$key}");
+        $listed = $this->config->get("reference.tax_categories.{$key}");
         $codes = [];
 
         foreach (is_array($listed) ? $listed : [] as $code => $direction) {

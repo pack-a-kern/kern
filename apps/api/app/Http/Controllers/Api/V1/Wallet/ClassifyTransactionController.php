@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
  * made, and sending an empty list returns the transaction to the unclassified worklist. Appending
  * would leave a transaction claiming to be two contradictory things.
  *
- * The category is checked against `config/tax_categories.php` through the same catalogue the screen
+ * The category is checked against `config/reference/tax_categories.php` through the same catalogue the screen
  * reads, so the dropdown can never offer a value the server refuses.
  */
 final class ClassifyTransactionController extends Controller

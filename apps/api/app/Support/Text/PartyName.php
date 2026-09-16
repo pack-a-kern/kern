@@ -58,7 +58,7 @@ final class PartyName
      *
      * Containment cannot answer this: "Kaufland Romania SCS" and "KAUFLAND 1234 BUCURESTI" are one
      * shop, and neither name's words are all inside the other's. What they share is the one word that
-     * identifies the shop. Legal forms and ubiquitous words are ignored — `config/party_names.php` —
+     * identifies the shop. Legal forms and ubiquitous words are ignored — `config/reference/party_names.php` —
      * or "Kaufland Romania SCS" and "Lidl Romania SCS" would share two words and look like one shop.
      *
      * Words shorter than the prefix minimum are ignored as well, for the same reason they are not
@@ -66,7 +66,7 @@ final class PartyName
      */
     public static function sharesName(string $first, string $second): bool
     {
-        $generic = config('party_names.generic_words');
+        $generic = config('reference.party_names.generic_words');
         $ignored = array_flip(array_filter(is_array($generic) ? $generic : [], is_string(...)));
 
         $distinctive = static fn (string $word): bool => mb_strlen($word) >= self::MIN_PREFIX_LENGTH

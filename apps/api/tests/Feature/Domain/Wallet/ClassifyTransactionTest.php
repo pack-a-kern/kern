@@ -186,9 +186,9 @@ it('offers the screen exactly the categories it will accept', function (): void 
     // One source for the dropdown and the validator: two lists drift, and the way that shows up is
     // an option refused on save.
     /** @var array<string, string> $income */
-    $income = config('tax_categories.income');
+    $income = config('reference.tax_categories.income');
     /** @var array<string, string> $notIncome */
-    $notIncome = config('tax_categories.not_income');
+    $notIncome = config('reference.tax_categories.not_income');
     $byCode = array_column($categories, null, 'code');
 
     expect($codes)->toBe([...array_keys($income), ...array_keys($notIncome)])

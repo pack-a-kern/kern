@@ -56,7 +56,7 @@ Route::middleware('auth')->group(function (): void {
     // only the classification dialog offers the list, and sharing it would put it on every Inertia
     // response in the application.
     Route::get('/wallet/transactions', fn () => Inertia::render('wallet/transactions', [
-        'countries' => config('countries.all'),
+        'countries' => config('reference.countries.all'),
     ]))->name('wallet.transactions');
 
     /*
@@ -66,7 +66,7 @@ Route::middleware('auth')->group(function (): void {
      */
     Route::get('/wallet/imports', fn () => Inertia::render('wallet/imports'))->name('wallet.imports');
     Route::get('/wallet/imports/new', fn () => Inertia::render('wallet/import', [
-        'countries' => config('countries.all'),
+        'countries' => config('reference.countries.all'),
     ]))->name('wallet.imports.new');
 
     Route::get('/wallet/reports', fn () => Inertia::render('wallet/reports'))->name('wallet.reports');
@@ -90,7 +90,7 @@ Route::middleware('auth')->group(function (): void {
     // `counties` is a page prop rather than a shared one: only this screen's two dialogs offer the
     // list, and sharing it would put 42 rows on every Inertia response in the application.
     Route::get('/taxpayers', fn () => Inertia::render('subjects/index', [
-        'counties' => config('counties.ro'),
+        'counties' => config('reference.counties.ro'),
     ]))->name('subjects');
 
     /*

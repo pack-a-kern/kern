@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 
 /**
- * The counties this screen was handed by its route, from `config/counties.php`.
+ * The counties this screen was handed by its route, from `config/reference/counties.php`.
  *
  * A hook rather than a prop threaded through two dialogs: both forms need the same list, the page
  * already carries it, and passing it down would be two more parameters that can fall out of step.

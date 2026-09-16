@@ -75,7 +75,13 @@ not change when a file moves; only the keys the code uses do.
    belonging to one feature. `ExtractionPrompt` no longer falls back to prompt wording written in the
    class: a missing prompt is a named configuration error. The guard test now also checks every
    `SettingKey::configPath()`, which the source scan cannot see.
-5. **`config/reference/`.** The data files, and the month names out of `statement_import`.
+5. **`config/reference/`.** `countries`, `counties`, `party_names`, `tax_categories`, and the month
+   names out of `statement_import` — read as `reference.countries.*` and so on. Narrower than first
+   planned: `banks.php` and `sources.entries` stay where they are, because their filters and URLs are
+   changed by env vars and by database settings, which makes them settings rather than facts. The
+   four files moved with `git mv`, so their history follows them; the month names were compared
+   before and after and are identical. `ImportBanks` calls `$this->filter('countries')`, which reads
+   the banks config, not this file — so these renames were made call by call rather than by pattern.
 6. **Env documentation.** The root `.env` reaches Laravel only through the `environment:` block of
    `compose.yaml` — a variable set there but not passed on never arrives. `apps/api/.env` is mounted
    into the container and read by Laravel for everything compose does not set. So:

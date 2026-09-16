@@ -18,7 +18,7 @@ use App\Domain\Wallet\Models\TransactionSplit;
  * A deposit moves money three times: out of the account that funds it, as interest into itself, and
  * back to the funding account when it closes. None of those is typed by anybody — they are its
  * terms taking effect — so all three are `SYSTEM` rows, classified as they are written (`TRANSFER`
- * or `INTEREST`, from `config/tax_categories.php`) rather than left in the worklist for someone to
+ * or `INTEREST`, from `config/reference/tax_categories.php`) rather than left in the worklist for someone to
  * say what they obviously are.
  *
  * Described by the deposit's own name rather than by a sentence. A literal like "Dobândă depozit"

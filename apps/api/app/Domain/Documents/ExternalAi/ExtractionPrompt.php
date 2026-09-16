@@ -202,7 +202,7 @@ final readonly class ExtractionPrompt
     }
 
     /**
-     * The categories a payment may be filed under — `config/tax_categories.php`, both groups.
+     * The categories a payment may be filed under — `config/reference/tax_categories.php`, both groups.
      *
      * The same vocabulary `App\Domain\Wallet\Services\TaxCategoryCatalogue` validates against,
      * so the model cannot be offered a category the endpoint that records the transaction would
@@ -216,7 +216,7 @@ final readonly class ExtractionPrompt
         $codes = [];
 
         foreach (['income', 'not_income'] as $group) {
-            $listed = $this->config->get("tax_categories.{$group}");
+            $listed = $this->config->get("reference.tax_categories.{$group}");
 
             // Keyed by code; the value is the direction, which the model is not asked about.
             foreach (is_array($listed) ? array_keys($listed) : [] as $code) {
