@@ -181,6 +181,8 @@ final readonly class ApplyColumnMapping
          */
         // The actor travels with it: the job reads this person's tags and remembered answers, and a
         // queue worker has no one bound until it is told who.
+        $import->queueClassification();
+
         ProposeRowCategories::dispatch($import->id, $actorId);
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);

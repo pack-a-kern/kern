@@ -73,15 +73,15 @@ return [
         /*
          * Saying what each counterparty is: a tax category and a few tags.
          *
-         * `classification_batch` is how many unique counterparties go in one call. Large by default
-         * so a statement is one call — 1 700 rows are usually a few hundred counterparties — which
-         * means the reply is long, so `classification_max_tokens` is larger than the mapping's. A
-         * smaller batch trades one long call for several shorter ones; each becomes its own job
-         * with its own timeout, so lowering it never makes a call more likely to be cut off.
+         * `classification_batch` is how many unique counterparties go in one call. 100, measured: a
+         * statement of 594 counterparties sent in one call made `gpt-oss:20b` spend all 32 000
+         * tokens thinking and return nothing (`NO_ROOM`) after two minutes. Each batch is its own job
+         * with its own timeout, so a smaller batch means more calls and more visible progress, never
+         * a call more likely to be cut off.
          */
         'classification_model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL', 'gpt-oss:20b'),
         'classification_max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
-        'classification_batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 1000),
+        'classification_batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 100),
 
         /*
          * How long one call may take, and where the jobs making calls run.

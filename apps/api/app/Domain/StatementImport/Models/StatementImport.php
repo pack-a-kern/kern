@@ -129,18 +129,41 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
     }
 
     /**
+     * Counterparty calls are about to be worked out, and nothing about them is known yet.
+     *
+     * Recorded the moment the rows are staged, before the job that plans the calls has run. Without
+     * it the screen would still hold the previous round — finished — and show a review that is about
+     * to be rewritten under the person reading it.
+     */
+    public function queueClassification(): void
+    {
+        $this->changePreview(static function (array $preview): array {
+            $preview['classification'] = [
+                'run' => null,
+                'expected' => null,
+                'counterparties' => null,
+                'failure' => null,
+                'batches' => [],
+            ];
+
+            return $preview;
+        });
+    }
+
+    /**
      * A new round of counterparty calls, replacing any earlier one.
      *
      * Kept beside the preview rather than in columns of its own: it is the same kind of thing — what
      * the model was shown and what it said — encrypted for the same reason, and read by the same
      * screen.
      */
-    public function startClassification(string $run, int $expected, ?string $failure = null): void
+    public function startClassification(string $run, int $expected, int $counterparties = 0, ?string $failure = null): void
     {
-        $this->changePreview(static function (array $preview) use ($run, $expected, $failure): array {
+        $this->changePreview(static function (array $preview) use ($run, $expected, $counterparties, $failure): array {
             $preview['classification'] = [
                 'run' => $run,
                 'expected' => $expected,
+                'counterparties' => $counterparties,
                 'failure' => $failure,
                 'batches' => [],
             ];

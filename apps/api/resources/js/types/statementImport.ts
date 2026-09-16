@@ -80,8 +80,10 @@ export interface StatementClassificationBatch {
 }
 
 export interface StatementClassification {
-    /** How many calls this round will make — progress is `batches.length` of this. */
-    expected: number;
+    /** How many calls this round will make — progress is `batches.length` of this. Null while being worked out. */
+    expected: number | null;
+    /** How many distinct counterparties the calls ask about. Null while being worked out. */
+    counterparties: number | null;
     /** Set when no call was made at all, e.g. `UNAVAILABLE`. */
     failure: string | null;
     batches: StatementClassificationBatch[];
@@ -389,7 +391,8 @@ function parseClassification(payload: unknown): StatementClassification | null {
     }
 
     return {
-        expected: num(body, 'expected'),
+        expected: nullableNum(body, 'expected'),
+        counterparties: nullableNum(body, 'counterparties'),
         failure: nullableStr(body, 'failure'),
         batches: (Array.isArray(body.batches) ? body.batches : []).map((entry): StatementClassificationBatch => {
             const batch = obj(entry);

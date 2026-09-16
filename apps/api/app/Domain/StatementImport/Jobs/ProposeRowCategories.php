@@ -19,6 +19,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Decides which counterparties still need an answer, and hands each batch of them to its own job.
@@ -36,6 +37,10 @@ use Illuminate\Support\Str;
  * How many batches to expect, under a run token. The screen shows progress against that number, and
  * a batch from an earlier run — the person changed the columns meanwhile, and the rows it was asked
  * about no longer exist — sees the token has moved and does nothing.
+ *
+ * Every way this job can end is recorded, including the ones where no call is made at all. The
+ * screen withholds the review until the round is over, so a round that never says it is over would
+ * hide a person's statement from them indefinitely.
  */
 final class ProposeRowCategories implements ShouldQueue
 {
@@ -43,6 +48,12 @@ final class ProposeRowCategories implements ShouldQueue
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+
+    /** Recorded when this job died rather than deciding anything. */
+    private const string JOB_FAILED = 'JOB_FAILED';
+
+    /** Recorded when there was nobody to act as, so no tags or rules could be read. */
+    private const string NO_ACTOR = 'NO_ACTOR';
 
     public function __construct(
         private readonly string $importId,
@@ -71,16 +82,19 @@ final class ProposeRowCategories implements ShouldQueue
          * the rows are already staged and answerable by hand. Re-checked rather than assumed,
          * because minutes pass between confirming the form and this running.
          */
+        $run = (string) Str::uuid();
+
         if ($this->actorId === null) {
+            $import->startClassification($run, 0, 0, self::NO_ACTOR);
+            StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
+
             return;
         }
 
         $tenant->authorizeAndActivate($this->actorId, $import->tax_subject_id);
 
-        $run = (string) Str::uuid();
-
         if (! $ai->isAvailable($import->tax_subject_id)) {
-            $import->startClassification($run, 0, AiAnswer::UNAVAILABLE);
+            $import->startClassification($run, 0, 0, AiAnswer::UNAVAILABLE);
             StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
 
             return;
@@ -99,12 +113,24 @@ final class ProposeRowCategories implements ShouldQueue
 
         $batches = $classifier->batches($rows);
 
-        $import->startClassification($run, count($batches));
+        $import->startClassification($run, count($batches), $classifier->counterpartyCount($rows));
 
         foreach ($batches as $rowIds) {
             ProposeCategoryBatch::dispatch($import->id, $this->actorId, $run, $rowIds);
         }
 
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+
+        if ($import === null || $import->status !== StatementImportStatus::REVIEW) {
+            return;
+        }
+
+        $import->startClassification((string) Str::uuid(), 0, 0, self::JOB_FAILED);
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
     }
 }

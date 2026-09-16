@@ -74,6 +74,16 @@ final readonly class ClassifyCounterparties
     }
 
     /**
+     * How many distinct counterparty-and-direction pairs these rows are — what the calls ask about.
+     *
+     * @param  list<StatementImportRow>  $rows
+     */
+    public function counterpartyCount(array $rows): int
+    {
+        return count($this->groups($rows));
+    }
+
+    /**
      * One call: what was sent, what came back, and why nothing did when nothing did.
      *
      * The sent payload and the reply are returned rather than logged, so the import can keep them for

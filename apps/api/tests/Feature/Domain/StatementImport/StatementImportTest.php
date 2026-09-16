@@ -600,6 +600,32 @@ it('keeps a counterparty in one batch, at whatever size is configured', function
         ->and($large[0])->toHaveCount(3);
 });
 
+/**
+ * The moment the rows are staged, the import says suggestions are coming — before any job has run.
+ *
+ * Otherwise the screen would still hold the previous round, finished, and show a review about to be
+ * rewritten under the person reading it.
+ */
+it('says suggestions are coming as soon as the rows are staged', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-in-asteptare.csv');
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $shown = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk();
+
+    expect($shown->json('import.status'))->toBe('REVIEW')
+        ->and($shown->json('preview.classification'))->not->toBeNull()
+        ->and($shown->json('preview.classification.expected'))->toBeNull()
+        ->and($shown->json('preview.classification.failure'))->toBeNull();
+});
+
 it('records that no model was asked, so the screen does not wait for one', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-ai.csv');

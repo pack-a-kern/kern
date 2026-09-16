@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { FileSpreadsheet, Upload } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, Upload } from 'lucide-react';
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -129,6 +129,8 @@ export default function WalletImport(): JSX.Element {
      */
     const [remapping, setRemapping] = useState(false);
     const [formPreview, setFormPreview] = useState<StatementFormPreview | null>(null);
+    // The escape from waiting on the model: a person who does not want suggestions can review now.
+    const [reviewWithoutSuggestions, setReviewWithoutSuggestions] = useState(false);
 
     // Step 3 — the rows.
     const [filter, setFilter] = useState('');
@@ -295,6 +297,22 @@ export default function WalletImport(): JSX.Element {
             window.clearTimeout(handle);
         };
     }, [subjectId, importId, mapping, showsForm]);
+
+    /*
+     * Whether the model is still suggesting, so the review is withheld.
+     *
+     * Showing the rows and an Import button while the calls are still running told a person the work
+     * was done — and importing then would skip every suggestion still on its way. So the review waits
+     * for the round to be over: every call recorded, or the round recorded as not happening at all.
+     */
+    const classification = detail?.preview.classification ?? null;
+    const suggesting =
+        detail?.import.status === 'REVIEW' &&
+        !remapping &&
+        !reviewWithoutSuggestions &&
+        classification !== null &&
+        classification.failure === null &&
+        (classification.expected === null || classification.batches.length < classification.expected);
 
     const rows = useMemo(() => detail?.rows ?? [], [detail]);
     const selection = useRowSelection(useMemo(() => rows.map((row) => row.id), [rows]));
@@ -570,7 +588,16 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {status === 'REVIEW' && !remapping && detail !== null ? (
+                {suggesting ? (
+                    <SuggestionsProgress
+                        detail={detail}
+                        onSkip={() => {
+                            setReviewWithoutSuggestions(true);
+                        }}
+                    />
+                ) : null}
+
+                {status === 'REVIEW' && !remapping && !suggesting && detail !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.review.title)}
                         description={t((d) => d.pages.walletImports.review.hint)}
@@ -984,6 +1011,90 @@ function suggestForm(detail: StatementImportDetail): StatementForm {
 }
 
 /**
+ * What the screen shows while the model is still suggesting, in place of the review.
+ *
+ * Progress is counted in calls, because that is the unit that finishes: each call is a batch of
+ * counterparties answered at once, and the page is told over the socket as each one lands. Before the
+ * calls are planned the number is not known yet, so the bar is shown moving rather than at a made-up
+ * percentage.
+ *
+ * The way out is always on screen. A model that is slow, or a queue that has stopped, must not hold a
+ * person's statement hostage — reviewing without suggestions is exactly what they would have done
+ * before the model existed.
+ */
+function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail; onSkip: () => void }): JSX.Element {
+    const { t, locale } = useTranslation();
+    const classification = detail.preview.classification;
+    const expected = classification?.expected ?? null;
+    const done = classification?.batches.length ?? 0;
+    const percent = expected === null || expected === 0 ? null : Math.min(100, Math.round((done / expected) * 100));
+
+    const stats = [
+        { label: t((d) => d.pages.walletImports.suggesting.transactions), value: detail.import.rowCount },
+        {
+            label: t((d) => d.pages.walletImports.suggesting.counterparties),
+            value: classification?.counterparties ?? null,
+        },
+        { label: t((d) => d.pages.walletImports.suggesting.answered), value: detail.proposals.ai },
+        { label: t((d) => d.pages.walletImports.suggesting.rules), value: detail.proposals.rule },
+    ];
+
+    return (
+        <Panel
+            title={t((d) => d.pages.walletImports.suggesting.title)}
+            description={t((d) => d.pages.walletImports.suggesting.hint)}
+            icon={<Sparkles className="size-4" />}
+            aside={<Steps status={detail.import.status} />}
+        >
+            <div
+                role="progressbar"
+                aria-label={t((d) => d.pages.walletImports.suggesting.progressLabel)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                {...(percent === null ? {} : { 'aria-valuenow': percent })}
+                className="bg-secondary h-2.5 w-full overflow-hidden rounded-full"
+            >
+                <div
+                    className={
+                        percent === null
+                            ? 'bg-accent h-full w-1/3 rounded-full motion-safe:animate-pulse'
+                            : 'bg-accent h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500'
+                    }
+                    style={percent === null ? undefined : { width: `${String(Math.max(percent, 4))}%` }}
+                />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                <span>
+                    {expected === null
+                        ? t((d) => d.pages.walletImports.suggesting.preparing)
+                        : t((d) => d.pages.walletImports.suggesting.progress)
+                              .replace('{done}', String(done))
+                              .replace('{expected}', String(expected))}
+                </span>
+                {percent === null ? null : <span className="font-semibold tabular-nums">{percent}%</span>}
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {stats.map((stat) => (
+                    <div key={stat.label} className="min-w-0">
+                        <dt className="note leading-tight">{stat.label}</dt>
+                        <dd className="text-lg font-semibold tabular-nums">
+                            {stat.value === null ? '—' : stat.value.toLocaleString(locale)}
+                        </dd>
+                    </div>
+                ))}
+            </dl>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="note">{t((d) => d.pages.walletImports.suggesting.why)}</p>
+                <PanelButton onClick={onSkip}>{t((d) => d.pages.walletImports.suggesting.skip)}</PanelButton>
+            </div>
+        </Panel>
+    );
+}
+
+/**
  * The import at a glance: what the file became, and where the answers came from.
  *
  * Numbers side by side rather than a sentence, because the point is comparing them: 12 522 lines
@@ -1017,8 +1128,9 @@ function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Elem
     ];
 
     const done = classification?.batches.length ?? 0;
-    const expected = classification?.expected ?? 0;
-    const waiting = classification !== null && classification.failure === null && done < expected;
+    const expected = classification?.expected ?? null;
+    const waiting =
+        classification !== null && classification.failure === null && (expected === null || done < expected);
 
     const aiStatus =
         classification === null
@@ -1030,7 +1142,7 @@ function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Elem
                 : waiting
                   ? t((d) => d.pages.walletImports.review.aiWaiting)
                         .replace('{done}', String(done))
-                        .replace('{expected}', String(expected))
+                        .replace('{expected}', String(expected ?? '…'))
                   : t((d) => d.pages.walletImports.review.aiDone).replace('{rows}', String(detail.proposals.ai));
 
     return (

@@ -591,6 +591,21 @@ export interface Dictionary {
             columnsHeader: string;
             empty: string;
             steps: { file: string; columns: string; review: string; done: string };
+            /** The screen shown instead of the review while the model is still suggesting. */
+            suggesting: {
+                title: string;
+                hint: string;
+                preparing: string;
+                /** `{done}` and `{expected}` are substituted. */
+                progress: string;
+                progressLabel: string;
+                transactions: string;
+                counterparties: string;
+                answered: string;
+                rules: string;
+                why: string;
+                skip: string;
+            };
             file: {
                 account: string;
                 bank: string;
