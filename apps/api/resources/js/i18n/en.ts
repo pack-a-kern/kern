@@ -748,7 +748,8 @@ export const en = {
                 decimal: 'Decimal separator',
                 thousands: 'Thousands separator',
                 currency: 'Currency',
-                currencyHint: 'A statement in one currency often states it nowhere. Pick the code if your file has no currency column.',
+                currencyHint:
+                    'A statement in one currency often states it nowhere. Pick the code if your file has no currency column.',
                 fixedCurrency: 'Currency for every row',
                 description: 'Description',
                 counterparty: 'Counterparty',
@@ -773,9 +774,8 @@ export const en = {
                 suggested: 'Suggested',
                 preview: 'First rows',
                 raw: 'The file as it was read',
-                rebuilt: 'How your first transactions will be read',
-                rebuiltHint:
-                    'Rebuilt from your own file with the choices above. Lines of detail are folded into the transaction they belong to.',
+                rebuilt: 'Preview',
+                rebuiltHint: 'Your first transactions, exactly as they will be imported with the choices above.',
                 rebuiltEmpty: 'Nothing can be read with these choices yet.',
                 rebuiltCounts: '{folded} detail lines folded in · {skipped} lines skipped',
                 aiAnswer: 'What the model replied',

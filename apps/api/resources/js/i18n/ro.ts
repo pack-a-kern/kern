@@ -764,8 +764,7 @@ export const ro = {
                 dropLines: 'Linii care nu sunt tranzacții',
                 dropLinesHint: 'Găsite în fișierul tău. Scoate orice linie care e de fapt o plată.',
                 identityLabels: 'Nu citi niciodată acestea',
-                identityLabelsHint:
-                    'CNP, număr card, titular cont — găsite în fișierul tău și niciodată păstrate.',
+                identityLabelsHint: 'CNP, număr card, titular cont — găsite în fișierul tău și niciodată păstrate.',
                 removeHint: 'Scoate',
                 suggestionNoRoom:
                     'Modelul a rămas fără spațiu înainte să răspundă. Completează formularul tu sau mărește limita de tokenuri în setări.',
@@ -777,9 +776,8 @@ export const ro = {
                 suggested: 'Propus',
                 preview: 'Primele rânduri',
                 raw: 'Fișierul așa cum a fost citit',
-                rebuilt: 'Cum vor fi citite primele tranzacții',
-                rebuiltHint:
-                    'Reconstruite din fișierul tău, cu alegerile de mai sus. Liniile de detaliu sunt incluse în tranzacția de care aparțin.',
+                rebuilt: 'Previzualizare',
+                rebuiltHint: 'Primele tranzacții, exact cum vor fi importate cu alegerile de mai sus.',
                 rebuiltEmpty: 'Cu aceste alegeri nu se poate citi nimic încă.',
                 rebuiltCounts: '{folded} linii de detaliu incluse · {skipped} linii sărite',
                 aiAnswer: 'Ce a răspuns modelul',

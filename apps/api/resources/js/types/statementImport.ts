@@ -372,19 +372,21 @@ export function parseStatementFormPreview(payload: unknown): StatementFormPrevie
     const body = obj(payload);
 
     return {
-        transactions: (Array.isArray(body.transactions) ? body.transactions : []).map((entry): StatementFormPreviewRow => {
-            const row = obj(entry);
+        transactions: (Array.isArray(body.transactions) ? body.transactions : []).map(
+            (entry): StatementFormPreviewRow => {
+                const row = obj(entry);
 
-            return {
-                row_number: num(row, 'row_number'),
-                booked_at: nullableStr(row, 'booked_at'),
-                amount_minor: nullableNum(row, 'amount_minor'),
-                currency_code: nullableStr(row, 'currency_code'),
-                text: str(row, 'text'),
-                counterparty: str(row, 'counterparty'),
-                reference: str(row, 'reference'),
-            };
-        }),
+                return {
+                    row_number: num(row, 'row_number'),
+                    booked_at: nullableStr(row, 'booked_at'),
+                    amount_minor: nullableNum(row, 'amount_minor'),
+                    currency_code: nullableStr(row, 'currency_code'),
+                    text: str(row, 'text'),
+                    counterparty: str(row, 'counterparty'),
+                    reference: str(row, 'reference'),
+                };
+            },
+        ),
         linesFolded: num(body, 'lines_folded'),
         linesSkipped: num(body, 'lines_skipped'),
     };

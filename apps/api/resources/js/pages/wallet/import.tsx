@@ -209,7 +209,18 @@ export default function WalletImport(): JSX.Element {
                     }
 
                     setDetail(loaded);
-                    setMapping((current) => current ?? loaded.mapping ?? suggestForm(loaded));
+                    /*
+                     * No form until there is a file to describe.
+                     *
+                     * While the file is still being read there are no columns, so a guess made then is
+                     * a form of nothing — and because a form already on screen is kept (a person may be
+                     * halfway through changing it), that empty guess used to outlive the AI's answer
+                     * arriving a moment later. The selects pointed at columns that did not exist, and
+                     * the preview had nothing to show, until a refresh started over.
+                     */
+                    setMapping((current) =>
+                        loaded.import.status === 'READING' ? null : (current ?? loaded.mapping ?? suggestForm(loaded)),
+                    );
                 },
                 () => {
                     if (active) {
@@ -250,8 +261,7 @@ export default function WalletImport(): JSX.Element {
      * Read from the loaded import rather than from `status`, which is derived further down — a
      * `const` read above its own declaration is a crash, not a warning.
      */
-    const showsForm =
-        detail?.import.status === 'MAPPING' || (detail?.import.status === 'REVIEW' && remapping);
+    const showsForm = detail?.import.status === 'MAPPING' || (detail?.import.status === 'REVIEW' && remapping);
 
     useEffect(() => {
         if (subjectId === null || importId === null || mapping === null || !showsForm) {
@@ -387,13 +397,12 @@ export default function WalletImport(): JSX.Element {
         <AppShell>
             <Head title={t((d) => d.pages.walletImports.title)} />
             <Page title={t((d) => d.pages.walletImports.title)} lede={t((d) => d.pages.walletImports.description)}>
-                <Steps status={status} />
-
                 {status === null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.steps.file)}
                         description={t((d) => d.pages.walletImports.file.hint)}
                         icon={<Upload className="size-4" />}
+                        aside={<Steps status={status} />}
                         footActions={
                             <PanelButton
                                 primary
@@ -451,7 +460,7 @@ export default function WalletImport(): JSX.Element {
                 ) : null}
 
                 {status === 'READING' || status === 'IMPORTING' ? (
-                    <Panel title={t((d) => d.pages.walletImports.title)}>
+                    <Panel title={t((d) => d.pages.walletImports.title)} aside={<Steps status={status} />}>
                         <p className="note">
                             {status === 'READING'
                                 ? t((d) => d.pages.walletImports.file.reading)
@@ -466,7 +475,7 @@ export default function WalletImport(): JSX.Element {
                 ) : null}
 
                 {status === 'FAILED' ? (
-                    <Panel title={t((d) => d.pages.walletImports.failed)}>
+                    <Panel title={t((d) => d.pages.walletImports.failed)} aside={<Steps status={status} />}>
                         <p className="note">
                             {t((d) => d.errors.reasons)[detail?.import.failureReason ?? ''] ??
                                 detail?.import.failureReason ??
@@ -484,11 +493,12 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {showsForm && detail !== null && mapping !== null ? (
+                {showsForm && mapping !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.columns.title)}
                         description={t((d) => d.pages.walletImports.columns.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
+                        aside={<Steps status={status} />}
                         footNote={
                             mappingError === null ? undefined : <span className="text-destructive">{mappingError}</span>
                         }
@@ -563,31 +573,7 @@ export default function WalletImport(): JSX.Element {
                         description={t((d) => d.pages.walletImports.review.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
                         flush
-                        aside={
-                            <>
-                                <PanelButton
-                                    inline
-                                    onClick={() => {
-                                        setRemapping(true);
-                                    }}
-                                >
-                                    {t((d) => d.pages.walletImports.columns.change)}
-                                </PanelButton>
-                                <PanelButton
-                                    primary
-                                    inline
-                                    disabled={working}
-                                    onClick={() => {
-                                        void commit();
-                                    }}
-                                >
-                                    {t((d) => d.pages.walletImports.review.commit).replace(
-                                        '{count}',
-                                        String(detail.import.rowCount - detail.import.excludedCount),
-                                    )}
-                                </PanelButton>
-                            </>
-                        }
+                        aside={<Steps status={status} />}
                         foot={
                             <Pagination
                                 page={detail.page}
@@ -598,9 +584,29 @@ export default function WalletImport(): JSX.Element {
                             />
                         }
                     >
-                        {detail.mapping === null ? null : (
-                            <FormSummary detail={detail} form={detail.mapping} />
-                        )}
+                        {detail.mapping === null ? null : <FormSummary detail={detail} form={detail.mapping} />}
+
+                        <div className="border-border flex flex-wrap justify-end gap-1.5 border-b px-4 py-3">
+                            <PanelButton
+                                onClick={() => {
+                                    setRemapping(true);
+                                }}
+                            >
+                                {t((d) => d.pages.walletImports.columns.change)}
+                            </PanelButton>
+                            <PanelButton
+                                primary
+                                disabled={working}
+                                onClick={() => {
+                                    void commit();
+                                }}
+                            >
+                                {t((d) => d.pages.walletImports.review.commit).replace(
+                                    '{count}',
+                                    String(detail.import.rowCount - detail.import.excludedCount),
+                                )}
+                            </PanelButton>
+                        </div>
 
                         <Toolbar>
                             <PanelSelect
@@ -793,7 +799,7 @@ export default function WalletImport(): JSX.Element {
                 ) : null}
 
                 {status === 'IMPORTED' || status === 'UNDONE' ? (
-                    <Panel title={t((d) => d.pages.walletImports.done.title)}>
+                    <Panel title={t((d) => d.pages.walletImports.done.title)} aside={<Steps status={status} />}>
                         <p className="note">
                             {t((d) => d.pages.walletImports.done.summary)
                                 .replace('{imported}', String(detail?.import.importedCount ?? 0))
@@ -844,7 +850,7 @@ function Steps({ status }: { status: string | null }): JSX.Element {
     ];
 
     return (
-        <ol className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
             {labels.map((label, index) => (
                 <li key={label} className="flex items-center gap-2">
                     <span
@@ -878,8 +884,9 @@ function Steps({ status }: { status: string | null }): JSX.Element {
  * to which payment, which label became the counterparty. This shows the answer instead: the same
  * rows the import would stage, built by the same code, from the sample already on the screen.
  *
- * Cards rather than a table: seven fields per transaction is unreadable on a phone, and the useful
- * reading here is one transaction at a time.
+ * A table with the transaction's own fields as its columns, so it reads as "this is what you will
+ * get". Stacked on a phone, where five columns do not fit and one transaction at a time is the
+ * useful reading anyway.
  */
 function RebuiltPreview({ preview }: { preview: StatementFormPreview | null }): JSX.Element {
     const { t, locale } = useTranslation();
@@ -893,28 +900,37 @@ function RebuiltPreview({ preview }: { preview: StatementFormPreview | null }): 
                 <p className="note">{t((d) => d.pages.walletImports.columns.rebuiltEmpty)}</p>
             ) : (
                 <>
-                    <ul className="flex flex-col gap-2">
+                    <DataTable
+                        stacked
+                        head={
+                            <>
+                                <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
+                                <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
+                                <th>{t((d) => d.pages.walletImports.columns.counterparty)}</th>
+                                <th>{t((d) => d.pages.walletImports.columns.reference)}</th>
+                                <th className="text-right">{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                            </>
+                        }
+                    >
                         {preview.transactions.map((row) => (
-                            <li key={row.row_number} className="border-border rounded-md border p-3">
-                                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                    <span className="tabular-nums">{row.booked_at ?? '—'}</span>
-                                    <span
-                                        className={
-                                            'tabular-nums' +
-                                            ((row.amount_minor ?? 0) < 0 ? ' text-destructive' : '')
-                                        }
-                                    >
-                                        {row.amount_minor === null
-                                            ? '—'
-                                            : formatMinor(row.amount_minor, row.currency_code ?? '', locale)}
-                                    </span>
-                                </div>
-                                {row.text === '' ? null : <div className="mt-1 text-sm">{row.text}</div>}
-                                {row.counterparty === '' ? null : <div className="note">{row.counterparty}</div>}
-                                {row.reference === '' ? null : <div className="note">{row.reference}</div>}
-                            </li>
+                            <tr key={row.row_number}>
+                                <td className="col-primary whitespace-nowrap tabular-nums">{row.booked_at ?? '—'}</td>
+                                <td>{row.text === '' ? '—' : row.text}</td>
+                                <td>{row.counterparty === '' ? '—' : row.counterparty}</td>
+                                <td className="tabular-nums">{row.reference === '' ? '—' : row.reference}</td>
+                                <td
+                                    className={
+                                        'col-end whitespace-nowrap text-right tabular-nums' +
+                                        ((row.amount_minor ?? 0) < 0 ? ' text-destructive' : '')
+                                    }
+                                >
+                                    {row.amount_minor === null
+                                        ? '—'
+                                        : formatMinor(row.amount_minor, row.currency_code ?? '', locale)}
+                                </td>
+                            </tr>
                         ))}
-                    </ul>
+                    </DataTable>
                     <p className="note mt-2">
                         {t((d) => d.pages.walletImports.columns.rebuiltCounts)
                             .replace('{folded}', String(preview.linesFolded))
@@ -1189,9 +1205,7 @@ function MappingFields({
 
     return (
         <>
-            {suggestionNote === null ? null : (
-                <p className="mb-4 text-sm text-muted-foreground">{suggestionNote}</p>
-            )}
+            {suggestionNote === null ? null : <p className="mb-4 text-sm text-muted-foreground">{suggestionNote}</p>}
 
             <FieldGrid>
                 <Field label={t((d) => d.pages.walletImports.columns.layout)}>
