@@ -771,6 +771,8 @@ export const ro = {
             review: {
                 title: 'Treci prin rânduri',
                 hint: 'Rândurile bifate vor fi importate. Cele care există deja în TaxOS sunt debifate.',
+                reconciliation:
+                    '{lines} linii în fișier · {transactions} tranzacții · {folded} linii de detaliu incluse · {skipped} sărite',
                 all: 'Toate rândurile',
                 new: 'Noi',
                 duplicates: 'Există deja',

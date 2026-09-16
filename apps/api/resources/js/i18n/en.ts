@@ -767,6 +767,8 @@ export const en = {
             review: {
                 title: 'Go through the rows',
                 hint: 'Ticked rows will be imported. Rows already in TaxOS are unticked.',
+                reconciliation:
+                    '{lines} lines in the file · {transactions} transactions · {folded} detail lines folded in · {skipped} skipped',
                 all: 'All rows',
                 new: 'New',
                 duplicates: 'Already here',

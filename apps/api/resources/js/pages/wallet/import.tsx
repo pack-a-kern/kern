@@ -521,6 +521,16 @@ export default function WalletImport(): JSX.Element {
                                 ]}
                             />
 
+                            {detail.import.linesRead === 0 ? null : (
+                                <span className="note">
+                                    {t((d) => d.pages.walletImports.review.reconciliation)
+                                        .replace('{lines}', String(detail.import.linesRead))
+                                        .replace('{transactions}', String(detail.import.rowCount))
+                                        .replace('{folded}', String(detail.import.linesFolded))
+                                        .replace('{skipped}', String(detail.import.linesSkipped))}
+                                </span>
+                            )}
+
                             {selection.size === 0 ? null : (
                                 <>
                                     <span className="note">

@@ -641,6 +641,14 @@ export interface Dictionary {
             review: {
                 title: string;
                 hint: string;
+                /**
+                 * `{lines}`, `{transactions}`, `{folded}` and `{skipped}` are substituted.
+                 *
+                 * The arithmetic behind the transaction count: 12 522 lines becoming 1 700
+                 * transactions is either exactly right or badly wrong, and only the four numbers
+                 * together say which.
+                 */
+                reconciliation: string;
                 all: string;
                 new: string;
                 duplicates: string;
