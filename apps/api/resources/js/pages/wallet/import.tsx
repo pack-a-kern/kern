@@ -108,6 +108,13 @@ export default function WalletImport(): JSX.Element {
     const [mapping, setMapping] = useState<StatementForm | null>(null);
     const [applying, setApplying] = useState(false);
     const [mappingError, setMappingError] = useState<string | null>(null);
+    /*
+     * Reopening the form once the rows exist.
+     *
+     * The server allows it — an import stays open through review — and it is the only way to see
+     * what was matched to what, or to fix one field without starting the upload again.
+     */
+    const [remapping, setRemapping] = useState(false);
 
     // Step 3 — the rows.
     const [filter, setFilter] = useState('');
@@ -265,6 +272,7 @@ export default function WalletImport(): JSX.Element {
         try {
             await setStatementImportMapping(subjectId, importId, mapping);
             setPage(1);
+            setRemapping(false);
             setReloadKey((current) => current + 1);
         } catch (cause: unknown) {
             setMappingError(describeApiFailure(cause, t));
@@ -417,7 +425,7 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {status === 'MAPPING' && detail !== null && mapping !== null ? (
+                {(status === 'MAPPING' || (status === 'REVIEW' && remapping)) && detail !== null && mapping !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.columns.title)}
                         description={t((d) => d.pages.walletImports.columns.hint)}
@@ -474,26 +482,36 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {status === 'REVIEW' && detail !== null ? (
+                {status === 'REVIEW' && !remapping && detail !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.review.title)}
                         description={t((d) => d.pages.walletImports.review.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
                         flush
                         aside={
-                            <PanelButton
-                                primary
-                                inline
-                                disabled={working}
-                                onClick={() => {
-                                    void commit();
-                                }}
-                            >
-                                {t((d) => d.pages.walletImports.review.commit).replace(
-                                    '{count}',
-                                    String(detail.import.rowCount - detail.import.excludedCount),
-                                )}
-                            </PanelButton>
+                            <>
+                                <PanelButton
+                                    inline
+                                    onClick={() => {
+                                        setRemapping(true);
+                                    }}
+                                >
+                                    {t((d) => d.pages.walletImports.columns.change)}
+                                </PanelButton>
+                                <PanelButton
+                                    primary
+                                    inline
+                                    disabled={working}
+                                    onClick={() => {
+                                        void commit();
+                                    }}
+                                >
+                                    {t((d) => d.pages.walletImports.review.commit).replace(
+                                        '{count}',
+                                        String(detail.import.rowCount - detail.import.excludedCount),
+                                    )}
+                                </PanelButton>
+                            </>
                         }
                         foot={
                             <Pagination
@@ -505,6 +523,10 @@ export default function WalletImport(): JSX.Element {
                             />
                         }
                     >
+                        {detail.mapping === null ? null : (
+                            <FormSummary detail={detail} form={detail.mapping} />
+                        )}
+
                         <Toolbar>
                             <PanelSelect
                                 className="filter-select"
@@ -806,6 +828,68 @@ function suggestForm(detail: StatementImportDetail): StatementForm {
         non_transaction_lines: [],
         identity_labels: [],
     };
+}
+
+/**
+ * What the confirmed form actually reads, in words.
+ *
+ * The selects say where each field comes from while you are filling them in, and then the rows
+ * appear and that knowledge is gone — leaving a screen of figures and no way to tell whether the
+ * counterparty came from a column, a label, or nothing at all. This is that answer, kept beside the
+ * rows it explains.
+ */
+function FormSummary({ detail, form }: { detail: StatementImportDetail; form: StatementForm }): JSX.Element {
+    const { t } = useTranslation();
+
+    const columnName = (index: number): string => {
+        const column = detail.preview.columns.find((entry) => entry.index === index);
+
+        return column === undefined || column.header === '' ? `#${String(index + 1)}` : column.header;
+    };
+
+    // A label is shown with its colon — `Tranzactie la:` is what a person sees in their own file,
+    // and it is what distinguishes a label from a column with a similar name.
+    const describe = (field: StatementField | null): string =>
+        field === null
+            ? t((d) => d.pages.walletImports.columns.none)
+            : field.type === 'index'
+              ? columnName(Number(field.value))
+              : field.type === 'label'
+                ? `${String(field.value)}:`
+                : String(field.value);
+
+    const fields: { label: string; value: string }[] = [
+        {
+            label: t((d) => d.pages.walletImports.columns.date),
+            value: `${columnName(form.date.value)} · ${form.date.format}`,
+        },
+        ...(form.amounts.mode === 'signed'
+            ? [{ label: t((d) => d.pages.walletImports.columns.amount), value: describe(form.amounts.amount) }]
+            : [
+                  { label: t((d) => d.pages.walletImports.columns.debit), value: describe(form.amounts.debit) },
+                  { label: t((d) => d.pages.walletImports.columns.credit), value: describe(form.amounts.credit) },
+              ]),
+        { label: t((d) => d.pages.walletImports.columns.description), value: describe(form.description) },
+        { label: t((d) => d.pages.walletImports.columns.counterpartyOut), value: describe(form.counterparty.debit) },
+        { label: t((d) => d.pages.walletImports.columns.counterpartyIn), value: describe(form.counterparty.credit) },
+        { label: t((d) => d.pages.walletImports.columns.referenceOut), value: describe(form.reference.debit) },
+        { label: t((d) => d.pages.walletImports.columns.referenceIn), value: describe(form.reference.credit) },
+        { label: t((d) => d.pages.walletImports.columns.currency), value: describe(form.currency) },
+    ];
+
+    return (
+        <div className="border-b border-border px-4 py-3">
+            <p className="note mb-2">{t((d) => d.pages.walletImports.columns.summary)}</p>
+            <dl className="flex flex-wrap gap-x-6 gap-y-2">
+                {fields.map((field) => (
+                    <div key={field.label}>
+                        <dt className="note">{field.label}</dt>
+                        <dd className="text-sm">{field.value}</dd>
+                    </div>
+                ))}
+            </dl>
+        </div>
+    );
 }
 
 /** A field as one string, so a single select can carry a column, a label or a fixed code. */

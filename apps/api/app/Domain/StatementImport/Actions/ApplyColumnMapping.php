@@ -50,8 +50,12 @@ final readonly class ApplyColumnMapping
     ) {
     }
 
-    public function __invoke(StatementImport $import, StatementForm $form, MappingSource $source): StatementImport
-    {
+    public function __invoke(
+        StatementImport $import,
+        StatementForm $form,
+        MappingSource $source,
+        ?string $actorId = null,
+    ): StatementImport {
         if (! $import->status->isOpen()) {
             throw ImportNotOpenException::forImport($import->id);
         }
@@ -161,7 +165,9 @@ final readonly class ApplyColumnMapping
          * statement's unanswered counterparties are usually a handful, and the review screen is
          * usable while they arrive. The job leaves every row it cannot answer alone.
          */
-        ProposeRowCategories::dispatch($import->id);
+        // The actor travels with it: the job reads this person's tags and remembered answers, and a
+        // queue worker has no one bound until it is told who.
+        ProposeRowCategories::dispatch($import->id, $actorId);
 
         return $import;
     }

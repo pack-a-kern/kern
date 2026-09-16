@@ -708,6 +708,11 @@ export const en = {
             description:
                 'Read a bank statement into transactions: upload the file, confirm the columns, then go through the rows.',
             start: 'Import statement',
+            delete: 'Delete',
+            deleteTitle: 'Delete this import?',
+            deleteHint:
+                'The import and the rows it prepared are removed. The statement file stays in your documents. An import that already created transactions has to be undone first.',
+            deleted: 'The import was deleted.',
             historyTitle: 'Imports',
             historyHint: 'Every statement imported for this taxpayer.',
             columnsHeader: 'Statement',
@@ -724,6 +729,8 @@ export const en = {
             columns: {
                 title: 'Which column is which',
                 hint: 'Checked against the first rows of your file. Nothing is imported yet.',
+                change: 'Change the columns',
+                summary: 'Where each field was read from',
                 layout: 'How transactions are written',
                 layoutRow: 'One line per transaction',
                 layoutBlock: 'A line, then its own detail lines',

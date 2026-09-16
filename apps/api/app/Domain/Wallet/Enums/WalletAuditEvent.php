@@ -61,6 +61,14 @@ enum WalletAuditEvent: string
 
     case STATEMENT_IMPORT_UNDONE = 'WalletStatementImportUndone';
 
+    /**
+     * An import discarded before it wrote anything — a wrong account, a file read twice.
+     *
+     * The row is gone, so this entry is the only remaining trace that a statement was read for this
+     * account at all. An import that did write transactions cannot be deleted, only undone.
+     */
+    case STATEMENT_IMPORT_DELETED = 'WalletStatementImportDeleted';
+
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
@@ -76,7 +84,8 @@ enum WalletAuditEvent: string
             self::TAGS_MERGED,
             self::TAG_DELETED => 'Tag',
             self::STATEMENT_IMPORTED,
-            self::STATEMENT_IMPORT_UNDONE => 'StatementImport',
+            self::STATEMENT_IMPORT_UNDONE,
+            self::STATEMENT_IMPORT_DELETED => 'StatementImport',
             default => 'FinancialAccount',
         };
     }

@@ -13,8 +13,10 @@ use App\Domain\StatementImport\DataTransferObjects\StatementColumn;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
+use App\Domain\StatementImport\Jobs\ProposeRowCategories;
 use App\Domain\StatementImport\Jobs\ReadStatementFile;
 use App\Domain\StatementImport\Models\StatementImport;
+use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -25,6 +27,8 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
+use ReflectionProperty;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\TestCase;
@@ -375,6 +379,63 @@ it('applies what a person answers to a whole set of rows at once', function (): 
     // Both outgoing rows arrive classified and tagged, with the tag normalised to one spelling.
     expect($listed->json('total'))->toBe(2)
         ->and($listed->json('transactions.0.tags.0.name'))->toBe('alimente');
+});
+
+/**
+ * The classification job is handed someone to act as.
+ *
+ * It reads this person's tags and their remembered answers, both subject-scoped, and a queue worker
+ * acts for nobody until it is told who — which is how a 1 700-row statement once ended up with every
+ * row unproposed while the job died with `NoTenantContextException`. Asserted on the dispatch rather
+ * than by running the job: in a test the queue is synchronous and the request's own tenant is still
+ * bound, so the job would succeed here either way and prove nothing.
+ */
+it('hands the classification job someone to act as', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId);
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    Queue::assertPushed(ProposeRowCategories::class, function (ProposeRowCategories $job) use ($user): bool {
+        return (new ReflectionProperty($job, 'actorId'))->getValue($job) === $user->id;
+    });
+});
+
+it('deletes an import that never became transactions, and refuses one that did', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId);
+
+    // Still waiting for its columns: nothing was written anywhere, so it can simply go.
+    $this->actingAs($user)
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertNoContent();
+
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($import->id))->toBeNull()
+        ->and(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+        ->toBe(0);
+
+    $second = startImport($this, $user, $subjectId, $accountId, 'extras-mai.csv');
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}/mapping", mappingBody())
+        ->assertOk();
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}/commit")
+        ->assertStatus(202);
+
+    /*
+     * One that wrote transactions is undone, never deleted: deleting it would leave figures in the
+     * ledger pointing at an import nobody can look up, and no way to take them back out.
+     */
+    $this->actingAs($user)
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}")
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'IMPORT_HOLDS_TRANSACTIONS');
+
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($second->id))->not->toBeNull();
 });
 
 it('never lets one taxpayer see another import', function (): void {

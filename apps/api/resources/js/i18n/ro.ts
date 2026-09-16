@@ -711,6 +711,11 @@ export const ro = {
             description:
                 'Transformă un extras de cont în tranzacții: încarci fișierul, confirmi coloanele, apoi treci prin rânduri.',
             start: 'Importă extras',
+            delete: 'Șterge',
+            deleteTitle: 'Ștergi acest import?',
+            deleteHint:
+                'Importul și rândurile pregătite sunt șterse. Fișierul extrasului rămâne în documente. Un import care a creat deja tranzacții trebuie mai întâi anulat.',
+            deleted: 'Importul a fost șters.',
             historyTitle: 'Importuri',
             historyHint: 'Toate extrasele importate pentru acest contribuabil.',
             columnsHeader: 'Extras',
@@ -727,6 +732,8 @@ export const ro = {
             columns: {
                 title: 'Ce coloană este fiecare',
                 hint: 'Verificat pe primele rânduri din fișier. Nu se importă nimic încă.',
+                change: 'Schimbă coloanele',
+                summary: 'De unde a fost citit fiecare câmp',
                 layout: 'Cum sunt scrise tranzacțiile',
                 layoutRow: 'O linie pentru fiecare tranzacție',
                 layoutBlock: 'O linie, apoi liniile ei de detaliu',

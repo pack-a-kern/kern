@@ -43,6 +43,7 @@ final class UpdateStatementImportMappingController extends Controller
                 StatementForm::fromArray($validated),
                 MappingSource::tryFrom(is_string($validated['source'] ?? null) ? $validated['source'] : '')
                     ?? MappingSource::PERSON,
+                $this->actorId($request),
             );
         } catch (MappingNotUsableException $exception) {
             return response()->json([
@@ -70,6 +71,13 @@ final class UpdateStatementImportMappingController extends Controller
         }
 
         return response()->json(['id' => $model->id, 'status' => $model->status->value]);
+    }
+
+    private function actorId(Request $request): ?string
+    {
+        $id = $request->user()?->getAuthIdentifier();
+
+        return is_scalar($id) ? (string) $id : null;
     }
 
     /**

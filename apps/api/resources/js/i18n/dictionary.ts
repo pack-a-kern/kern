@@ -581,6 +581,11 @@ export interface Dictionary {
             title: string;
             description: string;
             start: string;
+            /** Removing an import that never became transactions. One that did is undone instead. */
+            delete: string;
+            deleteTitle: string;
+            deleteHint: string;
+            deleted: string;
             historyTitle: string;
             historyHint: string;
             columnsHeader: string;
@@ -597,6 +602,10 @@ export interface Dictionary {
             columns: {
                 title: string;
                 hint: string;
+                /** Reopening the form from the review, which is also how a person sees what matched what. */
+                change: string;
+                /** Heading for the plain list of where each field was read from. */
+                summary: string;
                 /** One transaction per line, or a line followed by its own detail lines. */
                 layout: string;
                 layoutRow: string;

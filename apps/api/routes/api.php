@@ -65,6 +65,7 @@ use App\Http\Controllers\Api\V1\Settings\TestAiConnectionController;
 use App\Http\Controllers\Api\V1\Settings\UpdateAiSettingsController;
 use App\Http\Controllers\Api\V1\Settings\UpdateSettingsGroupController;
 use App\Http\Controllers\Api\V1\StatementImport\CommitStatementImportController;
+use App\Http\Controllers\Api\V1\StatementImport\DeleteStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\ListStatementImportsController;
 use App\Http\Controllers\Api\V1\StatementImport\ShowStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\StartStatementImportController;
@@ -263,6 +264,8 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('wallet/imports', StartStatementImportController::class)
         ->middleware('throttle:documents-upload-per-subject');
     Route::get('wallet/imports/{import}', ShowStatementImportController::class)->where('import', '[0-9a-f-]{36}');
+    Route::delete('wallet/imports/{import}', DeleteStatementImportController::class)
+        ->where('import', '[0-9a-f-]{36}');
     Route::put('wallet/imports/{import}/mapping', UpdateStatementImportMappingController::class)
         ->where('import', '[0-9a-f-]{36}');
     Route::patch('wallet/imports/{import}/rows', UpdateStatementImportRowsController::class)

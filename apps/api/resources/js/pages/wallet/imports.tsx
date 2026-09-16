@@ -3,7 +3,7 @@ import { FileSpreadsheet, PlusIcon } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { listStatementImports, undoStatementImport } from '../../api/statementImportApi';
+import { deleteStatementImport, listStatementImports, undoStatementImport } from '../../api/statementImportApi';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { DataTable, EmptyState, Page, Panel, PanelButton, Pill } from '../../components/panel';
@@ -42,6 +42,8 @@ export default function WalletImports(): JSX.Element {
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [undoing, setUndoing] = useState<StatementImport | null>(null);
+    // An import that wrote transactions is undone, never deleted — so the two are separate choices.
+    const [deleting, setDeleting] = useState<StatementImport | null>(null);
 
     useEffect(() => {
         if (subjectId === null) {
@@ -193,6 +195,17 @@ export default function WalletImports(): JSX.Element {
                                                     {t((d) => d.pages.walletImports.done.undo)}
                                                 </PanelButton>
                                             ) : null}
+                                            {statement.status === 'IMPORTED' ||
+                                            statement.status === 'IMPORTING' ? null : (
+                                                <PanelButton
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        setDeleting(statement);
+                                                    }}
+                                                >
+                                                    {t((d) => d.pages.walletImports.delete)}
+                                                </PanelButton>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -228,6 +241,40 @@ export default function WalletImports(): JSX.Element {
                             await undoStatementImport(subjectId, statement.id);
                             toast.success(t((d) => d.pages.walletImports.done.undone));
                             setUndoing(null);
+                            setReloadKey((current) => current + 1);
+                        } catch (cause: unknown) {
+                            toast.error(
+                                t((d) => d.common.deleteFailed),
+                                {
+                                    description: describeApiFailure(cause, t),
+                                },
+                            );
+
+                            throw cause;
+                        }
+                    }}
+                />
+            )}
+
+            {deleting === null ? null : (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setDeleting(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.walletImports.deleteTitle)}
+                    description={t((d) => d.pages.walletImports.deleteHint)}
+                    confirmLabel={t((d) => d.pages.walletImports.delete)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={async () => {
+                        const statement = deleting;
+
+                        try {
+                            await deleteStatementImport(subjectId, statement.id);
+                            toast.success(t((d) => d.pages.walletImports.deleted));
+                            setDeleting(null);
                             setReloadKey((current) => current + 1);
                         } catch (cause: unknown) {
                             toast.error(

@@ -11,6 +11,7 @@ use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\MaskedStatementText;
 use App\Domain\StatementImport\Services\StatementAiClient;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
+use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
@@ -51,14 +52,17 @@ final class ProposeRowCategories implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public function __construct(private readonly string $importId)
-    {
+    public function __construct(
+        private readonly string $importId,
+        private readonly ?string $actorId = null,
+    ) {
     }
 
     public function handle(
         StatementAiClient $ai,
         TaxCategoryCatalogue $categories,
         TagDirectory $tags,
+        TenantContext $tenant,
         ConfigRepository $config,
     ): void {
         $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
@@ -68,6 +72,23 @@ final class ProposeRowCategories implements ShouldQueue
         if ($import === null || $import->status !== StatementImportStatus::REVIEW) {
             return;
         }
+
+        /*
+         * A tenant, or no proposals.
+         *
+         * Tags and remembered counterparty answers are subject-scoped models, and a queue worker
+         * acts for nobody until someone is bound — reading them without that is what left every row
+         * of a 1 700-row statement unproposed while the job died with `NoTenantContextException`.
+         *
+         * No actor means no proposals rather than a failed import: the rows are already staged and
+         * answerable by hand. Re-checked rather than assumed, because minutes pass between a person
+         * confirming the form and this running, and access revoked in between must stop the read.
+         */
+        if ($this->actorId === null) {
+            return;
+        }
+
+        $tenant->authorizeAndActivate($this->actorId, $import->tax_subject_id);
 
         if (! $ai->isAvailable($import->tax_subject_id)) {
             return;

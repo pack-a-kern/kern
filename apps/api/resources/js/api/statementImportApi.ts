@@ -108,6 +108,16 @@ export async function commitStatementImport(subjectId: string, importId: string)
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/commit`, { method: 'POST' });
 }
 
+/**
+ * Removes an import that never became transactions — a wrong account, a file read twice.
+ *
+ * Refused for one that did: those are undone first, so the ledger never holds figures pointing at
+ * an import nobody can look up. The statement file itself stays in the documents list.
+ */
+export async function deleteStatementImport(subjectId: string, importId: string): Promise<void> {
+    await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}`, { method: 'DELETE' });
+}
+
 /** Takes a whole import back out: every transaction it created goes. */
 export async function undoStatementImport(subjectId: string, importId: string): Promise<void> {
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/undo`, { method: 'POST' });
