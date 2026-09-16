@@ -6,8 +6,8 @@ namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\MoneyDirection;
-use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\ProposalSource;
+use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\HoldingSourceException;

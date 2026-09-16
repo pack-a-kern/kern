@@ -26,6 +26,16 @@ use App\Support\Text\PartyName;
  * equality would never say so. A row with no counterparty at all matches any: a hand-typed
  * transaction often leaves it empty, and "nobody named" is not evidence of a different party.
  *
+ * ## Two lines of one statement are never a group
+ *
+ * A bank lists every movement on its own line, so two lines of the same statement are two payments —
+ * eight coffees of 14,86 on one day are eight coffees. The import already knows this and numbers
+ * identical lines rather than dropping them; this view did not, and offered every such run of lines
+ * as duplicates, where merging them deleted real payments.
+ *
+ * So a group holds at most one line from any one import. A receipt against a statement line, or two
+ * overlapping statements, are still gathered — those are the cases this view exists for.
+ *
  * ## Why a group can outlive being kept
  *
  * A group is shown while at least one of its rows has not been reviewed. Keeping marks every row,
@@ -141,16 +151,34 @@ final readonly class DuplicateTransactionGroups
             $seen[$start] = true;
             $pending = [$start];
             $cluster = [];
+            /*
+             * The imports this group already holds a line from. Checked against the whole group
+             * rather than pair by pair: a typed row naming nobody matches anything, and without this
+             * it would link two lines of one statement into one group through itself.
+             */
+            $imports = self::importOf($rows[$start]) === null ? [] : [self::importOf($rows[$start]) => true];
 
             while ($pending !== []) {
                 $current = array_pop($pending);
                 $cluster[] = $rows[$current];
 
                 for ($other = 0; $other < $count; $other++) {
-                    if (! isset($seen[$other]) && $this->sameCounterparty($rows[$current], $rows[$other])) {
-                        $seen[$other] = true;
-                        $pending[] = $other;
+                    if (isset($seen[$other]) || ! $this->sameCounterparty($rows[$current], $rows[$other])) {
+                        continue;
                     }
+
+                    $import = self::importOf($rows[$other]);
+
+                    if ($import !== null && isset($imports[$import])) {
+                        continue;
+                    }
+
+                    if ($import !== null) {
+                        $imports[$import] = true;
+                    }
+
+                    $seen[$other] = true;
+                    $pending[] = $other;
                 }
             }
 
@@ -158,6 +186,14 @@ final readonly class DuplicateTransactionGroups
         }
 
         return $clusters;
+    }
+
+    /** The statement import a transaction came from, or null for one recorded any other way. */
+    private static function importOf(FinancialTransaction $transaction): ?string
+    {
+        $import = $transaction->getAttribute('import_id');
+
+        return is_string($import) && $import !== '' ? $import : null;
     }
 
     private function sameCounterparty(FinancialTransaction $first, FinancialTransaction $second): bool

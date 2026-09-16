@@ -29,6 +29,11 @@ final class NotDuplicateTransactionsException extends InvalidArgumentException
         return new self('A deposit\'s own transactions cannot be merged or kept; they follow the deposit.');
     }
 
+    public static function sameStatement(): self
+    {
+        return new self('Two lines of the same statement are two payments, and cannot be merged into one.');
+    }
+
     public static function differentFigures(): self
     {
         return new self('These transactions do not share a date, an amount and a currency.');

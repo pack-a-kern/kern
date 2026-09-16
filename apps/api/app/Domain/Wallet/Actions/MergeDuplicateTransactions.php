@@ -8,6 +8,7 @@ use App\Domain\Wallet\DataTransferObjects\MergedTransactions;
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Exceptions\NotDuplicateTransactionsException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\DuplicateSurvivor;
@@ -51,6 +52,28 @@ final readonly class MergeDuplicateTransactions
     public function __invoke(array $transactionIds, ?string $actorId = null): MergedTransactions
     {
         $transactions = LookalikeTransactions::load($transactionIds);
+
+        /*
+         * Refused here as well as never offered by the view, because this is the step that deletes.
+         * A bank lists each movement on its own line, so two lines of one statement are two
+         * payments — merging them removes a real one. Keeping is not checked: it deletes nothing.
+         */
+        $imports = [];
+
+        foreach ($transactions as $transaction) {
+            $import = $transaction->getAttribute('import_id');
+
+            if (! is_string($import) || $import === '') {
+                continue;
+            }
+
+            if (isset($imports[$import])) {
+                throw NotDuplicateTransactionsException::sameStatement();
+            }
+
+            $imports[$import] = true;
+        }
+
         $survivor = DuplicateSurvivor::pick($transactions);
         $survivorId = LookalikeTransactions::id($survivor);
 

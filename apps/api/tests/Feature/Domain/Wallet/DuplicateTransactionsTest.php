@@ -7,6 +7,8 @@ namespace Tests\Feature\Domain\Wallet\DuplicateTransactionsTest;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Identity\Models\User;
+use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -222,6 +224,67 @@ it('keeps a page once when the same photograph backed both rows', function (): v
         ->assertOk();
 
     expect(Document::query()->findOrFail($first->id)->part_count)->toBe(1);
+});
+
+/** A statement import the lines below can say they came from. */
+function importedFrom(string $subjectId, string $accountId): string
+{
+    return (string) StatementImport::create([
+        'tax_subject_id' => $subjectId,
+        'account_id' => $accountId,
+        'status' => StatementImportStatus::IMPORTED,
+    ])->id;
+}
+
+/**
+ * A bank lists every movement on its own line: eight coffees of the same price on one day are eight
+ * coffees. Offering them as duplicates invited merging real payments away.
+ */
+it('never gathers two lines of the same statement, however alike', function (): void {
+    [$user, $subjectId, $accountId] = ledger();
+    $import = importedFrom($subjectId, $accountId);
+
+    payment($subjectId, $accountId, ['import_id' => $import]);
+    payment($subjectId, $accountId, ['import_id' => $import]);
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates")
+        ->assertOk()
+        ->assertJsonCount(0, 'groups');
+
+    // A typed row naming nobody matches anything — and must still not link the two lines into one
+    // group through itself. It is a lookalike of one of them, which is a question worth asking.
+    payment($subjectId, $accountId, ['counterparty_ciphertext' => '']);
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates")
+        ->assertJsonCount(1, 'groups')
+        ->assertJsonCount(2, 'groups.0.transactions');
+
+    // Two different statements covering the same day are exactly the case the view is for.
+    payment($subjectId, $accountId, ['import_id' => importedFrom($subjectId, $accountId)]);
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates")
+        ->assertJsonCount(1, 'groups');
+});
+
+it('refuses to merge two lines of the same statement', function (): void {
+    [$user, $subjectId, $accountId] = ledger();
+    $import = importedFrom($subjectId, $accountId);
+
+    $first = payment($subjectId, $accountId, ['import_id' => $import]);
+    $second = payment($subjectId, $accountId, ['import_id' => $import]);
+
+    // The view never offers this; the merge is the step that deletes, so it refuses on its own too.
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates/merge", [
+            'transaction_ids' => [$first->id, $second->id],
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'NOT_DUPLICATES');
+
+    expect(DB::table('financial_transactions')->count())->toBe(2);
 });
 
 it('refuses to merge transactions that are not lookalikes', function (): void {
