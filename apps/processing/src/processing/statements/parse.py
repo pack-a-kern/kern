@@ -373,12 +373,17 @@ def _cell_text(value: object) -> str:
 def _assemble(
     file_format: str, raw_rows: list[list[str]], settings: StatementParseSettings
 ) -> ParsedStatement:
-    """Trim the blank edges, find the header row, and hand back the data rows.
+    """Drop the blank rows, find the header row, and hand back the data rows.
 
-    The header is the first row with at least two non-empty cells that is followed by a row of the
-    same width: a statement usually opens with the account holder's name and the period, each on a
-    line of its own, and taking the first non-empty line as the header would name every column after
-    an address.
+    The header is the first row with at least two filled cells that is within one cell of the
+    widest row in the file. A statement usually opens with the account holder, the period and an
+    address, each on a line of its own — one cell each — while a table's header names every column.
+    Taking the first non-empty line as the header named every column after an address, and for a
+    file whose preamble has no delimiter at all, collapsed the whole statement into a single column.
+
+    The widest row rather than the most common width, deliberately: in a statement whose
+    transactions are followed by detail lines, the one- and two-cell detail lines are the most
+    common rows, and a two-cell preamble line would pass for a header against them.
     """
     rows = [row for row in raw_rows if any(cell.strip() != "" for cell in row)]
 
@@ -395,21 +400,13 @@ def _assemble(
 
     padded = [row + [""] * (width - len(row)) for row in rows]
 
-    """The header is the first row shaped like the body, not the first row with two cells in it.
-
-    A statement usually opens with the account holder, the period and an address, each on a line of
-    its own. Those lines have one cell; the table below them has many. Taking the first non-empty
-    line as the header named every column after an address — and, for a file whose preamble has no
-    delimiter at all, collapsed the whole statement into a single column.
-    """
-    widths = collections.Counter(sum(1 for cell in row if cell.strip() != "") for row in padded)
-    body_width = max((count for count, _ in widths.most_common()), default=0)
+    widest = max((sum(1 for cell in row if cell.strip() != "") for row in padded), default=0)
     header_row: int | None = None
 
     for index, row in enumerate(padded[:-1]):
         filled = sum(1 for cell in row if cell.strip() != "")
 
-        if filled >= 2 and filled >= body_width - 1:
+        if filled >= 2 and filled >= widest - 1:
             header_row = index
 
             break
