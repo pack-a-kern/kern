@@ -86,8 +86,16 @@ not change when a file moves; only the keys the code uses do.
    `compose.yaml` — a variable set there but not passed on never arrives. `apps/api/.env` is mounted
    into the container and read by Laravel for everything compose does not set. So:
    - root `.env.example` — infrastructure: secrets, ports, what compose passes in;
-   - `apps/api/.env.example` — application settings, every one listed with its default, commented
-     out so the default stays in one place: the config file.
+   - `apps/api/.env.example` — application settings: all 116 variables the app's own config reads,
+     grouped under the config file that holds each default, commented out and without values, so a
+     default is written down in exactly one place. The 24 that compose passes in are marked
+     `(compose)`, because a value for them in `apps/api/.env` is overridden by the container.
+
+   Measured before the move: 72 of the 116 documented nowhere, and 16 in the root file that compose
+   never passed on — every AI limit, the statement-import models, the model queue's timeout,
+   `REGISTRATION_ENABLED` and the deposit settings. Setting any of those in the root `.env` changed
+   nothing. They moved with their explanations. A third config test now fails naming any variable the
+   application's config reads that `apps/api/.env.example` does not list.
 
 Not done: a `security/` folder for `crypto`, `identity` and `access` (three small files gain nothing
 from a folder), and an umbrella `taxos/` folder (it only lengthens every key).

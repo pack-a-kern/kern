@@ -76,3 +76,35 @@ it('points every database setting at a configuration key that exists', function 
 
     expect($missing)->toBe([]);
 });
+
+/*
+ * Every environment variable the application's own config reads is named in `.env.example`.
+ *
+ * When this was written, 72 were documented nowhere, and 16 more sat in the root `.env.example`,
+ * which never reaches Laravel for a variable compose does not pass on. Laravel documents the
+ * variables of its own config files, so those are skipped — except for the ones this application
+ * added to them.
+ */
+it('names every environment variable the application reads in .env.example', function (): void {
+    $frameworkFiles = ['app', 'auth', 'broadcasting', 'cache', 'database', 'filesystems', 'hashing', 'logging', 'mail', 'queue', 'services', 'session', 'horizon', 'reverb', 'permission', 'webauthn'];
+    $addedToFrameworkFiles = '/^(HORIZON_(AI|DEFAULT)_|AI_|PROCESSING_URL$|INTERNAL_SERVICE_AUTH_TOKEN$)/';
+    $example = (string) file_get_contents(base_path('.env.example'));
+    $missing = [];
+
+    foreach (Finder::create()->files()->name('*.php')->in(config_path()) as $file) {
+        $name = substr(str_replace('\\', '/', $file->getRelativePathname()), 0, -4);
+        preg_match_all("/env\\('([A-Z0-9_]+)'/", $file->getContents(), $matches);
+
+        foreach (array_unique($matches[1]) as $variable) {
+            if (in_array($name, $frameworkFiles, true) && preg_match($addedToFrameworkFiles, $variable) !== 1) {
+                continue;
+            }
+
+            if (preg_match('/^#?\\s?' . $variable . '=/m', $example) !== 1) {
+                $missing[] = "{$variable} (config/{$name}.php)";
+            }
+        }
+    }
+
+    expect($missing)->toBe([]);
+});
