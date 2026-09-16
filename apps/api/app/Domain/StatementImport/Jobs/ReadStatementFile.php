@@ -58,8 +58,22 @@ final class ReadStatementFile implements ShouldQueue
         DocumentStatus::READY,
     ];
 
+    /**
+     * The reader's time plus the model's, plus a margin.
+     *
+     * This job reads the file and then asks the model how it is built, so it needs both. On the
+     * `default` queue it had sixty seconds for all of it, which a thinking model alone can exceed.
+     */
+    public int $timeout;
+
+    private const int TIMEOUT_MARGIN_SECONDS = 60;
+
     public function __construct(private readonly string $importId)
     {
+        $this->timeout = config()->integer('statement_import.parser.timeout_seconds')
+            + config()->integer('statement_import.ai.timeout_seconds')
+            + self::TIMEOUT_MARGIN_SECONDS;
+        $this->onQueue(config()->string('statement_import.ai.queue'));
     }
 
     public function handle(

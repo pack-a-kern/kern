@@ -68,6 +68,23 @@ export interface StatementPreview {
     labels: StatementLabelGroup[];
     /** What the model replied when asked how this file is built. Structure only — for checking it. */
     aiAnswer: Record<string, unknown> | null;
+    /** The counterparty calls, once the rows exist. */
+    classification: StatementClassification | null;
+}
+
+/** One call asking what counterparties are: what was sent, what came back, or why nothing did. */
+export interface StatementClassificationBatch {
+    sent: Record<string, unknown> | null;
+    reply: Record<string, unknown> | null;
+    failure: string | null;
+}
+
+export interface StatementClassification {
+    /** How many calls this round will make — progress is `batches.length` of this. */
+    expected: number;
+    /** Set when no call was made at all, e.g. `UNAVAILABLE`. */
+    failure: string | null;
+    batches: StatementClassificationBatch[];
 }
 
 /** One transaction as the confirmed form would read it — the same builder the import itself uses. */
@@ -154,6 +171,8 @@ export interface StatementImportDetail {
     import: StatementImport;
     preview: StatementPreview;
     mapping: StatementForm | null;
+    /** How many rows each side has answered so far. */
+    proposals: { ai: number; rule: number };
     rows: StatementRow[];
     total: number;
     page: number;
@@ -277,10 +296,8 @@ function parsePreview(payload: unknown): StatementPreview {
             (sheet): sheet is string => typeof sheet === 'string',
         ),
         headerRow: nullableNum(preview, 'header_row'),
-        aiAnswer:
-            typeof preview.ai_answer === 'object' && preview.ai_answer !== null
-                ? (preview.ai_answer as Record<string, unknown>)
-                : null,
+        aiAnswer: record(preview.ai_answer),
+        classification: parseClassification(preview.classification),
         warnings: (Array.isArray(preview.warnings) ? preview.warnings : []).filter(
             (warning): warning is string => typeof warning === 'string',
         ),
@@ -357,6 +374,31 @@ function parseForm(payload: unknown): StatementForm | null {
     };
 }
 
+/** A JSON object as the server sent it, or null — shown for checking, never interpreted. */
+function record(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : null;
+}
+
+function parseClassification(payload: unknown): StatementClassification | null {
+    const body = record(payload);
+
+    if (body === null) {
+        return null;
+    }
+
+    return {
+        expected: num(body, 'expected'),
+        failure: nullableStr(body, 'failure'),
+        batches: (Array.isArray(body.batches) ? body.batches : []).map((entry): StatementClassificationBatch => {
+            const batch = obj(entry);
+
+            return { sent: record(batch.sent), reply: record(batch.reply), failure: nullableStr(batch, 'failure') };
+        }),
+    };
+}
+
 export function parseStatementImportEvent(raw: unknown): StatementImportEvent {
     const row = obj(raw);
     const status = str(row, 'status');
@@ -399,6 +441,7 @@ export function parseStatementImportDetail(payload: unknown): StatementImportDet
         import: parseImport(body.import),
         preview: parsePreview(body.preview),
         mapping: parseForm(body.mapping),
+        proposals: { ai: num(obj(body.proposals), 'ai'), rule: num(obj(body.proposals), 'rule') },
         rows: (Array.isArray(body.rows) ? body.rows : []).map(parseRow),
         total: num(body, 'total'),
         page: num(body, 'page'),

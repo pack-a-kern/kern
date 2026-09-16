@@ -66,8 +66,34 @@ return [
      * were 1 893 and 2 447 tokens.
      */
     'ai' => [
+        // Reading the file's structure: which column or label is which.
         'model' => env('STATEMENT_IMPORT_AI_MODEL', 'gpt-oss:20b'),
         'max_tokens' => (int) env('STATEMENT_IMPORT_AI_MAX_TOKENS', 12_000),
+
+        /*
+         * Saying what each counterparty is: a tax category and a few tags.
+         *
+         * `classification_batch` is how many unique counterparties go in one call. Large by default
+         * so a statement is one call — 1 700 rows are usually a few hundred counterparties — which
+         * means the reply is long, so `classification_max_tokens` is larger than the mapping's. A
+         * smaller batch trades one long call for several shorter ones; each becomes its own job
+         * with its own timeout, so lowering it never makes a call more likely to be cut off.
+         */
+        'classification_model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL', 'gpt-oss:20b'),
+        'classification_max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
+        'classification_batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 1000),
+
+        /*
+         * How long one call may take, and where the jobs making calls run.
+         *
+         * The queue is the one the document reader already uses: one process, because the limit is
+         * one model endpoint rather than this machine's cores, and a timeout long enough for a local
+         * model to think. On `default` these jobs were killed at 60 seconds, which left a statement
+         * two thirds classified and the rest silently not. Each job's own timeout is this plus a
+         * margin, and `HORIZON_AI_QUEUE_TIMEOUT_SECONDS` must stay above that.
+         */
+        'timeout_seconds' => (int) env('STATEMENT_IMPORT_AI_TIMEOUT_SECONDS', 600),
+        'queue' => env('STATEMENT_IMPORT_AI_QUEUE', 'documents-ai'),
     ],
 
     /*
@@ -109,9 +135,6 @@ return [
         'parse_threshold' => (float) env('STATEMENT_IMPORT_PARSE_THRESHOLD', 0.95),
         // Rows saved per database transaction by the commit job.
         'commit_chunk' => (int) env('STATEMENT_IMPORT_COMMIT_CHUNK', 500),
-        // Unique counterparties per classification call. Small enough that one slow reply does not
-        // hold up a whole statement, large enough that a month of spending is a handful of calls.
-        'classification_batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 50),
         'max_tags_per_row' => (int) env('STATEMENT_IMPORT_MAX_TAGS_PER_ROW', 3),
     ],
 

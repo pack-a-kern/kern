@@ -663,13 +663,30 @@ export interface Dictionary {
                 title: string;
                 hint: string;
                 /**
-                 * `{lines}`, `{transactions}`, `{folded}` and `{skipped}` are substituted.
-                 *
                  * The arithmetic behind the transaction count: 12 522 lines becoming 1 700
-                 * transactions is either exactly right or badly wrong, and only the four numbers
-                 * together say which.
+                 * transactions is either exactly right or badly wrong, and only the numbers side by
+                 * side say which.
                  */
-                reconciliation: string;
+                statLines: string;
+                statTransactions: string;
+                statFolded: string;
+                statSkipped: string;
+                statDuplicates: string;
+                statAi: string;
+                statRules: string;
+                /** `{done}` and `{expected}` are substituted. */
+                aiWaiting: string;
+                /** `{rows}` is substituted. */
+                aiDone: string;
+                aiUnavailable: string;
+                aiNothing: string;
+                aiCalls: string;
+                /** `{number}` is substituted. */
+                aiCall: string;
+                aiSent: string;
+                aiReply: string;
+                /** `{reason}` is substituted. */
+                aiFailed: string;
                 all: string;
                 new: string;
                 duplicates: string;

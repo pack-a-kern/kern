@@ -8,12 +8,14 @@ use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
+use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * `statement_imports` — one bank statement on its way from a file to transactions.
@@ -102,26 +104,104 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
      * lines: a person picks `Tranzactie la` from what the file actually contains, rather than typing
      * it and finding out it read nothing.
      *
-     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null}
+     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null}
      */
     public function preview(): array
     {
         $decoded = json_decode(is_string($this->preview_ciphertext) ? $this->preview_ciphertext : '', true);
 
         if (! is_array($decoded)) {
-            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null];
+            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null, 'classification' => null];
         }
 
-        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null} $preview */
+        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null} $preview */
         $preview = [
             'columns' => is_array($decoded['columns'] ?? null) ? array_values($decoded['columns']) : [],
             'rows' => is_array($decoded['rows'] ?? null) ? array_values($decoded['rows']) : [],
             'labels' => is_array($decoded['labels'] ?? null) ? array_values($decoded['labels']) : [],
             // What the model replied when it was asked how this file is built. Structure only.
             'ai_answer' => is_array($decoded['ai_answer'] ?? null) ? $decoded['ai_answer'] : null,
+            // The counterparty calls: how many to expect, and for each, what was sent and replied.
+            'classification' => is_array($decoded['classification'] ?? null) ? $decoded['classification'] : null,
         ];
 
         return $preview;
+    }
+
+    /**
+     * A new round of counterparty calls, replacing any earlier one.
+     *
+     * Kept beside the preview rather than in columns of its own: it is the same kind of thing — what
+     * the model was shown and what it said — encrypted for the same reason, and read by the same
+     * screen.
+     */
+    public function startClassification(string $run, int $expected, ?string $failure = null): void
+    {
+        $this->changePreview(static function (array $preview) use ($run, $expected, $failure): array {
+            $preview['classification'] = [
+                'run' => $run,
+                'expected' => $expected,
+                'failure' => $failure,
+                'batches' => [],
+            ];
+
+            return $preview;
+        });
+    }
+
+    /**
+     * One finished call, if it belongs to the current round.
+     *
+     * @param  array{sent: array<string, mixed>|null, reply: array<string, mixed>|null, failure: string|null}  $batch
+     */
+    public function recordClassificationBatch(string $run, array $batch): void
+    {
+        $this->changePreview(static function (array $preview) use ($run, $batch): array {
+            $classification = is_array($preview['classification'] ?? null) ? $preview['classification'] : null;
+
+            if ($classification === null || ($classification['run'] ?? null) !== $run) {
+                return $preview;
+            }
+
+            $batches = is_array($classification['batches'] ?? null) ? array_values($classification['batches']) : [];
+            $batches[] = $batch;
+            $classification['batches'] = $batches;
+            $preview['classification'] = $classification;
+
+            return $preview;
+        });
+    }
+
+    /** Whether a batch made for this round should still write anything. */
+    public function isClassificationRun(string $run): bool
+    {
+        $classification = $this->preview()['classification'];
+
+        return $classification !== null && ($classification['run'] ?? null) === $run;
+    }
+
+    /**
+     * Rewrites the stored preview under a row lock.
+     *
+     * Locked because two writers exist — the round starting and a batch finishing — and a read-modify
+     * -write without it would let one overwrite the other.
+     *
+     * @param  callable(array<string, mixed>): array<string, mixed>  $change
+     */
+    private function changePreview(callable $change): void
+    {
+        DB::transaction(function () use ($change): void {
+            $fresh = self::withoutGlobalScope(TaxSubjectScope::class)->lockForUpdate()->findOrFail($this->id);
+            $decoded = json_decode(is_string($fresh->preview_ciphertext) ? $fresh->preview_ciphertext : '', true);
+
+            /** @var array<string, mixed> $current */
+            $current = is_array($decoded) ? $decoded : [];
+
+            $fresh->preview_ciphertext = json_encode($change($current), JSON_THROW_ON_ERROR);
+            $fresh->save();
+
+            $this->preview_ciphertext = $fresh->preview_ciphertext;
+        });
     }
 
     /** @return HasMany<StatementImportRow, $this> */

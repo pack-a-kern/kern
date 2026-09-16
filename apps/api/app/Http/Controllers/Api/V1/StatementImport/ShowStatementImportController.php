@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\StatementImport;
 
+use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Queries\StatementImportSummary;
@@ -54,10 +55,10 @@ final class ShowStatementImportController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
         ]);
 
-        $page = isset($validated['page']) && is_int($validated['page']) ? $validated['page'] : 1;
-        $perPage = isset($validated['per_page']) && is_int($validated['per_page'])
-            ? $validated['per_page']
-            : self::DEFAULT_PER_PAGE;
+        // Read as integers: a query string is text, and `is_int('2')` is false — which served page one
+        // for every page a person asked for.
+        $page = $request->integer('page', 1);
+        $perPage = $request->integer('per_page', self::DEFAULT_PER_PAGE);
 
         $query = StatementImportRow::query()->where('import_id', $model->id)->orderBy('row_number');
 
@@ -83,6 +84,14 @@ final class ShowStatementImportController extends Controller
             // confirmed and the real rows exist — the screen has moved on by then.
             'preview' => $preview,
             'mapping' => $model->column_mapping,
+            // How many rows each side has answered, so the screen can say what is still waiting on
+            // the model rather than leaving a person to scroll and count.
+            'proposals' => [
+                'ai' => StatementImportRow::query()->where('import_id', $model->id)
+                    ->where('proposal_source', RowProposalSource::AI)->count(),
+                'rule' => StatementImportRow::query()->where('import_id', $model->id)
+                    ->where('proposal_source', RowProposalSource::RULE)->count(),
+            ],
             'rows' => array_map(
                 static fn (StatementImportRow $row): array => StatementRowSummary::of($row)->toArray(),
                 $rows,

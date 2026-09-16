@@ -17,6 +17,7 @@ use App\Domain\StatementImport\Jobs\ProposeRowCategories;
 use App\Domain\StatementImport\Jobs\ReadStatementFile;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
+use App\Domain\StatementImport\Services\ClassifyCounterparties;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -543,6 +544,77 @@ it('deletes an import that never became transactions, and refuses one that did',
         ->assertJsonPath('reason', 'IMPORT_HOLDS_TRANSACTIONS');
 
     expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($second->id))->not->toBeNull();
+});
+
+it('serves the page of rows that was asked for', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-pagini.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $url = "/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}?per_page=2";
+
+    /** @var list<array<string, mixed>> $first */
+    $first = $this->actingAs($user)->getJson("{$url}&page=1")->assertOk()->json('rows');
+    /** @var list<array<string, mixed>> $second */
+    $second = $this->actingAs($user)->getJson("{$url}&page=2")->assertOk()->json('rows');
+
+    // A query string is text: reading `page` as `is_int` once served page one for every page asked.
+    expect($first)->toHaveCount(2)
+        ->and($second)->toHaveCount(1)
+        ->and($second[0]['row_number'] ?? null)->toBe(3);
+});
+
+/**
+ * Batches are cut between counterparties, never through one — and their size is configuration.
+ *
+ * The fake statement has two counterparties: a supermarket paid twice, and a salary received once.
+ */
+it('keeps a counterparty in one batch, at whatever size is configured', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-loturi.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    /** @var list<StatementImportRow> $rows */
+    $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        ->where('import_id', $import->id)
+        ->orderBy('row_number')
+        ->get()
+        ->all();
+
+    config(['statement_import.ai.classification_batch' => 1]);
+    $small = app(ClassifyCounterparties::class)->batches($rows);
+
+    config(['statement_import.ai.classification_batch' => 1000]);
+    $large = app(ClassifyCounterparties::class)->batches($rows);
+
+    expect($small)->toHaveCount(2)
+        ->and($small[0])->toHaveCount(2)
+        ->and($small[1])->toHaveCount(1)
+        ->and($large)->toHaveCount(1)
+        ->and($large[0])->toHaveCount(3);
+});
+
+it('records that no model was asked, so the screen does not wait for one', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-ai.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $shown = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk();
+
+    expect($shown->json('preview.classification.expected'))->toBe(0)
+        ->and($shown->json('preview.classification.failure'))->toBe('UNAVAILABLE')
+        ->and($shown->json('proposals.ai'))->toBe(0);
 });
 
 it('never lets one taxpayer see another import', function (): void {

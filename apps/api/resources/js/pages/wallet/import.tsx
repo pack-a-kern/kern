@@ -18,6 +18,8 @@ import Pagination from '../../components/Pagination';
 import TagsInput from '../../components/wallet/TagsInput';
 import {
     DataTable,
+    Detail,
+    DetailList,
     Field,
     FieldGrid,
     Page,
@@ -46,6 +48,7 @@ import {
 } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
 import type {
+    StatementClassification,
     StatementField,
     StatementForm,
     StatementFormPreview,
@@ -584,7 +587,11 @@ export default function WalletImport(): JSX.Element {
                             />
                         }
                     >
+                        <ReviewOverview detail={detail} />
+
                         {detail.mapping === null ? null : <FormSummary detail={detail} form={detail.mapping} />}
+
+                        <AiCalls classification={detail.preview.classification} />
 
                         <div className="border-border flex flex-wrap justify-end gap-1.5 border-b px-4 py-3">
                             <PanelButton
@@ -624,16 +631,6 @@ export default function WalletImport(): JSX.Element {
                                     { value: 'unanswered', label: t((d) => d.pages.walletImports.review.unanswered) },
                                 ]}
                             />
-
-                            {detail.import.linesRead === 0 ? null : (
-                                <span className="note">
-                                    {t((d) => d.pages.walletImports.review.reconciliation)
-                                        .replace('{lines}', String(detail.import.linesRead))
-                                        .replace('{transactions}', String(detail.import.rowCount))
-                                        .replace('{folded}', String(detail.import.linesFolded))
-                                        .replace('{skipped}', String(detail.import.linesSkipped))}
-                                </span>
-                            )}
 
                             {selection.size === 0 ? null : (
                                 <>
@@ -987,6 +984,126 @@ function suggestForm(detail: StatementImportDetail): StatementForm {
 }
 
 /**
+ * The import at a glance: what the file became, and where the answers came from.
+ *
+ * Numbers side by side rather than a sentence, because the point is comparing them: 12 522 lines
+ * becoming 1 700 transactions is either right or badly wrong, and "966 suggested by AI" next to
+ * "1 700" says at once how much is still unanswered.
+ *
+ * The line beneath says what the model is doing. It updates as each call finishes — the page is told
+ * over the socket — so a person waiting for suggestions sees them arrive rather than refreshing.
+ */
+function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Element {
+    const { t, locale } = useTranslation();
+    const current = detail.import;
+    const classification = detail.preview.classification;
+
+    // Imports read before the line counts existed have none; showing zeros would claim an empty file.
+    const lines =
+        current.linesRead === 0
+            ? []
+            : [
+                  { label: t((d) => d.pages.walletImports.review.statLines), value: current.linesRead },
+                  { label: t((d) => d.pages.walletImports.review.statFolded), value: current.linesFolded },
+                  { label: t((d) => d.pages.walletImports.review.statSkipped), value: current.linesSkipped },
+              ];
+
+    const stats = [
+        ...lines,
+        { label: t((d) => d.pages.walletImports.review.statTransactions), value: current.rowCount },
+        { label: t((d) => d.pages.walletImports.review.statDuplicates), value: current.duplicateCount },
+        { label: t((d) => d.pages.walletImports.review.statAi), value: detail.proposals.ai },
+        { label: t((d) => d.pages.walletImports.review.statRules), value: detail.proposals.rule },
+    ];
+
+    const done = classification?.batches.length ?? 0;
+    const expected = classification?.expected ?? 0;
+    const waiting = classification !== null && classification.failure === null && done < expected;
+
+    const aiStatus =
+        classification === null
+            ? null
+            : classification.failure !== null
+              ? t((d) => d.pages.walletImports.review.aiUnavailable)
+              : expected === 0
+                ? t((d) => d.pages.walletImports.review.aiNothing)
+                : waiting
+                  ? t((d) => d.pages.walletImports.review.aiWaiting)
+                        .replace('{done}', String(done))
+                        .replace('{expected}', String(expected))
+                  : t((d) => d.pages.walletImports.review.aiDone).replace('{rows}', String(detail.proposals.ai));
+
+    return (
+        <div className="border-border border-b px-4 py-3">
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+                {stats.map((stat) => (
+                    <div key={stat.label} className="min-w-0">
+                        <dt className="note leading-tight">{stat.label}</dt>
+                        <dd className="text-lg font-semibold tabular-nums">{stat.value.toLocaleString(locale)}</dd>
+                    </div>
+                ))}
+            </dl>
+            {aiStatus === null ? null : (
+                <p className={'mt-3 text-sm' + (waiting ? ' motion-safe:animate-pulse' : '')}>{aiStatus}</p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Every call made to suggest categories: what was sent, and what came back.
+ *
+ * Closed by default — it is for checking why a counterparty got the category it got, not for reading
+ * through. It shows exactly the payload that left this application, so "what did we tell the model"
+ * never needs answering from memory.
+ */
+function AiCalls({ classification }: { classification: StatementClassification | null }): JSX.Element | null {
+    const { t } = useTranslation();
+
+    if (classification === null || classification.batches.length === 0) {
+        return null;
+    }
+
+    return (
+        <details className="border-border border-b px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium">
+                {t((d) => d.pages.walletImports.review.aiCalls)}
+            </summary>
+            <div className="mt-3 flex flex-col gap-4">
+                {classification.batches.map((batch, index) => (
+                    <div key={`call-${String(index)}`} className="min-w-0">
+                        <div className="text-sm font-medium">
+                            {t((d) => d.pages.walletImports.review.aiCall).replace('{number}', String(index + 1))}
+                        </div>
+                        {batch.failure === null ? null : (
+                            <p className="text-destructive text-sm">
+                                {t((d) => d.pages.walletImports.review.aiFailed).replace('{reason}', batch.failure)}
+                            </p>
+                        )}
+                        {batch.sent === null ? null : (
+                            <>
+                                <div className="note mt-2">{t((d) => d.pages.walletImports.review.aiSent)}</div>
+                                <pre className="border-border mt-1 max-h-80 overflow-auto rounded-md border p-3 text-xs">
+                                    {JSON.stringify(batch.sent, null, 2)}
+                                </pre>
+                            </>
+                        )}
+                        {batch.reply === null ? null : (
+                            <>
+                                <div className="note mt-2">{t((d) => d.pages.walletImports.review.aiReply)}</div>
+                                <pre className="border-border mt-1 max-h-80 overflow-auto rounded-md border p-3 text-xs">
+                                    {JSON.stringify(batch.reply, null, 2)}
+                                </pre>
+                            </>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </details>
+    );
+}
+
+/**
  * What the confirmed form actually reads, in words.
  *
  * The selects say where each field comes from while you are filling them in, and then the rows
@@ -1034,17 +1151,20 @@ function FormSummary({ detail, form }: { detail: StatementImportDetail; form: St
     ];
 
     return (
-        <div className="border-b border-border px-4 py-3">
-            <p className="note mb-2">{t((d) => d.pages.walletImports.columns.summary)}</p>
-            <dl className="flex flex-wrap gap-x-6 gap-y-2">
-                {fields.map((field) => (
-                    <div key={field.label}>
-                        <dt className="note">{field.label}</dt>
-                        <dd className="text-sm">{field.value}</dd>
-                    </div>
-                ))}
-            </dl>
-        </div>
+        <details className="border-border border-b px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium">
+                {t((d) => d.pages.walletImports.columns.summary)}
+            </summary>
+            <div className="mt-3">
+                <DetailList>
+                    {fields.map((field) => (
+                        <Detail key={field.label} label={field.label}>
+                            {field.value}
+                        </Detail>
+                    ))}
+                </DetailList>
+            </div>
+        </details>
     );
 }
 

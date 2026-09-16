@@ -81,6 +81,7 @@ final readonly class SuggestColumnMapping
             self::schema(),
             $this->config->string('statement_import.ai.model'),
             $this->config->integer('statement_import.ai.max_tokens'),
+            $this->config->integer('statement_import.ai.timeout_seconds'),
         );
 
         if (! $answer->succeeded() || $answer->data === null) {

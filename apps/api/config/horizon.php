@@ -209,9 +209,11 @@ return [
          * every environment, deliberately not scaled with the others — the constraint is a single
          * model endpoint, not this machine's cores.
          *
-         * `timeout` must stay above the job's own, which is derived from
-         * `AI_EXTRACTION_TIMEOUT_SECONDS` plus a margin. A supervisor timeout below it would kill
-         * the job mid-request and record nothing about why.
+         * `timeout` must stay above every job's own: the document reader's, derived from
+         * `AI_EXTRACTION_TIMEOUT_SECONDS`, and the statement import's, derived from
+         * `STATEMENT_IMPORT_AI_TIMEOUT_SECONDS` (plus the reader's timeout, for the job that reads the
+         * file and then asks). A supervisor timeout below either kills the job mid-request and
+         * records nothing about why.
          */
         'supervisor-documents-ai' => [
             'connection' => 'redis',
@@ -222,7 +224,7 @@ return [
             'maxJobs' => 0,
             'memory' => 256,
             'tries' => 1,
-            'timeout' => 600,
+            'timeout' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 900),
             'nice' => 0,
         ],
 

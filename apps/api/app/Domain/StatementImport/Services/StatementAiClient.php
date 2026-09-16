@@ -74,6 +74,7 @@ final readonly class StatementAiClient
      * @param  array<string, mixed>  $schema  the JSON schema the reply must satisfy
      * @param  string|null  $model  which model to ask; null uses the provider's configured one
      * @param  int|null  $maxTokens  room for the reply; null uses the provider's own ceiling
+     * @param  int|null  $timeoutSeconds  how long the call may take; null uses the provider's own
      */
     public function ask(
         string $subjectId,
@@ -83,6 +84,7 @@ final readonly class StatementAiClient
         array $schema,
         ?string $model = null,
         ?int $maxTokens = null,
+        ?int $timeoutSeconds = null,
     ): AiAnswer {
         if (! $this->isAvailable($subjectId)) {
             return AiAnswer::failed(AiAnswer::UNAVAILABLE);
@@ -124,7 +126,7 @@ final readonly class StatementAiClient
 
         try {
             $response = $this->http
-                ->timeout($this->catalogue->extractionTimeoutSeconds())
+                ->timeout($timeoutSeconds ?? $this->catalogue->extractionTimeoutSeconds())
                 ->withHeaders($headers)
                 ->post(rtrim($baseUrl, '/') . $dialect->chatPath(), $body);
         } catch (ConnectionException) {

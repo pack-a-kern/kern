@@ -7,6 +7,7 @@ namespace App\Domain\StatementImport\Jobs;
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
@@ -86,6 +87,8 @@ final class WriteStatementRows implements ShouldQueue
             $import->status = StatementImportStatus::FAILED;
             $import->failure_reason = 'NO_ACTOR';
             $import->save();
+
+            StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
 
             return;
         }
@@ -169,6 +172,9 @@ final class WriteStatementRows implements ShouldQueue
         $import->status = StatementImportStatus::IMPORTED;
         $import->imported_at = now('UTC');
         $import->save();
+
+        // Without this the screen sat on "Importing…" until someone refreshed it.
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
 
         $audit->record(AuditEventInput::occurringNow(
             subjectId: $import->tax_subject_id,
