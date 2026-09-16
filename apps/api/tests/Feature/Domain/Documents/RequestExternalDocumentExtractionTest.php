@@ -60,7 +60,7 @@ function sendableDocument(): Document
 }
 
 beforeEach(function (): void {
-    config(['settings.ai.env_fallback.enabled' => true]);
+    config(['ai.providers.env_fallback.enabled' => true]);
 
     $this->app->instance(
         SubjectDekService::class,

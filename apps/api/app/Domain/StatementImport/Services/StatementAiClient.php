@@ -37,7 +37,7 @@ use JsonException;
  *
  * The caller names one. Reading a statement's structure is a reasoning job and reading a document is
  * a vision job, and the best model for one is measurably bad at the other — so the import passes
- * `statement_import.ai.model` rather than inheriting the document reader's. Null falls back to the
+ * `ai.statements.mapping.model` rather than inheriting the document reader's. Null falls back to the
  * configured provider default.
  *
  * ## Never logs, never explains with content

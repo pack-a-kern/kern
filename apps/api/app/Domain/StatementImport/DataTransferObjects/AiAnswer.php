@@ -13,7 +13,7 @@ namespace App\Domain\StatementImport\DataTransferObjects;
  * budget before writing anything returns an empty string and a `length` finish reason — the call
  * succeeded, the bill was paid, and the answer is missing. Silently treating that as "no suggestion"
  * sends a person to fill in the form by hand and leaves no trace of why, when the actual fix is one
- * number in `statement_import.ai.max_tokens`. So it is {@see NO_ROOM}, kept on the import beside the
+ * number in `ai.statements.mapping.max_tokens`. So it is {@see NO_ROOM}, kept on the import beside the
  * empty suggestion, and the screen can say so.
  *
  * The others are the ordinary ones: nobody to ask, and an answer that was not JSON.

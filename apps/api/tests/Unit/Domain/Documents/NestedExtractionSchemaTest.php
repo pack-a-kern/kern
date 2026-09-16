@@ -188,7 +188,7 @@ it('stores a contract that commits no money at all', function (): void {
 it('names every nested field in the prompt it sends', function (): void {
     // The real config file, not a stub: the point is that the words shipped for these fields
     // actually reach the prompt.
-    $config = new ConfigRepository(['ai_providers' => require __DIR__ . '/../../../../config/ai_providers.php']);
+    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     // The prompt and the JSON schema are generated from one definition, so the words asked for and
@@ -232,7 +232,7 @@ it('keeps a reading whose kind it does not recognise, rather than destroying it'
 });
 
 it('offers the model every kind it can store, each with a line saying what it is', function (): void {
-    $config = new ConfigRepository(['ai_providers' => require __DIR__ . '/../../../../config/ai_providers.php']);
+    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     // Generated from the enum, so a kind that exists is offered and one that does not cannot be.
@@ -249,7 +249,7 @@ it('offers the model every kind it can store, each with a line saying what it is
 });
 
 it('asks an untyped document to classify itself', function (): void {
-    $config = new ConfigRepository(['ai_providers' => require __DIR__ . '/../../../../config/ai_providers.php']);
+    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     expect($instruction)->toContain('document_kind')

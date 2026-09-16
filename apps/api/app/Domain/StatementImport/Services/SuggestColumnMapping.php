@@ -75,13 +75,13 @@ final readonly class SuggestColumnMapping
 
         $answer = $this->ai->ask(
             $subjectId,
-            $this->config->string('statement_import.prompts.mapping_system'),
-            $this->config->string('statement_import.prompts.mapping_instruction'),
+            $this->config->string('ai.statements.mapping.system'),
+            $this->config->string('ai.statements.mapping.instruction'),
             $this->payload($file),
             self::schema(),
-            $this->config->string('statement_import.ai.model'),
-            $this->config->integer('statement_import.ai.max_tokens'),
-            $this->config->integer('statement_import.ai.timeout_seconds'),
+            $this->config->string('ai.statements.mapping.model'),
+            $this->config->integer('ai.statements.mapping.max_tokens'),
+            $this->config->integer('ai.statements.timeout_seconds'),
         );
 
         if (! $answer->succeeded() || $answer->data === null) {

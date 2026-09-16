@@ -44,7 +44,7 @@ it('falls back to the OpenAI dialect for a provider name that matches no preset'
 });
 
 it('throws on a malformed preset rather than silently serving a broken one', function (): void {
-    Config::set('ai_providers.presets', ['broken' => ['label' => 'Broken']]);
+    Config::set('ai.providers.presets', ['broken' => ['label' => 'Broken']]);
 
     expect(fn () => app(AiProviderCatalogue::class)->all())
         ->toThrow(RuntimeException::class, 'broken');

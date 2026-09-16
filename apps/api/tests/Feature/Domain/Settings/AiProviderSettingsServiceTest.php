@@ -28,11 +28,11 @@ function fakeUserId(): string
 
 it('falls back to env config when no setting has ever been saved', function (): void {
     config([
-        'settings.ai.env_fallback.enabled' => true,
-        'settings.ai.env_fallback.provider' => 'env-provider',
-        'settings.ai.env_fallback.base_url' => 'https://env.example.test',
-        'settings.ai.env_fallback.model' => 'env-model',
-        'settings.ai.env_fallback.api_key' => 'sk-from-env',
+        'ai.providers.env_fallback.enabled' => true,
+        'ai.providers.env_fallback.provider' => 'env-provider',
+        'ai.providers.env_fallback.base_url' => 'https://env.example.test',
+        'ai.providers.env_fallback.model' => 'env-model',
+        'ai.providers.env_fallback.api_key' => 'sk-from-env',
     ]);
 
     $view = app(AiProviderSettingsService::class)->currentView();
@@ -66,7 +66,7 @@ it('never returns the api key itself, only whether one is set and its last four 
 });
 
 it('a saved database value overrides the env fallback once set, per field', function (): void {
-    config(['settings.ai.env_fallback.model' => 'env-model']);
+    config(['ai.providers.env_fallback.model' => 'env-model']);
 
     app(AiProviderSettingsService::class)->update(new UpdateAiProviderSettingsInput(
         enabled: true,

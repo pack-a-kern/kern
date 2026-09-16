@@ -16,7 +16,7 @@ use App\Domain\Settings\Repositories\SettingsRepository;
  * (`docs/handoff/041-settings-module.md`).
  *
  * Per-field fallback, not all-or-nothing: each of `enabled`/`provider`/`base_url`/`model`/
- * `api_key` falls back independently to `config('settings.ai.env_fallback.*')` only when that
+ * `api_key` falls back independently to `config('ai.providers.env_fallback.*')` only when that
  * specific `settings` row does not exist yet — an existing deployment relying on `AI_*` env vars
  * keeps working unchanged until an administrator explicitly overrides one field through the API.
  *
@@ -36,7 +36,7 @@ final readonly class ResolveAiProviderCredentials
         // literal was `'true'` while the update endpoint stored `'1'`, so this switch read as off
         // however it was set.
         $enabled = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_ENABLED))
-            ?? (bool) config('settings.ai.env_fallback.enabled', false);
+            ?? (bool) config('ai.providers.env_fallback.enabled', false);
 
         return new AiProviderCredentials(
             enabled: $enabled,
@@ -49,7 +49,7 @@ final readonly class ResolveAiProviderCredentials
 
     private function stringFallback(string $field): ?string
     {
-        $value = config("settings.ai.env_fallback.{$field}");
+        $value = config("ai.providers.env_fallback.{$field}");
 
         return is_string($value) && $value !== '' ? $value : null;
     }

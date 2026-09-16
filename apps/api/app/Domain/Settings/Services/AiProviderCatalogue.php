@@ -14,7 +14,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use RuntimeException;
 
 /**
- * Reads the provider presets from `config/ai_providers.php` and hands them out as typed objects.
+ * Reads the provider presets from `config/ai/providers.php` and hands them out as typed objects.
  *
  * A malformed or unknown value in that file throws here, at read time, rather than degrading:
  * a preset whose `dialect` is a typo would otherwise silently fall back to the wrong wire format
@@ -33,17 +33,17 @@ final readonly class AiProviderCatalogue
      */
     public function all(): array
     {
-        $presets = $this->config->get('ai_providers.presets');
+        $presets = $this->config->get('ai.providers.presets');
 
         if (! is_array($presets)) {
-            throw new RuntimeException('ai_providers.presets is missing or is not an array.');
+            throw new RuntimeException('ai.providers.presets is missing or is not an array.');
         }
 
         $catalogue = [];
 
         foreach ($presets as $key => $definition) {
             if (! is_string($key) || ! is_array($definition)) {
-                throw new RuntimeException('Each ai_providers preset must be keyed by a string and hold an array.');
+                throw new RuntimeException('Each ai.providers preset must be keyed by a string and hold an array.');
             }
 
             $catalogue[] = $this->hydrate($key, $definition);
@@ -89,14 +89,14 @@ final readonly class AiProviderCatalogue
      */
     public function anthropicVersion(): string
     {
-        $version = $this->config->get('ai_providers.anthropic_version');
+        $version = $this->config->get('ai.providers.anthropic_version');
 
         return is_string($version) ? $version : '2023-06-01';
     }
 
     public function timeoutSeconds(): int
     {
-        return $this->config->integer('ai_providers.timeout_seconds');
+        return $this->config->integer('ai.providers.timeout_seconds');
     }
 
     /**
@@ -118,13 +118,13 @@ final readonly class AiProviderCatalogue
             return $stored;
         }
 
-        return $this->config->integer('ai_providers.extraction_timeout_seconds');
+        return $this->config->integer('ai.documents.timeout_seconds');
     }
 
-    /** Time a queued job needs around the model call itself — see `ai_providers.job_timeout_margin_seconds`. */
+    /** Time a queued job needs around the model call itself — see `ai.providers.job_timeout_margin_seconds`. */
     public function jobTimeoutMarginSeconds(): int
     {
-        return $this->config->integer('ai_providers.job_timeout_margin_seconds');
+        return $this->config->integer('ai.providers.job_timeout_margin_seconds');
     }
 
     /** Whether the configured endpoint can clean up a photographed document before reading it. */
@@ -132,7 +132,7 @@ final readonly class AiProviderCatalogue
     {
         $stored = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_SUPPORTS_ENHANCEMENT));
 
-        return $stored ?? (bool) $this->config->get('ai_providers.supports_enhancement', false);
+        return $stored ?? (bool) $this->config->get('ai.providers.supports_enhancement', false);
     }
 
     /**
@@ -167,7 +167,7 @@ final readonly class AiProviderCatalogue
      */
     public function extractionMaxImageBytes(): int
     {
-        $max = $this->config->get('ai_providers.extraction_max_image_bytes');
+        $max = $this->config->get('ai.documents.max_image_bytes');
 
         return is_int($max) && $max > 0 ? $max : 8 * 1024 * 1024;
     }
@@ -188,7 +188,7 @@ final readonly class AiProviderCatalogue
      *
      * Read through `SettingsRepository`, so an administrator changing it on the settings screen
      * takes effect on the very next document — the same per-call resolution the provider and model
-     * already use. The stored value falls back to `config/ai_providers.php`, which is the only
+     * already use. The stored value falls back to `config/ai/documents.php`, which is the only
      * place the number itself is written down.
      */
     public function extractionMaxTokens(): int
@@ -199,7 +199,7 @@ final readonly class AiProviderCatalogue
             return $stored;
         }
 
-        $max = $this->config->get('ai_providers.extraction_max_tokens');
+        $max = $this->config->get('ai.documents.max_tokens');
 
         // A blanked-out or non-numeric config value must not make extraction impossible, so the
         // floor is the smallest reply that could hold a reading rather than a second copy of the
@@ -235,7 +235,7 @@ final readonly class AiProviderCatalogue
         $value = $definition[$field] ?? null;
 
         if (! is_string($value) || $value === '') {
-            throw new RuntimeException("ai_providers preset [{$key}] is missing a non-empty [{$field}].");
+            throw new RuntimeException("ai.providers preset [{$key}] is missing a non-empty [{$field}].");
         }
 
         return $value;
@@ -253,7 +253,7 @@ final readonly class AiProviderCatalogue
         }
 
         if (! is_string($value)) {
-            throw new RuntimeException("ai_providers preset [{$key}] has a non-string [{$field}].");
+            throw new RuntimeException("ai.providers preset [{$key}] has a non-string [{$field}].");
         }
 
         return $value === '' ? null : $value;

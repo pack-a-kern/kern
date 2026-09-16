@@ -6,7 +6,7 @@ namespace App\Domain\Settings\DataTransferObjects;
 
 /**
  * How a provider's model-list endpoint shapes its response body. Two shapes cover every provider
- * in `config/ai_providers.php`; an unrecognised value in that file is a configuration error and
+ * in `config/ai/providers.php`; an unrecognised value in that file is a configuration error and
  * fails loudly at catalogue-read time rather than producing an empty model list at runtime.
  */
 enum AiModelListShape: string

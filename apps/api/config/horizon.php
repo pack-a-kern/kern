@@ -105,8 +105,9 @@ return [
         'redis:default' => 60,
         // Generous on purpose: this queue is serial and each job holds it for as long as the model
         // takes, so a short backlog is normal operation rather than something to alert on. Ten
-        // documents at a minute each is ten minutes of honest waiting.
-        'redis:documents-ai' => 1800,
+        // documents at a minute each is ten minutes of honest waiting. Keyed by the connection its
+        // supervisor reads through — under `redis:` this threshold silently stopped applying.
+        'redis-ai:' . env('AI_QUEUE', 'documents-ai') => 1800,
     ],
 
     /*
@@ -218,7 +219,8 @@ return [
         'supervisor-documents-ai' => [
             // Its own connection for its reservation length — see `queue.connections.redis-ai`.
             'connection' => 'redis-ai',
-            'queue' => ['documents-ai'],
+            // `ai.providers.queue` — the one queue every model call runs on.
+            'queue' => [env('AI_QUEUE', 'documents-ai')],
             'balance' => 'simple',
             'maxProcesses' => 1,
             'maxTime' => 0,

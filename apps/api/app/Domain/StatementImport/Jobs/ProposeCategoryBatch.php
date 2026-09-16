@@ -28,7 +28,7 @@ use Throwable;
  *
  * ## Why it runs where it runs
  *
- * On the model queue (`statement_import.ai.queue`), with a timeout sized for one call. One process
+ * On the model queue (`ai.providers.queue`), with a timeout sized for one call. One process
  * serves that queue, because the constraint is one model endpoint — which also means batches from one
  * statement run one after another and never race each other's writes.
  *
@@ -60,9 +60,9 @@ final class ProposeCategoryBatch implements ShouldQueue
         private readonly string $run,
         private readonly array $rowIds,
     ) {
-        $this->timeout = config()->integer('statement_import.ai.timeout_seconds')
-            + config()->integer('ai_providers.job_timeout_margin_seconds');
-        $this->onQueue(config()->string('statement_import.ai.queue'));
+        $this->timeout = config()->integer('ai.statements.timeout_seconds')
+            + config()->integer('ai.providers.job_timeout_margin_seconds');
+        $this->onQueue(config()->string('ai.providers.queue'));
     }
 
     public function handle(ClassifyCounterparties $classifier, TenantContext $tenant): void

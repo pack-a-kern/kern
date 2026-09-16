@@ -172,14 +172,14 @@ enum SettingKey: string
     public function configPath(): string
     {
         return match ($this) {
-            self::AI_ENABLED => 'settings.ai.env_fallback.enabled',
-            self::AI_PROVIDER => 'settings.ai.env_fallback.provider',
-            self::AI_BASE_URL => 'settings.ai.env_fallback.base_url',
-            self::AI_MODEL => 'settings.ai.env_fallback.model',
-            self::AI_API_KEY => 'settings.ai.env_fallback.api_key',
-            self::AI_EXTRACTION_MAX_TOKENS => 'ai_providers.extraction_max_tokens',
-            self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai_providers.extraction_timeout_seconds',
-            self::AI_SUPPORTS_ENHANCEMENT => 'ai_providers.supports_enhancement',
+            self::AI_ENABLED => 'ai.providers.env_fallback.enabled',
+            self::AI_PROVIDER => 'ai.providers.env_fallback.provider',
+            self::AI_BASE_URL => 'ai.providers.env_fallback.base_url',
+            self::AI_MODEL => 'ai.providers.env_fallback.model',
+            self::AI_API_KEY => 'ai.providers.env_fallback.api_key',
+            self::AI_EXTRACTION_MAX_TOKENS => 'ai.documents.max_tokens',
+            self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai.documents.timeout_seconds',
+            self::AI_SUPPORTS_ENHANCEMENT => 'ai.providers.supports_enhancement',
             self::DOCUMENTS_MAX_PDF_BYTES => 'documents.max_pdf_bytes',
             self::DOCUMENTS_MAX_IMAGE_BYTES => 'documents.max_image_bytes',
             self::DOCUMENTS_MAX_IMAGE_PIXELS => 'documents.max_image_pixels',

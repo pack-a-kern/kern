@@ -57,7 +57,7 @@ final readonly class ClassifyCounterparties
      */
     public function batches(array $rows): array
     {
-        $size = max(1, $this->config->integer('statement_import.ai.classification_batch'));
+        $size = max(1, $this->config->integer('ai.statements.classification.batch'));
         $batches = [];
 
         foreach (array_chunk($this->groups($rows), $size) as $chunk) {
@@ -119,13 +119,13 @@ final readonly class ClassifyCounterparties
 
         $answer = $this->ai->ask(
             $subjectId,
-            $this->config->string('statement_import.prompts.classification_system'),
-            $this->config->string('statement_import.prompts.classification_instruction'),
+            $this->config->string('ai.statements.classification.system'),
+            $this->config->string('ai.statements.classification.instruction'),
             $sent,
             self::schema(),
-            $this->config->string('statement_import.ai.classification_model'),
-            $this->config->integer('statement_import.ai.classification_max_tokens'),
-            $this->config->integer('statement_import.ai.timeout_seconds'),
+            $this->config->string('ai.statements.classification.model'),
+            $this->config->integer('ai.statements.classification.max_tokens'),
+            $this->config->integer('ai.statements.timeout_seconds'),
         );
 
         if (! $answer->succeeded() || $answer->data === null) {

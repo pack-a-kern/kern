@@ -587,10 +587,10 @@ it('keeps a counterparty in one batch, at whatever size is configured', function
         ->get()
         ->all();
 
-    config(['statement_import.ai.classification_batch' => 1]);
+    config(['ai.statements.classification.batch' => 1]);
     $small = app(ClassifyCounterparties::class)->batches($rows);
 
-    config(['statement_import.ai.classification_batch' => 1000]);
+    config(['ai.statements.classification.batch' => 1000]);
     $large = app(ClassifyCounterparties::class)->batches($rows);
 
     expect($small)->toHaveCount(2)

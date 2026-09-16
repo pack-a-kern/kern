@@ -9,7 +9,7 @@ namespace App\Domain\StatementImport\DataTransferObjects;
  *
  * The reason is kept because the two that matter look identical on screen and have opposite fixes:
  * a person with no AI consent is meant to fill the form in themselves, while a model that ran out of
- * room is a number in `statement_import.ai.max_tokens` that nobody would think to change if the
+ * room is a number in `ai.statements.mapping.max_tokens` that nobody would think to change if the
  * screen only said "no suggestion".
  */
 final readonly class FormSuggestion

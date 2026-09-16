@@ -9,7 +9,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
- * `GET /api/v1/settings/ai/providers` — the preset catalogue from `config/ai_providers.php`.
+ * `GET /api/v1/settings/ai/providers` — the preset catalogue from `config/ai/providers.php`.
  *
  * Served from the API rather than compiled into the frontend bundle so adding a provider is a
  * config edit with no rebuild, per BLUEPRINT.md §19.1. Contains no secrets and no per-installation

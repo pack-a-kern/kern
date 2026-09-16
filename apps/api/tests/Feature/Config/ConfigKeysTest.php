@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Config\ConfigKeysTest;
 
+use App\Domain\Settings\Enums\SettingKey;
 use Illuminate\Support\Facades\Config;
 use Symfony\Component\Finder\Finder;
 
@@ -57,4 +58,21 @@ it('reads no configuration key that does not exist', function (): void {
     // Not empty first: a pattern that stopped matching anything would pass every run and prove nothing.
     expect(count($keys))->toBeGreaterThan(50)
         ->and($missing)->toBe([]);
+});
+
+/*
+ * A database setting overrides one config key, named in `SettingKey::configPath()` — a string in a
+ * `match`, which the source scan above cannot see. A path pointing at a key that moved would make the
+ * setting's fallback null and its screen show nothing, so every one is checked by name.
+ */
+it('points every database setting at a configuration key that exists', function (): void {
+    $missing = [];
+
+    foreach (SettingKey::cases() as $setting) {
+        if (! Config::has($setting->configPath())) {
+            $missing[$setting->name] = $setting->configPath();
+        }
+    }
+
+    expect($missing)->toBe([]);
 });

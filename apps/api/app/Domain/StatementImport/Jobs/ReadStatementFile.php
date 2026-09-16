@@ -68,9 +68,9 @@ final class ReadStatementFile implements ShouldQueue
     {
         $this->tries = config()->integer('statement_import.scan_wait.checks');
         $this->timeout = config()->integer('statement_import.parser.timeout_seconds')
-            + config()->integer('statement_import.ai.timeout_seconds')
-            + config()->integer('ai_providers.job_timeout_margin_seconds');
-        $this->onQueue(config()->string('statement_import.ai.queue'));
+            + config()->integer('ai.statements.timeout_seconds')
+            + config()->integer('ai.providers.job_timeout_margin_seconds');
+        $this->onQueue(config()->string('ai.providers.queue'));
     }
 
     public function handle(

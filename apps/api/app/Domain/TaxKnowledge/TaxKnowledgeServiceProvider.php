@@ -66,7 +66,7 @@ final class TaxKnowledgeServiceProvider extends ServiceProvider
         // a chunk backfill because a config default changed under it.
         $this->app->singleton(
             EmbeddingProvider::class,
-            static fn (Application $app): EmbeddingProvider => $app->make('config')->get('retrieval.embedding.enabled') === true
+            static fn (Application $app): EmbeddingProvider => $app->make('config')->get('ai.embeddings.enabled') === true
                 ? $app->make(HttpEmbeddingProvider::class)
                 : $app->make(UnconfiguredEmbeddingProvider::class),
         );

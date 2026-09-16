@@ -7,7 +7,7 @@ namespace App\Domain\Settings\DataTransferObjects;
 use App\Domain\Settings\Enums\AiDialect;
 
 /**
- * One entry from `config/ai_providers.php`. Choosing a preset in the UI only prefills fields; it
+ * One entry from `config/ai/providers.php`. Choosing a preset in the UI only prefills fields; it
  * never becomes the stored value on its own, so nothing here is authoritative at request time
  * except `dialect`, which decides the wire format actually used to talk to the provider.
  */

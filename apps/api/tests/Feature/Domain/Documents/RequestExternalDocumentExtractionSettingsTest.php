@@ -173,11 +173,11 @@ it('picks up a settings change on the very next call, with no restart, no re-res
 
 it('falls back to the env-configured provider only until a setting is explicitly saved', function (): void {
     config([
-        'settings.ai.env_fallback.enabled' => true,
-        'settings.ai.env_fallback.provider' => 'env-openai',
-        'settings.ai.env_fallback.base_url' => 'https://env.example.test',
-        'settings.ai.env_fallback.model' => 'env-model',
-        'settings.ai.env_fallback.api_key' => 'sk-from-env',
+        'ai.providers.env_fallback.enabled' => true,
+        'ai.providers.env_fallback.provider' => 'env-openai',
+        'ai.providers.env_fallback.base_url' => 'https://env.example.test',
+        'ai.providers.env_fallback.model' => 'env-model',
+        'ai.providers.env_fallback.api_key' => 'sk-from-env',
     ]);
 
     $document = sendableDocument();

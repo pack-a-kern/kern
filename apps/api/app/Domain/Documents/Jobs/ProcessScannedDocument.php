@@ -126,7 +126,7 @@ final class ProcessScannedDocument implements ShouldQueue
          * Scanning stays parallel — `ScanQuarantinedPart` talks to ClamAV, which is local and
          * concurrent, and holding those up would delay every document's promotion for nothing.
              */
-        $this->onQueue('documents-ai');
+        $this->onQueue(config()->string('ai.providers.queue'));
     }
 
     public function handle(

@@ -18,7 +18,7 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
  * one, so tests that assert "the hybrid ranking combines lexical and semantic signal" are testing
  * real arithmetic behaviour of `HybridLegislationSearch`'s SQL, not a canned fixture number.
  *
- * The dimension is read from `config('retrieval.embedding.dimension')` rather than fixed here.
+ * The dimension is read from `config('ai.embeddings.dimension')` rather than fixed here.
  * `ext_source_section_chunks.embedding` is a `vector(N)` column and pgvector rejects any other width
  * outright, so a literal in this file is a literal that has to be changed in lockstep with a
  * migration — which is exactly what did not happen when
@@ -30,7 +30,7 @@ final class DeterministicHashEmbeddingProvider implements EmbeddingProvider
     /** The width the column actually has — the same value `EmbedIndexedChunks` asserts against. */
     public static function dimension(): int
     {
-        $configured = config('retrieval.embedding.dimension');
+        $configured = config('ai.embeddings.dimension');
 
         return is_int($configured) && $configured > 0 ? $configured : 384;
     }

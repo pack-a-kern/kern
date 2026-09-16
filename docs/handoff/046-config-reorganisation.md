@@ -56,6 +56,25 @@ not change when a file moves; only the keys the code uses do.
    probe checks the address all three use.
 4. **`config/ai/`.** `providers.php`, `documents.php`, `statements.php`, `embeddings.php` — every
    model, prompt, token limit and model timeout in one folder.
+   Old key → new key:
+
+   | Was | Now |
+   |---|---|
+   | `ai_providers.presets`, `.anthropic_version`, `.supports_enhancement`, `.timeout_seconds`, `.job_timeout_margin_seconds` | `ai.providers.*` |
+   | `settings.ai.env_fallback.*` (the whole of `settings.php`) | `ai.providers.env_fallback.*` |
+   | `statement_import.ai.queue` | `ai.providers.queue` (`AI_QUEUE`, also named by `horizon.php`) |
+   | `ai_providers.prompt.*` | `ai.documents.prompt.*` |
+   | `ai_providers.extraction_timeout_seconds`, `_max_image_bytes`, `_max_tokens` | `ai.documents.timeout_seconds`, `.max_image_bytes`, `.max_tokens` |
+   | `statement_import.ai.model`, `.max_tokens`, `prompts.mapping_*` | `ai.statements.mapping.model`, `.max_tokens`, `.system`, `.instruction` |
+   | `statement_import.ai.classification_*`, `prompts.classification_*` | `ai.statements.classification.model`, `.max_tokens`, `.batch`, `.system`, `.instruction` |
+   | `statement_import.ai.timeout_seconds` | `ai.statements.timeout_seconds` |
+   | `retrieval.embedding.*` (the whole of `retrieval.php`) | `ai.embeddings.*` |
+
+   Every value was compared before the old files were deleted, and was identical. Env var names are
+   unchanged except `STATEMENT_IMPORT_AI_QUEUE`, which became `AI_QUEUE` when the queue stopped
+   belonging to one feature. `ExtractionPrompt` no longer falls back to prompt wording written in the
+   class: a missing prompt is a named configuration error. The guard test now also checks every
+   `SettingKey::configPath()`, which the source scan cannot see.
 5. **`config/reference/`.** The data files, and the month names out of `statement_import`.
 6. **Env documentation.** The root `.env` reaches Laravel only through the `environment:` block of
    `compose.yaml` — a variable set there but not passed on never arrives. `apps/api/.env` is mounted

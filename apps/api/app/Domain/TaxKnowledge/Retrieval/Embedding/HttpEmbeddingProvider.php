@@ -81,7 +81,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
         // Prefer what the service reported over what this side configured: the string is stored per
         // row as `embedding_model`, and it must name what actually produced the vector. The
         // configured name is only a stand-in for callers that ask before any call has been made.
-        return $this->reportedModel ?? $this->stringConfig('retrieval.embedding.model');
+        return $this->reportedModel ?? $this->stringConfig('ai.embeddings.model');
     }
 
     /**
@@ -92,7 +92,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
     {
         try {
             $response = $this->http
-                ->timeout($this->intConfig('retrieval.embedding.timeout_seconds'))
+                ->timeout($this->intConfig('ai.embeddings.timeout_seconds'))
                 ->withToken($token)
                 ->acceptJson()
                 ->post($this->baseUrl() . '/v1/embeddings', [
@@ -123,7 +123,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
             $this->reportedModel = $model;
         }
 
-        $expected = $this->intConfig('retrieval.embedding.dimension');
+        $expected = $this->intConfig('ai.embeddings.dimension');
         $vectors = [];
 
         foreach ($rows as $row) {
@@ -157,7 +157,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
     /** @return int<1, max> */
     private function batchSize(): int
     {
-        return max(1, $this->intConfig('retrieval.embedding.batch_size'));
+        return max(1, $this->intConfig('ai.embeddings.batch_size'));
     }
 
     private function stringConfig(string $key): string

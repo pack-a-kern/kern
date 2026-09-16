@@ -25,7 +25,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
  * The request shape is chosen by the configured provider's `App\Domain\Settings\Enums\AiDialect`
  * rather than being fixed, because Anthropic's public API is not OpenAI-compatible: it takes
  * `/v1/messages` with an `x-api-key` header. Without that branch the Anthropic preset in
- * `config/ai_providers.php` would be an option that can never report a working connection.
+ * `config/ai/providers.php` would be an option that can never report a working connection.
  */
 final readonly class TestAiProviderConnection
 {

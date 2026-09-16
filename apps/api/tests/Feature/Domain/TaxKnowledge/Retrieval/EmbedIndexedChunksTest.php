@@ -36,12 +36,12 @@ beforeEach(function (): void {
 
 it('throws when no embedding provider is configured — the default binding', function (): void {
     // Forced off rather than assumed off. `TaxKnowledgeServiceProvider` binds the real HTTP
-    // provider whenever `retrieval.embedding.enabled` is true, and a developer machine with
+    // provider whenever `ai.embeddings.enabled` is true, and a developer machine with
     // `RETRIEVAL_EMBEDDING_ENABLED=true` in its `.env` would otherwise reach python-api and
     // succeed — so this test passed on CI and failed locally, which is the worst way for a test
     // about a *default* to behave. `forgetInstance` is needed because the binding is a singleton
     // already resolved by the time config changes here.
-    config()->set('retrieval.embedding.enabled', false);
+    config()->set('ai.embeddings.enabled', false);
     app()->forgetInstance(EmbeddingProvider::class);
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text.']);

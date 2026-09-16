@@ -9,11 +9,12 @@ use App\Domain\Documents\Parsing\ExtractionField;
 use App\Domain\Documents\Parsing\ExtractionFieldKind;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use RuntimeException;
 
 /**
  * Composes what the model is told, from two sources that own different halves.
  *
- * **`config/ai_providers.php` owns the words** — the system message, the opening line, the format
+ * **`config/ai/documents.php` owns the words** — the system message, the opening line, the format
  * rules, and one description per field. Tuning a phrase for a particular model is a config change,
  * not a deploy.
  *
@@ -51,7 +52,7 @@ final readonly class ExtractionPrompt
 
     public function system(): string
     {
-        return $this->string('system', 'You extract structured data from financial documents.');
+        return $this->string('system');
     }
 
     /**
@@ -71,7 +72,7 @@ final readonly class ExtractionPrompt
         $schema = ExtractionSchema::union();
 
         $lines = [
-            $this->string('instruction', 'Read this document, decide what kind it is, and return JSON with these fields:'),
+            $this->string('instruction'),
             ...$this->describeFields($schema->fields, 0, ''),
         ];
 
@@ -81,10 +82,7 @@ final readonly class ExtractionPrompt
 
         // Only the fields that belong to what it decided. Without this a model classifies a receipt
         // and then dutifully fills in the statement fields as well, because they were on the list.
-        $lines[] = $this->string(
-            'only_relevant_fields',
-            'Return only the fields that apply to the kind you chose: an invoice has no transactions, an account statement has no items.',
-        );
+        $lines[] = $this->string('only_relevant_fields');
 
         return implode("\n", $lines);
     }
@@ -140,7 +138,7 @@ final readonly class ExtractionPrompt
      */
     private function describe(string $field, string $parent): string
     {
-        $descriptions = $this->config->get('ai_providers.prompt.field_descriptions');
+        $descriptions = $this->config->get('ai.documents.prompt.field_descriptions');
         $descriptions = is_array($descriptions) ? $descriptions : [];
 
         // `payments.amount` before `amount`. The same name means different things in different
@@ -151,7 +149,7 @@ final readonly class ExtractionPrompt
 
         $text = is_string($description) && trim($description) !== ''
             ? $description
-            : $this->string('default_field_description', 'as printed on the document');
+            : $this->string('default_field_description');
 
         return $text . $this->choicesFor($field);
     }
@@ -188,7 +186,7 @@ final readonly class ExtractionPrompt
      */
     private function documentKinds(): array
     {
-        $descriptions = $this->config->get('ai_providers.prompt.document_kinds');
+        $descriptions = $this->config->get('ai.documents.prompt.document_kinds');
         $descriptions = is_array($descriptions) ? $descriptions : [];
         $kinds = [];
 
@@ -234,7 +232,7 @@ final readonly class ExtractionPrompt
     /** @return list<string> */
     private function formatRules(): array
     {
-        $rules = $this->config->get('ai_providers.prompt.format_rules');
+        $rules = $this->config->get('ai.documents.prompt.format_rules');
 
         return array_values(array_filter(
             is_array($rules) ? $rules : [],
@@ -243,15 +241,20 @@ final readonly class ExtractionPrompt
     }
 
     /**
-     * A configured string, or the fallback.
+     * A configured prompt string, or a refusal naming the key.
      *
-     * Falls back rather than throwing: a blanked-out config value must not make document extraction
-     * impossible, and a generic prompt still produces a reading a human then reviews.
+     * This used to fall back to a copy of the wording written into this class, so a blanked-out value
+     * kept extraction working — on text nobody could see or tune from config, which is exactly what
+     * keeping prompts in configuration is for. A missing prompt is now a named configuration error.
      */
-    private function string(string $key, string $fallback): string
+    private function string(string $key): string
     {
-        $value = $this->config->get("ai_providers.prompt.{$key}");
+        $value = $this->config->get("ai.documents.prompt.{$key}");
 
-        return is_string($value) && trim($value) !== '' ? $value : $fallback;
+        if (! is_string($value) || trim($value) === '') {
+            throw new RuntimeException("Missing or empty config value \"ai.documents.prompt.{$key}\".");
+        }
+
+        return $value;
     }
 }
