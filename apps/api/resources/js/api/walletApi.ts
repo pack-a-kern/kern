@@ -4,11 +4,13 @@ import {
     type Bank,
     type DuplicateGroup,
     type TaxCategory,
+    type Tag,
     type TransactionPage,
     type WalletOverview,
     parseAccounts,
     parseBanks,
     parseDuplicateGroups,
+    parseTags,
     parseTaxCategories,
     parseTransactions,
     parseWalletOverview,
@@ -84,6 +86,10 @@ export async function updateTransaction(
         description?: string;
         counterparty?: string | null;
         currency_code?: string;
+        /** Null clears the bank. */
+        bank_id?: string | null;
+        /** The whole set of tag names, by name so a new one is made by typing it. */
+        tags?: string[];
     },
 ): Promise<void> {
     await apiRequest(
@@ -228,24 +234,76 @@ export async function listBanks(subjectId: string): Promise<Bank[]> {
     return parseBanks(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks`)));
 }
 
+/** This taxpayer's own tags, for the filter and the chips input. */
+export async function listTags(subjectId: string): Promise<Tag[]> {
+    return parseTags(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/tags`)));
+}
+
+export async function renameTag(subjectId: string, tagId: string, name: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/tags/${encodeURIComponent(tagId)}`, {
+        method: 'PATCH',
+        body: { name },
+    });
+}
+
+/** Folds `tagId` into `intoTagId`, which survives with both tags' transactions and rules. */
+export async function mergeTags(subjectId: string, tagId: string, intoTagId: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/tags/${encodeURIComponent(tagId)}/merge`, {
+        method: 'POST',
+        body: { into_tag_id: intoTagId },
+    });
+}
+
+export async function deleteTag(subjectId: string, tagId: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/tags/${encodeURIComponent(tagId)}`, {
+        method: 'DELETE',
+    });
+}
+
 export async function listTaxCategories(subjectId: string): Promise<TaxCategory[]> {
     return parseTaxCategories(
         JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/categories`)) as unknown,
     );
 }
 
-export async function listTransactions(
-    subjectId: string,
-    filters: { accountId?: string; limit?: number } = {},
-): Promise<TransactionPage> {
+export interface TransactionFilters {
+    accountId?: string;
+    bankId?: string;
+    tagId?: string;
+    /** `CLASSIFIED` or `UNCLASSIFIED`; anything else means every row. */
+    classification?: string;
+    /** `IN` or `OUT`. */
+    direction?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    perPage?: number;
+}
+
+/**
+ * The ledger, narrowed and paged by the server.
+ *
+ * Every filter is sent rather than applied to what came back: one imported statement is more rows
+ * than any window would hold, and a filter over a window answers about the window rather than about
+ * the taxpayer's transactions.
+ */
+export async function listTransactions(subjectId: string, filters: TransactionFilters = {}): Promise<TransactionPage> {
     const params = new URLSearchParams();
 
-    if (filters.accountId !== undefined && filters.accountId !== '') {
-        params.set('account_id', filters.accountId);
-    }
-
-    if (filters.limit !== undefined) {
-        params.set('limit', String(filters.limit));
+    for (const [key, value] of [
+        ['account_id', filters.accountId],
+        ['bank_id', filters.bankId],
+        ['tag_id', filters.tagId],
+        ['classification', filters.classification],
+        ['direction', filters.direction],
+        ['from', filters.from],
+        ['to', filters.to],
+        ['page', filters.page === undefined ? undefined : String(filters.page)],
+        ['per_page', filters.perPage === undefined ? undefined : String(filters.perPage)],
+    ] as const) {
+        if (value !== undefined && value !== '') {
+            params.set(key, value);
+        }
     }
 
     const query = params.toString();
@@ -271,6 +329,10 @@ export interface RecordTransactionRequest {
     category_code?: string;
     /** ISO 3166-1 alpha-2. Omitted means Romania. */
     country_code?: string;
+    /** Where it happened — a label, never a second account. */
+    bank_id?: string;
+    /** Tag names; one that does not exist yet is created. */
+    tags?: string[];
 }
 
 export async function recordTransaction(subjectId: string, body: RecordTransactionRequest): Promise<void> {

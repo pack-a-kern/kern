@@ -132,7 +132,12 @@ export default function CustomSelect<TMeta = unknown>({
 
         setRect(measure(triggerRef.current));
         setQuery('');
-        setActiveIndex(Math.max(0, filtered.findIndex((option) => option.value === value)));
+        setActiveIndex(
+            Math.max(
+                0,
+                filtered.findIndex((option) => option.value === value),
+            ),
+        );
     }
 
     function closeMenu(): void {
@@ -266,87 +271,88 @@ export default function CustomSelect<TMeta = unknown>({
         }
     }
 
-    const menu = rect === null ? null : (
-        <div
-            ref={menuRef}
-            style={{
-                position: 'fixed',
-                left: rect.left,
-                width: rect.width,
-                ...(rect.above ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.top + 4 }),
-            }}
-            className={cn('select-menu', menuClassName)}
-        >
-            {searchable && (
-                <div className="border-border border-b p-2">
-                    <div className="bg-secondary flex h-8 items-center gap-2 rounded-lg px-2.5">
-                        <Search className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                        <input
-                            ref={searchRef}
-                            value={query}
-                            onChange={(event) => {
-                                setQuery(event.target.value);
-                                setActiveIndex(0);
-                            }}
-                            onKeyDown={onKeyDown}
-                            placeholder={searchPlaceholder}
-                            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
-                        />
-                    </div>
-                </div>
-            )}
-
+    const menu =
+        rect === null ? null : (
             <div
-                id={`${fieldId}-listbox`}
-                role="listbox"
-                className="scroll-hairline max-h-72 overflow-y-auto p-1.5"
-                onWheel={(event) => {
-                    // A dialog locks scrolling everywhere except its own content (Radix hands that
-                    // node to `react-remove-scroll` as the single exception), and this menu is
-                    // portalled to the body — so inside a dialog the wheel was cancelled on its way
-                    // up and a 42-county list could not be scrolled at all.
-                    //
-                    // Stopping it here keeps it from reaching that document-level listener, and the
-                    // browser scrolls this list natively, exactly as it does outside a dialog.
-                    // Nothing is scrolled by hand, so there is no double-speed scrolling elsewhere.
-                    event.stopPropagation();
+                ref={menuRef}
+                style={{
+                    position: 'fixed',
+                    left: rect.left,
+                    width: rect.width,
+                    ...(rect.above ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.top + 4 }),
                 }}
+                className={cn('select-menu', menuClassName)}
             >
-                {filtered.length === 0 ? (
-                    <p className="text-muted-foreground px-3 py-8 text-center text-xs">{emptyText}</p>
-                ) : (
-                    filtered.map((option, index) => {
-                        const isSelected = option.value === value;
-
-                        return (
-                            <button
-                                key={String(option.value)}
-                                type="button"
-                                role="option"
-                                aria-selected={isSelected}
-                                disabled={option.disabled === true}
-                                onMouseEnter={() => {
-                                    if (option.disabled !== true) {
-                                        setActiveIndex(index);
-                                    }
+                {searchable && (
+                    <div className="border-border border-b p-2">
+                        <div className="bg-secondary flex h-8 items-center gap-2 rounded-lg px-2.5">
+                            <Search className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+                            <input
+                                ref={searchRef}
+                                value={query}
+                                onChange={(event) => {
+                                    setQuery(event.target.value);
+                                    setActiveIndex(0);
                                 }}
-                                onClick={() => {
-                                    commit(option);
-                                }}
-                                className={cn('select-option', index === activeIndex && 'select-option-active')}
-                            >
-                                {renderOption === undefined ? (
-                                    <DefaultOption option={option} selected={isSelected} visual={optionVisual} />
-                                ) : (
-                                    renderOption(option, { selected: isSelected, active: index === activeIndex })
-                                )}
-                            </button>
-                        );
-                    })
+                                onKeyDown={onKeyDown}
+                                placeholder={searchPlaceholder}
+                                className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+                            />
+                        </div>
+                    </div>
                 )}
+
+                <div
+                    id={`${fieldId}-listbox`}
+                    role="listbox"
+                    className="scroll-hairline max-h-72 overflow-y-auto p-1.5"
+                    onWheel={(event) => {
+                        // A dialog locks scrolling everywhere except its own content (Radix hands that
+                        // node to `react-remove-scroll` as the single exception), and this menu is
+                        // portalled to the body — so inside a dialog the wheel was cancelled on its way
+                        // up and a 42-county list could not be scrolled at all.
+                        //
+                        // Stopping it here keeps it from reaching that document-level listener, and the
+                        // browser scrolls this list natively, exactly as it does outside a dialog.
+                        // Nothing is scrolled by hand, so there is no double-speed scrolling elsewhere.
+                        event.stopPropagation();
+                    }}
+                >
+                    {filtered.length === 0 ? (
+                        <p className="text-muted-foreground px-3 py-8 text-center text-xs">{emptyText}</p>
+                    ) : (
+                        filtered.map((option, index) => {
+                            const isSelected = option.value === value;
+
+                            return (
+                                <button
+                                    key={String(option.value)}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={isSelected}
+                                    disabled={option.disabled === true}
+                                    onMouseEnter={() => {
+                                        if (option.disabled !== true) {
+                                            setActiveIndex(index);
+                                        }
+                                    }}
+                                    onClick={() => {
+                                        commit(option);
+                                    }}
+                                    className={cn('select-option', index === activeIndex && 'select-option-active')}
+                                >
+                                    {renderOption === undefined ? (
+                                        <DefaultOption option={option} selected={isSelected} visual={optionVisual} />
+                                    ) : (
+                                        renderOption(option, { selected: isSelected, active: index === activeIndex })
+                                    )}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
 
     return (
         <>
@@ -374,11 +380,7 @@ export default function CustomSelect<TMeta = unknown>({
                 {selected?.icon !== undefined && <span className="flex shrink-0 items-center">{selected.icon}</span>}
 
                 <span className="min-w-0 flex-1 truncate text-left">
-                    {selected === null ? (
-                        <span className="text-muted-foreground">{placeholder}</span>
-                    ) : (
-                        selected.label
-                    )}
+                    {selected === null ? <span className="text-muted-foreground">{placeholder}</span> : selected.label}
                 </span>
 
                 {clearable && selected !== null && !disabled && (

@@ -11,6 +11,7 @@ use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use App\Http\Controllers\Controller;
@@ -41,6 +42,7 @@ final class RecordTransactionController extends Controller
         RecordFinancialTransaction $record,
         TenantContext $tenant,
         TaxCategoryCatalogue $categories,
+        TagDirectory $tags,
     ): JsonResponse {
         $validated = $request->validate([
             // Only a source that receives transactions. A cash holding is one declared value and a
@@ -69,6 +71,13 @@ final class RecordTransactionController extends Controller
             // which is what imported and system-generated rows do.
             'category_code' => ['sometimes', 'nullable', 'string', Rule::in($categories->codes())],
             'country_code' => ['sometimes', 'nullable', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
+            // Where it happened. A label on the transaction, never a second account — General stays
+            // one pot, which is what the balance rules depend on.
+            'bank_id' => ['sometimes', 'nullable', 'uuid'],
+            // What it was *for*, in the person's own words. Names rather than ids, so a new tag is
+            // made by typing it; the catalogue of existing ones is offered by the form.
+            'tags' => ['sometimes', 'array', 'max:10'],
+            'tags.*' => ['string', 'max:' . TagDirectory::MAX_LENGTH],
         ]);
 
         // Tenant-scoped lookup: an account id belonging to another subject 404s here rather than
@@ -77,6 +86,9 @@ final class RecordTransactionController extends Controller
 
         // Answered while it is being typed, or left for the worklist.
         $category = $this->nullableString($validated, 'category_code');
+
+        /** @var list<string> $tagNames */
+        $tagNames = is_array($validated['tags'] ?? null) ? array_values(array_filter($validated['tags'], is_string(...))) : [];
 
         try {
             $transaction = $record(new RecordFinancialTransactionInput(
@@ -91,6 +103,8 @@ final class RecordTransactionController extends Controller
                 counterparty: is_string($validated['counterparty'] ?? null) ? $validated['counterparty'] : '',
                 source: RecordSource::MANUAL,
                 actorId: $this->actorId($request),
+                bankId: $this->nullableString($validated, 'bank_id'),
+                tagIds: $tags->idsFor($tagNames),
                 splits: $category === null ? [] : [new TransactionSplitInput(
                     amountMinor: (int) $validated['amount_minor'],
                     categoryCode: $category,

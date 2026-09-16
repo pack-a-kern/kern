@@ -25,14 +25,15 @@ function file(name: string): File {
 describe('useUploadQueue', () => {
     beforeEach(() => {
         uploadDocument.mockReset();
-        uploadDocument.mockImplementation(() =>
-            // A real upload does not resolve in the same tick, which is the whole point: the queue
-            // must still be running when the later files are written to IndexedDB.
-            new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({ id: crypto.randomUUID(), status: 'QUARANTINE' });
-                }, 5);
-            }),
+        uploadDocument.mockImplementation(
+            () =>
+                // A real upload does not resolve in the same tick, which is the whole point: the queue
+                // must still be running when the later files are written to IndexedDB.
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve({ id: crypto.randomUUID(), status: 'QUARANTINE' });
+                    }, 5);
+                }),
         );
     });
 

@@ -413,6 +413,14 @@ services:
       # huggingface_hub writes here as well as to EMBEDDING_CACHE_DIR; without it the library
       # tries $HOME, which this user does not have (`--no-create-home`).
       HF_HOME: /var/cache/embeddings
+      # Statement import (docs/handoff/045-statement-import.md). The ceilings exist because the
+      # bytes come from outside — a file claiming to be a statement can be a decompression bomb or a
+      # sheet with a million rows. The row limit is sized for a real export rather than a month: a
+      # current account's five years is comfortably under 20 000 lines, and a person importing their
+      # whole history should not be told to split the file by hand.
+      STATEMENT_PARSE_MAX_ROWS: ${STATEMENT_PARSE_MAX_ROWS:-20000}
+      STATEMENT_PARSE_MAX_FILE_SIZE_BYTES: ${STATEMENT_PARSE_MAX_FILE_SIZE_BYTES:-10485760}
+      STATEMENT_PARSE_MAX_PDF_PAGES: ${STATEMENT_PARSE_MAX_PDF_PAGES:-60}
     volumes:
       - embedding_cache:/var/cache/embeddings
     read_only: true

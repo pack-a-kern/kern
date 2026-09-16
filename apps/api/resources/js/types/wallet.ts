@@ -130,6 +130,27 @@ export interface TransactionSplit {
 /** Which way money moves. The sign of a stored amount, chosen in a form as a toggle. */
 export type MoneyDirection = 'in' | 'out';
 
+/**
+ * A person's own label for their spending — "restaurants", "fuel".
+ *
+ * Not a tax category: every one of these is `EXPENSE` as far as a return is concerned. Tags exist to
+ * filter and to answer "what did I spend on food last year", and the name is decrypted for its owner.
+ */
+export interface Tag {
+    id: string;
+    name: string;
+}
+
+export function parseTags(payload: unknown): Tag[] {
+    const body = obj(payload);
+
+    return (Array.isArray(body.tags) ? body.tags : []).map((entry): Tag => {
+        const row = obj(entry);
+
+        return { id: str(row, 'id'), name: str(row, 'name') };
+    });
+}
+
 /** A category a transaction may be said to be, from `config/tax_categories.php`. */
 export interface TaxCategory {
     code: string;
@@ -186,6 +207,13 @@ export interface TransactionSummary {
     source: string;
     /** The document it was built from. A merge keeps the document-backed row. */
     documentId: string | null;
+    /** Where it happened, when it is known. The money still sits in its account. */
+    bankId: string | null;
+    bankName: string | null;
+    /** The person's own labels. Never a tax vocabulary — see {@link Tag}. */
+    tags: Tag[];
+    /** The statement import that created it, for undoing a whole import. */
+    importId: string | null;
 }
 
 /** Lookalike transactions gathered for a person to merge or keep. */
@@ -197,9 +225,10 @@ export interface DuplicateGroup {
 
 export interface TransactionPage {
     transactions: TransactionSummary[];
-    limit: number;
-    /** The list is a window, not the whole history — the screen says so when it fills. */
-    capped: boolean;
+    /** Rows matching the filters, across every page — what the pager counts. */
+    total: number;
+    page: number;
+    perPage: number;
     /** The vocabulary the classification dialog offers; the server validates against the same list. */
     categories: TaxCategory[];
 }
@@ -606,6 +635,14 @@ function parseTransactionRow(entry: unknown): TransactionSummary {
         }),
         source: str(row, 'source'),
         documentId: nullableStr(row, 'document_id'),
+        bankId: nullableStr(row, 'bank_id'),
+        bankName: nullableStr(row, 'bank_name'),
+        tags: (Array.isArray(row.tags) ? row.tags : []).map((tagEntry): Tag => {
+            const tag = obj(tagEntry);
+
+            return { id: str(tag, 'id'), name: str(tag, 'name') };
+        }),
+        importId: nullableStr(row, 'import_id'),
     };
 }
 
@@ -627,8 +664,9 @@ export function parseTransactions(payload: unknown): TransactionPage {
 
     return {
         transactions: (Array.isArray(body.transactions) ? body.transactions : []).map(parseTransactionRow),
-        limit: num(body, 'limit'),
-        capped: body.capped === true,
+        total: num(body, 'total'),
+        page: num(body, 'page'),
+        perPage: num(body, 'per_page'),
         categories: parseTaxCategories(payload),
     };
 }

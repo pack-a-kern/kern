@@ -23,6 +23,10 @@ final readonly class RecordFinancialTransactionInput
         public string $currencyCode,
         public string $description,
         public string $counterparty,
+        /** The bank this happened at, where it is known — a label, never a second account. */
+        public ?string $bankId = null,
+        /** @var list<string> tag ids, already resolved from names by `TagDirectory` */
+        public array $tagIds = [],
         public ?string $externalId = null,
         public array $splits = [],
         public RecordSource $source = RecordSource::MANUAL,

@@ -353,7 +353,6 @@ export default function AdminSettings(): JSX.Element {
                     ) : undefined
                 }
             >
-
                 {groups === null ? (
                     <div className="card-columns">
                         {[0, 1, 2, 3].map((index) => (
@@ -1012,9 +1011,7 @@ function AiPanel(props: {
                                         d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
                                         'ai.supports_enhancement',
                                 )}
-                                {enhancementSetting ? (
-                                    <SourceMark setting={enhancementSetting} />
-                                ) : null}
+                                {enhancementSetting ? <SourceMark setting={enhancementSetting} /> : null}
                             </span>
                         </label>
                     </FieldSpan>
@@ -1459,9 +1456,7 @@ function OfficialSourcesPanel({ platform }: { platform: PlatformData | null }): 
                                 {source.mirrored ? (
                                     <Pill>{t((d) => d.pages.adminSettings.sources.inUse)}</Pill>
                                 ) : (
-                                    <Pill tone="locked">
-                                        {t((d) => d.pages.adminSettings.sources.neverFetched)}
-                                    </Pill>
+                                    <Pill tone="locked">{t((d) => d.pages.adminSettings.sources.neverFetched)}</Pill>
                                 )}
                             </td>
                         </tr>

@@ -40,6 +40,27 @@ enum WalletAuditEvent: string
     /** A deposit reached maturity and its money went back to where it came from. */
     case DEPOSIT_CLOSED = 'WalletDepositClosed';
 
+    /*
+     * Tags are a person's own vocabulary for their spending, and renaming or merging one rewrites
+     * what every transaction carrying it says. The name itself never reaches the payload — it is
+     * encrypted for the same reason a description is.
+     */
+    case TAG_RENAMED = 'WalletTagRenamed';
+
+    case TAGS_MERGED = 'WalletTagsMerged';
+
+    case TAG_DELETED = 'WalletTagDeleted';
+
+    /*
+     * An import is one act on a person's part, however many rows it writes. One event with the
+     * counts, rather than four hundred identical ones: the chain is read to answer "what happened to
+     * this account", and a wall of per-row events answers it worse than a line saying a statement was
+     * imported. Each transaction still carries `import_id`, so the rows themselves are traceable.
+     */
+    case STATEMENT_IMPORTED = 'WalletStatementImported';
+
+    case STATEMENT_IMPORT_UNDONE = 'WalletStatementImportUndone';
+
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
@@ -51,6 +72,11 @@ enum WalletAuditEvent: string
             self::DEPOSIT_INTEREST_POSTED,
             self::TRANSACTIONS_MERGED,
             self::DUPLICATES_KEPT => 'FinancialTransaction',
+            self::TAG_RENAMED,
+            self::TAGS_MERGED,
+            self::TAG_DELETED => 'Tag',
+            self::STATEMENT_IMPORTED,
+            self::STATEMENT_IMPORT_UNDONE => 'StatementImport',
             default => 'FinancialAccount',
         };
     }

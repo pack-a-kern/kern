@@ -46,7 +46,9 @@ export async function stopImpersonating(): Promise<void> {
  * its hash is stored. Whatever calls this owns showing it to the administrator once.
  */
 export async function createUser(email: string, roles: string[]): Promise<{ id: string; password: string }> {
-    const payload: unknown = JSON.parse(await apiRequest('/v1/admin/users', { method: 'POST', body: { email, roles } }));
+    const payload: unknown = JSON.parse(
+        await apiRequest('/v1/admin/users', { method: 'POST', body: { email, roles } }),
+    );
     const row = (payload ?? {}) as Record<string, unknown>;
 
     return {

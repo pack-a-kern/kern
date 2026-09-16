@@ -13,6 +13,7 @@ use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use RuntimeException;
 
@@ -29,7 +30,9 @@ use RuntimeException;
  * @property string $currency_code
  * @property string $description_ciphertext
  * @property string $counterparty_ciphertext
- * @property string|null $institution
+ * @property string|null $bank_id
+ * @property string|null $counterparty_blind_index
+ * @property string|null $import_id
  * @property string|null $external_id_ciphertext
  * @property string|null $external_id_blind_index
  * @property TransactionClassificationStatus $classification_status
@@ -47,18 +50,20 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
     protected $fillable = [
         'tax_subject_id',
         'account_id',
+        'bank_id',
         'booked_at',
         'amount_minor',
         'currency_code',
         'description_ciphertext',
         'counterparty_ciphertext',
-        'institution',
+        'counterparty_blind_index',
         'external_id_ciphertext',
         'external_id_blind_index',
         'classification_status',
         'source',
         'document_id',
         'document_extraction_id',
+        'import_id',
     ];
 
     /** @var array<string, string> */
@@ -81,6 +86,17 @@ final class FinancialTransaction extends Model implements EncryptsWithSubjectDek
     public function splits(): HasMany
     {
         return $this->hasMany(TransactionSplit::class, 'transaction_id');
+    }
+
+    /**
+     * What this was for, in the person's own words — beside what it was taxed as, which is the
+     * splits above.
+     *
+     * @return BelongsToMany<Tag, $this>
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'transaction_tags', 'transaction_id', 'tag_id');
     }
 
     public function encryptionSubjectId(): string

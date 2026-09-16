@@ -8,6 +8,7 @@ use App\Domain\Fx\FxServiceProvider;
 use App\Domain\Identity\IdentityServiceProvider;
 use App\Domain\Settings\SettingsServiceProvider;
 use App\Domain\Spv\SpvServiceProvider;
+use App\Domain\StatementImport\StatementImportServiceProvider;
 use App\Domain\Subjects\SubjectsServiceProvider;
 use App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider;
 use App\Providers\AppServiceProvider;
@@ -26,4 +27,5 @@ return [
     DeclarationsServiceProvider::class,
     SpvServiceProvider::class,
     SettingsServiceProvider::class,
+    StatementImportServiceProvider::class,
 ];

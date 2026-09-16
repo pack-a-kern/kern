@@ -61,9 +61,7 @@ export default function SubjectSwitcher({
 
     const needle = query.trim().toLowerCase();
     const matches =
-        needle === ''
-            ? subjects
-            : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
+        needle === '' ? subjects : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
 
     /*
      * Which taxpayer this browser is working in — resolved, not stored twice.
@@ -76,7 +74,9 @@ export default function SubjectSwitcher({
      */
     const resolvedId = subjects.some((subject) => subject.id === activeId)
         ? activeId
-        : (subjects.length === 1 ? (subjects[0]?.id ?? null) : null);
+        : subjects.length === 1
+          ? (subjects[0]?.id ?? null)
+          : null;
 
     // Only the storage is written here; `resolvedId` is derived above, so there is no state to set
     // and no second render to trigger.
@@ -102,9 +102,7 @@ export default function SubjectSwitcher({
     const switchable = subjects.length > 1;
 
     const tile = (
-        <div
-            className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
-        >
+        <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
             <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-[10px] font-bold">
                 {initials(active ? active.displayName : '?')}
             </span>
@@ -148,10 +146,7 @@ export default function SubjectSwitcher({
                                     {active ? active.displayName : t((d) => d.shell.noActiveSubject)}
                                 </span>
                             </span>
-                            <ChevronsUpDown
-                                className="text-muted-foreground size-3.5 shrink-0"
-                                aria-hidden="true"
-                            />
+                            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
                         </>
                     )}
                 </button>
@@ -224,7 +219,6 @@ export default function SubjectSwitcher({
                         </DropdownMenuItem>
                     ))}
                 </div>
-
             </DropdownMenuContent>
         </DropdownMenu>
     );

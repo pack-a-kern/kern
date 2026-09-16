@@ -57,7 +57,10 @@ final readonly class FileSecurityValidator
         $maxBytes = match ($sniffedType) {
             SniffedFileType::PDF => $this->maxPdfBytes,
             SniffedFileType::JPEG, SniffedFileType::PNG => $this->maxImageBytes,
-            SniffedFileType::CSV => $this->maxTextBytes,
+            // A workbook is a data file like a CSV rather than a document or a photograph: it holds
+            // the same rows, in a container. Same ceiling, for the same reason — a statement export
+            // of tens of megabytes is not a statement anybody's bank produced.
+            SniffedFileType::CSV, SniffedFileType::XLSX, SniffedFileType::XLS => $this->maxTextBytes,
         };
 
         if ($sizeBytes > $maxBytes) {

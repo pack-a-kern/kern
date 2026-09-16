@@ -30,10 +30,7 @@ export function useMediaQuery(query: string): boolean {
         [query],
     );
 
-    const getSnapshot = useCallback(
-        () => typeof window !== 'undefined' && window.matchMedia(query).matches,
-        [query],
-    );
+    const getSnapshot = useCallback(() => typeof window !== 'undefined' && window.matchMedia(query).matches, [query]);
 
     // `matchMedia` is external state that changes without React's involvement, which is exactly
     // what this hook is for — an effect mirroring it into `useState` would re-render a step behind

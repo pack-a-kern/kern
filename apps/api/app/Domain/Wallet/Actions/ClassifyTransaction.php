@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
+use App\Domain\Wallet\Enums\MoneyDirection;
+use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
@@ -12,6 +14,7 @@ use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Domain\Wallet\Services\WalletAudit;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +44,7 @@ final readonly class ClassifyTransaction
     public function __construct(
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
+        private CounterpartyRules $rules,
     ) {
     }
 
@@ -79,6 +83,22 @@ final readonly class ClassifyTransaction
                 : TransactionClassificationStatus::CLASSIFIED;
             $transaction->save();
         });
+
+        // What a person just said this counterparty was, kept for the next statement that names it.
+        // Clearing the answer clears nothing remembered: "I am not sure yet" is not a decision either.
+        if ($splits !== []) {
+            $this->rules->remember(
+                index: $transaction->counterparty_blind_index,
+                direction: MoneyDirection::ofAmount($transaction->amount_minor),
+                categoryCode: $splits[0]->categoryCode,
+                countryCode: $splits[0]->countryCode,
+                tagIds: array_values(array_map(
+                    static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+                    $transaction->tags()->pluck('tags.id')->all(),
+                )),
+                source: ProposalSource::PERSON,
+            );
+        }
 
         $this->audit->record(
             subjectId: $transaction->tax_subject_id,

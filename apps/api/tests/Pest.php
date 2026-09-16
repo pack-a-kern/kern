@@ -42,6 +42,7 @@ uses(RefreshDatabase::class)->in('Feature/Domain/Declarations');
 uses(RefreshDatabase::class)->in('Feature/Domain/Spv');
 uses(RefreshDatabase::class)->in('Feature/Domain/Settings');
 uses(RefreshDatabase::class)->in('Feature/Domain/Operations');
+uses(RefreshDatabase::class)->in('Feature/Domain/StatementImport');
 
 /**
  * Puts the database back after the one suite that is allowed to commit.

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Actions;
 
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
+use App\Domain\Wallet\Enums\MoneyDirection;
+use App\Domain\Wallet\Enums\RecordSource;
+use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\HoldingSourceException;
@@ -13,6 +16,7 @@ use App\Domain\Wallet\Exceptions\ZeroAmountTransactionException;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Domain\Wallet\Services\WalletAudit;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
@@ -33,6 +37,7 @@ final readonly class RecordFinancialTransaction
         private BlindIndexHasher $blindIndex,
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
+        private CounterpartyRules $rules,
     ) {
     }
 
@@ -59,6 +64,10 @@ final readonly class RecordFinancialTransaction
                 'currency_code' => strtoupper($input->currencyCode),
                 'description_ciphertext' => $input->description,
                 'counterparty_ciphertext' => $input->counterparty,
+                // Found later without decrypting anything: this is how "what did I say this
+                // counterparty was last month" is answered for a whole statement at once.
+                'counterparty_blind_index' => $this->rules->indexFor($input->counterparty),
+                'bank_id' => $input->bankId,
                 'classification_status' => $input->splits === []
                     ? TransactionClassificationStatus::UNCLASSIFIED
                     : TransactionClassificationStatus::CLASSIFIED,
@@ -75,6 +84,13 @@ final readonly class RecordFinancialTransaction
             }
 
             $transaction->save();
+
+            if ($input->tagIds !== []) {
+                $transaction->tags()->sync(array_fill_keys(
+                    $input->tagIds,
+                    ['tax_subject_id' => $input->taxSubjectId],
+                ));
+            }
 
             foreach ($input->splits as $split) {
                 TransactionSplit::create([
@@ -105,6 +121,19 @@ final readonly class RecordFinancialTransaction
                     'document_id' => $input->documentId,
                 ],
             );
+
+            // Remembered only for what a person entered. An import writes its own rules once the
+            // person has been through the rows — a proposal nobody looked at is not a decision.
+            if ($input->source !== RecordSource::IMPORT) {
+                $this->rules->remember(
+                    index: $transaction->counterparty_blind_index,
+                    direction: MoneyDirection::ofAmount($input->amountMinor),
+                    categoryCode: $input->splits[0]->categoryCode ?? null,
+                    countryCode: $input->splits[0]->countryCode ?? null,
+                    tagIds: $input->tagIds,
+                    source: ProposalSource::PERSON,
+                );
+            }
 
             return $transaction;
         });

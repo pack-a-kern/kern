@@ -58,6 +58,27 @@ final readonly class TaxCategoryCatalogue
     }
 
     /**
+     * Refuses one category that cannot have this direction — the same rule {@see assertSplitsFit()}
+     * applies to a whole transaction, for a caller that holds one code and one amount.
+     */
+    public function assertFitsDirection(string $categoryCode, int $amountMinor): void
+    {
+        $this->assertSplitsFit($amountMinor, [new TransactionSplitInput(
+            amountMinor: $amountMinor,
+            categoryCode: $categoryCode,
+        )]);
+    }
+
+    /** Whether a category may be given to money moving this way. */
+    public function fitsDirection(string $categoryCode, int $amountMinor): bool
+    {
+        $directions = [...$this->group('income'), ...$this->group('not_income')];
+        $direction = $directions[$categoryCode] ?? null;
+
+        return $direction === null || $direction->allows($amountMinor);
+    }
+
+    /**
      * The catalogue as a screen needs it: each code with its group, its direction, and whether it is
      * offered already chosen.
      *

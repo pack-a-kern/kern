@@ -174,10 +174,7 @@ export default function AccountPage(): JSX.Element {
                     <Stat
                         label={t((d) => d.pages.account.stats.subjects)}
                         value={subjects === null ? '—' : subjects.total}
-                        sub={t((d) => d.pages.account.stats.subjectsSub).replace(
-                            '{count}',
-                            String(aiSubjects ?? 0),
-                        )}
+                        sub={t((d) => d.pages.account.stats.subjectsSub).replace('{count}', String(aiSubjects ?? 0))}
                     />
                 </StatGrid>
 

@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -6,13 +7,25 @@ import {
     deleteTransaction,
     keepDuplicateTransactions,
     listAccounts,
+    listBanks,
     listDuplicateTransactions,
+    listTags,
     listTransactions,
     mergeDuplicateTransactions,
     recordTransaction,
     updateTransaction,
+    type TransactionFilters,
 } from '../../api/walletApi';
-import { AlignLeftIcon, UserIcon, ArrowLeftRight, PlusIcon, Trash2 } from 'lucide-react';
+import {
+    AlignLeftIcon,
+    UserIcon,
+    ArrowLeftRight,
+    FileSpreadsheet,
+    Landmark,
+    PlusIcon,
+    TagsIcon,
+    Trash2,
+} from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
@@ -31,7 +44,9 @@ import {
     Toolbar,
 } from '../../components/panel';
 import BulkActions from '../../components/BulkActions';
-import { PanelDate } from '../../components/PanelDatePicker';
+import { PanelDate, PanelDateRange } from '../../components/PanelDatePicker';
+import TagsDialog from '../../components/wallet/TagsDialog';
+import TagsInput from '../../components/wallet/TagsInput';
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
@@ -52,8 +67,11 @@ import {
     CURRENCIES,
     isStreamKind,
     sourceName,
+    bankLabel,
     type AccountSummary,
+    type Bank,
     type DuplicateGroup,
+    type Tag,
     type TransactionPage,
     type TransactionSummary,
     formatMinor,
@@ -83,6 +101,10 @@ interface TransactionForm {
     counterparty: string;
     category_code: string;
     country_code: string;
+    /** Where it happened. '' is "no bank", which is a real answer. */
+    bank_id: string;
+    /** The person's own labels, by name: typing one that does not exist creates it. */
+    tags: string[];
 }
 
 function emptyTransactionForm(): TransactionForm {
@@ -98,6 +120,8 @@ function emptyTransactionForm(): TransactionForm {
         category_code: '',
         // Romania: the answer almost every time, and the absence of a country when stored.
         country_code: 'RO',
+        bank_id: '',
+        tags: [],
     };
 }
 
@@ -106,8 +130,12 @@ export default function WalletTransactions(): JSX.Element {
     const countries = useCountries();
     const subjectId = getActiveSubjectId();
 
-    const [loaded, setLoaded] = useState<{ accountId: string; page: TransactionPage } | null>(null);
+    /** Keyed by the query it answers, so a page never shows rows fetched for other filters. */
+    const [loaded, setLoaded] = useState<{ key: string; page: TransactionPage } | null>(null);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+    const [banks, setBanks] = useState<Bank[]>([]);
+    const [tags, setTags] = useState<Tag[]>([]);
+    const [managingTags, setManagingTags] = useState(false);
     /** The transaction being corrected, or null when the dialog is recording a new one. */
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
@@ -132,6 +160,14 @@ export default function WalletTransactions(): JSX.Element {
     const [accountId, setAccountId] = useRememberedState<string>('wallet.transactions.account', '', {
         perSubject: true,
     });
+    const [bankId, setBankId] = useRememberedState<string>('wallet.transactions.bank', '', { perSubject: true });
+    const [tagId, setTagId] = useRememberedState<string>('wallet.transactions.tag', '', { perSubject: true });
+    const [direction, setDirection] = useRememberedState<string>('wallet.transactions.direction', '', {
+        perSubject: true,
+        isValid: (value) => ['', 'IN', 'OUT'].includes(value),
+    });
+    const [from, setFrom] = useRememberedState<string>('wallet.transactions.from', '', { perSubject: true });
+    const [to, setTo] = useRememberedState<string>('wallet.transactions.to', '', { perSubject: true });
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     /**
@@ -144,11 +180,42 @@ export default function WalletTransactions(): JSX.Element {
     /** The group waiting for a person to confirm a merge. Merging deletes rows, so it is asked. */
     const [merging, setMerging] = useState<DuplicateGroup | null>(null);
 
+    /**
+     * Any narrowing starts again from the first page: staying on page 7 of a list that now has two
+     * pages shows an empty table and looks like the filter found nothing.
+     */
+    const narrow = (apply: () => void): void => {
+        apply();
+        setPageNumber(1);
+    };
+
     const errors = useFormErrors();
     const [adding, setAdding] = useState(false);
     const [deleting, setDeleting] = useState<TransactionSummary | null>(null);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState<TransactionForm>(emptyTransactionForm());
+
+    /*
+     * What the server is asked for. `classification` is sent as the stored status rather than the
+     * screen's own word for it, and `duplicates` is not a filter on this list at all — it is a
+     * different view, answered by its own endpoint below.
+     */
+    const filters: TransactionFilters = useMemo(
+        () => ({
+            ...(accountId === '' ? {} : { accountId }),
+            ...(bankId === '' ? {} : { bankId }),
+            ...(tagId === '' ? {} : { tagId }),
+            ...(classification === 'unclassified' ? { classification: 'UNCLASSIFIED' } : {}),
+            ...(classification === 'classified' ? { classification: 'CLASSIFIED' } : {}),
+            ...(direction === '' ? {} : { direction }),
+            ...(from === '' ? {} : { from }),
+            ...(to === '' ? {} : { to }),
+            page: pageNumber,
+            perPage: pageSize,
+        }),
+        [accountId, bankId, tagId, classification, direction, from, to, pageNumber, pageSize],
+    );
+    const filterKey = JSON.stringify(filters);
 
     useEffect(() => {
         if (subjectId === null) {
@@ -157,16 +224,49 @@ export default function WalletTransactions(): JSX.Element {
 
         let active = true;
 
-        listTransactions(subjectId, accountId === '' ? {} : { accountId }).then(
+        listTransactions(subjectId, filters).then(
             (page) => {
                 if (active) {
-                    setLoaded({ accountId, page });
+                    setLoaded({ key: filterKey, page });
                     setFailed(false);
                 }
             },
             () => {
                 if (active) {
                     setFailed(true);
+                }
+            },
+        );
+
+        // The bank list and the taxpayer's tags, for the filters, the form and the chips on each row.
+        listBanks(subjectId).then(
+            (loadedBanks) => {
+                if (active) {
+                    setBanks(loadedBanks);
+                }
+            },
+            () => {
+                if (active) {
+                    setBanks([]);
+                }
+            },
+        );
+
+        listTags(subjectId).then(
+            (loadedTags) => {
+                if (active) {
+                    setTags(loadedTags);
+
+                    // A remembered filter naming a tag since deleted or merged away would narrow the
+                    // list to nothing under a select reading "all tags".
+                    if (tagId !== '' && !loadedTags.some((tag) => tag.id === tagId)) {
+                        setTagId('');
+                    }
+                }
+            },
+            () => {
+                if (active) {
+                    setTags([]);
                 }
             },
         );
@@ -196,7 +296,7 @@ export default function WalletTransactions(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [subjectId, accountId, reloadKey, setAccountId]);
+    }, [subjectId, accountId, filterKey, filters, reloadKey, setAccountId, tagId, setTagId]);
 
     // Only while the duplicates view is open: it decrypts every candidate row's counterparty, which
     // is work nobody asked for while reading the ordinary list.
@@ -226,7 +326,7 @@ export default function WalletTransactions(): JSX.Element {
         };
     }, [subjectId, classification, reloadKey, t]);
 
-    const page = loaded !== null && loaded.accountId === accountId ? loaded.page : null;
+    const page = loaded !== null && loaded.key === filterKey ? loaded.page : null;
     const duplicates =
         loadedDuplicates !== null && loadedDuplicates.reloadKey === reloadKey ? loadedDuplicates.groups : null;
 
@@ -255,31 +355,13 @@ export default function WalletTransactions(): JSX.Element {
         }
     };
 
-    // The worklist is money that came in with no answer yet. Money going out is spending unless someone
-    // says otherwise, and never becomes a declared figure, so it is not work left to do.
-    const rows = (page?.transactions ?? []).filter((transaction) =>
-        classification === 'all'
-            ? true
-            : classification === 'unclassified'
-              ? transaction.splits.length === 0 && transaction.amountMinor > 0
-              : transaction.splits.length > 0,
-    );
-
-    /*
-     * Paged in the browser, over what the server already sent.
-     *
-     * The endpoint returns a capped window in one request, so asking it for a page would be a round
-     * trip to slice an array that is already here — and the classification filter above narrows the
-     * same array, so paging anywhere else would make the two disagree about what is on screen.
-     */
-    const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-    const currentPage = Math.min(pageNumber, pageCount);
-    const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    // The rows on this page, as the server selected and ordered them.
+    const rows = useMemo(() => page?.transactions ?? [], [page]);
     // A deposit's own rows are never selectable: bulk delete would be refused for them, and a tick
     // that can only lead to an error is a control that lies about what is possible.
     const pageIds = useMemo(
-        () => paged.filter((transaction) => transaction.source !== 'SYSTEM').map((transaction) => transaction.id),
-        [paged],
+        () => rows.filter((transaction) => transaction.source !== 'SYSTEM').map((transaction) => transaction.id),
+        [rows],
     );
     const selection = useRowSelection(pageIds);
 
@@ -294,9 +376,6 @@ export default function WalletTransactions(): JSX.Element {
             </AppShell>
         );
     }
-
-    // Filtered here rather than on the server: the list is already a capped window the server sent
-    // in one go, so narrowing it is a property of what is on screen, not another request.
 
     const deleteSelected = async (): Promise<void> => {
         setBulkDeleting(true);
@@ -345,6 +424,8 @@ export default function WalletTransactions(): JSX.Element {
                     booked_at: form.booked_at,
                     description: form.description,
                     counterparty: form.counterparty === '' ? null : form.counterparty,
+                    bank_id: form.bank_id === '' ? null : form.bank_id,
+                    tags: form.tags,
                 });
 
                 // And what it was, in the same save. Two endpoints because the transaction and its
@@ -386,6 +467,8 @@ export default function WalletTransactions(): JSX.Element {
                 // transaction already knows what it was. Romania is the absence of a country.
                 ...(form.category_code === '' ? {} : { category_code: form.category_code }),
                 ...(form.category_code === '' || form.country_code === 'RO' ? {} : { country_code: form.country_code }),
+                ...(form.bank_id === '' ? {} : { bank_id: form.bank_id }),
+                ...(form.tags.length === 0 ? {} : { tags: form.tags }),
             });
 
             toast.success(t((d) => d.pages.walletTransactions.added));
@@ -416,30 +499,41 @@ export default function WalletTransactions(): JSX.Element {
                     icon={<ArrowLeftRight className="size-4" />}
                     flush
                     aside={
-                        <PanelButton
-                            primary
-                            inline
-                            disabled={accounts.length === 0}
-                            onClick={() => {
-                                errors.reset();
-                                setForm({
-                                    ...emptyTransactionForm(),
-                                    account_id: accounts[0]?.id ?? '',
-                                    currency_code: accounts[0]?.currencyCode ?? CURRENCIES[0],
-                                    booked_at: new Date().toISOString().slice(0, 10),
-                                });
-                                setAdding(true);
-                            }}
-                        >
-                            <PlusIcon className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.walletTransactions.add)}
-                        </PanelButton>
+                        <>
+                            <PanelButton
+                                inline
+                                onClick={() => {
+                                    router.visit('/wallet/imports/new');
+                                }}
+                            >
+                                <FileSpreadsheet className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletImports.start)}
+                            </PanelButton>
+                            <PanelButton
+                                primary
+                                inline
+                                disabled={accounts.length === 0}
+                                onClick={() => {
+                                    errors.reset();
+                                    setForm({
+                                        ...emptyTransactionForm(),
+                                        account_id: accounts[0]?.id ?? '',
+                                        currency_code: accounts[0]?.currencyCode ?? CURRENCIES[0],
+                                        booked_at: new Date().toISOString().slice(0, 10),
+                                    });
+                                    setAdding(true);
+                                }}
+                            >
+                                <PlusIcon className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletTransactions.add)}
+                            </PanelButton>
+                        </>
                     }
                     foot={
                         <Pagination
-                            page={currentPage}
+                            page={pageNumber}
                             pageSize={pageSize}
-                            total={rows.length}
+                            total={page?.total ?? 0}
                             unit={t((d) => d.pages.walletTransactions.unit)}
                             onPageChange={setPageNumber}
                             onPageSizeChange={(size) => {
@@ -453,7 +547,11 @@ export default function WalletTransactions(): JSX.Element {
                         <PanelSelect
                             className="filter-select"
                             value={accountId}
-                            onValueChange={setAccountId}
+                            onValueChange={(next) => {
+                                narrow(() => {
+                                    setAccountId(next);
+                                });
+                            }}
                             placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
                             emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
                             options={accounts.map((account) => ({
@@ -479,9 +577,85 @@ export default function WalletTransactions(): JSX.Element {
                         </BulkActions>
                         <PanelSelect
                             className="filter-select"
+                            searchable
+                            value={bankId}
+                            placeholder={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                            onValueChange={(next) => {
+                                narrow(() => {
+                                    setBankId(next);
+                                });
+                            }}
+                            options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                        />
+                        <PanelSelect
+                            className="filter-select"
+                            searchable
+                            value={tagId}
+                            placeholder={t((d) => d.pages.walletTransactions.filters.allTags)}
+                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allTags)}
+                            onValueChange={(next) => {
+                                narrow(() => {
+                                    setTagId(next);
+                                });
+                            }}
+                            options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+                        />
+                        <PanelSelect
+                            className="filter-select"
+                            value={direction}
+                            placeholder={t((d) => d.pages.walletTransactions.filters.allDirections)}
+                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allDirections)}
+                            onValueChange={(next) => {
+                                narrow(() => {
+                                    setDirection(next);
+                                });
+                            }}
+                            options={[
+                                { value: 'IN', label: t((d) => d.pages.walletTransactions.filters.directionIn) },
+                                { value: 'OUT', label: t((d) => d.pages.walletTransactions.filters.directionOut) },
+                            ]}
+                        />
+                        <PanelDateRange
+                            disableFuture
+                            value={{ from: from === '' ? null : from, to: to === '' ? null : to }}
+                            onChange={(next) => {
+                                narrow(() => {
+                                    setFrom(next.from ?? '');
+                                    setTo(next.to ?? '');
+                                });
+                            }}
+                        />
+                        <PanelButton
+                            onClick={() => {
+                                narrow(() => {
+                                    setAccountId('');
+                                    setBankId('');
+                                    setTagId('');
+                                    setDirection('');
+                                    setFrom('');
+                                    setTo('');
+                                    setClassification('all');
+                                });
+                            }}
+                        >
+                            {t((d) => d.pages.walletTransactions.filters.reset)}
+                        </PanelButton>
+                        <PanelButton
+                            onClick={() => {
+                                setManagingTags(true);
+                            }}
+                        >
+                            <TagsIcon className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.walletTransactions.tags.manage)}
+                        </PanelButton>
+                        <PanelSelect
+                            className="filter-select"
                             value={classification}
                             onValueChange={(next) => {
-                                setClassification(next === '' ? 'all' : next);
+                                narrow(() => {
+                                    setClassification(next === '' ? 'all' : next);
+                                });
                             }}
                             options={[
                                 { value: 'all', label: t((d) => d.pages.walletTransactions.classify.allStatuses) },
@@ -553,7 +727,7 @@ export default function WalletTransactions(): JSX.Element {
                                 </>
                             }
                         >
-                            {paged.map((transaction) => (
+                            {rows.map((transaction) => (
                                 <tr
                                     key={transaction.id}
                                     className={cn(selection.has(transaction.id) && 'row-selected')}
@@ -582,6 +756,22 @@ export default function WalletTransactions(): JSX.Element {
                                         <div>{transaction.description}</div>
                                         {transaction.counterparty === null ? null : (
                                             <div className="note">{transaction.counterparty}</div>
+                                        )}
+                                        {/* Where it happened and what it was for — the two labels that
+                                            answer "which bank was this" and "how much on food", neither
+                                            of which is a tax question. */}
+                                        {transaction.bankName === null && transaction.tags.length === 0 ? null : (
+                                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                                                {transaction.bankName === null ? null : (
+                                                    <span className="note inline-flex items-center gap-1">
+                                                        <Landmark className="size-3" aria-hidden="true" />
+                                                        {transaction.bankName}
+                                                    </span>
+                                                )}
+                                                {transaction.tags.map((tag) => (
+                                                    <Pill key={tag.id}>{tag.name}</Pill>
+                                                ))}
+                                            </div>
                                         )}
                                     </td>
                                     {/* Money out reads red; the sign is the source of truth, not a
@@ -635,6 +825,8 @@ export default function WalletTransactions(): JSX.Element {
                                                         counterparty: transaction.counterparty ?? '',
                                                         category_code: transaction.splits[0]?.categoryCode ?? '',
                                                         country_code: transaction.splits[0]?.countryCode ?? 'RO',
+                                                        bank_id: transaction.bankId ?? '',
+                                                        tags: transaction.tags.map((tag) => tag.name),
                                                     });
                                                     setEditing(transaction);
                                                 }}
@@ -658,12 +850,6 @@ export default function WalletTransactions(): JSX.Element {
                         </DataTable>
                     )}
                 </Panel>
-
-                {page?.capped === true ? (
-                    <p className="note">
-                        {t((d) => d.pages.walletTransactions.capped).replace('{limit}', String(page.limit))}
-                    </p>
-                ) : null}
             </Page>
 
             {confirmingBulkDelete ? (
@@ -749,6 +935,16 @@ export default function WalletTransactions(): JSX.Element {
                     }}
                 />
             )}
+
+            <TagsDialog
+                subjectId={subjectId}
+                tags={tags}
+                open={managingTags}
+                onOpenChange={setManagingTags}
+                onChanged={() => {
+                    setReloadKey((current) => current + 1);
+                }}
+            />
 
             <PanelDialog
                 open={adding || editing !== null}
@@ -965,6 +1161,42 @@ export default function WalletTransactions(): JSX.Element {
                                 value: category.code,
                                 label: t((d) => d.pages.walletTransactions.categories[category.code] ?? category.code),
                             }))}
+                        />
+                    </Field>
+
+                    <Field
+                        label={t((d) => d.pages.walletTransactions.bank.label)}
+                        htmlFor="tx-bank"
+                        hint={t((d) => d.pages.walletTransactions.bank.hint)}
+                        error={errors.get('bank_id')}
+                    >
+                        <PanelSelect
+                            searchable
+                            id="tx-bank"
+                            disabled={isSystem}
+                            value={form.bank_id}
+                            placeholder={t((d) => d.pages.walletTransactions.bank.none)}
+                            emptyLabel={t((d) => d.pages.walletTransactions.bank.none)}
+                            onValueChange={(next) => {
+                                setForm((current) => ({ ...current, bank_id: next }));
+                            }}
+                            options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                        />
+                    </Field>
+
+                    <Field
+                        label={t((d) => d.pages.walletTransactions.tags.label)}
+                        htmlFor="tx-tags"
+                        hint={t((d) => d.pages.walletTransactions.tags.hint)}
+                    >
+                        <TagsInput
+                            id="tx-tags"
+                            disabled={isSystem}
+                            value={form.tags}
+                            suggestions={tags}
+                            onChange={(next) => {
+                                setForm((current) => ({ ...current, tags: next }));
+                            }}
                         />
                     </Field>
 

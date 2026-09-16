@@ -8,7 +8,10 @@ import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
 
 /** Changing the password. The current one is required even though the session is authenticated. */
-export default function PasswordCard(props: { hasPassword: boolean; describeFailure: (cause: unknown) => string }): JSX.Element {
+export default function PasswordCard(props: {
+    hasPassword: boolean;
+    describeFailure: (cause: unknown) => string;
+}): JSX.Element {
     const { t } = useTranslation();
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');

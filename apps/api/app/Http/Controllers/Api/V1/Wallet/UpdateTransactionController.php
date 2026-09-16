@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 use App\Domain\Wallet\Actions\UpdateFinancialTransaction;
 use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Domain\Wallet\Services\TagDirectory;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ final class UpdateTransactionController extends Controller
         string $subject,
         string $transaction,
         UpdateFinancialTransaction $update,
+        TagDirectory $tags,
     ): JsonResponse {
         $model = FinancialTransaction::query()->findOrFail($transaction);
 
@@ -37,6 +39,11 @@ final class UpdateTransactionController extends Controller
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
             // A payment typed in the wrong currency is the same payment with a mistake in it.
             'currency_code' => ['sometimes', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            // Null clears the bank: "no bank" is an answer a select has to be able to give.
+            'bank_id' => ['sometimes', 'nullable', 'uuid'],
+            // The whole set, not an addition: the form shows every tag the row has.
+            'tags' => ['sometimes', 'array', 'max:10'],
+            'tags.*' => ['string', 'max:' . TagDirectory::MAX_LENGTH],
         ]);
 
         try {
@@ -50,6 +57,14 @@ final class UpdateTransactionController extends Controller
                     : null,
                 actorId: $this->actorId($request),
                 currencyCode: $this->optional($validated, 'currency_code'),
+                bankId: array_key_exists('bank_id', $validated)
+                    ? (string) ($validated['bank_id'] ?? '')
+                    : null,
+                tagIds: array_key_exists('tags', $validated)
+                    ? $tags->idsFor(is_array($validated['tags'])
+                        ? array_values(array_filter($validated['tags'], is_string(...)))
+                        : [])
+                    : null,
             );
         } catch (SystemTransactionException $exception) {
             return response()->json([

@@ -59,6 +59,18 @@ Route::middleware('auth')->group(function (): void {
         'countries' => config('countries.all'),
     ]))->name('wallet.transactions');
 
+    /*
+     * Importing a bank statement. Two screens rather than a dialog: reviewing a statement is several
+     * hundred rows, which needs a page, and the wizard has to be returnable-to — a person who closes
+     * the tab halfway comes back through `/wallet/imports`.
+     */
+    Route::get('/wallet/imports', fn () => Inertia::render('wallet/imports'))->name('wallet.imports');
+    Route::get('/wallet/imports/new', fn () => Inertia::render('wallet/import', [
+        'countries' => config('countries.all'),
+    ]))->name('wallet.imports.new');
+
+    Route::get('/wallet/reports', fn () => Inertia::render('wallet/reports'))->name('wallet.reports');
+
     Route::get('/rentals', fn () => Inertia::render('rentals'))->name('rentals');
 
     Route::get('/taxes', fn () => Inertia::render('taxes/overview'))->name('taxes.overview');

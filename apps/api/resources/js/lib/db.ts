@@ -245,7 +245,7 @@ export async function replaceKnownDocuments(subjectId: string, documents: KnownD
     const keep = new Set(documents.map((document) => document.id));
 
     for (const key of existing) {
-        if (typeof key === 'string' && ! keep.has(key)) {
+        if (typeof key === 'string' && !keep.has(key)) {
             store.delete(key);
         }
     }

@@ -76,7 +76,10 @@ export default function Rentals(): JSX.Element {
             () => {
                 if (active) {
                     setFailed(true);
-                    setLoaded({ rentals: [], formOptions: { propertyTypes: [], tenantTypes: [], paymentFrequencies: [] } });
+                    setLoaded({
+                        rentals: [],
+                        formOptions: { propertyTypes: [], tenantTypes: [], paymentFrequencies: [] },
+                    });
                 }
             },
         );
@@ -165,7 +168,11 @@ export default function Rentals(): JSX.Element {
                                         <td className="col-primary">
                                             <div className="font-semibold">{rental.address}</div>
                                             <div className="note">
-                                                {t((d) => d.pages.rentals.propertyTypes[rental.propertyType] ?? rental.propertyType)}
+                                                {t(
+                                                    (d) =>
+                                                        d.pages.rentals.propertyTypes[rental.propertyType] ??
+                                                        rental.propertyType,
+                                                )}
                                                 {' · '}
                                                 {t((d) => d.pages.rentals.share).replace(
                                                     '{percent}',
@@ -184,13 +191,21 @@ export default function Rentals(): JSX.Element {
                                         <td>
                                             <div>{rental.tenantName}</div>
                                             <Pill>
-                                                {t((d) => d.pages.rentals.tenantTypes[rental.tenantType] ?? rental.tenantType)}
+                                                {t(
+                                                    (d) =>
+                                                        d.pages.rentals.tenantTypes[rental.tenantType] ??
+                                                        rental.tenantType,
+                                                )}
                                             </Pill>
                                         </td>
                                         <td className="tabular-nums whitespace-nowrap">
                                             {formatMinor(rental.rentMinor, rental.currencyCode, locale)}
                                             <div className="note">
-                                                {t((d) => d.pages.wallet.frequencies[rental.paymentFrequency] ?? rental.paymentFrequency)}
+                                                {t(
+                                                    (d) =>
+                                                        d.pages.wallet.frequencies[rental.paymentFrequency] ??
+                                                        rental.paymentFrequency,
+                                                )}
                                             </div>
                                         </td>
                                         <td className="whitespace-nowrap">
@@ -227,7 +242,10 @@ export default function Rentals(): JSX.Element {
                                                             key: 'edit',
                                                             label: t((d) => d.pages.rentals.edit),
                                                             onClick: () => {
-                                                                setDialog({ editing: rental, form: rentalFormFor(rental) });
+                                                                setDialog({
+                                                                    editing: rental,
+                                                                    form: rentalFormFor(rental),
+                                                                });
                                                             },
                                                         },
                                                         // An ended rental's terms are the record of what it
@@ -329,7 +347,10 @@ export default function Rentals(): JSX.Element {
                             setDeleting(null);
                             reload();
                         } catch (cause: unknown) {
-                            toast.error(t((d) => d.common.deleteFailed), { description: describeApiFailure(cause, t) });
+                            toast.error(
+                                t((d) => d.common.deleteFailed),
+                                { description: describeApiFailure(cause, t) },
+                            );
 
                             throw cause;
                         }
@@ -376,7 +397,10 @@ function ChangeRentDialog({
             onSaved();
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(t((d) => d.pages.rentals.saveFailed), { description: describeApiFailure(cause, t) });
+                toast.error(
+                    t((d) => d.pages.rentals.saveFailed),
+                    { description: describeApiFailure(cause, t) },
+                );
             }
         } finally {
             setSaving(false);
@@ -490,7 +514,10 @@ function EndRentalDialog({
             onSaved();
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(t((d) => d.pages.rentals.saveFailed), { description: describeApiFailure(cause, t) });
+                toast.error(
+                    t((d) => d.pages.rentals.saveFailed),
+                    { description: describeApiFailure(cause, t) },
+                );
             }
         } finally {
             setSaving(false);

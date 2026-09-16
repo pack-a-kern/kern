@@ -64,6 +64,13 @@ use App\Http\Controllers\Api\V1\Settings\ShowSystemHealthController;
 use App\Http\Controllers\Api\V1\Settings\TestAiConnectionController;
 use App\Http\Controllers\Api\V1\Settings\UpdateAiSettingsController;
 use App\Http\Controllers\Api\V1\Settings\UpdateSettingsGroupController;
+use App\Http\Controllers\Api\V1\StatementImport\CommitStatementImportController;
+use App\Http\Controllers\Api\V1\StatementImport\ListStatementImportsController;
+use App\Http\Controllers\Api\V1\StatementImport\ShowStatementImportController;
+use App\Http\Controllers\Api\V1\StatementImport\StartStatementImportController;
+use App\Http\Controllers\Api\V1\StatementImport\UndoStatementImportController;
+use App\Http\Controllers\Api\V1\StatementImport\UpdateStatementImportMappingController;
+use App\Http\Controllers\Api\V1\StatementImport\UpdateStatementImportRowsController;
 use App\Http\Controllers\Api\V1\Subjects\ChangeSubjectStatusController;
 use App\Http\Controllers\Api\V1\Subjects\InspectCnpController;
 use App\Http\Controllers\Api\V1\Subjects\ListSubjectsController;
@@ -71,19 +78,24 @@ use App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController;
 use App\Http\Controllers\Api\V1\Subjects\UpdatePfSubjectController;
 use App\Http\Controllers\Api\V1\Wallet\ClassifyTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteAccountController;
+use App\Http\Controllers\Api\V1\Wallet\DeleteTagController;
 use App\Http\Controllers\Api\V1\Wallet\DeleteTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\KeepDuplicateTransactionsController;
 use App\Http\Controllers\Api\V1\Wallet\MergeDuplicateTransactionsController;
+use App\Http\Controllers\Api\V1\Wallet\MergeTagsController;
 use App\Http\Controllers\Api\V1\Wallet\OpenAccountController;
 use App\Http\Controllers\Api\V1\Wallet\RecordTransactionController;
 use App\Http\Controllers\Api\V1\Wallet\ShowAccountsController;
 use App\Http\Controllers\Api\V1\Wallet\ShowBanksController;
 use App\Http\Controllers\Api\V1\Wallet\ShowDuplicateTransactionsController;
+use App\Http\Controllers\Api\V1\Wallet\ShowTagsController;
 use App\Http\Controllers\Api\V1\Wallet\ShowTaxCategoriesController;
 use App\Http\Controllers\Api\V1\Wallet\ShowTransactionsController;
 use App\Http\Controllers\Api\V1\Wallet\ShowWalletOverviewController;
+use App\Http\Controllers\Api\V1\Wallet\ShowWalletReportsController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateAccountController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateDisplayCurrencyController;
+use App\Http\Controllers\Api\V1\Wallet\UpdateTagController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateTransactionController;
 use Illuminate\Support\Facades\Route;
 
@@ -205,6 +217,9 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * before any query runs.
      */
     Route::get('wallet/overview', ShowWalletOverviewController::class);
+    // A year read three ways — by tag, by bank, by category. Never a tax figure: what is owed comes
+    // from the tax engine's versioned rules, not from a person's own labels.
+    Route::get('wallet/reports', ShowWalletReportsController::class);
     // Which currency this subject's totals are added up in. A display preference — never a fiscal
     // conversion, which each tax rule decides for itself with its own provenance.
     Route::put('wallet/display-currency', UpdateDisplayCurrencyController::class);
@@ -228,7 +243,35 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('rentals/{rental}/rent', ChangeRentalRentController::class)->where('rental', '[0-9a-f-]{36}');
     Route::post('rentals/{rental}/end', EndRentalController::class)->where('rental', '[0-9a-f-]{36}');
     Route::get('wallet/categories', ShowTaxCategoriesController::class);
+    /*
+     * A person's own labels for their spending — not a tax vocabulary, so unlike categories these
+     * are rows a person creates, renames and merges rather than a config file.
+     */
+    Route::get('wallet/tags', ShowTagsController::class);
+    Route::patch('wallet/tags/{tag}', UpdateTagController::class)->where('tag', '[0-9a-f-]{36}');
+    Route::post('wallet/tags/{tag}/merge', MergeTagsController::class)->where('tag', '[0-9a-f-]{36}');
+    Route::delete('wallet/tags/{tag}', DeleteTagController::class)->where('tag', '[0-9a-f-]{36}');
     Route::get('wallet/banks', ShowBanksController::class);
+    /*
+     * Importing a bank's own statement (`docs/handoff/045-statement-import.md`).
+     *
+     * The file is uploaded once and then answered in steps — columns, then rows — so an import is a
+     * resource with a state rather than one request: `POST` starts it, `GET` follows it through every
+     * stage, and the last two write to the ledger and take it back out again.
+     */
+    Route::get('wallet/imports', ListStatementImportsController::class);
+    Route::post('wallet/imports', StartStatementImportController::class)
+        ->middleware('throttle:documents-upload-per-subject');
+    Route::get('wallet/imports/{import}', ShowStatementImportController::class)->where('import', '[0-9a-f-]{36}');
+    Route::put('wallet/imports/{import}/mapping', UpdateStatementImportMappingController::class)
+        ->where('import', '[0-9a-f-]{36}');
+    Route::patch('wallet/imports/{import}/rows', UpdateStatementImportRowsController::class)
+        ->where('import', '[0-9a-f-]{36}');
+    Route::post('wallet/imports/{import}/commit', CommitStatementImportController::class)
+        ->where('import', '[0-9a-f-]{36}');
+    Route::post('wallet/imports/{import}/undo', UndoStatementImportController::class)
+        ->where('import', '[0-9a-f-]{36}');
+
     Route::get('wallet/transactions', ShowTransactionsController::class);
     // Lookalikes: gathered for a person, never refused at import. See `DuplicateTransactionGroups`.
     Route::get('wallet/transactions/duplicates', ShowDuplicateTransactionsController::class);

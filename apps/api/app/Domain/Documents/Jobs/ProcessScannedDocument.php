@@ -7,6 +7,7 @@ namespace App\Domain\Documents\Jobs;
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\AiExtractionOutcome;
+use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\RejectionReason;
 use App\Domain\Documents\Events\DocumentAiExtractionFinished;
@@ -208,6 +209,14 @@ final class ProcessScannedDocument implements ShouldQueue
         ));
 
         DocumentTextExtracted::dispatch($document->id, $document->tax_subject_id, DocumentStatus::READY, false);
+
+        // A statement uploaded to be imported is evidence, not something to read with a model: its
+        // rows are parsed locally and turned into transactions by a person going through them. Asking
+        // a model to rewrite the same file would cost a send of every name and figure in it, for an
+        // answer nothing uses.
+        if ($document->source === DocumentSource::IMPORT) {
+            return;
+        }
 
         try {
             $extraction = $requestExternalExtraction($document);

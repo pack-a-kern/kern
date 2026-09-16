@@ -69,9 +69,7 @@ export async function listTaskRuns(
 
     return parseTaskRunsPage(
         JSON.parse(
-            await apiRequest(
-                `/v1/operations/tasks/${encodeURIComponent(task)}/runs${query === '' ? '' : `?${query}`}`,
-            ),
+            await apiRequest(`/v1/operations/tasks/${encodeURIComponent(task)}/runs${query === '' ? '' : `?${query}`}`),
         ),
     );
 }

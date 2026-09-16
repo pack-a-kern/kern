@@ -154,7 +154,10 @@ export default function EditSubjectDialog(props: {
                         value={form.countyCode}
                         placeholder={t((d) => d.pages.settingsSubjects.unchanged)}
                         onValueChange={set('countyCode')}
-                        options={counties.map((county) => ({ value: county.code, label: `${county.code} · ${county.name}` }))}
+                        options={counties.map((county) => ({
+                            value: county.code,
+                            label: `${county.code} · ${county.name}`,
+                        }))}
                     />
                 </Field>
 

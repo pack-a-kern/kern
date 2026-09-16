@@ -315,11 +315,7 @@ function RowTable(props: { rows: unknown[]; unrenderable: string }): JSX.Element
                         #
                     </th>
                     {columns.map((key) => (
-                        <th
-                            key={key}
-                            scope="col"
-                            className={numeric.has(key) ? 'text-right' : undefined}
-                        >
+                        <th key={key} scope="col" className={numeric.has(key) ? 'text-right' : undefined}>
                             {/* The wire name, not a translated label. This table is where a person
                                 checks what the model actually returned, and a pretty header hides
                                 the one thing being checked — whether the key is the one asked for. */}
@@ -333,10 +329,7 @@ function RowTable(props: { rows: unknown[]; unrenderable: string }): JSX.Element
                     <tr key={index}>
                         <td className="row-table-index">{index + 1}</td>
                         {columns.map((key) => (
-                            <td
-                                key={key}
-                                className={numeric.has(key) ? 'text-right tabular-nums' : undefined}
-                            >
+                            <td key={key} className={numeric.has(key) ? 'text-right tabular-nums' : undefined}>
                                 {row[key] === undefined ? '' : fieldValueAsText(row[key], props.unrenderable)}
                             </td>
                         ))}
@@ -400,10 +393,7 @@ function ReadingCost({ extraction }: { extraction: DocumentExtractionSummary }):
         `${t((d) => d.documentsReview.readBy)} ${extraction.modelName ?? extraction.extractorVersion}`,
         extraction.durationMs === null
             ? null
-            : t((d) => d.documentsReview.tookSeconds).replace(
-                  '{seconds}',
-                  (extraction.durationMs / 1000).toFixed(1),
-              ),
+            : t((d) => d.documentsReview.tookSeconds).replace('{seconds}', (extraction.durationMs / 1000).toFixed(1)),
         extraction.promptTokens === null && extraction.completionTokens === null
             ? null
             : t((d) => d.documentsReview.tokensUsed)
@@ -445,9 +435,7 @@ function FieldGroup(props: { value: unknown; unrenderable: string; inline?: bool
             {entries.map(([key, nested]) => (
                 <span key={key} className="min-w-0">
                     <span className="note">{key}: </span>
-                    <span className="tabular-nums break-words">
-                        {fieldValueAsText(nested, props.unrenderable)}
-                    </span>
+                    <span className="tabular-nums break-words">{fieldValueAsText(nested, props.unrenderable)}</span>
                 </span>
             ))}
         </div>
@@ -569,7 +557,8 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
      * in between is exactly where repeated clicks used to slip through.
      */
     const inFlightStage =
-        document !== null && (document.stage === 'CHECKING' || document.stage === 'QUEUED' || document.stage === 'PROCESSING')
+        document !== null &&
+        (document.stage === 'CHECKING' || document.stage === 'QUEUED' || document.stage === 'PROCESSING')
             ? document.stage
             : null;
     const isReading = inFlightStage !== null;
@@ -1510,7 +1499,6 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                 </PanelButton>
                                             </div>
                                         )}
-
                                     </li>
                                 ))}
                             </ul>
@@ -1523,9 +1511,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                             {document !== null && document.transactionImport !== 'UNAVAILABLE' && (
                                 <div className="border-border border-t pt-3">
                                     {document.transactionImport === 'AWAITING_ACCEPTANCE' && (
-                                        <p className="note">
-                                            {t((d) => d.documentsReview.importAwaitingAcceptance)}
-                                        </p>
+                                        <p className="note">{t((d) => d.documentsReview.importAwaitingAcceptance)}</p>
                                     )}
 
                                     {document.transactionImport === 'IMPORTED' && (
@@ -1749,82 +1735,71 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                     <p className="note">{t((d) => d.documentsReview.noCorrectableFields)}</p>
                 ) : (
                     <div className="space-y-2">
+                        <p className="note">{t((d) => d.documentsReview.correctionHint)}</p>
 
-                    <p className="note">{t((d) => d.documentsReview.correctionHint)}</p>
-
-                    {correctionRows.map((row, index) => (
-                        <div key={index} className="field-row">
-                            {/* The field names this document type
+                        {correctionRows.map((row, index) => (
+                            <div key={index} className="field-row">
+                                {/* The field names this document type
                                 actually has, not free text: a typed
                                 "amout" is accepted, stored, and useless
                                 to everything downstream. */}
-                            <PanelSelect
-                                aria-label={t(
-                                    (d) => d.documentsReview.fieldNamePlaceholder,
-                                )}
-                                placeholder={t(
-                                    (d) => d.documentsReview.fieldNamePlaceholder,
-                                )}
-                                value={row.key}
-                                onValueChange={(value) => {
-                                    updateCorrectionRow(index, { key: value });
-                                }}
-                                options={correctableFields.map((field) => ({
-                                    value: field.name,
-                                    // The wire name if nobody has
-                                    // translated it yet — better a
-                                    // reviewer sees `issuer_tax_id`
-                                    // than an empty option.
-                                    label:
-                                        t((d) => d.extractionField)[field.name] ??
-                                        field.name,
-                                    description: field.required
-                                        ? t((d) => d.documentsReview.fieldRequired)
-                                        : t((d) => d.documentsReview.fieldOptional),
-                                }))}
-                            />
-                            <PanelInput
-                                type="text"
-                                aria-label={t(
-                                    (d) => d.documentsReview.fieldValuePlaceholder,
-                                )}
-                                placeholder={t(
-                                    (d) => d.documentsReview.fieldValuePlaceholder,
-                                )}
-                                value={row.value}
-                                onChange={(event) => {
-                                    updateCorrectionRow(index, {
-                                        value: event.target.value,
-                                    });
-                                }}
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={t((d) => d.documentsReview.removeField)}
-                                onClick={() => {
-                                    removeCorrectionRow(index);
-                                }}
-                            >
-                                <Trash2 className="text-muted-foreground hover:text-destructive size-3.5" />
-                            </Button>
-                        </div>
-                    ))}
+                                <PanelSelect
+                                    aria-label={t((d) => d.documentsReview.fieldNamePlaceholder)}
+                                    placeholder={t((d) => d.documentsReview.fieldNamePlaceholder)}
+                                    value={row.key}
+                                    onValueChange={(value) => {
+                                        updateCorrectionRow(index, { key: value });
+                                    }}
+                                    options={correctableFields.map((field) => ({
+                                        value: field.name,
+                                        // The wire name if nobody has
+                                        // translated it yet — better a
+                                        // reviewer sees `issuer_tax_id`
+                                        // than an empty option.
+                                        label: t((d) => d.extractionField)[field.name] ?? field.name,
+                                        description: field.required
+                                            ? t((d) => d.documentsReview.fieldRequired)
+                                            : t((d) => d.documentsReview.fieldOptional),
+                                    }))}
+                                />
+                                <PanelInput
+                                    type="text"
+                                    aria-label={t((d) => d.documentsReview.fieldValuePlaceholder)}
+                                    placeholder={t((d) => d.documentsReview.fieldValuePlaceholder)}
+                                    value={row.value}
+                                    onChange={(event) => {
+                                        updateCorrectionRow(index, {
+                                            value: event.target.value,
+                                        });
+                                    }}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={t((d) => d.documentsReview.removeField)}
+                                    onClick={() => {
+                                        removeCorrectionRow(index);
+                                    }}
+                                >
+                                    <Trash2 className="text-muted-foreground hover:text-destructive size-3.5" />
+                                </Button>
+                            </div>
+                        ))}
 
-                    {/* A dashed full-width row rather than a bare text
+                        {/* A dashed full-width row rather than a bare text
                         link: it sits at the end of a column of field
                         rows and should read as the next empty one,
                         which is what pressing it produces. */}
-                    <button
-                        type="button"
-                        className="add-row"
-                        onClick={addCorrectionRow}
-                        disabled={correctableFields.length === 0}
-                    >
-                        <Plus className="size-3.5" aria-hidden="true" />
-                        {t((d) => d.documentsReview.addField)}
-                    </button>
+                        <button
+                            type="button"
+                            className="add-row"
+                            onClick={addCorrectionRow}
+                            disabled={correctableFields.length === 0}
+                        >
+                            <Plus className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.documentsReview.addField)}
+                        </button>
                     </div>
                 )}
             </PanelDialog>
@@ -1839,9 +1814,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                     }
                 }}
                 size="lg"
-                title={
-                    rowsShown === null ? '' : (t((d) => d.extractionField)[rowsShown.label] ?? rowsShown.label)
-                }
+                title={rowsShown === null ? '' : (t((d) => d.extractionField)[rowsShown.label] ?? rowsShown.label)}
                 description={t((d) => d.documentsReview.rowCount).replace(
                     '{count}',
                     String(rowsShown?.rows.length ?? 0),

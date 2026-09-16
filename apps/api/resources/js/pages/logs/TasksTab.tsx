@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState, type JSX } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getOperationsOverview, listTaskRuns, runOperationTask, setScheduledTaskEnabled } from '../../api/operationsApi';
+import {
+    getOperationsOverview,
+    listTaskRuns,
+    runOperationTask,
+    setScheduledTaskEnabled,
+} from '../../api/operationsApi';
 import {
     DataTable,
     Detail,

@@ -9,6 +9,7 @@ use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Exceptions\ZeroAmountTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\WalletAudit;
 use Illuminate\Support\Facades\DB;
 
@@ -32,10 +33,15 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class UpdateFinancialTransaction
 {
-    public function __construct(private WalletAudit $audit)
-    {
+    public function __construct(
+        private WalletAudit $audit,
+        private CounterpartyRules $rules,
+    ) {
     }
 
+    /**
+     * @param  list<string>|null  $tagIds  null leaves the tags alone; an empty list clears them
+     */
     public function __invoke(
         FinancialTransaction $transaction,
         ?int $amountMinor = null,
@@ -44,6 +50,8 @@ final readonly class UpdateFinancialTransaction
         ?string $counterparty = null,
         ?string $actorId = null,
         ?string $currencyCode = null,
+        ?string $bankId = null,
+        ?array $tagIds = null,
     ): FinancialTransaction {
         // Produced from a deposit's terms. The change belongs on the deposit, which rewrites it.
         if ($transaction->source === RecordSource::SYSTEM) {
@@ -62,6 +70,8 @@ final readonly class UpdateFinancialTransaction
             $counterparty,
             $actorId,
             $currencyCode,
+            $bankId,
+            $tagIds,
         ): FinancialTransaction {
             $changed = [];
 
@@ -88,10 +98,29 @@ final readonly class UpdateFinancialTransaction
 
             if ($counterparty !== null) {
                 $transaction->setAttribute('counterparty_ciphertext', $counterparty === '' ? null : $counterparty);
+                // The index follows the name it indexes, in the same save: a stale one would find
+                // this transaction under a counterparty it no longer names.
+                $transaction->counterparty_blind_index = $this->rules->indexFor($counterparty);
                 $changed[] = 'counterparty';
             }
 
+            if ($bankId !== null) {
+                // '' clears it: "no bank" is an answer, and a select has to be able to give it.
+                $transaction->bank_id = $bankId === '' ? null : $bankId;
+                $changed[] = 'bank_id';
+            }
+
             $transaction->save();
+
+            if ($tagIds !== null) {
+                // Replace, never append: the form shows every tag the row has, so what comes back
+                // is the whole answer.
+                $transaction->tags()->sync(array_fill_keys(
+                    $tagIds,
+                    ['tax_subject_id' => $transaction->tax_subject_id],
+                ));
+                $changed[] = 'tags';
+            }
 
             $this->audit->record(
                 subjectId: $transaction->tax_subject_id,

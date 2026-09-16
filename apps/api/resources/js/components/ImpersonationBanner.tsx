@@ -37,7 +37,10 @@ export default function ImpersonationBanner(): JSX.Element | null {
             // session that fetched it is no longer the session in force.
             window.location.assign('/admin/users');
         } catch (cause: unknown) {
-            toast.error(t((d) => d.shell.impersonationStopFailed), { description: describeApiFailure(cause, t) });
+            toast.error(
+                t((d) => d.shell.impersonationStopFailed),
+                { description: describeApiFailure(cause, t) },
+            );
             setLeaving(false);
         }
     };

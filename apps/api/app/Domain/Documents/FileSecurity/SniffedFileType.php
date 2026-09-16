@@ -35,6 +35,8 @@ enum SniffedFileType: string
     case JPEG = 'image/jpeg';
     case PNG = 'image/png';
     case CSV = 'text/csv';
+    case XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case XLS = 'application/vnd.ms-excel';
 
     /** @return list<string> lower-case extensions a declared filename may legitimately carry. */
     public function allowedExtensions(): array
@@ -44,6 +46,8 @@ enum SniffedFileType: string
             self::JPEG => ['jpg', 'jpeg'],
             self::PNG => ['png'],
             self::CSV => ['csv'],
+            self::XLSX => ['xlsx'],
+            self::XLS => ['xls'],
         };
     }
 
@@ -68,6 +72,18 @@ enum SniffedFileType: string
             self::JPEG => str_starts_with($leadingBytes, "\xFF\xD8\xFF"),
             self::PNG => str_starts_with($leadingBytes, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"),
             self::CSV => self::looksLikeDelimitedText($leadingBytes),
+            // An OOXML package: the zip signature, and the part list every one of them opens with.
+            //
+            // This does not tell a workbook from a Word file — both are zips with the same first
+            // entry, and the entry that would distinguish them (`xl/workbook.xml`) sits past this
+            // window in a file of any size. The statement parser opens the zip properly and refuses
+            // a document with `UNSUPPORTED_FORMAT`, so the narrower check happens where the whole
+            // file is available rather than being guessed at from a kilobyte.
+            self::XLSX => str_starts_with($leadingBytes, "PK\x03\x04")
+                && str_contains($leadingBytes, '[Content_Types].xml'),
+            // The OLE2 compound-document header, which is also what a `.doc` and a `.msg` carry —
+            // same reasoning as above, and the same parser answers it.
+            self::XLS => str_starts_with($leadingBytes, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"),
         };
     }
 
@@ -92,8 +108,9 @@ enum SniffedFileType: string
     /**
      * Whether the file carries its own readable text.
      *
-     * A PDF may (its text layer, extracted locally by PyMuPDF); a CSV *is* text; a photograph never
-     * does and can only be looked at. This is what routes a part through
+     * A PDF may (its text layer, extracted locally); a CSV *is* text; a photograph never does and
+     * can only be looked at. A workbook is neither: it is read by the statement parser, which
+     * produces rows rather than prose, so it never enters the text pipeline. This is what routes a part through
      * `App\Domain\Documents\Jobs\ProcessScannedDocument`.
      */
     public function hasTextLayer(): bool

@@ -13,6 +13,7 @@ from processing.embeddings.http import router as embeddings_router
 from processing.error_handling import register_error_handlers
 from processing.logging_config import configure_logging
 from processing.middleware import CorrelationIdMiddleware
+from processing.statements.http import router as statements_router
 
 configure_logging()
 
@@ -21,6 +22,7 @@ app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
 app.include_router(documents_router)
 app.include_router(embeddings_router)
+app.include_router(statements_router)
 
 
 @app.get("/health")

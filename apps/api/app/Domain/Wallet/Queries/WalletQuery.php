@@ -6,13 +6,16 @@ namespace App\Domain\Wallet\Queries;
 
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\AccountKind;
+use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\RecordSource;
+use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\Fx\DisplayCurrencyConverter;
+use App\Domain\Wallet\Services\TagDirectory;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -52,6 +55,7 @@ final readonly class WalletQuery
     public function __construct(
         private DisplayCurrencyConverter $converter,
         private TenantContext $tenant,
+        private TagDirectory $tags,
     ) {
     }
 
@@ -261,16 +265,28 @@ final readonly class WalletQuery
      *
      * @return list<TransactionSummary>
      */
-    public function transactions(?string $accountId, int $limit): array
+    /**
+     * The transaction list, narrowed and paged by the server.
+     *
+     * ## Why the server pages this
+     *
+     * It used to return one capped window — the newest 100, at most 250 — which the browser then
+     * filtered. That works while a person types their transactions in by hand. A single imported
+     * statement is several hundred rows, so a filter applied to a window would quietly answer "no
+     * transactions in March" about a March that simply fell off the end of the window.
+     *
+     * ## What is left out, always
+     *
+     * A cash holding's declared value and a deposit's own funding transfer are not payments anyone
+     * made; they exist so the balances add up, and listing them makes a person hunt for the rows
+     * that are actually theirs.
+     *
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @return array{transactions: list<TransactionSummary>, total: int}
+     */
+    public function transactions(array $filters, int $page, int $perPage): array
     {
         $query = FinancialTransaction::query()
-            ->orderByDesc('booked_at')
-            ->limit($limit)
-            // Two kinds of row are records the application keeps, not movements a person decides
-            // anything about, so neither is listed. A cash holding's single row *is* its declared
-            // value. A deposit's funding and settlement rows only move money between the taxpayer's
-            // own sources — they exist so a deposit is not counted twice, and are never income or
-            // spending. The deposit's interest is income, and stays.
             ->whereNotIn('account_id', FinancialAccount::query()->where('kind', AccountKind::CASH->value)->select('id'))
             ->whereNot(static function ($query): void {
                 $query->where('source', RecordSource::SYSTEM->value)
@@ -281,14 +297,75 @@ final readonly class WalletQuery
                     });
             });
 
-        if ($accountId !== null) {
+        $this->applyTransactionFilters($query, $filters);
+
+        $total = (clone $query)->count();
+
+        /** @var list<FinancialTransaction> $transactions */
+        $transactions = $query
+            // `id` breaks the tie: a UUIDv7 is ordered by the moment the row was written, so rows
+            // booked on the same day keep a stable order and paging cannot repeat or skip one.
+            ->orderByDesc('booked_at')
+            ->orderByDesc('id')
+            ->forPage(max(1, $page), $perPage)
+            ->get()
+            ->all();
+
+        return ['transactions' => $this->summarise($transactions), 'total' => $total];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<FinancialTransaction>  $query
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyTransactionFilters(mixed $query, array $filters): void
+    {
+        $value = static fn (string $key): ?string => is_string($filters[$key] ?? null) && $filters[$key] !== ''
+            ? $filters[$key]
+            : null;
+
+        if (($accountId = $value('account_id')) !== null) {
             $query->where('account_id', $accountId);
         }
 
-        /** @var list<FinancialTransaction> $transactions */
-        $transactions = $query->get()->all();
+        if (($bankId = $value('bank_id')) !== null) {
+            $query->where('bank_id', $bankId);
+        }
 
-        return $this->summarise($transactions);
+        if (($tagId = $value('tag_id')) !== null) {
+            // `whereExists` rather than a join: a transaction can carry several tags, and a join
+            // would return it once per tag and make the page size mean nothing.
+            $query->whereExists(static function ($tags) use ($tagId): void {
+                $tags->from('transaction_tags')
+                    ->whereColumn('transaction_tags.transaction_id', 'financial_transactions.id')
+                    ->where('tag_id', $tagId);
+            });
+        }
+
+        if (($from = $value('from')) !== null) {
+            $query->whereDate('booked_at', '>=', $from);
+        }
+
+        if (($to = $value('to')) !== null) {
+            $query->whereDate('booked_at', '<=', $to);
+        }
+
+        if (($direction = $value('direction')) !== null) {
+            $query->where('amount_minor', $direction === MoneyDirection::OUT->value ? '<' : '>', 0);
+        }
+
+        $classification = $value('classification');
+
+        if ($classification === TransactionClassificationStatus::CLASSIFIED->value) {
+            $query->where('classification_status', TransactionClassificationStatus::CLASSIFIED->value);
+        }
+
+        if ($classification === TransactionClassificationStatus::UNCLASSIFIED->value) {
+            // The worklist: money that came in with no answer yet. What went out is spending unless
+            // someone says otherwise, and never becomes a declared figure.
+            $query->where('classification_status', TransactionClassificationStatus::UNCLASSIFIED->value)
+                ->where('amount_minor', '>', 0);
+        }
     }
 
     /**
@@ -319,13 +396,17 @@ final readonly class WalletQuery
             $kinds[$account->id] = $account->kind;
         }
 
-        $splits = $this->splitsByTransaction(array_map(
+        $ids = array_map(
             static fn (FinancialTransaction $transaction): string => self::str($transaction->getKey()),
             $transactions,
-        ));
+        );
+
+        $splits = $this->splitsByTransaction($ids);
+        $banks = $this->bankNames($transactions);
+        $tags = $this->tagsByTransaction($ids);
 
         return array_map(
-            function (FinancialTransaction $transaction) use ($names, $kinds, $splits): TransactionSummary {
+            function (FinancialTransaction $transaction) use ($names, $kinds, $splits, $banks, $tags): TransactionSummary {
                 $accountId = self::str($transaction->account_id);
 
                 return new TransactionSummary(
@@ -344,6 +425,9 @@ final readonly class WalletQuery
                     splits: $splits[self::str($transaction->getKey())] ?? [],
                     source: $transaction->source->value,
                     documentId: $transaction->document_id,
+                    bankId: $transaction->bank_id,
+                    bankName: $transaction->bank_id === null ? null : ($banks[$transaction->bank_id] ?? null),
+                    tags: $tags[self::str($transaction->getKey())] ?? [],
                 );
             },
             $transactions,
@@ -652,6 +736,71 @@ final readonly class WalletQuery
         }
 
         return (int) $annotated->sum('ron_equivalent_minor');
+    }
+
+    /**
+     * The bank name behind each `bank_id` on the page, in one query.
+     *
+     * Read at the table rather than through the Banks module's model: `ext_banks` is public
+     * reference data, and this is the crossing `docs/AGENTS.md` §6 allows — the same one
+     * {@see depositsByBank()} already makes.
+     *
+     * @param  list<FinancialTransaction>  $transactions
+     * @return array<string, string>
+     */
+    private function bankNames(array $transactions): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn (FinancialTransaction $transaction): ?string => $transaction->bank_id,
+            $transactions,
+        ))));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+
+        foreach (DB::table('ext_banks')->whereIn('id', $ids)->get(['id', 'name']) as $row) {
+            $names[self::str($row->id)] = self::str($row->name);
+        }
+
+        return $names;
+    }
+
+    /**
+     * Every transaction's tags, in one query plus one decrypt of this taxpayer's tag list.
+     *
+     * The names are encrypted, so they cannot be joined in SQL — but a person has a handful of tags
+     * and hundreds of transactions, so the list is decrypted once and the link table read once,
+     * rather than a decrypt per row.
+     *
+     * @param  list<string>  $transactionIds
+     * @return array<string, list<array{id: string, name: string}>>
+     */
+    private function tagsByTransaction(array $transactionIds): array
+    {
+        if ($transactionIds === []) {
+            return [];
+        }
+
+        $names = $this->tags->all();
+        $tags = [];
+
+        foreach (
+            DB::table('transaction_tags')
+                ->whereIn('transaction_id', $transactionIds)
+                ->get(['transaction_id', 'tag_id']) as $row
+        ) {
+            $tagId = self::str($row->tag_id);
+            $name = $names[$tagId] ?? null;
+
+            if ($name !== null) {
+                $tags[self::str($row->transaction_id)][] = ['id' => $tagId, 'name' => $name];
+            }
+        }
+
+        return $tags;
     }
 
     /**

@@ -125,7 +125,10 @@ export default function RentalDialog({
             onSaved();
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(t((d) => d.pages.rentals.saveFailed), { description: describeApiFailure(cause, t) });
+                toast.error(
+                    t((d) => d.pages.rentals.saveFailed),
+                    { description: describeApiFailure(cause, t) },
+                );
             }
         } finally {
             setSaving(false);

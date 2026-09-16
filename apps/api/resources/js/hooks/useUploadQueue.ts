@@ -106,8 +106,7 @@ export function useUploadQueue(
             // was reopened, which remounted the hook and started a run that could see them.
             for (;;) {
                 const pending = (await listCaptureItems(subjectId)).filter(
-                    (item) =>
-                        (item.status === 'queued' || item.status === 'failed') && !attempted.has(item.localId),
+                    (item) => (item.status === 'queued' || item.status === 'failed') && !attempted.has(item.localId),
                 );
 
                 if (pending.length === 0) {
@@ -127,16 +126,12 @@ export function useUploadQueue(
                     await refresh();
 
                     try {
-                        const uploaded = await uploadDocument(
-                            subjectId,
-                            item.files,
-                            (fraction) => {
-                                // Kept in memory, never in IndexedDB: a write per progress event
-                                // would be hundreds of transactions for one file, to persist a
-                                // number that is meaningless the moment the upload ends.
-                                setProgress((current) => ({ ...current, [item.localId]: fraction }));
-                            },
-                        );
+                        const uploaded = await uploadDocument(subjectId, item.files, (fraction) => {
+                            // Kept in memory, never in IndexedDB: a write per progress event
+                            // would be hundreds of transactions for one file, to persist a
+                            // number that is meaningless the moment the upload ends.
+                            setProgress((current) => ({ ...current, [item.localId]: fraction }));
+                        });
 
                         await upsertKnownDocument({
                             id: uploaded.id,
@@ -184,9 +179,7 @@ export function useUploadQueue(
                     } finally {
                         setProgress((current) =>
                             item.localId in current
-                                ? Object.fromEntries(
-                                      Object.entries(current).filter(([key]) => key !== item.localId),
-                                  )
+                                ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== item.localId))
                                 : current,
                         );
                     }

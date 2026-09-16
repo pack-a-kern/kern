@@ -77,10 +77,14 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('app/Domain/Operations/.*'),
     );
 
+    $statementImport = Layer::withName('StatementImport')->collectors(
+        DirectoryConfig::create('app/Domain/StatementImport/.*'),
+    );
+
     $config
         ->paths('app', 'database', 'routes')
         ->excludeFiles('#.*/tests/.*#')
-        ->layers($support, $identity, $subjects, $audit, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $settings, $operations)
+        ->layers($support, $identity, $subjects, $audit, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $settings, $operations, $statementImport)
         ->rulesets(
             Ruleset::forLayer($support),
             // Identity -> Audit: this module's login/MFA/session/passkey actions
@@ -250,5 +254,16 @@ return static function (DeptracConfig $config): void {
             // *overview response* by the HTTP controller, which belongs to no layer, not by
             // anything under app/Domain/Operations.
             Ruleset::forLayer($operations)->accesses($support, $audit, $documents),
+            // StatementImport -> Wallet, Documents: this module is the one place the two meet, and it
+            // exists precisely so neither has to know about the other. A statement is stored as a
+            // document (`App\Domain\Documents\Actions\InitiateDocumentUpload`, read back through
+            // the object store), and its reviewed rows become transactions through
+            // `App\Domain\Wallet\Actions\RecordImportedTransactions` — application services and
+            // DTOs, the sanctioned cross-module shape (`docs/AGENTS.md` §6), with the same
+            // dependency direction `Operations -> Documents` already establishes.
+            //
+            // Wallet and Documents gain nothing in return: neither imports anything from here, and
+            // nothing outside HTTP depends on this layer.
+            Ruleset::forLayer($statementImport)->accesses($support, $subjects, $audit, $settings, $wallet, $documents),
         );
 };

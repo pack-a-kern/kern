@@ -51,6 +51,6 @@ __all__ = [
     "PageQualitySignals",
     "TooManyPagesError",
     "UntrustedDocumentText",
-    "extract_document",
     "count_pdf_pages",
+    "extract_document",
 ]

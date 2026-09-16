@@ -40,7 +40,9 @@ export function useSharedAuth(): SharedAuth | null {
         user: {
             id: asString(payload.user?.id),
             email: typeof payload.user?.email === 'string' ? payload.user.email : null,
-            roles: Array.isArray(payload.user?.roles) ? payload.user.roles.filter((role): role is string => typeof role === 'string') : [],
+            roles: Array.isArray(payload.user?.roles)
+                ? payload.user.roles.filter((role): role is string => typeof role === 'string')
+                : [],
         },
         subjects: rows.map((entry) => {
             const row = (entry ?? {}) as Record<string, unknown>;

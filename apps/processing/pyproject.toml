@@ -11,6 +11,14 @@ dependencies = [
     "pydantic>=2.13.5,<2.14.0",
     "pydantic-settings>=2.15.0,<2.16.0",
     "pypdf>=6.18.0,<6.19.0",
+    # Statement files (`processing.statements`). Deliberately not PyMuPDF, which would read tables
+    # in one call but is AGPL; pdfplumber is MIT and builds rows from word positions. openpyxl reads
+    # .xlsx, xlrd the older .xls only, and defusedxml hardens the XML parsing openpyxl does.
+    "pdfplumber>=0.11.0,<0.12.0",
+    "openpyxl>=3.1.0,<3.2.0",
+    "xlrd>=2.0.0,<2.1.0",
+    "defusedxml>=0.7.1,<0.8.0",
+    "charset-normalizer>=3.4.0,<4.0.0",
     # Local embedding model (BAAI/bge-m3, ONNX). Deliberately onnxruntime rather
     # than torch/sentence-transformers: one forward pass needs no autograd, and
     # the torch stack would add ~1 GB to a slim, hardened runtime image.

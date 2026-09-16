@@ -17,6 +17,8 @@ export interface Dictionary {
         walletAccounts: string;
         walletTransactions: string;
         documents: string;
+        walletImports: string;
+        walletReports: string;
         rentals: string;
         taxesGroup: string;
         taxes: string;
@@ -83,6 +85,7 @@ export interface Dictionary {
         /** Dismisses a dialog that has nothing to submit — a viewer, not a form. */
         cancel: string;
         close: string;
+        open: string;
         /** The destructive action's own label — never "OK", which says nothing about what happens. */
         delete: string;
         edit: string;
@@ -556,6 +559,119 @@ export interface Dictionary {
             maturingHint: string;
             noDeposits: string;
         };
+        walletReports: {
+            title: string;
+            description: string;
+            period: string;
+            byTag: string;
+            byTagHint: string;
+            byBank: string;
+            byBankHint: string;
+            byCategory: string;
+            byCategoryHint: string;
+            noBank: string;
+            untagged: string;
+            moneyIn: string;
+            moneyOut: string;
+            total: string;
+            empty: string;
+            loadFailed: string;
+        };
+        walletImports: {
+            title: string;
+            description: string;
+            start: string;
+            historyTitle: string;
+            historyHint: string;
+            columnsHeader: string;
+            empty: string;
+            steps: { file: string; columns: string; review: string; done: string };
+            file: {
+                account: string;
+                bank: string;
+                choose: string;
+                hint: string;
+                uploading: string;
+                reading: string;
+            };
+            columns: {
+                title: string;
+                hint: string;
+                /** One transaction per line, or a line followed by its own detail lines. */
+                layout: string;
+                layoutRow: string;
+                layoutBlock: string;
+                date: string;
+                dateFormat: string;
+                amountMode: string;
+                signed: string;
+                debitCredit: string;
+                amount: string;
+                debit: string;
+                credit: string;
+                decimal: string;
+                thousands: string;
+                currency: string;
+                fixedCurrency: string;
+                description: string;
+                counterparty: string;
+                /** Asked per direction: a statement names the two sides of a payment differently. */
+                counterpartyOut: string;
+                counterpartyIn: string;
+                reference: string;
+                referenceOut: string;
+                referenceIn: string;
+                dropLines: string;
+                dropLinesHint: string;
+                identityLabels: string;
+                identityLabelsHint: string;
+                removeHint: string;
+                /** Why no form was suggested — each one has a different fix. */
+                suggestionNoRoom: string;
+                suggestionUnavailable: string;
+                suggestionFailed: string;
+                sheet: string;
+                none: string;
+                suggested: string;
+                preview: string;
+                apply: string;
+                /** `{parsed}` and `{total}` are substituted. */
+                unusable: string;
+            };
+            review: {
+                title: string;
+                hint: string;
+                all: string;
+                new: string;
+                duplicates: string;
+                unanswered: string;
+                duplicate: string;
+                fromRule: string;
+                fromAi: string;
+                /** `{count}` is substituted. */
+                selected: string;
+                setCategory: string;
+                addTag: string;
+                exclude: string;
+                include: string;
+                /** `{count}` is substituted. */
+                commit: string;
+                importing: string;
+            };
+            done: {
+                title: string;
+                /** `{imported}` and `{duplicates}` are substituted. */
+                summary: string;
+                viewTransactions: string;
+                undo: string;
+                undone: string;
+                undoTitle: string;
+                undoHint: string;
+            };
+            failed: string;
+            /** By `StatementImportStatus`. */
+            status: Record<string, string | undefined>;
+        };
         walletAccounts: {
             title: string;
             description: string;
@@ -699,13 +815,49 @@ export interface Dictionary {
                 mergeConfirmHint: string;
             };
             /** Labels for `config/tax_categories.php`. A code with no label renders as the code. */
+            /** Narrowing the ledger: bank, tag, direction and a date range. */
+            filters: {
+                allBanks: string;
+                allTags: string;
+                allDirections: string;
+                directionIn: string;
+                directionOut: string;
+                from: string;
+                to: string;
+                reset: string;
+            };
+            /** A person's own labels — never a tax vocabulary. */
+            tags: {
+                label: string;
+                hint: string;
+                placeholder: string;
+                manage: string;
+                manageHint: string;
+                rename: string;
+                merge: string;
+                mergeConfirm: string;
+                empty: string;
+                renamed: string;
+                merged: string;
+                deleted: string;
+                exists: string;
+                failed: string;
+                deleteTitle: string;
+                deleteHint: string;
+                /** `{count}` is substituted. */
+                usedOn: string;
+            };
+            bank: {
+                label: string;
+                hint: string;
+                none: string;
+            };
             categories: Record<string, string | undefined>;
             deleteTitle: string;
             deleteHint: string;
             deleted: string;
             title: string;
             description: string;
-            capped: string;
             allAccounts: string;
             columns: {
                 date: string;

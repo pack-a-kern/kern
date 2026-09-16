@@ -85,6 +85,14 @@ final readonly class InitiateDocumentUpload
         ?DocumentType $type,
         array $files,
         ?string $actorId = null,
+        /*
+         * Where this file came from. A person's upload by default; a statement being imported says
+         * so, because the pipeline treats the two differently — a statement's rows are read locally
+         * and turned into transactions by a person, so asking a model to rewrite the same file would
+         * send every name and figure in it for an answer nothing uses
+         * (`App\Domain\Documents\Jobs\ProcessScannedDocument`).
+         */
+        DocumentSource $source = DocumentSource::USER_UPLOAD,
     ): Document {
         if ($files === []) {
             throw EmptyDocumentUploadException::noFiles();
@@ -123,7 +131,7 @@ final readonly class InitiateDocumentUpload
             'status' => DocumentStatus::QUARANTINE,
             'sha256' => $contentHash,
             'part_count' => count($validated),
-            'source' => DocumentSource::USER_UPLOAD,
+            'source' => $source,
             'received_at' => now('UTC'),
         ]);
 
