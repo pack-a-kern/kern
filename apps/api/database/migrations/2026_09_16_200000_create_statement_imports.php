@@ -72,23 +72,6 @@ return new class () extends Migration {
             $table->unsignedInteger('excluded_count')->default(0);
             $table->unsignedInteger('imported_count')->default(0);
 
-            /*
-             * Reconciliation: what became of every line of the file.
-             *
-             * A statement whose 12 522 lines became 1 700 transactions is either exactly right or
-             * badly wrong, and nobody can tell which from the transaction count alone. Folded lines
-             * are detail lines gathered into the transaction above them; skipped lines are the
-             * headings and footers the form named. The four numbers add up, so a line that quietly
-             * vanished is visible as arithmetic that does not balance.
-             */
-            $table->unsignedInteger('lines_read')->default(0);
-            $table->unsignedInteger('lines_folded')->default(0);
-            $table->unsignedInteger('lines_skipped')->default(0);
-
-            // Why no form was suggested, when none was: no consent, a refused call, or a model that
-            // spent its whole budget thinking. A closed code — never a provider's own words.
-            $table->string('ai_failure_reason')->nullable();
-
             $table->uuid('created_by')->nullable();
             $table->timestampTz('imported_at')->nullable();
             $table->timestampTz('undone_at')->nullable();
