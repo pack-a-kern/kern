@@ -9,6 +9,7 @@ use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Exceptions\CurrencyRequiredException;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Jobs\ProposeRowCategories;
@@ -63,6 +64,18 @@ final readonly class ApplyColumnMapping
         $parsed = $this->parser->parse($this->contents($import), $import->sheet);
 
         $account = FinancialAccount::query()->find($import->account_id);
+
+        /*
+         * Asked before a single row is staged.
+         *
+         * Every row's currency comes from the file or, failing that, from the account — and a row
+         * with neither can never become a transaction, because the ledger's column is not nullable.
+         * Finding that out after staging leaves a person looking at a screen of rows that cannot be
+         * imported and an Import button that answers "0".
+         */
+        if ($form->currency === null && $account?->currency_code === null) {
+            throw new CurrencyRequiredException();
+        }
 
         $built = $this->builder->build(
             $parsed->rows,

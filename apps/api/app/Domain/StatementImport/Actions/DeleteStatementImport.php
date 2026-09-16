@@ -10,6 +10,7 @@ use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Domain\Wallet\Models\FinancialTransaction;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,10 @@ use Illuminate\Support\Facades\DB;
  * Deleting one would leave transactions in the ledger pointing at an import that no longer exists —
  * no way to see where those figures came from, and no way to undo them afterwards. Undo first; then
  * this is allowed, because an undone import holds nothing.
+ *
+ * What decides that is the ledger, not the status. An import can reach `IMPORTED` having written
+ * nothing — every row unticked, say — and refusing to delete that one on the strength of its label
+ * would leave a person with an entry they can neither use nor remove.
  */
 final readonly class DeleteStatementImport
 {
@@ -45,7 +50,11 @@ final readonly class DeleteStatementImport
     {
         // `IMPORTING` is a job writing rows right now, which is the one moment deleting the import
         // underneath it would corrupt the write rather than merely lose a record.
-        if (in_array($import->status, [StatementImportStatus::IMPORTED, StatementImportStatus::IMPORTING], true)) {
+        if ($import->status === StatementImportStatus::IMPORTING) {
+            throw ImportNotOpenException::forImport($import->id);
+        }
+
+        if (FinancialTransaction::query()->where('import_id', $import->id)->exists()) {
             throw ImportNotOpenException::forImport($import->id);
         }
 

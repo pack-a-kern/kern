@@ -8,6 +8,7 @@ use App\Domain\StatementImport\Actions\ApplyColumnMapping;
 use App\Domain\StatementImport\DataTransferObjects\StatementField;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Enums\MappingSource;
+use App\Domain\StatementImport\Exceptions\CurrencyRequiredException;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Exceptions\MappingNotUsableException;
 use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
@@ -51,6 +52,12 @@ final class UpdateStatementImportMappingController extends Controller
                 'reason' => 'MAPPING_NOT_USABLE',
                 'parsed' => $exception->parsed,
                 'total' => $exception->total,
+            ], 422);
+        } catch (CurrencyRequiredException $exception) {
+            // Answerable on the form that is still open: the currency field takes a plain code.
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => 'CURRENCY_REQUIRED',
             ], 422);
         } catch (ImportNotOpenException $exception) {
             return response()->json([

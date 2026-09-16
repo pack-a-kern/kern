@@ -594,6 +594,9 @@ export const ro = {
                 'Sursa are tranzacții și nu poate fi ștearsă — ele explică sume dintr-un an fiscal. Mutați-le sau ștergeți-le mai întâi.',
             DUPLICATE_CNP: 'Există deja un contribuabil înregistrat cu acest CNP.',
             SUBJECT_CLOSED: 'Acest contribuabil este închis. Reactivați-l pentru a face modificări.',
+            CURRENCY_REQUIRED:
+                'Acest extras nu spune nicăieri în ce monedă sunt sumele, iar contul nu are una setată. Alege una în câmpul Moneda.',
+            IMPORT_HOLDS_TRANSACTIONS: 'Acest import a creat tranzacții. Anulează-l mai întâi, apoi poate fi șters.',
             SUBJECT_SUSPENDED: 'Acest contribuabil este suspendat. Reactivați-l pentru a face modificări.',
             DUPLICATE_REGISTRATION_NUMBER: 'Există deja un contribuabil cu acest număr de înregistrare.',
             SUBJECT_LIMIT_REACHED: 'Acest cont a atins numărul de contribuabili pe care îi poate deține.',

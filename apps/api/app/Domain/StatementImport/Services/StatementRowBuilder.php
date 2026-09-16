@@ -262,7 +262,11 @@ final readonly class StatementRowBuilder
     }
 
     /**
-     * What one field holds: a cell of this line, or a label from beneath it.
+     * What one field holds: a cell of this line, a label from beneath it, or a fixed value.
+     *
+     * The third case is the one a statement needs most and writes least: a file in a single currency
+     * states it nowhere at all, so the only place it can come from is the form. Leaving it out here
+     * meant a person could pick `RON` and watch every row come out with no currency anyway.
      *
      * @param  list<string>  $cells
      * @param  array<string, string>  $labels
@@ -273,15 +277,15 @@ final readonly class StatementRowBuilder
             return '';
         }
 
-        $column = $field->column();
-
-        if ($column !== null) {
-            return trim($cells[$column] ?? '');
+        if ($field->isIndex()) {
+            return trim($cells[(int) $field->value] ?? '');
         }
 
-        $label = $field->labelName();
+        if ($field->isLabel()) {
+            return $labels[LabelKey::for((string) $field->value)] ?? '';
+        }
 
-        return $label === null ? '' : ($labels[LabelKey::for($label)] ?? '');
+        return (string) $field->value;
     }
 
     /**

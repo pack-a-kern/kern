@@ -405,6 +405,87 @@ it('hands the classification job someone to act as', function (): void {
     });
 });
 
+/**
+ * A statement in one currency states it nowhere, and a source has not carried one since it became a
+ * source. When neither knows, nobody does — and a transaction's currency column is not nullable.
+ *
+ * Refused while the form is still open, rather than staged as rows that can never be imported.
+ */
+it('refuses a mapping when neither the file nor the account says the currency', function (): void {
+    [$user, $subjectId] = importer();
+
+    $account = FinancialAccount::create([
+        'tax_subject_id' => $subjectId,
+        'kind' => AccountKind::GENERAL,
+        'display_name_ciphertext' => null,
+        'currency_code' => null,
+        'source' => RecordSource::MANUAL,
+    ]);
+
+    $import = startImport($this, $user, $subjectId, $account->id, 'extras-fara-moneda.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'CURRENCY_REQUIRED');
+
+    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+        ->toBe(0);
+
+    // Answering it on the form is enough — and it is the only place it can be answered.
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", array_merge(mappingBody(), [
+            'currency' => ['type' => 'code', 'value' => 'RON'],
+        ]))
+        ->assertOk();
+
+    $shown = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk();
+
+    expect($shown->json('rows.0.currency_code'))->toBe('RON')
+        ->and($shown->json('rows.0.included'))->toBeTrue();
+});
+
+/**
+ * An import can reach the end having written nothing — every row unticked, say.
+ *
+ * What decides whether it can be deleted is the ledger, not the label: refusing on the strength of
+ * `IMPORTED` alone would leave a person with an entry they can neither use nor remove.
+ */
+it('deletes an import that reached the end having written nothing', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-nebifat.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->json('rows');
+
+    $this->actingAs($user)
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/rows", [
+            'row_ids' => collect($rows)->pluck('id')->all(),
+            'included' => false,
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")
+        ->assertStatus(202);
+
+    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertNoContent();
+
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($import->id))->toBeNull();
+});
+
 it('deletes an import that never became transactions, and refuses one that did', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId);

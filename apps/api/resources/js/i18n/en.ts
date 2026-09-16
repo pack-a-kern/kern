@@ -595,6 +595,9 @@ export const en = {
             DUPLICATE_REGISTRATION_NUMBER: 'A taxpayer with this registration number is already registered.',
             SUBJECT_LIMIT_REACHED: 'This account has reached the number of taxpayers it may hold.',
             DUPLICATE_DOCUMENT: 'This file has already been uploaded.',
+            CURRENCY_REQUIRED:
+                'This statement never says which currency its figures are in, and this account has none set. Pick one in the Currency field.',
+            IMPORT_HOLDS_TRANSACTIONS: 'This import created transactions. Undo it first, then it can be deleted.',
             ALREADY_REVIEWED: 'This proposal has already been reviewed.',
             CONTENT_NOT_AVAILABLE: 'The stored file could not be read.',
             DOCUMENT_NOT_READY: 'This document is already being read.',
