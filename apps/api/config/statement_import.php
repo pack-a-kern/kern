@@ -92,6 +92,13 @@ return [
         // Rows shown while a person confirms which column is which.
         'preview_rows' => (int) env('STATEMENT_IMPORT_PREVIEW_ROWS', 20),
         /*
+         * Transactions rebuilt from those rows and shown as the form is filled in.
+         *
+         * Two or three is the useful number: enough to see a detail line folded into the line above
+         * and the two directions read differently, few enough to take in at a glance.
+         */
+        'preview_transactions' => (int) env('STATEMENT_IMPORT_PREVIEW_TRANSACTIONS', 3),
+        /*
          * How much of the file a mapping has to actually read before it can be used.
          *
          * A mapping that parses four rows in five is not a mapping, it is a guess that happens to

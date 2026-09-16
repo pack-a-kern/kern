@@ -1,12 +1,13 @@
 import { Head, router } from '@inertiajs/react';
 import { FileSpreadsheet, Upload } from 'lucide-react';
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { listAccounts, listBanks, listTags } from '../../api/walletApi';
 import {
     commitStatementImport,
     getStatementImport,
+    previewStatementForm,
     setStatementImportMapping,
     startStatementImport,
     updateStatementImportRows,
@@ -43,14 +44,23 @@ import {
     type Bank,
     type Tag,
 } from '../../types/wallet';
-import type { StatementField, StatementForm, StatementImportDetail } from '../../types/statementImport';
+import { useImportsChannel } from '../../hooks/useImportsChannel';
+import type {
+    StatementField,
+    StatementForm,
+    StatementFormPreview,
+    StatementImportDetail,
+    StatementImportEvent,
+} from '../../types/statementImport';
 
 const IMPORTS_PATH = '/wallet/imports';
 
 const TRANSACTIONS_PATH = '/wallet/transactions';
 
 /** How often the screen asks again while the file is being read or the rows written. */
-const POLL_MS = 2000;
+// Long enough that a select does not fire a request per keystroke, short enough that the rebuilt
+// preview feels like it is answering you.
+const PREVIEW_DEBOUNCE_MS = 400;
 
 /** The date shapes the reader recognises, offered in the order a Romanian export uses them. */
 // The shapes the reader describes and the parser can read. `D MONTH YYYY` is the one a Romanian
@@ -115,6 +125,7 @@ export default function WalletImport(): JSX.Element {
      * what was matched to what, or to fix one field without starting the upload again.
      */
     const [remapping, setRemapping] = useState(false);
+    const [formPreview, setFormPreview] = useState<StatementFormPreview | null>(null);
 
     // Step 3 — the rows.
     const [filter, setFilter] = useState('');
@@ -186,7 +197,6 @@ export default function WalletImport(): JSX.Element {
         }
 
         let active = true;
-        let timer: number | undefined;
 
         const load = (): void => {
             getStatementImport(subjectId, importId, {
@@ -200,10 +210,6 @@ export default function WalletImport(): JSX.Element {
 
                     setDetail(loaded);
                     setMapping((current) => current ?? loaded.mapping ?? suggestForm(loaded));
-
-                    if (loaded.import.status === 'READING' || loaded.import.status === 'IMPORTING') {
-                        timer = window.setTimeout(load, POLL_MS);
-                    }
                 },
                 () => {
                     if (active) {
@@ -217,12 +223,65 @@ export default function WalletImport(): JSX.Element {
 
         return () => {
             active = false;
-
-            if (timer !== undefined) {
-                window.clearTimeout(timer);
-            }
         };
     }, [subjectId, importId, filter, page, reloadKey]);
+
+    /*
+     * Told, rather than asked every two seconds.
+     *
+     * The timer this replaces only ran while the status was `READING` or `IMPORTING`, which left
+     * `REVIEW` unwatched — and `REVIEW` is exactly when the counterparty proposals arrive, so a
+     * person's categories and tags reached the database and never the screen.
+     */
+    const onImportChanged = useCallback(
+        (event: StatementImportEvent): void => {
+            if (event.importId === importId) {
+                setReloadKey((current) => current + 1);
+            }
+        },
+        [importId],
+    );
+
+    useImportsChannel(subjectId, onImportChanged);
+
+    /*
+     * Whether the form is on screen: while it is, the preview follows what is chosen in it.
+     *
+     * Read from the loaded import rather than from `status`, which is derived further down — a
+     * `const` read above its own declaration is a crash, not a warning.
+     */
+    const showsForm =
+        detail?.import.status === 'MAPPING' || (detail?.import.status === 'REVIEW' && remapping);
+
+    useEffect(() => {
+        if (subjectId === null || importId === null || mapping === null || !showsForm) {
+            return;
+        }
+
+        let active = true;
+
+        const handle = window.setTimeout(() => {
+            previewStatementForm(subjectId, importId, mapping).then(
+                (loaded) => {
+                    if (active) {
+                        setFormPreview(loaded);
+                    }
+                },
+                () => {
+                    // A half-filled form is the normal state of a form being filled in: no preview
+                    // rather than an error, which is what the empty state already says.
+                    if (active) {
+                        setFormPreview(null);
+                    }
+                },
+            );
+        }, PREVIEW_DEBOUNCE_MS);
+
+        return () => {
+            active = false;
+            window.clearTimeout(handle);
+        };
+    }, [subjectId, importId, mapping, showsForm]);
 
     const rows = useMemo(() => detail?.rows ?? [], [detail]);
     const selection = useRowSelection(useMemo(() => rows.map((row) => row.id), [rows]));
@@ -425,7 +484,7 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {(status === 'MAPPING' || (status === 'REVIEW' && remapping)) && detail !== null && mapping !== null ? (
+                {showsForm && detail !== null && mapping !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.columns.title)}
                         description={t((d) => d.pages.walletImports.columns.hint)}
@@ -447,9 +506,25 @@ export default function WalletImport(): JSX.Element {
                     >
                         <MappingFields detail={detail} mapping={mapping} onChange={setMapping} />
 
-                        <div className="mt-4">
-                            <div className="note mb-2">{t((d) => d.pages.walletImports.columns.preview)}</div>
-                            <div className="table-wrap">
+                        <RebuiltPreview preview={formPreview} />
+
+                        {detail.preview.aiAnswer === null ? null : (
+                            <details className="mt-4">
+                                <summary className="note cursor-pointer">
+                                    {t((d) => d.pages.walletImports.columns.aiAnswer)}
+                                </summary>
+                                <p className="note mt-1">{t((d) => d.pages.walletImports.columns.aiAnswerHint)}</p>
+                                <pre className="border-border mt-2 overflow-x-auto rounded-md border p-3 text-xs">
+                                    {JSON.stringify(detail.preview.aiAnswer, null, 2)}
+                                </pre>
+                            </details>
+                        )}
+
+                        <details className="mt-4">
+                            <summary className="note cursor-pointer">
+                                {t((d) => d.pages.walletImports.columns.raw)}
+                            </summary>
+                            <div className="table-wrap mt-2">
                                 <table className="data-table">
                                     <thead>
                                         <tr>
@@ -478,7 +553,7 @@ export default function WalletImport(): JSX.Element {
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+                        </details>
                     </Panel>
                 ) : null}
 
@@ -769,20 +844,85 @@ function Steps({ status }: { status: string | null }): JSX.Element {
     ];
 
     return (
-        <ol className="flex flex-wrap items-center gap-2 text-xs">
+        <ol className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
             {labels.map((label, index) => (
-                <li
-                    key={label}
-                    className={
-                        index === current
-                            ? 'bg-accent text-accent-foreground rounded-full px-3 py-1 font-semibold'
-                            : 'text-muted-foreground rounded-full px-3 py-1'
-                    }
-                >
-                    {label}
+                <li key={label} className="flex items-center gap-2">
+                    <span
+                        className={
+                            index < current
+                                ? 'bg-accent/20 text-accent flex size-5 items-center justify-center rounded-full'
+                                : index === current
+                                  ? 'bg-accent text-accent-foreground flex size-5 items-center justify-center rounded-full font-semibold'
+                                  : 'border-border text-muted-foreground flex size-5 items-center justify-center rounded-full border'
+                        }
+                        aria-hidden="true"
+                    >
+                        {index < current ? '✓' : String(index + 1)}
+                    </span>
+                    <span className={index === current ? 'font-semibold' : 'text-muted-foreground'}>{label}</span>
+                    {index === labels.length - 1 ? null : (
+                        <span className="text-muted-foreground/40" aria-hidden="true">
+                            ›
+                        </span>
+                    )}
                 </li>
             ))}
         </ol>
+    );
+}
+
+/**
+ * The first transactions, as this form would read them.
+ *
+ * A grid of the file's own cells asks a person to do the folding in their head — which line belongs
+ * to which payment, which label became the counterparty. This shows the answer instead: the same
+ * rows the import would stage, built by the same code, from the sample already on the screen.
+ *
+ * Cards rather than a table: seven fields per transaction is unreadable on a phone, and the useful
+ * reading here is one transaction at a time.
+ */
+function RebuiltPreview({ preview }: { preview: StatementFormPreview | null }): JSX.Element {
+    const { t, locale } = useTranslation();
+
+    return (
+        <div className="mt-4">
+            <div className="note mb-1">{t((d) => d.pages.walletImports.columns.rebuilt)}</div>
+            <p className="note mb-2">{t((d) => d.pages.walletImports.columns.rebuiltHint)}</p>
+
+            {preview === null || preview.transactions.length === 0 ? (
+                <p className="note">{t((d) => d.pages.walletImports.columns.rebuiltEmpty)}</p>
+            ) : (
+                <>
+                    <ul className="flex flex-col gap-2">
+                        {preview.transactions.map((row) => (
+                            <li key={row.row_number} className="border-border rounded-md border p-3">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <span className="tabular-nums">{row.booked_at ?? '—'}</span>
+                                    <span
+                                        className={
+                                            'tabular-nums' +
+                                            ((row.amount_minor ?? 0) < 0 ? ' text-destructive' : '')
+                                        }
+                                    >
+                                        {row.amount_minor === null
+                                            ? '—'
+                                            : formatMinor(row.amount_minor, row.currency_code ?? '', locale)}
+                                    </span>
+                                </div>
+                                {row.text === '' ? null : <div className="mt-1 text-sm">{row.text}</div>}
+                                {row.counterparty === '' ? null : <div className="note">{row.counterparty}</div>}
+                                {row.reference === '' ? null : <div className="note">{row.reference}</div>}
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="note mt-2">
+                        {t((d) => d.pages.walletImports.columns.rebuiltCounts)
+                            .replace('{folded}', String(preview.linesFolded))
+                            .replace('{skipped}', String(preview.linesSkipped))}
+                    </p>
+                </>
+            )}
+        </div>
     );
 }
 

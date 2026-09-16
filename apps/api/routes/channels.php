@@ -21,6 +21,19 @@ Broadcast::channel('tax-subjects.{subjectId}.documents', function ($user, string
 });
 
 /**
+ * `App\Domain\StatementImport\Events\StatementImportChanged` broadcasts on
+ * `tax-subjects.{subjectId}.imports` — same authorization rule as the documents channel above, and
+ * for the same reason: an import's progress belongs to the taxpayer whose statement it is.
+ */
+Broadcast::channel('tax-subjects.{subjectId}.imports', function ($user, string $subjectId): bool {
+    return SubjectMembership::query()
+        ->where('subject_id', $subjectId)
+        ->where('user_id', $user->id)
+        ->whereNull('revoked_at')
+        ->exists();
+});
+
+/**
  * `App\Domain\Spv\Events\*` broadcast on `tax-subjects.{subjectId}.spv` (`BLUEPRINT.md` §16) — same
  * authorization rule as the documents channel above.
  */

@@ -2,6 +2,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import { getCsrfToken } from './csrf';
 import { type DocumentLifecycleEvent, parseDocumentLifecycleEvent } from '../types/documents';
+import { type StatementImportEvent, parseStatementImportEvent } from '../types/statementImport';
 
 // `laravel-echo`'s `reverb` broadcaster resolves `window.Pusher` at construction time — this is
 // the documented Laravel/Reverb wiring (`BLUEPRINT.md` §1.3: "WebSockets prin Laravel Echo + Reverb"),
@@ -101,6 +102,37 @@ export function subscribeToDocumentsChannel(subjectId: string, handlers: Documen
     for (const eventName of eventNames) {
         channel.listen(`.${eventName}`, listener);
     }
+
+    return () => {
+        getEcho().leave(channelName);
+    };
+}
+
+/**
+ * Subscribes to the private `tax-subjects.{subjectId}.imports` channel
+ * (`App\Domain\StatementImport\Events\StatementImportChanged`, authorized in
+ * `routes/channels.php`) and calls `onEvent` whenever an import moves — read, mapped, reviewed,
+ * written — or its counterparty proposals arrive.
+ *
+ * Same contract as the documents channel: the payload is ids and a status, never a row, and every
+ * handler treats it as "something changed, go re-fetch" rather than as data.
+ */
+export function subscribeToImportsChannel(
+    subjectId: string,
+    onEvent: (event: StatementImportEvent) => void,
+): () => void {
+    const channelName = `tax-subjects.${subjectId}.imports`;
+
+    getEcho()
+        .private(channelName)
+        .listen('.StatementImportChanged', (raw: unknown): void => {
+            try {
+                onEvent(parseStatementImportEvent(raw));
+            } catch {
+                // A payload that is not the documented shape is dropped, not crashed on — the screen
+                // keeps whatever it last fetched over HTTPS.
+            }
+        });
 
     return () => {
         getEcho().leave(channelName);

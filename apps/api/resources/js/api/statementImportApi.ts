@@ -1,5 +1,6 @@
 import { apiRequest } from '../lib/http';
 import {
+    parseStatementFormPreview,
     parseStatementImport,
     parseStatementImportPage,
     parseStatementImportDetail,
@@ -7,6 +8,7 @@ import {
     type StatementImportDetail,
     type StatementImportPage,
     type StatementForm,
+    type StatementFormPreview,
 } from '../types/statementImport';
 
 /**
@@ -71,6 +73,29 @@ export async function getStatementImport(
     return parseStatementImportDetail(
         JSON.parse(
             await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}${query === '' ? '' : `?${query}`}`),
+        ) as unknown,
+    );
+}
+
+/**
+ * What this form would make of the first lines, without committing to anything.
+ *
+ * Answered by the server on purpose: folding detail lines into the line above, reading a date
+ * written in words and picking a label by the direction of the money all happen in one place, and a
+ * copy of that here would drift from the one that does the real import — showing rows that are not
+ * what gets saved, which is worse than showing nothing.
+ */
+export async function previewStatementForm(
+    subjectId: string,
+    importId: string,
+    form: StatementForm,
+): Promise<StatementFormPreview> {
+    return parseStatementFormPreview(
+        JSON.parse(
+            await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/mapping/preview`, {
+                method: 'POST',
+                body: { ...form },
+            }),
         ) as unknown,
     );
 }

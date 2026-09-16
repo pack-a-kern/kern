@@ -644,6 +644,17 @@ export interface Dictionary {
                 none: string;
                 suggested: string;
                 preview: string;
+                /** The raw grid, kept as the secondary view behind the rebuilt one. */
+                raw: string;
+                /** The first transactions, rebuilt by the server from the choices so far. */
+                rebuilt: string;
+                rebuiltHint: string;
+                rebuiltEmpty: string;
+                /** `{folded}` and `{skipped}` are substituted. */
+                rebuiltCounts: string;
+                /** The model's own reply, shown so a wrong form can be checked against it. */
+                aiAnswer: string;
+                aiAnswerHint: string;
                 apply: string;
                 /** `{parsed}` and `{total}` are substituted. */
                 unusable: string;

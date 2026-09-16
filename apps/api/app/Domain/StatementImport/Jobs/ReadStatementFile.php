@@ -8,6 +8,7 @@ use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
@@ -135,6 +136,17 @@ final class ReadStatementFile implements ShouldQueue
             throw $exception;
         }
 
+        /*
+         * A suggested form, where a model is available and the taxpayer has consented.
+         *
+         * The columns, the labels found beneath transactions, and the first lines of the file go
+         * out — the lines because a model cannot tell a detail line from a heading without seeing
+         * one. It is stored as the screen's starting point, never applied: a person confirms it
+         * against a preview, which is where a balance column mistaken for an amount is obvious and
+         * a ledger is where it is not.
+         */
+        $suggestion = $suggest($import->tax_subject_id, $parsed);
+
         $import->format = $parsed->format;
         $import->sheet = $parsed->sheet;
         $import->row_count = count($parsed->rows);
@@ -152,20 +164,16 @@ final class ReadStatementFile implements ShouldQueue
                 static fn ($group): array => $group->toArray(),
                 $parsed->labelGroups,
             ),
+            // Structure only — column numbers, labels, separators — and encrypted with the rest of
+            // the preview, because it describes a person's own statement.
+            'ai_answer' => $suggestion->raw,
             // Only the first rows: the mapping screen shows a sample, and keeping the whole
             // statement here would be a second copy of the file in the database.
             'rows' => array_slice($parsed->rows, 0, config()->integer('statement_import.limits.preview_rows')),
         ], JSON_THROW_ON_ERROR);
-        /*
-         * A suggested mapping, where a model is available and the taxpayer has consented.
-         *
-         * Only headers and column shapes are sent — no values — so this call carries nothing about
-         * anybody's payments. It is stored as the screen's starting point, never applied: a person
-         * confirms it against the preview, which is where a balance column mistaken for an amount is
-         * obvious. Null when unavailable or unusable, and the screen falls back to its own guess.
-         */
-        $suggestion = $suggest($import->tax_subject_id, $parsed);
 
+        // Null when the model was unavailable or its answer did not describe this file, and the
+        // screen then falls back to its own guess from the column shapes.
         if ($suggestion->form !== null) {
             $import->column_mapping = $suggestion->form->toArray();
             $import->mapping_source = MappingSource::AI;
@@ -178,6 +186,8 @@ final class ReadStatementFile implements ShouldQueue
         $import->status = StatementImportStatus::MAPPING;
         $import->failure_reason = null;
         $import->save();
+
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
     }
 
     private function fail(StatementImport $import, string $reason): void
@@ -186,5 +196,7 @@ final class ReadStatementFile implements ShouldQueue
         // A closed code, never the reader's sentence and never a line of the file.
         $import->failure_reason = $reason;
         $import->save();
+
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
     }
 }

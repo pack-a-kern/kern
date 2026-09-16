@@ -776,6 +776,14 @@ export const ro = {
                 none: 'Nu există în fișier',
                 suggested: 'Propus',
                 preview: 'Primele rânduri',
+                raw: 'Fișierul așa cum a fost citit',
+                rebuilt: 'Cum vor fi citite primele tranzacții',
+                rebuiltHint:
+                    'Reconstruite din fișierul tău, cu alegerile de mai sus. Liniile de detaliu sunt incluse în tranzacția de care aparțin.',
+                rebuiltEmpty: 'Cu aceste alegeri nu se poate citi nimic încă.',
+                rebuiltCounts: '{folded} linii de detaliu incluse · {skipped} linii sărite',
+                aiAnswer: 'Ce a răspuns modelul',
+                aiAnswerHint: 'Pentru verificarea formularului. Doar structură — fără sume, fără nume.',
                 apply: 'Continuă',
                 unusable:
                     'Această potrivire citește doar {parsed} din {total} rânduri. Verifică coloanele de dată și sumă.',

@@ -66,6 +66,33 @@ export interface StatementPreview {
     headerRow: number | null;
     warnings: string[];
     labels: StatementLabelGroup[];
+    /** What the model replied when asked how this file is built. Structure only — for checking it. */
+    aiAnswer: Record<string, unknown> | null;
+}
+
+/** One transaction as the confirmed form would read it — the same builder the import itself uses. */
+export interface StatementFormPreviewRow {
+    row_number: number;
+    booked_at: string | null;
+    amount_minor: number | null;
+    currency_code: string | null;
+    text: string;
+    counterparty: string;
+    reference: string;
+}
+
+export interface StatementFormPreview {
+    transactions: StatementFormPreviewRow[];
+    linesFolded: number;
+    linesSkipped: number;
+}
+
+/** `App\Domain\StatementImport\Events\StatementImportChanged` — "something moved, ask again". */
+export interface StatementImportEvent {
+    importId: string;
+    status: StatementImportStatus;
+    /** True when the counterparty proposals were written, rather than the status moving. */
+    proposals: boolean;
 }
 
 /** Where one field lives: a column of the line, a label on a detail line, or a fixed code. */
@@ -250,6 +277,10 @@ function parsePreview(payload: unknown): StatementPreview {
             (sheet): sheet is string => typeof sheet === 'string',
         ),
         headerRow: nullableNum(preview, 'header_row'),
+        aiAnswer:
+            typeof preview.ai_answer === 'object' && preview.ai_answer !== null
+                ? (preview.ai_answer as Record<string, unknown>)
+                : null,
         warnings: (Array.isArray(preview.warnings) ? preview.warnings : []).filter(
             (warning): warning is string => typeof warning === 'string',
         ),
@@ -323,6 +354,39 @@ function parseForm(payload: unknown): StatementForm | null {
         reference: { debit: parseField(reference.debit), credit: parseField(reference.credit) },
         non_transaction_lines: parseStrings(row.non_transaction_lines),
         identity_labels: parseStrings(row.identity_labels),
+    };
+}
+
+export function parseStatementImportEvent(raw: unknown): StatementImportEvent {
+    const row = obj(raw);
+    const status = str(row, 'status');
+
+    return {
+        importId: str(row, 'import_id'),
+        status: STATUSES.includes(status as StatementImportStatus) ? (status as StatementImportStatus) : 'FAILED',
+        proposals: row.proposals === true,
+    };
+}
+
+export function parseStatementFormPreview(payload: unknown): StatementFormPreview {
+    const body = obj(payload);
+
+    return {
+        transactions: (Array.isArray(body.transactions) ? body.transactions : []).map((entry): StatementFormPreviewRow => {
+            const row = obj(entry);
+
+            return {
+                row_number: num(row, 'row_number'),
+                booked_at: nullableStr(row, 'booked_at'),
+                amount_minor: nullableNum(row, 'amount_minor'),
+                currency_code: nullableStr(row, 'currency_code'),
+                text: str(row, 'text'),
+                counterparty: str(row, 'counterparty'),
+                reference: str(row, 'reference'),
+            };
+        }),
+        linesFolded: num(body, 'lines_folded'),
+        linesSkipped: num(body, 'lines_skipped'),
     };
 }
 

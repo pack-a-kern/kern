@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Actions;
 
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Jobs\WriteStatementRows;
 use App\Domain\StatementImport\Models\StatementImport;
@@ -34,6 +35,8 @@ final readonly class CommitStatementImport
         });
 
         WriteStatementRows::dispatch($import->id, $actorId);
+
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
 
         return $import;
     }

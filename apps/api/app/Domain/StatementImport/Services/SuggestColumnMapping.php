@@ -89,7 +89,17 @@ final readonly class SuggestColumnMapping
 
         $form = $this->toForm($answer->data, $file);
 
-        return $form === null ? FormSuggestion::failed(FormSuggestion::NOT_THIS_FILE) : FormSuggestion::of($form);
+        /*
+         * The reply travels with the answer, usable or not.
+         *
+         * A form that reads nothing and a form that was never proposed look identical on screen, and
+         * the difference is in what the model actually said — which column it named, which label it
+         * invented, which drop-pattern was thrown away for matching a detail line. Kept with the
+         * import so that question is answerable without re-running anything.
+         */
+        return $form === null
+            ? FormSuggestion::failed(FormSuggestion::NOT_THIS_FILE, $answer->data)
+            : FormSuggestion::of($form, $answer->data);
     }
 
     /**

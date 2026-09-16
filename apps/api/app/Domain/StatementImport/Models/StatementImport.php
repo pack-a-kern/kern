@@ -102,21 +102,23 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
      * lines: a person picks `Tranzactie la` from what the file actually contains, rather than typing
      * it and finding out it read nothing.
      *
-     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>}
+     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null}
      */
     public function preview(): array
     {
         $decoded = json_decode(is_string($this->preview_ciphertext) ? $this->preview_ciphertext : '', true);
 
         if (! is_array($decoded)) {
-            return ['columns' => [], 'rows' => [], 'labels' => []];
+            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null];
         }
 
-        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>} $preview */
+        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null} $preview */
         $preview = [
             'columns' => is_array($decoded['columns'] ?? null) ? array_values($decoded['columns']) : [],
             'rows' => is_array($decoded['rows'] ?? null) ? array_values($decoded['rows']) : [],
             'labels' => is_array($decoded['labels'] ?? null) ? array_values($decoded['labels']) : [],
+            // What the model replied when it was asked how this file is built. Structure only.
+            'ai_answer' => is_array($decoded['ai_answer'] ?? null) ? $decoded['ai_answer'] : null,
         ];
 
         return $preview;

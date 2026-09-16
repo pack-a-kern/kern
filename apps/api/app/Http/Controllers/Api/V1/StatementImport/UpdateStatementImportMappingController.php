@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\StatementImport;
 
 use App\Domain\StatementImport\Actions\ApplyColumnMapping;
-use App\Domain\StatementImport\DataTransferObjects\StatementField;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Exceptions\CurrencyRequiredException;
@@ -14,10 +13,10 @@ use App\Domain\StatementImport\Exceptions\MappingNotUsableException;
 use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Models\StatementImport;
+use App\Http\Controllers\Api\V1\StatementImport\Concerns\ValidatesStatementForm;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * `PUT .../wallet/imports/{import}/mapping` — how the file is built, confirmed by a person.
@@ -28,6 +27,8 @@ use Illuminate\Validation\Rule;
  */
 final class UpdateStatementImportMappingController extends Controller
 {
+    use ValidatesStatementForm;
+
     public function __invoke(
         Request $request,
         string $subject,
@@ -36,7 +37,7 @@ final class UpdateStatementImportMappingController extends Controller
     ): JsonResponse {
         $model = StatementImport::query()->findOrFail($import);
 
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->formRules());
 
         try {
             $apply(
@@ -87,69 +88,4 @@ final class UpdateStatementImportMappingController extends Controller
         return is_scalar($id) ? (string) $id : null;
     }
 
-    /**
-     * @return array<string, array<int, mixed>>
-     */
-    private function rules(): array
-    {
-        /*
-         * Every field is the same three-part shape — a kind, and a column index or a label — so the
-         * rules are built once rather than written out eight times. Amount fields are columns only:
-         * a figure written on a detail line as a label is not something this can add up.
-         */
-        $field = static function (string $key, bool $columnsOnly = false): array {
-            $kinds = $columnsOnly
-                ? [StatementField::INDEX]
-                : [StatementField::INDEX, StatementField::LABEL, StatementField::CODE];
-
-            return [
-                $key => ['sometimes', 'nullable', 'array'],
-                $key . '.type' => ['required_with:' . $key, Rule::in($kinds)],
-                $key . '.value' => ['required_with:' . $key, 'max:120'],
-            ];
-        };
-
-        $signed = 'amounts.mode,' . StatementForm::MODE_SIGNED;
-        $split = 'amounts.mode,' . StatementForm::MODE_DEBIT_CREDIT;
-
-        return array_merge(
-            [
-                'layout' => ['required', Rule::in([StatementForm::LAYOUT_ROW, StatementForm::LAYOUT_BLOCK])],
-
-                'date' => ['required', 'array'],
-                'date.value' => ['required', 'integer', 'min:0'],
-                'date.format' => ['required', Rule::in(StatementForm::DATE_FORMATS)],
-
-                'amounts' => ['required', 'array'],
-                'amounts.mode' => ['required', Rule::in([StatementForm::MODE_SIGNED, StatementForm::MODE_DEBIT_CREDIT])],
-                'amounts.amount' => ['nullable', 'array', 'required_if:' . $signed],
-                // One of the two is enough: plenty of exports have a debit column and no credit one
-                // in a month where nothing came in.
-                'amounts.debit' => ['nullable', 'array', 'required_without_all:amounts.credit', 'exclude_if:' . $signed],
-                'amounts.credit' => ['nullable', 'array', 'required_without_all:amounts.debit', 'exclude_if:' . $signed],
-                'amounts.decimal_separator' => ['required', 'string', 'size:1'],
-                'amounts.thousands_separator' => ['sometimes', 'nullable', 'string', 'max:1'],
-
-                // A heading or footer to drop, and a label whose value is an identifier to never
-                // read. Bounded: this is a form a person fills in, not a rule engine.
-                'non_transaction_lines' => ['sometimes', 'array', 'max:20'],
-                'non_transaction_lines.*' => ['string', 'max:120'],
-                'identity_labels' => ['sometimes', 'array', 'max:20'],
-                'identity_labels.*' => ['string', 'max:60'],
-
-                // Which side proposed it — the screen says `AI` only when the person accepted a
-                // suggestion unchanged.
-                'source' => ['sometimes', Rule::enum(MappingSource::class)],
-            ],
-            $field('amounts.amount', columnsOnly: true),
-            $field('amounts.debit', columnsOnly: true),
-            $field('amounts.credit', columnsOnly: true),
-            $field('currency'),
-            $field('description'),
-            $field('counterparty.debit'),
-            $field('counterparty.credit'),
-            $field('reference.debit'),
-            $field('reference.credit'),
-        );
-    }
 }

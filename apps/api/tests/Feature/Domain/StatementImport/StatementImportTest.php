@@ -390,6 +390,32 @@ it('applies what a person answers to a whole set of rows at once', function (): 
  * than by running the job: in a test the queue is synchronous and the request's own tenant is still
  * bound, so the job would succeed here either way and prove nothing.
  */
+/**
+ * The preview answers from the same builder the import uses, over the rows already stored.
+ *
+ * That is the whole point of it being a request rather than a copy of the folding logic in the
+ * browser: a second implementation would drift, and a preview that shows something other than what
+ * will be saved is worse than no preview.
+ */
+it('shows what a form would make of the first lines, without staging anything', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-previzualizare.csv');
+
+    $response = $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/preview", mappingBody())
+        ->assertOk();
+
+    expect($response->json('transactions.0.booked_at'))->toBe('2026-03-05')
+        ->and($response->json('transactions.0.amount_minor'))->toBe(-12_345)
+        ->and($response->json('transactions.0.text'))->toBe('PLATA CARD KAUFLAND');
+
+    // Nothing was staged and nothing moved: previewing is reading.
+    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+        ->toBe(0)
+        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+        ->toBe(StatementImportStatus::MAPPING);
+});
+
 it('hands the classification job someone to act as', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId);

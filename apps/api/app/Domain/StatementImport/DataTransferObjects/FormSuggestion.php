@@ -17,19 +17,25 @@ final readonly class FormSuggestion
     /** The reply named a column or a label the file does not have. */
     public const string NOT_THIS_FILE = 'NOT_THIS_FILE';
 
+    /**
+     * @param  array<string, mixed>|null  $raw  what the model actually replied, before validation
+     */
     private function __construct(
         public ?StatementForm $form,
         public ?string $failure,
+        public ?array $raw = null,
     ) {
     }
 
-    public static function of(StatementForm $form): self
+    /** @param array<string, mixed>|null $raw */
+    public static function of(StatementForm $form, ?array $raw = null): self
     {
-        return new self($form, null);
+        return new self($form, null, $raw);
     }
 
-    public static function failed(string $failure): self
+    /** @param array<string, mixed>|null $raw */
+    public static function failed(string $failure, ?array $raw = null): self
     {
-        return new self(null, $failure);
+        return new self(null, $failure, $raw);
     }
 }

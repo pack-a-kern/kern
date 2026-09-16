@@ -7,6 +7,7 @@ namespace App\Domain\StatementImport\Actions;
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
@@ -60,6 +61,8 @@ final readonly class UndoStatementImport
             $import->imported_count = 0;
             $import->save();
         });
+
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
 
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: $import->tax_subject_id,
