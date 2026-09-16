@@ -31,8 +31,6 @@ use Throwable;
  */
 final readonly class ProbeSystemHealth
 {
-    private const int TIMEOUT_SECONDS = 3;
-
     public function __construct(
         private HttpFactory $http,
         private ConfigRepository $config,
@@ -66,7 +64,7 @@ final readonly class ProbeSystemHealth
             }),
             $this->probe('processing', function (): ?string {
                 $baseUrl = $this->stringConfig('documents.text_extraction.base_url');
-                $response = $this->http->timeout(self::TIMEOUT_SECONDS)->get(rtrim($baseUrl, '/') . '/health');
+                $response = $this->http->timeout($this->config->integer('operations.health.timeout_seconds'))->get(rtrim($baseUrl, '/') . '/health');
 
                 if ($response->failed()) {
                     throw new RuntimeException('status ' . $response->status());
@@ -89,14 +87,14 @@ final readonly class ProbeSystemHealth
             $host = $this->stringConfig('documents.clamav.host');
             $port = $this->intConfig('documents.clamav.port');
 
-            $socket = @fsockopen($host, $port, $code, $message, self::TIMEOUT_SECONDS);
+            $socket = @fsockopen($host, $port, $code, $message, $this->config->integer('operations.health.timeout_seconds'));
 
             if ($socket === false) {
                 throw new RuntimeException('unreachable');
             }
 
             try {
-                stream_set_timeout($socket, self::TIMEOUT_SECONDS);
+                stream_set_timeout($socket, $this->config->integer('operations.health.timeout_seconds'));
                 fwrite($socket, "zPING\0");
                 $reply = fread($socket, 16);
             } finally {

@@ -96,9 +96,7 @@ final readonly class AiProviderCatalogue
 
     public function timeoutSeconds(): int
     {
-        $timeout = $this->config->get('ai_providers.timeout_seconds');
-
-        return is_int($timeout) && $timeout > 0 ? $timeout : 10;
+        return $this->config->integer('ai_providers.timeout_seconds');
     }
 
     /**
@@ -120,9 +118,13 @@ final readonly class AiProviderCatalogue
             return $stored;
         }
 
-        $timeout = $this->config->get('ai_providers.extraction_timeout_seconds');
+        return $this->config->integer('ai_providers.extraction_timeout_seconds');
+    }
 
-        return is_int($timeout) && $timeout > 0 ? $timeout : 120;
+    /** Time a queued job needs around the model call itself — see `ai_providers.job_timeout_margin_seconds`. */
+    public function jobTimeoutMarginSeconds(): int
+    {
+        return $this->config->integer('ai_providers.job_timeout_margin_seconds');
     }
 
     /** Whether the configured endpoint can clean up a photographed document before reading it. */

@@ -19,11 +19,17 @@ verified by the guard test of phase 1.
 | Where | Value | Becomes |
 |---|---|---|
 | `config/horizon.php`, `default` supervisor | `timeout => 60` | `HORIZON_DEFAULT_QUEUE_TIMEOUT_SECONDS` |
-| `ReadStatementFile` | wait 15 s between checks, 20 checks | `documents.scan_wait.seconds_between_checks`, `.checks` |
-| `ProposeCategoryBatch`, `ReadStatementFile`, `ProcessScannedDocument` | `TIMEOUT_MARGIN_SECONDS = 60`, three copies | one `queue`-level margin in config |
+| `ReadStatementFile` | wait 15 s between checks, 20 checks | `statement_import.scan_wait.seconds_between_checks`, `.checks` |
+| `ProposeCategoryBatch`, `ReadStatementFile`, `ProcessScannedDocument` | `TIMEOUT_MARGIN_SECONDS = 60`, three copies | `ai_providers.job_timeout_margin_seconds` (`AI_JOB_TIMEOUT_MARGIN_SECONDS`) |
 | `ProbeSystemHealth` | 3 s | `operations.health.timeout_seconds` |
 | `LoginController` | pending second factor valid 300 s | `identity.mfa.pending_ttl_seconds` |
-| `HttpEmbeddingProvider` | fallback `900` repeating the config default | removed — config is the default |
+| `HttpEmbeddingProvider` | fallbacks `900`, `32` and `1024` — the last contradicting config's `384` | removed; a missing value is refused, naming the key |
+| `AiProviderCatalogue` | fallbacks `10` and `120` repeating config's defaults | removed — config is the default |
+| Redis `retry_after` | 90 s for every queue, while the model queue allows 900 s | the model supervisor reads through its own connection, `queue.connections.redis-ai`, whose reservation outlasts its timeout |
+
+The last row was safe only by accident: a reservation that outlives `retry_after` is handed out again,
+but only to a process working the same queue — and the model queue has one, busy with the call. A
+second process would have made every call over 90 seconds run twice.
 
 Deliberately left in code: the 400 ms preview debounce (interface behaviour, not an operating
 limit), the 2 s grace period for reaping a killed PDF process, and `$tries = 1` on model calls,

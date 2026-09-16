@@ -89,9 +89,6 @@ final class ProcessScannedDocument implements ShouldQueue
      */
     public int $timeout;
 
-    /** Enough for the object-store read, the decrypt, base64 and the write around the HTTP call. */
-    private const int TIMEOUT_MARGIN_SECONDS = 60;
-
     /**
      * One attempt at the AI step, not three.
      *
@@ -112,7 +109,7 @@ final class ProcessScannedDocument implements ShouldQueue
         // Read through the catalogue rather than `config()` directly, so the job and the provider
         // that makes the call cannot disagree about what the configured timeout is.
         $this->timeout = app(AiProviderCatalogue::class)->extractionTimeoutSeconds()
-            + self::TIMEOUT_MARGIN_SECONDS;
+            + app(AiProviderCatalogue::class)->jobTimeoutMarginSeconds();
 
         /*
          * Its own queue, worked by exactly one process.

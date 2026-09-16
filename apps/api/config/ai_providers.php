@@ -348,6 +348,13 @@ return [
     // then an image, then generating. Runs on a queue worker, so a long wait costs nobody a
     // spinner — and reusing the ping's 10s would abandon every real extraction and misreport the
     // provider as unreachable.
+    /*
+     * Time a queued job needs around the model call itself: reading and decrypting the input,
+     * writing the answer. Added to the call's own timeout to size the job, so it is one value
+     * rather than a copy in each job that makes a call.
+     */
+    'job_timeout_margin_seconds' => (int) env('AI_JOB_TIMEOUT_MARGIN_SECONDS', 60),
+
     'extraction_timeout_seconds' => (int) env('AI_EXTRACTION_TIMEOUT_SECONDS', 120),
 
     // The largest document sent for a model to look at — below the 15 MB an upload may be, because

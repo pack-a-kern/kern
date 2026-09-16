@@ -32,7 +32,29 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
+            // Must stay above the default queue's timeout (HORIZON_DEFAULT_QUEUE_TIMEOUT_SECONDS).
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
+        /*
+         * The same Redis queues, read with a reservation long enough for a model call.
+         *
+         * A reservation that outlives `retry_after` is treated as a lost job and handed out again. At
+         * 90 seconds, a five-minute model call would be picked up a second time by any other process
+         * on its queue — two identical calls, and a failure recorded for the one that succeeded.
+         * It has not happened only because the model queue has one process, which is busy with the
+         * call itself.
+         *
+         * The reservation is set by the worker that takes the job, not by the code that queued it, so
+         * only the model supervisor names this connection; jobs keep pushing through `redis`.
+         */
+        'redis-ai' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 900) + (int) env('AI_JOB_TIMEOUT_MARGIN_SECONDS', 60),
             'block_for' => null,
             'after_commit' => false,
         ],

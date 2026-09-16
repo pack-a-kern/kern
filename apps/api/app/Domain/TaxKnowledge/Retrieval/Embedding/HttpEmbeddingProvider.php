@@ -92,7 +92,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
     {
         try {
             $response = $this->http
-                ->timeout($this->intConfig('retrieval.embedding.timeout_seconds', 900))
+                ->timeout($this->intConfig('retrieval.embedding.timeout_seconds'))
                 ->withToken($token)
                 ->acceptJson()
                 ->post($this->baseUrl() . '/v1/embeddings', [
@@ -123,7 +123,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
             $this->reportedModel = $model;
         }
 
-        $expected = $this->intConfig('retrieval.embedding.dimension', 1024);
+        $expected = $this->intConfig('retrieval.embedding.dimension');
         $vectors = [];
 
         foreach ($rows as $row) {
@@ -157,7 +157,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
     /** @return int<1, max> */
     private function batchSize(): int
     {
-        return max(1, $this->intConfig('retrieval.embedding.batch_size', 32));
+        return max(1, $this->intConfig('retrieval.embedding.batch_size'));
     }
 
     private function stringConfig(string $key): string
@@ -167,10 +167,20 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
         return is_string($value) ? $value : '';
     }
 
-    private function intConfig(string $key, int $fallback): int
+    /**
+     * A positive whole number from config, or a refusal naming the key.
+     *
+     * No fallback of its own: this used to carry defaults that disagreed with config — a dimension of
+     * 1024 here against 384 there — and a fallback that is never used is still read, and believed.
+     */
+    private function intConfig(string $key): int
     {
         $value = $this->config->get($key);
 
-        return is_int($value) && $value > 0 ? $value : $fallback;
+        if (! is_int($value) || $value <= 0) {
+            throw new RuntimeException("Missing or invalid config value \"{$key}\".");
+        }
+
+        return $value;
     }
 }

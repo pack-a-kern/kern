@@ -216,7 +216,8 @@ return [
          * records nothing about why.
          */
         'supervisor-documents-ai' => [
-            'connection' => 'redis',
+            // Its own connection for its reservation length — see `queue.connections.redis-ai`.
+            'connection' => 'redis-ai',
             'queue' => ['documents-ai'],
             'balance' => 'simple',
             'maxProcesses' => 1,
@@ -238,7 +239,9 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 1,
-            'timeout' => 60,
+            // Must stay below REDIS_QUEUE_RETRY_AFTER, or a slow job is handed out a second time.
+            // Model calls do not run here: anything slow belongs on the model queue above.
+            'timeout' => (int) env('HORIZON_DEFAULT_QUEUE_TIMEOUT_SECONDS', 60),
             'nice' => 0,
         ],
     ],

@@ -30,6 +30,19 @@ return [
     ],
 
     /*
+     * How long a freshly uploaded statement is waited on while the antivirus scans it.
+     *
+     * The job checks, and if the file is still in quarantine puts itself back for
+     * `seconds_between_checks`, up to `checks` times — about five minutes by default. Long enough for
+     * ClamAV reloading its signatures; past that, a scan is stuck rather than slow, and the import
+     * fails honestly instead of waiting forever.
+     */
+    'scan_wait' => [
+        'seconds_between_checks' => (int) env('STATEMENT_IMPORT_SCAN_WAIT_SECONDS', 15),
+        'checks' => (int) env('STATEMENT_IMPORT_SCAN_WAIT_CHECKS', 20),
+    ],
+
+    /*
      * Month names, for dates a bank writes as "12 septembrie 2026".
      *
      * In configuration because they are language, not logic: a Hungarian or German export needs its

@@ -53,6 +53,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Second factor
+    |--------------------------------------------------------------------------
+    |
+    | How long a correct password stays good for while the second factor is
+    | entered. Past this the password has to be given again: a half-finished
+    | login left open on a shared computer should not wait indefinitely for
+    | whoever sits down next.
+    |
+    */
+
+    'mfa' => [
+        'pending_ttl_seconds' => (int) env('IDENTITY_MFA_PENDING_TTL_SECONDS', 300),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rate limits (BLUEPRINT.md §4.7 — every auth endpoint is rate limited)
     |--------------------------------------------------------------------------
     |

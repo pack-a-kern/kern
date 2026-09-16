@@ -64,6 +64,12 @@ return [
         'max_output_bytes' => (int) env('OPERATIONS_RUN_MAX_OUTPUT_BYTES', 4000),
     ],
 
+    'health' => [
+        // How long the health page waits for each service before calling it unreachable. Short on
+        // purpose: the page answers "is it up", and a service that takes longer is not, for a person.
+        'timeout_seconds' => (int) env('OPERATIONS_HEALTH_TIMEOUT_SECONDS', 3),
+    ],
+
     'freshness' => [
         // Beyond this many days with no new BNR rate, the FX panel reports stale rather than fine.
         // Four days covers a Friday import plus a Monday public holiday.

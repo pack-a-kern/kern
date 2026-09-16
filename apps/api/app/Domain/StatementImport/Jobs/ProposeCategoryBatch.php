@@ -48,9 +48,6 @@ final class ProposeCategoryBatch implements ShouldQueue
 
     public int $timeout;
 
-    /** Enough for loading the rows and writing the answers around the call itself. */
-    private const int TIMEOUT_MARGIN_SECONDS = 60;
-
     /** The recorded failure when the job itself died rather than the call returning an error. */
     private const string JOB_FAILED = 'JOB_FAILED';
 
@@ -63,7 +60,8 @@ final class ProposeCategoryBatch implements ShouldQueue
         private readonly string $run,
         private readonly array $rowIds,
     ) {
-        $this->timeout = config()->integer('statement_import.ai.timeout_seconds') + self::TIMEOUT_MARGIN_SECONDS;
+        $this->timeout = config()->integer('statement_import.ai.timeout_seconds')
+            + config()->integer('ai_providers.job_timeout_margin_seconds');
         $this->onQueue(config()->string('statement_import.ai.queue'));
     }
 

@@ -46,10 +46,8 @@ final class ReadStatementFile implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    /** Long enough for a signature reload, short enough that a stuck scan is not waited on forever. */
-    public int $tries = 20;
-
-    private const int WAIT_SECONDS = 15;
+    /** How many times the scan is checked for — `statement_import.scan_wait.checks`. */
+    public int $tries;
 
     /** Statuses whose bytes have been promoted out of quarantine into the real store. */
     private const array READABLE_STATUSES = [
@@ -66,13 +64,12 @@ final class ReadStatementFile implements ShouldQueue
      */
     public int $timeout;
 
-    private const int TIMEOUT_MARGIN_SECONDS = 60;
-
     public function __construct(private readonly string $importId)
     {
+        $this->tries = config()->integer('statement_import.scan_wait.checks');
         $this->timeout = config()->integer('statement_import.parser.timeout_seconds')
             + config()->integer('statement_import.ai.timeout_seconds')
-            + self::TIMEOUT_MARGIN_SECONDS;
+            + config()->integer('ai_providers.job_timeout_margin_seconds');
         $this->onQueue(config()->string('statement_import.ai.queue'));
     }
 
@@ -110,7 +107,7 @@ final class ReadStatementFile implements ShouldQueue
         }
 
         if (! in_array($document->status, self::READABLE_STATUSES, true)) {
-            $this->release(self::WAIT_SECONDS);
+            $this->release(config()->integer('statement_import.scan_wait.seconds_between_checks'));
 
             return;
         }

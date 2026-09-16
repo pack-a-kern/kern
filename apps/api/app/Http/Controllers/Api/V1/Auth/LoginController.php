@@ -30,8 +30,6 @@ final class LoginController extends Controller
 
     private const string PENDING_MFA_SESSION_KEY = 'auth.mfa_pending';
 
-    private const int PENDING_MFA_TTL_SECONDS = 300;
-
     public function __invoke(
         Request $request,
         AttemptPasswordLogin $attempt,
@@ -51,7 +49,7 @@ final class LoginController extends Controller
         if ($result->mfaRequired) {
             $request->session()->put(self::PENDING_MFA_SESSION_KEY, [
                 'user_id' => $result->user->id,
-                'expires_at' => now('UTC')->addSeconds(self::PENDING_MFA_TTL_SECONDS)->timestamp,
+                'expires_at' => now('UTC')->addSeconds(config()->integer('identity.mfa.pending_ttl_seconds'))->timestamp,
             ]);
 
             return response()->json(['mfa_required' => true]);
