@@ -392,9 +392,19 @@ export function formatMinor(minor: number | null, currency: string, locale: stri
         return '—';
     }
 
+    /*
+     * A figure whose currency is not known is still a figure.
+     *
+     * `Intl.NumberFormat` throws a RangeError on anything that is not a three-letter code, and an
+     * empty one reaches here whenever a source has no currency of its own — an imported statement
+     * read into an account that never had one, for instance. Throwing takes down the whole screen
+     * over a missing label, so the number is shown plainly instead and the currency is simply
+     * absent, which is the truth about that row.
+     */
+    const known = /^[A-Za-z]{3}$/.test(currency);
+
     return new Intl.NumberFormat(locale, {
-        style: 'currency',
-        currency,
+        ...(known ? { style: 'currency' as const, currency: currency.toUpperCase() } : {}),
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(minor / 100);

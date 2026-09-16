@@ -125,9 +125,19 @@ final readonly class ApplyColumnMapping
                         JSON_THROW_ON_ERROR,
                     ),
                     'proposal_source' => $rule === null ? null : RowProposalSource::RULE,
-                    // A row already in the ledger, or one with no date or amount, starts unticked:
-                    // the default should never be to import something a person has not looked at.
-                    'included' => $duplicateId === null && $row['booked_at'] !== null && $row['amount_minor'] !== null,
+                    /*
+                     * A row already in the ledger, or one this could not read, starts unticked: the
+                     * default should never be to import something a person has not looked at.
+                     *
+                     * Currency counts as unread. A transaction stores one and the column is not
+                     * nullable, so a row without it cannot be saved at all — better shown unticked
+                     * here, where the form above can still answer it for the whole file, than as a
+                     * job that fails after a person has pressed Import.
+                     */
+                    'included' => $duplicateId === null
+                        && $row['booked_at'] !== null
+                        && $row['amount_minor'] !== null
+                        && $row['currency_code'] !== null,
                 ]);
                 $staged->save();
             }

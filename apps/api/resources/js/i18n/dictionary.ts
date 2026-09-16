@@ -612,6 +612,7 @@ export interface Dictionary {
                 decimal: string;
                 thousands: string;
                 currency: string;
+                currencyHint: string;
                 fixedCurrency: string;
                 description: string;
                 counterparty: string;

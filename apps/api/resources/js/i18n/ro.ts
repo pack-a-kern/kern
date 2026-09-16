@@ -740,7 +740,9 @@ export const ro = {
                 credit: 'Bani intrați',
                 decimal: 'Separator zecimal',
                 thousands: 'Separator mii',
-                currency: 'Coloana monedă',
+                currency: 'Moneda',
+                currencyHint:
+                    'Un extras într-o singură monedă de obicei nu o scrie nicăieri. Alege codul dacă fișierul nu are o coloană de monedă.',
                 fixedCurrency: 'Moneda pentru toate rândurile',
                 description: 'Descriere',
                 counterparty: 'Partener',

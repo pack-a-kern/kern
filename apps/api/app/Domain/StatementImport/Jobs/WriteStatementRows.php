@@ -101,6 +101,10 @@ final class WriteStatementRows implements ShouldQueue
             ->whereNull('transaction_id')
             ->whereNotNull('booked_at')
             ->whereNotNull('amount_minor')
+            // A transaction's currency column is `char(3)` and not nullable, so a row without one
+            // would be written as three blank characters rather than refused — a figure in no
+            // currency at all, which no report could ever add up. Left behind instead.
+            ->whereNotNull('currency_code')
             ->orderBy('row_number')
             ->chunkById($chunk, function ($rows) use ($import, $record, $tags, $rules, &$imported): void {
                 $inputs = [];

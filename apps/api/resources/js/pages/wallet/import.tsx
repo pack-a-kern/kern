@@ -35,6 +35,7 @@ import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
     bankLabel,
     categoriesFor,
+    CURRENCIES,
     formatMinor,
     isStreamKind,
     sourceName,
@@ -893,14 +894,25 @@ function MappingFields({
     const debitColumn = typeof mapping.amounts.debit?.value === 'number' ? mapping.amounts.debit.value : null;
     const creditColumn = typeof mapping.amounts.credit?.value === 'number' ? mapping.amounts.credit.value : null;
 
-    /** One select over the columns and the labels, for a field that could be in either. */
+    /**
+     * One select over the columns and the labels, for a field that could be in either.
+     *
+     * `codes` adds fixed values the file does not contain at all — which is how a statement states
+     * its currency: it is printed once at the top, or nowhere, and never in a column.
+     */
     const fieldSelect = (
         field: StatementField | null,
         labels: { value: string; label: string }[],
         onPick: (next: StatementField | null) => void,
+        codes: readonly string[] = [],
     ): JSX.Element => {
         const chosen = encodeField(field);
-        const options = [none, ...columnOptions, ...labels];
+        const options = [
+            none,
+            ...columnOptions,
+            ...labels,
+            ...codes.map((code) => ({ value: `code:${code}`, label: code })),
+        ];
 
         return (
             <PanelSelect
@@ -1080,10 +1092,18 @@ function MappingFields({
                     })}
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.currency)}>
-                    {fieldSelect(mapping.currency, labelsFor(null), (next) => {
-                        set({ currency: next });
-                    })}
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.currency)}
+                    hint={t((d) => d.pages.walletImports.columns.currencyHint)}
+                >
+                    {fieldSelect(
+                        mapping.currency,
+                        labelsFor(null),
+                        (next) => {
+                            set({ currency: next });
+                        },
+                        CURRENCIES,
+                    )}
                 </Field>
 
                 {mapping.non_transaction_lines.length === 0 ? null : (
