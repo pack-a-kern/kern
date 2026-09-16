@@ -24,8 +24,6 @@ final readonly class TransactionSplitInput
          * rows on the form and a `FOREIGN_RENT` code would collapse a distinction the form makes.
          */
         public ?string $countryCode = null,
-        public ?string $linkedDomainType = null,
-        public ?string $linkedDomainId = null,
     ) {
     }
 }

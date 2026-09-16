@@ -18,8 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $transaction_id
  * @property int $amount_minor
  * @property string $category_code
- * @property string|null $linked_domain_type
- * @property string|null $linked_domain_id
+ * @property string|null $country_code
  */
 final class TransactionSplit extends Model
 {
@@ -35,8 +34,6 @@ final class TransactionSplit extends Model
         'amount_minor',
         'category_code',
         'country_code',
-        'linked_domain_type',
-        'linked_domain_id',
     ];
 
     /** @return BelongsTo<FinancialTransaction, $this> */
