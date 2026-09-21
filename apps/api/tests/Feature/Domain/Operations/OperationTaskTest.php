@@ -18,12 +18,11 @@ it('names only commands this application actually registers', function (): void 
 });
 
 it('constrains every task argument — no free text reaches a command', function (): void {
-    // The invariant is not "integers only" (an ingest needs a URL and a document type) but that
-    // every argument is *bounded*: a numeric range, a closed set of values, or a URL that
-    // `AllowlistedHttpFetcher` will only fetch over https from a host `config/sources.php` names.
+    // The invariant is not "integers only" (an ingest needs a document type) but that every
+    // argument is *bounded*: a numeric range, a closed set of values, or a calendar date.
     foreach (OperationTask::cases() as $task) {
         foreach ($task->arguments() as $argument) {
-            expect([TaskArgument::TYPE_INTEGER, TaskArgument::TYPE_CHOICE, TaskArgument::TYPE_URL])
+            expect([TaskArgument::TYPE_INTEGER, TaskArgument::TYPE_CHOICE, TaskArgument::TYPE_DATE])
                 ->toContain($argument->type);
 
             if ($argument->type === TaskArgument::TYPE_INTEGER) {

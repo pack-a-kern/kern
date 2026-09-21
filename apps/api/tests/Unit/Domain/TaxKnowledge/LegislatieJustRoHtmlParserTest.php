@@ -146,3 +146,57 @@ it('returns no sections and no publication date for a document with no recognise
     expect($result->topLevelSections)->toBe([])
         ->and($result->publicationDate)->toBeNull();
 });
+
+/*
+ * Formatting (parser 1.2.0): what the text keeps of the page.
+ */
+
+function parsedAlineat(string $body): \App\Domain\TaxKnowledge\Parsing\ParsedSection
+{
+    $html = <<<HTML
+        <html><body>
+        <span class="S_ART"><span class="S_ART_TTL">Articolul 64</span><span class="S_ART_BDY">
+          <span class="S_ALN"><span class="S_ALN_TTL">(1)</span><span class="S_ALN_BDY">{$body}</span></span>
+        </span></span>
+        </body></html>
+        HTML;
+
+    $article = (new LegislatieJustRoHtmlParser())->parse($html)->topLevelSections[0];
+
+    return $article->children[0];
+}
+
+it('keeps a line break between the blocks of a provision', function (): void {
+    $alineat = parsedAlineat('<span class="S_PAR">Impozitul se calculează astfel:</span><span class="S_PAR">(la 01-01-2025, Alineatul (1) a fost modificat de Punctul 3.)</span>');
+
+    expect($alineat->text)->toBe("Impozitul se calculează astfel:\n(la 01-01-2025, Alineatul (1) a fost modificat de Punctul 3.)");
+});
+
+it('keeps a table as rows and cells, in its place in the text', function (): void {
+    $alineat = parsedAlineat(
+        '<span class="S_PAR">Impozitul se calculează potrivit tabelului:</span>'
+        . '<table><tr><td>Tranșe de venit brut <br/>- lei -</td><td>Impozit</td></tr>'
+        . '<tr><td>până la 66.750, inclusiv</td><td>1%</td></tr></table>'
+        . '<span class="S_PAR">Plafonul se actualizează anual.</span>',
+    );
+
+    expect($alineat->text)->toBe("Impozitul se calculează potrivit tabelului:\n[[table:1]]\nPlafonul se actualizează anual.")
+        ->and($alineat->tables)->toBe([[['Tranșe de venit brut - lei -', 'Impozit'], ['până la 66.750, inclusiv', '1%']]])
+        // What is searched and quoted has the table written out.
+        ->and($alineat->fullText())->toContain('până la 66.750, inclusiv | 1%');
+});
+
+it('makes a dash item a provision of its own, cited by its position', function (): void {
+    $alineat = parsedAlineat(
+        '<span class="S_PAR">Procedura cuprinde:</span>'
+        . '<span class="S_LIN"><span class="S_LIN_TTL">– </span><span class="S_LIN_BDY">plan de rambursare a datoriilor;</span></span>'
+        . '<span class="S_LIN"><span class="S_LIN_TTL">– </span><span class="S_LIN_BDY">lichidare de active;</span></span>',
+    );
+
+    expect($alineat->text)->toBe('Procedura cuprinde:')
+        ->and(array_map(static fn ($child) => [$child->sectionType, $child->citationLabel, $child->text], $alineat->children))
+        ->toBe([
+            [SectionType::LINIUTA, 'Art. 64 alin. (1) liniuța 1', 'plan de rambursare a datoriilor;'],
+            [SectionType::LINIUTA, 'Art. 64 alin. (1) liniuța 2', 'lichidare de active;'],
+        ]);
+});

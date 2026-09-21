@@ -20,16 +20,9 @@ use App\Domain\Operations\DataTransferObjects\TaskArgument;
  * expression and the timezone, so an operator can retime the BNR import through env without
  * touching PHP. Whether it runs at all is `scheduled_tasks.enabled`, the single runtime switch.
  *
- * `LEGISLATION_INGEST` was originally left out on the grounds that it "takes a URL". That was the
- * wrong reason: `App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher` rejects any URL that is
- * not `https` on a host `config/sources.php` names for that source, and re-checks on every redirect
- * hop — so the field is no more open than the year field on the FX backfill beside it. Structurally
- * the two are the same task shape with different argument types.
- *
- * What the screen still cannot do is approve what it ingests: every `legislatie.just.ro` version
- * lands `REQUIRES_REVIEW` because neither the command nor the action sets an effective date
- * (`docs/handoff/018-legislation-ingestion.md`). Ingesting is therefore only the first half of
- * putting a law into force, and the second half has no screen yet.
+ * `LEGISLATION_INGEST` names an act by its type, number and year — never by an address: the portal's
+ * web service finds it, and only `legislatie.just.ro` is ever asked. Every consolidation it reads is
+ * dated by the portal's own list of consolidations.
  */
 enum OperationTask: string
 {
@@ -45,8 +38,11 @@ enum OperationTask: string
     /** BLUEPRINT.md §4.8 — walk every audit chain and recompute every hash. */
     case AUDIT_VERIFY_CHAINS = 'audit.verify_chains';
 
-    /** BLUEPRINT.md §9 — fetch, store immutably and structurally parse one legislation document. */
+    /** BLUEPRINT.md §9 — read one law and every consolidation it has had, dated and parsed. */
     case LEGISLATION_INGEST = 'legislation.ingest';
+
+    /** Look for new consolidations of every law already read. Weekly: the portal adds them as amendments pass. */
+    case LEGISLATION_SYNC = 'legislation.sync';
 
     /** Project `config/access.php` onto the permission tables (ADR 0014). */
     case ACCESS_SYNC = 'access.sync';
@@ -79,7 +75,7 @@ enum OperationTask: string
             self::FX_IMPORT_DAILY => 'taxos:fx:import-daily',
             self::FX_BACKFILL_YEAR => 'taxos:fx:backfill',
             self::LEGISLATION_REINDEX => 'taxos:legislation:reindex',
-            self::LEGISLATION_INGEST => 'taxos:legislation:ingest',
+            self::LEGISLATION_INGEST, self::LEGISLATION_SYNC => 'taxos:legislation:sync',
             self::AUDIT_VERIFY_CHAINS => 'taxos:audit:verify',
             self::ACCESS_SYNC => 'taxos:access:sync',
             self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
@@ -97,7 +93,7 @@ enum OperationTask: string
     {
         // The deposit task was described as daily and given a cron expression, but never listed
         // here — so nothing ran it, interest never posted, and a matured deposit's money vanished.
-        return in_array($this, [self::FX_IMPORT_DAILY, self::DEPOSIT_POST_INTEREST, self::BANKS_IMPORT], true);
+        return in_array($this, [self::FX_IMPORT_DAILY, self::DEPOSIT_POST_INTEREST, self::BANKS_IMPORT, self::LEGISLATION_SYNC], true);
     }
 
     /**
@@ -110,13 +106,12 @@ enum OperationTask: string
     {
         return match ($this) {
             self::FX_BACKFILL_YEAR => [TaskArgument::year('year')],
-            // Mirrors `taxos:legislation:ingest`'s own signature. `--external-id` is deliberately
-            // not offered: it is an optional cross-reference an operator has no way to know from
-            // this screen, and a wrong one is worse than none.
+            // Mirrors `taxos:legislation:sync`'s own signature.
             self::LEGISLATION_INGEST => [
-                TaskArgument::sourceCode('source'),
-                TaskArgument::url('url'),
-                TaskArgument::documentType('type', '--type'),
+                TaskArgument::documentType('act_type', 'type'),
+                TaskArgument::integer('act_number', 'number', 1, 99_999),
+                TaskArgument::integer('act_year', 'year', config()->integer('legislation.form.min_year'), (int) date('Y')),
+                TaskArgument::date('from', '--from'),
             ],
             default => [],
         };

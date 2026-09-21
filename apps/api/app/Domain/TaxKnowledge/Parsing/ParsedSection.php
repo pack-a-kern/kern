@@ -12,6 +12,9 @@ use App\Domain\TaxKnowledge\Enums\SectionType;
  * parent's row never duplicates what its children already carry (an `ARTICOL` with alineate holds
  * only its heading/marginal note; the substantive text lives on the `ALINEAT` rows).
  *
+ * `text` keeps the breaks between the source's own blocks, and each table it holds stands in it as a
+ * marker line, its rows and cells in `tables` — see {@see SectionText}.
+ *
  * `rawLabel` is the label exactly as rendered (`"Articolul 27"`, `"(1)"`, `"a)"`) — kept alongside
  * the fully-qualified `citationLabel` (`"Art. 27 alin. (1) lit. a)"`) so a caller can reconstruct
  * either without re-parsing.
@@ -20,6 +23,7 @@ final readonly class ParsedSection
 {
     /**
      * @param list<ParsedSection> $children
+     * @param list<list<list<string>>> $tables
      */
     public function __construct(
         public SectionType $sectionType,
@@ -28,11 +32,18 @@ final readonly class ParsedSection
         public int $ordinal,
         public string $text,
         public array $children,
+        public array $tables = [],
     ) {
+    }
+
+    /** The text with its tables written out — what is searched, quoted and fingerprinted. */
+    public function fullText(): string
+    {
+        return SectionText::withTables($this->text, $this->tables);
     }
 
     public function textHash(): string
     {
-        return hash('sha256', $this->text);
+        return hash('sha256', $this->fullText());
     }
 }

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Named `IndexedChunk`, not `SourceSectionChunk`, specifically to avoid colliding with
  * {@see \App\Domain\TaxKnowledge\Chunking\SourceSectionChunk} — that class is a pure, transient
  * DTO produced by {@see \App\Domain\TaxKnowledge\Chunking\SourceSectionChunker}; this is the
- * persisted row {@see \App\Domain\TaxKnowledge\Retrieval\Indexing\IndexSourceSectionForRetrieval}
+ * persisted row {@see \App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval}
  * writes from one. Two different things; two different names.
  *
  * `embedding` is deliberately **not** listed in `$fillable`/`$casts` — nothing in this module ever

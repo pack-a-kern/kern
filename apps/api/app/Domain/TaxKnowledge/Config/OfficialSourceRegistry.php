@@ -71,6 +71,7 @@ final readonly class OfficialSourceRegistry
         $enabled = $entry['enabled'] ?? null;
         $priority = $entry['priority'] ?? null;
         $tlsCurves = $entry['tls_curves'] ?? null;
+        $timeoutSeconds = $entry['timeout_seconds'] ?? null;
 
         if (! is_string($trustTier) || TrustTier::tryFrom($trustTier) === null) {
             throw new RuntimeException(sprintf('config/sources.php entry "%s" has an invalid or missing trust_tier.', $code));
@@ -110,6 +111,10 @@ final readonly class OfficialSourceRegistry
             throw new RuntimeException(sprintf('config/sources.php entry "%s" has a tls_curves that is not a non-empty string.', $code));
         }
 
+        if ($timeoutSeconds !== null && (! is_int($timeoutSeconds) || $timeoutSeconds < 1)) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" has a timeout_seconds that is not a positive integer.', $code));
+        }
+
         return new SourceDefinition(
             code: $code,
             trustTier: TrustTier::from($trustTier),
@@ -119,6 +124,7 @@ final readonly class OfficialSourceRegistry
             enabled: $enabled,
             priority: $priority,
             tlsCurves: $tlsCurves,
+            timeoutSeconds: $timeoutSeconds,
         );
     }
 }

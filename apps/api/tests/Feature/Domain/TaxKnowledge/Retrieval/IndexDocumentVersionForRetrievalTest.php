@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Domain\TaxKnowledge\Retrieval\IndexSourceSectionForRetrievalTest;
+namespace Tests\Feature\Domain\TaxKnowledge\Retrieval\IndexDocumentVersionForRetrievalTest;
 
 use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexSourceSectionForRetrieval;
+use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
 use App\Domain\TaxKnowledge\Retrieval\Models\IndexedChunk;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,7 @@ it('persists one chunk with correct text and hash for a short section', function
         'text' => 'SYNTHETIC: short article text.',
     ]);
 
-    $count = app(IndexSourceSectionForRetrieval::class)($section->id);
+    $count = app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     expect($count)->toBe(1);
 
@@ -54,7 +54,7 @@ it('splits a long section into multiple ordered chunks', function (): void {
         'text' => $longText,
     ]);
 
-    $count = app(IndexSourceSectionForRetrieval::class)($section->id);
+    $count = app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     expect($count)->toBeGreaterThan(1);
 
@@ -73,11 +73,11 @@ it('replaces the whole chunk set on re-index rather than duplicating', function 
         'text' => 'SYNTHETIC: text before re-index.',
     ]);
 
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
     expect(IndexedChunk::query()->where('section_id', $section->id)->count())->toBe(1);
 
     $section->forceFill(['text' => 'SYNTHETIC: text after re-index, now longer than before.'])->save();
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     $chunk = IndexedChunk::query()->where('section_id', $section->id)->sole();
     expect($chunk->text)->toBe('SYNTHETIC: text after re-index, now longer than before.');
@@ -89,10 +89,23 @@ it('cascades: deleting a section deletes its indexed chunks', function (): void 
         'text' => 'SYNTHETIC: text to be deleted.',
     ]);
 
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
     expect(IndexedChunk::query()->where('section_id', $section->id)->count())->toBe(1);
 
     $section->delete();
 
     expect(IndexedChunk::query()->where('section_id', $section->id)->count())->toBe(0);
+});
+
+it('indexes a table row by row, so a figure only a table holds is found', function (): void {
+    $section = SourceSection::factory()->create([
+        'citation_label' => 'Art. 5 alin. (1)',
+        'text' => "Impozitul se calculează potrivit tabelului:\n[[table:1]]",
+        'tables' => [[['Tranșe de venit brut', 'Impozit'], ['până la 66.750, inclusiv', '1%']]],
+    ]);
+
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
+
+    expect(IndexedChunk::query()->where('section_id', $section->id)->sole()->text)
+        ->toBe("Impozitul se calculează potrivit tabelului:\nTranșe de venit brut | Impozit\npână la 66.750, inclusiv | 1%");
 });

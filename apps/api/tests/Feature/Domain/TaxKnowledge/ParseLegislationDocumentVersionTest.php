@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\ParseLegislationDocumentVersionTest;
 
-use App\Domain\TaxKnowledge\Actions\IngestAndParseLegislationDocument;
 use App\Domain\TaxKnowledge\Actions\ParseLegislationDocumentVersion;
 use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
@@ -52,10 +51,11 @@ function syntheticActHtml(string $articleLabel = 'Articolul 1'): string
         HTML;
 }
 
-it('ingests through the reused Milestone 2 fetcher and structurally parses the result', function (): void {
+it('parses a version ingested through the reused Milestone 2 fetcher', function (): void {
     Http::fake(['https://legislatie-fixture.test/act.html' => Http::response(syntheticActHtml(), 200, ['Content-Type' => 'text/html'])]);
 
-    $result = app(IngestAndParseLegislationDocument::class)('TESTLEG', 'https://legislatie-fixture.test/act.html', 'LEGE');
+    $ingested = app(SourceIngestionService::class)->ingest('TESTLEG', 'https://legislatie-fixture.test/act.html', 'LEGE');
+    $result = app(ParseLegislationDocumentVersion::class)($ingested->sourceDocumentVersionId);
 
     expect($result->sectionCount)->toBe(1)
         ->and($result->status)->toBe(SourceDocumentVersionStatus::REQUIRES_REVIEW)

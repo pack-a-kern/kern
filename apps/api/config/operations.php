@@ -48,6 +48,9 @@ return [
             'deposit.post_interest' => env('OPERATIONS_CRON_DEPOSIT_POST_INTEREST', '15 0 * * *'),
             // Monthly: GLEIF publishes its BIC file once a month, and banks change far less often.
             'banks.import' => env('OPERATIONS_CRON_BANKS_IMPORT', '30 5 2 * *'),
+            // Weekly, at night: a law gains a consolidation when an amendment enters into force, a
+            // few times a year — reading it within the week is soon enough, and the night is quiet.
+            'legislation.sync' => env('OPERATIONS_CRON_LEGISLATION_SYNC', '0 3 * * 0'),
         ],
     ],
 

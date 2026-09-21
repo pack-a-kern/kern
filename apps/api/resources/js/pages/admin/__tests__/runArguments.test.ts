@@ -27,21 +27,13 @@ function argument(name: string, type: TaskArgument['type']): TaskArgument {
 }
 
 describe('run dialog payload', () => {
-    it('keeps choice and url arguments as strings', () => {
-        const built = buildArguments(
-            [argument('source', 'choice'), argument('url', 'url'), argument('type', 'choice')],
-            {
-                source: 'LEGISLATIE',
-                url: 'https://legislatie.just.ro/Public/DetaliiDocument/171282',
-                type: 'LEGE',
-            },
-        );
-
-        expect(built).toEqual({
-            source: 'LEGISLATIE',
-            url: 'https://legislatie.just.ro/Public/DetaliiDocument/171282',
-            type: 'LEGE',
+    it('keeps choice and date arguments as strings', () => {
+        const built = buildArguments([argument('act_type', 'choice'), argument('from', 'date')], {
+            act_type: 'LEGE',
+            from: '2020-01-01',
         });
+
+        expect(built).toEqual({ act_type: 'LEGE', from: '2020-01-01' });
 
         // The regression itself: nothing may serialise to null.
         expect(JSON.parse(JSON.stringify(built))).toEqual(built);

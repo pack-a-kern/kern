@@ -28,6 +28,14 @@ return [
             // Which source is preferred when two publish the same data: 1 before 2. Every source is the
             // only one for its data today, so each is 1; a second rate provider would be 2.
             'priority' => 1,
+            // Longer than the shared ceiling: one consolidation of the Codul fiscal is ~5 MB, and a
+            // search of the web service answers with every matching act's full text.
+            'timeout_seconds' => (int) env('LEGISLATIE_FETCH_TIMEOUT_SECONDS', 300),
+            'endpoints' => [
+                // The portal's SOAP service, which finds an act by type, number and year. No
+                // registration; a token is asked for on each run. Verified 2026-09-22.
+                'soap' => env('LEGISLATIE_SOAP_URL', 'https://legislatie.just.ro/apiws/FreeWebService.svc/SOAP'),
+            ],
         ],
 
         'ANAF' => [

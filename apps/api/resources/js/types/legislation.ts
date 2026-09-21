@@ -2,10 +2,9 @@
  * Shapes returned by `/api/v1/legislation/search`.
  *
  * The two result groups stay separate rather than being merged and sorted by score, because they
- * make different claims. A `confirmed` hit has effective dates covering the searched date. A
- * `dateUnknown` hit has no effective dates at all — which is most of this corpus, because
- * legislatie.just.ro publishes no machine-readable effective date and every ingested version
- * therefore lands `REQUIRES_REVIEW`.
+ * make different claims. A `confirmed` hit has effective dates covering the searched date — every
+ * consolidation read from the portal is dated by its list of consolidations. A `dateUnknown` hit has
+ * no effective dates at all: a version reached some other way.
  *
  * Showing them as one list would be the app asserting a text was in force on a date nobody has
  * established. A third case never arrives: a section whose known dates exclude the searched date is
@@ -14,6 +13,8 @@
 export interface LegislationHit {
     chunkId: string;
     sectionId: string;
+    /** The law the hit is in — for opening it at the searched date. */
+    sourceDocumentId: string;
     sourceCode: string;
     trustTier: string;
     documentType: string;
@@ -71,6 +72,7 @@ function parseHit(payload: unknown): LegislationHit {
     return {
         chunkId: str(row, 'chunk_id'),
         sectionId: str(row, 'section_id'),
+        sourceDocumentId: str(row, 'source_document_id'),
         sourceCode: str(row, 'source_code'),
         trustTier: str(row, 'trust_tier'),
         documentType: str(row, 'document_type'),
@@ -96,4 +98,196 @@ export function parseLegislationSearch(payload: unknown): LegislationSearchResul
         confirmed: (Array.isArray(body.confirmed) ? body.confirmed : []).map(parseHit),
         dateUnknown: (Array.isArray(body.date_unknown) ? body.date_unknown : []).map(parseHit),
     };
+}
+
+/** A law read from legislatie.just.ro, as the portal describes it. */
+export interface Law {
+    id: string;
+    title: string | null;
+    /** The filing key, without diacritics — `HOTARARE`. */
+    type: string;
+    /** The type as the portal writes it — `HOTĂRÂRE`. */
+    typeLabel: string | null;
+    number: string | null;
+    issuer: string | null;
+    actDate: string | null;
+    officialJournal: string | null;
+    officialJournalNumber: string | null;
+    publishedOn: string | null;
+    inForceFrom: string | null;
+    url: string;
+    lastSyncedAt: string | null;
+}
+
+export interface LawSummary extends Law {
+    consolidationsListed: number;
+    consolidationsRead: number;
+    consolidationsFailed: number;
+    firstConsolidation: string | null;
+    lastConsolidation: string | null;
+}
+
+export interface LawConsolidation {
+    /** The date the portal gives it: the law as it stood from this day. */
+    date: string;
+    ref: string;
+    /** Its page on the portal. */
+    url: string;
+    failed: boolean;
+    /** Null until it has been read. */
+    versionId: string | null;
+    effectiveUntil: string | null;
+    sectionCount: number | null;
+}
+
+export interface LawDetail extends Law {
+    /** Newest first. */
+    consolidations: LawConsolidation[];
+}
+
+/** One table's rows of cells. */
+export type LawTable = string[][];
+
+export interface LawSection {
+    id: string;
+    type: string;
+    citation: string;
+    /** How it is headed in place: "Articolul 170", "(2)", "a)", "–". */
+    label: string;
+    depth: number;
+    /** Lines, with a `[[table:N]]` marker line where the Nth table stands. */
+    text: string;
+    tables: LawTable[];
+    amendedOn: string | null;
+}
+
+export interface LawText {
+    asOf: string;
+    versionId: string;
+    effectiveFrom: string;
+    effectiveUntil: string | null;
+    page: number;
+    perPage: number;
+    /** Top-level provisions — articles and annexes — in the whole law. */
+    total: number;
+    sections: LawSection[];
+}
+
+export interface ProvisionVersion {
+    versionIndex: number;
+    validFrom: string;
+    validUntil: string | null;
+    amendedOn: string | null;
+    snapshotCount: number;
+    /** False when a consolidation inside this stretch could not be read. */
+    coverageComplete: boolean;
+    text: string;
+    tables: LawTable[];
+}
+
+function tables(value: unknown): LawTable[] {
+    return (Array.isArray(value) ? value : []).map((table) =>
+        (Array.isArray(table) ? table : []).map((row) =>
+            (Array.isArray(row) ? row : []).map((cell) => (typeof cell === 'string' ? cell : '')),
+        ),
+    );
+}
+
+function parseLaw(row: Record<string, unknown>): Law {
+    return {
+        id: str(row, 'id'),
+        title: nullableStr(row, 'title'),
+        type: str(row, 'type'),
+        typeLabel: nullableStr(row, 'type_label'),
+        number: nullableStr(row, 'number'),
+        issuer: nullableStr(row, 'issuer'),
+        actDate: nullableStr(row, 'act_date'),
+        officialJournal: nullableStr(row, 'official_journal'),
+        officialJournalNumber: nullableStr(row, 'official_journal_number'),
+        publishedOn: nullableStr(row, 'published_on'),
+        inForceFrom: nullableStr(row, 'in_force_from'),
+        url: str(row, 'url'),
+        lastSyncedAt: nullableStr(row, 'last_synced_at'),
+    };
+}
+
+export function parseLaws(payload: unknown): LawSummary[] {
+    return (Array.isArray(obj(payload).laws) ? (obj(payload).laws as unknown[]) : []).map((entry) => {
+        const row = obj(entry);
+
+        return {
+            ...parseLaw(row),
+            consolidationsListed: num(row, 'consolidations_listed'),
+            consolidationsRead: num(row, 'consolidations_read'),
+            consolidationsFailed: num(row, 'consolidations_failed'),
+            firstConsolidation: nullableStr(row, 'first_consolidation'),
+            lastConsolidation: nullableStr(row, 'last_consolidation'),
+        };
+    });
+}
+
+export function parseLawDetail(payload: unknown): LawDetail {
+    const row = obj(obj(payload).law);
+
+    return {
+        ...parseLaw(row),
+        consolidations: (Array.isArray(row.consolidations) ? row.consolidations : []).map((entry): LawConsolidation => {
+            const item = obj(entry);
+
+            return {
+                date: str(item, 'date'),
+                ref: str(item, 'ref'),
+                url: str(item, 'url'),
+                failed: item.failed === true,
+                versionId: nullableStr(item, 'version_id'),
+                effectiveUntil: nullableStr(item, 'effective_until'),
+                sectionCount: nullableNum(item, 'section_count'),
+            };
+        }),
+    };
+}
+
+export function parseLawText(payload: unknown): LawText {
+    const body = obj(payload);
+
+    return {
+        asOf: str(body, 'as_of'),
+        versionId: str(body, 'version_id'),
+        effectiveFrom: str(body, 'effective_from'),
+        effectiveUntil: nullableStr(body, 'effective_until'),
+        page: num(body, 'page'),
+        perPage: num(body, 'per_page'),
+        total: num(body, 'total'),
+        sections: (Array.isArray(body.sections) ? body.sections : []).map((entry): LawSection => {
+            const row = obj(entry);
+
+            return {
+                id: str(row, 'id'),
+                type: str(row, 'type'),
+                citation: str(row, 'citation'),
+                label: str(row, 'label'),
+                depth: num(row, 'depth'),
+                text: str(row, 'text'),
+                tables: tables(row.tables),
+                amendedOn: nullableStr(row, 'amended_on'),
+            };
+        }),
+    };
+}
+
+export function parseProvisionHistory(payload: unknown): ProvisionVersion[] {
+    return (Array.isArray(obj(payload).history) ? (obj(payload).history as unknown[]) : []).map((entry) => {
+        const row = obj(entry);
+
+        return {
+            versionIndex: num(row, 'version_index'),
+            validFrom: str(row, 'valid_from'),
+            validUntil: nullableStr(row, 'valid_until'),
+            amendedOn: nullableStr(row, 'amended_on'),
+            snapshotCount: num(row, 'snapshot_count'),
+            coverageComplete: row.coverage_complete !== false,
+            text: str(row, 'text'),
+            tables: tables(row.tables),
+        };
+    });
 }

@@ -32,6 +32,8 @@ final readonly class SourceDefinition
          * library's default. For a server whose firewall refuses the default handshake.
          */
         public ?string $tlsCurves = null,
+        /** This source's own ceiling on one request, where the shared one is too short for it. */
+        public ?int $timeoutSeconds = null,
     ) {
     }
 

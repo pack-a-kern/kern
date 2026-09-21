@@ -12,7 +12,7 @@ use RuntimeException;
 
 /**
  * The embedding call as an explicit, separate step from
- * {@see IndexSourceSectionForRetrieval} — text/metadata indexing never depends on an embedding
+ * {@see IndexDocumentVersionForRetrieval} — text/metadata indexing never depends on an embedding
  * provider being configured; this class is the one and only place
  * `App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider::embed()` is called.
  *
@@ -39,10 +39,19 @@ final readonly class EmbedIndexedChunks
      * resolves against the column's type at the point of use (verified empirically, see
      * `docs/handoff/029-hybrid-retrieval.md`).
      *
+     * A chunk whose exact text was already embedded by the same model is given that vector rather
+     * than sent again. Ninety consolidations of one law repeat almost every provision unchanged, so
+     * this is the difference between embedding a law once and embedding it ninety times.
+     *
+     * @return int chunks given a vector, copied or computed
+     *
      * @throws EmbeddingProviderNotConfiguredException if no real provider is wired
      */
     public function __invoke(?string $documentVersionId = null, int $limit = 500): int
     {
+        $modelIdentifier = $this->provider->modelIdentifier();
+        $copied = $this->copyIdentical($modelIdentifier);
+
         $query = IndexedChunk::query()->whereNull('embedded_at');
 
         if ($documentVersionId !== null) {
@@ -55,7 +64,7 @@ final readonly class EmbedIndexedChunks
         $chunks = $query->orderBy('created_at')->limit($limit)->get();
 
         if ($chunks->isEmpty()) {
-            return 0;
+            return $copied;
         }
 
         $texts = array_values($chunks->map(static fn (IndexedChunk $chunk): string => $chunk->text)->all());
@@ -69,7 +78,6 @@ final readonly class EmbedIndexedChunks
             ));
         }
 
-        $modelIdentifier = $this->provider->modelIdentifier();
         $embeddedAt = now('UTC');
 
         DB::transaction(function () use ($chunks, $vectors, $modelIdentifier, $embeddedAt): void {
@@ -88,6 +96,29 @@ final readonly class EmbedIndexedChunks
             }
         });
 
-        return $chunks->count();
+        return $copied + $chunks->count();
+    }
+
+    /** Gives every unembedded chunk the vector its exact text already has, in one statement. */
+    private function copyIdentical(string $modelIdentifier): int
+    {
+        return DB::update(
+            <<<'SQL'
+                UPDATE ext_source_section_chunks AS c
+                SET embedding = e.embedding,
+                    embedding_model = e.embedding_model,
+                    embedding_dim = e.embedding_dim,
+                    embedded_at = now(),
+                    updated_at = now()
+                FROM (
+                    SELECT DISTINCT ON (text_hash) text_hash, embedding, embedding_model, embedding_dim
+                    FROM ext_source_section_chunks
+                    WHERE embedded_at IS NOT NULL AND embedding_model = ?
+                    ORDER BY text_hash, embedded_at DESC
+                ) AS e
+                WHERE c.embedded_at IS NULL AND c.text_hash = e.text_hash
+                SQL,
+            [$modelIdentifier],
+        );
     }
 }

@@ -15,10 +15,7 @@ use Illuminate\Support\Facades\Config;
  *
  *  - `integer` is bounded by a declared range;
  *  - `choice` is a closed set of values;
- *  - `url` is checked for `https` and for a host on the chosen source's allowlist, both here at
- *    request time and again by `App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher` on every
- *    redirect hop — so a URL typed into the screen cannot reach a host `config/sources.php` does
- *    not name.
+ *  - `date` is a calendar date, `YYYY-MM-DD`, and may be left out.
  *
  * `commandKey` exists because an artisan option is addressed as `--type` while a form field cannot
  * be. The screen and the JSON use `name`; {@see \App\Domain\Operations\Jobs\RunOperationTask} maps
@@ -28,7 +25,7 @@ final readonly class TaskArgument
 {
     public const string TYPE_INTEGER = 'integer';
     public const string TYPE_CHOICE = 'choice';
-    public const string TYPE_URL = 'url';
+    public const string TYPE_DATE = 'date';
 
     /**
      * @param  list<string>  $options
@@ -62,6 +59,18 @@ final readonly class TaskArgument
         );
     }
 
+    /** A whole number within a range — an act's number, a year. */
+    public static function integer(string $name, string $commandKey, int $min, int $max): self
+    {
+        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_INTEGER, min: $min, max: $max);
+    }
+
+    /** A date, `YYYY-MM-DD`, which the operator may leave empty. */
+    public static function date(string $name, string $commandKey): self
+    {
+        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_DATE, required: false);
+    }
+
     /**
      * @param  list<string>  $options
      */
@@ -70,22 +79,6 @@ final readonly class TaskArgument
         return new self(name: $name, commandKey: $commandKey, type: self::TYPE_CHOICE, options: $options);
     }
 
-    /** The codes in `config/sources.php` that are currently enabled — the only fetch targets there are. */
-    public static function sourceCode(string $name): self
-    {
-        $entries = Config::get('sources.entries');
-        $codes = [];
-
-        if (is_array($entries)) {
-            foreach ($entries as $code => $entry) {
-                if (is_string($code) && is_array($entry) && ($entry['enabled'] ?? null) === true) {
-                    $codes[] = $code;
-                }
-            }
-        }
-
-        return self::choice($name, $name, $codes);
-    }
 
     /**
      * The legal-act categories `config/operations.php` offers. Read from config rather than written
@@ -102,10 +95,6 @@ final readonly class TaskArgument
         )));
     }
 
-    public static function url(string $name): self
-    {
-        return new self(name: $name, commandKey: $name, type: self::TYPE_URL);
-    }
 
     /**
      * @return array{name: string, type: string, min: int|null, max: int|null, options: list<string>, required: bool}

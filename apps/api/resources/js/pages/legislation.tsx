@@ -1,21 +1,36 @@
-import { useCallback, useState, type JSX } from 'react';
+import { Link, router } from '@inertiajs/react';
+import { Scale } from 'lucide-react';
+import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { searchLegislation } from '../api/legislationApi';
+import { listLaws, searchLegislation } from '../api/legislationApi';
 import AppShell from '../components/AppShell';
-import { Field, Page, Panel, PanelButton, PanelSelect, Pill, SearchInput, Status, Toolbar } from '../components/panel';
+import {
+    Detail,
+    DetailList,
+    Field,
+    Page,
+    Panel,
+    PanelButton,
+    PanelSelect,
+    Pill,
+    SearchInput,
+    Status,
+    Toolbar,
+} from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
+import { formatDate, formatDateTime } from '../lib/format';
 import { ApiError } from '../lib/http';
-import type { LegislationHit, LegislationSearchResult } from '../types/legislation';
+import type { LawSummary, LegislationHit, LegislationSearchResult } from '../types/legislation';
 
 /** Trust tiers as `config/sources.php` declares them; A is the most authoritative. */
 const TIERS = ['A', 'B', 'C', 'D'];
 
 /**
- * Legislation search.
+ * Legislation: the laws read, and a search across them.
  *
  * The screen's one real design constraint is that it must never imply a text was in force on a date
  * nobody has established. `legislatie.just.ro` publishes no machine-readable effective date, so
@@ -95,6 +110,8 @@ export default function Legislation(): JSX.Element {
     return (
         <AppShell>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
+                <Laws />
+
                 <Panel title={t((d) => d.pages.legislation.search)} flush>
                     <Toolbar>
                         <SearchInput
@@ -171,7 +188,7 @@ export default function Legislation(): JSX.Element {
                             >
                                 <div className="space-y-3">
                                     {result.confirmed.map((hit) => (
-                                        <Hit key={hit.chunkId} hit={hit} />
+                                        <Hit key={hit.chunkId} hit={hit} asOf={result.asOf} />
                                     ))}
                                 </div>
                             </Panel>
@@ -192,7 +209,7 @@ export default function Legislation(): JSX.Element {
                             >
                                 <div className="space-y-3">
                                     {result.dateUnknown.map((hit) => (
-                                        <Hit key={hit.chunkId} hit={hit} />
+                                        <Hit key={hit.chunkId} hit={hit} asOf={result.asOf} />
                                     ))}
                                 </div>
                             </Panel>
@@ -204,8 +221,127 @@ export default function Legislation(): JSX.Element {
     );
 }
 
+/**
+ * The laws read from legislatie.just.ro, each as the portal describes it, with how much of it is in.
+ *
+ * Laid out as the act's own heading reads — its name, then who issued it and where it was published —
+ * because that is how a person recognises a law, and the counts beneath say whether the text they
+ * are about to read is complete.
+ */
+function Laws(): JSX.Element {
+    const { t, locale } = useTranslation();
+    const [laws, setLaws] = useState<LawSummary[] | null>(null);
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+
+        listLaws().then(
+            (loaded) => {
+                if (active) {
+                    setLaws(loaded);
+                }
+            },
+            () => {
+                if (active) {
+                    setFailed(true);
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
+
+    return (
+        <Panel
+            title={t((d) => d.pages.legislation.laws.title)}
+            description={t((d) => d.pages.legislation.laws.hint)}
+            icon={<Scale className="size-4" />}
+        >
+            {failed ? (
+                <p className="note">{t((d) => d.pages.legislation.laws.failed)}</p>
+            ) : laws === null ? (
+                <Skeleton className="tile h-24 w-full" />
+            ) : laws.length === 0 ? (
+                <p className="note">{t((d) => d.pages.legislation.laws.empty)}</p>
+            ) : (
+                <div className="space-y-3">
+                    {laws.map((law) => (
+                        <article key={law.id} className="tile border-border border p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <h3 className="text-sm font-semibold text-balance">{law.title ?? law.url}</h3>
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                        {law.typeLabel === null ? null : <Pill tone="accent">{law.typeLabel}</Pill>}
+                                        {law.number === null ? null : <Pill>nr. {law.number}</Pill>}
+                                        {law.issuer === null ? null : <Pill>{law.issuer}</Pill>}
+                                        {law.officialJournalNumber === null ? null : (
+                                            <Pill tone="locked">
+                                                {t((d) => d.pages.legislation.laws.journal).replace(
+                                                    '{number}',
+                                                    law.officialJournalNumber,
+                                                )}
+                                            </Pill>
+                                        )}
+                                    </div>
+                                </div>
+                                <PanelButton
+                                    onClick={() => {
+                                        router.visit(`/legislation/${law.id}`);
+                                    }}
+                                >
+                                    {t((d) => d.pages.legislation.laws.open)}
+                                </PanelButton>
+                            </div>
+
+                            <DetailList>
+                                <Detail label={t((d) => d.pages.legislation.laws.actDate)}>{date(law.actDate)}</Detail>
+                                <Detail label={t((d) => d.pages.legislation.laws.publishedOn)}>
+                                    {date(law.publishedOn)}
+                                </Detail>
+                                <Detail label={t((d) => d.pages.legislation.laws.inForceFrom)}>
+                                    {date(law.inForceFrom)}
+                                </Detail>
+                                <Detail
+                                    label={t((d) => d.pages.legislation.laws.consolidations)
+                                        .replace('{read}', String(law.consolidationsRead))
+                                        .replace('{listed}', String(law.consolidationsListed))}
+                                >
+                                    {t((d) => d.pages.legislation.laws.range)
+                                        .replace('{first}', date(law.firstConsolidation))
+                                        .replace('{last}', date(law.lastConsolidation))}
+                                </Detail>
+                                <Detail label={t((d) => d.pages.legislation.laws.lastSynced)}>
+                                    {law.lastSyncedAt === null
+                                        ? t((d) => d.pages.legislation.laws.notSynced)
+                                        : formatDateTime(law.lastSyncedAt, locale)}
+                                </Detail>
+                            </DetailList>
+
+                            {law.consolidationsFailed === 0 ? null : (
+                                <p className="mt-2">
+                                    <Status tone="warn">
+                                        {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(
+                                            '{count}',
+                                            String(law.consolidationsFailed),
+                                        )}
+                                    </Status>
+                                </p>
+                            )}
+                        </article>
+                    ))}
+                </div>
+            )}
+        </Panel>
+    );
+}
+
 /** One retrieved chunk: its citation, its provenance, its text, and how it was matched. */
-function Hit({ hit }: { hit: LegislationHit }): JSX.Element {
+function Hit({ hit, asOf }: { hit: LegislationHit; asOf: string }): JSX.Element {
     const { t } = useTranslation();
 
     return (
@@ -215,9 +351,15 @@ function Hit({ hit }: { hit: LegislationHit }): JSX.Element {
                 <Pill tone="accent">{hit.sourceCode}</Pill>
                 <Pill>{hit.documentType}</Pill>
                 <Pill tone="locked">{hit.trustTier}</Pill>
+                <Link
+                    className="text-info ml-auto text-xs underline underline-offset-2"
+                    href={`/legislation/${hit.sourceDocumentId}?as_of=${encodeURIComponent(asOf)}`}
+                >
+                    {t((d) => d.pages.legislation.openInLaw)}
+                </Link>
             </div>
 
-            <p className="mt-2 text-xs leading-relaxed">{hit.text}</p>
+            <p className="mt-2 text-xs leading-relaxed whitespace-pre-line">{hit.text}</p>
 
             <div className="note mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 {hit.effectiveFrom !== null ? (

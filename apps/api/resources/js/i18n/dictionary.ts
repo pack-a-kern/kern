@@ -1070,6 +1070,63 @@ export interface Dictionary {
             semanticUnavailable: string;
             copyCitation: string;
             citationCopied: string;
+            /** Opens the law a hit is in, at the date searched. */
+            openInLaw: string;
+            laws: {
+                title: string;
+                hint: string;
+                /** No law read yet — says where to read one. */
+                empty: string;
+                failed: string;
+                open: string;
+                /** `{number}` is the Monitorul Oficial issue. */
+                journal: string;
+                actDate: string;
+                publishedOn: string;
+                inForceFrom: string;
+                /** `{read}` of `{listed}`. */
+                consolidations: string;
+                /** `{count}` that could not be read. */
+                consolidationsFailed: string;
+                /** `{first}` → `{last}`. */
+                range: string;
+                lastSynced: string;
+                notSynced: string;
+            };
+            law: {
+                back: string;
+                loadFailed: string;
+                on: string;
+                onHint: string;
+                /** `{from}`, and `{until}` when it has an end. */
+                versionOpen: string;
+                versionClosed: string;
+                /** `{date}` that no consolidation covers. */
+                noVersion: string;
+                textTitle: string;
+                unit: string;
+                amended: string;
+                history: string;
+                historyTitle: string;
+                historyHint: string;
+                historyEmpty: string;
+                historyFailed: string;
+                /** `{from}`, and `{until}` when it has an end. */
+                heldOpen: string;
+                heldClosed: string;
+                coverageGap: string;
+                changes: string;
+                firstVersion: string;
+                close: string;
+                consolidationsTitle: string;
+                consolidationsHint: string;
+                notRead: string;
+                failed: string;
+                /** `{count}` provisions. */
+                sections: string;
+                viewOn: string;
+                onPortal: string;
+            };
         };
         spv: { title: string; description: string; blockedOn: string };
         account: {
@@ -1549,7 +1606,7 @@ export interface Dictionary {
                 runCommand: string;
                 argumentLabel: Record<string, string | undefined>;
                 argumentRange: string;
-                argumentUrlHint: string;
+                argumentDateHint: string;
                 argumentChoose: string;
                 started: string;
                 alreadyRunning: string;

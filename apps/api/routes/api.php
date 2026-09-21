@@ -40,7 +40,11 @@ use App\Http\Controllers\Api\V1\Documents\ShowDocumentController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
+use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
+use App\Http\Controllers\Api\V1\Legislation\ShowLawController;
+use App\Http\Controllers\Api\V1\Legislation\ShowLawTextController;
+use App\Http\Controllers\Api\V1\Legislation\ShowProvisionHistoryController;
 use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
 use App\Http\Controllers\Api\V1\Notifications\MarkNotificationsReadController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
@@ -372,6 +376,15 @@ Route::prefix('v1/audit')->middleware(['auth:web', 'permission:audit.view'])->gr
  * server's CPU.
  */
 Route::get('v1/legislation/search', SearchLegislationController::class)->middleware('auth:web');
+
+// The laws read, each with its consolidations, its text on a date and a provision's history — the
+// same public law, behind the same authentication and for the same reason.
+Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function (): void {
+    Route::get('/', ListLawsController::class);
+    Route::get('{law}', ShowLawController::class)->whereUuid('law');
+    Route::get('{law}/text', ShowLawTextController::class)->whereUuid('law');
+    Route::get('{law}/history', ShowProvisionHistoryController::class)->whereUuid('law');
+});
 
 /*
  * Background operations — the Tasks and Jobs tabs of `/logs`.

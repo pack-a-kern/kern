@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\SectionType;
+use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\SourceSectionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -33,6 +34,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $page_end
  * @property \Illuminate\Support\Carbon|null $effective_from
  * @property \Illuminate\Support\Carbon|null $effective_until
+ * @property list<list<list<string>>>|null $tables  each table's rows of cells, in the order their markers appear in `text`
+ * @property \Illuminate\Support\Carbon|null $amended_on  the date of the section's latest amendment note
+ * @property string|null $normative_hash  see {@see SectionText::fingerprint()}
  */
 #[UseFactory(SourceSectionFactory::class)]
 final class SourceSection extends Model
@@ -56,6 +60,9 @@ final class SourceSection extends Model
         'page_end',
         'effective_from',
         'effective_until',
+        'tables',
+        'amended_on',
+        'normative_hash',
     ];
 
     /** @var array<string, string> */
@@ -66,5 +73,13 @@ final class SourceSection extends Model
         'page_end' => 'integer',
         'effective_from' => 'date:Y-m-d',
         'effective_until' => 'date:Y-m-d',
+        'tables' => 'array',
+        'amended_on' => 'date:Y-m-d',
     ];
+
+    /** The text with its tables written out row by row — what is searched and quoted. */
+    public function fullText(): string
+    {
+        return SectionText::withTables($this->text, $this->tables ?? []);
+    }
 }

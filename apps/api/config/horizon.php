@@ -108,6 +108,9 @@ return [
         // documents at a minute each is ten minutes of honest waiting. Keyed by the connection its
         // supervisor reads through — under `redis:` this threshold silently stopped applying.
         'redis-ai:' . env('AI_QUEUE', 'documents-ai') => 1800,
+        // A law is ninety consolidations read one after another: an hour's backlog is a sync in
+        // progress, not a stuck queue.
+        'redis-legislation:' . env('LEGISLATION_QUEUE', 'legislation') => 3600,
     ],
 
     /*
@@ -231,6 +234,24 @@ return [
             'nice' => 0,
         ],
 
+        /*
+         * Reading a law: one process, its own queue, minutes per job. A consolidation of the Codul
+         * fiscal is ~5 MB to download and some 7 000 sections to parse and index; the default
+         * supervisor's timeout would kill that part-way.
+         */
+        'supervisor-legislation' => [
+            'connection' => 'redis-legislation',
+            'queue' => [env('LEGISLATION_QUEUE', 'legislation')],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800),
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -253,6 +274,9 @@ return [
             'supervisor-documents-ai' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-legislation' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -262,6 +286,9 @@ return [
 
         'local' => [
             'supervisor-documents-ai' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-legislation' => [
                 'maxProcesses' => 1,
             ],
             'supervisor-1' => [

@@ -6,11 +6,11 @@ namespace Tests\Feature\Domain\TaxKnowledge\Chunking\SourceSectionChunkAssembler
 
 use App\Domain\TaxKnowledge\Chunking\SourceSectionChunkAssembler;
 use App\Domain\TaxKnowledge\Enums\TrustTier;
-use App\Domain\TaxKnowledge\Exceptions\UnknownSourceSectionException;
 use App\Domain\TaxKnowledge\Models\OfficialSource;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
@@ -36,7 +36,7 @@ it('assembles the full BLUEPRINT.md §15.3 metadata chain from the database for 
         'text' => 'SYNTHETIC: text of article seven.',
     ]);
 
-    $chunks = app(SourceSectionChunkAssembler::class)->chunksFor($section->id);
+    $chunks = app(SourceSectionChunkAssembler::class)->chunksForVersion($version->id);
 
     expect($chunks)->toHaveCount(1);
     $chunk = $chunks[0];
@@ -65,12 +65,12 @@ it('uses the section\'s own effective dates over the version\'s when the section
         'effective_until' => '2027-12-31',
     ]);
 
-    $chunks = app(SourceSectionChunkAssembler::class)->chunksFor($section->id);
+    $chunks = app(SourceSectionChunkAssembler::class)->chunksForVersion($version->id);
 
     expect($chunks[0]->effectiveFrom?->format('Y-m-d'))->toBe('2027-01-01')
         ->and($chunks[0]->effectiveUntil?->format('Y-m-d'))->toBe('2027-12-31');
 });
 
-it('throws for an unknown section id', function (): void {
-    app(SourceSectionChunkAssembler::class)->chunksFor('00000000-0000-0000-0000-000000000000');
-})->throws(UnknownSourceSectionException::class);
+it('throws for an unknown document version id', function (): void {
+    app(SourceSectionChunkAssembler::class)->chunksForVersion('00000000-0000-0000-0000-000000000000');
+})->throws(ModelNotFoundException::class);

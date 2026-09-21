@@ -38,7 +38,7 @@ export interface QueueSnapshot {
  */
 export interface TaskArgument {
     name: string;
-    type: 'integer' | 'choice' | 'url';
+    type: 'integer' | 'choice' | 'date';
     min: number | null;
     max: number | null;
     options: string[];
@@ -255,7 +255,7 @@ export function parseOperationsOverview(payload: unknown): OperationsOverview {
                         name: str(spec, 'name'),
                         // Anything unrecognised renders as a closed set with no options, so it
                         // cannot become an unconstrained text box by accident.
-                        type: type === 'integer' || type === 'url' ? type : 'choice',
+                        type: type === 'integer' || type === 'date' ? type : 'choice',
                         min: nullableNum(spec, 'min'),
                         max: nullableNum(spec, 'max'),
                         options: Array.isArray(spec.options)

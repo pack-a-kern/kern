@@ -13,9 +13,11 @@ use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
 use App\Domain\TaxKnowledge\Parsing\ParsedLegislationDocument;
 use App\Domain\TaxKnowledge\Parsing\ParsedSection;
+use App\Domain\TaxKnowledge\Parsing\SectionText;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Turns one {@see ParsedLegislationDocument} into persisted `ext_source_sections` rows for a given
@@ -34,13 +36,14 @@ use Illuminate\Support\Facades\DB;
  * date (`docs/AGENTS.md` §2). The resulting `status` is computed purely from whether
  * `$effectiveFrom` ended up non-null:
  * {@see SourceDocumentVersionStatus::PARSED} if so, {@see SourceDocumentVersionStatus::REQUIRES_REVIEW}
- * otherwise. Every `legislatie.just.ro` version parsed by
- * {@see LegislatieJustRoHtmlParser} today ends up `REQUIRES_REVIEW`, honestly, because that source
- * exposes no machine-readable effective-date field (see that parser's docblock) — a human supplies
- * the dates later via a review step this task does not build.
+ * otherwise. The page itself carries no in-force date; the portal's list of consolidations does,
+ * and `SyncLegislationDocument` passes each consolidation's date in. A version reached any other way
+ * stays `REQUIRES_REVIEW`.
  */
 final readonly class LegislationSectionPersister
 {
+    private const int INSERT_BATCH = 1000;
+
     public function persist(
         string $sourceDocumentVersionId,
         ParsedLegislationDocument $parsed,
@@ -55,16 +58,24 @@ final readonly class LegislationSectionPersister
             throw UnknownSourceDocumentVersionException::forId($sourceDocumentVersionId);
         }
 
-        $sectionCount = DB::transaction(function () use ($version, $parsed): int {
+        $rows = [];
+
+        foreach ($parsed->topLevelSections as $section) {
+            $this->collectRows($version->id, null, $section, $rows);
+        }
+
+        DB::transaction(function () use ($version, $rows): void {
             SourceSection::query()->where('document_version_id', $version->id)->delete();
 
-            $count = 0;
-            foreach ($parsed->topLevelSections as $section) {
-                $count += $this->persistSection($version->id, null, $section);
+            // In batches, parents before children: a consolidation of the Codul fiscal is some
+            // 7 000 sections, and a law is ninety consolidations — one insert each would be the
+            // slowest part of reading a law by far.
+            foreach (array_chunk($rows, self::INSERT_BATCH) as $batch) {
+                SourceSection::query()->insert($batch);
             }
-
-            return $count;
         });
+
+        $sectionCount = count($rows);
 
         $status = $effectiveFrom !== null ? SourceDocumentVersionStatus::PARSED : SourceDocumentVersionStatus::REQUIRES_REVIEW;
 
@@ -85,28 +96,39 @@ final readonly class LegislationSectionPersister
         );
     }
 
-    private function persistSection(string $documentVersionId, ?string $parentId, ParsedSection $section): int
+    /**
+     * One row per section, in reading order — a parent always before its children.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function collectRows(string $documentVersionId, ?string $parentId, ParsedSection $section, array &$rows): void
     {
-        $row = SourceSection::query()->create([
+        $id = (string) Str::uuid7();
+        $now = now('UTC');
+
+        $rows[] = [
+            'id' => $id,
             'document_version_id' => $documentVersionId,
             'parent_id' => $parentId,
-            'section_type' => $section->sectionType,
+            'section_type' => $section->sectionType->value,
             'citation_label' => $section->citationLabel,
             'ordinal' => $section->ordinal,
             'text' => $section->text,
             'text_hash' => $section->textHash(),
+            'tables' => $section->tables === [] ? null : json_encode($section->tables, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            'amended_on' => SectionText::amendedOn($section->text),
+            'normative_hash' => SectionText::fingerprint($section->fullText()),
             'page_start' => null,
             'page_end' => null,
             'effective_from' => null,
             'effective_until' => null,
-        ]);
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
 
-        $count = 1;
         foreach ($section->children as $child) {
-            $count += $this->persistSection($documentVersionId, $row->id, $child);
+            $this->collectRows($documentVersionId, $id, $child, $rows);
         }
-
-        return $count;
     }
 
     /**

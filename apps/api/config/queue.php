@@ -59,6 +59,16 @@ return [
             'after_commit' => false,
         ],
 
+        // The same, for reading a law: one consolidation downloaded, parsed and indexed per job.
+        'redis-legislation' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('HORIZON_LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800) + 60,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
     ],
 
     /*

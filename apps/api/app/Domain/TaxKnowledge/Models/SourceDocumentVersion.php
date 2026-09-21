@@ -10,6 +10,7 @@ use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * `ext_source_document_versions` (`BLUEPRINT.md` §6.8/§9.1).
@@ -36,6 +37,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $parser_version
  * @property string|null $supersedes_version_id
  * @property SourceDocumentVersionStatus $status
+ * @property string|null $consolidation_ref  the portal id of the consolidation this version is
  */
 #[UseFactory(SourceDocumentVersionFactory::class)]
 final class SourceDocumentVersion extends Model
@@ -59,6 +61,7 @@ final class SourceDocumentVersion extends Model
         'parser_version',
         'supersedes_version_id',
         'status',
+        'consolidation_ref',
     ];
 
     /** @var array<string, string> */
@@ -69,4 +72,10 @@ final class SourceDocumentVersion extends Model
         'size_bytes' => 'integer',
         'status' => SourceDocumentVersionStatus::class,
     ];
+
+    /** @return HasMany<SourceSection, $this> */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(SourceSection::class, 'document_version_id');
+    }
 }

@@ -53,6 +53,11 @@ use RuntimeException;
  *    sometimes closes that `ALINEAT` *before* the lettered items its own text promised, leaving
  *    them as direct siblings of the `ALINEAT` (not nested inside it). See that method's docblock.
  *
+ * **Formatting (1.2.0).** A section's text keeps the line breaks between the source's blocks, and a
+ * `<table>` — the income-tax brackets, the agricultural norms — is kept as rows and cells with a
+ * marker in the text where it stood ({@see SectionText}). A dash item (`S_LIN`, "– …") is a section
+ * of its own.
+ *
  * **What this parser does NOT capture, honestly, not silently**:
  * - `S_ART_DEN` ("denomination") — observed empty/HTML-comment in every live sample fetched;
  *   discarded rather than guessed at.
@@ -78,7 +83,11 @@ use RuntimeException;
  */
 final class LegislatieJustRoHtmlParser
 {
-    public const string VERSION = '1.1.0';
+    /*
+     * 1.2.0 — the text keeps its line breaks, tables are kept as rows and cells in place, and a
+     * dash item (`S_LIN`) is a section of its own rather than words run into its parent.
+     */
+    public const string VERSION = '1.2.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -89,7 +98,20 @@ final class LegislatieJustRoHtmlParser
         'S_PCT' => SectionType::PUNCT,
         // Confirmed against the real Codul fiscal — see class docblock's "Anexe" note.
         'S_ANX' => SectionType::ANEXA,
+        // 184 of them in the Codul fiscal consolidation of 2026-08-08; each "– …" item of a list.
+        'S_LIN' => SectionType::LINIUTA,
     ];
+
+    /**
+     * Elements whose text is a block of its own, so a line break separates it from what came
+     * before. `S_PAR` is the portal's paragraph; the rest are ordinary HTML blocks.
+     *
+     * @var list<string>
+     */
+    private const array BLOCK_CLASSES = ['S_PAR'];
+
+    /** @var list<string> */
+    private const array BLOCK_ELEMENTS = ['p', 'div', 'br', 'li'];
 
     /**
      * Wrapper-container class tokens that never become a {@see ParsedSection} themselves
@@ -167,6 +189,7 @@ final class LegislatieJustRoHtmlParser
                 $section->ordinal,
                 $section->text,
                 $children,
+                $section->tables,
             );
         }
 
@@ -302,9 +325,9 @@ final class LegislatieJustRoHtmlParser
 
         $citationLabel = $this->buildCitationLabel($sectionType, $rawLabel, $parentCitationLabel, $ordinal);
 
-        [$ownText, $childContainers] = $body !== null
+        [$ownText, $childContainers, $tables] = $body !== null
             ? $this->splitBodyContent($body)
-            : ['', []];
+            : ['', [], []];
 
         array_push($childContainers, ...$extraDirectChildren);
 
@@ -316,7 +339,7 @@ final class LegislatieJustRoHtmlParser
             $childOrdinal++;
         }
 
-        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children);
+        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children, $tables);
     }
 
     /**
@@ -409,23 +432,31 @@ final class LegislatieJustRoHtmlParser
      *   text. Including it would silently corrupt what a citation's `text` represents — the words
      *   the law itself uses, not commentary about the law.
      *
-     * @return array{0: string, 1: list<DOMElement>}
+     * The text keeps a line break between the source's own blocks (an `S_PAR`, a `<p>`, a `<br>`),
+     * and a `<table>` is taken out whole: its rows and cells go to the third element, a marker line
+     * holds its place in the text ({@see SectionText::tableMarker()}).
+     *
+     * @return array{0: string, 1: list<DOMElement>, 2: list<list<list<string>>>}
      */
     private function splitBodyContent(DOMElement $body): array
     {
         $textParts = [];
         $childContainers = [];
+        $tables = [];
 
-        $this->collectBodyContent($body, $textParts, $childContainers);
+        $this->collectBodyContent($body, $textParts, $childContainers, $tables);
 
-        return [$this->normalizeWhitespace(implode(' ', $textParts)), $childContainers];
+        // Joined with a space, as before: two inline elements with nothing between them in the
+        // markup are still two words.
+        return [$this->normalizeLines(implode(' ', $textParts)), $childContainers, $tables];
     }
 
     /**
      * @param list<string> $textParts
      * @param list<DOMElement> $childContainers
+     * @param list<list<list<string>>> $tables
      */
-    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers): void
+    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers, array &$tables): void
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMText) {
@@ -448,11 +479,79 @@ final class LegislatieJustRoHtmlParser
                 continue;
             }
 
+            if (strtolower($child->nodeName) === 'table') {
+                $tables[] = $this->tableRows($child);
+                $textParts[] = "\n" . SectionText::tableMarker(count($tables)) . "\n";
+
+                continue;
+            }
+
+            $isBlock = $this->isBlock($child);
+
+            if ($isBlock) {
+                $textParts[] = "\n";
+            }
+
             // A plain wrapper (S_PAR, S_LGI, <a>/<b>/...) — recurse rather than flattening its
             // whole subtree into text, since it may itself directly contain a container (the
             // Art. 3 case above).
-            $this->collectBodyContent($child, $textParts, $childContainers);
+            $this->collectBodyContent($child, $textParts, $childContainers, $tables);
+
+            if ($isBlock) {
+                $textParts[] = "\n";
+            }
         }
+    }
+
+    private function isBlock(DOMElement $element): bool
+    {
+        return in_array(strtolower($element->nodeName), self::BLOCK_ELEMENTS, true)
+            || array_intersect($this->classTokens($element), self::BLOCK_CLASSES) !== [];
+    }
+
+    /**
+     * A table as rows of cell texts — its own rows only, not those of a table nested in a cell.
+     *
+     * @return list<list<string>>
+     */
+    private function tableRows(DOMElement $table): array
+    {
+        $rows = [];
+
+        foreach ((new DOMXPath($table->ownerDocument ?? new DOMDocument()))->query('.//tr', $table) ?: [] as $row) {
+            if (! $row instanceof DOMElement || $this->closestTable($row) !== $table) {
+                continue;
+            }
+
+            $cells = [];
+
+            foreach ($row->childNodes as $cell) {
+                if ($cell instanceof DOMElement && in_array(strtolower($cell->nodeName), ['td', 'th'], true)) {
+                    $cells[] = $this->normalizeWhitespace($cell->textContent);
+                }
+            }
+
+            if (array_filter($cells, static fn (string $cell): bool => $cell !== '') !== []) {
+                $rows[] = $cells;
+            }
+        }
+
+        return $rows;
+    }
+
+    private function closestTable(DOMElement $element): ?DOMElement
+    {
+        $node = $element->parentNode;
+
+        while ($node instanceof DOMElement) {
+            if (strtolower($node->nodeName) === 'table') {
+                return $node;
+            }
+
+            $node = $node->parentNode;
+        }
+
+        return null;
     }
 
     private function buildCitationLabel(SectionType $type, string $rawLabel, ?string $parentCitationLabel, int $ordinal): string
@@ -468,6 +567,9 @@ final class LegislatieJustRoHtmlParser
             // (see ancestorWrapperContext()), not a sibling section's citation — annex numbering
             // restarts per Titlu, so it is the disambiguator an ANEXA needs and no other type does.
             SectionType::ANEXA => trim($parentPrefix . ' ' . ($rawLabel !== '' ? $rawLabel : "Anexa #{$ordinal}")),
+            // A dash carries no number of its own — its label is "–" — so it is cited by position,
+            // the way a lawyer counts them: "liniuța a 2-a" is the second.
+            SectionType::LINIUTA => trim($parentPrefix . ' liniuța ' . $ordinal),
         };
     }
 
@@ -577,6 +679,16 @@ final class LegislatieJustRoHtmlParser
         $class = trim($element->getAttribute('class'));
 
         return $class === '' ? [] : (preg_split('/\s+/', $class) ?: []);
+    }
+
+    /**
+     * Whitespace collapsed within each line, blank lines dropped, line breaks kept.
+     */
+    private function normalizeLines(string $text): string
+    {
+        $lines = array_map($this->normalizeWhitespace(...), preg_split('/\R/u', $text) ?: []);
+
+        return implode("\n", array_values(array_filter($lines, static fn (string $line): bool => $line !== '')));
     }
 
     private function normalizeWhitespace(string $text): string

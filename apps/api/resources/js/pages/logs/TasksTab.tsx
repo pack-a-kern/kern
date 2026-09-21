@@ -23,6 +23,7 @@ import {
     type StatusTone,
 } from '../../components/panel';
 import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import { PanelDate } from '../../components/PanelDatePicker';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Switch } from '../../components/ui/switch';
 import { useTranslation } from '../../i18n';
@@ -148,6 +149,12 @@ export default function AdminOperations(): JSX.Element {
 
         for (const argument of taskToRun.arguments) {
             const raw = taskArguments[argument.name] ?? '';
+
+            // An optional field left empty is left out, so the command's own default applies.
+            if (!argument.required && raw === '') {
+                continue;
+            }
+
             // Only the numeric argument is coerced. Coercing them all sent `Number('LEGISLATIE')`,
             // which is `NaN`, which `JSON.stringify` writes as `null` — so the server saw three
             // empty fields and reported them as missing.
@@ -368,15 +375,23 @@ export default function AdminOperations(): JSX.Element {
                                         ? t((d) => d.pages.adminOperations.tasks.argumentRange)
                                               .replace('{min}', String(argument.min))
                                               .replace('{max}', String(argument.max))
-                                        : argument.type === 'url'
-                                          ? t((d) => d.pages.adminOperations.tasks.argumentUrlHint)
+                                        : argument.type === 'date'
+                                          ? t((d) => d.pages.adminOperations.tasks.argumentDateHint)
                                           : undefined
                                 }
                             >
                                 {/* One control per constrained type. No branch renders an unconstrained
-                                    text box: a URL is checked against the chosen source's allowlist on
-                                    the server before anything is dispatched. */}
-                                {argument.type === 'choice' ? (
+                                    text box: a number is bounded, a choice is a closed set, a date is a
+                                    date. */}
+                                {argument.type === 'date' ? (
+                                    <PanelDate
+                                        block
+                                        value={(taskArguments[argument.name] ?? '') === '' ? null : (taskArguments[argument.name] ?? null)}
+                                        onChange={(next) => {
+                                            setTaskArguments((current) => ({ ...current, [argument.name]: next ?? '' }));
+                                        }}
+                                    />
+                                ) : argument.type === 'choice' ? (
                                     <PanelSelect
                                         id={`argument-${argument.name}`}
                                         value={taskArguments[argument.name] ?? ''}
@@ -389,7 +404,7 @@ export default function AdminOperations(): JSX.Element {
                                 ) : (
                                     <PanelInput
                                         id={`argument-${argument.name}`}
-                                        type={argument.type === 'integer' ? 'number' : 'url'}
+                                        type="number"
                                         {...(argument.min === null ? {} : { min: argument.min })}
                                         {...(argument.max === null ? {} : { max: argument.max })}
                                         value={taskArguments[argument.name] ?? ''}

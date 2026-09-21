@@ -47,7 +47,7 @@ final class RunOperationTaskController extends Controller
 
         abort_if($operation === null, 404);
 
-        $arguments = $this->validateArguments($request, $operation, $config);
+        $arguments = $this->validateArguments($request, $operation);
 
         $owner = $lock->acquire($operation);
 
@@ -82,14 +82,13 @@ final class RunOperationTaskController extends Controller
      * Builds this task's validation rules from its own argument declaration, so the form and the
      * server cannot drift apart.
      *
-     * Every rule constrains: a range, a closed set, or an allowlisted host. Nothing an operator
-     * types can widen what the underlying command does — a URL is rejected here before dispatch if
-     * its host is not one `config/sources.php` names for the chosen source, and rejected again by
-     * `AllowlistedHttpFetcher` on every redirect hop if it somehow got past.
+     * Every rule constrains: a range, a closed set, or a calendar date. Nothing an operator types
+     * can widen what the underlying command does — there is no free-text argument, and no address:
+     * a law is named by its type, number and year, and only the allowlisted portal is ever asked.
      *
      * @return array<string, int|string>
      */
-    private function validateArguments(Request $request, OperationTask $task, ConfigRepository $config): array
+    private function validateArguments(Request $request, OperationTask $task): array
     {
         $rules = [];
 
@@ -97,7 +96,7 @@ final class RunOperationTaskController extends Controller
             $rules[$argument->name] = match ($argument->type) {
                 TaskArgument::TYPE_INTEGER => ['required', 'integer', "min:{$argument->min}", "max:{$argument->max}"],
                 TaskArgument::TYPE_CHOICE => ['required', Rule::in($argument->options)],
-                TaskArgument::TYPE_URL => ['required', 'string', 'max:2048', 'url:https'],
+                TaskArgument::TYPE_DATE => [$argument->required ? 'required' : 'nullable', 'date_format:Y-m-d'],
                 default => ['prohibited'],
             };
         }
@@ -106,58 +105,11 @@ final class RunOperationTaskController extends Controller
             return [];
         }
 
-        /** @var array<string, int|string> $validated */
+        /** @var array<string, int|string|null> $validated */
         $validated = $request->validate($rules);
 
-        $this->assertUrlsAreAllowlisted($task, $validated, $config);
-
-        return $validated;
+        // An optional argument left empty is not passed at all: the command's own default applies.
+        return array_filter($validated, static fn (int|string|null $value): bool => $value !== null && $value !== '');
     }
 
-    /**
-     * A URL argument is only meaningful next to the source it will be fetched from, so the host
-     * check is a second pass rather than a per-field rule: it needs the already-validated source
-     * code from the same payload.
-     *
-     * @param  array<string, int|string>  $validated
-     */
-    private function assertUrlsAreAllowlisted(OperationTask $task, array $validated, ConfigRepository $config): void
-    {
-        foreach ($task->arguments() as $argument) {
-            if ($argument->type !== TaskArgument::TYPE_URL) {
-                continue;
-            }
-
-            $url = $validated[$argument->name] ?? null;
-            $host = is_string($url) ? parse_url($url, PHP_URL_HOST) : null;
-
-            abort_if(
-                ! is_string($host) || $host === '' || ! in_array(strtolower($host), $this->allowedHosts($validated, $config), true),
-                422,
-                'That URL is not on the allowlist for the chosen source.',
-            );
-        }
-    }
-
-    /**
-     * The hosts `config/sources.php` names for the source in this payload. Read from config rather
-     * than through `Domain/TaxKnowledge`, the same crossing every other read in this module uses.
-     *
-     * @param  array<string, int|string>  $validated
-     * @return list<string>
-     */
-    private function allowedHosts(array $validated, ConfigRepository $config): array
-    {
-        $source = $validated['source'] ?? null;
-        $hosts = $config->get('sources.entries.' . (is_string($source) ? $source : '') . '.allowed_hosts');
-
-        if (! is_array($hosts)) {
-            return [];
-        }
-
-        return array_values(array_map(
-            static fn (mixed $host): string => is_string($host) ? strtolower($host) : '',
-            $hosts,
-        ));
-    }
 }

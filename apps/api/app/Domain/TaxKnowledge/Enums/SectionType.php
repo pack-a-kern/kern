@@ -27,4 +27,7 @@ enum SectionType: string
     case LITERA = 'LITERA';
     case PUNCT = 'PUNCT';
     case ANEXA = 'ANEXA';
+
+    /** A dash item — "– plan de rambursare a datoriilor;" — cited by its position under its parent. */
+    case LINIUTA = 'LINIUTA';
 }

@@ -11,7 +11,7 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingPurpose;
 use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
 use App\Domain\TaxKnowledge\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
 use App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexSourceSectionForRetrieval;
+use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
 use App\Domain\TaxKnowledge\Retrieval\Models\IndexedChunk;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +45,7 @@ it('throws when no embedding provider is configured — the default binding', fu
     app()->forgetInstance(EmbeddingProvider::class);
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text.']);
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     app(EmbedIndexedChunks::class)();
 })->throws(EmbeddingProviderNotConfiguredException::class);
@@ -54,7 +54,7 @@ it('embeds pending chunks and records provenance, using the deterministic test f
     app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text about contribuții sociale.']);
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     $embeddedCount = app(EmbedIndexedChunks::class)();
 
@@ -70,7 +70,7 @@ it('never re-embeds a chunk that already has an embedding', function (): void {
     app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text, once.']);
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     expect(app(EmbedIndexedChunks::class)())->toBe(1);
     expect(app(EmbedIndexedChunks::class)())->toBe(0);
@@ -85,8 +85,8 @@ it('scopes embedding to one document version when asked', function (): void {
     $sectionA = SourceSection::factory()->create(['document_version_id' => $versionA->id, 'text' => 'SYNTHETIC A.']);
     $sectionB = SourceSection::factory()->create(['document_version_id' => $versionB->id, 'text' => 'SYNTHETIC B.']);
 
-    app(IndexSourceSectionForRetrieval::class)($sectionA->id);
-    app(IndexSourceSectionForRetrieval::class)($sectionB->id);
+    app(IndexDocumentVersionForRetrieval::class)($sectionA->document_version_id);
+    app(IndexDocumentVersionForRetrieval::class)($sectionB->document_version_id);
 
     $embedded = app(EmbedIndexedChunks::class)($versionA->id);
 
@@ -116,8 +116,42 @@ it('throws when a provider violates its own contract by returning the wrong numb
 
     $sectionOne = SourceSection::factory()->create(['text' => 'SYNTHETIC one.']);
     $sectionTwo = SourceSection::factory()->create(['text' => 'SYNTHETIC two.']);
-    app(IndexSourceSectionForRetrieval::class)($sectionOne->id);
-    app(IndexSourceSectionForRetrieval::class)($sectionTwo->id);
+    app(IndexDocumentVersionForRetrieval::class)($sectionOne->document_version_id);
+    app(IndexDocumentVersionForRetrieval::class)($sectionTwo->document_version_id);
 
     app(EmbedIndexedChunks::class)();
 })->throws(RuntimeException::class);
+
+it('copies the vector of an identical text rather than embedding it again', function (): void {
+    app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
+
+    $earlier = SourceSection::factory()->create(['text' => 'SYNTHETIC: the same provision, unchanged.']);
+    app(IndexDocumentVersionForRetrieval::class)($earlier->document_version_id);
+    app(EmbedIndexedChunks::class)();
+
+    // The next consolidation repeats it word for word.
+    $later = SourceSection::factory()->create(['text' => 'SYNTHETIC: the same provision, unchanged.']);
+    app(IndexDocumentVersionForRetrieval::class)($later->document_version_id);
+
+    // A provider that would fail if asked: nothing should reach it.
+    app()->instance(EmbeddingProvider::class, new class () implements EmbeddingProvider {
+        public function embed(array $texts, EmbeddingPurpose $purpose = EmbeddingPurpose::PASSAGE): array
+        {
+            throw new RuntimeException('asked to embed a text that was already embedded');
+        }
+
+        public function modelIdentifier(): string
+        {
+            return (new DeterministicHashEmbeddingProvider())->modelIdentifier();
+        }
+    });
+
+    expect(app(EmbedIndexedChunks::class)())->toBe(1);
+
+    $vectors = DB::table('ext_source_section_chunks')
+        ->whereIn('section_id', [$earlier->id, $later->id])
+        ->pluck('embedding')
+        ->unique();
+
+    expect($vectors)->toHaveCount(1);
+});

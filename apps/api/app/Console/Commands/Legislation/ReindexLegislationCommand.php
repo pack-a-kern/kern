@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Console\Commands\Legislation;
 
 use App\Domain\TaxKnowledge\Actions\ParseLegislationDocumentVersion;
+use App\Domain\TaxKnowledge\Jobs\EmbedLegislationChunks;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexSourceSectionForRetrieval;
+use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
+use App\Domain\TaxKnowledge\Services\BuildSectionHistory;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -22,8 +22,8 @@ use Throwable;
  * uninvoked capabilities:
  * {@see ParseLegislationDocumentVersion} (re-parse under a newer `LegislatieJustRoHtmlParser`
  * version — `docs/handoff/018-legislation-ingestion.md`) and
- * {@see IndexSourceSectionForRetrieval} (rebuild the chunk/retrieval index —
- * `docs/handoff/029-hybrid-retrieval.md`). No parsing/chunking logic is added here
+ * {@see IndexDocumentVersionForRetrieval} (rebuild the chunk/retrieval index —
+ * `docs/handoff/029-hybrid-retrieval.md`), then each law's provision history. No parsing/chunking logic is added here
  * (`docs/AGENTS.md` §6).
  *
  * **Scoped to the `LEGISLATIE` source only.** `LegislatieJustRoHtmlParser` is verified only
@@ -34,7 +34,7 @@ use Throwable;
  *
  * **Preserves each version's existing `effective_from`/`effective_until`.**
  * {@see ParseLegislationDocumentVersion} persists exactly the dates it is given, defaulting to
- * `null` — passing nothing here would silently erase a date a human already supplied. This
+ * `null` — passing nothing here would silently erase a consolidation's date. This
  * command always reads the version's current dates first and passes them straight back through.
  */
 final class ReindexLegislationCommand extends Command
@@ -42,7 +42,7 @@ final class ReindexLegislationCommand extends Command
     /** @var string */
     protected $signature = 'taxos:legislation:reindex
         {--document-version= : Reindex only this ext_source_document_versions id (default: every LEGISLATIE-sourced version)}
-        {--embed : Also attempt to embed newly-indexed chunks (no-op today — no embedding provider is configured)}
+        {--embed : Also queue embedding the new chunks — identical texts reuse the vector they already have}
         {--dry-run : Report what would be reindexed without writing anything}';
 
     /** @var string */
@@ -51,8 +51,8 @@ final class ReindexLegislationCommand extends Command
     public function handle(
         OfficialSourceRepository $officialSources,
         ParseLegislationDocumentVersion $reparse,
-        IndexSourceSectionForRetrieval $indexSection,
-        EmbedIndexedChunks $embedChunks,
+        IndexDocumentVersionForRetrieval $indexVersion,
+        BuildSectionHistory $history,
     ): int {
         $legislatieSourceId = $officialSources->idForCode('LEGISLATIE');
 
@@ -94,7 +94,6 @@ final class ReindexLegislationCommand extends Command
 
         $totalSections = 0;
         $totalChunks = 0;
-        $embeddingProviderMissingWarned = false;
 
         foreach ($versions as $version) {
             try {
@@ -111,21 +110,7 @@ final class ReindexLegislationCommand extends Command
 
             $totalSections += $result->sectionCount;
 
-            $sectionIds = SourceSection::query()
-                ->where('document_version_id', $version->id)
-                ->pluck('id');
-
-            $chunkCount = 0;
-            foreach ($sectionIds as $sectionId) {
-                // Ids come back from the query builder as mixed; skip anything that is not a
-                // scalar id rather than casting an array or null into a bogus string.
-                if (! is_string($sectionId) && ! is_int($sectionId)) {
-                    continue;
-                }
-
-                $chunkCount += $indexSection((string) $sectionId);
-            }
-
+            $chunkCount = $indexVersion($version->id);
             $totalChunks += $chunkCount;
 
             $this->components->info(sprintf(
@@ -136,16 +121,17 @@ final class ReindexLegislationCommand extends Command
                 $result->status->value,
             ));
 
-            if ($this->option('embed')) {
-                try {
-                    $embedChunks($version->id, 5000);
-                } catch (EmbeddingProviderNotConfiguredException $exception) {
-                    if (! $embeddingProviderMissingWarned) {
-                        $this->components->warn('No embedding provider is configured — chunks remain lexically/fuzzy searchable but not semantically indexed. ' . $exception->getMessage());
-                        $embeddingProviderMissingWarned = true;
-                    }
-                }
-            }
+        }
+
+        // Re-parsing can change what a provision's fingerprint reads, so each law's history is
+        // rebuilt from the sections just written.
+        foreach (array_unique(array_map(static fn (SourceDocumentVersion $version): string => $version->source_document_id, $versions)) as $documentId) {
+            $history($documentId);
+        }
+
+        if ($this->option('embed')) {
+            EmbedLegislationChunks::dispatch();
+            $this->components->info('Embedding queued on "' . config()->string('legislation.queue') . '".');
         }
 
         $this->components->info(sprintf(

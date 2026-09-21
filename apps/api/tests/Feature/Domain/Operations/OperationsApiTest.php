@@ -364,50 +364,34 @@ it('never mixes task runs into the queue listing', function (): void {
     expect(array_column($jobs, 'name'))->not->toContain(OperationTask::ACCESS_SYNC->value);
 });
 
-it('refuses an ingest URL whose host is not on the chosen source\'s allowlist', function (): void {
+it('takes a law by its type, number and year, and refuses anything outside them', function (): void {
     Queue::fake();
 
     $actor = operationsUser('SUPER_ADMIN');
     $task = OperationTask::LEGISLATION_INGEST;
+    $run = fn (array $arguments) => $this->actingAs($actor)->postJson("/api/v1/operations/tasks/{$task->value}/run", $arguments);
 
-    // The field is typed by an operator, so this is the guard that matters: `legislatie.just.ro` is
-    // the only host `config/sources.php` names for LEGISLATIE, and everything else is refused before
-    // anything is dispatched — not merely later by the fetcher.
-    $this->actingAs($actor)
-        ->postJson("/api/v1/operations/tasks/{$task->value}/run", [
-            'source' => 'LEGISLATIE',
-            'url' => 'https://evil.example.com/Public/DetaliiDocument/171282',
-            'type' => 'LEGE',
-        ])
-        ->assertStatus(422);
+    // The type is a closed set, the number and year are bounded, and "from" is a date.
+    $run(['act_type' => 'WHATEVER', 'act_number' => 227, 'act_year' => 2015])->assertStatus(422);
+    $run(['act_type' => 'LEGE', 'act_number' => 0, 'act_year' => 2015])->assertStatus(422);
+    $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 1800])->assertStatus(422);
+    $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'from' => 'yesterday'])->assertStatus(422);
 
-    // Plain http is refused too, on a host that is otherwise allowed.
-    $this->actingAs($actor)
-        ->postJson("/api/v1/operations/tasks/{$task->value}/run", [
-            'source' => 'LEGISLATIE',
-            'url' => 'http://legislatie.just.ro/Public/DetaliiDocument/171282',
-            'type' => 'LEGE',
-        ])
-        ->assertStatus(422);
-
-    // An unknown document type is refused: the set is closed.
-    $this->actingAs($actor)
-        ->postJson("/api/v1/operations/tasks/{$task->value}/run", [
-            'source' => 'LEGISLATIE',
-            'url' => 'https://legislatie.just.ro/Public/DetaliiDocument/171282',
-            'type' => 'WHATEVER',
-        ])
-        ->assertStatus(422);
-
-    Queue::assertNothingPushed();
-
-    $this->actingAs($actor)
-        ->postJson("/api/v1/operations/tasks/{$task->value}/run", [
-            'source' => 'LEGISLATIE',
-            'url' => 'https://legislatie.just.ro/Public/DetaliiDocument/171282',
-            'type' => 'LEGE',
-        ])
-        ->assertStatus(202);
+    // There is no address to give: an old-style URL argument is simply not an argument.
+    $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'url' => 'https://evil.example.com/'])
+        ->assertStatus(202)
+        ->assertJsonMissingPath('arguments.url');
 
     Queue::assertPushed(RunOperationTask::class);
+});
+
+it('leaves an empty optional date out of the command it runs', function (): void {
+    Queue::fake();
+
+    $task = OperationTask::LEGISLATION_INGEST;
+
+    $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->postJson("/api/v1/operations/tasks/{$task->value}/run", ['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'from' => null])
+        ->assertStatus(202)
+        ->assertJsonPath('arguments', ['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015]);
 });

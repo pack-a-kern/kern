@@ -11,7 +11,7 @@ use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
 use App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexSourceSectionForRetrieval;
+use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
 use App\Domain\TaxKnowledge\Retrieval\Query\HybridLegislationSearch;
 use App\Domain\TaxKnowledge\Retrieval\Query\HybridSearchQuery;
 use App\Domain\TaxKnowledge\Retrieval\Query\RetrievalResult;
@@ -50,7 +50,7 @@ function indexAndReturnSection(string $documentVersionId, string $citationLabel,
         'text' => $text,
     ]);
 
-    app(IndexSourceSectionForRetrieval::class)($section->id);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
 
     return $section;
 }

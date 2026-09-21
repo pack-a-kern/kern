@@ -84,6 +84,7 @@ final class SearchLegislationController extends Controller
         return [
             'chunk_id' => $hit->chunkId,
             'section_id' => $hit->sectionId,
+            'source_document_id' => $hit->sourceDocumentId,
             'source_code' => $hit->sourceCode,
             'trust_tier' => $hit->trustTier->value,
             'document_type' => $hit->documentType,

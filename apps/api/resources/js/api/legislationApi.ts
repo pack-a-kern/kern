@@ -1,5 +1,16 @@
 import { apiRequest } from '../lib/http';
-import { type LegislationSearchResult, parseLegislationSearch } from '../types/legislation';
+import {
+    type LawDetail,
+    type LawSummary,
+    type LawText,
+    type LegislationSearchResult,
+    type ProvisionVersion,
+    parseLawDetail,
+    parseLaws,
+    parseLawText,
+    parseLegislationSearch,
+    parseProvisionHistory,
+} from '../types/legislation';
 
 export interface LegislationSearchFilters {
     source?: string;
@@ -37,4 +48,31 @@ export async function searchLegislation(
     }
 
     return parseLegislationSearch(JSON.parse(await apiRequest(`/v1/legislation/search?${params.toString()}`)));
+}
+
+/** Every law read from legislatie.just.ro. */
+export async function listLaws(): Promise<LawSummary[]> {
+    return parseLaws(JSON.parse(await apiRequest('/v1/legislation/laws')));
+}
+
+export async function getLaw(lawId: string): Promise<LawDetail> {
+    return parseLawDetail(JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}`)));
+}
+
+/** The law as it stood on `asOf`, a page of articles at a time. 404 when no consolidation covers the date. */
+export async function getLawText(lawId: string, asOf: string, page: number): Promise<LawText> {
+    const params = new URLSearchParams({ as_of: asOf, page: String(page) });
+
+    return parseLawText(
+        JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/text?${params.toString()}`)),
+    );
+}
+
+/** One provision's wording over time, newest first. */
+export async function getProvisionHistory(lawId: string, citation: string): Promise<ProvisionVersion[]> {
+    const params = new URLSearchParams({ citation });
+
+    return parseProvisionHistory(
+        JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/history?${params.toString()}`)),
+    );
 }

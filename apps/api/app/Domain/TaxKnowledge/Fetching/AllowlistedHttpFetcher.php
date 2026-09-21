@@ -58,7 +58,7 @@ final readonly class AllowlistedHttpFetcher
                     'User-Agent' => $definition->userAgent,
                     'Accept' => 'application/xml, text/xml;q=0.9, */*;q=0.5',
                 ])
-                ->timeout($this->timeoutSeconds)
+                ->timeout($definition->timeoutSeconds ?? $this->timeoutSeconds)
                 ->withOptions([
                     'allow_redirects' => false,
                     // Only for a source that declares its own groups — see `tls_curves` in
@@ -94,6 +94,52 @@ final readonly class AllowlistedHttpFetcher
                 statusCode: $response->status(),
             );
         }
+    }
+
+    /**
+     * One POST to an allowlisted address — a SOAP call — held to the same host, size and status
+     * checks as a download.
+     *
+     * A redirect is not followed. A web service that answers a POST with one is not answering, and
+     * re-sending the body to wherever it points is exactly what the allowlist exists to prevent.
+     *
+     * @param  array<string, string>  $headers
+     */
+    public function post(string $sourceCode, string $url, string $body, array $headers): FetchedDocument
+    {
+        $definition = $this->registry->find($sourceCode);
+
+        if (! $definition->enabled) {
+            throw SourceDisabledException::forCode($sourceCode);
+        }
+
+        $this->assertAllowedUrl($definition, $url);
+
+        $response = $this->http
+            ->withHeaders(['User-Agent' => $definition->userAgent, ...$headers])
+            ->timeout($definition->timeoutSeconds ?? $this->timeoutSeconds)
+            ->withOptions([
+                'allow_redirects' => false,
+                ...($definition->tlsCurves === null ? [] : ['curl' => [CURLOPT_SSL_EC_CURVES => $definition->tlsCurves]]),
+            ])
+            ->withBody($body, $headers['Content-Type'] ?? 'application/octet-stream')
+            ->post($url);
+
+        if (! $response->successful()) {
+            throw UnexpectedStatusException::forUrl($url, $response->status());
+        }
+
+        $this->assertDeclaredSizeWithinLimit($url, $response->header('Content-Length'));
+
+        $answer = $response->body();
+        $this->assertActualSizeWithinLimit($url, strlen($answer));
+
+        return new FetchedDocument(
+            body: $answer,
+            contentType: $response->header('Content-Type'),
+            finalUrl: $url,
+            statusCode: $response->status(),
+        );
     }
 
     private function assertAllowedUrl(SourceDefinition $definition, string $url): void

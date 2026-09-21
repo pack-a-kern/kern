@@ -9,6 +9,7 @@ use App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\FetchSizeExceededException;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\HostNotAllowedException;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\TooManyRedirectsException;
+use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Assert;
 
@@ -132,3 +133,22 @@ it('refuses to fetch from a disabled source', function (): void {
 
     app(AllowlistedHttpFetcher::class)->fetch('TESTSRC', 'https://src-fixture.test/doc.xml');
 })->throws(SourceDisabledException::class);
+
+it('refuses an answer that is not the document — a 404 page is not the file', function (): void {
+    Http::fake(['https://src-fixture.test/*' => Http::response('<html>Pagina nu a fost gasita</html>', 404)]);
+
+    expect(fn () => app(AllowlistedHttpFetcher::class)->fetch('TESTSRC', 'https://src-fixture.test/doc.xml'))
+        ->toThrow(UnexpectedStatusException::class);
+});
+
+it('posts to an allowlisted address, and to no other', function (): void {
+    Http::fake(['https://src-fixture.test/*' => Http::response('<ok/>')]);
+
+    $answer = app(AllowlistedHttpFetcher::class)->post('TESTSRC', 'https://src-fixture.test/soap', '<call/>', ['Content-Type' => 'text/xml']);
+
+    expect($answer->body)->toBe('<ok/>');
+    Http::assertSent(static fn ($request): bool => $request->method() === 'POST' && $request->body() === '<call/>');
+
+    expect(fn () => app(AllowlistedHttpFetcher::class)->post('TESTSRC', 'https://evil.example/soap', '<call/>', []))
+        ->toThrow(HostNotAllowedException::class);
+});
