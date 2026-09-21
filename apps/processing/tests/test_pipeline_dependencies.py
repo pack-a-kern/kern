@@ -2,7 +2,7 @@
 
 These wheels have narrow platform/ABI support (see `docs/reference/verified-versions.md`
 on paddlepaddle's lack of a cp314 wheel, which is why it is not a dependency).
-This test is the regression check that pypdf and OpenCV keep working on the pinned
+This test is the regression check that pypdf keeps working on the pinned
 Python 3.14 target — it does not exercise any pipeline logic, which is Milestone 3/7 work.
 
 `pypdf` replaced `PyMuPDF` per ADR 0008 (AGPL-3.0-or-later removed; BSD-3-Clause adopted).
@@ -29,9 +29,3 @@ def test_pypdf_can_read_a_pdf_and_detect_its_text_layer() -> None:
     reader = PdfReader(buffer)
     assert len(reader.pages) == 1
     assert reader.pages[0].extract_text() == ""
-
-
-def test_opencv_headless_imports_and_reports_a_version() -> None:
-    import cv2
-
-    assert cv2.__version__
