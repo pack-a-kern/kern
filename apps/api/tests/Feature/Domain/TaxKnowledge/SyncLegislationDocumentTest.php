@@ -287,3 +287,19 @@ it('shows the law, its text on a date, and a provision\'s history', function ():
 it('is behind authentication', function (): void {
     $this->getJson('/api/v1/legislation/laws')->assertUnauthorized();
 });
+
+it('drops a version an interrupted read left behind', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+
+    // What a job killed between downloading a page and marking it read leaves: a version with no
+    // consolidation, no dates, and its own sections.
+    $orphan = SourceDocumentVersion::factory()->create(['source_document_id' => $law->id, 'consolidation_ref' => null]);
+    \App\Domain\TaxKnowledge\Models\SourceSection::factory()->create(['document_version_id' => $orphan->id]);
+
+    \App\Domain\TaxKnowledge\Jobs\FinishLegislationSync::dispatchSync($law->id);
+
+    expect(SourceDocumentVersion::query()->whereKey($orphan->id)->exists())->toBeFalse()
+        ->and(SourceDocumentVersion::query()->where('source_document_id', $law->id)->count())->toBe(3);
+});
