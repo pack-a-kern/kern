@@ -42,7 +42,6 @@ final readonly class StartStatementImport
     public function __invoke(
         string $taxSubjectId,
         string $accountId,
-        ?string $bankId,
         IncomingFile $file,
         ?string $actorId = null,
     ): StatementImport {
@@ -57,7 +56,9 @@ final readonly class StartStatementImport
         $import = new StatementImport([
             'tax_subject_id' => $taxSubjectId,
             'account_id' => $accountId,
-            'bank_id' => $bankId,
+            // Not asked here: the bank is found from the file's IBAN, or suggested, once it is read,
+            // and confirmed on the mapping screen.
+            'bank_id' => null,
             'document_id' => $document->id,
             'status' => StatementImportStatus::READING,
             'created_by' => $actorId,

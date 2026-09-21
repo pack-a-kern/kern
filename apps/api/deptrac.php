@@ -266,6 +266,8 @@ return static function (DeptracConfig $config): void {
             // nothing outside HTTP depends on this layer.
             // StatementImport -> Identity: App\Domain\StatementImport\Services\NotifyImportOwner finds
             // the user who started an import, to tell them it moved on. Nothing else here reads Identity.
-            Ruleset::forLayer($statementImport)->accesses($support, $identity, $subjects, $audit, $settings, $wallet, $documents),
+            // StatementImport -> Banks: App\Domain\StatementImport\Services\GuessStatementBank matches the
+            // statement's IBAN, or the bank the model named, against the bank directory.
+            Ruleset::forLayer($statementImport)->accesses($support, $identity, $subjects, $audit, $settings, $wallet, $documents, $banks),
         );
 };

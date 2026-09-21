@@ -18,6 +18,7 @@ use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Models\StatementImport;
+use App\Domain\StatementImport\Services\GuessStatementBank;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\StatementImport\Services\StatementConverter;
 use App\Domain\StatementImport\Services\StatementFileContents;
@@ -94,6 +95,7 @@ final class ReadStatementFile implements ShouldQueue
         StatementParseGateway $parser,
         StatementConverter $converter,
         SuggestColumnMapping $suggest,
+        GuessStatementBank $banks,
         AuditChainService $audit,
     ): void {
         // Without the tenant scope: a queue worker acts for no one, and the import's own row carries
@@ -189,10 +191,27 @@ final class ReadStatementFile implements ShouldQueue
          * against a preview, which is where a balance column mistaken for an amount is obvious and
          * a ledger is where it is not.
          */
-        $suggestion = $suggest($import->tax_subject_id, $parsed);
+        /*
+         * Which bank issued it: from the statement's own IBAN if the heading has one, and only
+         * otherwise from the model, which is then shown the heading to answer from. A bank a person
+         * already chose is theirs and is not guessed over.
+         */
+        $bank = $import->bank_id === null ? $banks->fromIban($parsed->preamble) : null;
+        $bankSource = $bank === null ? null : 'IBAN';
+        $suggestion = $suggest($import->tax_subject_id, $parsed, askBank: $import->bank_id === null && $bank === null);
+
+        if ($import->bank_id === null && $bank === null) {
+            $bank = $banks->fromAnswer($suggestion->raw['bank'] ?? null);
+            $bankSource = $bank === null ? null : 'AI';
+        }
 
         // The format of what was uploaded: a converted PDF is read as CSV, but it is still a PDF.
         $import->format = $conversion === null ? $parsed->format : StatementFormat::PDF;
+
+        if ($bank !== null) {
+            $import->bank_id = $bank->id;
+        }
+
         $import->sheet = $parsed->sheet;
         $import->row_count = count($parsed->rows);
         $import->preview_ciphertext = json_encode([
@@ -215,6 +234,9 @@ final class ReadStatementFile implements ShouldQueue
             // How the PDF became the table below, when it was converted: the converter's own
             // pipeline, time and warning — null when the file was read here.
             'conversion' => $conversion,
+            // Where the bank came from, so the screen can say "found from the IBAN" or "suggested
+            // by the AI" beside it — or keep what an earlier reading said, when nothing was guessed.
+            'bank_source' => $bankSource ?? $import->preview()['bank_source'],
             // Only the first rows: the mapping screen shows a sample, and keeping the whole
             // statement here would be a second copy of the file in the database.
             'rows' => array_slice($parsed->rows, 0, config()->integer('statement_import.limits.preview_rows')),

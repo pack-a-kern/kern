@@ -159,6 +159,26 @@ def test_skips_the_preamble_a_statement_prints_above_its_table() -> None:
     assert len(statement.rows) == 2
 
 
+def test_hands_the_preamble_back_apart_from_the_rows() -> None:
+    # Where the statement's own IBAN is — which is what says which bank issued it.
+    text = (
+        "Extras de cont;\r\n"
+        "IBAN: RO49BTRL0000123456789012;\r\n"
+        "Data;Detalii;Suma\r\n"
+        "05.03.2026;PLATA CARD;-123,45\r\n"
+    )
+    statement = parse_statement(text.encode())
+
+    assert statement.preamble == [["Extras de cont"], ["IBAN: RO49BTRL0000123456789012"]]
+
+
+def test_hands_back_no_more_preamble_than_the_ceiling() -> None:
+    text = "".join(f"Linia {index};\r\n" for index in range(5)) + "Data;Suma\r\n05.03.2026;1,00\r\n"
+    statement = parse_statement(text.encode(), settings=StatementParseSettings(max_preamble_rows=2))
+
+    assert statement.preamble == [["Linia 0"], ["Linia 1"]]
+
+
 # --- Excel ---
 
 

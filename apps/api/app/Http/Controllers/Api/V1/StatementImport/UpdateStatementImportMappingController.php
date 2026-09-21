@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\StatementImport\Concerns\ValidatesStatementForm;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * `PUT .../wallet/imports/{import}/mapping` — how the file is built, confirmed by a person.
@@ -37,9 +38,18 @@ final class UpdateStatementImportMappingController extends Controller
     ): JsonResponse {
         $model = StatementImport::query()->findOrFail($import);
 
-        $validated = $request->validate($this->formRules());
+        $validated = $request->validate([
+            ...$this->formRules(),
+            // Asked here rather than at upload: by now the file has been read, and the bank found
+            // from its IBAN — or suggested — is already in the field for the person to confirm.
+            'bank_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ext_banks', 'id')->where('active', true)],
+        ]);
 
         try {
+            if ($request->has('bank_id')) {
+                $model->chooseBank(is_string($validated['bank_id'] ?? null) ? $validated['bank_id'] : null);
+            }
+
             $apply(
                 $model,
                 StatementForm::fromArray($validated),

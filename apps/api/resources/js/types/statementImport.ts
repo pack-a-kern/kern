@@ -74,6 +74,8 @@ export interface StatementPreview {
     classification: StatementClassification | null;
     /** How a PDF became this table, when the provider converted it; null when it was read here. */
     conversion: StatementConversion | null;
+    /** Where the import's bank came from when it was guessed — its IBAN, or the AI; null otherwise. */
+    bankSource: 'IBAN' | 'AI' | null;
 }
 
 /** What the converter reported about its own work — never the file's content. */
@@ -321,6 +323,7 @@ function parsePreview(payload: unknown): StatementPreview {
         aiAnswer: record(preview.ai_answer),
         classification: parseClassification(preview.classification),
         conversion: parseConversion(preview.conversion),
+        bankSource: preview.bank_source === 'IBAN' || preview.bank_source === 'AI' ? preview.bank_source : null,
         warnings: (Array.isArray(preview.warnings) ? preview.warnings : []).filter(
             (warning): warning is string => typeof warning === 'string',
         ),

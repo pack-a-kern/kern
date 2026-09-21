@@ -7,6 +7,7 @@ namespace App\Domain\StatementImport\Models;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\Crypto\Casts\Encrypted;
@@ -120,17 +121,17 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
      * lines: a person picks `Tranzactie la` from what the file actually contains, rather than typing
      * it and finding out it read nothing.
      *
-     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null}
+     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null, bank_source: string|null}
      */
     public function preview(): array
     {
         $decoded = json_decode(is_string($this->preview_ciphertext) ? $this->preview_ciphertext : '', true);
 
         if (! is_array($decoded)) {
-            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null, 'classification' => null, 'conversion' => null];
+            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null, 'classification' => null, 'conversion' => null, 'bank_source' => null];
         }
 
-        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null} $preview */
+        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null, bank_source: string|null} $preview */
         $preview = [
             'columns' => is_array($decoded['columns'] ?? null) ? array_values($decoded['columns']) : [],
             'rows' => is_array($decoded['rows'] ?? null) ? array_values($decoded['rows']) : [],
@@ -141,6 +142,8 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
             'classification' => is_array($decoded['classification'] ?? null) ? $decoded['classification'] : null,
             // How a PDF became the table, when the provider converted it. Null when read here.
             'conversion' => is_array($decoded['conversion'] ?? null) ? $decoded['conversion'] : null,
+            // IBAN or AI when the bank was guessed; null when a person chose it, or nothing was found.
+            'bank_source' => is_string($decoded['bank_source'] ?? null) ? $decoded['bank_source'] : null,
         ];
 
         return $preview;
@@ -257,6 +260,32 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
             $fresh->save();
 
             $this->preview_ciphertext = $fresh->preview_ciphertext;
+        });
+    }
+
+    /**
+     * The bank a person chose on the mapping screen — or none.
+     *
+     * Once a person has answered, the answer is theirs: the "found from the IBAN" note beside it no
+     * longer describes it, so it goes.
+     */
+    public function chooseBank(?string $bankId): void
+    {
+        if (! $this->status->isOpen()) {
+            throw ImportNotOpenException::forImport($this->id);
+        }
+
+        if ($bankId === $this->bank_id) {
+            return;
+        }
+
+        $this->bank_id = $bankId;
+        $this->save();
+
+        $this->changePreview(static function (array $preview): array {
+            $preview['bank_source'] = null;
+
+            return $preview;
         });
     }
 

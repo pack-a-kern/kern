@@ -27,7 +27,6 @@ import {
     Page,
     Panel,
     PanelButton,
-    PanelInput,
     PanelSelect,
     Pill,
     Toolbar,
@@ -37,14 +36,13 @@ import { useRowSelection } from '../../hooks/useRowSelection';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
+import { cn } from '../../lib/utils';
 import {
     bankLabel,
     categoriesFor,
     CURRENCIES,
     formatMinor,
     isStreamKind,
-    sourceName,
-    type AccountSummary,
     type Bank,
     type Tag,
 } from '../../types/wallet';
@@ -110,18 +108,19 @@ export default function WalletImport(): JSX.Element {
         return new URLSearchParams(window.location.search).get('import');
     });
     const [detail, setDetail] = useState<StatementImportDetail | null>(null);
-    const [accounts, setAccounts] = useState<AccountSummary[]>([]);
     const [banks, setBanks] = useState<Bank[]>([]);
     const [tags, setTags] = useState<Tag[]>([]);
 
-    // Step 1 — the file.
+    // Step 1 — the file. The account is not asked: a statement lands in the general source.
     const [accountId, setAccountId] = useState('');
-    const [bankId, setBankId] = useState('');
     const [file, setFile] = useState<File | null>(null);
+    const [dragging, setDragging] = useState(false);
     const [starting, setStarting] = useState(false);
 
     // Step 2 — the columns.
     const [mapping, setMapping] = useState<StatementForm | null>(null);
+    // The bank as a person picked it; undefined until they do, so the guess from the file shows.
+    const [bankChoice, setBankChoice] = useState<string | null | undefined>(undefined);
     const [applying, setApplying] = useState(false);
     const [mappingError, setMappingError] = useState<string | null>(null);
     /*
@@ -156,14 +155,12 @@ export default function WalletImport(): JSX.Element {
                     // A statement lands in a source that takes transactions: a cash holding is one
                     // declared value and a deposit's entries come from its terms.
                     const usable = loaded.accounts.filter((account) => isStreamKind(account.kind));
-                    setAccounts(usable);
-                    setAccountId((current) => (current === '' ? (usable[0]?.id ?? '') : current));
+                    const general = usable.find((account) => account.kind === 'GENERAL') ?? usable[0];
+                    setAccountId((current) => (current === '' ? (general?.id ?? '') : current));
                 }
             },
             () => {
-                if (active) {
-                    setAccounts([]);
-                }
+                // No source to land in: the Start button stays disabled rather than failing later.
             },
         );
 
@@ -333,6 +330,7 @@ export default function WalletImport(): JSX.Element {
     }
 
     const status = detail?.import.status ?? null;
+    const chosenBank = bankChoice === undefined ? (detail?.import.bankId ?? '') : (bankChoice ?? '');
 
     const upload = async (): Promise<void> => {
         if (file === null || accountId === '') {
@@ -342,7 +340,7 @@ export default function WalletImport(): JSX.Element {
         setStarting(true);
 
         try {
-            const started = await startStatementImport(subjectId, file, accountId, bankId === '' ? null : bankId);
+            const started = await startStatementImport(subjectId, file, accountId);
             setImportId(started.id);
         } catch (cause: unknown) {
             toast.error(
@@ -397,7 +395,7 @@ export default function WalletImport(): JSX.Element {
         setMappingError(null);
 
         try {
-            await setStatementImportMapping(subjectId, importId, mapping);
+            await setStatementImportMapping(subjectId, importId, mapping, chosenBank === '' ? null : chosenBank);
             setPage(1);
             setRemapping(false);
             setReloadKey((current) => current + 1);
@@ -458,7 +456,6 @@ export default function WalletImport(): JSX.Element {
                 {status === null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.steps.file)}
-                        description={t((d) => d.pages.walletImports.file.hint)}
                         icon={<Upload className="size-4" />}
                         aside={<Steps status={status} />}
                         footActions={
@@ -475,45 +472,48 @@ export default function WalletImport(): JSX.Element {
                             </PanelButton>
                         }
                     >
-                        <FieldGrid>
-                            <Field label={t((d) => d.pages.walletImports.file.account)} htmlFor="import-account">
-                                <PanelSelect
-                                    id="import-account"
-                                    value={accountId}
-                                    onValueChange={setAccountId}
-                                    options={accounts.map((account) => ({
-                                        value: account.id,
-                                        label: sourceName(
-                                            account,
-                                            t((d) => d.pages.wallet.generalSource),
-                                        ),
-                                    }))}
-                                />
-                            </Field>
-
-                            <Field label={t((d) => d.pages.walletImports.file.bank)} htmlFor="import-bank">
-                                <PanelSelect
-                                    searchable
-                                    id="import-bank"
-                                    value={bankId}
-                                    placeholder={t((d) => d.pages.walletTransactions.bank.none)}
-                                    emptyLabel={t((d) => d.pages.walletTransactions.bank.none)}
-                                    onValueChange={setBankId}
-                                    options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
-                                />
-                            </Field>
-
-                            <Field label={t((d) => d.pages.walletImports.file.choose)} htmlFor="import-file">
-                                <PanelInput
-                                    id="import-file"
-                                    type="file"
-                                    accept=".csv,.xlsx,.xls,.pdf"
-                                    onChange={(event) => {
-                                        setFile(event.target.files?.[0] ?? null);
-                                    }}
-                                />
-                            </Field>
-                        </FieldGrid>
+                        {/* One picker, centred: the file is the only thing asked here. The bank is
+                            asked on the next step, where it can already be filled in from the file. */}
+                        <label
+                            htmlFor="import-file"
+                            className={cn(
+                                'mx-auto flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors',
+                                dragging ? 'border-primary bg-accent' : 'border-border hover:border-primary',
+                            )}
+                            onDragOver={(event) => {
+                                event.preventDefault();
+                                setDragging(true);
+                            }}
+                            onDragLeave={() => {
+                                setDragging(false);
+                            }}
+                            onDrop={(event) => {
+                                event.preventDefault();
+                                setDragging(false);
+                                setFile(event.dataTransfer.files[0] ?? null);
+                            }}
+                        >
+                            <Upload className="text-muted-foreground size-8" aria-hidden="true" />
+                            <span className="text-sm font-semibold">{t((d) => d.pages.walletImports.file.drop)}</span>
+                            <span className="text-primary text-sm underline underline-offset-2">
+                                {t((d) => d.pages.walletImports.file.choose)}
+                            </span>
+                            <span className="note max-w-sm">{t((d) => d.pages.walletImports.file.hint)}</span>
+                            {file === null ? null : (
+                                <span className="mt-1 text-sm font-medium break-all">
+                                    {t((d) => d.pages.walletImports.file.chosen).replace('{name}', file.name)}
+                                </span>
+                            )}
+                            <input
+                                id="import-file"
+                                type="file"
+                                className="sr-only"
+                                accept=".csv,.xlsx,.xls,.pdf"
+                                onChange={(event) => {
+                                    setFile(event.target.files?.[0] ?? null);
+                                }}
+                            />
+                        </label>
                     </Panel>
                 ) : null}
 
@@ -604,7 +604,17 @@ export default function WalletImport(): JSX.Element {
                             <ConversionNote conversion={detail.preview.conversion} />
                         )}
 
-                        <MappingFields detail={detail} mapping={mapping} onChange={setMapping} />
+                        <MappingFields
+                            detail={detail}
+                            mapping={mapping}
+                            onChange={setMapping}
+                            bank={{
+                                options: banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) })),
+                                value: chosenBank,
+                                source: bankChoice === undefined ? detail.preview.bankSource : null,
+                                onChange: setBankChoice,
+                            }}
+                        />
 
                         <RebuiltPreview preview={formPreview} />
 
@@ -1456,10 +1466,18 @@ function MappingFields({
     detail,
     mapping,
     onChange,
+    bank,
 }: {
     detail: StatementImportDetail;
     mapping: StatementForm;
     onChange: (mapping: StatementForm) => void;
+    /** Which bank issued the statement — not part of the form, but asked beside the currency. */
+    bank: {
+        options: { value: string; label: string }[];
+        value: string;
+        source: 'IBAN' | 'AI' | null;
+        onChange: (bankId: string | null) => void;
+    };
 }): JSX.Element {
     const { t } = useTranslation();
 
@@ -1704,6 +1722,30 @@ function MappingFields({
                     {fieldSelect(mapping.reference.credit, labelsFor(creditColumn), (next) => {
                         set({ reference: { ...mapping.reference, credit: next } });
                     })}
+                </Field>
+
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.bank)}
+                    hint={
+                        bank.source === 'IBAN'
+                            ? t((d) => d.pages.walletImports.columns.bankFromIban)
+                            : bank.source === 'AI'
+                              ? t((d) => d.pages.walletImports.columns.bankFromAi)
+                              : t((d) => d.pages.walletImports.columns.bankHint)
+                    }
+                    htmlFor="import-bank"
+                >
+                    <PanelSelect
+                        searchable
+                        id="import-bank"
+                        value={bank.value}
+                        placeholder={t((d) => d.pages.walletTransactions.bank.none)}
+                        emptyLabel={t((d) => d.pages.walletTransactions.bank.none)}
+                        onValueChange={(next) => {
+                            bank.onChange(next === '' ? null : next);
+                        }}
+                        options={bank.options}
+                    />
                 </Field>
 
                 <Field

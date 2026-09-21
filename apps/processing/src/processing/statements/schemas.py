@@ -37,6 +37,11 @@ class ParseStatementResponse(BaseModel):
     )
     columns: list[ColumnPayload]
     rows: list[list[str]] = Field(description="Data rows, headers excluded, cells as text.")
+    preamble: list[list[str]] = Field(
+        default_factory=list[list[str]],
+        description="The lines above the header, each as its filled cells — the bank, the account, "
+        "the period. Not transactions.",
+    )
     row_count: int = Field(ge=0)
     warnings: list[str] = Field(
         default_factory=list,

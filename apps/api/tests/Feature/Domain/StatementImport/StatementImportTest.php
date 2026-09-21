@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Domain\StatementImport\StatementImportTest;
 
 use App\Domain\Audit\Models\AuditEvent;
+use App\Domain\Banks\Models\Bank;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
@@ -76,6 +77,9 @@ final class FakeParseGateway implements StatementParseGateway
         ['07.03.2026', 'PLATA CARD KAUFLAND', '123,45', ''],
     ];
 
+    /** @var list<list<string>> the lines above the header — where a statement prints its IBAN */
+    public array $preamble = [];
+
     /** What `check` answers — a test of a PDF sets it to PDF. */
     public StatementFormat $format = StatementFormat::CSV;
 
@@ -108,6 +112,7 @@ final class FakeParseGateway implements StatementParseGateway
             ],
             rows: $this->rows,
             headerRow: 0,
+            preamble: $this->preamble,
         );
     }
 }
@@ -974,4 +979,95 @@ it('does not read again an import refused for what the file is', function (): vo
     $this->actingAs($user)
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")
         ->assertStatus(409);
+});
+
+/*
+ * Which bank issued the statement: from its IBAN, else from the model, else the person.
+ */
+
+/**
+ * A provider the mapping call reaches, answering with `$reply`; the requests it got are recorded.
+ *
+ * @param  array<string, mixed>  $reply
+ */
+function mappingProvider(string $subjectId, array $reply): void
+{
+    config([
+        'ai.providers.env_fallback.enabled' => true,
+        'ai.providers.env_fallback.provider' => 'ollama',
+        'ai.providers.env_fallback.base_url' => 'https://gateway.test',
+        'ai.providers.env_fallback.model' => 'any',
+    ]);
+    app(DocumentAiConsentGate::class)->grant($subjectId);
+
+    Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => json_encode($reply)]]]])]);
+}
+
+it('finds the bank from the IBAN in the heading, without telling the model the heading', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $bank = Bank::factory()->create(['bic' => 'BTRLRO22XXX', 'name' => 'Banca Transilvania']);
+    mappingProvider($subjectId, ['bank' => 'Some Other Bank']);
+    fakeReader()->preamble = [['Extras de cont'], ['IBAN: RO49 BTRL 0000 1234 5678 9012']];
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-iban.csv');
+
+    expect($import->bank_id)->toBe($bank->id)
+        ->and($import->preview()['bank_source'])->toBe('IBAN');
+
+    // The heading holds the account and its holder, and the IBAN already answered.
+    Http::assertSent(static fn (HttpRequest $request): bool => ! str_contains((string) json_encode($request->data()), 'RO49'));
+});
+
+it('asks the model for the bank, shown the heading, when there is no IBAN', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $bank = Bank::factory()->create(['name' => 'Banca Transilvania', 'legal_name' => 'BANCA TRANSILVANIA S.A.']);
+    Bank::factory()->create(['name' => 'Banca Comerciala Romana']);
+    mappingProvider($subjectId, ['bank' => 'BANCA TRANSILVANIA S.A.']);
+    fakeReader()->preamble = [['BANCA TRANSILVANIA'], ['Extras de cont']];
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-iban.csv');
+
+    expect($import->bank_id)->toBe($bank->id)
+        ->and($import->preview()['bank_source'])->toBe('AI');
+
+    Http::assertSent(static fn (HttpRequest $request): bool => str_contains((string) json_encode($request->data()), 'Extras de cont'));
+});
+
+it('leaves the bank empty when the answer fits more than one', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    Bank::factory()->create(['name' => 'Banca Cooperativa Unu']);
+    Bank::factory()->create(['name' => 'Banca Cooperativa Doi']);
+    mappingProvider($subjectId, ['bank' => 'Banca Cooperativa']);
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-banca-ambigua.csv');
+
+    expect($import->bank_id)->toBeNull();
+});
+
+it('keeps the bank a person picks on the mapping screen', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    Bank::factory()->create(['bic' => 'BTRLRO22XXX']);
+    $chosen = Bank::factory()->create();
+    fakeReader()->preamble = [['IBAN: RO49BTRL0000123456789012']];
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-banca-aleasa.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", [...mappingBody(), 'bank_id' => $chosen->id])
+        ->assertOk();
+
+    $import->refresh();
+
+    expect($import->bank_id)->toBe($chosen->id)
+        ->and($import->preview()['bank_source'])->toBeNull();
+});
+
+it('refuses a bank that is not in the directory', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-banca-necunoscuta.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", [...mappingBody(), 'bank_id' => (string) \Illuminate\Support\Str::uuid()])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('bank_id');
 });

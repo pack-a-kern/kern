@@ -65,6 +65,7 @@ Decide:
 - description, counterparty, reference: which column or label holds each. Counterparty and reference are answered SEPARATELY for money out (debit) and money in (credit), because a statement usually labels them differently. Use labels_by_amount_column to see which labels appear on which side.
 - non_transaction_lines: the text that headings, footers and account-detail lines start with, as plain strings.
 - identity_labels: labels whose values are personal identifiers — personal number, card number, account holder, IBAN.
+- bank: only when preamble_lines is not empty — the bank that issued this statement, as those lines name it: its BIC if written, otherwise its name. null when they do not say.
 
 Every index must be a column that exists in "columns". Every label must be copied exactly from the labels you were given.
 
@@ -78,7 +79,8 @@ Answer in exactly this shape:
  "counterparty":{"debit":{"type":"label","value":"..."},"credit":{"type":"label","value":"..."}},
  "reference":{"debit":{"type":"label","value":"..."},"credit":{"type":"label","value":"..."}},
  "non_transaction_lines":["..."],
- "identity_labels":["..."]}
+ "identity_labels":["..."],
+ "bank":null}
 
 For a file with one transaction per line the same form is used with "layout":"row", amounts.mode "signed", amounts.amount set, amounts.debit and amounts.credit null, and counterparty/reference given as indexes that are the same for debit and credit.
 

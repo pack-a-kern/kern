@@ -772,9 +772,9 @@ export const en = {
                 skip: 'Review without waiting',
             },
             file: {
-                account: 'Into which account',
-                bank: 'Which bank',
                 choose: 'Choose a file',
+                chosen: 'Ready to read: {name}',
+                drop: 'Drop your statement here',
                 hint: 'CSV, Excel or a PDF with selectable text. If your internet banking offers a CSV or Excel export, use it — it reads exactly.',
                 uploading: 'Uploading…',
                 reading: 'Reading the file…',
@@ -801,6 +801,10 @@ export const en = {
                 currency: 'Currency',
                 currencyHint:
                     'A statement in one currency often states it nowhere. Pick the code if your file has no currency column.',
+                bank: 'Bank',
+                bankHint: 'Which bank issued this statement. It is saved on every transaction, and helps spot a payment imported twice.',
+                bankFromIban: 'Found from the statement\'s IBAN.',
+                bankFromAi: 'Suggested by the AI from the statement\'s heading. Check it.',
                 fixedCurrency: 'Currency for every row',
                 description: 'Description',
                 counterparty: 'Counterparty',

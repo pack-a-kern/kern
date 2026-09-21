@@ -775,9 +775,9 @@ export const ro = {
                 skip: 'Verifică fără să aștepți',
             },
             file: {
-                account: 'În ce cont',
-                bank: 'Ce bancă',
                 choose: 'Alege un fișier',
+                chosen: 'Gata de citit: {name}',
+                drop: 'Trage extrasul aici',
                 hint: 'CSV, Excel sau PDF cu text selectabil. Dacă banca îți oferă export CSV sau Excel, folosește-l — se citește exact.',
                 uploading: 'Se încarcă…',
                 reading: 'Se citește fișierul…',
@@ -804,6 +804,10 @@ export const ro = {
                 currency: 'Moneda',
                 currencyHint:
                     'Un extras într-o singură monedă de obicei nu o scrie nicăieri. Alege codul dacă fișierul nu are o coloană de monedă.',
+                bank: 'Banca',
+                bankHint: 'Banca ce a emis extrasul. Se salvează pe fiecare tranzacție și ajută la găsirea unei plăți importate de două ori.',
+                bankFromIban: 'Găsită din IBAN-ul extrasului.',
+                bankFromAi: 'Sugerată de AI din antetul extrasului. Verific-o.',
                 fixedCurrency: 'Moneda pentru toate rândurile',
                 description: 'Descriere',
                 counterparty: 'Partener',

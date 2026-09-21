@@ -143,6 +143,7 @@ async def parse(
         header_row=statement.header_row,
         columns=[ColumnPayload.model_validate(column) for column in columns],
         rows=statement.rows,
+        preamble=statement.preamble,
         row_count=len(statement.rows),
         warnings=statement.warnings,
         labels_by_amount_column=statement.labels_by_amount_column,

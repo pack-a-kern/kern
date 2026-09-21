@@ -619,9 +619,10 @@ export interface Dictionary {
                 skip: string;
             };
             file: {
-                account: string;
-                bank: string;
                 choose: string;
+                /** Under the picker once a file is chosen: `{name}` is substituted. */
+                chosen: string;
+                drop: string;
                 hint: string;
                 uploading: string;
                 reading: string;
@@ -651,6 +652,11 @@ export interface Dictionary {
                 thousands: string;
                 currency: string;
                 currencyHint: string;
+                bank: string;
+                bankHint: string;
+                /** Beside the bank when it was guessed, by where the guess came from. */
+                bankFromIban: string;
+                bankFromAi: string;
                 fixedCurrency: string;
                 description: string;
                 counterparty: string;

@@ -79,6 +79,10 @@ class ParsedStatement:
     # whose amount sat in each column. This is what tells a reader that `Tranzactie la` belongs to
     # money going out and `Ordonator` to money coming in, without anything here deciding what the
     # columns mean.
+    # The lines above the header — the bank's name, the account, the period — each as its filled
+    # cells. Kept apart from the rows because they are not transactions, and returned because the
+    # statement's own IBAN, which says which bank issued it, is written there.
+    preamble: list[list[str]] = field(default_factory=list[list[str]])
     labels_by_amount_column: list[dict[str, object]] = field(
         default_factory=list[dict[str, object]]
     )
@@ -211,6 +215,7 @@ def _read_xlsx(
         rows=parsed.rows,
         headers=parsed.headers,
         header_row=parsed.header_row,
+        preamble=parsed.preamble,
         sheet=chosen,
         sheets=sheets,
         warnings=parsed.warnings,
@@ -264,6 +269,7 @@ def _read_xls(
         rows=parsed.rows,
         headers=parsed.headers,
         header_row=parsed.header_row,
+        preamble=parsed.preamble,
         sheet=chosen,
         sheets=sheets,
         warnings=parsed.warnings,
@@ -358,6 +364,7 @@ def _read_pdf(content: bytes, settings: StatementParseSettings) -> ParsedStateme
         rows=parsed.rows,
         headers=parsed.headers,
         header_row=parsed.header_row,
+        preamble=parsed.preamble,
         warnings=sorted(set(parsed.warnings + warnings)),
         labels_by_amount_column=parsed.labels_by_amount_column,
     )
@@ -435,11 +442,14 @@ def _assemble(
     headers = padded[header_row] if header_row is not None else [""] * width
     data = padded[header_row + 1 :] if header_row is not None else padded
 
+    above = padded[: min(header_row, settings.max_preamble_rows)] if header_row is not None else []
+
     return ParsedStatement(
         file_format=file_format,
         rows=data,
         headers=headers,
         header_row=header_row,
+        preamble=[[cell.strip() for cell in row if cell.strip() != ""] for row in above],
         labels_by_amount_column=_labels_by_amount_column(data),
     )
 

@@ -22,6 +22,10 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * cannot tell a detail line from a heading without seeing one, and sent only as far as the
  * taxpayer's own consented provider.
  *
+ * A fourth only when the caller asks for the bank: the lines above the table — the bank's name, the
+ * account holder, the account. That heading is personal in a way the rows are not, so it goes only
+ * when the statement's own IBAN did not already say which bank this is (see `GuessStatementBank`).
+ *
  * ## Why every answer is checked
  *
  * The schema only promises the answer has the right *shape*. Three things it can still get wrong
@@ -67,7 +71,8 @@ final readonly class SuggestColumnMapping
     ) {
     }
 
-    public function __invoke(string $subjectId, ParsedStatementFile $file): FormSuggestion
+    /** @param bool $askBank send the heading lines and ask which bank issued the statement */
+    public function __invoke(string $subjectId, ParsedStatementFile $file, bool $askBank = false): FormSuggestion
     {
         if ($file->columns === []) {
             return FormSuggestion::failed(FormSuggestion::NOT_THIS_FILE);
@@ -77,7 +82,7 @@ final readonly class SuggestColumnMapping
             $subjectId,
             $this->config->string('ai.statements.mapping.system'),
             $this->config->string('ai.statements.mapping.instruction'),
-            $this->payload($file),
+            $this->payload($file, $askBank),
             self::schema(),
             $this->config->string('ai.statements.mapping.model'),
             $this->config->integer('ai.statements.mapping.max_tokens'),
@@ -108,9 +113,10 @@ final readonly class SuggestColumnMapping
      *
      * @return array<string, mixed>
      */
-    private function payload(ParsedStatementFile $file): array
+    private function payload(ParsedStatementFile $file, bool $askBank): array
     {
         $sampleRows = array_slice($file->rows, 0, max(1, $this->config->integer('statement_import.limits.preview_rows')));
+        $lines = static fn (array $row): string => implode(' | ', $row);
 
         return [
             'row_count' => count($file->rows),
@@ -129,10 +135,9 @@ final readonly class SuggestColumnMapping
             ),
             // The lines as the file has them, cells separated, so a detail line is visibly a
             // continuation of the line above rather than a transaction of its own.
-            'sample_lines' => array_map(
-                static fn (array $row): string => implode(' | ', $row),
-                $sampleRows,
-            ),
+            'sample_lines' => array_map($lines, $sampleRows),
+            // Only when asked, and then the heading as written — where the bank names itself.
+            'preamble_lines' => $askBank ? array_map($lines, $file->preamble) : [],
         ];
     }
 
@@ -196,6 +201,7 @@ final readonly class SuggestColumnMapping
                 ],
                 'non_transaction_lines' => $strings,
                 'identity_labels' => $strings,
+                'bank' => ['type' => ['string', 'null']],
             ],
         ];
     }

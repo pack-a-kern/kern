@@ -140,19 +140,11 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
             }
         }
 
-        $rows = [];
-
-        foreach (is_array($body['rows'] ?? null) ? $body['rows'] : [] as $row) {
-            $rows[] = array_values(array_map(
-                static fn (mixed $cell): string => is_scalar($cell) ? (string) $cell : '',
-                is_array($row) ? $row : [],
-            ));
-        }
 
         return new ParsedStatementFile(
             format: $format,
             columns: $columns,
-            rows: $rows,
+            rows: self::grid($body['rows'] ?? null),
             headerRow: is_numeric($body['header_row'] ?? null) ? (int) $body['header_row'] : null,
             sheet: is_string($body['sheet'] ?? null) ? $body['sheet'] : null,
             sheets: array_values(array_filter(
@@ -164,6 +156,26 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
                 is_string(...),
             )),
             labelGroups: $labelGroups,
+            preamble: self::grid($body['preamble'] ?? null),
         );
+    }
+
+    /**
+     * Rows of text cells, whatever the reply held.
+     *
+     * @return list<list<string>>
+     */
+    private static function grid(mixed $rows): array
+    {
+        $grid = [];
+
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $grid[] = array_values(array_map(
+                static fn (mixed $cell): string => is_scalar($cell) ? (string) $cell : '',
+                is_array($row) ? $row : [],
+            ));
+        }
+
+        return $grid;
     }
 }

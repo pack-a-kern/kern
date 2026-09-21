@@ -41,6 +41,12 @@ class StatementParseSettings(BaseSettings):
         description="Columns a row may have. Wider than any statement, narrow enough that a "
         "malformed file cannot turn into a grid nobody can show.",
     )
+    max_preamble_rows: int = Field(
+        default=20,
+        ge=0,
+        description="Lines above the header handed back as the preamble. A statement's heading is "
+        "a handful of lines; a file whose header was found far down has a table above it, not one.",
+    )
     sample_rows: int = Field(
         default=200,
         gt=0,

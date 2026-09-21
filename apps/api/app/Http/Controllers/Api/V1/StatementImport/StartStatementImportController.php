@@ -39,7 +39,6 @@ final class StartStatementImportController extends Controller
             // and pages, which decide whether a file that fits here can actually be read.
             'file' => ['required', 'file', 'max:' . (int) ($config->integer('statement_import.limits.max_file_bytes') / 1024)],
             'account_id' => ['required', 'uuid'],
-            'bank_id' => ['sometimes', 'nullable', 'uuid'],
         ]);
 
         // Tenant-scoped: an account belonging to another subject is not found rather than imported into.
@@ -57,7 +56,6 @@ final class StartStatementImportController extends Controller
             $import = $start(
                 $tenant->currentSubjectId(),
                 (string) $validated['account_id'],
-                is_string($validated['bank_id'] ?? null) ? $validated['bank_id'] : null,
                 new IncomingFile($path, $file->getClientOriginalName()),
                 $this->actorId($request),
             );

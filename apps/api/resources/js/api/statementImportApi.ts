@@ -28,15 +28,10 @@ export async function startStatementImport(
     subjectId: string,
     file: File,
     accountId: string,
-    bankId: string | null,
 ): Promise<StatementImport> {
     const body = new FormData();
     body.append('file', file);
     body.append('account_id', accountId);
-
-    if (bankId !== null && bankId !== '') {
-        body.append('bank_id', bankId);
-    }
 
     return parseStatementImport(JSON.parse(await apiRequest(base(subjectId), { method: 'POST', body })));
 }
@@ -100,15 +95,19 @@ export async function previewStatementForm(
     );
 }
 
-/** Confirms how the file is built. The server reads the whole file with it and builds the rows. */
+/**
+ * Confirms how the file is built, and which bank issued it. The server reads the whole file with it
+ * and builds the rows.
+ */
 export async function setStatementImportMapping(
     subjectId: string,
     importId: string,
     form: StatementForm & { source?: string },
+    bankId: string | null,
 ): Promise<void> {
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/mapping`, {
         method: 'PUT',
-        body: { ...form },
+        body: { ...form, bank_id: bankId },
     });
 }
 

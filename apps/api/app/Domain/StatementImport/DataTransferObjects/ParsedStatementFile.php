@@ -21,6 +21,7 @@ final readonly class ParsedStatementFile
      * @param  list<string>  $sheets
      * @param  list<string>  $warnings  closed codes — e.g. PAGES_WITHOUT_TABLE
      * @param  list<StatementLabelGroup>  $labelGroups  empty for one transaction per line
+     * @param  list<list<string>>  $preamble  the lines above the header, each as its filled cells
      */
     public function __construct(
         public StatementFormat $format,
@@ -31,6 +32,7 @@ final readonly class ParsedStatementFile
         public array $sheets = [],
         public array $warnings = [],
         public array $labelGroups = [],
+        public array $preamble = [],
     ) {
     }
 
