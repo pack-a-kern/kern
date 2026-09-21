@@ -728,6 +728,15 @@ export const ro = {
             columnsHeader: 'Extras',
             empty: 'Niciun extras importat încă.',
             steps: { file: 'Fișier', columns: 'Coloane', review: 'Verificare', done: 'Import' },
+            aiReasons: {
+                UNAVAILABLE: 'AI este oprit sau contribuabilul nu și-a dat acordul',
+                REFUSED: 'furnizorul a refuzat cererea sau nu a răspuns la timp',
+                NO_ROOM: 'modelul a rămas fără spațiu înainte să răspundă',
+                UNREADABLE: 'răspunsul nu a putut fi citit',
+                NOT_THIS_FILE: 'a numit coloane sau etichete pe care fișierul nu le are',
+                JOB_FAILED: 'procesul s-a oprit înainte să termine',
+                NO_ACTOR: 'nu exista cineva în numele căruia să ruleze',
+            },
             suggesting: {
                 title: 'Se propun categorii și etichete',
                 hint: 'Modelul trece prin partenerii tăi. Rândurile apar aici imediat ce termină.',
@@ -787,7 +796,7 @@ export const ro = {
                     'Modelul a rămas fără spațiu înainte să răspundă. Completează formularul tu sau mărește limita de tokenuri în setări.',
                 suggestionUnavailable:
                     'Niciun model nu a fost întrebat — AI este oprit sau contribuabilul nu și-a dat acordul. Completează formularul tu.',
-                suggestionFailed: 'Modelul nu a putut descrie acest fișier. Completează formularul tu.',
+                suggestionFailed: 'Modelul nu a putut descrie acest fișier ({reason}). Completează formularul tu.',
                 sheet: 'Foaie',
                 none: 'Nu există în fișier',
                 suggested: 'Propus',
@@ -815,6 +824,9 @@ export const ro = {
                 statRules: 'Din răspunsurile tale anterioare',
                 aiWaiting: 'Modelul propune categorii și etichete — {done} din {expected} apeluri gata.',
                 aiDone: 'Modelul a propus categorii și etichete pentru {rows} rânduri.',
+                aiPartial:
+                    'Modelul a propus categorii și etichete pentru {rows} rânduri, dar {failed} din {calls} apeluri au eșuat ({reasons}) — {missing} rânduri nu au nicio propunere.',
+                aiRoundFailed: 'Propunerile nu au putut rula: {reason}.',
                 aiUnavailable: 'Niciun model nu a fost întrebat: AI este oprit sau contribuabilul nu și-a dat acordul.',
                 aiNothing: 'Toate rândurile aveau deja un răspuns, așa că modelul nu a fost necesar.',
                 aiCalls: 'Ce s-a trimis modelului și ce a răspuns',

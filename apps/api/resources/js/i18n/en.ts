@@ -725,6 +725,15 @@ export const en = {
             columnsHeader: 'Statement',
             empty: 'No statements imported yet.',
             steps: { file: 'File', columns: 'Columns', review: 'Review', done: 'Import' },
+            aiReasons: {
+                UNAVAILABLE: 'AI is off, or this taxpayer has not consented',
+                REFUSED: 'the provider refused the request or did not answer in time',
+                NO_ROOM: 'the model ran out of room before answering',
+                UNREADABLE: 'the reply was not readable',
+                NOT_THIS_FILE: 'it named columns or labels this file does not have',
+                JOB_FAILED: 'the job stopped before it finished',
+                NO_ACTOR: 'there was no one to act on behalf of',
+            },
             suggesting: {
                 title: 'Suggesting categories and tags',
                 hint: 'The model is going through your counterparties. Your rows appear here as soon as it has finished.',
@@ -785,7 +794,7 @@ export const en = {
                     'The model ran out of room before it answered. Fill the form in yourself, or raise the token limit in settings.',
                 suggestionUnavailable:
                     'No model was asked — AI is off, or this taxpayer has not consented. Fill the form in yourself.',
-                suggestionFailed: 'The model could not describe this file. Fill the form in yourself.',
+                suggestionFailed: 'The model could not describe this file ({reason}). Fill the form in yourself.',
                 sheet: 'Sheet',
                 none: 'Not in this file',
                 suggested: 'Suggested',
@@ -812,6 +821,9 @@ export const en = {
                 statRules: 'From your earlier answers',
                 aiWaiting: 'The model is suggesting categories and tags — {done} of {expected} calls done.',
                 aiDone: 'The model suggested categories and tags for {rows} rows.',
+                aiPartial:
+                    'The model suggested categories and tags for {rows} rows, but {failed} of {calls} calls failed ({reasons}) — {missing} rows have no suggestion.',
+                aiRoundFailed: 'The suggestions could not run: {reason}.',
                 aiUnavailable: 'No model was asked: AI is off, or this taxpayer has not consented.',
                 aiNothing: 'Every row already had an answer, so the model was not needed.',
                 aiCalls: 'What was sent to the model, and what it replied',

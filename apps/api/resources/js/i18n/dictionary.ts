@@ -592,6 +592,8 @@ export interface Dictionary {
             empty: string;
             steps: { file: string; columns: string; review: string; done: string };
             /** The screen shown instead of the review while the model is still suggesting. */
+            /** A model call's failure code, in words. Keyed by the code the server stores. */
+            aiReasons: Record<string, string | undefined>;
             suggesting: {
                 title: string;
                 hint: string;
@@ -654,6 +656,7 @@ export interface Dictionary {
                 /** Why no form was suggested — each one has a different fix. */
                 suggestionNoRoom: string;
                 suggestionUnavailable: string;
+                /** `{reason}` is substituted, in words — see `aiReasons`. */
                 suggestionFailed: string;
                 sheet: string;
                 none: string;
@@ -693,6 +696,10 @@ export interface Dictionary {
                 aiWaiting: string;
                 /** `{rows}` is substituted. */
                 aiDone: string;
+                /** `{rows}`, `{failed}`, `{calls}`, `{reasons}` and `{missing}` are substituted. */
+                aiPartial: string;
+                /** `{reason}` is substituted. */
+                aiRoundFailed: string;
                 aiUnavailable: string;
                 aiNothing: string;
                 aiCalls: string;

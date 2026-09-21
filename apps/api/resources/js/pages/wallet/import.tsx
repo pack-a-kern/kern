@@ -1103,6 +1103,14 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
 }
 
 /**
+ * A model call's failure code, in words. An unknown code is shown as itself rather than hidden:
+ * a new failure the screen has no sentence for is still worth seeing.
+ */
+function aiReason(t: ReturnType<typeof useTranslation>['t'], code: string): string {
+    return t((d) => d.pages.walletImports.aiReasons)[code] ?? code;
+}
+
+/**
  * The import at a glance: what the file became, and where the answers came from.
  *
  * Numbers side by side rather than a sentence, because the point is comparing them: 12 522 lines
@@ -1140,18 +1148,36 @@ function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Elem
     const waiting =
         classification !== null && classification.failure === null && (expected === null || done < expected);
 
+    // Calls that came back with a failure — counted, and their reasons named, so a statement two thirds
+    // suggested does not read as finished.
+    const failedCalls = classification?.batches.filter((batch) => batch.failure !== null) ?? [];
+    const failedReasons = [...new Set(failedCalls.map((batch) => aiReason(t, batch.failure ?? '')))].join(', ');
+    const withoutSuggestion = Math.max(0, current.rowCount - detail.proposals.ai - detail.proposals.rule);
+
     const aiStatus =
         classification === null
             ? null
-            : classification.failure !== null
+            : classification.failure === 'UNAVAILABLE'
               ? t((d) => d.pages.walletImports.review.aiUnavailable)
-              : expected === 0
-                ? t((d) => d.pages.walletImports.review.aiNothing)
-                : waiting
-                  ? t((d) => d.pages.walletImports.review.aiWaiting)
-                        .replace('{done}', String(done))
-                        .replace('{expected}', String(expected ?? '…'))
-                  : t((d) => d.pages.walletImports.review.aiDone).replace('{rows}', String(detail.proposals.ai));
+              : classification.failure !== null
+                ? t((d) => d.pages.walletImports.review.aiRoundFailed).replace(
+                      '{reason}',
+                      aiReason(t, classification.failure),
+                  )
+                : expected === 0
+                  ? t((d) => d.pages.walletImports.review.aiNothing)
+                  : waiting
+                    ? t((d) => d.pages.walletImports.review.aiWaiting)
+                          .replace('{done}', String(done))
+                          .replace('{expected}', String(expected ?? '…'))
+                    : failedCalls.length > 0
+                      ? t((d) => d.pages.walletImports.review.aiPartial)
+                            .replace('{rows}', String(detail.proposals.ai))
+                            .replace('{failed}', String(failedCalls.length))
+                            .replace('{calls}', String(expected ?? classification.batches.length))
+                            .replace('{reasons}', failedReasons)
+                            .replace('{missing}', String(withoutSuggestion))
+                      : t((d) => d.pages.walletImports.review.aiDone).replace('{rows}', String(detail.proposals.ai));
 
     return (
         <div className="border-border border-b px-4 py-3">
@@ -1197,7 +1223,10 @@ function AiCalls({ classification }: { classification: StatementClassification |
                         </div>
                         {batch.failure === null ? null : (
                             <p className="text-destructive text-sm">
-                                {t((d) => d.pages.walletImports.review.aiFailed).replace('{reason}', batch.failure)}
+                                {t((d) => d.pages.walletImports.review.aiFailed).replace(
+                                    '{reason}',
+                                    aiReason(t, batch.failure),
+                                )}
                             </p>
                         )}
                         {batch.sent === null ? null : (
@@ -1439,7 +1468,10 @@ function MappingFields({
             case 'UNAVAILABLE':
                 return t((d) => d.pages.walletImports.columns.suggestionUnavailable);
             default:
-                return t((d) => d.pages.walletImports.columns.suggestionFailed);
+                return t((d) => d.pages.walletImports.columns.suggestionFailed).replace(
+                    '{reason}',
+                    aiReason(t, detail.import.aiFailureReason),
+                );
         }
     })();
 
