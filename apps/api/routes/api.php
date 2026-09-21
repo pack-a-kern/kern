@@ -41,6 +41,8 @@ use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
+use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
+use App\Http\Controllers\Api\V1\Notifications\MarkNotificationsReadController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RetryFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RunOperationTaskController;
@@ -152,6 +154,15 @@ Route::prefix('v1/auth')->group(function (): void {
  * chosen, and registration creates one.
  */
 Route::post('v1/admin/impersonation/stop', [ImpersonationController::class, 'stop'])->middleware('auth:web');
+
+/*
+ * The bell: a user's own notices, whichever taxpayer each is about. Not under `v1/subjects/{subject}`
+ * because a notice follows the person, not the subject selected when the menu is opened.
+ */
+Route::prefix('v1/notifications')->middleware('auth:web')->group(function (): void {
+    Route::get('/', ListNotificationsController::class);
+    Route::post('read', MarkNotificationsReadController::class);
+});
 
 Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListSubjectsController::class);

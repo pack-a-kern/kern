@@ -6,6 +6,7 @@ namespace App\Domain\StatementImport\Jobs;
 
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
+use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
@@ -13,6 +14,7 @@ use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Models\StatementImport;
+use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\StatementImport\Services\SuggestColumnMapping;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\ObjectStore\EncryptedObjectStore;
@@ -207,6 +209,7 @@ final class ReadStatementFile implements ShouldQueue
         $import->save();
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+        app(NotifyImportOwner::class)($import, ImportNoticeKind::READY_FOR_MAPPING);
     }
 
     /**
@@ -250,5 +253,6 @@ final class ReadStatementFile implements ShouldQueue
         $import->save();
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+        app(NotifyImportOwner::class)($import, ImportNoticeKind::FAILED);
     }
 }

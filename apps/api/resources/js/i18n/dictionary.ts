@@ -50,8 +50,18 @@ export interface Dictionary {
         impersonationStopFailed: string;
         notifications: string;
         markAllRead: string;
-        notificationTitle: string;
-        notificationBody: string;
+        notificationsEmpty: string;
+        openNotice: string;
+        notificationsFailed: string;
+        /**
+         * One statement import's notice, by `ImportNoticeKind`. `{rows}`, `{imported}`, `{suggested}`
+         * and `{reason}` are substituted; `{reason}` in words from `errors.reasons`, else `failedUnknown`.
+         */
+        importNotices: Record<
+            'READY_FOR_MAPPING' | 'READY_FOR_REVIEW' | 'IMPORTED' | 'FAILED',
+            { title: string; body: string }
+        >;
+        importNoticeFailedUnknown: string;
         changePalette: string;
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;

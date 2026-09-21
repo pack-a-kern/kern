@@ -755,6 +755,39 @@ it('refuses to ask again once an import is written', function (): void {
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")->assertStatus(409);
 });
 
+/*
+ * A statement takes minutes to read and to classify, and nobody should have to keep the page open to
+ * find out it is their turn. The person who started it is told — and only they are.
+ */
+it('tells the person who started an import when it moves on', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    [$someoneElse] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-anunt.csv');
+
+    $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")->assertStatus(202);
+
+    $bell = $this->actingAs($user)->getJson('/api/v1/notifications')->assertOk();
+
+    /** @var list<array<string, mixed>> $notices */
+    $notices = $bell->json('notifications');
+    $kinds = collect($notices)->pluck('data.kind')->all();
+
+    // Newest first. No "ready for review": with no model to ask, the review opened at once.
+    expect($kinds)->toBe(['IMPORTED', 'READY_FOR_MAPPING'])
+        ->and($bell->json('unread'))->toBe(2)
+        ->and($bell->json('notifications.0.data.import_id'))->toBe($import->id)
+        ->and($bell->json('notifications.0.data.imported_count'))->toBe(3);
+
+    // Ids, counts and codes only — nothing from the statement itself.
+    expect(json_encode($notices, JSON_THROW_ON_ERROR))->not->toContain('KAUFLAND');
+
+    $this->actingAs($someoneElse)->getJson('/api/v1/notifications')->assertOk()->assertJsonCount(0, 'notifications');
+
+    $this->actingAs($user)->postJson('/api/v1/notifications/read')->assertNoContent();
+    $this->actingAs($user)->getJson('/api/v1/notifications')->assertJsonPath('unread', 0);
+});
+
 it('never lets one taxpayer see another import', function (): void {
     [$user, $subjectId, $accountId] = importer();
     [$otherUser, $otherSubjectId] = importer();

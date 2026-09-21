@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Jobs;
 
+use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\ClassifyCounterparties;
+use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use Illuminate\Bus\Queueable;
@@ -65,7 +67,7 @@ final class ProposeCategoryBatch implements ShouldQueue
         $this->onQueue(config()->string('ai.providers.queue'));
     }
 
-    public function handle(ClassifyCounterparties $classifier, TenantContext $tenant): void
+    public function handle(ClassifyCounterparties $classifier, TenantContext $tenant, NotifyImportOwner $notify): void
     {
         $import = $this->import();
 
@@ -89,6 +91,11 @@ final class ProposeCategoryBatch implements ShouldQueue
         $import->recordClassificationBatch($this->run, $classifier->classify($import->tax_subject_id, $rows));
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
+
+        // The last call of the round: the rows are ready to go through, whoever is still watching.
+        if ($import->classificationFinished()) {
+            $notify($import, ImportNoticeKind::READY_FOR_REVIEW);
+        }
     }
 
     public function failed(?Throwable $exception): void
@@ -102,6 +109,11 @@ final class ProposeCategoryBatch implements ShouldQueue
         $import->recordClassificationBatch($this->run, ['sent' => null, 'reply' => null, 'failure' => self::JOB_FAILED]);
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
+
+        // A failed last call still ends the round: the review is open, with what did come back.
+        if ($import->classificationFinished()) {
+            app(NotifyImportOwner::class)($import, ImportNoticeKind::READY_FOR_REVIEW);
+        }
     }
 
     /** The import this batch belongs to, while it is still the run this batch was made for. */

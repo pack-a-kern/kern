@@ -34,6 +34,14 @@ Broadcast::channel('tax-subjects.{subjectId}.imports', function ($user, string $
 });
 
 /**
+ * A user's own notices (`User::receivesBroadcastNotificationsOn()`). Only that user may listen: the
+ * notices say which of their imports moved, and are nobody else's business.
+ */
+Broadcast::channel('users.{userId}', function ($user, string $userId): bool {
+    return (string) $user->id === $userId;
+});
+
+/**
  * `App\Domain\Spv\Events\*` broadcast on `tax-subjects.{subjectId}.spv` (`BLUEPRINT.md` §16) — same
  * authorization rule as the documents channel above.
  */

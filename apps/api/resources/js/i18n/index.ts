@@ -57,6 +57,14 @@ function getSnapshot(): Locale {
 }
 
 /**
+ * The dictionary for the current locale, outside a render — for text produced in a callback that
+ * outlives the render it was set up in (a toast raised by a websocket message).
+ */
+export function getDictionary(): Dictionary {
+    return DICTIONARIES[locale];
+}
+
+/**
  * Minimal, hand-rolled i18n (`docs/handoff/040-ui-foundation.md` "i18n" explains why this was
  * chosen over `react-i18next`/`next-intl`, per `docs/DEPENDENCY-POLICY.md` §4's "standard library
  * before a third-party package"). `t()` takes a *selector*, not a string key — `ro.ts`/`en.ts`

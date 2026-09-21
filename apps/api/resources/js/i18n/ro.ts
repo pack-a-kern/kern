@@ -41,8 +41,28 @@ export const ro = {
         impersonationStopFailed: 'Nu s-a putut reveni la contul dumneavoastră.',
         notifications: 'Notificări',
         markAllRead: 'Marchează toate ca citite',
-        notificationTitle: 'Document procesat',
-        notificationBody: 'Un document a fost procesat și este gata de verificare.',
+        openNotice: 'Deschide',
+        notificationsEmpty: 'Nimic nou. Veți fi anunțat aici când un import de extras avansează.',
+        notificationsFailed: 'Notificările nu au putut fi încărcate.',
+        importNotices: {
+            READY_FOR_MAPPING: {
+                title: 'Extras citit',
+                body: '{rows} linii citite. Verificați ce conține fiecare coloană.',
+            },
+            READY_FOR_REVIEW: {
+                title: 'Extras gata de verificat',
+                body: '{rows} tranzacții, {suggested} cu o categorie sugerată.',
+            },
+            IMPORTED: {
+                title: 'Extras importat',
+                body: '{imported} tranzacții adăugate.',
+            },
+            FAILED: {
+                title: 'Importul extrasului a eșuat',
+                body: '{reason}',
+            },
+        },
+        importNoticeFailedUnknown: 'Importul s-a oprit. Deschideți-l pentru a vedea ce s-a întâmplat.',
         changePalette: 'Schimbă paleta de culori',
         paletteNames: {
             legacyV16V17: 'v16 / v17',

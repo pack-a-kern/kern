@@ -6,10 +6,12 @@ namespace App\Domain\StatementImport\Jobs;
 
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
+use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
+use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\RecordImportedTransactions;
@@ -67,6 +69,7 @@ final class WriteStatementRows implements ShouldQueue
         AuditChainService $audit,
         TenantContext $tenant,
         ConfigRepository $config,
+        NotifyImportOwner $notify,
     ): void {
         $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
 
@@ -90,6 +93,7 @@ final class WriteStatementRows implements ShouldQueue
             $import->save();
 
             StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+            $notify($import, ImportNoticeKind::FAILED);
 
             return;
         }
@@ -176,6 +180,7 @@ final class WriteStatementRows implements ShouldQueue
 
         // Without this the screen sat on "Importing…" until someone refreshed it.
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+        $notify($import, ImportNoticeKind::IMPORTED);
 
         $audit->record(AuditEventInput::occurringNow(
             subjectId: $import->tax_subject_id,
@@ -220,5 +225,6 @@ final class WriteStatementRows implements ShouldQueue
         $import->save();
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+        app(NotifyImportOwner::class)($import, ImportNoticeKind::FAILED);
     }
 }

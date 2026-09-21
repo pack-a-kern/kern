@@ -2,6 +2,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import { getCsrfToken } from './csrf';
 import { type DocumentLifecycleEvent, parseDocumentLifecycleEvent } from '../types/documents';
+import { type ImportNotice, parseImportNotice } from '../types/notifications';
 import { type StatementImportEvent, parseStatementImportEvent } from '../types/statementImport';
 
 // `laravel-echo`'s `reverb` broadcaster resolves `window.Pusher` at construction time — this is
@@ -131,6 +132,30 @@ export function subscribeToImportsChannel(
             } catch {
                 // A payload that is not the documented shape is dropped, not crashed on — the screen
                 // keeps whatever it last fetched over HTTPS.
+            }
+        });
+
+    return () => {
+        getEcho().leave(channelName);
+    };
+}
+
+/**
+ * Subscribes to the signed-in person's own private `users.{userId}` channel (authorized in
+ * `routes/channels.php`) and calls `onNotice` for each notice Laravel broadcasts there — the same
+ * notice the bell lists, pushed the moment it is stored.
+ */
+export function subscribeToUserNotifications(userId: string, onNotice: (notice: ImportNotice) => void): () => void {
+    const channelName = `users.${userId}`;
+
+    getEcho()
+        .private(channelName)
+        .notification((raw: unknown): void => {
+            const notice = parseImportNotice(raw);
+
+            // A kind this bundle does not know yet is left to the next fetch of the list.
+            if (notice !== null) {
+                onNotice(notice);
             }
         });
 

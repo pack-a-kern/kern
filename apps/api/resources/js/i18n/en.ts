@@ -41,8 +41,28 @@ export const en = {
         impersonationStopFailed: 'Could not return to your account.',
         notifications: 'Notifications',
         markAllRead: 'Mark all read',
-        notificationTitle: 'Document processed',
-        notificationBody: 'A document has finished processing and is ready for review.',
+        openNotice: 'Open',
+        notificationsEmpty: 'Nothing new. You will be told here when a statement import moves on.',
+        notificationsFailed: 'Notifications could not be loaded.',
+        importNotices: {
+            READY_FOR_MAPPING: {
+                title: 'Statement read',
+                body: '{rows} lines read. Check which column is which.',
+            },
+            READY_FOR_REVIEW: {
+                title: 'Statement ready to review',
+                body: '{rows} transactions, {suggested} with a suggested category.',
+            },
+            IMPORTED: {
+                title: 'Statement imported',
+                body: '{imported} transactions added.',
+            },
+            FAILED: {
+                title: 'Statement import failed',
+                body: '{reason}',
+            },
+        },
+        importNoticeFailedUnknown: 'The import stopped. Open it to see what happened.',
         changePalette: 'Change colour palette',
         paletteNames: {
             legacyV16V17: 'v16 / v17',

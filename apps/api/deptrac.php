@@ -264,6 +264,8 @@ return static function (DeptracConfig $config): void {
             //
             // Wallet and Documents gain nothing in return: neither imports anything from here, and
             // nothing outside HTTP depends on this layer.
-            Ruleset::forLayer($statementImport)->accesses($support, $subjects, $audit, $settings, $wallet, $documents),
+            // StatementImport -> Identity: App\Domain\StatementImport\Services\NotifyImportOwner finds
+            // the user who started an import, to tell them it moved on. Nothing else here reads Identity.
+            Ruleset::forLayer($statementImport)->accesses($support, $identity, $subjects, $audit, $settings, $wallet, $documents),
         );
 };

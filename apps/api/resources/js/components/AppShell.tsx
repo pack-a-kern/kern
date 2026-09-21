@@ -25,15 +25,22 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
-import { useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { logout } from '../api/authApi';
+import { listNotifications, markAllNotificationsRead } from '../api/notificationsApi';
 import ImpersonationBanner from './ImpersonationBanner';
 import { LanguageMenu, PaletteMenu, ThemeToggle } from './ShellControls';
 import { usePageHeader } from '../lib/pageHeader';
-import { useTranslation } from '../i18n';
+import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
+import { subscribeToUserNotifications } from '../lib/echo';
+import { formatDateTime } from '../lib/format';
+import { useSharedAuth } from '../lib/sharedProps';
+import { setActiveSubjectId } from '../lib/subjectStore';
+import type { ImportNotice } from '../types/notifications';
 import { Button } from './ui/button';
 import {
     DropdownMenu,
@@ -140,20 +147,94 @@ async function handleLogout(): Promise<void> {
     }
 }
 
-/**
- * Notifications.
- *
- * The entries are the design's placeholders, like the fiscal snapshot above: nothing in the app
- * raises a notification yet. They live in one constant so the screen is complete now and there is a
- * single place to replace when a real feed exists — the dot only shows while any entry is unread,
- * so it goes quiet on its own rather than being decorative.
- */
-const NOTIFICATIONS_PLACEHOLDER: { id: string; unread: boolean }[] = [{ id: 'document-processed', unread: true }];
+/** Where a notice takes you: the import it is about, in the taxpayer it belongs to. */
+function openImportNotice(notice: ImportNotice): void {
+    // A full load, not an Inertia visit: the notice can be about another taxpayer than the one
+    // selected, and the shell reads the selection once, when the page loads.
+    setActiveSubjectId(notice.subjectId);
+    window.location.assign(`/wallet/imports/new?import=${encodeURIComponent(notice.importId)}`);
+}
 
-function NotificationsMenu(): JSX.Element {
-    const { t } = useTranslation();
-    const [read, setRead] = useState(false);
-    const unread = !read && NOTIFICATIONS_PLACEHOLDER.some((entry) => entry.unread);
+function noticeText(notice: ImportNotice, dictionary: Dictionary): { title: string; body: string } {
+    const words = dictionary.shell.importNotices[notice.kind];
+    const reason =
+        notice.failureReason === null
+            ? undefined
+            : dictionary.errors.reasons[notice.failureReason] ??
+              dictionary.pages.walletImports.aiReasons[notice.failureReason];
+
+    return {
+        title: words.title,
+        body: words.body
+            .replace('{rows}', String(notice.rowCount))
+            .replace('{imported}', String(notice.importedCount))
+            .replace('{suggested}', String(notice.rowsSuggested))
+            .replace('{reason}', reason ?? dictionary.shell.importNoticeFailedUnknown),
+    };
+}
+
+/**
+ * Notifications: the signed-in person's own, whichever taxpayer each is about.
+ *
+ * The list is fetched once and then kept current from the person's private channel, so a statement
+ * that finishes reading while they are on another page shows up here — and as a toast — without a
+ * refresh. The unread count is the server's; a notice arriving live adds one to it.
+ */
+function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
+    const { t, locale } = useTranslation();
+    const [notices, setNotices] = useState<ImportNotice[]>([]);
+    const [unread, setUnread] = useState(0);
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+
+        listNotifications().then(
+            (feed) => {
+                if (active) {
+                    setNotices(feed.notices);
+                    setUnread(feed.unread);
+                }
+            },
+            () => {
+                if (active) {
+                    setFailed(true);
+                }
+            },
+        );
+
+        const unsubscribe = subscribeToUserNotifications(userId, (notice) => {
+            setNotices((current) => [notice, ...current.filter((entry) => entry.id !== notice.id)]);
+            setUnread((count) => count + 1);
+
+            const text = noticeText(notice, getDictionary());
+            const show = notice.kind === 'FAILED' ? toast.error : toast.success;
+            show(text.title, {
+                description: text.body,
+                action: { label: getDictionary().shell.openNotice, onClick: () => {
+                        openImportNotice(notice);
+                    },
+                },
+            });
+        });
+
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, [userId]);
+
+    function markAllRead(): void {
+        markAllNotificationsRead().then(
+            () => {
+                setUnread(0);
+                setNotices((current) => current.map((entry) => ({ ...entry, read: true })));
+            },
+            () => {
+                toast.error(t((d) => d.shell.notificationsFailed));
+            },
+        );
+    }
 
     return (
         <DropdownMenu>
@@ -164,45 +245,60 @@ function NotificationsMenu(): JSX.Element {
                     aria-label={t((d) => d.shell.notifications)}
                 >
                     <Bell className="size-4" />
-                    {unread && (
+                    {unread > 0 && (
                         <span className="bg-accent-500 ring-card absolute top-[6px] right-[7px] size-1.5 rounded-full ring-2" />
                     )}
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[300px] p-0">
+            <DropdownMenuContent align="end" className="w-[min(320px,calc(100vw-32px))] p-0">
                 <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
                     <span className="text-xs font-semibold">{t((d) => d.shell.notifications)}</span>
-                    <button
-                        type="button"
-                        className="text-accent-600 hover:text-accent-700 text-[11px] font-semibold"
-                        onClick={() => {
-                            setRead(true);
-                        }}
-                    >
-                        {t((d) => d.shell.markAllRead)}
-                    </button>
+                    {unread > 0 && (
+                        <button
+                            type="button"
+                            className="text-accent-600 hover:text-accent-700 text-[11px] font-semibold"
+                            onClick={markAllRead}
+                        >
+                            {t((d) => d.shell.markAllRead)}
+                        </button>
+                    )}
                 </div>
-                <div className="p-1.5">
-                    {NOTIFICATIONS_PLACEHOLDER.map((entry) => (
-                        <DropdownMenuItem key={entry.id} className="items-start gap-2.5">
-                            <span
-                                className={
-                                    unread
-                                        ? 'bg-accent-500 mt-1 size-2 shrink-0 rounded-full'
-                                        : 'bg-border mt-1 size-2 shrink-0 rounded-full'
-                                }
-                                aria-hidden="true"
-                            />
-                            <span className="min-w-0">
-                                <span className="block text-xs font-semibold">
-                                    {t((d) => d.shell.notificationTitle)}
+                <div className="max-h-[360px] overflow-y-auto p-1.5">
+                    {notices.length === 0 && (
+                        <p className="text-ink-400 px-2 py-3 text-[11px] leading-4">
+                            {failed ? t((d) => d.shell.notificationsFailed) : t((d) => d.shell.notificationsEmpty)}
+                        </p>
+                    )}
+                    {notices.map((notice) => {
+                        const text = t((d) => noticeText(notice, d));
+
+                        return (
+                            <DropdownMenuItem
+                                key={notice.id}
+                                className="items-start gap-2.5"
+                                onSelect={() => {
+                                    openImportNotice(notice);
+                                }}
+                            >
+                                <span
+                                    className={cn(
+                                        'mt-1 size-2 shrink-0 rounded-full',
+                                        notice.read ? 'bg-border' : notice.kind === 'FAILED' ? 'bg-destructive' : 'bg-accent-500',
+                                    )}
+                                    aria-hidden="true"
+                                />
+                                <span className="min-w-0">
+                                    <span className="block text-xs font-semibold">{text.title}</span>
+                                    <span className="text-ink-400 mt-0.5 block text-[11px] leading-4">{text.body}</span>
+                                    {notice.createdAt !== null && (
+                                        <span className="text-ink-400 mt-0.5 block text-[10px] tabular-nums">
+                                            {formatDateTime(notice.createdAt, locale)}
+                                        </span>
+                                    )}
                                 </span>
-                                <span className="text-ink-400 mt-0.5 block text-[11px] leading-4">
-                                    {t((d) => d.shell.notificationBody)}
-                                </span>
-                            </span>
-                        </DropdownMenuItem>
-                    ))}
+                            </DropdownMenuItem>
+                        );
+                    })}
                 </div>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -472,6 +568,7 @@ export default function AppShell({
 }): JSX.Element {
     const { t } = useTranslation();
     const { url } = usePage();
+    const auth = useSharedAuth();
     const [collapsed, setCollapsed] = useState(readStoredCollapsed);
     const [mobileOpen, setMobileOpen] = useState(false);
     // Published by whichever `Page` is rendered below; the shell is where it is drawn.
@@ -585,7 +682,7 @@ export default function AppShell({
 
                         <LanguageMenu />
                         <PaletteMenu />
-                        <NotificationsMenu />
+                        {auth !== null && auth.user.id !== '' && <NotificationsMenu userId={auth.user.id} />}
                         <ThemeToggle />
                         <UserMenu />
                     </header>

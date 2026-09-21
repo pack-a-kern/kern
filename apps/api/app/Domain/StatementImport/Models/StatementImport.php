@@ -195,6 +195,21 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
         });
     }
 
+    /**
+     * Whether a round of model calls has just finished — every call it planned has come back.
+     *
+     * Only a round that made calls: one that had nothing to ask, or could not ask at all, ends in
+     * the same moment a person pressed Continue, while they are still on the page.
+     */
+    public function classificationFinished(): bool
+    {
+        $classification = $this->preview()['classification'];
+        $expected = $classification['expected'] ?? null;
+        $batches = $classification['batches'] ?? [];
+
+        return is_int($expected) && $expected > 0 && is_array($batches) && count($batches) >= $expected;
+    }
+
     /** Whether a batch made for this round should still write anything. */
     public function isClassificationRun(string $run): bool
     {
