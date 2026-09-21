@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Jobs;
 
 use App\Domain\StatementImport\DataTransferObjects\AiAnswer;
+use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Models\StatementImport;
@@ -106,6 +107,11 @@ final class ProposeRowCategories implements ShouldQueue
             // Rows a remembered answer already covers are left alone: a person's own earlier decision
             // outranks anything a model would say now, and costs no call.
             ->whereNull('category_code')
+            // And rows a person has already touched — tagged, say, but left without a category. Asking
+            // again after a failed round must not overwrite what someone did by hand in the meantime.
+            ->where(static function ($query): void {
+                $query->whereNull('proposal_source')->orWhere('proposal_source', '!=', RowProposalSource::PERSON->value);
+            })
             ->whereNotNull('amount_minor')
             ->orderBy('row_number')
             ->get()

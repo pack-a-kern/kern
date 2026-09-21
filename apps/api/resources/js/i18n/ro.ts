@@ -759,6 +759,7 @@ export const ro = {
                 reading: 'Se citește fișierul…',
             },
             columns: {
+                askAgain: 'Întreabă din nou AI-ul',
                 title: 'Ce coloană este fiecare',
                 hint: 'Verificat pe primele rânduri din fișier. Nu se importă nimic încă.',
                 change: 'Schimbă coloanele',
@@ -813,6 +814,7 @@ export const ro = {
                     'Această potrivire citește doar {parsed} din {total} rânduri. Verifică coloanele de dată și sumă.',
             },
             review: {
+                askAgain: 'Întreabă din nou AI-ul pentru rândurile fără propunere',
                 title: 'Treci prin rânduri',
                 hint: 'Rândurile bifate vor fi importate. Cele care există deja în TaxOS sunt debifate.',
                 statLines: 'Linii în fișier',

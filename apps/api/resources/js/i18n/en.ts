@@ -756,6 +756,7 @@ export const en = {
                 reading: 'Reading the file…',
             },
             columns: {
+                askAgain: 'Ask the AI again',
                 title: 'Which column is which',
                 hint: 'Checked against the first rows of your file. Nothing is imported yet.',
                 change: 'Change the columns',
@@ -810,6 +811,7 @@ export const en = {
                 unusable: 'This mapping reads only {parsed} of {total} rows. Check the date and amount columns.',
             },
             review: {
+                askAgain: 'Ask the AI again for rows without a suggestion',
                 title: 'Go through the rows',
                 hint: 'Ticked rows will be imported. Rows already in TaxOS are unticked.',
                 statLines: 'Lines in the file',

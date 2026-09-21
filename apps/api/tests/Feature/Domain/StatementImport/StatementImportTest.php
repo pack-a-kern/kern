@@ -700,6 +700,61 @@ it('marks a write that stopped part-way failed, and lets it be undone', function
         ->toBe(StatementImportStatus::UNDONE);
 });
 
+it('asks the model again about unanswered rows without rebuilding them', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-din-nou.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $rowIds = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->pluck('id')->all();
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/suggestions")
+        ->assertStatus(202);
+
+    Queue::assertPushed(ProposeRowCategories::class, function (ProposeRowCategories $job) use ($user): bool {
+        return (new ReflectionProperty($job, 'actorId'))->getValue($job) === $user->id;
+    });
+
+    $shown = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")->assertOk();
+
+    // The same rows, not a new set — a person's edits on them survive — and a round is pending.
+    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->pluck('id')->all())
+        ->toBe($rowIds)
+        ->and($shown->json('preview.classification.expected'))->toBeNull();
+});
+
+it('reads the file again and asks for the columns again, without a new upload', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-coloane-din-nou.csv');
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")
+        ->assertStatus(202);
+
+    Queue::assertPushed(ReadStatementFile::class);
+
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+        ->toBe(StatementImportStatus::READING);
+});
+
+it('refuses to ask again once an import is written', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-deja-scris.csv');
+
+    $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")->assertStatus(202);
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/suggestions")->assertStatus(409);
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")->assertStatus(409);
+});
+
 it('never lets one taxpayer see another import', function (): void {
     [$user, $subjectId, $accountId] = importer();
     [$otherUser, $otherSubjectId] = importer();

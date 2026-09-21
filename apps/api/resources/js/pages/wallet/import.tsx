@@ -8,6 +8,8 @@ import {
     commitStatementImport,
     getStatementImport,
     previewStatementForm,
+    requestColumnSuggestion,
+    requestRowSuggestions,
     setStatementImportMapping,
     startStatementImport,
     updateStatementImportRows,
@@ -351,6 +353,40 @@ export default function WalletImport(): JSX.Element {
         }
     };
 
+    /*
+     * Asking the model again. Both calls return at once; the work runs on the model queue and the
+     * import's channel brings the screen along — back through reading to the form, or into the
+     * progress card while the calls run.
+     */
+    const askAgainForColumns = async (): Promise<void> => {
+        if (importId === null) {
+            return;
+        }
+
+        try {
+            await requestColumnSuggestion(subjectId, importId);
+            setRemapping(false);
+            setReloadKey((current) => current + 1);
+        } catch (cause: unknown) {
+            setMappingError(describeApiFailure(cause, t));
+        }
+    };
+
+    const askAgainForRows = async (): Promise<void> => {
+        if (importId === null) {
+            return;
+        }
+
+        try {
+            await requestRowSuggestions(subjectId, importId);
+            // Someone who chose to review without waiting has now asked to wait for these.
+            setReviewWithoutSuggestions(false);
+            setReloadKey((current) => current + 1);
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
+        }
+    };
+
     const applyMapping = async (): Promise<void> => {
         if (importId === null || mapping === null) {
             return;
@@ -532,15 +568,25 @@ export default function WalletImport(): JSX.Element {
                             mappingError === null ? undefined : <span className="text-destructive">{mappingError}</span>
                         }
                         footActions={
-                            <PanelButton
-                                primary
-                                disabled={applying}
-                                onClick={() => {
-                                    void applyMapping();
-                                }}
-                            >
-                                {t((d) => d.pages.walletImports.columns.apply)}
-                            </PanelButton>
+                            <>
+                                <PanelButton
+                                    disabled={applying}
+                                    onClick={() => {
+                                        void askAgainForColumns();
+                                    }}
+                                >
+                                    {t((d) => d.pages.walletImports.columns.askAgain)}
+                                </PanelButton>
+                                <PanelButton
+                                    primary
+                                    disabled={applying}
+                                    onClick={() => {
+                                        void applyMapping();
+                                    }}
+                                >
+                                    {t((d) => d.pages.walletImports.columns.apply)}
+                                </PanelButton>
+                            </>
                         }
                     >
                         <MappingFields detail={detail} mapping={mapping} onChange={setMapping} />
@@ -622,7 +668,12 @@ export default function WalletImport(): JSX.Element {
                             />
                         }
                     >
-                        <ReviewOverview detail={detail} />
+                        <ReviewOverview
+                            detail={detail}
+                            onAskAgain={() => {
+                                void askAgainForRows();
+                            }}
+                        />
 
                         {detail.mapping === null ? null : <FormSummary detail={detail} form={detail.mapping} />}
 
@@ -1120,7 +1171,13 @@ function aiReason(t: ReturnType<typeof useTranslation>['t'], code: string): stri
  * The line beneath says what the model is doing. It updates as each call finishes — the page is told
  * over the socket — so a person waiting for suggestions sees them arrive rather than refreshing.
  */
-function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Element {
+function ReviewOverview({
+    detail,
+    onAskAgain,
+}: {
+    detail: StatementImportDetail;
+    onAskAgain: () => void;
+}): JSX.Element {
     const { t, locale } = useTranslation();
     const current = detail.import;
     const classification = detail.preview.classification;
@@ -1190,7 +1247,17 @@ function ReviewOverview({ detail }: { detail: StatementImportDetail }): JSX.Elem
                 ))}
             </dl>
             {aiStatus === null ? null : (
-                <p className={'mt-3 text-sm' + (waiting ? ' motion-safe:animate-pulse' : '')}>{aiStatus}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className={'text-sm' + (waiting ? ' motion-safe:animate-pulse' : '')}>{aiStatus}</p>
+                    {/* Offered whenever asking again could help: calls failed, the round did not run, or
+                        rows are still without a suggestion. Never while calls are still running. */}
+                    {waiting ||
+                    (failedCalls.length === 0 && classification?.failure === null && withoutSuggestion === 0) ? null : (
+                        <PanelButton onClick={onAskAgain}>
+                            {t((d) => d.pages.walletImports.review.askAgain)}
+                        </PanelButton>
+                    )}
+                </div>
             )}
         </div>
     );

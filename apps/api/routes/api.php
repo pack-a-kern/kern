@@ -68,6 +68,8 @@ use App\Http\Controllers\Api\V1\StatementImport\CommitStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\DeleteStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\ListStatementImportsController;
 use App\Http\Controllers\Api\V1\StatementImport\PreviewStatementFormController;
+use App\Http\Controllers\Api\V1\StatementImport\RequestColumnSuggestionController;
+use App\Http\Controllers\Api\V1\StatementImport\RequestRowSuggestionsController;
 use App\Http\Controllers\Api\V1\StatementImport\ShowStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\StartStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\UndoStatementImportController;
@@ -271,6 +273,11 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('wallet/imports/{import}/mapping/preview', PreviewStatementFormController::class)
         ->where('import', '[0-9a-f-]{36}');
     Route::put('wallet/imports/{import}/mapping', UpdateStatementImportMappingController::class)
+        ->where('import', '[0-9a-f-]{36}');
+    // Asking the model again — for the form, or for the rows still unanswered — without re-uploading.
+    Route::post('wallet/imports/{import}/mapping/suggest', RequestColumnSuggestionController::class)
+        ->where('import', '[0-9a-f-]{36}');
+    Route::post('wallet/imports/{import}/suggestions', RequestRowSuggestionsController::class)
         ->where('import', '[0-9a-f-]{36}');
     Route::patch('wallet/imports/{import}/rows', UpdateStatementImportRowsController::class)
         ->where('import', '[0-9a-f-]{36}');

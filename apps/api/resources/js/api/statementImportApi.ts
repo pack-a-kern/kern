@@ -143,6 +143,24 @@ export async function deleteStatementImport(subjectId: string, importId: string)
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}`, { method: 'DELETE' });
 }
 
+/**
+ * Asks the model again about the rows that still have no category. The rows stay as they are, and a
+ * row someone already changed by hand is never sent again. The screen follows the calls over the
+ * import's channel as they finish.
+ */
+export async function requestRowSuggestions(subjectId: string, importId: string): Promise<void> {
+    await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/suggestions`, { method: 'POST' });
+}
+
+/**
+ * Reads the stored file again and asks the model again how it is built — the way to repeat a mapping
+ * call that failed, since uploading the same file twice is refused. The form already there stays
+ * until a new one arrives.
+ */
+export async function requestColumnSuggestion(subjectId: string, importId: string): Promise<void> {
+    await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/mapping/suggest`, { method: 'POST' });
+}
+
 /** Takes a whole import back out: every transaction it created goes. */
 export async function undoStatementImport(subjectId: string, importId: string): Promise<void> {
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/undo`, { method: 'POST' });

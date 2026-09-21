@@ -617,6 +617,8 @@ export interface Dictionary {
                 reading: string;
             };
             columns: {
+                /** Reads the file again and asks for the form again — no re-upload. */
+                askAgain: string;
                 title: string;
                 hint: string;
                 /** Reopening the form from the review, which is also how a person sees what matched what. */
@@ -678,6 +680,8 @@ export interface Dictionary {
                 unusable: string;
             };
             review: {
+                /** Asks again only about rows still without a category; edits are kept. */
+                askAgain: string;
                 title: string;
                 hint: string;
                 /**
