@@ -23,6 +23,9 @@ enum DocumentObjectKind: string
     case EXTRACTED_TEXT = 'extracted_text';
     case STRUCTURED_JSON = 'structured_json';
 
+    /** A statement PDF as the provider converted it to CSV — what the statement import reads. */
+    case CONVERTED_CSV = 'converted_csv';
+
     /**
      * The on-disk filename for this kind. `OCR` is `ocr.json.enc`, matching BLUEPRINT.md §4.6's
      * exact example; every other kind is `{value}.enc`.

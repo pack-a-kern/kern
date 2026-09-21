@@ -15,6 +15,7 @@ from processing.statements import (
     FileTooLargeError,
     NoTextLayerError,
     UnsupportedFormatError,
+    check_statement,
     detect_format,
     parse_statement,
 )
@@ -33,6 +34,34 @@ def _pdf_without_text() -> bytes:
 
     writer = PdfWriter()
     writer.add_blank_page(width=595, height=842)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+
+    return buffer.getvalue()
+
+
+def _pdf_with_text(pages: int = 1) -> bytes:
+    """A PDF whose pages carry a line of real text — a statement a bank exported, not scanned."""
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    writer = PdfWriter()
+
+    for _ in range(pages):
+        page = writer.add_blank_page(width=595, height=842)
+        font = DictionaryObject()
+        font[NameObject("/Type")] = NameObject("/Font")
+        font[NameObject("/Subtype")] = NameObject("/Type1")
+        font[NameObject("/BaseFont")] = NameObject("/Helvetica")
+        fonts = DictionaryObject()
+        fonts[NameObject("/F1")] = font
+        resources = DictionaryObject()
+        resources[NameObject("/Font")] = fonts
+        page[NameObject("/Resources")] = resources
+        stream = DecodedStreamObject()
+        stream.set_data(b"BT /F1 12 Tf 72 720 Td (05.03.2026 PLATA CARD 123,45) Tj ET\n")
+        page.replace_contents(stream.flate_encode())
+
     buffer = io.BytesIO()
     writer.write(buffer)
 
@@ -179,6 +208,28 @@ def test_refuses_a_scanned_pdf_with_the_reason_that_names_the_remedy() -> None:
     # No text layer at all: the person has to export a CSV instead, and no retry of this file helps.
     with pytest.raises(NoTextLayerError):
         parse_statement(_pdf_without_text())
+
+
+# --- Checking without reading ---
+
+
+def test_check_names_the_format_of_a_file_it_could_read() -> None:
+    assert check_statement(_CSV.encode()) == "CSV"
+    assert check_statement(_pdf_with_text()) == "PDF"
+
+
+def test_check_refuses_a_scan_before_it_is_sent_anywhere() -> None:
+    # The converter would read a scan; a statement import does not accept one, and this is the check
+    # that keeps it from being sent.
+    with pytest.raises(NoTextLayerError):
+        check_statement(_pdf_without_text())
+
+
+def test_check_refuses_a_pdf_over_the_page_ceiling() -> None:
+    from processing.statements.errors import TooManyPagesError
+
+    with pytest.raises(TooManyPagesError):
+        check_statement(_pdf_with_text(pages=3), StatementParseSettings(max_pdf_pages=2))
 
 
 # --- Limits ---

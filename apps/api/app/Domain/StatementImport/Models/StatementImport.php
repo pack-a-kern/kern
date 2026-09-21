@@ -92,9 +92,25 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
         'undone_at' => 'datetime',
     ];
 
+    /**
+     * Failures that reading the file again can cure: the converter or the reader was down, or the
+     * reading broke part-way. A file that was refused for what it is — a scan, a password — is not
+     * among them, because it would be refused again.
+     */
+    private const array FAILURES_WORTH_RETRYING = ['CONVERSION_FAILED', 'CONVERSION_EMPTY', 'READER_UNAVAILABLE', 'READ_FAILED'];
+
     public function encryptionSubjectId(): string
     {
         return $this->tax_subject_id;
+    }
+
+    /** Whether reading the stored file again makes sense: open, or failed for a passing reason, with nothing written. */
+    public function canReadAgain(): bool
+    {
+        return $this->status->isOpen()
+            || ($this->status === StatementImportStatus::FAILED
+                && $this->imported_count === 0
+                && in_array($this->failure_reason, self::FAILURES_WORTH_RETRYING, true));
     }
 
     /**
@@ -104,17 +120,17 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
      * lines: a person picks `Tranzactie la` from what the file actually contains, rather than typing
      * it and finding out it read nothing.
      *
-     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null}
+     * @return array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null}
      */
     public function preview(): array
     {
         $decoded = json_decode(is_string($this->preview_ciphertext) ? $this->preview_ciphertext : '', true);
 
         if (! is_array($decoded)) {
-            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null, 'classification' => null];
+            return ['columns' => [], 'rows' => [], 'labels' => [], 'ai_answer' => null, 'classification' => null, 'conversion' => null];
         }
 
-        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null} $preview */
+        /** @var array{columns: list<array<string, mixed>>, rows: list<list<string>>, labels: list<array<string, mixed>>, ai_answer: array<string, mixed>|null, classification: array<string, mixed>|null, conversion: array<string, mixed>|null} $preview */
         $preview = [
             'columns' => is_array($decoded['columns'] ?? null) ? array_values($decoded['columns']) : [],
             'rows' => is_array($decoded['rows'] ?? null) ? array_values($decoded['rows']) : [],
@@ -123,6 +139,8 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
             'ai_answer' => is_array($decoded['ai_answer'] ?? null) ? $decoded['ai_answer'] : null,
             // The counterparty calls: how many to expect, and for each, what was sent and replied.
             'classification' => is_array($decoded['classification'] ?? null) ? $decoded['classification'] : null,
+            // How a PDF became the table, when the provider converted it. Null when read here.
+            'conversion' => is_array($decoded['conversion'] ?? null) ? $decoded['conversion'] : null,
         ];
 
         return $preview;

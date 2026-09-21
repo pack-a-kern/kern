@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Jobs;
 
+use App\Domain\Audit\DataTransferObjects\AuditEventInput;
+use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
+use App\Domain\StatementImport\DataTransferObjects\ConvertedStatement;
 use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\MappingSource;
+use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
@@ -15,10 +19,11 @@ use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
+use App\Domain\StatementImport\Services\StatementConverter;
+use App\Domain\StatementImport\Services\StatementFileContents;
 use App\Domain\StatementImport\Services\SuggestColumnMapping;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
+use App\Domain\Wallet\Enums\WalletAuditEvent;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -66,26 +71,30 @@ final class ReadStatementFile implements ShouldQueue
     ];
 
     /**
-     * The reader's time plus the model's, plus a margin.
+     * Every call this job may make, end to end, plus a margin.
      *
-     * This job reads the file and then asks the model how it is built, so it needs both. On the
-     * `default` queue it had sixty seconds for all of it, which a thinking model alone can exceed.
+     * The reader twice — the check before a PDF is converted, then the reading itself — the
+     * conversion, and the model asked how the file is built. On the `default` queue it had sixty
+     * seconds for all of it, which a thinking model alone can exceed.
      */
     public int $timeout;
 
     public function __construct(private readonly string $importId)
     {
         $this->tries = config()->integer('statement_import.scan_wait.checks') + count($this->backoff());
-        $this->timeout = config()->integer('statement_import.parser.timeout_seconds')
+        $this->timeout = 2 * config()->integer('statement_import.parser.timeout_seconds')
+            + config()->integer('ai.statements.conversion.timeout_seconds')
             + config()->integer('ai.statements.timeout_seconds')
             + config()->integer('ai.providers.job_timeout_margin_seconds');
         $this->onQueue(config()->string('ai.providers.queue'));
     }
 
     public function handle(
-        EncryptedObjectStore $store,
+        StatementFileContents $files,
         StatementParseGateway $parser,
+        StatementConverter $converter,
         SuggestColumnMapping $suggest,
+        AuditChainService $audit,
     ): void {
         // Without the tenant scope: a queue worker acts for no one, and the import's own row carries
         // the subject every read below is bounded by.
@@ -121,31 +130,45 @@ final class ReadStatementFile implements ShouldQueue
             return;
         }
 
-        $part = $document->firstPart();
-
-        if ($part === null) {
-            $this->fail($import, 'FILE_MISSING');
-
-            return;
-        }
+        // Converted on an earlier reading: read what that reading read, and say how it was made.
+        $contents = $files->converted($document);
+        $conversion = $contents === null ? null : $import->preview()['conversion'];
 
         try {
-            $stream = $store->get($part->objectKey());
-            $contents = stream_get_contents($stream);
-            fclose($stream);
-        } catch (ObjectNotFoundException) {
-            $this->fail($import, 'FILE_MISSING');
+            if ($contents === null) {
+                $contents = $files->original($document);
 
-            return;
-        }
+                if ($contents === null) {
+                    $this->fail($import, 'FILE_MISSING');
 
-        if ($contents === false) {
-            $this->fail($import, 'FILE_MISSING');
+                    return;
+                }
 
-            return;
-        }
+                /*
+                 * A PDF goes to the provider to become CSV, where it can and may.
+                 *
+                 * Checked here first, so a scan, a password or too many pages is refused exactly as
+                 * it always was — the converter would read a scan, and a statement import does not
+                 * take one. Anything else is read here as it always was.
+                 */
+                if ($converter->isAvailable($import->tax_subject_id) && $parser->check($contents) === StatementFormat::PDF) {
+                    $converted = $converter->convert($contents);
+                    $this->recordSend($audit, $import, $converted);
 
-        try {
+                    if ($converted->csv === null) {
+                        // Stopped, not read another way: which reader made the rows is part of
+                        // what a person is confirming, and a quiet fallback would hide it.
+                        $this->fail($import, $converted->failure ?? ConvertedStatement::FAILED);
+
+                        return;
+                    }
+
+                    $files->storeConverted($document, $converted->csv);
+                    $contents = $converted->csv;
+                    $conversion = $converted->report();
+                }
+            }
+
             $parsed = $parser->parse($contents, $import->sheet);
         } catch (StatementRejectedException $exception) {
             $this->fail($import, $exception->reason);
@@ -168,7 +191,8 @@ final class ReadStatementFile implements ShouldQueue
          */
         $suggestion = $suggest($import->tax_subject_id, $parsed);
 
-        $import->format = $parsed->format;
+        // The format of what was uploaded: a converted PDF is read as CSV, but it is still a PDF.
+        $import->format = $conversion === null ? $parsed->format : StatementFormat::PDF;
         $import->sheet = $parsed->sheet;
         $import->row_count = count($parsed->rows);
         $import->preview_ciphertext = json_encode([
@@ -188,6 +212,9 @@ final class ReadStatementFile implements ShouldQueue
             // Structure only — column numbers, labels, separators — and encrypted with the rest of
             // the preview, because it describes a person's own statement.
             'ai_answer' => $suggestion->raw,
+            // How the PDF became the table below, when it was converted: the converter's own
+            // pipeline, time and warning — null when the file was read here.
+            'conversion' => $conversion,
             // Only the first rows: the mapping screen shows a sample, and keeping the whole
             // statement here would be a second copy of the file in the database.
             'rows' => array_slice($parsed->rows, 0, config()->integer('statement_import.limits.preview_rows')),
@@ -243,6 +270,25 @@ final class ReadStatementFile implements ShouldQueue
             $import,
             $exception instanceof StatementParseUnavailableException ? 'READER_UNAVAILABLE' : 'READ_FAILED',
         );
+    }
+
+    /** The whole file left the installation — recorded whatever came back. */
+    private function recordSend(AuditChainService $audit, StatementImport $import, ConvertedStatement $converted): void
+    {
+        $audit->record(AuditEventInput::occurringNow(
+            subjectId: $import->tax_subject_id,
+            actorId: $import->created_by,
+            eventType: WalletAuditEvent::STATEMENT_SENT_FOR_CONVERSION->value,
+            resourceType: WalletAuditEvent::STATEMENT_SENT_FOR_CONVERSION->resourceType(),
+            resourceId: $import->id,
+            // Ids and the outcome. The converter's warning stays out: it can quote the file.
+            payloadHash: $audit->hashPayload([
+                'document_id' => $import->document_id,
+                'failure' => $converted->failure,
+                'pipeline' => $converted->pipeline,
+                'ms' => $converted->milliseconds,
+            ]),
+        ));
     }
 
     private function fail(StatementImport $import, string $reason): void

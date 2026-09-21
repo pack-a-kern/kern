@@ -51,6 +51,7 @@ import {
 import { useImportsChannel } from '../../hooks/useImportsChannel';
 import type {
     StatementClassification,
+    StatementConversion,
     StatementField,
     StatementForm,
     StatementFormPreview,
@@ -546,7 +547,17 @@ export default function WalletImport(): JSX.Element {
                                 )}
                             </p>
                         )}
-                        <p className="mt-3">
+                        {mappingError === null ? null : <p className="text-destructive mt-2 text-sm">{mappingError}</p>}
+                        <p className="mt-3 flex flex-wrap gap-2">
+                            {detail?.import.canReadAgain === true ? (
+                                <PanelButton
+                                    onClick={() => {
+                                        void askAgainForColumns();
+                                    }}
+                                >
+                                    {t((d) => d.pages.walletImports.readAgain)}
+                                </PanelButton>
+                            ) : null}
                             <PanelButton
                                 onClick={() => {
                                     router.visit(IMPORTS_PATH);
@@ -589,6 +600,10 @@ export default function WalletImport(): JSX.Element {
                             </>
                         }
                     >
+                        {detail.preview.conversion === null ? null : (
+                            <ConversionNote conversion={detail.preview.conversion} />
+                        )}
+
                         <MappingFields detail={detail} mapping={mapping} onChange={setMapping} />
 
                         <RebuiltPreview preview={formPreview} />
@@ -1157,6 +1172,28 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
  * A model call's failure code, in words. An unknown code is shown as itself rather than hidden:
  * a new failure the screen has no sentence for is still worth seeing.
  */
+/** Says the table was made by the provider's converter, and passes on what it warned about. */
+function ConversionNote({ conversion }: { conversion: StatementConversion }): JSX.Element {
+    const { t, locale } = useTranslation();
+    const seconds =
+        conversion.milliseconds === null
+            ? '—'
+            : new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(conversion.milliseconds / 1000);
+
+    return (
+        <div className="mb-4 space-y-1 text-sm text-muted-foreground">
+            <p>
+                {t((d) => d.pages.walletImports.columns.converted)
+                    .replace('{pipeline}', conversion.pipeline ?? '—')
+                    .replace('{seconds}', seconds)}
+            </p>
+            {conversion.warning === null ? null : (
+                <p>{t((d) => d.pages.walletImports.columns.convertedWarning).replace('{warning}', conversion.warning)}</p>
+            )}
+        </div>
+    );
+}
+
 function aiReason(t: ReturnType<typeof useTranslation>['t'], code: string): string {
     return t((d) => d.pages.walletImports.aiReasons)[code] ?? code;
 }

@@ -120,6 +120,11 @@ return [
     // equivalent, so the upload screen only offers it when this says the provider can.
     'supports_enhancement' => (bool) env('AI_SUPPORTS_ENHANCEMENT', false),
 
+    // Whether the endpoint implements the `docling` extension, which turns a PDF into CSV. The same
+    // kind of switch: off, a statement PDF is read here as it always was — see
+    // `ai.statements.conversion`.
+    'supports_conversion' => (bool) env('AI_SUPPORTS_CONVERSION', false),
+
     // Sent with every Anthropic-dialect request. Anthropic requires this header and rejects the
     // request without it; pinning it here means an API revision is a config change, not a patch.
     'anthropic_version' => env('AI_ANTHROPIC_VERSION', '2023-06-01'),

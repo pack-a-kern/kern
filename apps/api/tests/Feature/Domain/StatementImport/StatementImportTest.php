@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\StatementImport\StatementImportTest;
 
+use App\Domain\Audit\Models\AuditEvent;
+use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
@@ -13,6 +15,7 @@ use App\Domain\StatementImport\DataTransferObjects\StatementColumn;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
+use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Jobs\ProposeRowCategories;
 use App\Domain\StatementImport\Jobs\ReadStatementFile;
@@ -29,7 +32,9 @@ use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Support\KeyManagement\SubjectDekService;
+use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use ReflectionProperty;
 use RuntimeException;
@@ -71,8 +76,28 @@ final class FakeParseGateway implements StatementParseGateway
         ['07.03.2026', 'PLATA CARD KAUFLAND', '123,45', ''],
     ];
 
+    /** What `check` answers — a test of a PDF sets it to PDF. */
+    public StatementFormat $format = StatementFormat::CSV;
+
+    /** @var list<string> every file handed to `parse`, so a test can tell which bytes were read */
+    public array $parsed = [];
+
+    /** Set to refuse the file at the check, as a scan is refused. */
+    public ?StatementRejectedException $refusal = null;
+
+    public function check(string $contents): StatementFormat
+    {
+        if ($this->refusal !== null) {
+            throw $this->refusal;
+        }
+
+        return $this->format;
+    }
+
     public function parse(string $contents, ?string $sheet = null): ParsedStatementFile
     {
+        $this->parsed[] = $contents;
+
         return new ParsedStatementFile(
             format: StatementFormat::CSV,
             columns: [
@@ -149,11 +174,7 @@ function startImport(TestCase $case, User $user, string $subjectId, string $acco
         ->whereKey($import->document_id)
         ->update(['status' => DocumentStatus::READY->value]);
 
-    app(ReadStatementFile::class, ['importId' => $importId])->handle(
-        app(\App\Support\ObjectStore\EncryptedObjectStore::class),
-        app(StatementParseGateway::class),
-        app(\App\Domain\StatementImport\Services\SuggestColumnMapping::class),
-    );
+    app()->call([app(ReadStatementFile::class, ['importId' => $importId]), 'handle']);
 
     return $import->refresh();
 }
@@ -797,4 +818,160 @@ it('never lets one taxpayer see another import', function (): void {
     $this->actingAs($otherUser)
         ->getJson("/api/v1/subjects/{$otherSubjectId}/wallet/imports/{$import->id}")
         ->assertNotFound();
+});
+
+/*
+ * A PDF statement converted to CSV by the provider before it is read.
+ */
+
+/** The faked reader, typed as what it is. */
+function fakeReader(): FakeParseGateway
+{
+    /** @var FakeParseGateway $gateway */
+    $gateway = app(StatementParseGateway::class);
+
+    return $gateway;
+}
+
+/**
+ * A provider that can convert, a taxpayer who has consented, and the converter's answer.
+ *
+ * @param  array<string, mixed>|null  $reply
+ */
+function convertingProvider(string $subjectId, int $status = 200, ?array $reply = null): void
+{
+    config([
+        'ai.providers.env_fallback.enabled' => true,
+        'ai.providers.env_fallback.provider' => 'ollama',
+        'ai.providers.env_fallback.base_url' => 'https://gateway.test',
+        'ai.providers.env_fallback.model' => 'any',
+        'ai.providers.supports_conversion' => true,
+    ]);
+    app(DocumentAiConsentGate::class)->grant($subjectId);
+
+    Http::fake(static function (HttpRequest $request) use ($status, $reply) {
+        // Only the conversion is answered: the mapping call that follows is refused, which the
+        // import survives by asking the person, and which keeps these tests about the conversion.
+        return isset($request->data()['docling'])
+            ? Http::response($reply ?? [
+                'content' => "Data,Detalii,Debit,Credit\n05.03.2026,PLATA CARD,\"123,45\",\n",
+                'format' => 'csv',
+                'pipeline' => 'cpu-layout',
+                'ms' => 16500,
+                'warning' => 'one table spans two pages',
+            ], $status)
+            : Http::response([], 500);
+    });
+}
+
+/** @return list<HttpRequest> */
+function conversionRequests(): array
+{
+    $requests = Http::recorded(static fn (HttpRequest $request): bool => isset($request->data()['docling']))
+        ->map(static fn (array $pair): HttpRequest => $pair[0])
+        ->values()
+        ->all();
+
+    return array_values($requests);
+}
+
+it('reads a PDF as the CSV the provider converted it to, and keeps that CSV for the second reading', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    convertingProvider($subjectId);
+    $gateway = fakeReader();
+    $gateway->format = StatementFormat::PDF;
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-convertit.csv');
+
+    $sent = conversionRequests();
+    expect($sent)->toHaveCount(1)
+        ->and($sent[0]->data()['docling'])->toBe(['format' => 'csv'])
+        // Never the person's own filename.
+        ->and($sent[0]->data()['messages'][0]['content'][0]['file']['filename'])->toBe('statement.pdf')
+        ->and($sent[0]->data()['messages'][0]['content'][0]['file']['file_data'])->toStartWith('data:application/pdf;base64,')
+        ->and($import->status)->toBe(StatementImportStatus::MAPPING)
+        ->and($import->format)->toBe(StatementFormat::PDF)
+        ->and(end($gateway->parsed))->toContain('PLATA CARD')
+        ->and($import->preview()['conversion'])->toBe(['pipeline' => 'cpu-layout', 'ms' => 16500, 'warning' => 'one table spans two pages'])
+        ->and(AuditEvent::query()->where('event_type', 'WalletStatementSentForConversion')->where('resource_id', $import->id)->count())->toBe(1);
+
+    $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
+
+    // Confirming the columns read the stored CSV again, and sent nothing.
+    expect(conversionRequests())->toHaveCount(1)
+        ->and(end($gateway->parsed))->toContain('PLATA CARD');
+});
+
+it('stops and says so when the converter fails, and can be tried again', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    convertingProvider($subjectId, 503);
+    fakeReader()->format = StatementFormat::PDF;
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-convertor-cazut.csv');
+
+    expect($import->status)->toBe(StatementImportStatus::FAILED)
+        ->and($import->failure_reason)->toBe('CONVERSION_FAILED')
+        // Not read another way behind the person's back.
+        ->and(fakeReader()->parsed)->toBe([]);
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk()
+        ->assertJsonPath('import.can_read_again', true);
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")
+        ->assertStatus(202);
+
+    Queue::assertPushed(ReadStatementFile::class);
+    expect($import->refresh()->status)->toBe(StatementImportStatus::READING)
+        ->and($import->failure_reason)->toBeNull();
+});
+
+it('refuses a converter reply that holds no CSV', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    convertingProvider($subjectId, 200, ['content' => '', 'format' => 'csv']);
+    fakeReader()->format = StatementFormat::PDF;
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-convertit-gol.csv');
+
+    expect($import->failure_reason)->toBe('CONVERSION_EMPTY');
+});
+
+it('never sends a scan to be converted', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    convertingProvider($subjectId);
+    fakeReader()->refusal = StatementRejectedException::withReason('NO_TEXT_LAYER', 'A scan.');
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-scanat.csv');
+
+    expect($import->failure_reason)->toBe('NO_TEXT_LAYER')
+        ->and(conversionRequests())->toBe([]);
+});
+
+it('reads a PDF here, as before, when the taxpayer has not consented', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    convertingProvider($subjectId);
+    app(DocumentAiConsentGate::class)->revoke($subjectId);
+    fakeReader()->format = StatementFormat::PDF;
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-acord.csv');
+
+    expect($import->status)->toBe(StatementImportStatus::MAPPING)
+        ->and($import->preview()['conversion'])->toBeNull()
+        ->and(conversionRequests())->toBe([]);
+});
+
+it('does not read again an import refused for what the file is', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    fakeReader()->refusal = StatementRejectedException::withReason('NO_TEXT_LAYER', 'A scan.');
+    convertingProvider($subjectId);
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-scanat-din-nou.csv');
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping/suggest")
+        ->assertStatus(409);
 });

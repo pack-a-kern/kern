@@ -40,9 +40,29 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
 
     public function parse(string $contents, ?string $sheet = null): ParsedStatementFile
     {
+        return $this->toParsedFile($this->send('parse', $contents, $sheet));
+    }
+
+    public function check(string $contents): StatementFormat
+    {
+        $body = $this->send('check', $contents, null);
+
+        return StatementFormat::tryFrom(is_string($body['format'] ?? null) ? $body['format'] : '')
+            ?? throw StatementParseUnavailableException::malformedResponse();
+    }
+
+    /**
+     * One request to the reader, its refusals and its outages told apart.
+     *
+     * @return array<string, mixed>
+     */
+    private function send(string $action, string $contents, ?string $sheet): array
+    {
         if ($this->authToken === '') {
             throw StatementParseUnavailableException::authenticationNotConfigured();
         }
+
+        $endpoint = rtrim($this->baseUrl, '/') . '/v1/statements/' . $action;
 
         try {
             $request = $this->http
@@ -53,8 +73,8 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
                 ->attach('file', $contents, 'statement');
 
             $response = $sheet === null || $sheet === ''
-                ? $request->post($this->endpoint())
-                : $request->post($this->endpoint(), ['sheet' => $sheet]);
+                ? $request->post($endpoint)
+                : $request->post($endpoint, ['sheet' => $sheet]);
         } catch (ConnectionException $exception) {
             throw StatementParseUnavailableException::requestFailed($exception);
         } catch (Throwable $exception) {
@@ -85,7 +105,7 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
             throw StatementRejectedException::withReason($reason, $message);
         }
 
-        return $this->toParsedFile($body);
+        return $body;
     }
 
     /** @param array<string, mixed> $body */
@@ -145,10 +165,5 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
             )),
             labelGroups: $labelGroups,
         );
-    }
-
-    private function endpoint(): string
-    {
-        return rtrim($this->baseUrl, '/') . '/v1/statements/parse';
     }
 }

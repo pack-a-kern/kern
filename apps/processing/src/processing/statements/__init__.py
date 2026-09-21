@@ -16,6 +16,7 @@ from processing.statements.errors import (
 )
 from processing.statements.parse import (
     ParsedStatement,
+    check_statement,
     describe_columns,
     detect_format,
     parse_statement,
@@ -31,6 +32,7 @@ __all__ = [
     "TooManyPagesError",
     "TooManyRowsError",
     "UnsupportedFormatError",
+    "check_statement",
     "describe_columns",
     "detect_format",
     "parse_statement",

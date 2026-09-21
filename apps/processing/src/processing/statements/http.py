@@ -1,4 +1,5 @@
-"""`POST /v1/statements/parse` — a bank statement file, read into rows.
+"""`POST /v1/statements/parse` — a bank statement file, read into rows — and `/check`, the same
+refusals without the reading.
 
 Called by Laravel's statement import over the internal network, authenticated with the same shared
 secret as the document endpoints. Like them, it maps each refusal to a closed code the screen can
@@ -25,8 +26,12 @@ from processing.statements.errors import (
     TooManyRowsError,
     UnsupportedFormatError,
 )
-from processing.statements.parse import describe_columns, parse_statement
-from processing.statements.schemas import ColumnPayload, ParseStatementResponse
+from processing.statements.parse import check_statement, describe_columns, parse_statement
+from processing.statements.schemas import (
+    CheckStatementResponse,
+    ColumnPayload,
+    ParseStatementResponse,
+)
 
 logger = logging.getLogger("processing.statements.http")
 
@@ -44,6 +49,47 @@ _ERROR_STATUS: dict[type[StatementParseError], tuple[int, str]] = {
     TooManyPagesError: (422, "TOO_MANY_PAGES"),
 }
 _UNKNOWN_ERROR_STATUS = (422, "PARSE_FAILED")
+
+
+def _refusal(exc: StatementParseError, event: str) -> JSONResponse:
+    status_code, error_code = _ERROR_STATUS.get(type(exc), _UNKNOWN_ERROR_STATUS)
+    logger.info(event, extra={"event": event, "error_code": error_code})
+
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(error=error_code, message=str(exc)).model_dump(),
+    )
+
+
+@router.post(
+    "/v1/statements/check",
+    response_model=CheckStatementResponse,
+    responses={
+        401: {"model": ErrorResponse},
+        413: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+    },
+)
+async def check(
+    file: Annotated[
+        UploadFile,
+        File(description="Raw statement bytes: CSV, XLSX, XLS or PDF. Only the bytes decide."),
+    ],
+    _authenticated: Annotated[None, Depends(require_internal_auth)],
+) -> CheckStatementResponse | JSONResponse:
+    """Whether the file could be read here, refused with the same codes `parse` would use.
+
+    Asked before a PDF is sent out to be converted: a scan, a password or too many pages is refused
+    here and never leaves the installation.
+    """
+    content = await file.read()
+
+    try:
+        file_format = await run_in_threadpool(check_statement, content, StatementParseSettings())
+    except StatementParseError as exc:
+        return _refusal(exc, "statement_check_rejected")
+
+    return CheckStatementResponse(format=file_format)
 
 
 @router.post(
@@ -74,16 +120,7 @@ async def parse(
     try:
         statement = await run_in_threadpool(parse_statement, content, sheet, settings)
     except StatementParseError as exc:
-        status_code, error_code = _ERROR_STATUS.get(type(exc), _UNKNOWN_ERROR_STATUS)
-        logger.info(
-            "statement_parse_rejected",
-            extra={"event": "statement_parse_rejected", "error_code": error_code},
-        )
-
-        return JSONResponse(
-            status_code=status_code,
-            content=ErrorResponse(error=error_code, message=str(exc)).model_dump(),
-        )
+        return _refusal(exc, "statement_parse_rejected")
 
     columns = describe_columns(statement, settings)
 

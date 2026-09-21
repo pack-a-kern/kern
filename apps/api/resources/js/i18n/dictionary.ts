@@ -685,6 +685,10 @@ export interface Dictionary {
                 /** The model's own reply, shown so a wrong form can be checked against it. */
                 aiAnswer: string;
                 aiAnswerHint: string;
+                /** The PDF was converted to CSV by the provider. `{pipeline}` and `{seconds}` are substituted. */
+                converted: string;
+                /** `{warning}` is the converter's own sentence. */
+                convertedWarning: string;
                 apply: string;
                 /** `{parsed}` and `{total}` are substituted. */
                 unusable: string;
@@ -753,6 +757,8 @@ export interface Dictionary {
             /** `{count}` is substituted. */
             failedPartial: string;
             failed: string;
+            /** Reads the stored file again, for a failure a retry can cure. */
+            readAgain: string;
             /** By `StatementImportStatus`. */
             status: Record<string, string | undefined>;
         };

@@ -618,8 +618,12 @@ export const ro = {
                 'Acest extras nu spune nicăieri în ce monedă sunt sumele, iar contul nu are una setată. Alege una în câmpul Moneda.',
             IMPORT_HOLDS_TRANSACTIONS: 'Acest import a creat tranzacții. Anulează-l mai întâi, apoi poate fi șters.',
             READER_UNAVAILABLE:
-                'Serviciul care citește extrasele nu a putut fi contactat, nici după mai multe încercări. Încarcă fișierul din nou peste câteva minute.',
-            READ_FAILED: 'Citirea extrasului s-a oprit neașteptat. Încarcă fișierul din nou.',
+                'Serviciul care citește extrasele nu a putut fi contactat, nici după mai multe încercări. Încearcă din nou peste câteva minute.',
+            READ_FAILED: 'Citirea extrasului s-a oprit neașteptat. Încearcă din nou.',
+            CONVERSION_FAILED:
+                'Furnizorul AI nu a putut transforma acest PDF într-un tabel: nu a putut fi contactat sau a refuzat fișierul. Încearcă din nou sau exportă extrasul ca CSV din banca ta.',
+            CONVERSION_EMPTY:
+                'Furnizorul AI a răspuns, dar nu a trimis niciun tabel pentru acest PDF. Încearcă din nou sau exportă extrasul ca CSV din banca ta.',
             WRITE_FAILED: 'Salvarea tranzacțiilor s-a oprit la jumătate.',
             SUBJECT_SUSPENDED: 'Acest contribuabil este suspendat. Reactivați-l pentru a face modificări.',
             DUPLICATE_REGISTRATION_NUMBER: 'Există deja un contribuabil cu acest număr de înregistrare.',
@@ -829,6 +833,8 @@ export const ro = {
                 rebuiltCounts: '{folded} linii de detaliu incluse · {skipped} linii sărite',
                 aiAnswer: 'Ce a răspuns modelul',
                 aiAnswerHint: 'Pentru verificarea formularului. Doar structură — fără sume, fără nume.',
+                converted: 'Acest PDF a fost transformat în tabel de furnizorul AI ({pipeline}, {seconds} s). Verifică rândurile de mai jos cu extrasul.',
+                convertedWarning: 'Convertorul a raportat: {warning}',
                 apply: 'Continuă',
                 unusable:
                     'Această potrivire citește doar {parsed} din {total} rânduri. Verifică coloanele de dată și sumă.',
@@ -884,6 +890,7 @@ export const ro = {
             failedPartial:
                 '{count} tranzacții au fost scrise înainte de oprire. Anulează-le din lista de importuri, apoi importă fișierul din nou.',
             failed: 'Acest extras nu a putut fi citit.',
+            readAgain: 'Încearcă din nou',
             status: {
                 READING: 'Se citește',
                 MAPPING: 'Așteaptă coloanele',
@@ -1599,6 +1606,7 @@ export const ro = {
                 'ai.extraction_max_tokens': 'Lungime maximă răspuns (tokenuri)',
                 'ai.extraction_timeout_seconds': 'Timp maxim răspuns AI (secunde)',
                 'ai.supports_enhancement': 'Furnizorul poate curăța imaginile',
+                'ai.supports_conversion': 'Furnizorul poate transforma extrasele PDF în CSV',
                 'documents.max_pages': 'Număr maxim de pagini',
                 'documents.max_pdf_bytes': 'Mărime maximă PDF',
                 'documents.max_image_bytes': 'Mărime maximă imagine',

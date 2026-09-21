@@ -69,6 +69,14 @@ enum WalletAuditEvent: string
      */
     case STATEMENT_IMPORT_DELETED = 'WalletStatementImportDeleted';
 
+    /**
+     * A statement PDF sent to the provider to be converted to CSV — the whole file, not a summary.
+     *
+     * Recorded for every send, answered or not: a request that timed out may still have delivered
+     * the file, and this chain is where "which of my statements left the installation" is answered.
+     */
+    case STATEMENT_SENT_FOR_CONVERSION = 'WalletStatementSentForConversion';
+
     /** The `resource_type` an event of this kind points at. */
     public function resourceType(): string
     {
@@ -85,7 +93,8 @@ enum WalletAuditEvent: string
             self::TAG_DELETED => 'Tag',
             self::STATEMENT_IMPORTED,
             self::STATEMENT_IMPORT_UNDONE,
-            self::STATEMENT_IMPORT_DELETED => 'StatementImport',
+            self::STATEMENT_IMPORT_DELETED,
+            self::STATEMENT_SENT_FOR_CONVERSION => 'StatementImport',
             default => 'FinancialAccount',
         };
     }

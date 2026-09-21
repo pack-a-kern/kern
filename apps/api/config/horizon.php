@@ -212,9 +212,9 @@ return [
          *
          * `timeout` must stay above every job's own: the document reader's, derived from
          * `AI_EXTRACTION_TIMEOUT_SECONDS`, and the statement import's, derived from
-         * `STATEMENT_IMPORT_AI_TIMEOUT_SECONDS` (plus the reader's timeout, for the job that reads the
-         * file and then asks). A supervisor timeout below either kills the job mid-request and
-         * records nothing about why.
+         * `STATEMENT_IMPORT_AI_TIMEOUT_SECONDS` (plus the reader's two calls and the PDF conversion, for
+         * the job that reads the file and then asks — 120 × 2 + 300 + 600 + 60 = 1 200 by default). A
+         * supervisor timeout below either kills the job mid-request and records nothing about why.
          */
         'supervisor-documents-ai' => [
             // Its own connection for its reservation length — see `queue.connections.redis-ai`.
@@ -227,7 +227,7 @@ return [
             'maxJobs' => 0,
             'memory' => 256,
             'tries' => 1,
-            'timeout' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 900),
+            'timeout' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 1500),
             'nice' => 0,
         ],
 

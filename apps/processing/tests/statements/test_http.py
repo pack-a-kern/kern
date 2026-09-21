@@ -115,3 +115,38 @@ def test_says_nothing_about_the_content_in_its_message(
     response = _post(client, auth_headers, b"\x00\x01\x02\x03KAUFLAND BUCURESTI")
 
     assert "KAUFLAND" not in response.text
+
+
+def test_check_answers_the_format_without_the_rows(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/v1/statements/check",
+        headers=auth_headers,
+        files={"file": ("statement", _CSV.encode(), "application/octet-stream")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"format": "CSV"}
+
+
+def test_check_refuses_with_the_same_code_parse_would(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/v1/statements/check",
+        headers=auth_headers,
+        files={"file": ("statement", b"%PDF-1.4 not really a pdf", "application/octet-stream")},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"] == "UNSUPPORTED_FORMAT"
+
+
+def test_check_refuses_an_unauthenticated_call(client: TestClient) -> None:
+    response = client.post(
+        "/v1/statements/check",
+        files={"file": ("statement", _CSV.encode(), "application/octet-stream")},
+    )
+
+    assert response.status_code == 401

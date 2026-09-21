@@ -25,6 +25,7 @@ import io
 import re
 import zipfile
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from processing.statements.config import StatementParseSettings
 from processing.statements.errors import (
@@ -37,6 +38,10 @@ from processing.statements.errors import (
     UnsupportedFormatError,
 )
 from processing.statements.shapes import shape_of
+
+if TYPE_CHECKING:
+    from pdfplumber.page import Page
+    from pdfplumber.pdf import PDF
 
 _PDF_SIGNATURE = b"%PDF-"
 _ZIP_SIGNATURE = b"PK\x03\x04"
@@ -266,10 +271,13 @@ def _read_xls(
     )
 
 
-def _read_pdf(content: bytes, settings: StatementParseSettings) -> ParsedStatement:
-    import pdfplumber
+def _open_pdf(content: bytes, settings: StatementParseSettings) -> PDF:
+    """The PDF, opened, once it has passed the checks every reading of it needs.
 
-    warnings: list[str] = []
+    Shared by the reader and by `check_statement`, so a PDF refused before it is sent to be
+    converted is refused for exactly the reasons, and with exactly the codes, it would be here.
+    """
+    import pdfplumber
 
     try:
         pdf = pdfplumber.open(io.BytesIO(content))
@@ -279,16 +287,29 @@ def _read_pdf(content: bytes, settings: StatementParseSettings) -> ParsedStateme
 
         raise UnsupportedFormatError("The PDF could not be opened.") from exc
 
-    try:
-        if len(pdf.pages) > settings.max_pdf_pages:
-            raise TooManyPagesError(f"The PDF has more than {settings.max_pdf_pages} pages.")
+    if len(pdf.pages) > settings.max_pdf_pages:
+        pdf.close()
 
+        raise TooManyPagesError(f"The PDF has more than {settings.max_pdf_pages} pages.")
+
+    return pdf
+
+
+def _page_has_text(page: Page) -> bool:
+    return (page.extract_text() or "").strip() != ""
+
+
+def _read_pdf(content: bytes, settings: StatementParseSettings) -> ParsedStatement:
+    warnings: list[str] = []
+    pdf = _open_pdf(content, settings)
+
+    try:
         rows: list[list[str]] = []
         header: list[str] | None = None
         had_text = False
 
         for page in pdf.pages:
-            if (page.extract_text() or "").strip() != "":
+            if _page_has_text(page):
                 had_text = True
 
             tables = page.extract_tables()
@@ -514,6 +535,42 @@ def _clean_header(header: str) -> str:
     return re.sub(r"\s+", " ", header).strip()
 
 
+def _checked_format(content: bytes, settings: StatementParseSettings) -> str:
+    """The file's format, once its size has been checked — the first step of every reading."""
+    if len(content) > settings.max_file_size_bytes:
+        raise FileTooLargeError(f"The file is larger than {settings.max_file_size_bytes} bytes.")
+
+    if content == b"":
+        raise UnsupportedFormatError("The file is empty.")
+
+    return detect_format(content)
+
+
+def check_statement(content: bytes, settings: StatementParseSettings | None = None) -> str:
+    """Whether a file could be read here, without reading it — and its format.
+
+    Asked before a PDF is sent out to be converted to CSV. The converter would read a scan or a
+    photograph too, and a statement import does not accept those; checking here keeps the refusals
+    what they have always been — a password, too many pages, no text — rather than letting whatever
+    the converter happens to accept decide.
+    """
+    settings = settings or StatementParseSettings()
+    file_format = _checked_format(content, settings)
+
+    if file_format != "PDF":
+        return file_format
+
+    pdf = _open_pdf(content, settings)
+
+    try:
+        if not any(_page_has_text(page) for page in pdf.pages):
+            raise NoTextLayerError("The PDF holds no text — it is a scan or a photograph.")
+    finally:
+        pdf.close()
+
+    return file_format
+
+
 def parse_statement(
     content: bytes,
     sheet: str | None = None,
@@ -521,14 +578,7 @@ def parse_statement(
 ) -> ParsedStatement:
     """Read a statement file of any supported format into rows."""
     settings = settings or StatementParseSettings()
-
-    if len(content) > settings.max_file_size_bytes:
-        raise FileTooLargeError(f"The file is larger than {settings.max_file_size_bytes} bytes.")
-
-    if content == b"":
-        raise UnsupportedFormatError("The file is empty.")
-
-    file_format = detect_format(content)
+    file_format = _checked_format(content, settings)
 
     if file_format == "CSV":
         return _read_csv(content, settings)

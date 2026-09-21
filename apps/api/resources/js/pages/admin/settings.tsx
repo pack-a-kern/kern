@@ -640,6 +640,7 @@ function AiPanel(props: {
     const maxTokensSetting = settingOf('ai.extraction_max_tokens');
     const timeoutSetting = settingOf('ai.extraction_timeout_seconds');
     const enhancementSetting = settingOf('ai.supports_enhancement');
+    const conversionSetting = settingOf('ai.supports_conversion');
     const enabled = valueOf('ai.enabled') === '1' || valueOf('ai.enabled') === 'true';
 
     // Live models win once fetched; before that the preset's own list is offered, and a value
@@ -1012,6 +1013,32 @@ function AiPanel(props: {
                                         'ai.supports_enhancement',
                                 )}
                                 {enhancementSetting ? <SourceMark setting={enhancementSetting} /> : null}
+                            </span>
+                        </label>
+                    </FieldSpan>
+
+                    {/* The same kind of capability: `docling` turns a statement PDF into CSV before it
+                        is read. Off means a statement PDF is read here, as it always was. */}
+                    <FieldSpan>
+                        <label className="flex items-start gap-2 text-xs">
+                            <Checkbox
+                                checked={valueOf('ai.supports_conversion') === '1'}
+                                onCheckedChange={(next) => {
+                                    props.onDraft('ai.supports_conversion', next ? '1' : '0');
+                                }}
+                                aria-label={t(
+                                    (d) =>
+                                        d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
+                                        'ai.supports_conversion',
+                                )}
+                            />
+                            <span className="min-w-0">
+                                {t(
+                                    (d) =>
+                                        d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
+                                        'ai.supports_conversion',
+                                )}
+                                {conversionSetting ? <SourceMark setting={conversionSetting} /> : null}
                             </span>
                         </label>
                     </FieldSpan>

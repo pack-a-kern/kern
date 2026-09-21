@@ -53,6 +53,14 @@ enum SettingKey: string
      */
     case AI_SUPPORTS_ENHANCEMENT = 'ai.supports_enhancement';
 
+    /**
+     * Whether this provider can turn a PDF statement into CSV before it is read.
+     *
+     * A capability of the endpoint, like enhancement: the `docling` extension is something a gateway
+     * implements or does not. Off means a statement PDF is read here, as it always was.
+     */
+    case AI_SUPPORTS_CONVERSION = 'ai.supports_conversion';
+
     // Upload limits and abuse controls (BLUEPRINT.md §14.2).
     case DOCUMENTS_MAX_PDF_BYTES = 'documents.max_pdf_bytes';
     case DOCUMENTS_MAX_IMAGE_BYTES = 'documents.max_image_bytes';
@@ -142,7 +150,8 @@ enum SettingKey: string
         return match ($this) {
             self::AI_ENABLED, self::AI_PROVIDER, self::AI_BASE_URL, self::AI_MODEL,
             self::AI_API_KEY, self::AI_EXTRACTION_MAX_TOKENS,
-            self::AI_EXTRACTION_TIMEOUT_SECONDS, self::AI_SUPPORTS_ENHANCEMENT => SettingGroup::AI,
+            self::AI_EXTRACTION_TIMEOUT_SECONDS, self::AI_SUPPORTS_ENHANCEMENT,
+            self::AI_SUPPORTS_CONVERSION => SettingGroup::AI,
 
             self::DOCUMENTS_MAX_PDF_BYTES, self::DOCUMENTS_MAX_IMAGE_BYTES,
             self::DOCUMENTS_MAX_IMAGE_PIXELS, self::DOCUMENTS_MAX_PAGES,
@@ -180,6 +189,7 @@ enum SettingKey: string
             self::AI_EXTRACTION_MAX_TOKENS => 'ai.documents.max_tokens',
             self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai.documents.timeout_seconds',
             self::AI_SUPPORTS_ENHANCEMENT => 'ai.providers.supports_enhancement',
+            self::AI_SUPPORTS_CONVERSION => 'ai.providers.supports_conversion',
             self::DOCUMENTS_MAX_PDF_BYTES => 'documents.max_pdf_bytes',
             self::DOCUMENTS_MAX_IMAGE_BYTES => 'documents.max_image_bytes',
             self::DOCUMENTS_MAX_IMAGE_PIXELS => 'documents.max_image_pixels',
@@ -214,7 +224,7 @@ enum SettingKey: string
     public function type(): SettingType
     {
         return match ($this) {
-            self::AI_ENABLED, self::AI_SUPPORTS_ENHANCEMENT,
+            self::AI_ENABLED, self::AI_SUPPORTS_ENHANCEMENT, self::AI_SUPPORTS_CONVERSION,
             self::IDENTITY_REGISTRATION_ENABLED => SettingType::BOOLEAN,
             self::AI_API_KEY => SettingType::SECRET,
             self::AI_BASE_URL, self::SOURCES_BNR_DAILY_URL,

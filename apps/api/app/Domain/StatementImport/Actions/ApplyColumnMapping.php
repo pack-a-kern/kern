@@ -17,11 +17,11 @@ use App\Domain\StatementImport\Jobs\ProposeRowCategories;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\RowFingerprint;
+use App\Domain\StatementImport\Services\StatementFileContents;
 use App\Domain\StatementImport\Services\StatementRowBuilder;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\CounterpartyRules;
-use App\Support\ObjectStore\EncryptedObjectStore;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\DB;
 
@@ -44,7 +44,7 @@ final readonly class ApplyColumnMapping
 {
     public function __construct(
         private StatementParseGateway $parser,
-        private EncryptedObjectStore $store,
+        private StatementFileContents $files,
         private StatementRowBuilder $builder,
         private RowFingerprint $fingerprints,
         private CounterpartyRules $rules,
@@ -191,24 +191,13 @@ final readonly class ApplyColumnMapping
     }
 
     /** The statement's own bytes, from the document it was stored as. */
+    /** The same bytes the columns were proposed on — the converted CSV, for a converted PDF. */
     private function contents(StatementImport $import): string
     {
         $document = $import->document_id === null ? null : Document::query()->with('parts')->find($import->document_id);
-        $part = $document?->firstPart();
+        $contents = $document === null ? null : $this->files->readable($document);
 
-        if ($part === null) {
-            throw ImportNotOpenException::forImport($import->id);
-        }
-
-        $stream = $this->store->get($part->objectKey());
-        $contents = stream_get_contents($stream);
-        fclose($stream);
-
-        if ($contents === false) {
-            throw ImportNotOpenException::forImport($import->id);
-        }
-
-        return $contents;
+        return $contents ?? throw ImportNotOpenException::forImport($import->id);
     }
 
     /**

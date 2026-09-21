@@ -21,6 +21,8 @@ export interface StatementImport {
     status: StatementImportStatus;
     /** A closed code the screen translates — NO_TEXT_LAYER, ENCRYPTED_FILE, TOO_LARGE… */
     failureReason: string | null;
+    /** Whether the stored file may be read again — open, or failed for a passing reason. */
+    canReadAgain: boolean;
     rowCount: number;
     duplicateCount: number;
     excludedCount: number;
@@ -70,6 +72,23 @@ export interface StatementPreview {
     aiAnswer: Record<string, unknown> | null;
     /** The counterparty calls, once the rows exist. */
     classification: StatementClassification | null;
+    /** How a PDF became this table, when the provider converted it; null when it was read here. */
+    conversion: StatementConversion | null;
+}
+
+/** What the converter reported about its own work — never the file's content. */
+export interface StatementConversion {
+    pipeline: string | null;
+    milliseconds: number | null;
+    warning: string | null;
+}
+
+function parseConversion(value: unknown): StatementConversion | null {
+    const row = record(value);
+
+    return row === null
+        ? null
+        : { pipeline: nullableStr(row, 'pipeline'), milliseconds: nullableNum(row, 'ms'), warning: nullableStr(row, 'warning') };
 }
 
 /** One call asking what counterparties are: what was sent, what came back, or why nothing did. */
@@ -226,6 +245,7 @@ function parseImport(payload: unknown): StatementImport {
         // cannot say what is happening must not claim everything is fine.
         status: STATUSES.includes(status as StatementImportStatus) ? (status as StatementImportStatus) : 'FAILED',
         failureReason: nullableStr(row, 'failure_reason'),
+        canReadAgain: row.can_read_again === true,
         rowCount: num(row, 'row_count'),
         duplicateCount: num(row, 'duplicate_count'),
         excludedCount: num(row, 'excluded_count'),
@@ -300,6 +320,7 @@ function parsePreview(payload: unknown): StatementPreview {
         headerRow: nullableNum(preview, 'header_row'),
         aiAnswer: record(preview.ai_answer),
         classification: parseClassification(preview.classification),
+        conversion: parseConversion(preview.conversion),
         warnings: (Array.isArray(preview.warnings) ? preview.warnings : []).filter(
             (warning): warning is string => typeof warning === 'string',
         ),

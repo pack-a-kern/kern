@@ -619,8 +619,12 @@ export const en = {
                 'This statement never says which currency its figures are in, and this account has none set. Pick one in the Currency field.',
             IMPORT_HOLDS_TRANSACTIONS: 'This import created transactions. Undo it first, then it can be deleted.',
             READER_UNAVAILABLE:
-                'The service that reads statement files could not be reached, even after several tries. Upload the file again in a few minutes.',
-            READ_FAILED: 'Reading the statement stopped unexpectedly. Upload the file again.',
+                'The service that reads statement files could not be reached, even after several tries. Try again in a few minutes.',
+            READ_FAILED: 'Reading the statement stopped unexpectedly. Try again.',
+            CONVERSION_FAILED:
+                'The AI provider could not convert this PDF to a table: it could not be reached, or it refused the file. Try again, or export the statement as CSV from your bank.',
+            CONVERSION_EMPTY:
+                'The AI provider answered, but sent back no table for this PDF. Try again, or export the statement as CSV from your bank.',
             WRITE_FAILED: 'Saving the transactions stopped part-way.',
             ALREADY_REVIEWED: 'This proposal has already been reviewed.',
             CONTENT_NOT_AVAILABLE: 'The stored file could not be read.',
@@ -827,6 +831,8 @@ export const en = {
                 rebuiltCounts: '{folded} detail lines folded in · {skipped} lines skipped',
                 aiAnswer: 'What the model replied',
                 aiAnswerHint: 'For checking the form against. Structure only — no amounts, no names.',
+                converted: 'This PDF was converted to a table by the AI provider ({pipeline}, {seconds} s). Check the rows below against the statement.',
+                convertedWarning: 'The converter reported: {warning}',
                 apply: 'Continue',
                 unusable: 'This mapping reads only {parsed} of {total} rows. Check the date and amount columns.',
             },
@@ -881,6 +887,7 @@ export const en = {
             failedPartial:
                 '{count} transactions were written before it stopped. Undo them from the list of imports, then import the file again.',
             failed: 'This statement could not be read.',
+            readAgain: 'Try again',
             status: {
                 READING: 'Reading',
                 MAPPING: 'Waiting for columns',
@@ -1588,6 +1595,7 @@ export const en = {
                 'ai.extraction_max_tokens': 'Maximum reply length (tokens)',
                 'ai.extraction_timeout_seconds': 'AI reply timeout (seconds)',
                 'ai.supports_enhancement': 'Provider can clean up images',
+                'ai.supports_conversion': 'Provider can convert statement PDFs to CSV',
                 'documents.max_pages': 'Maximum pages',
                 'documents.max_pdf_bytes': 'Maximum PDF size',
                 'documents.max_image_bytes': 'Maximum image size',

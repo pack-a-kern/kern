@@ -48,3 +48,11 @@ class ParseStatementResponse(BaseModel):
         "transactions whose amount sat in each column, and how often. Empty for a file with one "
         "transaction per line.",
     )
+
+
+class CheckStatementResponse(BaseModel):
+    """A statement file that could be read here, and what it is."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    format: str = Field(description="CSV, XLSX, XLS or PDF — decided by the bytes, never the name.")

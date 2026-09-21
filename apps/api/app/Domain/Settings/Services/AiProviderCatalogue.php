@@ -135,6 +135,14 @@ final readonly class AiProviderCatalogue
         return $stored ?? (bool) $this->config->get('ai.providers.supports_enhancement', false);
     }
 
+    /** Whether the configured endpoint can turn a PDF statement into CSV before it is read. */
+    public function supportsConversion(): bool
+    {
+        $stored = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_SUPPORTS_CONVERSION));
+
+        return $stored ?? (bool) $this->config->get('ai.providers.supports_conversion', false);
+    }
+
     /**
      * How many pages a document may have before it is refused unread.
      *

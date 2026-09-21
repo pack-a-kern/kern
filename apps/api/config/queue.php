@@ -54,7 +54,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 900) + (int) env('AI_JOB_TIMEOUT_MARGIN_SECONDS', 60),
+            'retry_after' => (int) env('HORIZON_AI_QUEUE_TIMEOUT_SECONDS', 1500) + (int) env('AI_JOB_TIMEOUT_MARGIN_SECONDS', 60),
             'block_for' => null,
             'after_commit' => false,
         ],

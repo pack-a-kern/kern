@@ -94,6 +94,28 @@ PROMPT),
      * nothing (`NO_ROOM`) after two minutes. Each batch is its own job with its own timeout, so a
      * smaller batch means more calls and more visible progress, never a call more likely to be cut off.
      */
+    /*
+     * A PDF statement turned into CSV by the provider, before it is read.
+     *
+     * An extension of the gateway rather than a model call: the file goes out as an attachment with
+     * a `docling` block beside the messages, and CSV comes back — no model runs, and `model` is sent
+     * only because the request's schema requires one. Offered only when the endpoint says it can
+     * (`ai.providers.supports_conversion`) and the taxpayer has consented, because here the whole
+     * file leaves the installation, not a summary of it.
+     *
+     * The CSV is what the reader then reads, exactly as if the person had uploaded it, and it is kept
+     * with the document: the file is read again when the columns are confirmed, and converting it a
+     * second time could hand back a slightly different table than the one the columns were chosen on.
+     */
+    'conversion' => [
+        // What the reader is given afterwards, so the one format it must be.
+        'format' => env('STATEMENT_IMPORT_CONVERSION_FORMAT', 'csv'),
+        // The name the file travels under. Never the person's own: a statement's filename is often
+        // their name or their account number, and the converter decides nothing by it.
+        'filename' => env('STATEMENT_IMPORT_CONVERSION_FILENAME', 'statement.pdf'),
+        'timeout_seconds' => (int) env('STATEMENT_IMPORT_CONVERSION_TIMEOUT_SECONDS', 300),
+    ],
+
     'classification' => [
         'model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL', 'gpt-oss:20b'),
         'max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
