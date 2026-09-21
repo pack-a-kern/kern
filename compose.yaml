@@ -311,7 +311,10 @@ services:
       resources:
         limits:
           cpus: "1.00"
-          memory: 512M
+          # Every Horizon worker shares this: the master, the default workers, the model worker and
+          # the one reading laws — and one consolidation of the Codul fiscal is ~7.6 MB of HTML held
+          # as a DOM. At 512M the kernel killed that worker mid-page (2026-09-22).
+          memory: ${QUEUE_MEMORY_LIMIT:-2G}
 
   scheduler:
     <<: *php-image
