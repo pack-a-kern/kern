@@ -86,8 +86,10 @@ final class LegislatieJustRoHtmlParser
     /*
      * 1.2.0 — the text keeps its line breaks, tables are kept as rows and cells in place, and a
      * dash item (`S_LIN`) is a section of its own rather than words run into its parent.
+     * 1.3.0 — the portal's older markup is read too ({@see LegacyMarkup}), and a point or a dash
+     * standing after the provision it belongs to is nested into it.
      */
-    public const string VERSION = '1.2.0';
+    public const string VERSION = '1.3.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -100,6 +102,19 @@ final class LegislatieJustRoHtmlParser
         'S_ANX' => SectionType::ANEXA,
         // 184 of them in the Codul fiscal consolidation of 2026-08-08; each "– …" item of a list.
         'S_LIN' => SectionType::LINIUTA,
+    ];
+
+    /**
+     * How deep each kind of provision sits: a paragraph holds letters, a letter points, a point dashes.
+     * See {@see groupOrphanContinuations()}.
+     *
+     * @var array<string, int>
+     */
+    private const array NESTING_RANK = [
+        'ALINEAT' => 1,
+        'LITERA' => 2,
+        'PUNCT' => 3,
+        'LINIUTA' => 4,
     ];
 
     /**
@@ -132,6 +147,7 @@ final class LegislatieJustRoHtmlParser
         }
 
         $document = $this->loadDocument($html);
+        (new LegacyMarkup())->normalize($document);
         $root = $document->documentElement;
 
         if ($root === null) {
@@ -353,10 +369,13 @@ final class LegislatieJustRoHtmlParser
      * HTML): Art. 40^3 (two groups), Art. 316 (three groups, each preceded by its own dated
      * amendment note).
      *
-     * This is a structural repair using only DOM order — never legal-content inference: a
-     * `LITERA` is reattached to the *immediately preceding sibling* in the same body only when
-     * that sibling is an `ALINEAT` (the only pairing evidenced above — see "Deliberately narrow"
-     * below). A `LITERA` with no such preceding sibling (e.g. Art. 3's principles, enumerated
+     * This is a structural repair using only DOM order — never legal-content inference: an element
+     * is reattached to the *immediately preceding sibling* in the same body only when that sibling
+     * ranks above it ({@see NESTING_RANK}): a `LITERA` after an `ALINEAT`, a `PUNCT` after a
+     * `LITERA`, a `LINIUTA` after a `PUNCT`. The later two are evidenced too, 2026-09-22: in the
+     * 2026-08-08 consolidation, Art. 26 alin. (1)'s points 1.–3. of lit. c) stand as siblings of the
+     * letters while lit. j)'s are nested inside it — the same markup defect, one level down — and in
+     * every 2016 consolidation the old markup is flat throughout ({@see LegacyMarkup}). A `LITERA` with no such preceding sibling (e.g. Art. 3's principles, enumerated
      * directly under the article with no alineate at all) is left exactly where it is — that is
      * not a defect, see the class docblock's "Anexe" note for how that case reaches this method's
      * input in the first place.
@@ -367,9 +386,8 @@ final class LegislatieJustRoHtmlParser
      * *two independent, correctly-nested* `PUNCT` siblings (pct. 1., pct. 2.) — the rule matched
      * `PUNCT` following `PUNCT` and nested the second `pct.` inside the first
      * (`tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php` caught
-     * it against the real extract). No real occurrence of a `PUNCT` orphaned the way `LITERA` is
-     * here has been found in the real Codul fiscal; do not reintroduce that branch without the
-     * same kind of measured HTML evidence this docblock cites for `LITERA`/`ALINEAT`.
+     * it against the real extract). A provision is therefore never nested into one of the *same*
+     * rank; only into one that ranks above it.
      *
      * @param list<DOMElement> $elements in document order
      * @return list<OrphanContinuationGroup>
@@ -384,9 +402,22 @@ final class LegislatieJustRoHtmlParser
             $previousGroup = $groups === [] ? null : $groups[array_key_last($groups)];
             $previousType = $previousGroup === null ? null : $this->sectionTypeOf($previousGroup->primary);
 
+            // A provision that ranks below the one before it — a letter after a paragraph, a point
+            // after a letter, a dash after a point — belongs inside it. Never one of equal rank: two
+            // points in a row are siblings (the Art. 316 case below).
             $continuesPrevious = $previousGroup !== null
-                && $type === SectionType::LITERA
-                && $previousType === SectionType::ALINEAT;
+                && $previousType !== null
+                && (
+                    (isset(self::NESTING_RANK[$type->value], self::NESTING_RANK[$previousType->value])
+                        && self::NESTING_RANK[$type->value] > self::NESTING_RANK[$previousType->value])
+                    // A point of a point: "3.1." after "3.", in Art. 7's definitions.
+                    || ($type === SectionType::PUNCT && $previousType === SectionType::PUNCT
+                        && $this->extendsLabel($element, $previousGroup->primary))
+                    // The letters and paragraphs of a point — Art. 7 pct. 7.'s a) to e), pct. 36.'s
+                    // (1) and (2) — where the definitions put them under numbered points rather
+                    // than the other way round.
+                    || (in_array($type, [SectionType::LITERA, SectionType::ALINEAT], true) && $previousType === SectionType::PUNCT)
+                );
 
             if ($continuesPrevious) {
                 $previousGroup->extraDirectChildren[] = $element;
@@ -501,6 +532,15 @@ final class LegislatieJustRoHtmlParser
                 $textParts[] = "\n";
             }
         }
+    }
+
+    /** Whether a point's label continues another's: "3.1." continues "3.", "2." does not continue "1.". */
+    private function extendsLabel(DOMElement $point, DOMElement $previous): bool
+    {
+        $label = $this->directChildTextByToken($point, 'S_PCT_TTL');
+        $before = $this->directChildTextByToken($previous, 'S_PCT_TTL');
+
+        return $before !== '' && str_ends_with($before, '.') && strlen($label) > strlen($before) && str_starts_with($label, $before);
     }
 
     private function isBlock(DOMElement $element): bool
