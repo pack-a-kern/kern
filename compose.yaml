@@ -325,6 +325,12 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      # Its own list replaces the shared one rather than adding to it — YAML merges keys, not the
+      # lists under them — so the two writable volumes every PHP service needs are repeated here.
+      # Without them the scheduler wrote into the image's read-only, root-owned `storage` and
+      # `bootstrap/cache`, failed on every tick, and its heartbeat went silent.
+      - app_storage:/var/www/html/storage
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache
       - ./docker/php/scheduler-healthcheck.php:/usr/local/bin/scheduler-healthcheck.php:ro
     healthcheck:
       # Asserts the schedule *ran*, via a heartbeat file the schedule itself touches every minute
