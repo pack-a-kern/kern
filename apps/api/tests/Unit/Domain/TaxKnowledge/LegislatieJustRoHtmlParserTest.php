@@ -200,3 +200,33 @@ it('makes a dash item a provision of its own, cited by its position', function (
             [SectionType::LINIUTA, 'Art. 64 alin. (1) liniuța 2', 'lichidare de active;'],
         ]);
 });
+
+it('keeps the table of contents, and which heading each article stands under', function (): void {
+    $html = <<<'HTML'
+        <html><body>
+        <span class="S_TTL"><span class="S_TTL_TTL">Titlul IV</span><span class="S_TTL_DEN">Impozitul pe venit</span><span class="S_TTL_BDY">
+          <span class="S_CAP"><span class="S_CAP_TTL">Capitolul IV</span><span class="S_CAP_DEN">Venituri din cedarea folosinței bunurilor</span><span class="S_CAP_BDY">
+            <span class="S_ART"><span class="S_ART_TTL">Articolul 83</span><span class="S_ART_BDY"><span class="S_PAR">Definirea veniturilor</span></span></span>
+          </span></span>
+          <span class="S_CAP"><span class="S_CAP_TTL">Capitolul V</span><span class="S_CAP_DEN">Venituri din investiții</span><span class="S_CAP_BDY">
+            <span class="S_SEC"><span class="S_SEC_TTL">Secţiunea 1</span><span class="S_SEC_DEN">Dispoziții generale</span><span class="S_SEC_BDY">
+              <span class="S_ART"><span class="S_ART_TTL">Articolul 91</span><span class="S_ART_BDY"><span class="S_PAR">Definirea veniturilor</span></span></span>
+            </span></span>
+          </span></span>
+        </span></span>
+        </body></html>
+        HTML;
+
+    $parsed = (new LegislatieJustRoHtmlParser())->parse($html);
+
+    expect(array_map(static fn ($node) => [$node->level->value, $node->path, $node->name, $node->ordinal, $node->parentIndex], $parsed->outline))
+        ->toBe([
+            ['TITLU', 'Titlul IV', 'Impozitul pe venit', 1, null],
+            ['CAPITOL', 'Titlul IV Capitolul IV', 'Venituri din cedarea folosinței bunurilor', 1, 0],
+            ['CAPITOL', 'Titlul IV Capitolul V', 'Venituri din investiții', 2, 0],
+            ['SECTIUNE', 'Titlul IV Capitolul V Secţiunea 1', 'Dispoziții generale', 1, 2],
+        ])
+        // Cited as before — a heading is never part of a citation.
+        ->and(array_map(static fn ($section) => [$section->citationLabel, $section->outlineIndex], $parsed->topLevelSections))
+        ->toBe([['Art. 83', 1], ['Art. 91', 3]]);
+});

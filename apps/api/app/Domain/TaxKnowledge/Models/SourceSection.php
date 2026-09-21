@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property list<list<list<string>>>|null $tables  each table's rows of cells, in the order their markers appear in `text`
  * @property \Illuminate\Support\Carbon|null $amended_on  the date of the section's latest amendment note
  * @property string|null $normative_hash  see {@see SectionText::fingerprint()}
+ * @property string|null $outline_id  for an article or annex: the heading it stands under
  */
 #[UseFactory(SourceSectionFactory::class)]
 final class SourceSection extends Model
@@ -63,6 +64,7 @@ final class SourceSection extends Model
         'tables',
         'amended_on',
         'normative_hash',
+        'outline_id',
     ];
 
     /** @var array<string, string> */

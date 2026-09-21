@@ -1283,6 +1283,10 @@ export const en = {
                 sections: '{count} provisions',
                 viewOn: 'View on this date',
                 onPortal: 'On legislatie.just.ro',
+                contentsTitle: 'Contents',
+                contentsHint: 'Titles, chapters and sections as they stood on this date. Choose one to go to its articles.',
+                contentsRange: '{first} – {last}',
+                contentsEmpty: 'This consolidation has no titles or chapters.',
             },
         },
         spv: {

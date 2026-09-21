@@ -29,11 +29,13 @@ final readonly class ParsedLegislationDocument
     /**
      * @param list<ParsedSection> $topLevelSections
      * @param list<string> $ambiguousCitationLabels
+     * @param list<ParsedOutlineNode> $outline the table of contents, in reading order, parents first
      */
     public function __construct(
         public ?DateTimeImmutable $publicationDate,
         public array $topLevelSections,
         public array $ambiguousCitationLabels = [],
+        public array $outline = [],
     ) {
     }
 }

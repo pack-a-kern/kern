@@ -1126,6 +1126,11 @@ export interface Dictionary {
                 sections: string;
                 viewOn: string;
                 onPortal: string;
+                contentsTitle: string;
+                contentsHint: string;
+                /** `{first}` and `{last}`: the articles a heading spans. */
+                contentsRange: string;
+                contentsEmpty: string;
             };
         };
         spv: { title: string; description: string; blockedOn: string };

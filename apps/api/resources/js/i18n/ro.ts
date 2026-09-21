@@ -1289,6 +1289,10 @@ export const ro = {
                 sections: '{count} prevederi',
                 viewOn: 'Vezi la această dată',
                 onPortal: 'Pe legislatie.just.ro',
+                contentsTitle: 'Cuprins',
+                contentsHint: 'Titlurile, capitolele și secțiunile, cum erau la această dată. Alege unul pentru a merge la articolele lui.',
+                contentsRange: '{first} – {last}',
+                contentsEmpty: 'Această consolidare nu are titluri sau capitole.',
             },
         },
         spv: {

@@ -1,8 +1,8 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowLeft, History, Scale } from 'lucide-react';
+import { ArrowLeft, History, ListTree, Scale } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 
-import { getLaw, getLawText, getProvisionHistory } from '../../api/legislationApi';
+import { getLaw, getLawOutline, getLawText, getProvisionHistory } from '../../api/legislationApi';
 import AppShell from '../../components/AppShell';
 import Pagination from '../../components/Pagination';
 import { PanelDate } from '../../components/PanelDatePicker';
@@ -14,7 +14,16 @@ import { ApiError } from '../../lib/http';
 import { lines, withTables } from '../../lib/lawText';
 import { cn } from '../../lib/utils';
 import { wordDiff } from '../../lib/wordDiff';
-import type { LawDetail, LawSection, LawTable, LawText, ProvisionVersion } from '../../types/legislation';
+import type {
+    LawDetail,
+    LawHeading,
+    LawOutline,
+    LawOutlineHeading,
+    LawSection,
+    LawTable,
+    LawText,
+    ProvisionVersion,
+} from '../../types/legislation';
 
 function today(): string {
     return new Date().toISOString().slice(0, 10);
@@ -49,6 +58,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
     const textState = answer === null || answer.key !== textKey ? 'loading' : answer.state;
     const text = answer?.text ?? null;
     const [historyOf, setHistoryOf] = useState<LawSection | null>(null);
+    const [outline, setOutline] = useState<{ asOf: string; outline: LawOutline | null } | null>(null);
 
     useEffect(() => {
         let active = true;
@@ -97,7 +107,33 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
         };
     }, [lawId, asOf, page]);
 
+    useEffect(() => {
+        let active = true;
+
+        getLawOutline(lawId, asOf).then(
+            (loaded) => {
+                if (active) {
+                    setOutline({ asOf, outline: loaded });
+                }
+            },
+            () => {
+                if (active) {
+                    setOutline({ asOf, outline: null });
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, [lawId, asOf]);
+
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
+
+    const goToPage = (next: number): void => {
+        setPage(next);
+        document.getElementById('law-text')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     const changeDate = (next: string): void => {
         setAsOf(next);
@@ -154,6 +190,10 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                     )}
                 </Panel>
 
+                {outline === null || outline.asOf !== asOf || outline.outline === null ? null : (
+                    <Contents outline={outline.outline} onOpen={goToPage} />
+                )}
+
                 <Panel
                     title={t((d) => d.pages.legislation.law.textTitle)}
                     foot={
@@ -208,9 +248,15 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         ) : textState === 'failed' || text === null ? (
                             <p className="note">{t((d) => d.pages.legislation.law.loadFailed)}</p>
                         ) : (
-                            <div className="space-y-1">
-                                {text.sections.map((section) => (
-                                    <Provision key={section.id} section={section} onHistory={setHistoryOf} />
+                            <div id="law-text" className="space-y-1">
+                                {text.sections.map((section, index) => (
+                                    <div key={section.id}>
+                                        <Headings
+                                            chain={section.headings}
+                                            before={previousHeadings(text.sections, index)}
+                                        />
+                                        <Provision section={section} onHistory={setHistoryOf} />
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -228,6 +274,123 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                 }}
             />
         </AppShell>
+    );
+}
+
+/** The headings of the article before this one — an article's own chain only, never a paragraph's. */
+function previousHeadings(sections: LawSection[], index: number): LawHeading[] | null {
+    if (sections[index]?.headings.length === 0) {
+        return null;
+    }
+
+    for (let i = index - 1; i >= 0; i--) {
+        const earlier = sections[i];
+
+        if (earlier !== undefined && earlier.headings.length > 0) {
+            return earlier.headings;
+        }
+    }
+
+    // The first article of the page: every heading above it, so the page says where it starts.
+    return [];
+}
+
+/**
+ * The headings that begin at this article — the ones that differ from the article before. A new
+ * chapter shows its chapter and sections, not the title again.
+ */
+function Headings({ chain, before }: { chain: LawHeading[]; before: LawHeading[] | null }): JSX.Element | null {
+    if (before === null) {
+        return null;
+    }
+
+    const firstNew = chain.findIndex((heading, index) => before[index]?.id !== heading.id);
+
+    if (firstNew === -1) {
+        return null;
+    }
+
+    return (
+        <div className="mt-6 space-y-1">
+            {chain.slice(firstNew).map((heading) => (
+                <p
+                    key={heading.id}
+                    className={cn(
+                        'text-balance',
+                        heading.level === 'TITLU' && 'text-base font-semibold',
+                        heading.level === 'CAPITOL' && 'text-sm font-semibold',
+                        heading.level === 'SECTIUNE' && 'text-muted-foreground text-sm font-medium',
+                    )}
+                >
+                    {heading.label}
+                    {heading.name === '' ? '' : ` — ${heading.name}`}
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * The table of contents as the law stood on the chosen date: titles that open onto their chapters,
+ * chapters onto their sections, each with the articles it spans. Choosing one opens the text there.
+ */
+function Contents({ outline, onOpen }: { outline: LawOutline; onOpen: (page: number) => void }): JSX.Element {
+    const { t } = useTranslation();
+    const childrenOf = (parentId: string | null): LawOutlineHeading[] =>
+        outline.headings.filter((heading) => heading.parentId === parentId);
+
+    const entry = (heading: LawOutlineHeading): JSX.Element => (
+        <button
+            type="button"
+            className="hover:bg-muted w-full rounded px-1.5 py-1 text-left text-sm disabled:opacity-60"
+            disabled={heading.page === null}
+            onClick={() => {
+                if (heading.page !== null) {
+                    onOpen(heading.page);
+                }
+            }}
+        >
+            <span className="font-medium">{heading.label}</span>
+            {heading.name === '' ? null : <span> — {heading.name}</span>}
+            {heading.firstCitation === null ? null : (
+                <span className="note ml-2 whitespace-nowrap">
+                    {t((d) => d.pages.legislation.law.contentsRange)
+                        .replace('{first}', heading.firstCitation)
+                        .replace('{last}', heading.lastCitation ?? heading.firstCitation)}
+                </span>
+            )}
+        </button>
+    );
+
+    const branch = (heading: LawOutlineHeading): JSX.Element => {
+        const children = childrenOf(heading.id);
+
+        return children.length === 0 ? (
+            <li key={heading.id}>{entry(heading)}</li>
+        ) : (
+            <li key={heading.id}>
+                <details>
+                    <summary className="cursor-pointer">{entry(heading)}</summary>
+                    <ul className="border-border ml-3 border-l pl-2">{children.map(branch)}</ul>
+                </details>
+            </li>
+        );
+    };
+
+    const titles = childrenOf(null);
+
+    return (
+        <Panel
+            title={t((d) => d.pages.legislation.law.contentsTitle)}
+            description={t((d) => d.pages.legislation.law.contentsHint)}
+            icon={<ListTree className="size-4" />}
+        >
+            {titles.length === 0 ? (
+                <p className="note">{t((d) => d.pages.legislation.law.contentsEmpty)}</p>
+            ) : (
+                <ul className="space-y-0.5">{titles.map(branch)}</ul>
+            )}
+        </Panel>
     );
 }
 

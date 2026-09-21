@@ -102,6 +102,9 @@ final readonly class ProbeQueueStatus
             $longest = max($longest ?? 0, $queue['wait']);
         }
 
-        return $longest;
+        // Horizon estimates a wait from its measured runtimes, which makes it a fraction of a second
+        // as often as not — and a float returned here was a TypeError that turned the whole queue
+        // panel "unavailable" the first time any queue had a wait worth measuring.
+        return $longest === null ? null : (int) round($longest);
     }
 }

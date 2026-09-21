@@ -9,6 +9,7 @@ use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
 use App\Domain\TaxKnowledge\Exceptions\UnknownSourceDocumentVersionException;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
+use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
 use App\Domain\TaxKnowledge\Parsing\ParsedLegislationDocument;
@@ -58,14 +59,41 @@ final readonly class LegislationSectionPersister
             throw UnknownSourceDocumentVersionException::forId($sourceDocumentVersionId);
         }
 
+        $now = now('UTC');
+        $outlineIds = [];
+        $outlineRows = [];
+
+        // Parents come before their children in the parsed outline, so each parent's id is known.
+        foreach ($parsed->outline as $index => $node) {
+            $outlineIds[$index] = (string) Str::uuid7();
+            $outlineRows[] = [
+                'id' => $outlineIds[$index],
+                'document_version_id' => $version->id,
+                'parent_id' => $node->parentIndex === null ? null : $outlineIds[$node->parentIndex],
+                'level' => $node->level->value,
+                'label' => $node->label,
+                'name' => $node->name,
+                'path' => $node->path,
+                'ordinal' => $node->ordinal,
+                'position' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
         $rows = [];
 
         foreach ($parsed->topLevelSections as $section) {
-            $this->collectRows($version->id, null, $section, $rows);
+            $this->collectRows($version->id, null, $section, $rows, $section->outlineIndex === null ? null : $outlineIds[$section->outlineIndex]);
         }
 
-        DB::transaction(function () use ($version, $rows): void {
+        DB::transaction(function () use ($version, $rows, $outlineRows): void {
             SourceSection::query()->where('document_version_id', $version->id)->delete();
+            SourceOutlineNode::query()->where('document_version_id', $version->id)->delete();
+
+            foreach (array_chunk($outlineRows, self::INSERT_BATCH) as $batch) {
+                SourceOutlineNode::query()->insert($batch);
+            }
 
             // In batches, parents before children: a consolidation of the Codul fiscal is some
             // 7 000 sections, and a law is ninety consolidations — one insert each would be the
@@ -100,8 +128,9 @@ final readonly class LegislationSectionPersister
      * One row per section, in reading order — a parent always before its children.
      *
      * @param  list<array<string, mixed>>  $rows
+     * @param  string|null  $outlineId  the heading an article or annex stands under
      */
-    private function collectRows(string $documentVersionId, ?string $parentId, ParsedSection $section, array &$rows): void
+    private function collectRows(string $documentVersionId, ?string $parentId, ParsedSection $section, array &$rows, ?string $outlineId = null): void
     {
         $id = (string) Str::uuid7();
         $now = now('UTC');
@@ -118,6 +147,7 @@ final readonly class LegislationSectionPersister
             'tables' => $section->tables === [] ? null : json_encode($section->tables, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
             'amended_on' => SectionText::amendedOn($section->text),
             'normative_hash' => SectionText::fingerprint($section->fullText()),
+            'outline_id' => $outlineId,
             'page_start' => null,
             'page_end' => null,
             'effective_from' => null,

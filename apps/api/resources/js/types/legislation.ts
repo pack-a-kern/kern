@@ -148,6 +148,29 @@ export interface LawDetail extends Law {
 /** One table's rows of cells. */
 export type LawTable = string[][];
 
+/** A heading of the table of contents: "Titlul IV" "Impozitul pe venit". */
+export interface LawHeading {
+    id: string;
+    parentId: string | null;
+    level: 'TITLU' | 'CAPITOL' | 'SECTIUNE';
+    label: string;
+    name: string;
+    path: string;
+}
+
+export interface LawOutlineHeading extends LawHeading {
+    /** The page of the text it opens on; null for a heading with no article under it. */
+    page: number | null;
+    firstCitation: string | null;
+    lastCitation: string | null;
+}
+
+export interface LawOutline {
+    asOf: string;
+    effectiveFrom: string;
+    headings: LawOutlineHeading[];
+}
+
 export interface LawSection {
     id: string;
     type: string;
@@ -159,6 +182,8 @@ export interface LawSection {
     text: string;
     tables: LawTable[];
     amendedOn: string | null;
+    /** For an article or annex: the headings it stands under, outermost first. Empty for the rest. */
+    headings: LawHeading[];
 }
 
 export interface LawText {
@@ -191,6 +216,39 @@ function tables(value: unknown): LawTable[] {
             (Array.isArray(row) ? row : []).map((cell) => (typeof cell === 'string' ? cell : '')),
         ),
     );
+}
+
+function parseHeading(entry: unknown): LawHeading {
+    const row = obj(entry);
+    const level = str(row, 'level');
+
+    return {
+        id: str(row, 'id'),
+        parentId: nullableStr(row, 'parent_id'),
+        level: level === 'TITLU' || level === 'CAPITOL' ? level : 'SECTIUNE',
+        label: str(row, 'label'),
+        name: str(row, 'name'),
+        path: str(row, 'path'),
+    };
+}
+
+export function parseLawOutline(payload: unknown): LawOutline {
+    const body = obj(payload);
+
+    return {
+        asOf: str(body, 'as_of'),
+        effectiveFrom: str(body, 'effective_from'),
+        headings: (Array.isArray(body.headings) ? body.headings : []).map((entry): LawOutlineHeading => {
+            const row = obj(entry);
+
+            return {
+                ...parseHeading(row),
+                page: nullableNum(row, 'page'),
+                firstCitation: nullableStr(row, 'first_citation'),
+                lastCitation: nullableStr(row, 'last_citation'),
+            };
+        }),
+    };
 }
 
 function parseLaw(row: Record<string, unknown>): Law {
@@ -270,6 +328,7 @@ export function parseLawText(payload: unknown): LawText {
                 text: str(row, 'text'),
                 tables: tables(row.tables),
                 amendedOn: nullableStr(row, 'amended_on'),
+                headings: (Array.isArray(row.headings) ? row.headings : []).map(parseHeading),
             };
         }),
     };

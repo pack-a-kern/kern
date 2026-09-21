@@ -10,6 +10,7 @@ use App\Domain\TaxKnowledge\Exceptions\NoEffectiveVersionFoundException;
 use App\Domain\TaxKnowledge\Models\SectionHistory;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
+use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
@@ -129,7 +130,8 @@ final readonly class LegislationLibrary
         $all = SourceSection::query()
             ->where('document_version_id', $version->id)
             ->orderBy('ordinal')
-            ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on']);
+            ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on', 'outline_id']);
+        $headings = $this->headings($version->id);
 
         $children = [];
 
@@ -142,7 +144,11 @@ final readonly class LegislationLibrary
         $sections = [];
 
         foreach ($pageItems as $section) {
+            $first = count($sections);
             $this->flatten($section, $children, 0, $sections);
+            // The headings an article stands under, outermost first — the page shows the ones that
+            // change from the article before.
+            $sections[$first]['headings'] = self::chain($section->outline_id, $headings);
         }
 
         return [
@@ -153,6 +159,56 @@ final readonly class LegislationLibrary
             'per_page' => $perPage,
             'total' => count($topLevel),
             'sections' => $sections,
+        ];
+    }
+
+    /**
+     * The table of contents of the law as it stood on `$asOf`: every heading, with the first and last
+     * article under it and the page of the text it opens on.
+     *
+     * @return array<string, mixed>|null null when no consolidation covers the date
+     */
+    public function outline(string $documentId, DateTimeImmutable $asOf, int $perPage): ?array
+    {
+        $document = $this->document($documentId);
+
+        if ($document === null) {
+            return null;
+        }
+
+        try {
+            $version = $this->temporal->versionInForceOn($document->id, $asOf);
+        } catch (NoEffectiveVersionFoundException|AmbiguousEffectiveVersionException) {
+            return null;
+        }
+
+        $headings = $this->headings($version->id);
+        $topLevel = SourceSection::query()
+            ->where('document_version_id', $version->id)
+            ->whereNull('parent_id')
+            ->orderBy('ordinal')
+            ->get(['citation_label', 'outline_id']);
+
+        /** @var array<string, array{first: int, first_citation: string, last_citation: string}> $spans */
+        $spans = [];
+
+        foreach ($topLevel->values() as $position => $section) {
+            // An article counts for its own heading and every heading above it.
+            foreach (self::chain($section->outline_id, $headings) as $heading) {
+                $spans[$heading['id']] ??= ['first' => $position, 'first_citation' => $section->citation_label, 'last_citation' => $section->citation_label];
+                $spans[$heading['id']]['last_citation'] = $section->citation_label;
+            }
+        }
+
+        return [
+            'version_id' => $version->id,
+            'effective_from' => $version->effectiveFrom->format('Y-m-d'),
+            'headings' => array_values(array_map(static fn (array $heading): array => [
+                ...$heading,
+                'page' => isset($spans[$heading['id']]) ? intdiv($spans[$heading['id']]['first'], $perPage) + 1 : null,
+                'first_citation' => $spans[$heading['id']]['first_citation'] ?? null,
+                'last_citation' => $spans[$heading['id']]['last_citation'] ?? null,
+            ], $headings)),
         ];
     }
 
@@ -199,6 +255,47 @@ final readonly class LegislationLibrary
             ->where('official_source_id', $sourceId)
             ->whereNotNull('act_number')
             ->find($documentId);
+    }
+
+    /**
+     * A version's headings, in reading order, by id.
+     *
+     * @return array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>
+     */
+    private function headings(string $versionId): array
+    {
+        $headings = [];
+
+        foreach (SourceOutlineNode::query()->where('document_version_id', $versionId)->orderBy('position')->get() as $node) {
+            $headings[$node->id] = [
+                'id' => $node->id,
+                'parent_id' => $node->parent_id,
+                'level' => $node->level->value,
+                'label' => $node->label,
+                'name' => $node->name,
+                'path' => $node->path,
+            ];
+        }
+
+        return $headings;
+    }
+
+    /**
+     * A heading and those above it, outermost first.
+     *
+     * @param  array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>  $headings
+     * @return list<array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>
+     */
+    private static function chain(?string $headingId, array $headings): array
+    {
+        $chain = [];
+
+        while ($headingId !== null && isset($headings[$headingId])) {
+            array_unshift($chain, $headings[$headingId]);
+            $headingId = $headings[$headingId]['parent_id'];
+        }
+
+        return $chain;
     }
 
     /** @return array<string, mixed> */

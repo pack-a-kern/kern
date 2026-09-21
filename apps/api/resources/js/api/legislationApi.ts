@@ -1,11 +1,13 @@
 import { apiRequest } from '../lib/http';
 import {
     type LawDetail,
+    type LawOutline,
     type LawSummary,
     type LawText,
     type LegislationSearchResult,
     type ProvisionVersion,
     parseLawDetail,
+    parseLawOutline,
     parseLaws,
     parseLawText,
     parseLegislationSearch,
@@ -74,5 +76,14 @@ export async function getProvisionHistory(lawId: string, citation: string): Prom
 
     return parseProvisionHistory(
         JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/history?${params.toString()}`)),
+    );
+}
+
+/** The law's table of contents on `asOf`, each heading with the page of the text it opens on. */
+export async function getLawOutline(lawId: string, asOf: string): Promise<LawOutline> {
+    const params = new URLSearchParams({ as_of: asOf });
+
+    return parseLawOutline(
+        JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/outline?${params.toString()}`)),
     );
 }

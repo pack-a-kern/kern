@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawController;
+use App\Http\Controllers\Api\V1\Legislation\ShowLawOutlineController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawTextController;
 use App\Http\Controllers\Api\V1\Legislation\ShowProvisionHistoryController;
 use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
@@ -383,6 +384,7 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     Route::get('/', ListLawsController::class);
     Route::get('{law}', ShowLawController::class)->whereUuid('law');
     Route::get('{law}/text', ShowLawTextController::class)->whereUuid('law');
+    Route::get('{law}/outline', ShowLawOutlineController::class)->whereUuid('law');
     Route::get('{law}/history', ShowProvisionHistoryController::class)->whereUuid('law');
 });
 

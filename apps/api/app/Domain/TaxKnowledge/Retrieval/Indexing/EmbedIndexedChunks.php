@@ -40,8 +40,10 @@ final readonly class EmbedIndexedChunks
      * `docs/handoff/029-hybrid-retrieval.md`).
      *
      * A chunk whose exact text was already embedded by the same model is given that vector rather
-     * than sent again. Ninety consolidations of one law repeat almost every provision unchanged, so
-     * this is the difference between embedding a law once and embedding it ninety times.
+     * than sent again — from `ext_chunk_embeddings`, which keeps every vector by its text's hash and
+     * outlives the chunks themselves. Ninety consolidations of one law repeat almost every provision
+     * unchanged, and a re-parse recreates every chunk: without it the law would go back to the model
+     * ninety times over, and again after every parser change.
      *
      * @return int chunks given a vector, copied or computed
      *
@@ -84,6 +86,11 @@ final readonly class EmbedIndexedChunks
             foreach ($chunks->values() as $index => $chunk) {
                 $vector = $vectors[$index];
 
+                DB::insert(
+                    'INSERT INTO ext_chunk_embeddings (text_hash, embedding_model, embedding_dim, embedding) VALUES (?, ?, ?, ?::vector) ON CONFLICT DO NOTHING',
+                    [$chunk->text_hash, $modelIdentifier, $vector->dimension(), $vector->toPgvectorLiteral()],
+                );
+
                 DB::table('ext_source_section_chunks')
                     ->where('id', $chunk->id)
                     ->update([
@@ -110,13 +117,8 @@ final readonly class EmbedIndexedChunks
                     embedding_dim = e.embedding_dim,
                     embedded_at = now(),
                     updated_at = now()
-                FROM (
-                    SELECT DISTINCT ON (text_hash) text_hash, embedding, embedding_model, embedding_dim
-                    FROM ext_source_section_chunks
-                    WHERE embedded_at IS NOT NULL AND embedding_model = ?
-                    ORDER BY text_hash, embedded_at DESC
-                ) AS e
-                WHERE c.embedded_at IS NULL AND c.text_hash = e.text_hash
+                FROM ext_chunk_embeddings AS e
+                WHERE c.embedded_at IS NULL AND c.text_hash = e.text_hash AND e.embedding_model = ?
                 SQL,
             [$modelIdentifier],
         );

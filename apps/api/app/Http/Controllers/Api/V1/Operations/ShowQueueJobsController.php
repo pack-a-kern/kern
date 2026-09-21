@@ -43,16 +43,20 @@ final class ShowQueueJobsController extends Controller
             isset($validated['page']) ? (int) $validated['page'] : 1,
         );
 
+        $snapshot = $queue();
+
         return response()->json([
             ...$page,
             'jobs' => array_map(static fn (QueueJobSummary $job): array => $job->toArray(), $page['jobs']),
             'queue' => [
-                ...$queue()->toArray(),
+                ...$snapshot->toArray(),
                 // Horizon's own failure counter is replaced by the number of failures that still
                 // have a job behind them — see ReadQueueJobs::retrievableTotal(). Reporting its
                 // count here would put "15 failed" above a table that can only ever show 6, and
-                // the nine it cannot show are not rows anyone could act on.
-                'failed' => $jobs->retrievableTotal(ReadQueueJobs::FAILED),
+                // the nine it cannot show are not rows anyone could act on. Never over an
+                // unavailable snapshot, whose counts are all "unknown": one number among them would
+                // read as the one thing known.
+                'failed' => $snapshot->available ? $jobs->retrievableTotal(ReadQueueJobs::FAILED) : null,
             ],
         ]);
     }

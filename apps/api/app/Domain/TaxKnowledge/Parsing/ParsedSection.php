@@ -33,6 +33,8 @@ final readonly class ParsedSection
         public string $text,
         public array $children,
         public array $tables = [],
+        /** For an article or annex: the heading it stands under, as an index into the document's outline. */
+        public ?int $outlineIndex = null,
     ) {
     }
 

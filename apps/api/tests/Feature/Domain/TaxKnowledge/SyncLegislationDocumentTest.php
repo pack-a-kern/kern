@@ -63,10 +63,14 @@ function consolidationPage(string $salaries, bool $withArticle5): string
 
     return <<<HTML
         <html><body><div class="content_forma_act">
-        <span class="S_ART"><span class="S_ART_TTL">Articolul 170</span><span class="S_ART_BDY">
-          <span class="S_ALN"><span class="S_ALN_TTL">(1)</span><span class="S_ALN_BDY"><span class="S_PAR">Baza de calcul este de {$salaries} salarii minime brute pe țară.</span></span></span>
+        <span class="S_TTL"><span class="S_TTL_TTL">Titlul V</span><span class="S_TTL_DEN">Contribuții sociale obligatorii</span><span class="S_TTL_BDY">
+          <span class="S_CAP"><span class="S_CAP_TTL">Capitolul III</span><span class="S_CAP_DEN">Contribuția de asigurări sociale de sănătate</span><span class="S_CAP_BDY">
+            <span class="S_ART"><span class="S_ART_TTL">Articolul 170</span><span class="S_ART_BDY">
+              <span class="S_ALN"><span class="S_ALN_TTL">(1)</span><span class="S_ALN_BDY"><span class="S_PAR">Baza de calcul este de {$salaries} salarii minime brute pe țară.</span></span></span>
+            </span></span>
+          </span></span>
+          {$article5}
         </span></span>
-        {$article5}
         </div></body></html>
         HTML;
 }
@@ -255,9 +259,21 @@ it('shows the law, its text on a date, and a provision\'s history', function ():
 
     expect($text->json('effective_from'))->toBe('2016-01-01')
         ->and($text->json('sections.0.label'))->toBe('Articolul 170')
+        // The headings it stands under, outermost first.
+        ->and($text->json('sections.0.headings.*.label'))->toBe(['Titlul V', 'Capitolul III'])
         ->and($text->json('sections.1.text'))->toContain('6 salarii');
 
     $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2010-01-01")->assertNotFound();
+
+    // The table of contents: the chapter spans only art. 170; the title reaches art. 5, which stands
+    // under it outside any chapter.
+    $outline = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/outline?as_of=2019-05-01")->assertOk();
+
+    expect($outline->json('headings.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
+        ->and($outline->json('headings.*.name'))->toBe(['Contribuții sociale obligatorii', 'Contribuția de asigurări sociale de sănătate'])
+        ->and($outline->json('headings.*.first_citation'))->toBe(['Art. 170', 'Art. 170'])
+        ->and($outline->json('headings.*.last_citation'))->toBe(['Art. 5', 'Art. 170'])
+        ->and($outline->json('headings.*.page'))->toBe([1, 1]);
 
     $history = $this->actingAs($user)
         ->getJson("/api/v1/legislation/laws/{$law->id}/history?citation=" . rawurlencode('Art. 170 alin. (1)'))

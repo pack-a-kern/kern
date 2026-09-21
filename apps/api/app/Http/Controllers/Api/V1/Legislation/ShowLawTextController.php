@@ -19,7 +19,8 @@ use Illuminate\Http\Request;
  */
 final class ShowLawTextController extends Controller
 {
-    private const int PER_PAGE = 20;
+    /** Articles per page — shared with the table of contents, which says which page a heading is on. */
+    public const int PER_PAGE = 20;
 
     public function __invoke(string $law, Request $request, LegislationLibrary $library): JsonResponse
     {

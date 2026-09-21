@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\Parsing;
 
+use App\Domain\TaxKnowledge\Enums\OutlineLevel;
 use App\Domain\TaxKnowledge\Enums\SectionType;
 use App\Domain\TaxKnowledge\Parsing\Exceptions\UnparsableLegislationDocumentException;
 use DateTimeImmutable;
@@ -61,12 +62,11 @@ use RuntimeException;
  * **What this parser does NOT capture, honestly, not silently**:
  * - `S_ART_DEN` ("denomination") — observed empty/HTML-comment in every live sample fetched;
  *   discarded rather than guessed at.
- * - `S_TTL`/`S_CAP`/`S_SEC` (Titlu/Capitol/Secțiune) — real container levels *above* `ARTICOL`,
- *   confirmed to exist in the live Constitution fetch, but outside `App\Domain\TaxKnowledge\Enums\SectionType`'s
- *   scope: they never carry citable text of their own, only group other sections.
- *   `findTopLevelContainers()` walks straight through them without creating a row for them — an
- *   `ARTICOL`'s `parent_id` is `null` whenever nothing but a Titlu/Capitol/Secțiune wrapper sits
- *   above it in the source markup. `S_ANX` (Anexă/Annex) is the one sibling wrapper-ish level that
+ * - `S_TTL`/`S_CAP`/`S_SEC` (Titlu/Capitol/Secțiune) as *sections* — real container levels *above*
+ *   `ARTICOL`, but outside `App\Domain\TaxKnowledge\Enums\SectionType`'s scope: they never carry
+ *   citable text of their own, only group other sections, and an `ARTICOL`'s `parent_id` stays
+ *   `null` under them. Since 1.4.0 they are the document's table of contents instead
+ *   ({@see ParsedOutlineNode}), and each article records the heading it stands under. `S_ANX` (Anexă/Annex) is the one sibling wrapper-ish level that
  *   *is* modelled ({@see SectionType::ANEXA}) — confirmed against the real Codul fiscal to carry
  *   its own citable `ALINEAT`/`LITERA`/`PUNCT` content, unlike Titlu/Capitol/Secțiune.
  * - **`S_PCT` (`PUNCT`) was unverified when this parser was first written** — no document
@@ -88,8 +88,9 @@ final class LegislatieJustRoHtmlParser
      * dash item (`S_LIN`) is a section of its own rather than words run into its parent.
      * 1.3.0 — the portal's older markup is read too ({@see LegacyMarkup}), and a point or a dash
      * standing after the provision it belongs to is nested into it.
+     * 1.4.0 — the table of contents: titles, chapters and sections, with the articles under each.
      */
-    public const string VERSION = '1.3.0';
+    public const string VERSION = '1.4.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -140,6 +141,13 @@ final class LegislatieJustRoHtmlParser
      */
     private const array TITLE_WRAPPER_CLASSES = ['S_TTL', 'S_CAP', 'S_SEC'];
 
+    /** @var array<string, OutlineLevel> */
+    private const array OUTLINE_LEVELS = [
+        'S_TTL' => OutlineLevel::TITLU,
+        'S_CAP' => OutlineLevel::CAPITOL,
+        'S_SEC' => OutlineLevel::SECTIUNE,
+    ];
+
     public function parse(string $html): ParsedLegislationDocument
     {
         if (trim($html) === '') {
@@ -154,7 +162,8 @@ final class LegislatieJustRoHtmlParser
             throw UnparsableLegislationDocumentException::noRootElement();
         }
 
-        $sections = $this->parseTopLevelSections($root);
+        $outline = [];
+        $sections = $this->parseTopLevelSections($root, $outline);
         $seenCitationLabels = [];
         $ambiguousCitationLabels = [];
         $sections = $this->pruneAmbiguousCitations($sections, $seenCitationLabels, $ambiguousCitationLabels);
@@ -163,6 +172,7 @@ final class LegislatieJustRoHtmlParser
             publicationDate: $this->extractPublicationDate($document),
             topLevelSections: $sections,
             ambiguousCitationLabels: array_values(array_unique($ambiguousCitationLabels)),
+            outline: $outline,
         );
     }
 
@@ -206,6 +216,7 @@ final class LegislatieJustRoHtmlParser
                 $section->text,
                 $children,
                 $section->tables,
+                $section->outlineIndex,
             );
         }
 
@@ -238,14 +249,18 @@ final class LegislatieJustRoHtmlParser
     }
 
     /**
+     * The articles and annexes in reading order, each told which heading it stands under; the
+     * headings themselves go to `$outline`.
+     *
+     * @param  list<ParsedOutlineNode>  $outline
      * @return list<ParsedSection>
      */
-    private function parseTopLevelSections(DOMElement $root): array
+    private function parseTopLevelSections(DOMElement $root, array &$outline): array
     {
         $sections = [];
         $ordinal = 1;
 
-        foreach ($this->findTopLevelContainers($root) as $container) {
+        foreach ($this->findTopLevelContainers($root, $outline, null) as [$container, $outlineIndex]) {
             // ARTICOL numbers are unique across the whole act, so (like today) it gets no
             // ancestor context. ANEXA numbers are only unique per-Titlu (verified: the real
             // Codul fiscal has three distinct "Anexa nr. 1"s) — see buildCitationLabel().
@@ -253,7 +268,17 @@ final class LegislatieJustRoHtmlParser
                 ? $this->ancestorWrapperContext($container)
                 : null;
 
-            $sections[] = $this->parseContainer($container, $topLevelContext, $ordinal);
+            $parsed = $this->parseContainer($container, $topLevelContext, $ordinal);
+            $sections[] = new ParsedSection(
+                $parsed->sectionType,
+                $parsed->rawLabel,
+                $parsed->citationLabel,
+                $parsed->ordinal,
+                $parsed->text,
+                $parsed->children,
+                $parsed->tables,
+                $outlineIndex,
+            );
             $ordinal++;
         }
 
@@ -294,11 +319,16 @@ final class LegislatieJustRoHtmlParser
      * Depth-first search that stops descending the instant it finds a container element —
      * everything above the first `ARTICOL`/`ALINEAT`/`LITERA`/`PUNCT` on a given branch
      * (a bare `<div>`, or a real `S_TTL`/`S_CAP`/`S_SEC` wrapper) is walked through but never
-     * itself becomes a row.
+     * itself becomes a section.
      *
-     * @return list<DOMElement>
+     * A `S_TTL`/`S_CAP`/`S_SEC` wrapper becomes a heading of the table of contents instead — its
+     * label, "Capitolul IV", and its name, "Venituri din cedarea folosinței bunurilor" — and every
+     * container found inside it is told which heading it stands under.
+     *
+     * @param  list<ParsedOutlineNode>  $outline
+     * @return list<array{0: DOMElement, 1: int|null}> each container, and the index of its heading
      */
-    private function findTopLevelContainers(DOMNode $node): array
+    private function findTopLevelContainers(DOMNode $node, array &$outline, ?int $heading): array
     {
         $results = [];
 
@@ -308,15 +338,52 @@ final class LegislatieJustRoHtmlParser
             }
 
             if ($this->matchingContainerToken($child) !== null) {
-                $results[] = $child;
+                $results[] = [$child, $heading];
 
                 continue;
             }
 
-            array_push($results, ...$this->findTopLevelContainers($child));
+            $level = $this->outlineLevel($child);
+            $inside = $level === null ? $heading : $this->addHeading($child, $level, $outline, $heading);
+
+            array_push($results, ...$this->findTopLevelContainers($child, $outline, $inside));
         }
 
         return $results;
+    }
+
+    private function outlineLevel(DOMElement $element): ?OutlineLevel
+    {
+        foreach (self::OUTLINE_LEVELS as $token => $level) {
+            if (in_array($token, $this->classTokens($element), true)) {
+                return $level;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<ParsedOutlineNode>  $outline
+     * @return int the new heading's index
+     */
+    private function addHeading(DOMElement $wrapper, OutlineLevel $level, array &$outline, ?int $parent): int
+    {
+        $token = array_search($level, self::OUTLINE_LEVELS, true);
+        $label = $this->directChildTextByToken($wrapper, $token . '_TTL');
+        $siblings = array_filter($outline, static fn (ParsedOutlineNode $node): bool => $node->parentIndex === $parent);
+        $parentPath = $parent === null ? '' : ($outline[$parent]->path ?? '') . ' ';
+
+        $outline[] = new ParsedOutlineNode(
+            level: $level,
+            label: $label,
+            name: $this->directChildTextByToken($wrapper, $token . '_DEN'),
+            path: trim($parentPath . $label),
+            ordinal: count($siblings) + 1,
+            parentIndex: $parent,
+        );
+
+        return count($outline) - 1;
     }
 
     /**
