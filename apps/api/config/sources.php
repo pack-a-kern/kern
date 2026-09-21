@@ -103,6 +103,13 @@ return [
                     'ECB_INSTITUTION_LIST_PAGE_URL',
                     'https://www.ecb.europa.eu/stats/financial_corporations/list_of_financial_institutions/html/daily_list-MID.en.html',
                 ),
+                // Every day's list stays downloadable after the page stops linking it — back to 2017,
+                // checked 2026-09-21 — which is what the backfill reads banks that have since closed
+                // or merged from. `{date}` is the list's date as YYMMDD; a day with no list is a 404.
+                'institution_list_archive_template' => env(
+                    'ECB_INSTITUTION_LIST_ARCHIVE_URL_TEMPLATE',
+                    'https://www.ecb.europa.eu/stats/money/mfi/general/html/dla/mfi_MID/mfi_csv_{date}.csv.gz',
+                ),
             ],
         ],
 

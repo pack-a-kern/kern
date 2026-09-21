@@ -42,7 +42,8 @@ final class UpdateStatementImportMappingController extends Controller
             ...$this->formRules(),
             // Asked here rather than at upload: by now the file has been read, and the bank found
             // from its IBAN — or suggested — is already in the field for the person to confirm.
-            'bank_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ext_banks', 'id')->where('active', true)],
+            // A closed bank too: a statement from before a merger was issued by the bank that existed then.
+            'bank_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ext_banks', 'id')],
         ]);
 
         try {

@@ -10,6 +10,7 @@ use App\Domain\TaxKnowledge\Exceptions\SourceDisabledException;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\FetchSizeExceededException;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\HostNotAllowedException;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\TooManyRedirectsException;
+use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use RuntimeException;
 
@@ -75,6 +76,10 @@ final readonly class AllowlistedHttpFetcher
                 $hopsRemaining--;
 
                 continue;
+            }
+
+            if (! $response->successful()) {
+                throw UnexpectedStatusException::forUrl($currentUrl, $response->status());
             }
 
             $this->assertDeclaredSizeWithinLimit($currentUrl, $response->header('Content-Length'));

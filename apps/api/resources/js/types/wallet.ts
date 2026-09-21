@@ -591,6 +591,8 @@ export interface Bank {
     /** The 4-letter code from the bank's BIC, or null where none is mapped. */
     code: string | null;
     countryCode: string;
+    /** False for a bank that has closed or merged — listed only where an old statement needs it. */
+    active: boolean;
 }
 
 export function parseBanks(payload: unknown): Bank[] {
@@ -604,13 +606,19 @@ export function parseBanks(payload: unknown): Bank[] {
             name: str(row, 'name'),
             code: nullableStr(row, 'code'),
             countryCode: str(row, 'country_code'),
+            active: row.active !== false,
         };
     });
 }
 
-/** How a bank reads in a list: its name, and its code beside it where it has one. */
-export function bankLabel(bank: Bank): string {
-    return bank.code === null ? bank.name : `${bank.name} · ${bank.code}`;
+/**
+ * How a bank reads in a list: its name, its code beside it where it has one, and — for a list that
+ * includes them — `closedLabel` after a bank that no longer exists.
+ */
+export function bankLabel(bank: Bank, closedLabel?: string): string {
+    const label = bank.code === null ? bank.name : `${bank.name} · ${bank.code}`;
+
+    return bank.active || closedLabel === undefined ? label : `${label} (${closedLabel})`;
 }
 
 export function parseTaxCategories(payload: unknown): TaxCategory[] {

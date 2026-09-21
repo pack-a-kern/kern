@@ -14,6 +14,10 @@ use Throwable;
  * As published, and checked against the file downloaded on 2026-09-15: gzip-compressed, UTF-16
  * little-endian, tab-separated, one institution per line, with a header row naming the columns.
  * Every EU country is in the one file; filtering by country is the importer's job, not this one's.
+ *
+ * The ECB added the LEI columns in 2019: the archived files before that have the same columns in
+ * the same meaning, without `LEI` and `HEAD_LEI`, so those two are read when present and empty when
+ * not. The rest is required either way.
  */
 final class EcbInstitutionListParser
 {
@@ -26,7 +30,6 @@ final class EcbInstitutionListParser
 
     private const array COLUMNS = [
         'RIAD_CODE',
-        'LEI',
         'COUNTRY_OF_REGISTRATION',
         'NAME',
         'ADDRESS',
@@ -35,7 +38,6 @@ final class EcbInstitutionListParser
         'CATEGORY',
         'HEAD_COUNTRY_OF_REGISTRATION',
         'HEAD_NAME',
-        'HEAD_LEI',
     ];
 
     /**
@@ -55,7 +57,7 @@ final class EcbInstitutionListParser
 
             $institutions[] = new EcbInstitution(
                 ecbCode: $row['RIAD_CODE'],
-                lei: $row['LEI'],
+                lei: $row['LEI'] ?? '',
                 countryCode: strtoupper($row['COUNTRY_OF_REGISTRATION']),
                 name: $row['NAME'],
                 address: $row['ADDRESS'],
@@ -63,7 +65,7 @@ final class EcbInstitutionListParser
                 city: $row['CITY'],
                 category: $row['CATEGORY'],
                 parentName: $row['HEAD_NAME'],
-                parentLei: $row['HEAD_LEI'],
+                parentLei: $row['HEAD_LEI'] ?? '',
                 parentCountryCode: strtoupper($row['HEAD_COUNTRY_OF_REGISTRATION']),
             );
         }

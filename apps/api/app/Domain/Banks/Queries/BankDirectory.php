@@ -25,6 +25,20 @@ final readonly class BankDirectory
         return array_map(self::option(...), $banks);
     }
 
+    /**
+     * Every bank, closed ones included — for a statement or a transaction from before a merger, which
+     * happened at the bank that existed then. Current banks first, then closed, each by name.
+     *
+     * @return list<BankOption>
+     */
+    public function all(): array
+    {
+        /** @var list<Bank> $banks */
+        $banks = Bank::query()->orderByDesc('active')->orderBy('name')->get()->all();
+
+        return array_map(self::option(...), $banks);
+    }
+
     /** Any bank, active or not — a deposit opened years ago keeps naming the bank it was opened at. */
     public function find(string $id): ?BankOption
     {

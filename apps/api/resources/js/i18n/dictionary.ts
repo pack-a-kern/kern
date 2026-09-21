@@ -947,6 +947,8 @@ export interface Dictionary {
                 label: string;
                 hint: string;
                 none: string;
+                /** After a bank that has closed or merged, in a list that includes those. */
+                closed: string;
             };
             categories: Record<string, string | undefined>;
             deleteTitle: string;

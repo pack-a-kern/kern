@@ -1070,6 +1070,7 @@ export const ro = {
                 label: 'Bancă',
                 hint: 'Unde s-a întâmplat. Banii rămân în General.',
                 none: 'Fără bancă',
+                closed: 'închisă',
             },
             categories: {
                 DIVIDENDS: 'Dividende',
@@ -1892,6 +1893,7 @@ export const ro = {
                     'access.sync': 'Sincronizare catalog de acces',
                     'deposit.post_interest': 'Decontare depozite',
                     'banks.import': 'Import listă bănci',
+                    'banks.backfill': 'Completare istoric bănci',
                 },
                 descriptions: {
                     'fx.import_daily': 'Cursurile de referință BNR pentru ziua curentă.',
@@ -1904,6 +1906,8 @@ export const ro = {
                     'deposit.post_interest':
                         'Înregistrează dobânda perioadelor încheiate și închide depozitele ajunse la scadență, întorcând banii în contul din care au fost finanțate.',
                     'banks.import': 'Lista BCE a băncilor din țările configurate, cu codul fiecărei bănci de la GLEIF.',
+                    'banks.backfill':
+                        'Adaugă băncile închise sau fuzionate înainte de primul import, din listele arhivate ale BCE începând cu 2017. Se rulează o dată, după primul import.',
                 },
                 details: 'Istoric',
                 detailsTitle: 'Istoricul rulărilor',

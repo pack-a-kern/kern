@@ -230,8 +230,14 @@ export async function keepDuplicateTransactions(subjectId: string, transactionId
 
 /** `GET wallet/categories` — the vocabulary a transaction can be classified with. */
 /** `GET .../wallet/banks` — the banks a deposit can be opened at, from the imported ECB list. */
-export async function listBanks(subjectId: string): Promise<Bank[]> {
-    return parseBanks(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks`)));
+/**
+ * The banks to choose from: the current ones, or with `includeClosed` also those that have closed or
+ * merged — for a statement or transaction from before, never for opening a new deposit.
+ */
+export async function listBanks(subjectId: string, options: { includeClosed?: boolean } = {}): Promise<Bank[]> {
+    const query = options.includeClosed === true ? '?include_closed=1' : '';
+
+    return parseBanks(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks${query}`)));
 }
 
 /** This taxpayer's own tags, for the filter and the chips input. */

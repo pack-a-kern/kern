@@ -239,7 +239,7 @@ export default function WalletTransactions(): JSX.Element {
         );
 
         // The bank list and the taxpayer's tags, for the filters, the form and the chips on each row.
-        listBanks(subjectId).then(
+        listBanks(subjectId, { includeClosed: true }).then(
             (loadedBanks) => {
                 if (active) {
                     setBanks(loadedBanks);
@@ -586,7 +586,10 @@ export default function WalletTransactions(): JSX.Element {
                                     setBankId(next);
                                 });
                             }}
-                            options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                            options={banks.map((bank) => ({
+                                value: bank.id,
+                                label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                            }))}
                         />
                         <PanelSelect
                             className="filter-select"
@@ -1180,7 +1183,10 @@ export default function WalletTransactions(): JSX.Element {
                             onValueChange={(next) => {
                                 setForm((current) => ({ ...current, bank_id: next }));
                             }}
-                            options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                            options={banks.map((bank) => ({
+                                value: bank.id,
+                                label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                            }))}
                         />
                     </Field>
 

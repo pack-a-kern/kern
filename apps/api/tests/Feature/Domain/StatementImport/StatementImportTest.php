@@ -1071,3 +1071,32 @@ it('refuses a bank that is not in the directory', function (): void {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('bank_id');
 });
+
+it('finds a bank that has since closed, for a statement from before it did', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $alpha = Bank::factory()->create(['name' => 'Alpha Bank Romania', 'legal_name' => 'ALPHA BANK ROMANIA S.A.', 'bic' => null, 'active' => false]);
+    Bank::factory()->create(['name' => 'UniCredit Bank']);
+    mappingProvider($subjectId, ['bank' => 'Alpha Bank Romania']);
+    fakeReader()->preamble = [['ALPHA BANK ROMANIA'], ['Extras de cont']];
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-alpha.csv');
+
+    expect($import->bank_id)->toBe($alpha->id);
+
+    // And it can be chosen by hand, closed or not.
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", [...mappingBody(), 'bank_id' => $alpha->id])
+        ->assertOk();
+});
+
+it('lists closed banks only when asked, after the current ones', function (): void {
+    [$user, $subjectId] = importer();
+    Bank::factory()->create(['name' => 'Alpha Bank Romania', 'active' => false]);
+    Bank::factory()->create(['name' => 'Banca Transilvania']);
+
+    $current = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/banks")->assertOk();
+    $all = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/banks?include_closed=1")->assertOk();
+
+    expect($current->json('banks.*.name'))->toBe(['Banca Transilvania'])
+        ->and($all->json('banks.*.name'))->toBe(['Banca Transilvania', 'Alpha Bank Romania']);
+});

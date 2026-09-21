@@ -66,6 +66,12 @@ enum OperationTask: string
      */
     case BANKS_IMPORT = 'banks.import';
 
+    /**
+     * Add the banks that closed or merged before the first import, from the ECB's archived lists.
+     * Manual: it is run once, after the first import, and again only to reach further back.
+     */
+    case BANKS_BACKFILL = 'banks.backfill';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -78,6 +84,7 @@ enum OperationTask: string
             self::ACCESS_SYNC => 'taxos:access:sync',
             self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
             self::BANKS_IMPORT => 'taxos:banks:import',
+            self::BANKS_BACKFILL => 'taxos:banks:backfill',
         };
     }
 

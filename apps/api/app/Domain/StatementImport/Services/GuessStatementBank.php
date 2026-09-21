@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Services;
 
 use App\Domain\Banks\Models\Bank;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -17,8 +18,10 @@ use Illuminate\Support\Str;
  *    match is exact and nothing is sent anywhere.
  *  - **What the model named**, when no IBAN was found: a BIC, its four-letter code, or a name.
  *
- * Either way the answer is one bank or none. Two banks that both fit is not a guess worth making: the
- * field is left for the person, who is asked for it on the same screen.
+ * Either way the answer is one bank or none. Closed banks count — a statement from before a merger
+ * was issued by the bank that existed then — but where a closed and a current bank both fit, the
+ * current one is meant. Any other tie is not a guess worth making: the field is left for the
+ * person, who is asked for it on the same screen.
  */
 final readonly class GuessStatementBank
 {
@@ -75,8 +78,7 @@ final readonly class GuessStatementBank
         }
 
         $matches = Bank::query()
-            ->where('active', true)
-            ->get(['id', 'name', 'legal_name', 'bic', 'country_code'])
+            ->get(['id', 'name', 'legal_name', 'bic', 'country_code', 'active'])
             ->filter(static function (Bank $bank) use ($wanted): bool {
                 foreach ([$bank->name, $bank->legal_name] as $name) {
                     $known = self::normalised($name);
@@ -89,19 +91,31 @@ final readonly class GuessStatementBank
                 return false;
             });
 
-        return $matches->count() === 1 ? $matches->first() : null;
+        return self::one($matches);
     }
 
     private function byCode(string $code, ?string $country): ?Bank
     {
-        $matches = Bank::query()
-            ->where('active', true)
+        return self::one(Bank::query()
             ->where('bic', 'like', $code . '%')
             ->when($country !== null, static fn ($query) => $query->where('country_code', $country))
-            ->limit(2)
-            ->get();
+            ->get());
+    }
 
-        return $matches->count() === 1 ? $matches->first() : null;
+    /**
+     * The one bank that fits, or the one current bank among several — or none.
+     *
+     * @param  Collection<int, Bank>  $matches
+     */
+    private static function one(Collection $matches): ?Bank
+    {
+        if ($matches->count() === 1) {
+            return $matches->first();
+        }
+
+        $current = $matches->filter(static fn (Bank $bank): bool => $bank->active);
+
+        return $current->count() === 1 ? $current->first() : null;
     }
 
     /**

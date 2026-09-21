@@ -164,7 +164,7 @@ export default function WalletImport(): JSX.Element {
             },
         );
 
-        listBanks(subjectId).then(
+        listBanks(subjectId, { includeClosed: true }).then(
             (loaded) => {
                 if (active) {
                     setBanks(loaded);
@@ -609,7 +609,10 @@ export default function WalletImport(): JSX.Element {
                             mapping={mapping}
                             onChange={setMapping}
                             bank={{
-                                options: banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) })),
+                                options: banks.map((bank) => ({
+                                    value: bank.id,
+                                    label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                                })),
                                 value: chosenBank,
                                 source: bankChoice === undefined ? detail.preview.bankSource : null,
                                 onChange: setBankChoice,

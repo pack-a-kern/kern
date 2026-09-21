@@ -6,7 +6,7 @@ namespace App\Domain\Banks\Exceptions;
 
 use RuntimeException;
 
-/** A download page or a filter the import needs is missing from configuration. */
+/** Something the import needs is missing: a download page or a filter in configuration, or the current list the backfill builds on. */
 final class BankSourceNotConfiguredException extends RuntimeException
 {
     public static function endpoint(string $source, string $endpoint): self
@@ -17,5 +17,10 @@ final class BankSourceNotConfiguredException extends RuntimeException
     public static function filter(string $key): self
     {
         return new self("config/banks.php \"{$key}\" is empty — the import would keep no banks.");
+    }
+
+    public static function nothingImported(): self
+    {
+        return new self('The bank list is empty: run taxos:banks:import first, so the backfill knows which banks are current.');
     }
 }

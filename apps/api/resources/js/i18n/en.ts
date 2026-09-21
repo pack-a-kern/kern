@@ -1064,6 +1064,7 @@ export const en = {
                 label: 'Bank',
                 hint: 'Where this happened. Money still sits in General.',
                 none: 'No bank',
+                closed: 'closed',
             },
             categories: {
                 DIVIDENDS: 'Dividends',
@@ -1877,6 +1878,7 @@ export const en = {
                     'access.sync': 'Access catalogue sync',
                     'deposit.post_interest': 'Settle deposits',
                     'banks.import': 'Bank list import',
+                    'banks.backfill': 'Bank list backfill',
                 },
                 descriptions: {
                     'fx.import_daily': 'BNR reference rates for today.',
@@ -1889,6 +1891,8 @@ export const en = {
                         'Post interest for periods that have closed, and close matured deposits by returning their money to the account that funded them.',
                     'banks.import':
                         'The ECB list of banks for the configured countries, with each bank’s code from GLEIF.',
+                    'banks.backfill':
+                        'Adds the banks that closed or merged before the first import, from the ECB’s archived lists back to 2017. Run once, after the first import.',
                 },
                 details: 'History',
                 detailsTitle: 'Run history',
