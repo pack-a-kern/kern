@@ -25,6 +25,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 /**
  * Writes a reviewed statement into the ledger, in chunks.
@@ -192,5 +193,32 @@ final class WriteStatementRows implements ShouldQueue
                 'duplicate_count' => $import->duplicate_count,
             ]),
         ));
+    }
+
+    /**
+     * The write stopped part-way.
+     *
+     * Rows are written in chunks, each committed on its own, so a crash can leave some transactions
+     * in the ledger. The import says how many, and is marked failed rather than left IMPORTING for
+     * ever — where nothing would move it on, and nothing could undo what it had already written.
+     * Undo accepts a failed import that holds transactions for exactly this case.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+
+        if ($import === null || $import->status !== StatementImportStatus::IMPORTING) {
+            return;
+        }
+
+        $import->imported_count = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+            ->where('import_id', $import->id)
+            ->whereNotNull('transaction_id')
+            ->count();
+        $import->status = StatementImportStatus::FAILED;
+        $import->failure_reason = 'WRITE_FAILED';
+        $import->save();
+
+        StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
     }
 }

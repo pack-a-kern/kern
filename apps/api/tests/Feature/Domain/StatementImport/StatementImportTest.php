@@ -12,9 +12,11 @@ use App\Domain\StatementImport\DataTransferObjects\ParsedStatementFile;
 use App\Domain\StatementImport\DataTransferObjects\StatementColumn;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
+use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Gateways\StatementParseGateway;
 use App\Domain\StatementImport\Jobs\ProposeRowCategories;
 use App\Domain\StatementImport\Jobs\ReadStatementFile;
+use App\Domain\StatementImport\Jobs\WriteStatementRows;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\ClassifyCounterparties;
@@ -30,6 +32,7 @@ use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use ReflectionProperty;
+use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\TestCase;
@@ -641,6 +644,60 @@ it('records that no model was asked, so the screen does not wait for one', funct
     expect($shown->json('preview.classification.expected'))->toBe(0)
         ->and($shown->json('preview.classification.failure'))->toBe('UNAVAILABLE')
         ->and($shown->json('proposals.ai'))->toBe(0);
+});
+
+/*
+ * A job the queue gave up on used to leave its import where it was, for ever: READING or IMPORTING,
+ * with nothing left that would move it on.
+ */
+it('marks an import failed when the reader stays unreachable', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-cititor-oprit.csv');
+
+    StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)
+        ->update(['status' => StatementImportStatus::READING->value]);
+
+    (new ReadStatementFile($import->id))->failed(StatementParseUnavailableException::requestFailed(new RuntimeException('down')));
+
+    $failed = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id);
+
+    expect($failed->status)->toBe(StatementImportStatus::FAILED)
+        ->and($failed->failure_reason)->toBe('READER_UNAVAILABLE');
+});
+
+it('marks a write that stopped part-way failed, and lets it be undone', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-scriere-oprita.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")
+        ->assertStatus(202);
+
+    // As if the queue gave up while writing: the rows written so far are in the ledger.
+    StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)
+        ->update(['status' => StatementImportStatus::IMPORTING->value]);
+    $written = FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count();
+
+    (new WriteStatementRows($import->id, $user->id))->failed(new RuntimeException('killed'));
+
+    $failed = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id);
+
+    expect($written)->toBeGreaterThan(0)
+        ->and($failed->status)->toBe(StatementImportStatus::FAILED)
+        ->and($failed->failure_reason)->toBe('WRITE_FAILED')
+        ->and($failed->imported_count)->toBe($written);
+
+    // Nothing else could take those transactions back out, so undo has to.
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/undo")
+        ->assertOk();
+
+    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())->toBe(0)
+        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+        ->toBe(StatementImportStatus::UNDONE);
 });
 
 it('never lets one taxpayer see another import', function (): void {

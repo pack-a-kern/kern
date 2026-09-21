@@ -598,6 +598,10 @@ export const en = {
             CURRENCY_REQUIRED:
                 'This statement never says which currency its figures are in, and this account has none set. Pick one in the Currency field.',
             IMPORT_HOLDS_TRANSACTIONS: 'This import created transactions. Undo it first, then it can be deleted.',
+            READER_UNAVAILABLE:
+                'The service that reads statement files could not be reached, even after several tries. Upload the file again in a few minutes.',
+            READ_FAILED: 'Reading the statement stopped unexpectedly. Upload the file again.',
+            WRITE_FAILED: 'Saving the transactions stopped part-way.',
             ALREADY_REVIEWED: 'This proposal has already been reviewed.',
             CONTENT_NOT_AVAILABLE: 'The stored file could not be read.',
             DOCUMENT_NOT_READY: 'This document is already being read.',
@@ -840,6 +844,8 @@ export const en = {
                 undoHint:
                     'Every transaction this import created is deleted, including any you have edited since. The file stays in your documents.',
             },
+            failedPartial:
+                '{count} transactions were written before it stopped. Undo them from the list of imports, then import the file again.',
             failed: 'This statement could not be read.',
             status: {
                 READING: 'Reading',

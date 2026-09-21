@@ -729,6 +729,8 @@ export interface Dictionary {
                 undoTitle: string;
                 undoHint: string;
             };
+            /** `{count}` is substituted. */
+            failedPartial: string;
             failed: string;
             /** By `StatementImportStatus`. */
             status: Record<string, string | undefined>;

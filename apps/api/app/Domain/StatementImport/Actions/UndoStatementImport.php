@@ -43,7 +43,12 @@ final readonly class UndoStatementImport
 
     public function __invoke(StatementImport $import, ?string $actorId = null): StatementImport
     {
-        if ($import->status !== StatementImportStatus::IMPORTED) {
+        // A written import, or one whose write failed part-way and left transactions behind — the
+        // second is the case undo matters most for, since nothing else can take them back out.
+        $failedPartWay = $import->status === StatementImportStatus::FAILED
+            && FinancialTransaction::query()->where('import_id', $import->id)->exists();
+
+        if ($import->status !== StatementImportStatus::IMPORTED && ! $failedPartWay) {
             throw ImportNotOpenException::forImport($import->id);
         }
 

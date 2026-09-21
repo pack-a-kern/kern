@@ -185,7 +185,7 @@ export default function WalletImports(): JSX.Element {
                                                     ? t((d) => d.pages.walletImports.done.viewTransactions)
                                                     : t((d) => d.common.open)}
                                             </PanelButton>
-                                            {statement.status === 'IMPORTED' ? (
+                                            {holdsTransactions(statement) ? (
                                                 <PanelButton
                                                     variant="ghost"
                                                     onClick={() => {
@@ -195,8 +195,7 @@ export default function WalletImports(): JSX.Element {
                                                     {t((d) => d.pages.walletImports.done.undo)}
                                                 </PanelButton>
                                             ) : null}
-                                            {statement.status === 'IMPORTED' ||
-                                            statement.status === 'IMPORTING' ? null : (
+                                            {holdsTransactions(statement) || statement.status === 'IMPORTING' ? null : (
                                                 <PanelButton
                                                     variant="ghost"
                                                     onClick={() => {
@@ -291,4 +290,14 @@ export default function WalletImports(): JSX.Element {
             )}
         </AppShell>
     );
+}
+
+/**
+ * Whether the import put transactions in the ledger — written, or failed part-way through writing.
+ *
+ * Those are undone, never deleted: deleting would leave figures pointing at an import nobody can look
+ * up, and a write that stopped part-way is exactly when taking them back out matters most.
+ */
+function holdsTransactions(statement: StatementImport): boolean {
+    return statement.status === 'IMPORTED' || (statement.status === 'FAILED' && statement.importedCount > 0);
 }

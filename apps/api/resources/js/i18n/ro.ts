@@ -597,6 +597,10 @@ export const ro = {
             CURRENCY_REQUIRED:
                 'Acest extras nu spune nicăieri în ce monedă sunt sumele, iar contul nu are una setată. Alege una în câmpul Moneda.',
             IMPORT_HOLDS_TRANSACTIONS: 'Acest import a creat tranzacții. Anulează-l mai întâi, apoi poate fi șters.',
+            READER_UNAVAILABLE:
+                'Serviciul care citește extrasele nu a putut fi contactat, nici după mai multe încercări. Încarcă fișierul din nou peste câteva minute.',
+            READ_FAILED: 'Citirea extrasului s-a oprit neașteptat. Încarcă fișierul din nou.',
+            WRITE_FAILED: 'Salvarea tranzacțiilor s-a oprit la jumătate.',
             SUBJECT_SUSPENDED: 'Acest contribuabil este suspendat. Reactivați-l pentru a face modificări.',
             DUPLICATE_REGISTRATION_NUMBER: 'Există deja un contribuabil cu acest număr de înregistrare.',
             SUBJECT_LIMIT_REACHED: 'Acest cont a atins numărul de contribuabili pe care îi poate deține.',
@@ -843,6 +847,8 @@ export const ro = {
                 undoHint:
                     'Toate tranzacțiile create de acest import se șterg, inclusiv cele modificate între timp. Fișierul rămâne în documente.',
             },
+            failedPartial:
+                '{count} tranzacții au fost scrise înainte de oprire. Anulează-le din lista de importuri, apoi importă fișierul din nou.',
             failed: 'Acest extras nu a putut fi citit.',
             status: {
                 READING: 'Se citește',

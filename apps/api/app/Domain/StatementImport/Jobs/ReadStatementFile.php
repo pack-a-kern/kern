@@ -22,6 +22,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 /**
  * Reads an uploaded statement into rows, once the file has been scanned.
@@ -46,7 +47,13 @@ final class ReadStatementFile implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    /** How many times the scan is checked for — `statement_import.scan_wait.checks`. */
+    /**
+     * Every attempt this job may take: the antivirus checks, plus the reader's own retries.
+     *
+     * Two budgets in one number, because the queue has only one. They are sized separately — see
+     * `statement_import.scan_wait.checks` and `statement_import.parser.retry_seconds` — so a slow scan
+     * leaves the reader its retries.
+     */
     public int $tries;
 
     /** Statuses whose bytes have been promoted out of quarantine into the real store. */
@@ -66,7 +73,7 @@ final class ReadStatementFile implements ShouldQueue
 
     public function __construct(private readonly string $importId)
     {
-        $this->tries = config()->integer('statement_import.scan_wait.checks');
+        $this->tries = config()->integer('statement_import.scan_wait.checks') + count($this->backoff());
         $this->timeout = config()->integer('statement_import.parser.timeout_seconds')
             + config()->integer('ai.statements.timeout_seconds')
             + config()->integer('ai.providers.job_timeout_margin_seconds');
@@ -143,7 +150,8 @@ final class ReadStatementFile implements ShouldQueue
 
             return;
         } catch (StatementParseUnavailableException $exception) {
-            // The reader, not the file. Thrown so the queue retries it and the import stays where it is.
+            // The reader, not the file. Thrown so the queue retries it after the next pause in
+            // `backoff()`; when the retries run out, `failed()` says so on the import.
             throw $exception;
         }
 
@@ -199,6 +207,39 @@ final class ReadStatementFile implements ShouldQueue
         $import->save();
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
+    }
+
+    /**
+     * The pauses before each retry when the reader could not be reached.
+     *
+     * @return list<int>
+     */
+    public function backoff(): array
+    {
+        /** @var list<int> $pauses */
+        $pauses = config()->array('statement_import.parser.retry_seconds');
+
+        return $pauses;
+    }
+
+    /**
+     * The queue gave up on this job — the reader stayed unreachable, or something else broke.
+     *
+     * Without this the import stayed in READING for ever: the job was gone, nothing would ever move
+     * it on, and the screen said "reading the file" to someone waiting for it.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+
+        if ($import === null || $import->status !== StatementImportStatus::READING) {
+            return;
+        }
+
+        $this->fail(
+            $import,
+            $exception instanceof StatementParseUnavailableException ? 'READER_UNAVAILABLE' : 'READ_FAILED',
+        );
     }
 
     private function fail(StatementImport $import, string $reason): void

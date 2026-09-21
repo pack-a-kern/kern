@@ -25,6 +25,20 @@ return [
         // workbook with thousands of rows is slow to open, and this runs in a queue job rather than
         // in front of a person waiting on a request.
         'timeout_seconds' => (int) env('STATEMENT_PARSE_TIMEOUT_SECONDS', 120),
+
+        /*
+         * The pauses before each retry when the reader cannot be reached, in seconds — one entry per
+         * retry, so the list's length is how many there are.
+         *
+         * Growing, because a reader that is down for a restart is back in seconds and one that is
+         * down for longer will not be helped by being asked every second. These are counted apart
+         * from the antivirus wait (`scan_wait`), so a slow scan cannot use up the reader's retries.
+         * When the last one fails, the import is marked failed with READER_UNAVAILABLE.
+         */
+        'retry_seconds' => array_values(array_map(
+            'intval',
+            array_filter(explode(',', (string) env('STATEMENT_PARSE_RETRY_SECONDS', '10,30,60,120,300')), 'is_numeric'),
+        )),
     ],
 
     /*

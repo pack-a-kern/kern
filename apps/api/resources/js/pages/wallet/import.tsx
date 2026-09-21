@@ -502,6 +502,14 @@ export default function WalletImport(): JSX.Element {
                                 detail?.import.failureReason ??
                                 ''}
                         </p>
+                        {(detail?.import.importedCount ?? 0) === 0 ? null : (
+                            <p className="mt-2 text-sm">
+                                {t((d) => d.pages.walletImports.failedPartial).replace(
+                                    '{count}',
+                                    String(detail?.import.importedCount ?? 0),
+                                )}
+                            </p>
+                        )}
                         <p className="mt-3">
                             <PanelButton
                                 onClick={() => {
