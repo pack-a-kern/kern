@@ -428,3 +428,30 @@ it('keeps a rule to the paragraph it was approved on for another year, and says 
         ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 170 alin. (3)')->id)
         ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)']]);
 });
+
+it('finds a threshold its lettered points say between them in the paragraph they stand under', function (): void {
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2024-01-01');
+    heading($version, 'Titlul V Capitolul II', [
+        ['Art. 148 alin. (4)', 'Baza anuală de calcul o reprezintă:'],
+        ['Art. 148 alin. (5)', 'Venitul ales nu poate fi mai mic decât nivelul de 12 salarii minime brute pe țară.'],
+    ]);
+    $paragraph = SourceSection::query()->where('citation_label', 'Art. 148 alin. (4)')->sole();
+
+    foreach (['lit. a)' => 'nivelul de 12 salarii minime brute pe țară, între 12 salarii minime brute pe țară și 24 de salarii minime brute pe țară;', 'lit. b)' => 'nivelul de 24 de salarii minime brute pe țară.'] as $letter => $text) {
+        SourceSection::factory()->create([
+            'document_version_id' => $version->id,
+            'parent_id' => $paragraph->id,
+            'section_type' => SectionType::LITERA,
+            'citation_label' => "Art. 148 alin. (4) {$letter}",
+            'ordinal' => SourceSection::query()->where('document_version_id', $version->id)->count() + 1,
+            'text' => $text,
+        ]);
+    }
+
+    $definition = app(ParameterCatalog::class)->find('RO.CAS.BASE_WAGES') ?? throw new RuntimeException('CAS thresholds are not configured.');
+
+    $found = app(LawMatcher::class)->find($definition, [12, 24], new DateTimeImmutable('2024-01-01'));
+
+    expect(array_map(static fn (LawMatch $match): array => [$match->citation, $match->says], $found))
+        ->toBe([['Art. 148 alin. (4)', [12, 24]], ['Art. 148 alin. (5)', [12]]]);
+});

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\FiscalParameters\Matching;
 
+use App\Domain\TaxKnowledge\Enums\SectionType;
 use App\Domain\TaxKnowledge\Exceptions\AmbiguousEffectiveVersionException;
 use App\Domain\TaxKnowledge\Exceptions\NoEffectiveVersionFoundException;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterDefinition;
@@ -25,7 +26,9 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * the part the value belongs to is read — "Titlul V Capitolul III", compared as whole words of the
  * table of contents, so Chapter II is never Chapter III — and a paragraph says the value when its
  * text, as a search reads it, holds the phrase with the value in it: "cota de contributie … este de
- * 10". A threshold of several numbers is each number looked for.
+ * 10". A threshold of several numbers is each number looked for — and where the lettered points of
+ * one paragraph say them between them, "lit. a) … 12 salarii", "lit. b) … 24 de salarii", the
+ * paragraph they stand under is the one that says it.
  *
  * The law in force on a day is its consolidation of that day — with every provision whose wording
  * the portal's note dates from before it ({@see \App\Domain\TaxKnowledge\Services\BuildSectionHistory})
@@ -38,7 +41,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  */
 final class LawMatcher
 {
-    /** @var array<string, list<array{id: string, citation: string, text: string, path: string}>> version id => its provisions, in reading order */
+    /** @var array<string, list<array{id: string, parent_id: string|null, point: bool, citation: string, text: string, path: string}>> version id => its provisions, in reading order */
     private array $provisions = [];
 
     private ?string $lawId = null;
@@ -79,8 +82,9 @@ final class LawMatcher
         }
 
         $found = [];
+        $inForce = $this->inForce($lawId, $version->id, $on);
 
-        foreach ($this->inForce($lawId, $version->id, $on) as $provision) {
+        foreach ($inForce as $provision) {
             if ($provision['path'] !== $within && ! str_starts_with($provision['path'], $within . ' ')) {
                 continue;
             }
@@ -92,7 +96,55 @@ final class LawMatcher
             }
         }
 
-        return $found;
+        return $this->pointsAsTheirParagraph($found, $values, array_column($inForce, null, 'id'));
+    }
+
+    /**
+     * Lettered points of one paragraph that say a threshold's numbers between them — two or more of
+     * them — as the paragraph they stand under, in the place of the first of them.
+     *
+     * @param  list<LawMatch>  $found
+     * @param  list<int>  $values
+     * @param  array<string, array{id: string, parent_id: string|null, point: bool, citation: string, text: string, path: string, version: string, dated_by_note: string|null}>  $provisions  by id
+     * @return list<LawMatch>
+     */
+    private function pointsAsTheirParagraph(array $found, array $values, array $provisions): array
+    {
+        $parentOf = static function (LawMatch $match) use ($provisions): ?string {
+            $provision = $provisions[$match->sectionId] ?? null;
+
+            return $provision !== null && $provision['point'] ? $provision['parent_id'] : null;
+        };
+
+        $points = [];
+
+        foreach ($found as $match) {
+            $parent = $parentOf($match);
+
+            if ($parent !== null) {
+                $points[$parent][] = $match->says;
+            }
+        }
+
+        $foundIds = array_map(static fn (LawMatch $match): string => $match->sectionId, $found);
+        $joined = array_filter($points, static fn (array $says, string $parent): bool => isset($provisions[$parent])
+            && ! in_array($parent, $foundIds, true)
+            && count($says) > 1
+            && array_diff($values, array_merge(...$says)) === [], ARRAY_FILTER_USE_BOTH);
+        $read = [];
+
+        foreach ($found as $match) {
+            $parent = $parentOf($match);
+
+            if ($parent === null || ! isset($joined[$parent])) {
+                $read[] = $match;
+            } elseif (! isset($read[$parent])) {
+                $paragraph = $provisions[$parent];
+                $read[$parent] = new LawMatch($paragraph['id'], $paragraph['citation'], $paragraph['version'], $values, $paragraph['dated_by_note']);
+            }
+        }
+
+        return array_values($read);
     }
 
     /**
@@ -100,7 +152,7 @@ final class LawMatcher
      * wording the portal's note dates from before it where one covers the day, then those the note
      * dates in that the consolidation does not have at all.
      *
-     * @return list<array{id: string, citation: string, text: string, path: string, version: string, dated_by_note: string|null}>
+     * @return list<array{id: string, parent_id: string|null, point: bool, citation: string, text: string, path: string, version: string, dated_by_note: string|null}>
      */
     private function inForce(string $lawId, string $versionId, DateTimeImmutable $on): array
     {
@@ -150,7 +202,7 @@ final class LawMatcher
         return [...$read, ...array_values($replacing)];
     }
 
-    /** @return array<string, array{id: string, citation: string, text: string, path: string}> a version's provisions by id */
+    /** @return array<string, array{id: string, parent_id: string|null, point: bool, citation: string, text: string, path: string}> a version's provisions by id */
     private function indexed(string $versionId): array
     {
         return array_column($this->provisions($versionId), null, 'id');
@@ -169,7 +221,7 @@ final class LawMatcher
     /**
      * Every provision of a version with the heading its article stands under, as a search reads both.
      *
-     * @return list<array{id: string, citation: string, text: string, path: string}>
+     * @return list<array{id: string, parent_id: string|null, point: bool, citation: string, text: string, path: string}>
      */
     private function provisions(string $versionId): array
     {
@@ -181,7 +233,7 @@ final class LawMatcher
         $sections = SourceSection::query()
             ->where('document_version_id', $versionId)
             ->orderBy('ordinal')
-            ->get(['id', 'parent_id', 'outline_id', 'citation_label', 'text', 'tables']);
+            ->get(['id', 'parent_id', 'outline_id', 'section_type', 'citation_label', 'text', 'tables']);
 
         $children = [];
 
@@ -191,7 +243,14 @@ final class LawMatcher
 
         $ordered = [];
         $walk = static function (SourceSection $section, string $path) use (&$walk, &$ordered, $children): void {
-            $ordered[] = ['id' => $section->id, 'citation' => $section->citation_label, 'text' => SectionText::searchable($section->fullText()), 'path' => $path];
+            $ordered[] = [
+                'id' => $section->id,
+                'parent_id' => $section->parent_id,
+                'point' => in_array($section->section_type, [SectionType::LITERA, SectionType::PUNCT], true),
+                'citation' => $section->citation_label,
+                'text' => SectionText::searchable($section->fullText()),
+                'path' => $path,
+            ];
 
             foreach ($children[$section->id] ?? [] as $child) {
                 $walk($child, $path);
