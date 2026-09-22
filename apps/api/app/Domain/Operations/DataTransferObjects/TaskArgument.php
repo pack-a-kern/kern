@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Config;
  * case:
  *
  *  - `integer` is bounded by a declared range;
- *  - `choice` is a closed set of values;
+ *  - `choice` is a closed set of values, and may be optional;
  *  - `date` is a calendar date, `YYYY-MM-DD`, and may be left out.
  *
  * `commandKey` exists because an artisan option is addressed as `--type` while a form field cannot
@@ -74,9 +74,9 @@ final readonly class TaskArgument
     /**
      * @param  list<string>  $options
      */
-    public static function choice(string $name, string $commandKey, array $options): self
+    public static function choice(string $name, string $commandKey, array $options, bool $required = true): self
     {
-        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_CHOICE, options: $options);
+        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_CHOICE, options: $options, required: $required);
     }
 
 
@@ -89,10 +89,25 @@ final readonly class TaskArgument
     {
         $types = Config::get('operations.legislation.document_types');
 
-        return self::choice($name, $commandKey, array_values(array_filter(
-            is_array($types) ? $types : [],
-            static fn (mixed $type): bool => is_string($type) && $type !== '',
-        )));
+        return self::choice($name, $commandKey, self::strings($types));
+    }
+
+    /**
+     * The issuers `config/operations.php` offers, for telling apart acts that share a type and a
+     * number in one year. Optional: most acts are the only one of their kind.
+     */
+    public static function issuer(string $name, string $commandKey): self
+    {
+        return self::choice($name, $commandKey, self::strings(Config::get('operations.legislation.issuers')), required: false);
+    }
+
+    /** @return list<string> */
+    private static function strings(mixed $values): array
+    {
+        return array_values(array_filter(
+            is_array($values) ? $values : [],
+            static fn (mixed $value): bool => is_string($value) && $value !== '',
+        ));
     }
 
 

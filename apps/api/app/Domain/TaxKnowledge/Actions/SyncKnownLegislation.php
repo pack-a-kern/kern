@@ -51,6 +51,8 @@ final readonly class SyncKnownLegislation
                 (int) $document->act_number,
                 (int) $document->act_date?->format('Y'),
                 $dates === [] ? null : new DateTimeImmutable(min($dates)),
+                // Only compared when the act's number is shared that year; see PortalSearch::find().
+                $document->issuer,
             );
         }
 

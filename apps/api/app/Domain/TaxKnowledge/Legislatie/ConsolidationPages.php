@@ -18,10 +18,17 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * Followed exactly as a reader clicks through them, checked against the Codul fiscal on 2026-09-22:
  *
  *  1. The act's own page, in its base form (`?isFormaDeBaza=True&rep=True`) — `DetaliiDocument/171280`.
- *     It links to the consolidated form, `DetaliiDocumentAfis/171282`.
+ *     It links to the consolidated form, `DetaliiDocumentAfis/171282`, from the one reference the
+ *     portal puts in the form's own box: `div#div_Formaconsolidata span.S_REF a`.
  *  2. The consolidated form. Its "istoric consolidări" list (`div#istoric_fa`) holds one link per
  *     consolidation, titled "Consolidarea din 08.08.2026" and pointing at that consolidation's own
  *     page, `DetaliiDocument/312601`. The Codul fiscal has 91.
+ *
+ * An act never amended has no consolidated form: its page holds its whole text, and that text is its
+ * only version (the government's decision setting the minimum wage, `HOTĂRÂRE nr. 1.506/2024`,
+ * checked on 2026-09-22). Every other `DetaliiDocumentAfis` link on such a page is an act it cites —
+ * "În temeiul art. 108 din Constituția României" — never its own form, so only the reference in the
+ * form's box is followed.
  *
  * Nothing is inferred from the law's text: the dates are the portal's own, from the list's titles.
  */
@@ -33,6 +40,9 @@ final readonly class ConsolidationPages
 
     private const string CONSOLIDATED_FORM_PATH = '~/Public/DetaliiDocumentAfis/(\d+)~';
 
+    /** The act's own reference to its consolidated form — the only link that is not a citation. */
+    private const string OWN_FORM_REFERENCE = '//*[@id="div_Formaconsolidata"]//span[contains(concat(" ", normalize-space(@class), " "), " S_REF ")]//a[@href]';
+
     private const string DOCUMENT_PATH = '~/Public/DetaliiDocument(?:Afis)?/(\d+)~';
 
     public function __construct(
@@ -41,18 +51,28 @@ final readonly class ConsolidationPages
     ) {
     }
 
-    /** The consolidated form's address, from the act's link as the web service gives it. */
-    public function consolidatedFormUrl(string $actLink): string
+    /**
+     * The consolidated form's address, from the act's link as the web service gives it — or null for
+     * an act that has none, never amended, whose own page is its one version.
+     */
+    public function consolidatedFormUrl(string $actLink): ?string
     {
-        $basePage = $this->portalUrl($actLink) . '?isFormaDeBaza=True&rep=True';
+        $basePage = $this->actPageUrl($actLink) . '?isFormaDeBaza=True&rep=True';
+        $xpath = new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $basePage)->body));
 
-        foreach ($this->links($this->fetcher->fetch(self::SOURCE, $basePage)->body) as $href) {
-            if (preg_match(self::CONSOLIDATED_FORM_PATH, $href, $match) === 1) {
+        foreach ($xpath->query(self::OWN_FORM_REFERENCE) ?: [] as $anchor) {
+            if ($anchor instanceof DOMElement && preg_match(self::CONSOLIDATED_FORM_PATH, $anchor->getAttribute('href'), $match) === 1) {
                 return $this->portalUrl('/Public/DetaliiDocumentAfis/' . $match[1]);
             }
         }
 
-        throw PortalAnswerException::noConsolidatedForm($basePage);
+        return null;
+    }
+
+    /** The act's own page on the portal: its text as it stands, for an act never consolidated. */
+    public function actPageUrl(string $actLink): string
+    {
+        return $this->portalUrl($actLink);
     }
 
     /**
@@ -114,20 +134,6 @@ final readonly class ConsolidationPages
         $path = preg_match('~(/Public/[^?#\s]+)~', $href, $match) === 1 ? $match[1] : $href;
 
         return rtrim($this->config->string('sources.entries.' . self::SOURCE . '.base_url'), '/') . $path;
-    }
-
-    /** @return list<string> */
-    private function links(string $html): array
-    {
-        $links = [];
-
-        foreach ((new DOMXPath($this->load($html)))->query('//a[@href]') ?: [] as $anchor) {
-            if ($anchor instanceof DOMElement) {
-                $links[] = $anchor->getAttribute('href');
-            }
-        }
-
-        return $links;
     }
 
     private function load(string $html): DOMDocument

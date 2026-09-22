@@ -24,7 +24,8 @@ final class SyncLegislationCommand extends Command
         {type? : The act type, e.g. LEGE, HOTARARE, ORDONANTA — diacritics optional}
         {number? : The act number, e.g. 227}
         {year? : The year of the act, e.g. 2015}
-        {--from= : Read consolidations from this date (YYYY-MM-DD), and the one in force on it}';
+        {--from= : Read consolidations from this date (YYYY-MM-DD), and the one in force on it}
+        {--issuer= : Who issued it, e.g. GUVERNUL — only needed when several acts share its type and number that year}';
 
     /** @var string */
     protected $description = 'Read a law and its consolidations from legislatie.just.ro, or update every law already read.';
@@ -35,6 +36,7 @@ final class SyncLegislationCommand extends Command
         $number = $this->argument('number');
         $year = $this->argument('year');
         $from = $this->option('from');
+        $issuer = $this->option('issuer');
 
         try {
             if ($type === null && $number === null && $year === null) {
@@ -52,7 +54,7 @@ final class SyncLegislationCommand extends Command
                     return self::FAILURE;
                 }
 
-                $started = [$sync($type, (int) $number, (int) $year, $fromDate)];
+                $started = [$sync($type, (int) $number, (int) $year, $fromDate, is_string($issuer) && $issuer !== '' ? $issuer : null)];
             }
         } catch (Throwable $exception) {
             $this->components->error('Legislation sync failed: ' . $exception->getMessage());

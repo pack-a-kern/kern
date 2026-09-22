@@ -43,9 +43,9 @@ beforeEach(function (): void {
     app()->forgetInstance(EmbeddingProvider::class);
 });
 
-function soapAct(string $type, string $number, string $title, string $link): string
+function soapAct(string $type, string $number, string $title, string $link, string $inForce = '2016-01-01'): string
 {
-    return '<a:Legi><a:DataVigoare>2016-01-01</a:DataVigoare><a:Emitent>Parlamentul</a:Emitent>'
+    return "<a:Legi><a:DataVigoare>{$inForce}</a:DataVigoare><a:Emitent>Parlamentul</a:Emitent>"
         . "<a:LinkHtml>{$link}</a:LinkHtml><a:Numar>{$number}</a:Numar><a:Publicatie>Monitorul Oficial</a:Publicatie>"
         . "<a:Text>…</a:Text><a:TipAct>{$type}</a:TipAct><a:Titlu>{$title}</a:Titlu></a:Legi>";
 }
@@ -114,7 +114,12 @@ function portal(array $failing = []): void
         }
 
         if (str_contains($url, '/Public/DetaliiDocument/171280')) {
-            return Http::response('<html><body><a href="~/../../../Public/DetaliiDocumentAfis/171282">COD FISCAL</a></body></html>');
+            // The act's own reference in the form's box — and, before it, a citation of another act,
+            // which is never followed.
+            return Http::response('<html><body><div id="div_Formaconsolidata" class="content_forma_act">'
+                . '<span class="S_PAR">În temeiul <A href="~/../../../Public/DetaliiDocumentAfis/47355">art. 108 din Constituția României</A></span>'
+                . '<span class="S_PAR"><span class="S_REF"><A href="~/../../../Public/DetaliiDocumentAfis/171282">COD FISCAL 08/09/2015</A></span></span>'
+                . '</div></body></html>');
         }
 
         if (str_contains($url, '/Public/DetaliiDocumentAfis/171282')) {
@@ -302,4 +307,59 @@ it('drops a version an interrupted read left behind', function (): void {
 
     expect(SourceDocumentVersion::query()->whereKey($orphan->id)->exists())->toBeFalse()
         ->and(SourceDocumentVersion::query()->where('source_document_id', $law->id)->count())->toBe(3);
+});
+
+/**
+ * A government decision never amended, as the portal serves the one setting the 2021 minimum wage:
+ * its page is its text, citing other acts, with no consolidated form — and its number shared that
+ * year with a council's decision.
+ */
+function governmentDecisionPortal(): void
+{
+    Http::fake(static function (HttpRequest $request) {
+        $url = $request->url();
+
+        if (str_contains($url, '/apiws/')) {
+            if (str_contains($request->header('SOAPAction')[0] ?? '', 'GetToken')) {
+                return Http::response(soapEnvelope('<GetTokenResponse xmlns="http://tempuri.org/"><GetTokenResult>token-1</GetTokenResult></GetTokenResponse>'));
+            }
+
+            $acts = str_contains($request->body(), '<fws:NumarPagina>0</fws:NumarPagina>')
+                ? soapAct('HOTĂRÂRE', '4', 'HOTĂRÂRE nr. 4 din 7 ianuarie 2021 privind aprobarea bugetului EMITENT: CONSILIUL LOCAL AL MUNICIPIULUI TEST PUBLICAT ÎN: MONITORUL OFICIAL nr. 30 din 11 ianuarie 2021', 'http://legislatie.just.ro/Public/DetaliiDocument/236000', '2021-01-11')
+                    . soapAct('HOTĂRÂRE', '4', 'HOTĂRÂRE nr. 4 din 13 ianuarie 2021 pentru stabilirea salariului de bază minim brut pe ţară garantat în plată EMITENT: GUVERNUL PUBLICAT ÎN: MONITORUL OFICIAL nr. 40 din 13 ianuarie 2021', 'http://legislatie.just.ro/Public/DetaliiDocument/236118', '2021-01-13')
+                : '';
+
+            return Http::response(soapEnvelope('<SearchResponse xmlns="http://tempuri.org/"><SearchResult xmlns:a="http://schemas.datacontract.org/2004/07/FreeWebService">' . $acts . '</SearchResult></SearchResponse>'));
+        }
+
+        if (str_contains($url, '/Public/DetaliiDocument/236118')) {
+            return Http::response('<html><body><div id="div_Formaconsolidata" class="content_forma_act">'
+                . '<span class="S_PAR">În temeiul <A href="~/../../../Public/DetaliiDocumentAfis/47355">art. 108 din Constituția României</A>,</span>'
+                . '<span class="S_ART"><span class="S_ART_TTL">Articolul 1</span><span class="S_ART_BDY"><span class="S_PAR">Începând cu data de 14 ianuarie 2021, salariul de bază minim brut pe țară garantat în plată se stabilește la suma de 2.300 lei lunar.</span></span></span>'
+                . '</div></body></html>');
+        }
+
+        return Http::response('', 404);
+    });
+}
+
+it('reads an act never amended as its one version, never following the acts it cites', function (): void {
+    governmentDecisionPortal();
+
+    $started = app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, issuer: 'Guvernul');
+    $decision = SourceDocument::query()->where('external_identifier', 'HOTARARE 4/2021')->sole();
+    $version = SourceDocumentVersion::query()->where('source_document_id', $decision->id)->sole();
+
+    expect([$started->listed, $started->toRead])->toBe([1, 1])
+        ->and($decision->issuer)->toBe('GUVERNUL')
+        ->and($decision->canonical_url)->toEndWith('/Public/DetaliiDocument/236118')
+        ->and([$version->consolidation_ref, $version->effective_from?->format('Y-m-d'), $version->effective_until])->toBe(['236118', '2021-01-13', null])
+        ->and($version->sections()->where('citation_label', 'Art. 1')->sole()->text)->toContain('2.300 lei lunar');
+});
+
+it('tells apart acts sharing a number by their issuer, and refuses without one', function (): void {
+    governmentDecisionPortal();
+
+    expect(fn () => app(SyncLegislationDocument::class)('HOTARARE', 4, 2021))->toThrow(PortalAnswerException::class)
+        ->and(SourceDocument::query()->count())->toBe(0);
 });

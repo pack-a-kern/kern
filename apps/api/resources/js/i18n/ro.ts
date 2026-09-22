@@ -1945,6 +1945,7 @@ export const ro = {
                     act_number: 'Numărul actului',
                     act_year: 'Anul actului',
                     from: 'Consolidări de la',
+                    issuer: 'Emitent — doar dacă mai multe acte au același număr',
                 },
                 argumentRange: 'Între {min} și {max}.',
                 argumentDateHint: 'Opțional. Gol citește toate consolidările.',

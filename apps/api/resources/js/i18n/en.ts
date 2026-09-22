@@ -1930,6 +1930,7 @@ export const en = {
                     act_number: 'Act number',
                     act_year: 'Year of the act',
                     from: 'Consolidations from',
+                    issuer: 'Issuer — only if several acts share the number',
                 },
                 argumentRange: 'Between {min} and {max}.',
                 argumentDateHint: 'Optional. Empty reads every consolidation.',

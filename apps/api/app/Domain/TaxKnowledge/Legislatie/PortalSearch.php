@@ -21,7 +21,9 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  *
  * A search by year and number answers with every act of that number that year — a decree, a
  * decision, a law — so {@see find()} keeps the one whose type matches, compared without diacritics,
- * and refuses rather than guesses when that is not exactly one.
+ * and refuses rather than guesses when that is not exactly one. A type is not always enough: "HOTĂRÂRE
+ * nr. 4/2021" is the Government's and ten councils' and courts'. Where several remain, the issuer
+ * named picks one; it is never needed, and so never compared, when the type alone is enough.
  */
 final readonly class PortalSearch
 {
@@ -43,7 +45,7 @@ final readonly class PortalSearch
     ) {
     }
 
-    public function find(string $type, int $number, int $year): PortalAct
+    public function find(string $type, int $number, int $year, ?string $issuer = null): PortalAct
     {
         $token = $this->token();
         $wanted = PortalAct::key($type);
@@ -61,6 +63,10 @@ final readonly class PortalSearch
                     $found[$act->link] = $act;
                 }
             }
+        }
+
+        if (count($found) > 1 && $issuer !== null) {
+            $found = array_filter($found, static fn (PortalAct $act): bool => $act->issuer !== null && PortalAct::key($act->issuer) === PortalAct::key($issuer));
         }
 
         if (count($found) !== 1) {

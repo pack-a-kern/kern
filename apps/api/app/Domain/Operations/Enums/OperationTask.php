@@ -112,6 +112,7 @@ enum OperationTask: string
                 TaskArgument::integer('act_number', 'number', 1, 99_999),
                 TaskArgument::integer('act_year', 'year', config()->integer('legislation.form.min_year'), (int) date('Y')),
                 TaskArgument::date('from', '--from'),
+                TaskArgument::issuer('issuer', '--issuer'),
             ],
             default => [],
         };

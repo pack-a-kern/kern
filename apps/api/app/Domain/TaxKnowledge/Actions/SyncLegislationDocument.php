@@ -8,6 +8,7 @@ use App\Domain\TaxKnowledge\DataTransferObjects\LegislationSyncStarted;
 use App\Domain\TaxKnowledge\Jobs\ReadNextConsolidation;
 use App\Domain\TaxKnowledge\Legislatie\Consolidation;
 use App\Domain\TaxKnowledge\Legislatie\ConsolidationPages;
+use App\Domain\TaxKnowledge\Legislatie\Exceptions\PortalAnswerException;
 use App\Domain\TaxKnowledge\Legislatie\PortalAct;
 use App\Domain\TaxKnowledge\Legislatie\PortalSearch;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
@@ -20,7 +21,9 @@ use DateTimeImmutable;
  * and year, never by an address typed in.
  *
  * Here, only the looking — the web service finds the act, its page leads to the consolidated form,
- * and that lists the consolidations with their dates. The act's description and that list are saved
+ * and that lists the consolidations with their dates. An act never amended has none: its own page is
+ * its one version, in force from the date the portal gives — the decisions setting the minimum wage
+ * are all of this kind. The act's description and that list are saved
  * on the document, and reading the consolidations is queued: one job each
  * ({@see ReadNextConsolidation}), because the Codul fiscal is ninety of them at 5 MB apiece.
  *
@@ -28,7 +31,8 @@ use DateTimeImmutable;
  * id and never downloaded twice; one that failed last time is tried again.
  *
  * `$from` narrows the range: only consolidations from that date, and the one in force on it — the
- * text that applied on `$from` began earlier.
+ * text that applied on `$from` began earlier. `$issuer` tells apart acts of one type and number that
+ * year, when there are several — see {@see PortalSearch::find()}.
  */
 final readonly class SyncLegislationDocument
 {
@@ -41,11 +45,17 @@ final readonly class SyncLegislationDocument
     ) {
     }
 
-    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null): LegislationSyncStarted
+    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $issuer = null): LegislationSyncStarted
     {
-        $act = $this->search->find($type, $number, $year);
+        $act = $this->search->find($type, $number, $year, $issuer);
         $consolidatedForm = $this->pages->consolidatedFormUrl($act->link);
-        $listed = self::inRange($this->pages->consolidations($consolidatedForm), $from);
+
+        if ($consolidatedForm === null) {
+            $consolidatedForm = $this->pages->actPageUrl($act->link);
+            $listed = [$this->onlyVersion($act, $consolidatedForm)];
+        } else {
+            $listed = self::inRange($this->pages->consolidations($consolidatedForm), $from);
+        }
 
         $document = SourceDocument::query()->firstOrCreate(
             [
@@ -95,6 +105,18 @@ final readonly class SyncLegislationDocument
             listed: count($listed),
             toRead: count($list) - $stored,
         );
+    }
+
+    /** An act never consolidated: its own page, as it stands, from the day it came into force. */
+    private function onlyVersion(PortalAct $act, string $page): Consolidation
+    {
+        $ref = ConsolidationPages::documentId($page);
+
+        if ($act->inForceFrom === null || $ref === null) {
+            throw PortalAnswerException::noInForceDate($page);
+        }
+
+        return new Consolidation($act->inForceFrom, $ref, $page);
     }
 
     /** How an act is filed: `LEGE 227/2015`. */

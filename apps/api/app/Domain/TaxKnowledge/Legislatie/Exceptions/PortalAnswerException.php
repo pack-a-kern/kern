@@ -29,9 +29,9 @@ final class PortalAnswerException extends RuntimeException
         return new self("The portal lists {$found} acts {$type} {$number}/{$year}, where exactly one was expected.");
     }
 
-    public static function noConsolidatedForm(string $url): self
+    public static function noInForceDate(string $url): self
     {
-        return new self("The act's page at {$url} links to no consolidated form.");
+        return new self("The act at {$url} has no consolidations, and the portal gives no date it came into force.");
     }
 
     public static function noConsolidations(string $url): self
