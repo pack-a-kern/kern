@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Jobs;
 
 use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
+use App\Domain\TaxKnowledge\FiscalParameters\Jobs\ReadMinimumWages;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
+use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Domain\TaxKnowledge\Services\BuildSectionHistory;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -90,5 +92,11 @@ final class FinishLegislationSync implements ShouldQueue
         $document->forceFill(['last_synced_at' => now('UTC')])->save();
 
         EmbedLegislationChunks::dispatch();
+
+        // A decision setting the minimum wage: its value proposed as soon as it is read.
+        if ($document->document_type === config()->string('fiscal_parameters.minimum_wage.document_type')
+            && str_contains(SectionText::searchable($document->title ?? ''), config()->string('fiscal_parameters.minimum_wage.title'))) {
+            ReadMinimumWages::dispatch();
+        }
     }
 }

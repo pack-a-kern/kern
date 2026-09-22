@@ -1539,7 +1539,57 @@ export interface Dictionary {
                 neverFetched: string;
             };
         };
-        adminParameters: { title: string; description: string; blockedOn: string };
+        adminParameters: {
+            title: string;
+            description: string;
+            /** Per parameter code — `RO.CASS.RATE`; one missing shows the code. */
+            names: Record<string, string | undefined>;
+            /** `{count}` minimum wages, "6 / 12 / 24". */
+            wages: string;
+            /** `{from}`, and `{until}` when it has an end. */
+            periodOpen: string;
+            periodClosed: string;
+            statuses: { CANDIDATE: string; APPROVED: string; REJECTED: string };
+            /** Per check kind, its detail filled in by name — `{form_wage}`, `{year}`. */
+            checks: Record<string, string | undefined>;
+            valuesTitle: string;
+            valuesHint: string;
+            parameter: string;
+            /** Beside a value that has a warning to read. */
+            look: string;
+            empty: string;
+            forbidden: string;
+            failed: string;
+            read: string;
+            readStarted: string;
+            readBusy: string;
+            newYear: string;
+            newYearHint: string;
+            year: string;
+            propose: string;
+            /** `{count}` values proposed. */
+            yearStarted: string;
+            readFrom: string;
+            /** `{form}` file for `{year}`. */
+            formFile: string;
+            /** Proposed from `{year}`'s approved value. */
+            carried: string;
+            inLaw: string;
+            inLawHint: string;
+            openLaw: string;
+            approve: string;
+            reject: string;
+            close: string;
+            approved: string;
+            rejected: string;
+            notInLawTitle: string;
+            notInLawHint: string;
+            notInLawNone: string;
+            formsTitle: string;
+            formsHint: string;
+            /** `{date}` the file was read. */
+            readAt: string;
+        };
         adminUsers: {
             title: string;
             description: string;

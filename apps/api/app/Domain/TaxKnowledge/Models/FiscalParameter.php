@@ -12,8 +12,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * `fiscal_parameters` — skeleton (`BLUEPRINT.md` §6.8). See that migration's docblock: nothing
- * populates this table yet (Milestone 4), no `TaxRule` reads it yet (Milestone 5).
+ * `fiscal_parameters` (`BLUEPRINT.md` §6.8) — one row per value a tax is computed from, made the
+ * first time it is read (`App\Domain\TaxKnowledge\FiscalParameters`); its values, period by
+ * period, are its {@see FiscalParameterVersion}s.
  *
  * @property string $id
  * @property string $code

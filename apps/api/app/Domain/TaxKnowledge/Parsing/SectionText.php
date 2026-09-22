@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\Parsing;
 
+use Illuminate\Support\Str;
 use Normalizer;
 
 /**
@@ -35,6 +36,9 @@ final class SectionText
 
     /** Where an amendment note opens: `(la 01-01-2025,`. */
     private const string NOTE_OPENING = '/\(la (\d{2})-(\d{2})-(\d{4}),/u';
+
+    /** A word, or a number with its decimal and thousands marks and its `^1` — the unit both readings keep. */
+    private const string TOKEN = '/\d+(?:[.,]\d+)*(?:\^\d+)?|\p{L}+/u';
 
     /** The two spellings Romanian text is found in, cedilla and comma below, read as one. */
     private const array SAME_LETTER = ['ş' => 'ș', 'Ş' => 'Ș', 'ţ' => 'ț', 'Ţ' => 'Ț'];
@@ -100,12 +104,25 @@ final class SectionText
         $plain = Normalizer::normalize(self::withoutNotes($text), Normalizer::FORM_C);
         $plain = mb_strtolower(strtr(is_string($plain) ? $plain : $text, self::SAME_LETTER));
 
-        preg_match_all('/\d+(?:[.,]\d+)*(?:\^\d+)?|\p{L}+/u', $plain, $tokens);
+        preg_match_all(self::TOKEN, $plain, $tokens);
 
         return hash('sha256', implode(' ', array_map(
             static fn (string $token): string => str_replace(',', '.', $token),
             $tokens[0],
         )));
+    }
+
+    /**
+     * The text as a search compares it: its words and numbers, lower case, without diacritics, one
+     * space apart — "Cota de contribuţie … este de 10%" reads "cota de contributie este de 10". What
+     * a phrase to look for is written in (`config/fiscal_parameters.php`), so it matches however the
+     * portal spelled the letters, broke the lines or placed the punctuation.
+     */
+    public static function searchable(string $text): string
+    {
+        preg_match_all(self::TOKEN, Str::lower(Str::ascii($text)), $tokens);
+
+        return implode(' ', $tokens[0]);
     }
 
     /** The text without its amendment notes — each note removed up to its own closing bracket. */

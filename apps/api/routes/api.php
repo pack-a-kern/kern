@@ -40,6 +40,10 @@ use App\Http\Controllers\Api\V1\Documents\ShowDocumentController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
 use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
+use App\Http\Controllers\Api\V1\FiscalParameters\ApproveFiscalParameterVersionController;
+use App\Http\Controllers\Api\V1\FiscalParameters\RejectFiscalParameterVersionController;
+use App\Http\Controllers\Api\V1\FiscalParameters\ShowFiscalParameterBoardController;
+use App\Http\Controllers\Api\V1\FiscalParameters\StartFiscalYearController;
 use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Legislation\SearchPortalController;
@@ -381,6 +385,19 @@ Route::get('v1/legislation/search', SearchLegislationController::class)->middlew
 
 // The laws read, each with its consolidations, its text on a date and a provision's history — the
 // same public law, behind the same authentication and for the same reason.
+// The values a tax is computed from, as read from the official texts: seen by those who may view
+// them, decided — approved, rejected, a new year proposed — by those who may approve them. Reading
+// them is the `fiscal.parameters.read` task, run through the operations routes.
+Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
+    Route::get('/', ShowFiscalParameterBoardController::class)->middleware('permission:fiscal.parameters.view');
+
+    Route::middleware('permission:fiscal.parameters.approve')->group(function (): void {
+        Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');
+        Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
+        Route::post('years', StartFiscalYearController::class);
+    });
+});
+
 // Finding an act on the portal to read it: a search that reaches out to legislatie.just.ro, so for
 // the same people who may start reading one.
 Route::get('v1/legislation/portal', SearchPortalController::class)->middleware(['auth:web', 'permission:operations.run']);

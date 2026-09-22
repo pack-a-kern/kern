@@ -19,22 +19,46 @@ use App\Domain\TaxKnowledge\Exceptions\AgentApprovalNotPermittedException;
  * {@see \App\Domain\TaxKnowledge\Models\TaxRuleVersion} because the invariant is identical, stable
  * domain knowledge (`docs/CODE-QUALITY.md` §1), not incidental similarity.
  *
- * This makes `APPROVED` **unreachable from this module's application code entirely** — there is
- * no escape hatch, because no human-review workflow exists yet to need one (see
- * `docs/handoff/018-legislation-ingestion.md` "Open questions" for how a future one might grant
- * itself a narrower, audited exception).
+ * The one way a row becomes `APPROVED` is {@see savedAsApprovedByPerson()}, through the model's own
+ * `approveByPerson()`: it names the person, and only the save it makes is let through. Its one
+ * caller is
+ * `App\Domain\TaxKnowledge\FiscalParameters\Actions\ApproveFiscalParameterVersion`, reached only
+ * from an authenticated request holding `fiscal.parameters.approve` — never from a job, a command or
+ * a model's output. The database refuses an `APPROVED` row that names no one.
  */
 trait ForbidsAgentApproval
 {
+    /** The row a person is approving right now — the only one the listener lets through as `APPROVED`. */
+    private static ?string $approvingByPerson = null;
+
     protected static function bootForbidsAgentApproval(): void
     {
         static::saving(function (self $model): void {
             /** @var RuleApprovalStatus|string|null $status */
             $status = $model->getAttribute('status');
+            $approved = $status === RuleApprovalStatus::APPROVED || $status === RuleApprovalStatus::APPROVED->value;
 
-            if ($status === RuleApprovalStatus::APPROVED || $status === RuleApprovalStatus::APPROVED->value) {
+            if ($approved && (self::$approvingByPerson === null || self::$approvingByPerson !== $model->getKey())) {
                 throw AgentApprovalNotPermittedException::forModel(static::class);
             }
         });
+    }
+
+    /**
+     * Saves this row as `APPROVED` with the attributes that name who decided it — the one save the
+     * listener lets through, and only for this row.
+     *
+     * @param  array<string, mixed>  $decidedBy  the model's own columns for who approved it, and when
+     */
+    protected function savedAsApprovedByPerson(array $decidedBy): void
+    {
+        $key = $this->getKey();
+        self::$approvingByPerson = is_string($key) ? $key : null;
+
+        try {
+            $this->forceFill(['status' => RuleApprovalStatus::APPROVED->value, ...$decidedBy])->save();
+        } finally {
+            self::$approvingByPerson = null;
+        }
     }
 }

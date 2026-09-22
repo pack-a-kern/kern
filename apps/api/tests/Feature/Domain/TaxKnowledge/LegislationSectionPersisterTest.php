@@ -135,3 +135,20 @@ it('stores a provision\'s notes beside it, with the dates they give, and never i
         ->and($section->notes[0]['text'] ?? null)->toBe($note)
         ->and($section->notes[0]['applies'][0]['from'] ?? null)->toBe('2026-01-01');
 });
+
+it('keeps each provision\'s id when the same version is read again, and drops only what is gone', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+
+    app(LegislationSectionPersister::class)->persist($version->id, syntheticParsedDocument());
+    $before = SourceSection::query()->pluck('id', 'citation_label')->all();
+
+    // Read again, the letter gone: the article and paragraph keep their ids, updated in place.
+    $alineat = new ParsedSection(SectionType::ALINEAT, '(1)', 'Art. 1 alin. (1)', 1, 'SYNTHETIC: alineat text, reworded', []);
+    $article = new ParsedSection(SectionType::ARTICOL, 'Articolul 1', 'Art. 1', 1, 'SYNTHETIC: article heading', [$alineat]);
+    app(LegislationSectionPersister::class)->persist($version->id, new ParsedLegislationDocument(null, [$article]));
+
+    $after = SourceSection::query()->pluck('id', 'citation_label')->all();
+
+    expect($after)->toBe(['Art. 1' => $before['Art. 1'], 'Art. 1 alin. (1)' => $before['Art. 1 alin. (1)']])
+        ->and(SourceSection::query()->whereKey($before['Art. 1 alin. (1)'])->sole()->text)->toBe('SYNTHETIC: alineat text, reworded');
+});

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Identity\Models\User;
 use App\Domain\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
 use App\Domain\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
 use App\Domain\TaxEngine\Exceptions\UnknownFiscalParameterException;
@@ -64,4 +65,26 @@ it('throws when two versions overlap for the same date', function (): void {
 
     expect(fn () => (new EloquentFiscalParameterProvider())->versionInForceOn('RO.TEST.OVERLAP_PARAM', new DateTimeImmutable('2026-07-01')))
         ->toThrow(AmbiguousFiscalParameterVersionException::class);
+});
+
+it('answers with the approved value where a candidate was proposed beside it', function (): void {
+    bootstrapIdentityCryptoForTests();
+    $parameter = FiscalParameter::factory()->create(['code' => 'RO.TEST.APPROVED_FIRST']);
+    $approved = FiscalParameterVersion::factory()->create([
+        'fiscal_parameter_id' => $parameter->id,
+        'valid_from' => '2026-01-01',
+        'valid_until' => '2026-12-31',
+        'value_json' => ['value' => '0.10'],
+    ]);
+    $approved->approveByPerson(User::factory()->create()->id);
+    FiscalParameterVersion::factory()->create([
+        'fiscal_parameter_id' => $parameter->id,
+        'valid_from' => '2026-01-01',
+        'valid_until' => '2026-12-31',
+        'value_json' => ['value' => '0.12'],
+    ]);
+
+    $resolved = (new EloquentFiscalParameterProvider())->versionInForceOn('RO.TEST.APPROVED_FIRST', new DateTimeImmutable('2026-06-15'));
+
+    expect($resolved->parameterVersionId)->toBe($approved->id);
 });

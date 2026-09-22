@@ -43,3 +43,9 @@ it('writes a table out row by row where its marker stands', function (): void {
     expect(SectionText::withTables("Tabel:\n[[table:1]]\nSfârșit.", [[['a', 'b'], ['1', '2']]]))
         ->toBe("Tabel:\na | b\n1 | 2\nSfârșit.");
 });
+
+it('reads a text as a search compares it: words and numbers, lower case, no diacritics', function (): void {
+    expect(SectionText::searchable("Cota de contribuţie de asigurări sociale de sănătate\neste de 10% și se datorează"))
+        ->toBe('cota de contributie de asigurari sociale de sanatate este de 10 si se datoreaza')
+        ->and(SectionText::searchable('Titlul V Capitolul III Secţiunea a 2-a'))->toBe(SectionText::searchable('TITLUL V CAPITOLUL III SECȚIUNEA A 2-A'));
+});

@@ -24,8 +24,12 @@ use Illuminate\Support\Str;
  * Turns one {@see ParsedLegislationDocument} into persisted `ext_source_sections` rows for a given
  * `ext_source_document_versions` row, and updates that version's parsing bookkeeping columns.
  *
- * **Re-parsing an already-parsed version is supported and safe**: existing sections for that
- * version are deleted and replaced inside one transaction. This is *not* "overwriting a raw
+ * **Re-parsing an already-parsed version is supported and safe**, inside one transaction. A
+ * provision keeps its id across a re-parse — the same version, the same citation — and is updated in
+ * place; only what the new parse no longer has is removed. A fiscal value approved against "Art. 170
+ * alin. (1)" points at that row, so a better parser never cuts the link to the law, and a provision
+ * that vanished while a value still cites it stops the re-parse rather than leaving the value
+ * pointing at nothing. This is *not* "overwriting a raw
  * official source" (`docs/AGENTS.md` rule 17) — the raw bytes in
  * `App\Domain\TaxKnowledge\Storage\RawSourceObjectStore` and the `ext_source_document_versions` row's
  * own identity/hash are never touched; `ext_source_sections` is a derived, recomputable index of that
@@ -90,26 +94,33 @@ final readonly class LegislationSectionPersister
             ];
         }
 
+        $existing = $this->existingIds($version->id);
         $rows = [];
 
         foreach ($parsed->topLevelSections as $section) {
-            $this->collectRows($version->id, null, $section, $rows, $section->outlineIndex === null ? null : $outlineIds[$section->outlineIndex]);
+            $this->collectRows($version->id, null, $section, $rows, $existing, $section->outlineIndex === null ? null : $outlineIds[$section->outlineIndex]);
         }
 
         DB::transaction(function () use ($version, $rows, $outlineRows): void {
-            SourceSection::query()->where('document_version_id', $version->id)->delete();
-            SourceOutlineNode::query()->where('document_version_id', $version->id)->delete();
+            $oldOutline = SourceOutlineNode::query()->where('document_version_id', $version->id)->pluck('id')->all();
 
             foreach (array_chunk($outlineRows, self::INSERT_BATCH) as $batch) {
                 SourceOutlineNode::query()->insert($batch);
             }
 
             // In batches, parents before children: a consolidation of the Codul fiscal is some
-            // 7 000 sections, and a law is ninety consolidations — one insert each would be the
-            // slowest part of reading a law by far.
+            // 7 000 sections, and a law is ninety consolidations — one statement each would be the
+            // slowest part of reading a law by far. A row whose id is kept is updated in place.
             foreach (array_chunk($rows, self::INSERT_BATCH) as $batch) {
-                SourceSection::query()->insert($batch);
+                SourceSection::query()->upsert($batch, ['id'], array_values(array_diff(array_keys($batch[0]), ['id', 'created_at'])));
             }
+
+            // Last, so every kept row already points at its new parent and heading.
+            SourceSection::query()
+                ->where('document_version_id', $version->id)
+                ->whereNotIn('id', array_column($rows, 'id'))
+                ->delete();
+            SourceOutlineNode::query()->whereIn('id', $oldOutline)->delete();
         });
 
         $sectionCount = count($rows);
@@ -134,14 +145,27 @@ final readonly class LegislationSectionPersister
     }
 
     /**
+     * The ids this version's provisions already have, by citation — one each: a citation is unique in
+     * a version (`ext_source_sections_citation_unique`).
+     *
+     * @return array<string, string>
+     */
+    private function existingIds(string $documentVersionId): array
+    {
+        /** @var array<string, string> */
+        return SourceSection::query()->where('document_version_id', $documentVersionId)->pluck('id', 'citation_label')->all();
+    }
+
+    /**
      * One row per section, in reading order — a parent always before its children.
      *
      * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, string>  $existing  ids to keep, by citation
      * @param  string|null  $outlineId  the heading an article or annex stands under
      */
-    private function collectRows(string $documentVersionId, ?string $parentId, ParsedSection $section, array &$rows, ?string $outlineId = null): void
+    private function collectRows(string $documentVersionId, ?string $parentId, ParsedSection $section, array &$rows, array $existing, ?string $outlineId = null): void
     {
-        $id = (string) Str::uuid7();
+        $id = $existing[$section->citationLabel] ?? (string) Str::uuid7();
         $now = now('UTC');
 
         $rows[] = [
@@ -167,7 +191,7 @@ final readonly class LegislationSectionPersister
         ];
 
         foreach ($section->children as $child) {
-            $this->collectRows($documentVersionId, $id, $child, $rows);
+            $this->collectRows($documentVersionId, $id, $child, $rows, $existing);
         }
     }
 

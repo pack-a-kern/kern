@@ -51,6 +51,11 @@ final readonly class EloquentFiscalParameterProvider implements FiscalParameterP
             throw NoFiscalParameterVersionInForceException::forDate($parameterCode, $date);
         }
 
+        // A value a person approved stands over one only proposed for the same day: reading the
+        // sources again proposes candidates beside approved values, and must not make them ambiguous.
+        $approved = $candidates->filter(static fn (FiscalParameterVersion $version): bool => $version->status === RuleApprovalStatus::APPROVED);
+        $candidates = $approved->isEmpty() ? $candidates : $approved;
+
         if ($candidates->count() > 1) {
             /** @var list<string> $ids */
             $ids = $candidates->map(static fn (FiscalParameterVersion $version): string => $version->id)->all();

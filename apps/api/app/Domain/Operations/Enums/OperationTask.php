@@ -68,6 +68,12 @@ enum OperationTask: string
      */
     case BANKS_BACKFILL = 'banks.backfill';
 
+    /**
+     * Read the fiscal values — the minimum-wage decisions and ANAF's D212 structure files — and
+     * propose those the law says, for a person to approve. Started from the tax rules screen.
+     */
+    case FISCAL_PARAMETERS_READ = 'fiscal.parameters.read';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -81,6 +87,7 @@ enum OperationTask: string
             self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
             self::BANKS_IMPORT => 'taxos:banks:import',
             self::BANKS_BACKFILL => 'taxos:banks:backfill',
+            self::FISCAL_PARAMETERS_READ => 'taxos:fiscal-parameters:read',
         };
     }
 
@@ -121,12 +128,13 @@ enum OperationTask: string
 
     /**
      * Whether the Tasks tab offers it. Reading a law is started from the legislation page, where the
-     * act is found first — by its title or its number — and run through this same task, so it keeps
-     * its lock, its audit record and its place in the run history.
+     * act is found first — by its title or its number — and reading the fiscal values from the tax
+     * rules screen, where they are reviewed; both run as these tasks, so they keep their lock, their
+     * audit record and their place in the run history.
      */
     public function isListed(): bool
     {
-        return $this !== self::LEGISLATION_INGEST;
+        return ! in_array($this, [self::LEGISLATION_INGEST, self::FISCAL_PARAMETERS_READ], true);
     }
 
     /**

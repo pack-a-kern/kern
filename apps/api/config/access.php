@@ -43,10 +43,11 @@ return [
         ],
 
         'fiscal' => [
-            // Reserved for the approval flow (BLUEPRINT.md §10.4, two-reviewer approval). Declared
-            // here so the screen shows the intended shape, and marked `enforced => false` below —
-            // the screen must not imply a check that does not exist.
+            // GET /api/v1/fiscal-parameters — the values a tax is computed from, and where each was read.
             'fiscal.parameters.view',
+            // Approving or rejecting a value, and proposing a new year from the last: what every
+            // taxpayer's tax is then computed from. BLUEPRINT.md §10.4 asks for two reviewers in
+            // time; for now one person, named on the row and in the audit chain.
             'fiscal.parameters.approve',
         ],
 
@@ -63,8 +64,6 @@ return [
     // Permissions that nothing checks yet. The Permissions screen renders these greyed with a
     // "not enforced" marker rather than a tick, so the matrix never overstates what is in force.
     'not_enforced' => [
-        'fiscal.parameters.view',
-        'fiscal.parameters.approve',
         'documents.view',
         'documents.decrypt',
         'spv.connect',

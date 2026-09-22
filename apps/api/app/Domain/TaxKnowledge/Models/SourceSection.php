@@ -12,6 +12,7 @@ use Database\Factories\SourceSectionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * `ext_source_sections` — see `2026_09_08_301001_create_source_sections_table.php`'s docblock for the
@@ -84,6 +85,12 @@ final class SourceSection extends Model
         'amended_on' => 'date:Y-m-d',
         'notes' => 'array',
     ];
+
+    /** @return BelongsTo<SourceDocumentVersion, $this> the consolidation it is part of */
+    public function version(): BelongsTo
+    {
+        return $this->belongsTo(SourceDocumentVersion::class, 'document_version_id');
+    }
 
     /** The text with its tables written out row by row — what is searched and quoted. */
     public function fullText(): string

@@ -117,7 +117,14 @@ return static function (DeptracConfig $config): void {
             // requires, just with the dependency direction inverted from ADR 0009: TaxKnowledge
             // depends on TaxEngine's abstractions, never the reverse, so no
             // TaxEngine -> TaxKnowledge grant exists below.
-            Ruleset::forLayer($taxKnowledge)->accesses($support, $taxEngine),
+            //
+            // TaxKnowledge -> Documents: exactly one contract, App\Domain\Documents\Extraction\
+            // TextExtractionGateway (and its result DTOs and exceptions), which
+            // App\Domain\TaxKnowledge\FiscalParameters\Forms\FormStructureSource calls to take the text
+            // of ANAF's D212 structure files — the same PDF service documents use, rather than a
+            // second client for it. TaxKnowledge never touches a document, and Documents never
+            // imports anything from here.
+            Ruleset::forLayer($taxKnowledge)->accesses($support, $taxEngine, $documents),
             // Fx -> TaxKnowledge: App\Domain\Fx\Actions\{ImportBnrDailyRates,BackfillBnrYear} call
             // App\Domain\TaxKnowledge\Services\SourceIngestionService (fetch/store/version the raw
             // BNR XML) and App\Domain\Fx\Services\FxRateQuery and the BNR actions call

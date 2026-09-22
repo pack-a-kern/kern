@@ -54,3 +54,13 @@ export function formatBytes(bytes: number, locale: string): string {
         return String(bytes);
     }
 }
+
+/** An amount in its currency, in the reader's conventions — "4.050 lei", "RON 4,050". */
+export function formatAmount(amount: number, currency: string, locale: string): string {
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+}
+
+/** A rate given as a fraction — `0.1` — as a percent, "10%". */
+export function formatPercent(fraction: number, locale: string): string {
+    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(fraction);
+}

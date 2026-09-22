@@ -235,11 +235,19 @@ function insertApprovedTaxRuleVersion(string $taxRuleId, array $overrides = []):
 }
 
 /**
+ * An approved value names the person who approved it — the database refuses one that does not
+ * (`fiscal_parameter_versions_approved_by_a_person`) — so this one names a user made for it, unless
+ * the test names its own.
+ *
  * @param array<string, mixed> $overrides
  */
 function insertApprovedFiscalParameterVersion(string $fiscalParameterId, string $sourceSectionId, array $overrides = []): string
 {
     $id = (string) Str::uuid7();
+
+    if (! array_key_exists('approved_by', $overrides)) {
+        $overrides['approved_by'] = User::factory()->create()->id;
+    }
 
     DB::table('fiscal_parameter_versions')->insert(array_merge([
         'id' => $id,
@@ -249,7 +257,6 @@ function insertApprovedFiscalParameterVersion(string $fiscalParameterId, string 
         'value_json' => json_encode(['value' => '0.10'], JSON_THROW_ON_ERROR),
         'source_section_id' => $sourceSectionId,
         'status' => 'APPROVED',
-        'approved_by' => null,
         'approved_at' => now('UTC'),
         'created_at' => now('UTC'),
         'updated_at' => now('UTC'),
