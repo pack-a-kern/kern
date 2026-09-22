@@ -94,8 +94,8 @@ final class RunOperationTaskController extends Controller
 
         foreach ($task->arguments() as $argument) {
             $rules[$argument->name] = match ($argument->type) {
-                TaskArgument::TYPE_INTEGER => ['required', 'integer', "min:{$argument->min}", "max:{$argument->max}"],
-                TaskArgument::TYPE_CHOICE => [$argument->required ? 'required' : 'nullable', Rule::in($argument->options)],
+                TaskArgument::TYPE_INTEGER => [$argument->required ? 'required' : 'nullable', 'integer', "min:{$argument->min}", "max:{$argument->max}"],
+                TaskArgument::TYPE_CHOICE => ['required', Rule::in($argument->options)],
                 TaskArgument::TYPE_DATE => [$argument->required ? 'required' : 'nullable', 'date_format:Y-m-d'],
                 default => ['prohibited'],
             };

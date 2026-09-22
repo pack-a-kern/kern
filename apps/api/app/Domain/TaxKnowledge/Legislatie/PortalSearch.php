@@ -22,8 +22,9 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * A search by year and number answers with every act of that number that year — a decree, a
  * decision, a law — so {@see find()} keeps the one whose type matches, compared without diacritics,
  * and refuses rather than guesses when that is not exactly one. A type is not always enough: "HOTĂRÂRE
- * nr. 4/2021" is the Government's and ten councils' and courts'. Where several remain, the issuer
- * named picks one; it is never needed, and so never compared, when the type alone is enough.
+ * nr. 4/2021" is the Government's and ten councils' and courts'. Where several remain, the portal id
+ * a search result carries picks one; it is never needed, and so never compared, when the type is
+ * enough. {@see byNumber()} and {@see byTitle()} are the searches a person picks an act from.
  */
 final readonly class PortalSearch
 {
@@ -36,7 +37,7 @@ final readonly class PortalSearch
     /** Results asked for per page. The service answers ten at most, whatever is asked. */
     private const int PAGE_SIZE = 10;
 
-    /** Pages read before giving up: an act number is shared by a handful of acts a year, not hundreds. */
+    /** Pages read before giving up: an act number is shared by a handful of acts a year, and a title search is read to 200 acts at most. */
     private const int MAX_PAGES = 20;
 
     public function __construct(
@@ -45,28 +46,17 @@ final readonly class PortalSearch
     ) {
     }
 
-    public function find(string $type, int $number, int $year, ?string $issuer = null): PortalAct
+    /**
+     * The one act of this type, number and year — or, where several share them, the one with this
+     * portal id, as a search result names it.
+     */
+    public function find(string $type, int $number, int $year, ?string $portalId = null): PortalAct
     {
-        $token = $this->token();
         $wanted = PortalAct::key($type);
-        $found = [];
+        $found = array_filter($this->byNumber($number, $year), static fn (PortalAct $act): bool => $act->typeKey() === $wanted);
 
-        for ($page = 0; $page < self::MAX_PAGES; $page++) {
-            $acts = $this->searchPage($token, $number, $year, $page);
-
-            if ($acts === []) {
-                break;
-            }
-
-            foreach ($acts as $act) {
-                if ($act->typeKey() === $wanted && $act->number === (string) $number && $act->year() === $year) {
-                    $found[$act->link] = $act;
-                }
-            }
-        }
-
-        if (count($found) > 1 && $issuer !== null) {
-            $found = array_filter($found, static fn (PortalAct $act): bool => $act->issuer !== null && PortalAct::key($act->issuer) === PortalAct::key($issuer));
+        if (count($found) > 1 && $portalId !== null) {
+            $found = array_filter($found, static fn (PortalAct $act): bool => $act->portalId() === $portalId);
         }
 
         if (count($found) !== 1) {
@@ -74,6 +64,37 @@ final readonly class PortalSearch
         }
 
         return array_values($found)[0];
+    }
+
+    /**
+     * Every act numbered so that year, of any type: a decree, a council's decision, a law.
+     *
+     * @return list<PortalAct>
+     */
+    public function byNumber(int $number, int $year): array
+    {
+        return array_values(array_filter(
+            $this->collect(sprintf('<fws:SearchAn>%d</fws:SearchAn><fws:SearchNumar>%d</fws:SearchNumar>', $year, $number)),
+            static fn (PortalAct $act): bool => $act->number === (string) $number && $act->year() === $year,
+        ));
+    }
+
+    /**
+     * The acts whose title holds these words — "salariului de bază minim brut" — newest first as the
+     * portal ranks them, of the given year only if one is given.
+     *
+     * The year is compared here, not asked of the service: its own year field is not the act's year
+     * (asked for 2024, it answers with acts of 2025 and 2026 too). Diacritics are the service's to
+     * match, and it does: "ţară", "țară" and "tara" find the same acts (checked 2026-09-22).
+     *
+     * @return list<PortalAct>
+     */
+    public function byTitle(string $words, ?int $year = null): array
+    {
+        return array_values(array_filter(
+            $this->collect('<fws:SearchTitlu>' . htmlspecialchars($words, ENT_XML1) . '</fws:SearchTitlu>'),
+            static fn (PortalAct $act): bool => $year === null || $act->year() === $year,
+        ));
     }
 
     private function token(): string
@@ -84,27 +105,42 @@ final readonly class PortalSearch
         return is_string($token) && $token !== '' ? $token : throw PortalAnswerException::noToken();
     }
 
-    /** @return list<PortalAct> */
-    private function searchPage(string $token, int $number, int $year, int $page): array
+    /**
+     * Every result for these criteria, page after page, each act once.
+     *
+     * Pages count from 1 — asked for page 0, the service answers with page 1 again. A page that adds
+     * nothing new ends the reading, as an empty one does.
+     *
+     * @return list<PortalAct>
+     */
+    private function collect(string $criteria): array
     {
-        $document = $this->call('Search', sprintf(
-            '<tem:Search><tem:SearchModel><fws:NumarPagina>%d</fws:NumarPagina><fws:RezultatePagina>%d</fws:RezultatePagina>'
-            . '<fws:SearchAn>%d</fws:SearchAn><fws:SearchNumar>%d</fws:SearchNumar></tem:SearchModel>'
-            . '<tem:tokenKey>%s</tem:tokenKey></tem:Search>',
-            $page,
-            self::PAGE_SIZE,
-            $year,
-            $number,
-            htmlspecialchars($token, ENT_XML1),
-        ));
+        $token = $this->token();
+        $found = [];
 
-        $acts = [];
+        for ($page = 1; $page <= self::MAX_PAGES; $page++) {
+            $document = $this->call('Search', sprintf(
+                '<tem:Search><tem:SearchModel><fws:NumarPagina>%d</fws:NumarPagina><fws:RezultatePagina>%d</fws:RezultatePagina>%s</tem:SearchModel>'
+                . '<tem:tokenKey>%s</tem:tokenKey></tem:Search>',
+                $page,
+                self::PAGE_SIZE,
+                $criteria,
+                htmlspecialchars($token, ENT_XML1),
+            ));
 
-        foreach ($document->getElementsByTagNameNS(self::DATA_NAMESPACE, 'Legi') as $entry) {
-            $acts[] = $this->act($entry);
+            $before = count($found);
+
+            foreach ($document->getElementsByTagNameNS(self::DATA_NAMESPACE, 'Legi') as $entry) {
+                $act = $this->act($entry);
+                $found[$act->link] ??= $act;
+            }
+
+            if (count($found) === $before) {
+                break;
+            }
         }
 
-        return $acts;
+        return array_values($found);
     }
 
     private function act(DOMElement $entry): PortalAct

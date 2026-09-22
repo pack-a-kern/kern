@@ -1075,6 +1075,8 @@ export interface Dictionary {
             laws: {
                 title: string;
                 hint: string;
+                /** Opens the dialog that finds an act on the portal. */
+                add: string;
                 /** No law read yet — says where to read one. */
                 empty: string;
                 failed: string;
@@ -1092,6 +1094,33 @@ export interface Dictionary {
                 range: string;
                 lastSynced: string;
                 notSynced: string;
+            };
+            /** Finding an act on legislatie.just.ro and reading it. */
+            add: {
+                title: string;
+                hint: string;
+                by: string;
+                byTitle: string;
+                byNumber: string;
+                words: string;
+                wordsPlaceholder: string;
+                number: string;
+                year: string;
+                yearOptional: string;
+                from: string;
+                fromHint: string;
+                search: string;
+                close: string;
+                none: string;
+                /** `{date}` it came into force. */
+                inForce: string;
+                read: string;
+                open: string;
+                queued: string;
+                notReadable: string;
+                started: string;
+                busy: string;
+                portalDown: string;
             };
             law: {
                 back: string;

@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
 use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
+use App\Http\Controllers\Api\V1\Legislation\SearchPortalController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawOutlineController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawTextController;
@@ -380,6 +381,10 @@ Route::get('v1/legislation/search', SearchLegislationController::class)->middlew
 
 // The laws read, each with its consolidations, its text on a date and a provision's history — the
 // same public law, behind the same authentication and for the same reason.
+// Finding an act on the portal to read it: a search that reaches out to legislatie.just.ro, so for
+// the same people who may start reading one.
+Route::get('v1/legislation/portal', SearchPortalController::class)->middleware(['auth:web', 'permission:operations.run']);
+
 Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListLawsController::class);
     Route::get('{law}', ShowLawController::class)->whereUuid('law');

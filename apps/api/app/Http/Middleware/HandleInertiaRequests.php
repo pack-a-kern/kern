@@ -69,6 +69,9 @@ final class HandleInertiaRequests extends Middleware
                     // Decrypted on read by the model's cast — the column itself is ciphertext.
                     'email' => $user->email_ciphertext,
                     'roles' => $user->getRoleNames()->all(),
+                    // For drawing, never for deciding: a button a person may not use is hidden,
+                    // and every route still checks the permission itself.
+                    'permissions' => $user->getAllPermissions()->pluck('name')->all(),
                 ],
                 // The first page only: a switcher is a shortcut, not a directory. Someone holding
                 // more taxpayers than that manages them on the taxpayers screen, which paginates.

@@ -50,7 +50,7 @@ final class ShowOperationsOverviewController extends Controller
                     $latest[$definition->task->value] ?? null,
                     $runs->isRunning($definition->task),
                 ),
-                $registry->all(),
+                array_values(array_filter($registry->all(), static fn (ScheduledTaskDefinition $definition): bool => $definition->task->isListed())),
             ),
         ]);
     }

@@ -25,7 +25,7 @@ final class SyncLegislationCommand extends Command
         {number? : The act number, e.g. 227}
         {year? : The year of the act, e.g. 2015}
         {--from= : Read consolidations from this date (YYYY-MM-DD), and the one in force on it}
-        {--issuer= : Who issued it, e.g. GUVERNUL — only needed when several acts share its type and number that year}';
+        {--portal-id= : The portal\'s id for the act, e.g. 236118 — only needed when several acts share its type and number that year}';
 
     /** @var string */
     protected $description = 'Read a law and its consolidations from legislatie.just.ro, or update every law already read.';
@@ -36,13 +36,14 @@ final class SyncLegislationCommand extends Command
         $number = $this->argument('number');
         $year = $this->argument('year');
         $from = $this->option('from');
-        $issuer = $this->option('issuer');
+        $portalId = $this->option('portal-id');
 
         try {
             if ($type === null && $number === null && $year === null) {
                 $started = $syncKnown();
-            } elseif (! is_string($type) || ! is_string($number) || ! ctype_digit($number) || ! is_string($year) || ! ctype_digit($year)) {
-                $this->components->error('Give the act as type, number and year — e.g. LEGE 227 2015 — or nothing, to update every law already read.');
+            } elseif (! is_string($type) || ! is_string($number) || ! ctype_digit($number) || ! is_string($year) || ! ctype_digit($year)
+            || ($portalId !== null && ! ctype_digit($portalId))) {
+                $this->components->error('Give the act as type, number and year — e.g. LEGE 227 2015 — or nothing, to update every law already read. --portal-id is digits only.');
 
                 return self::FAILURE;
             } else {
@@ -54,7 +55,7 @@ final class SyncLegislationCommand extends Command
                     return self::FAILURE;
                 }
 
-                $started = [$sync($type, (int) $number, (int) $year, $fromDate, is_string($issuer) && $issuer !== '' ? $issuer : null)];
+                $started = [$sync($type, (int) $number, (int) $year, $fromDate, $portalId)];
             }
         } catch (Throwable $exception) {
             $this->components->error('Legislation sync failed: ' . $exception->getMessage());

@@ -449,3 +449,42 @@ export function parseProvisionHistory(payload: unknown): ProvisionVersion[] {
         };
     });
 }
+
+/** An act on legislatie.just.ro, as a search there finds it — to be read, or already read. */
+export interface PortalActResult {
+    /** The filing key, without diacritics — `HOTARARE`. */
+    type: string;
+    typeLabel: string;
+    number: string;
+    year: number | null;
+    title: string;
+    issuer: string | null;
+    inForceFrom: string | null;
+    portalId: string | null;
+    /** Its page on the portal. */
+    url: string;
+    /** Whether it can be read here: its type is one the ingest task takes. */
+    importable: boolean;
+    /** The law it already is, once read. */
+    lawId: string | null;
+}
+
+export function parsePortalActs(payload: unknown): PortalActResult[] {
+    return (Array.isArray(obj(payload).acts) ? (obj(payload).acts as unknown[]) : []).map((entry): PortalActResult => {
+        const row = obj(entry);
+
+        return {
+            type: str(row, 'type'),
+            typeLabel: str(row, 'type_label'),
+            number: str(row, 'number'),
+            year: nullableNum(row, 'year'),
+            title: str(row, 'title'),
+            issuer: nullableStr(row, 'issuer'),
+            inForceFrom: nullableStr(row, 'in_force_from'),
+            portalId: nullableStr(row, 'portal_id'),
+            url: str(row, 'url'),
+            importable: row.importable === true,
+            lawId: nullableStr(row, 'law_id'),
+        };
+    });
+}

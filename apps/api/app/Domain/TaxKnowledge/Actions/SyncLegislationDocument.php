@@ -31,8 +31,8 @@ use DateTimeImmutable;
  * id and never downloaded twice; one that failed last time is tried again.
  *
  * `$from` narrows the range: only consolidations from that date, and the one in force on it — the
- * text that applied on `$from` began earlier. `$issuer` tells apart acts of one type and number that
- * year, when there are several — see {@see PortalSearch::find()}.
+ * text that applied on `$from` began earlier. `$portalId` picks one act where several share the type
+ * and number that year — see {@see PortalSearch::find()}.
  */
 final readonly class SyncLegislationDocument
 {
@@ -45,9 +45,9 @@ final readonly class SyncLegislationDocument
     ) {
     }
 
-    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $issuer = null): LegislationSyncStarted
+    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $portalId = null): LegislationSyncStarted
     {
-        $act = $this->search->find($type, $number, $year, $issuer);
+        $act = $this->search->find($type, $number, $year, $portalId);
         $consolidatedForm = $this->pages->consolidatedFormUrl($act->link);
 
         if ($consolidatedForm === null) {

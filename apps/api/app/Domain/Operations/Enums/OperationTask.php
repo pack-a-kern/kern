@@ -112,10 +112,21 @@ enum OperationTask: string
                 TaskArgument::integer('act_number', 'number', 1, 99_999),
                 TaskArgument::integer('act_year', 'year', config()->integer('legislation.form.min_year'), (int) date('Y')),
                 TaskArgument::date('from', '--from'),
-                TaskArgument::issuer('issuer', '--issuer'),
+                // Where several acts share the type and number that year: the one a search result named.
+                TaskArgument::integer('portal_id', '--portal-id', 1, 99_999_999, required: false),
             ],
             default => [],
         };
+    }
+
+    /**
+     * Whether the Tasks tab offers it. Reading a law is started from the legislation page, where the
+     * act is found first — by its title or its number — and run through this same task, so it keeps
+     * its lock, its audit record and its place in the run history.
+     */
+    public function isListed(): bool
+    {
+        return $this !== self::LEGISLATION_INGEST;
     }
 
     /**

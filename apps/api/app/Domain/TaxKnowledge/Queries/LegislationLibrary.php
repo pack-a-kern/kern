@@ -72,6 +72,29 @@ final readonly class LegislationLibrary
         })->all());
     }
 
+    /**
+     * The laws already read among these portal ids, as portal id => law id — for a search result to
+     * say an act is here already.
+     *
+     * @param  list<string>  $portalIds
+     * @return array<string, string>
+     */
+    public function lawsByPortalId(array $portalIds): array
+    {
+        $sourceId = $this->sources->findIdForCode(self::SOURCE);
+
+        if ($sourceId === null || $portalIds === []) {
+            return [];
+        }
+
+        /** @var array<string, string> */
+        return SourceDocument::query()
+            ->where('official_source_id', $sourceId)
+            ->whereIn('portal_document_id', $portalIds)
+            ->pluck('id', 'portal_document_id')
+            ->all();
+    }
+
     /** @return array<string, mixed>|null */
     public function law(string $documentId): ?array
     {

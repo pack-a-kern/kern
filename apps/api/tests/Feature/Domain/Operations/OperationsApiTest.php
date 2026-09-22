@@ -64,13 +64,20 @@ it('separates reading operations from acting on them', function (): void {
         ->assertForbidden();
 });
 
-it('reports every declared task, whether scheduled or manual only', function (): void {
+it('reports every listed task, whether scheduled or manual only', function (): void {
     $response = $this->actingAs(operationsUser('SUPER_ADMIN'))->getJson('/api/v1/operations')->assertOk();
+    $listed = array_values(array_filter(OperationTask::cases(), static fn (OperationTask $task): bool => $task->isListed()));
+
+    /** @var list<array<string, mixed>> $tasks */
+    $tasks = $response->json('tasks');
+
+    // Reading a law is started from the legislation page, never from here.
+    expect(array_column($tasks, 'key'))->not->toContain(OperationTask::LEGISLATION_INGEST->value);
 
     // Asserted by index rather than by search, which also pins the order to `OperationTask::cases()`
     // — the screen lists tasks in enum order, and a silent reordering would move a switch under an
     // operator's cursor.
-    $response->assertJsonCount(count(OperationTask::cases()), 'tasks')
+    $response->assertJsonCount(count($listed), 'tasks')
         ->assertJsonPath('tasks.0.key', OperationTask::FX_IMPORT_DAILY->value)
         ->assertJsonPath('tasks.0.schedulable', true)
         ->assertJsonPath('tasks.0.enabled', true)
@@ -81,7 +88,7 @@ it('reports every declared task, whether scheduled or manual only', function ():
         ])
         ->assertJsonPath('tasks.0.key', OperationTask::FX_IMPORT_DAILY->value);
 
-    $manualIndex = array_search(OperationTask::LEGISLATION_REINDEX, OperationTask::cases(), true);
+    $manualIndex = array_search(OperationTask::LEGISLATION_REINDEX, $listed, true);
 
     $response->assertJsonPath("tasks.{$manualIndex}.key", OperationTask::LEGISLATION_REINDEX->value)
         ->assertJsonPath("tasks.{$manualIndex}.schedulable", false)
@@ -220,9 +227,9 @@ it("lists one task's runs, newest first, and embeds the latest on the overview",
     $history->assertJsonPath('runs.0.task_key', $task->value)
         ->assertJsonPath('runs.0.duration_seconds', 4);
 
-    // Located by position in `OperationTask::cases()` rather than a hard-coded index: adding a task
+    // Located by position among the listed `OperationTask::cases()` rather than a hard-coded index: adding a task
     // to the enum shifts every one after it, and a literal here would fail for that alone.
-    $index = array_search($task, OperationTask::cases(), true);
+    $index = array_search($task, array_values(array_filter(OperationTask::cases(), static fn (OperationTask $listed): bool => $listed->isListed())), true);
 
     $this->actingAs($actor)->getJson('/api/v1/operations')->assertOk()
         ->assertJsonPath("tasks.{$index}.key", $task->value)
@@ -376,6 +383,7 @@ it('takes a law by its type, number and year, and refuses anything outside them'
     $run(['act_type' => 'LEGE', 'act_number' => 0, 'act_year' => 2015])->assertStatus(422);
     $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 1800])->assertStatus(422);
     $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'from' => 'yesterday'])->assertStatus(422);
+    $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'portal_id' => '171280; rm -rf /'])->assertStatus(422);
 
     // There is no address to give: an old-style URL argument is simply not an argument.
     $run(['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'url' => 'https://evil.example.com/'])
@@ -394,4 +402,15 @@ it('leaves an empty optional date out of the command it runs', function (): void
         ->postJson("/api/v1/operations/tasks/{$task->value}/run", ['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015, 'from' => null])
         ->assertStatus(202)
         ->assertJsonPath('arguments', ['act_type' => 'LEGE', 'act_number' => 227, 'act_year' => 2015]);
+});
+
+it('runs a law found on the portal through the same task, by its portal id', function (): void {
+    Queue::fake();
+
+    $task = OperationTask::LEGISLATION_INGEST;
+
+    $this->actingAs(operationsUser('SUPER_ADMIN'))
+        ->postJson("/api/v1/operations/tasks/{$task->value}/run", ['act_type' => 'HOTARARE', 'act_number' => 4, 'act_year' => 2021, 'portal_id' => 236118])
+        ->assertStatus(202)
+        ->assertJsonPath('arguments.portal_id', 236118);
 });

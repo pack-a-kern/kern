@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Config;
  * Every type here is *constrained*, and that is the property that matters — there is no free-text
  * case:
  *
- *  - `integer` is bounded by a declared range;
- *  - `choice` is a closed set of values, and may be optional;
+ *  - `integer` is bounded by a declared range, and may be optional;
+ *  - `choice` is a closed set of values;
  *  - `date` is a calendar date, `YYYY-MM-DD`, and may be left out.
  *
  * `commandKey` exists because an artisan option is addressed as `--type` while a form field cannot
@@ -59,10 +59,10 @@ final readonly class TaskArgument
         );
     }
 
-    /** A whole number within a range — an act's number, a year. */
-    public static function integer(string $name, string $commandKey, int $min, int $max): self
+    /** A whole number within a range — an act's number, a year, a portal id. */
+    public static function integer(string $name, string $commandKey, int $min, int $max, bool $required = true): self
     {
-        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_INTEGER, min: $min, max: $max);
+        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_INTEGER, min: $min, max: $max, required: $required);
     }
 
     /** A date, `YYYY-MM-DD`, which the operator may leave empty. */
@@ -74,9 +74,9 @@ final readonly class TaskArgument
     /**
      * @param  list<string>  $options
      */
-    public static function choice(string $name, string $commandKey, array $options, bool $required = true): self
+    public static function choice(string $name, string $commandKey, array $options): self
     {
-        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_CHOICE, options: $options, required: $required);
+        return new self(name: $name, commandKey: $commandKey, type: self::TYPE_CHOICE, options: $options);
     }
 
 
@@ -90,15 +90,6 @@ final readonly class TaskArgument
         $types = Config::get('operations.legislation.document_types');
 
         return self::choice($name, $commandKey, self::strings($types));
-    }
-
-    /**
-     * The issuers `config/operations.php` offers, for telling apart acts that share a type and a
-     * number in one year. Optional: most acts are the only one of their kind.
-     */
-    public static function issuer(string $name, string $commandKey): self
-    {
-        return self::choice($name, $commandKey, self::strings(Config::get('operations.legislation.issuers')), required: false);
     }
 
     /** @return list<string> */

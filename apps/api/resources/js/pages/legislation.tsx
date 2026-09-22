@@ -24,6 +24,8 @@ import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
 import { formatDate, formatDateTime } from '../lib/format';
 import { ApiError } from '../lib/http';
+import { useSharedAuth } from '../lib/sharedProps';
+import AddLawDialog from './legislation/AddLawDialog';
 import type { LawSummary, LegislationHit, LegislationSearchResult } from '../types/legislation';
 
 /** Trust tiers as `config/sources.php` declares them; A is the most authoritative. */
@@ -232,6 +234,9 @@ function Laws(): JSX.Element {
     const { t, locale } = useTranslation();
     const [laws, setLaws] = useState<LawSummary[] | null>(null);
     const [failed, setFailed] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [reload, setReload] = useState(0);
+    const canAdd = useSharedAuth()?.user.permissions.includes('operations.run') === true;
 
     useEffect(() => {
         let active = true;
@@ -252,7 +257,7 @@ function Laws(): JSX.Element {
         return () => {
             active = false;
         };
-    }, []);
+    }, [reload]);
 
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
 
@@ -261,7 +266,34 @@ function Laws(): JSX.Element {
             title={t((d) => d.pages.legislation.laws.title)}
             description={t((d) => d.pages.legislation.laws.hint)}
             icon={<Scale className="size-4" />}
+            aside={
+                canAdd ? (
+                    <PanelButton
+                        onClick={() => {
+                            setAdding(true);
+                        }}
+                    >
+                        {t((d) => d.pages.legislation.laws.add)}
+                    </PanelButton>
+                ) : undefined
+            }
         >
+            {canAdd ? (
+                <AddLawDialog
+                    open={adding}
+                    onOpenChange={(open) => {
+                        setAdding(open);
+
+                        // Reading is queued: by the time the dialog closes, the act may be in.
+                        if (!open) {
+                            setReload((count) => count + 1);
+                        }
+                    }}
+                    onStarted={() => {
+                        setReload((count) => count + 1);
+                    }}
+                />
+            ) : null}
             {failed ? (
                 <p className="note">{t((d) => d.pages.legislation.laws.failed)}</p>
             ) : laws === null ? (

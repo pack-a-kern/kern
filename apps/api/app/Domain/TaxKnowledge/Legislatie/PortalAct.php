@@ -35,6 +35,12 @@ final readonly class PortalAct
         return self::key($this->typeLabel);
     }
 
+    /** The portal's own id for the act — `236118` in `…/DetaliiDocument/236118`. */
+    public function portalId(): ?string
+    {
+        return ConsolidationPages::documentId($this->link);
+    }
+
     public function year(): ?int
     {
         return $this->actDate === null ? null : (int) $this->actDate->format('Y');

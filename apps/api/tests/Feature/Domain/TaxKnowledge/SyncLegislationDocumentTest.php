@@ -104,8 +104,8 @@ function portal(array $failing = []): void
                 return Http::response(soapEnvelope('<GetTokenResponse xmlns="http://tempuri.org/"><GetTokenResult>token-1</GetTokenResult></GetTokenResponse>'));
             }
 
-            // Page 0 holds both acts numbered 227 that year; any later page is empty.
-            $acts = str_contains($request->body(), '<fws:NumarPagina>0</fws:NumarPagina>')
+            // Page 1 holds both acts numbered 227 that year; any later page is empty.
+            $acts = str_contains($request->body(), '<fws:NumarPagina>1</fws:NumarPagina>')
                 ? soapAct('DECRET', '227', 'DECRET nr. 227 din 23 ianuarie 2015 pentru numirea unui procuror EMITENT: PREŞEDINTELE ROMÂNIEI PUBLICAT ÎN: MONITORUL OFICIAL nr. 63 din 26 ianuarie 2015', 'http://legislatie.just.ro/Public/DetaliiDocument/164954')
                     . soapAct('LEGE', '227', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal EMITENT: PARLAMENTUL PUBLICAT ÎN: MONITORUL OFICIAL nr. 688 din 10 septembrie 2015', 'http://legislatie.just.ro/Public/DetaliiDocument/171280')
                 : '';
@@ -324,7 +324,7 @@ function governmentDecisionPortal(): void
                 return Http::response(soapEnvelope('<GetTokenResponse xmlns="http://tempuri.org/"><GetTokenResult>token-1</GetTokenResult></GetTokenResponse>'));
             }
 
-            $acts = str_contains($request->body(), '<fws:NumarPagina>0</fws:NumarPagina>')
+            $acts = str_contains($request->body(), '<fws:NumarPagina>1</fws:NumarPagina>')
                 ? soapAct('HOTĂRÂRE', '4', 'HOTĂRÂRE nr. 4 din 7 ianuarie 2021 privind aprobarea bugetului EMITENT: CONSILIUL LOCAL AL MUNICIPIULUI TEST PUBLICAT ÎN: MONITORUL OFICIAL nr. 30 din 11 ianuarie 2021', 'http://legislatie.just.ro/Public/DetaliiDocument/236000', '2021-01-11')
                     . soapAct('HOTĂRÂRE', '4', 'HOTĂRÂRE nr. 4 din 13 ianuarie 2021 pentru stabilirea salariului de bază minim brut pe ţară garantat în plată EMITENT: GUVERNUL PUBLICAT ÎN: MONITORUL OFICIAL nr. 40 din 13 ianuarie 2021', 'http://legislatie.just.ro/Public/DetaliiDocument/236118', '2021-01-13')
                 : '';
@@ -346,7 +346,7 @@ function governmentDecisionPortal(): void
 it('reads an act never amended as its one version, never following the acts it cites', function (): void {
     governmentDecisionPortal();
 
-    $started = app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, issuer: 'Guvernul');
+    $started = app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, portalId: '236118');
     $decision = SourceDocument::query()->where('external_identifier', 'HOTARARE 4/2021')->sole();
     $version = SourceDocumentVersion::query()->where('source_document_id', $decision->id)->sole();
 
@@ -357,9 +357,40 @@ it('reads an act never amended as its one version, never following the acts it c
         ->and($version->sections()->where('citation_label', 'Art. 1')->sole()->text)->toContain('2.300 lei lunar');
 });
 
-it('tells apart acts sharing a number by their issuer, and refuses without one', function (): void {
+it('tells apart acts sharing a number by the portal id, and refuses without one', function (): void {
     governmentDecisionPortal();
 
     expect(fn () => app(SyncLegislationDocument::class)('HOTARARE', 4, 2021))->toThrow(PortalAnswerException::class)
         ->and(SourceDocument::query()->count())->toBe(0);
+});
+
+it('finds acts on the portal by title or by number, and says which are read already', function (): void {
+    governmentDecisionPortal();
+
+    bootstrapIdentityCryptoForTests();
+    Artisan::call('taxos:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+
+    app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, portalId: '236118');
+
+    /** @var list<array<string, mixed>> $byNumber */
+    $byNumber = $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021')->assertOk()->json('acts');
+
+    expect(array_column($byNumber, 'portal_id'))->toBe(['236000', '236118'])
+        ->and(array_column($byNumber, 'importable'))->toBe([true, true])
+        ->and($byNumber[0]['law_id'])->toBeNull()
+        ->and($byNumber[1]['law_id'])->toBe(SourceDocument::query()->where('portal_document_id', '236118')->sole()->id);
+
+    // A year given to a title search is the act's own, compared here: 2020 has none of them.
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=salariului%20minim&year=2020')->assertOk()->assertJsonCount(0, 'acts');
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=ab')->assertStatus(422);
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4')->assertStatus(422);
+});
+
+it('searches the portal only for those who may read a law in', function (): void {
+    bootstrapIdentityCryptoForTests();
+    Artisan::call('taxos:access:sync');
+
+    $this->actingAs(User::factory()->create())->getJson('/api/v1/legislation/portal?title=codul%20fiscal')->assertForbidden();
 });

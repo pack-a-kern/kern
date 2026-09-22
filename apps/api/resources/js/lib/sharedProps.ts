@@ -10,14 +10,15 @@ import { usePage } from '@inertiajs/react';
  * Absent on the guest screens, which have no account to describe — hence the null.
  */
 export interface SharedAuth {
-    user: { id: string; email: string | null; roles: string[] };
+    /** `permissions` only decides what is drawn; every route checks its own. */
+    user: { id: string; email: string | null; roles: string[]; permissions: string[] };
     subjects: { id: string; displayName: string; status: string; type: string }[];
     /** True while an administrator is acting as this account. */
     impersonated: boolean;
 }
 
 interface AuthPayload {
-    user?: { id?: unknown; email?: unknown; roles?: unknown };
+    user?: { id?: unknown; email?: unknown; roles?: unknown; permissions?: unknown };
     subjects?: unknown;
     impersonated?: unknown;
 }
@@ -42,6 +43,9 @@ export function useSharedAuth(): SharedAuth | null {
             email: typeof payload.user?.email === 'string' ? payload.user.email : null,
             roles: Array.isArray(payload.user?.roles)
                 ? payload.user.roles.filter((role): role is string => typeof role === 'string')
+                : [],
+            permissions: Array.isArray(payload.user?.permissions)
+                ? payload.user.permissions.filter((permission): permission is string => typeof permission === 'string')
                 : [],
         },
         subjects: rows.map((entry) => {

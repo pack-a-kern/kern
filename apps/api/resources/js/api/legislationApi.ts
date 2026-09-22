@@ -1,16 +1,19 @@
 import { apiRequest } from '../lib/http';
+import { runOperationTask } from './operationsApi';
 import {
     type LawDetail,
     type LawOutline,
     type LawSummary,
     type LawText,
     type LegislationSearchResult,
+    type PortalActResult,
     type ProvisionVersion,
     parseLawDetail,
     parseLawOutline,
     parseLaws,
     parseLawText,
     parseLegislationSearch,
+    parsePortalActs,
     parseProvisionHistory,
 } from '../types/legislation';
 
@@ -50,6 +53,38 @@ export async function searchLegislation(
     }
 
     return parseLegislationSearch(JSON.parse(await apiRequest(`/v1/legislation/search?${params.toString()}`)));
+}
+
+/**
+ * `GET /api/v1/legislation/portal` — acts on legislatie.just.ro, by words of their title (and a year,
+ * if given) or by number and year. Only a search: reading one is the ingest task.
+ */
+export async function searchPortal(
+    query: { title: string; year: number | null } | { number: number; year: number },
+): Promise<PortalActResult[]> {
+    const params = new URLSearchParams(
+        'title' in query ? { title: query.title } : { number: String(query.number) },
+    );
+
+    if (query.year !== null) {
+        params.set('year', String(query.year));
+    }
+
+    return parsePortalActs(JSON.parse(await apiRequest(`/v1/legislation/portal?${params.toString()}`)));
+}
+
+/**
+ * Starts reading an act found on the portal — through the ingest task, so it is locked, audited and
+ * in the run history. The portal id picks it out where several acts share its type and number.
+ */
+export async function readPortalAct(act: PortalActResult, from: string | null): Promise<void> {
+    await runOperationTask('legislation.ingest', {
+        act_type: act.type,
+        act_number: Number(act.number),
+        act_year: act.year ?? 0,
+        ...(act.portalId === null ? {} : { portal_id: Number(act.portalId) }),
+        ...(from === null ? {} : { from }),
+    });
 }
 
 /** Every law read from legislatie.just.ro. */

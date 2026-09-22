@@ -98,13 +98,6 @@ return [
             explode(',', (string) env('OPERATIONS_LEGISLATION_DOCUMENT_TYPES', 'LEGE,ORDONANTA,HOTARARE,ORDIN,DECIZIE')),
         ))),
 
-        // Who issued an act, when its type and number are not enough: "HOTĂRÂRE nr. 4/2021" is the
-        // Government's and ten councils' and courts'. As the portal names them, compared without
-        // diacritics or case. Only asked for when the portal lists more than one.
-        'issuers' => array_values(array_filter(array_map(
-            trim(...),
-            explode(',', (string) env('OPERATIONS_LEGISLATION_ISSUERS', 'GUVERNUL,PARLAMENTUL,MINISTERUL FINANTELOR,AGENTIA NATIONALA DE ADMINISTRARE FISCALA')),
-        ))),
     ],
 
     // Bounds for the one task that takes an argument (`taxos:fx:backfill {year}`). BNR's yearly
