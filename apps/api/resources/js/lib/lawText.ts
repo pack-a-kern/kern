@@ -35,3 +35,13 @@ export function withTables(text: string, tables: LawTable[]): string {
         .map((line) => (line.kind === 'table' ? line.table.map((row) => row.join(' | ')).join('\n') : line.text))
         .join('\n');
 }
+
+/** Where a provision is on the page: an id a link can carry after `#`. */
+export function anchorOf(section: { id: string }): string {
+    return `p-${section.id}`;
+}
+
+/** Words as a find compares them: lower case, without diacritics — "tara" finds "țară". */
+export function foldForFind(text: string): string {
+    return text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase();
+}

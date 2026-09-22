@@ -1038,6 +1038,37 @@ label:has(
     padding: 0;
 }
 
+/* A panel that is its own body — a card of prose or controls with no head, built on `.panel`
+   directly. `.panel` zeroes the padding as unlayered CSS, so a utility cannot give it back; these
+   do, at the body's own sizes, and `-sm` for the small boxes of a side column. */
+.panel.panel-pad {
+    padding: 0.875rem;
+}
+
+@media (width >= 40rem) {
+    .panel.panel-pad {
+        padding: 1rem;
+    }
+}
+
+.panel.panel-pad-sm {
+    padding: 0.625rem 0.75rem;
+}
+
+/* A reading's side column — its contents, what is on the page — held in view beside a long text
+   while the text scrolls, and scrolling itself when it is the longer. */
+.reader-rail {
+    position: sticky;
+    top: 10rem;
+    max-height: calc(100vh - 12rem);
+    overflow-y: auto;
+}
+
+/* A sheet rising from the bottom of a phone's screen: never taller than three quarters of it. */
+.sheet-rise {
+    max-height: 75vh;
+}
+
 .panel-head {
     display: flex;
     /* Wraps on a narrow screen: a head is a title beside an action, and on a phone there is room

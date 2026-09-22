@@ -1,28 +1,16 @@
 import { Link, router } from '@inertiajs/react';
-import { Scale } from 'lucide-react';
+import { FileText, Landmark, Plus, Scale, ScrollText, Search, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { listLaws, searchLegislation } from '../api/legislationApi';
 import AppShell from '../components/AppShell';
-import {
-    Detail,
-    DetailList,
-    Field,
-    Page,
-    Panel,
-    PanelButton,
-    PanelSelect,
-    Pill,
-    SearchInput,
-    Status,
-    Toolbar,
-} from '../components/panel';
+import { Field, Page, Panel, PanelButton, PanelSelect, Pill, SearchInput, Status } from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
-import { formatDate, formatDateTime } from '../lib/format';
+import { formatDate } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { useSharedAuth } from '../lib/sharedProps';
 import AddLawDialog from './legislation/AddLawDialog';
@@ -61,6 +49,9 @@ export default function Legislation({
     const [result, setResult] = useState<LegislationSearchResult | null>(null);
     const [searching, setSearching] = useState(false);
     const [forbidden, setForbidden] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [reload, setReload] = useState(0);
+    const canAdd = useSharedAuth()?.user.permissions.includes('operations.run') === true;
 
     const run = useCallback(async (): Promise<void> => {
         if (query.trim().length < 2) {
@@ -118,41 +109,52 @@ export default function Legislation({
     return (
         <AppShell>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
-                <Laws types={documentTypes ?? []} years={years ?? null} />
+                {/* The search first: most visits look for a provision, not a law. */}
+                <section className="panel panel-pad">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <h2 className="text-base font-semibold text-balance">
+                                {t((d) => d.pages.legislation.searchTitle)}
+                            </h2>
+                            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                                {t((d) => d.pages.legislation.searchHint)}
+                            </p>
+                        </div>
+                        {canAdd ? (
+                            <PanelButton
+                                onClick={() => {
+                                    setAdding(true);
+                                }}
+                            >
+                                <Plus className="size-3.5" />
+                                {t((d) => d.pages.legislation.laws.add)}
+                            </PanelButton>
+                        ) : null}
+                    </div>
 
-                <Panel title={t((d) => d.pages.legislation.search)} flush>
-                    <Toolbar>
+                    <form
+                        className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:items-end"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void run();
+                        }}
+                    >
                         <SearchInput
                             value={query}
                             placeholder={t((d) => d.pages.legislation.searchPlaceholder)}
                             onChange={setQuery}
                         />
-                        <PanelSelect
-                            className="filter-select"
-                            value={tier}
-                            onValueChange={setTier}
-                            placeholder={t((d) => d.pages.legislation.allTiers)}
-                            emptyLabel={t((d) => d.pages.legislation.allTiers)}
-                            options={TIERS.map((value) => ({ value, label: value }))}
-                        />
-                        <PanelButton
-                            primary
-                            disabled={searching || query.trim().length < 2}
-                            onClick={() => {
-                                void run();
-                            }}
-                        >
-                            {t((d) => d.pages.legislation.search)}
-                        </PanelButton>
-                    </Toolbar>
-
-                    <div className="p-3">
-                        <Field
-                            label={t((d) => d.pages.legislation.asOf)}
-                            hint={t((d) => d.pages.legislation.asOfHint)}
-                            htmlFor="legislation-as-of"
-                            className="max-w-xs"
-                        >
+                        <Field label={t((d) => d.pages.legislation.tier)} htmlFor="legislation-tier">
+                            <PanelSelect
+                                id="legislation-tier"
+                                value={tier}
+                                onValueChange={setTier}
+                                placeholder={t((d) => d.pages.legislation.allTiers)}
+                                emptyLabel={t((d) => d.pages.legislation.allTiers)}
+                                options={TIERS.map((value) => ({ value, label: value }))}
+                            />
+                        </Field>
+                        <Field label={t((d) => d.pages.legislation.asOf)} htmlFor="legislation-as-of">
                             <PanelDate
                                 value={asOf === '' ? null : asOf}
                                 onChange={(next) => {
@@ -160,25 +162,29 @@ export default function Legislation({
                                 }}
                             />
                         </Field>
-                    </div>
-                </Panel>
+                        <PanelButton
+                            primary
+                            inline
+                            disabled={searching || query.trim().length < 2}
+                            onClick={() => {
+                                void run();
+                            }}
+                        >
+                            <Search className="size-3.5" />
+                            {t((d) => d.pages.legislation.search)}
+                        </PanelButton>
+                    </form>
+                    <p className="note mt-2">{t((d) => d.pages.legislation.asOfHint)}</p>
+                </section>
 
                 {searching ? (
-                    <Panel title={t((d) => d.pages.legislation.search)}>
-                        <div className="space-y-2">
-                            {[0, 1, 2].map((index) => (
-                                <Skeleton key={index} className="tile h-20 w-full" />
-                            ))}
-                        </div>
-                    </Panel>
-                ) : result === null ? (
-                    <Panel title={t((d) => d.pages.legislation.title)}>
-                        <p className="note">{t((d) => d.pages.legislation.idle)}</p>
-                    </Panel>
-                ) : total === 0 ? (
-                    <Panel title={t((d) => d.pages.legislation.title)}>
-                        <p className="note">{t((d) => d.pages.legislation.empty)}</p>
-                    </Panel>
+                    <div className="space-y-2">
+                        {[0, 1, 2].map((index) => (
+                            <Skeleton key={index} className="tile h-20 w-full" />
+                        ))}
+                    </div>
+                ) : result === null ? null : total === 0 ? (
+                    <p className="note px-1">{t((d) => d.pages.legislation.empty)}</p>
                 ) : (
                     <>
                         {result.confirmed.length > 0 ? (
@@ -224,25 +230,51 @@ export default function Legislation({
                         ) : null}
                     </>
                 )}
+
+                <Laws reload={reload} />
             </Page>
+
+            {canAdd ? (
+                <AddLawDialog
+                    open={adding}
+                    types={documentTypes ?? []}
+                    years={years ?? null}
+                    onOpenChange={(open) => {
+                        setAdding(open);
+
+                        // Reading is queued: by the time the dialog closes, the act may be in.
+                        if (!open) {
+                            setReload((count) => count + 1);
+                        }
+                    }}
+                    onStarted={() => {
+                        setReload((count) => count + 1);
+                    }}
+                />
+            ) : null}
         </AppShell>
     );
 }
+
+/** The mark a law's card carries, by the kind of act — a law, a decision, an ordinance. */
+const TYPE_ICON: Record<string, LucideIcon | undefined> = {
+    LEGE: Landmark,
+    HOTARARE: FileText,
+    ORDONANTA: ScrollText,
+    'ORDONANTA DE URGENTA': ScrollText,
+};
 
 /**
  * The laws read from legislatie.just.ro, each as the portal describes it, with how much of it is in.
  *
  * Laid out as the act's own heading reads — its name, then who issued it and where it was published —
- * because that is how a person recognises a law, and the counts beneath say whether the text they
- * are about to read is complete.
+ * because that is how a person recognises a law, and the counts say whether the text they are about
+ * to read is complete.
  */
-function Laws({ types, years }: { types: string[]; years: { min: number; max: number } | null }): JSX.Element {
+function Laws({ reload }: { reload: number }): JSX.Element {
     const { t, locale } = useTranslation();
     const [laws, setLaws] = useState<LawSummary[] | null>(null);
     const [failed, setFailed] = useState(false);
-    const [adding, setAdding] = useState(false);
-    const [reload, setReload] = useState(0);
-    const canAdd = useSharedAuth()?.user.permissions.includes('operations.run') === true;
 
     useEffect(() => {
         let active = true;
@@ -268,57 +300,50 @@ function Laws({ types, years }: { types: string[]; years: { min: number; max: nu
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
 
     return (
-        <Panel
-            title={t((d) => d.pages.legislation.laws.title)}
-            description={t((d) => d.pages.legislation.laws.hint)}
-            icon={<Scale className="size-4" />}
-            aside={
-                canAdd ? (
-                    <PanelButton
-                        onClick={() => {
-                            setAdding(true);
-                        }}
-                    >
-                        {t((d) => d.pages.legislation.laws.add)}
-                    </PanelButton>
-                ) : undefined
-            }
-        >
-            {canAdd ? (
-                <AddLawDialog
-                    open={adding}
-                    types={types}
-                    years={years}
-                    onOpenChange={(open) => {
-                        setAdding(open);
+        <section>
+            <div className="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
+                <div>
+                    <h2 className="text-sm font-semibold">{t((d) => d.pages.legislation.laws.title)}</h2>
+                    <p className="note">{t((d) => d.pages.legislation.laws.hint)}</p>
+                </div>
+                {laws === null ? null : (
+                    <span className="note tabular-nums">
+                        {t((d) => d.pages.legislation.laws.count).replace('{count}', String(laws.length))}
+                    </span>
+                )}
+            </div>
 
-                        // Reading is queued: by the time the dialog closes, the act may be in.
-                        if (!open) {
-                            setReload((count) => count + 1);
-                        }
-                    }}
-                    onStarted={() => {
-                        setReload((count) => count + 1);
-                    }}
-                />
-            ) : null}
             {failed ? (
-                <p className="note">{t((d) => d.pages.legislation.laws.failed)}</p>
+                <p className="note px-1">{t((d) => d.pages.legislation.laws.failed)}</p>
             ) : laws === null ? (
-                <Skeleton className="tile h-24 w-full" />
+                <div className="grid gap-2.5 lg:grid-cols-2">
+                    {[0, 1].map((index) => (
+                        <Skeleton key={index} className="tile h-28 w-full" />
+                    ))}
+                </div>
             ) : laws.length === 0 ? (
-                <p className="note">{t((d) => d.pages.legislation.laws.empty)}</p>
+                <p className="note px-1">{t((d) => d.pages.legislation.laws.empty)}</p>
             ) : (
-                <div className="space-y-3">
-                    {laws.map((law) => (
-                        <article key={law.id} className="tile border-border border p-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="grid gap-2.5 lg:grid-cols-2">
+                    {laws.map((law) => {
+                        const Icon = TYPE_ICON[law.type] ?? Scale;
+                        const open = (): void => {
+                            router.visit(`/legislation/${law.id}`);
+                        };
+
+                        return (
+                            <article
+                                key={law.id}
+                                className="panel panel-pad hover:border-info/40 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+                                onClick={open}
+                            >
+                                <div className="bg-muted text-muted-foreground grid size-9 place-items-center rounded-xl">
+                                    <Icon className="size-4" />
+                                </div>
                                 <div className="min-w-0">
                                     <h3 className="text-sm font-semibold text-balance">{law.title ?? law.url}</h3>
-                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
                                         {law.typeLabel === null ? null : <Pill tone="accent">{law.typeLabel}</Pill>}
-                                        {law.number === null ? null : <Pill>nr. {law.number}</Pill>}
-                                        {law.issuer === null ? null : <Pill>{law.issuer}</Pill>}
                                         {law.officialJournalNumber === null ? null : (
                                             <Pill tone="locked">
                                                 {t((d) => d.pages.legislation.laws.journal).replace(
@@ -327,56 +352,48 @@ function Laws({ types, years }: { types: string[]; years: { min: number; max: nu
                                                 )}
                                             </Pill>
                                         )}
-                                    </div>
-                                </div>
-                                <PanelButton
-                                    onClick={() => {
-                                        router.visit(`/legislation/${law.id}`);
-                                    }}
-                                >
-                                    {t((d) => d.pages.legislation.laws.open)}
-                                </PanelButton>
-                            </div>
-
-                            <DetailList>
-                                <Detail label={t((d) => d.pages.legislation.laws.actDate)}>{date(law.actDate)}</Detail>
-                                <Detail label={t((d) => d.pages.legislation.laws.publishedOn)}>
-                                    {date(law.publishedOn)}
-                                </Detail>
-                                <Detail label={t((d) => d.pages.legislation.laws.inForceFrom)}>
-                                    {date(law.inForceFrom)}
-                                </Detail>
-                                <Detail
-                                    label={t((d) => d.pages.legislation.laws.consolidations)
-                                        .replace('{read}', String(law.consolidationsRead))
-                                        .replace('{listed}', String(law.consolidationsListed))}
-                                >
-                                    {t((d) => d.pages.legislation.laws.range)
-                                        .replace('{first}', date(law.firstConsolidation))
-                                        .replace('{last}', date(law.lastConsolidation))}
-                                </Detail>
-                                <Detail label={t((d) => d.pages.legislation.laws.lastSynced)}>
-                                    {law.lastSyncedAt === null
-                                        ? t((d) => d.pages.legislation.laws.notSynced)
-                                        : formatDateTime(law.lastSyncedAt, locale)}
-                                </Detail>
-                            </DetailList>
-
-                            {law.consolidationsFailed === 0 ? null : (
-                                <p className="mt-2">
-                                    <Status tone="warn">
-                                        {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(
-                                            '{count}',
-                                            String(law.consolidationsFailed),
+                                        <Pill>
+                                            {t((d) => d.pages.legislation.laws.consolidations)
+                                                .replace('{read}', String(law.consolidationsRead))
+                                                .replace('{listed}', String(law.consolidationsListed))}
+                                        </Pill>
+                                        {law.consolidationsFailed === 0 ? null : (
+                                            <Status tone="warn">
+                                                {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(
+                                                    '{count}',
+                                                    String(law.consolidationsFailed),
+                                                )}
+                                            </Status>
                                         )}
-                                    </Status>
-                                </p>
-                            )}
-                        </article>
-                    ))}
+                                    </div>
+                                    <dl className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                        {(
+                                            [
+                                                [t((d) => d.pages.legislation.laws.actDate), law.actDate],
+                                                [t((d) => d.pages.legislation.laws.publishedOn), law.publishedOn],
+                                                [t((d) => d.pages.legislation.laws.inForceFrom), law.inForceFrom],
+                                                [
+                                                    t((d) => d.pages.legislation.laws.currentVersion),
+                                                    law.lastConsolidation,
+                                                ],
+                                            ] as const
+                                        ).map(([label, value]) => (
+                                            <div key={label}>
+                                                <dt className="note">{label}</dt>
+                                                <dd className="text-xs font-semibold tabular-nums">{date(value)}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
+                                <div className="col-start-2 sm:col-start-auto">
+                                    <PanelButton onClick={open}>{t((d) => d.pages.legislation.laws.open)}</PanelButton>
+                                </div>
+                            </article>
+                        );
+                    })}
                 </div>
             )}
-        </Panel>
+        </section>
     );
 }
 

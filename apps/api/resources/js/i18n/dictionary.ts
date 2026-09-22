@@ -1044,11 +1044,14 @@ export interface Dictionary {
             description: string;
             searchPlaceholder: string;
             search: string;
+            /** The search card's own heading, above the field. */
+            searchTitle: string;
+            searchHint: string;
+            tier: string;
             asOf: string;
             asOfHint: string;
             allTiers: string;
             /** Shown before any search has been run. */
-            idle: string;
             empty: string;
             searchFailed: string;
             forbidden: string;
@@ -1090,10 +1093,10 @@ export interface Dictionary {
                 consolidations: string;
                 /** `{count}` that could not be read. */
                 consolidationsFailed: string;
-                /** `{first}` → `{last}`. */
-                range: string;
-                lastSynced: string;
-                notSynced: string;
+                /** `{count}` laws read. */
+                count: string;
+                /** The consolidation in force now: the latest read. */
+                currentVersion: string;
             };
             /** Finding an act on legislatie.just.ro and reading it. */
             add: {
@@ -1131,16 +1134,33 @@ export interface Dictionary {
                 portalDown: string;
             };
             law: {
-                back: string;
+                reader: string;
+                /** `{period}` the consolidation shown applies in. */
+                consolidatedOn: string;
+                /** After a date: the consolidation still in force. */
+                current: string;
+                copyLink: string;
+                linkCopied: string;
+                copyArticleLink: string;
+                versions: string;
+                version: string;
+                find: string;
+                findPlaceholder: string;
+                /** `{shown}` of `{total}` articles on the page. */
+                findCount: string;
+                findNone: string;
+                contentsFilter: string;
+                onThisPage: string;
+                thisVersion: string;
+                allVersions: string;
+                source: string;
+                sourceHint: string;
+                openSource: string;
+                /** The consolidation already on screen, in the versions panel. */
+                shown: string;
                 loadFailed: string;
-                on: string;
-                onHint: string;
-                /** `{from}`, and `{until}` when it has an end. */
-                versionOpen: string;
-                versionClosed: string;
                 /** `{date}` that no consolidation covers. */
                 noVersion: string;
-                textTitle: string;
                 unit: string;
                 amended: string;
                 /** `{count}` notes on a provision. */
@@ -1185,7 +1205,6 @@ export interface Dictionary {
                 viewOn: string;
                 onPortal: string;
                 contentsTitle: string;
-                contentsHint: string;
                 /** `{first}` and `{last}`: the articles a heading spans. */
                 contentsRange: string;
                 contentsEmpty: string;
