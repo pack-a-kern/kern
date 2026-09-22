@@ -41,7 +41,13 @@ const TIERS = ['A', 'B', 'C', 'D'];
  * are rendered as two sections with different wording rather than one list sorted by score, because
  * merging them would erase exactly the distinction that makes a citation defensible.
  */
-export default function Legislation({ documentTypes }: { documentTypes?: string[] }): JSX.Element {
+export default function Legislation({
+    documentTypes,
+    years,
+}: {
+    documentTypes?: string[];
+    years?: { min: number; max: number };
+}): JSX.Element {
     const { t } = useTranslation();
 
     // What was searched for is remembered; the results are not — searching again is one click, and a
@@ -112,7 +118,7 @@ export default function Legislation({ documentTypes }: { documentTypes?: string[
     return (
         <AppShell>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
-                <Laws types={documentTypes ?? []} />
+                <Laws types={documentTypes ?? []} years={years ?? null} />
 
                 <Panel title={t((d) => d.pages.legislation.search)} flush>
                     <Toolbar>
@@ -230,7 +236,7 @@ export default function Legislation({ documentTypes }: { documentTypes?: string[
  * because that is how a person recognises a law, and the counts beneath say whether the text they
  * are about to read is complete.
  */
-function Laws({ types }: { types: string[] }): JSX.Element {
+function Laws({ types, years }: { types: string[]; years: { min: number; max: number } | null }): JSX.Element {
     const { t, locale } = useTranslation();
     const [laws, setLaws] = useState<LawSummary[] | null>(null);
     const [failed, setFailed] = useState(false);
@@ -282,6 +288,7 @@ function Laws({ types }: { types: string[] }): JSX.Element {
                 <AddLawDialog
                     open={adding}
                     types={types}
+                    years={years}
                     onOpenChange={(open) => {
                         setAdding(open);
 

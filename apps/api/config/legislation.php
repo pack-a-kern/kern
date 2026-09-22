@@ -78,8 +78,9 @@ return [
     ],
 
     'form' => [
-        // The earliest year the "Ingest legislation" task offers. The portal holds acts back to the
-        // nineteenth century; the tax law this application reads is far more recent.
-        'min_year' => (int) env('LEGISLATION_MIN_YEAR', 1990),
+        // The earliest year an act is looked for in, on the "Add a law" dialog and by the ingest
+        // task; the latest is always the current one. The portal holds acts back to the nineteenth
+        // century; the tax law this application reads starts with the Codul fiscal of 2015.
+        'min_year' => (int) env('LEGISLATION_MIN_YEAR', 2015),
     ],
 ];

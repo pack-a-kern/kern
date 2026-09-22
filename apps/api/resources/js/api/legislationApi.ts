@@ -82,13 +82,12 @@ export async function searchPortal(
  * Starts reading an act found on the portal — through the ingest task, so it is locked, audited and
  * in the run history. The portal id picks it out where several acts share its type and number.
  */
-export async function readPortalAct(act: PortalActResult, from: string | null): Promise<void> {
+export async function readPortalAct(act: PortalActResult): Promise<void> {
     await runOperationTask('legislation.ingest', {
         act_type: act.type,
         act_number: Number(act.number),
         act_year: act.year ?? 0,
         ...(act.portalId === null ? {} : { portal_id: Number(act.portalId) }),
-        ...(from === null ? {} : { from }),
     });
 }
 

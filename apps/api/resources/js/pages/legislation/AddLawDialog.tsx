@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 
 import { readPortalAct, searchPortal } from '../../api/legislationApi';
 import { Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
-import { PanelDate } from '../../components/PanelDatePicker';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
@@ -23,12 +22,15 @@ type Mode = 'title' | 'number';
 export default function AddLawDialog({
     open,
     types,
+    years,
     onOpenChange,
     onStarted,
 }: {
     open: boolean;
     /** The act types a law can be read as — `config/operations.php`, as the portal files them. */
     types: string[];
+    /** The years an act is looked for in, from `config/legislation.php` to this one. */
+    years: { min: number; max: number } | null;
     onOpenChange: (open: boolean) => void;
     /** A read was queued: the list of laws will change once it runs. */
     onStarted: () => void;
@@ -41,10 +43,15 @@ export default function AddLawDialog({
     const [type, setType] = useState('');
     /** The act asked about: importing starts only once it is confirmed. */
     const [confirming, setConfirming] = useState<string | null>(null);
-    const [from, setFrom] = useState<string | null>(null);
     const [results, setResults] = useState<PortalActResult[] | null>(null);
     const [searching, setSearching] = useState(false);
     const [started, setStarted] = useState<Set<string>>(new Set());
+
+    // Newest first: the act looked for is most often this year's or last year's.
+    const yearOptions =
+        years === null
+            ? []
+            : Array.from({ length: years.max - years.min + 1 }, (_, index) => String(years.max - index));
 
     /** A type in the reader's language; the portal's own name for one this screen has no word for. */
     const typeName = (key: string): string => t((d) => d.pages.legislation.add.types)[key] ?? key;
@@ -81,7 +88,7 @@ export default function AddLawDialog({
         setConfirming(null);
 
         try {
-            await readPortalAct(act, from);
+            await readPortalAct(act);
             setStarted((current) => new Set(current).add(act.url));
             toast.success(t((d) => d.pages.legislation.add.started));
             onStarted();
@@ -117,7 +124,7 @@ export default function AddLawDialog({
             }
         >
             <form
-                className="grid gap-3 sm:grid-cols-[10rem_1fr_7rem_11rem]"
+                className="grid gap-3 sm:grid-cols-2"
                 onSubmit={(event) => {
                     event.preventDefault();
 
@@ -167,19 +174,15 @@ export default function AddLawDialog({
                         />
                     </Field>
                 )}
-                <Field
-                    label={t((d) => d.pages.legislation.add.year)}
-                    hint={mode === 'title' ? t((d) => d.pages.legislation.add.yearOptional) : undefined}
-                    htmlFor="add-law-year"
-                >
-                    <PanelInput
+                <Field label={t((d) => d.pages.legislation.add.year)} htmlFor="add-law-year">
+                    {/* Any year for words of a title; a number is only an act's with its year. */}
+                    <PanelSelect
                         id="add-law-year"
-                        type="number"
-                        max={new Date().getFullYear()}
                         value={year}
-                        onChange={(event) => {
-                            setYear(event.target.value);
-                        }}
+                        onValueChange={setYear}
+                        placeholder={t((d) => d.pages.legislation.add.chooseYear)}
+                        {...(mode === 'title' ? { emptyLabel: t((d) => d.pages.legislation.add.anyYear) } : {})}
+                        options={yearOptions.map((value) => ({ value, label: value }))}
                     />
                 </Field>
                 <Field label={t((d) => d.pages.legislation.add.type)} htmlFor="add-law-type">
@@ -194,14 +197,6 @@ export default function AddLawDialog({
                 {/* Enter in a field searches; the dialog's own button does the same. */}
                 <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
             </form>
-
-            <Field
-                label={t((d) => d.pages.legislation.add.from)}
-                hint={t((d) => d.pages.legislation.add.fromHint)}
-                className="mt-3 max-w-xs"
-            >
-                <PanelDate block value={from} onChange={setFrom} />
-            </Field>
 
             <div className="mt-4 space-y-2" aria-live="polite">
                 {results === null ? null : results.length === 0 ? (

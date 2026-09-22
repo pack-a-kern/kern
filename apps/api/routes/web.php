@@ -77,9 +77,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/taxes/explain', fn () => Inertia::render('taxes/explain'))->name('taxes.explain');
 
     Route::get('/declarations', fn () => Inertia::render('declarations'))->name('declarations');
-    // The act types a law can be read as, for the "Add a law" dialog's filter.
+    // The act types a law can be read as and the years one is looked for in, for "Add a law".
     Route::get('/legislation', fn () => Inertia::render('legislation', [
         'documentTypes' => config()->array('operations.legislation.document_types'),
+        'years' => ['min' => config()->integer('legislation.form.min_year'), 'max' => (int) date('Y')],
     ]))->name('legislation');
     Route::get('/legislation/{law}', fn (string $law) => Inertia::render('legislation/law', [
         'lawId' => $law,

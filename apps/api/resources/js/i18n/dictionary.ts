@@ -1106,9 +1106,8 @@ export interface Dictionary {
                 wordsPlaceholder: string;
                 number: string;
                 year: string;
-                yearOptional: string;
-                from: string;
-                fromHint: string;
+                chooseYear: string;
+                anyYear: string;
                 search: string;
                 close: string;
                 none: string;
