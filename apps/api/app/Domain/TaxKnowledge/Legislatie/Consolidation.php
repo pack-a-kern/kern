@@ -14,17 +14,12 @@ final readonly class Consolidation
         /** The portal's own id for this consolidation — `312601` in `DetaliiDocument/312601`. */
         public string $ref,
         public string $url,
-        /**
-         * Whether its page is only a reference to the text — the law approving a code, whose
-         * consolidations each point at the code as it stood that day — and is read through it.
-         */
-        public bool $throughReference = false,
     ) {
     }
 
-    /** @return array{date: string, ref: string, url: string, through_reference?: true} */
+    /** @return array{date: string, ref: string, url: string} */
     public function toArray(): array
     {
-        return ['date' => $this->date->format('Y-m-d'), 'ref' => $this->ref, 'url' => $this->url, ...($this->throughReference ? ['through_reference' => true] : [])];
+        return ['date' => $this->date->format('Y-m-d'), 'ref' => $this->ref, 'url' => $this->url];
     }
 }

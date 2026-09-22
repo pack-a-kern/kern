@@ -30,7 +30,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $in_force_from
  * @property string|null $portal_document_id  the act as first published, on legislatie.just.ro
  * @property string|null $consolidated_document_id  the page that lists its consolidations
- * @property list<array{date: string, ref: string, url: string, failed?: bool, through_reference?: bool}>|null $consolidations
+ * @property list<array{date: string, ref: string, url: string, failed?: bool}>|null $consolidations
  * @property \Illuminate\Support\Carbon|null $last_synced_at
  */
 #[UseFactory(SourceDocumentFactory::class)]

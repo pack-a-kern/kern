@@ -6,7 +6,6 @@ namespace App\Domain\TaxKnowledge\Jobs;
 
 use App\Domain\TaxKnowledge\Actions\ParseLegislationDocumentVersion;
 use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
-use App\Domain\TaxKnowledge\Legislatie\ConsolidationPages;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Parsing\Exceptions\UnparsableLegislationDocumentException;
@@ -67,7 +66,6 @@ final class ReadNextConsolidation implements ShouldQueue
         SourceIngestionService $ingestion,
         ParseLegislationDocumentVersion $parse,
         IndexDocumentVersionForRetrieval $index,
-        ConsolidationPages $pages,
     ): void {
         $document = SourceDocument::query()->find($this->sourceDocumentId);
         $next = $document === null ? null : self::next($document);
@@ -83,9 +81,7 @@ final class ReadNextConsolidation implements ShouldQueue
         }
 
         try {
-            // A consolidation that is only a reference is read as the text it refers to.
-            $url = ($next['through_reference'] ?? false) === true ? ($pages->referencedText($next['url']) ?? $next['url']) : $next['url'];
-            $ingested = $ingestion->ingest(self::SOURCE, $url, $document->document_type, $document->external_identifier);
+            $ingested = $ingestion->ingest(self::SOURCE, $next['url'], $document->document_type, $document->external_identifier);
             $version = SourceDocumentVersion::query()->findOrFail($ingested->sourceDocumentVersionId);
 
             // Byte-identical to a consolidation already stored under another date: the portal
@@ -135,7 +131,7 @@ final class ReadNextConsolidation implements ShouldQueue
     /**
      * The oldest listed consolidation that is neither stored nor marked failed.
      *
-     * @return array{date: string, ref: string, url: string, through_reference?: bool}|null
+     * @return array{date: string, ref: string, url: string}|null
      */
     private static function next(SourceDocument $document): ?array
     {
@@ -147,7 +143,7 @@ final class ReadNextConsolidation implements ShouldQueue
 
         foreach ($document->consolidations ?? [] as $entry) {
             if (($entry['failed'] ?? false) !== true && ! in_array($entry['ref'], $stored, true)) {
-                return $entry;
+                return ['date' => $entry['date'], 'ref' => $entry['ref'], 'url' => $entry['url']];
             }
         }
 

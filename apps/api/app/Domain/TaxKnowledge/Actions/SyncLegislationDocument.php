@@ -69,7 +69,7 @@ final readonly class SyncLegislationDocument
 
         // Kept alongside anything an earlier, wider sync listed; a failure mark is dropped, so a
         // consolidation that could not be read last time is tried again. An earlier entry for a day
-        // now listed under another id — the code's list before, the act's now — gives way to it.
+        // now listed under another id gives way to it.
         $now = array_map(static fn (Consolidation $c): array => $c->toArray(), $listed);
         $listedDays = array_column($now, 'ref', 'date');
         $list = [];
