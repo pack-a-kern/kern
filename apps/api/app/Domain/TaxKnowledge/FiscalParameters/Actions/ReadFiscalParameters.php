@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\FiscalParameters\Actions;
 
+use App\Domain\TaxKnowledge\Enums\FiscalParameterValueType;
 use App\Domain\TaxKnowledge\FiscalParameters\Forms\FormStructureSource;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatcher;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
@@ -61,12 +62,20 @@ final readonly class ReadFiscalParameters
         $unmatchedCount = 0;
         $forms = $readForms ? $this->forms->read('D212') : [];
 
+        $read = [];
+
         foreach ($forms as $form) {
-            $values = $this->formValues->read($form, $wages);
+            $read[] = [$form, $this->formValues->read($form, $wages)];
+        }
+
+        $together = $this->thresholdsTogether(array_merge(...array_map(static fn (array $pair): array => $pair[1]->readings, $read)));
+
+        foreach ($read as [$form, $values]) {
             $unmatched = $values->unmatched;
             $wagesSeen = [...$wagesSeen, ...$values->wagesSeen];
 
             foreach ($values->readings as $reading) {
+                $reading = $together[$reading->key()] ?? $reading;
                 $matches = $this->law->find($this->definition($reading), $reading->lawValues, $reading->validFrom);
 
                 if ($matches === []) {
@@ -105,6 +114,39 @@ final readonly class ReadFiscalParameters
             candidates: $this->recorder->record($found, $replacing),
             notInLaw: $unmatchedCount,
         );
+    }
+
+    /**
+     * Thresholds read for the same parameter and year, from different files, as one list: the 2024
+     * file's estimate names only the least of CAS's for 2024, "12 salarii minime", the 2025 file both,
+     * 12 and 24 — the same rule, read more or less fully, not two values for it.
+     *
+     * @param  list<Reading>  $readings
+     * @return array<string, Reading> a reading's key => the same reading with every threshold read for its year
+     */
+    private function thresholdsTogether(array $readings): array
+    {
+        $numbers = [];
+
+        foreach ($readings as $reading) {
+            if ($this->definition($reading)->type === FiscalParameterValueType::JSON) {
+                $slot = $reading->parameterCode . '|' . $reading->validFrom->format('Y-m-d');
+                $numbers[$slot] = array_values(array_unique([...($numbers[$slot] ?? []), ...$reading->lawValues]));
+            }
+        }
+
+        $together = [];
+
+        foreach ($readings as $reading) {
+            $all = $numbers[$reading->parameterCode . '|' . $reading->validFrom->format('Y-m-d')] ?? null;
+
+            if ($all !== null) {
+                sort($all);
+                $together[$reading->key()] = new Reading($reading->parameterCode, $reading->validFrom, $reading->validUntil, $this->definition($reading)->value($all), $all, $reading->origin, $reading->checks);
+            }
+        }
+
+        return $together;
     }
 
     /**

@@ -28,6 +28,7 @@ use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Services\BuildSectionHistory;
 use DateTimeImmutable;
+use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -156,12 +157,19 @@ function decisions(): void
     );
 }
 
-/** ANAF's page listing the file, the file, and the extraction service reading its formulas. */
-function anaf(?string $formulas = null, string $url = FORM_2024): void
+/**
+ * ANAF's page listing the files, the files, and the extraction service reading their formulas —
+ * each file carries its own address, so the service tells them apart.
+ *
+ * @param  array<string, string>  $more  further files: address => the formulas it reads as
+ */
+function anaf(?string $formulas = null, string $url = FORM_2024, array $more = []): void
 {
+    $links = implode('', array_map(static fn (string $link): string => '<a href="' . $link . '">Structura</a>', [$url, ...array_keys($more)]));
+
     Http::fake([
-        'static.anaf.ro/static/10/Anaf/Declaratii_R/declaratie_unica.html' => Http::response('<html><body><a href="' . $url . '">Structura</a></body></html>', 200, ['Content-Type' => 'text/html']),
-        'static.anaf.ro/*' => Http::response('%PDF-1.4 structure file', 200, ['Content-Type' => 'application/pdf']),
+        'static.anaf.ro/static/10/Anaf/Declaratii_R/declaratie_unica.html' => Http::response('<html><body>' . $links . '</body></html>', 200, ['Content-Type' => 'text/html']),
+        'static.anaf.ro/*' => static fn (HttpRequest $request) => Http::response('%PDF-1.4 ' . $request->url(), 200, ['Content-Type' => 'application/pdf']),
     ]);
 
     $formulas ??= implode("\n", [
@@ -173,14 +181,17 @@ function anaf(?string $formulas = null, string $url = FORM_2024): void
         'baza_cass_estim_B > 0 baza_cass_estim_B <= 60*3300',
     ]);
 
-    app()->instance(TextExtractionGateway::class, new class ($formulas) implements TextExtractionGateway {
-        public function __construct(private readonly string $text)
+    app()->instance(TextExtractionGateway::class, new class ([$url => $formulas, ...$more]) implements TextExtractionGateway {
+        /** @param array<string, string> $texts */
+        public function __construct(private readonly array $texts)
         {
         }
 
         public function extractNativeText($pdfStream): NativeTextExtractionResult
         {
-            return new NativeTextExtractionResult(1, false, [1 => new PageExtractionResult(1, '1.0', UntrustedDocumentText::wrap($this->text))]);
+            $address = substr((string) stream_get_contents($pdfStream), strlen('%PDF-1.4 '));
+
+            return new NativeTextExtractionResult(1, false, [1 => new PageExtractionResult(1, '1.0', UntrustedDocumentText::wrap($this->texts[$address] ?? ''))]);
         }
     });
 }
@@ -366,4 +377,23 @@ it('finds a value in the wording the portal\'s note dates from before the next c
         ->and($law->find($incomeTax, [16], new DateTimeImmutable('2018-01-01')))->toBe([])
         ->and(array_map(static fn (LawMatch $match): array => [$match->documentVersionId, $match->datedByNote], $law->find($incomeTax, [10], new DateTimeImmutable('2023-06-01'))))
         ->toBe([[$later->id, null]]);
+});
+
+it('reads the thresholds of one year from two files as one list, the fuller reading', function (): void {
+    codulFiscal();
+    decisions();
+    // The 2024 file's estimate names only the least of CAS's for 2024; the 2025 file both.
+    anaf(
+        'ATT: Baza anuala de calcul a CAS nu pot fi mai mici decât nivelul a 12 salarii minime brute pe ţară, în vigoare în anul pentru care se datorează contribuţia(39.600 lei)',
+        FORM_2024,
+        ['https://static.anaf.ro/static/10/Anaf/Declaratii_R/AplicatiiDec/structura_D212_2025_v1.0.3_01082025.pdf' => 'IF bifa_cas_real = 1, THEN cas_baza >= 12*3300 IF bifa_cas_real = 2, THEN cas_baza >= 24*3300'],
+    );
+
+    app(ReadFiscalParameters::class)();
+
+    $cas = FiscalParameterVersion::query()->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CAS.BASE_WAGES')->select('id'))->sole();
+
+    expect($cas->value_json)->toBe(['wages' => [12, 24]])
+        ->and(array_column($cas->evidence['readings'] ?? [], 'form_year'))->toEqualCanonicalizing([2024, 2025])
+        ->and(array_column($cas->evidence['checks'] ?? [], 'kind'))->not->toContain('conflicting');
 });

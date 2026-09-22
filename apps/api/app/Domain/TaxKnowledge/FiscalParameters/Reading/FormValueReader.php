@@ -21,8 +21,8 @@ use DateTimeImmutable;
  * The year: a declaration reports last year's income and estimates this year's, so each formula
  * lists the years it can be about. Where it names a wage, the year whose minimum wage on 1 January
  * that is decides — "12*3000" in the 2024 file is 2023's; failing that, a year it was in force in at
- * all (2 300 lei from 13 January 2021), noted on the value; when none is, the first year stands and
- * the disagreement is kept. An amount that is not a whole number of any of that year's wages is
+ * all (2 300 lei from 13 January 2021), which is that year's wage as much as 1 January's; when none
+ * is, the first year stands and the disagreement is kept. An amount that is not a whole number of any of that year's wages is
  * never made a value: the 2021 file's cap of 27 360 lei is 12.27 wages of 2 230.
  */
 final readonly class FormValueReader
@@ -104,7 +104,7 @@ final readonly class FormValueReader
 
             foreach ($during as $yearWage) {
                 if ($amount % $yearWage === 0) {
-                    return ['year' => $year, 'number' => intdiv($amount, $yearWage), 'wage' => $yearWage, 'checks' => self::notJanuary($yearWage, $year, $wages)];
+                    return ['year' => $year, 'number' => intdiv($amount, $yearWage), 'wage' => $yearWage, 'checks' => []];
                 }
             }
 
@@ -135,7 +135,7 @@ final readonly class FormValueReader
 
         foreach ($years as $offset) {
             if (in_array($wage, $wages->during($formYear + $offset), true)) {
-                return ['year' => $formYear + $offset, 'number' => $count, 'wage' => $wage, 'checks' => self::notJanuary($wage, $formYear + $offset, $wages)];
+                return ['year' => $formYear + $offset, 'number' => $count, 'wage' => $wage, 'checks' => []];
             }
         }
 
@@ -193,19 +193,6 @@ final readonly class FormValueReader
         }
 
         return $readings;
-    }
-
-    /**
-     * A wage that was in force during the year but not on 1 January: said on the value, for a person
-     * to see which of the year's wages the form counted in.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function notJanuary(int $wage, int $year, MinimumWages $wages): array
-    {
-        $january = $wages->onFirstOfJanuary($year);
-
-        return $january === $wage ? [] : [['kind' => ParameterCheck::WAGE_DIFFERS->value, 'form_wage' => $wage, 'decision_wage' => $january]];
     }
 
     /** A formula as quoted beside its value, on one line. */
