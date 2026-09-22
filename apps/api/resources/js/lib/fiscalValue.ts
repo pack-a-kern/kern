@@ -29,7 +29,7 @@ export function describeFiscalValue(
 
     const wages = type === 'JSON' ? (Array.isArray(value.wages) ? value.wages : []) : [value.value];
 
-    return t((d) => d.pages.adminParameters.wages).replace(
+    return t((d) => d.pages.taxRules.wages).replace(
         '{count}',
         wages.filter((entry): entry is number => typeof entry === 'number').join(' / '),
     );
@@ -43,8 +43,8 @@ export function describePeriod(
 ): string {
     return (
         version.validUntil === null
-            ? t((d) => d.pages.adminParameters.periodOpen)
-            : t((d) => d.pages.adminParameters.periodClosed)
+            ? t((d) => d.pages.taxRules.periodOpen)
+            : t((d) => d.pages.taxRules.periodClosed)
     )
         .replace('{from}', formatDate(version.validFrom, locale))
         .replace('{until}', version.validUntil === null ? '' : formatDate(version.validUntil, locale));
@@ -52,7 +52,7 @@ export function describePeriod(
 
 /** Something found out while reading, in the reader's language, what it is about filled in. */
 export function describeCheck(check: { kind: string; detail: Record<string, string | number> }, t: Translate): string {
-    let text = t((d) => d.pages.adminParameters.checks)[check.kind] ?? check.kind;
+    let text = t((d) => d.pages.taxRules.checks)[check.kind] ?? check.kind;
 
     for (const [key, value] of Object.entries(check.detail)) {
         // As given: most are years, which a number format would write "2.017".

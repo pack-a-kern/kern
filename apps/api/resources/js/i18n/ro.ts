@@ -22,7 +22,7 @@ export const ro = {
         logs: 'Jurnale',
         adminGroup: 'Administrare',
         adminSettings: 'Setări sistem',
-        adminParameters: 'Reguli fiscale',
+        taxRules: 'Reguli fiscale',
         adminUsers: 'Utilizatori și roluri',
         adminOperations: 'Operațiuni',
         adminJobs: 'Joburi',
@@ -1814,7 +1814,7 @@ export const ro = {
                 neverFetched: 'Niciodată folosită',
             },
         },
-        adminParameters: {
+        taxRules: {
             title: 'Reguli fiscale',
             description: 'Valorile din care se calculează fiecare impozit, citite din textele oficiale și aprobate una câte una.',
             names: {

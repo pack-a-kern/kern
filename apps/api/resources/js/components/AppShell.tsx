@@ -65,7 +65,8 @@ interface NavLink {
     icon: typeof LayoutDashboard;
     /** A stable key for a group with no href, so its open/closed state can be tracked. */
     id?: string;
-    children?: { href: string; label: (d: Dictionary) => string; icon: typeof LayoutDashboard }[];
+    /** A child shown only to those holding `permission` — the route checks it too; this only hides what cannot be used. */
+    children?: { href: string; label: (d: Dictionary) => string; icon: typeof LayoutDashboard; permission?: string }[];
 }
 
 /**
@@ -98,13 +99,18 @@ const MAIN_ITEMS: NavLink[] = [
         ],
     },
     { href: '/rentals', label: (d) => d.nav.rentals, icon: Building2 },
+    // Everything about the tax in one place: what is owed, why, the declaration it goes on, and the
+    // rules — the values from the law — it is computed from.
     {
         href: '/taxes',
         label: (d) => d.nav.taxes,
         icon: Calculator,
-        children: [{ href: '/taxes/explain', label: (d) => d.nav.taxesExplain, icon: CircleHelp }],
+        children: [
+            { href: '/taxes/explain', label: (d) => d.nav.taxesExplain, icon: CircleHelp },
+            { href: '/declarations', label: (d) => d.nav.declarations, icon: FileCheck2 },
+            { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
+        ],
     },
-    { href: '/declarations', label: (d) => d.nav.declarations, icon: FileCheck2 },
     { href: '/legislation', label: (d) => d.nav.legislation, icon: Gavel },
     { href: '/spv', label: (d) => d.nav.spv, icon: Landmark },
 ];
@@ -128,7 +134,6 @@ const ADMIN_GROUP: NavLink = {
     icon: Settings,
     children: [
         { href: '/admin/settings', label: (d) => d.nav.adminSettings, icon: Settings },
-        { href: '/admin/parameters', label: (d) => d.nav.adminParameters, icon: Scale },
         { href: '/admin/users', label: (d) => d.nav.adminUsers, icon: Users },
     ],
 };
@@ -160,8 +165,8 @@ function noticeText(notice: ImportNotice, dictionary: Dictionary): { title: stri
     const reason =
         notice.failureReason === null
             ? undefined
-            : dictionary.errors.reasons[notice.failureReason] ??
-              dictionary.pages.walletImports.aiReasons[notice.failureReason];
+            : (dictionary.errors.reasons[notice.failureReason] ??
+              dictionary.pages.walletImports.aiReasons[notice.failureReason]);
 
     return {
         title: words.title,
@@ -211,7 +216,9 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
             const show = notice.kind === 'FAILED' ? toast.error : toast.success;
             show(text.title, {
                 description: text.body,
-                action: { label: getDictionary().shell.openNotice, onClick: () => {
+                action: {
+                    label: getDictionary().shell.openNotice,
+                    onClick: () => {
                         openImportNotice(notice);
                     },
                 },
@@ -283,7 +290,11 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                                 <span
                                     className={cn(
                                         'mt-1 size-2 shrink-0 rounded-full',
-                                        notice.read ? 'bg-border' : notice.kind === 'FAILED' ? 'bg-destructive' : 'bg-accent-500',
+                                        notice.read
+                                            ? 'bg-border'
+                                            : notice.kind === 'FAILED'
+                                              ? 'bg-destructive'
+                                              : 'bg-accent-500',
                                     )}
                                     aria-hidden="true"
                                 />
@@ -492,7 +503,17 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
      */
     const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
-    const items = [...MAIN_ITEMS, ACCOUNT_GROUP, LOGS_ITEM, ...(ADMIN_UI_ENABLED ? [ADMIN_GROUP] : [])];
+    const permissions = useSharedAuth()?.user.permissions ?? [];
+    const items = [...MAIN_ITEMS, ACCOUNT_GROUP, LOGS_ITEM, ...(ADMIN_UI_ENABLED ? [ADMIN_GROUP] : [])].map((item) =>
+        item.children === undefined
+            ? item
+            : {
+                  ...item,
+                  children: item.children.filter(
+                      (child) => child.permission === undefined || permissions.includes(child.permission),
+                  ),
+              },
+    );
 
     function isOpen(item: NavLink): boolean {
         const key = groupKey(item);

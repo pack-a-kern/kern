@@ -51,30 +51,30 @@ export default function AdminParameters(): JSX.Element {
     const read = async (): Promise<void> => {
         try {
             await readFiscalParameters();
-            toast.success(t((d) => d.pages.adminParameters.readStarted));
+            toast.success(t((d) => d.pages.taxRules.readStarted));
         } catch (cause) {
             toast.error(
                 cause instanceof ApiError && cause.status === 409
-                    ? t((d) => d.pages.adminParameters.readBusy)
+                    ? t((d) => d.pages.taxRules.readBusy)
                     : describeApiFailure(cause, t),
             );
         }
     };
 
     const years = board === null ? [] : yearsOf(board);
-    const name = (code: string): string => t((d) => d.pages.adminParameters.names)[code] ?? code;
+    const name = (code: string): string => t((d) => d.pages.taxRules.names)[code] ?? code;
 
     return (
         <AppShell>
             <Page
-                title={t((d) => d.pages.adminParameters.title)}
-                lede={t((d) => d.pages.adminParameters.description)}
+                title={t((d) => d.pages.taxRules.title)}
+                lede={t((d) => d.pages.taxRules.description)}
                 actions={
                     <div className="flex flex-wrap gap-2">
                         {canRead ? (
                             <PanelButton onClick={() => void read()}>
                                 <RefreshCw className="size-3.5" />
-                                {t((d) => d.pages.adminParameters.read)}
+                                {t((d) => d.pages.taxRules.read)}
                             </PanelButton>
                         ) : null}
                         {canApprove ? (
@@ -84,36 +84,32 @@ export default function AdminParameters(): JSX.Element {
                                 }}
                             >
                                 <CalendarPlus className="size-3.5" />
-                                {t((d) => d.pages.adminParameters.newYear)}
+                                {t((d) => d.pages.taxRules.newYear)}
                             </PanelButton>
                         ) : null}
                     </div>
                 }
             >
                 <Panel
-                    title={t((d) => d.pages.adminParameters.valuesTitle)}
-                    description={t((d) => d.pages.adminParameters.valuesHint)}
+                    title={t((d) => d.pages.taxRules.valuesTitle)}
+                    description={t((d) => d.pages.taxRules.valuesHint)}
                     icon={<Scale className="size-4" />}
                     flush
                 >
                     {failed !== null ? (
                         <p className="note p-4">
-                            {t((d) =>
-                                failed === 'forbidden'
-                                    ? d.pages.adminParameters.forbidden
-                                    : d.pages.adminParameters.failed,
-                            )}
+                            {t((d) => (failed === 'forbidden' ? d.pages.taxRules.forbidden : d.pages.taxRules.failed))}
                         </p>
                     ) : board === null ? (
                         <Skeleton className="tile m-4 h-40" />
                     ) : years.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.adminParameters.empty)}</p>
+                        <p className="note p-4">{t((d) => d.pages.taxRules.empty)}</p>
                     ) : (
                         <div className="table-wrap">
                             <table className="data-table">
                                 <thead>
                                     <tr>
-                                        <th>{t((d) => d.pages.adminParameters.parameter)}</th>
+                                        <th>{t((d) => d.pages.taxRules.parameter)}</th>
                                         {years.map((year) => (
                                             <th key={year} className="tabular-nums">
                                                 {year}
@@ -161,7 +157,7 @@ export default function AdminParameters(): JSX.Element {
                                                                             (check) => checkTone(check) === 'warn',
                                                                         ) ? (
                                                                             <Status tone="warn">
-                                                                                {t((d) => d.pages.adminParameters.look)}
+                                                                                {t((d) => d.pages.taxRules.look)}
                                                                             </Status>
                                                                         ) : null}
                                                                     </span>
@@ -181,11 +177,11 @@ export default function AdminParameters(): JSX.Element {
                 {board === null || board.forms.length === 0 ? null : (
                     <>
                         <Panel
-                            title={t((d) => d.pages.adminParameters.notInLawTitle)}
-                            description={t((d) => d.pages.adminParameters.notInLawHint)}
+                            title={t((d) => d.pages.taxRules.notInLawTitle)}
+                            description={t((d) => d.pages.taxRules.notInLawHint)}
                         >
                             {board.forms.every((form) => form.unmatched.length === 0) ? (
-                                <p className="note">{t((d) => d.pages.adminParameters.notInLawNone)}</p>
+                                <p className="note">{t((d) => d.pages.taxRules.notInLawNone)}</p>
                             ) : (
                                 <ul className="space-y-2 text-sm">
                                     {board.forms.flatMap((form) =>
@@ -197,7 +193,7 @@ export default function AdminParameters(): JSX.Element {
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >
-                                                    {t((d) => d.pages.adminParameters.formFile)
+                                                    {t((d) => d.pages.taxRules.formFile)
                                                         .replace('{form}', form.form)
                                                         .replace('{year}', String(form.year))}
                                                 </a>
@@ -213,8 +209,8 @@ export default function AdminParameters(): JSX.Element {
                         </Panel>
 
                         <Panel
-                            title={t((d) => d.pages.adminParameters.formsTitle)}
-                            description={t((d) => d.pages.adminParameters.formsHint)}
+                            title={t((d) => d.pages.taxRules.formsTitle)}
+                            description={t((d) => d.pages.taxRules.formsHint)}
                         >
                             <ul className="space-y-1 text-xs">
                                 {board.forms.map((form) => (
@@ -225,13 +221,13 @@ export default function AdminParameters(): JSX.Element {
                                             target="_blank"
                                             rel="noreferrer"
                                         >
-                                            {t((d) => d.pages.adminParameters.formFile)
+                                            {t((d) => d.pages.taxRules.formFile)
                                                 .replace('{form}', form.form)
                                                 .replace('{year}', String(form.year))}
                                         </a>
                                         <code className="text-muted-foreground">{form.contentHash.slice(0, 12)}</code>
                                         <span className="text-muted-foreground">
-                                            {t((d) => d.pages.adminParameters.readAt).replace(
+                                            {t((d) => d.pages.taxRules.readAt).replace(
                                                 '{date}',
                                                 formatDateTime(form.readAt, locale),
                                             )}
@@ -309,7 +305,7 @@ function StartYearDialog({
 
         try {
             const proposed = await startFiscalYear(Number(year));
-            toast.success(t((d) => d.pages.adminParameters.yearStarted).replace('{count}', String(proposed)));
+            toast.success(t((d) => d.pages.taxRules.yearStarted).replace('{count}', String(proposed)));
             onStarted();
         } catch (cause) {
             toast.error(describeApiFailure(cause, t));
@@ -327,18 +323,18 @@ function StartYearDialog({
                 }
             }}
             size="sm"
-            title={t((d) => d.pages.adminParameters.newYear)}
-            description={t((d) => d.pages.adminParameters.newYearHint)}
+            title={t((d) => d.pages.taxRules.newYear)}
+            description={t((d) => d.pages.taxRules.newYearHint)}
             actions={
                 <>
-                    <PanelButton onClick={onClose}>{t((d) => d.pages.adminParameters.close)}</PanelButton>
+                    <PanelButton onClick={onClose}>{t((d) => d.pages.taxRules.close)}</PanelButton>
                     <PanelButton primary disabled={busy} onClick={() => void start()}>
-                        {t((d) => d.pages.adminParameters.propose)}
+                        {t((d) => d.pages.taxRules.propose)}
                     </PanelButton>
                 </>
             }
         >
-            <Field label={t((d) => d.pages.adminParameters.year)} htmlFor="new-fiscal-year">
+            <Field label={t((d) => d.pages.taxRules.year)} htmlFor="new-fiscal-year">
                 <PanelSelect
                     id="new-fiscal-year"
                     value={year}

@@ -75,6 +75,8 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/taxes', fn () => Inertia::render('taxes/overview'))->name('taxes.overview');
     Route::get('/taxes/explain', fn () => Inertia::render('taxes/explain'))->name('taxes.explain');
+    // The values every tax is computed from; the page asks the API, which checks the permission.
+    Route::get('/taxes/rules', fn () => Inertia::render('taxes/rules'))->name('taxes.rules');
 
     Route::get('/declarations', fn () => Inertia::render('declarations'))->name('declarations');
     // The act types a law can be read as and the years one is looked for in, for "Add a law".
@@ -108,7 +110,6 @@ Route::middleware('auth')->group(function (): void {
      * scope — see the handoff's "Admin navigation" section.
      */
     Route::get('/admin/settings', fn () => Inertia::render('admin/settings'))->name('admin.settings');
-    Route::get('/admin/parameters', fn () => Inertia::render('admin/parameters'))->name('admin.parameters');
     Route::get('/admin/users', fn () => Inertia::render('admin/users'))->name('admin.users');
 
     /*

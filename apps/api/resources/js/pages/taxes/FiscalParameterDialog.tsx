@@ -30,7 +30,7 @@ export default function FiscalParameterDialog({
     const [chosen, setChosen] = useState(version.source?.sectionId ?? paragraphs[0]?.sectionId ?? '');
     const [busy, setBusy] = useState(false);
     const decidable = canApprove && version.status === 'CANDIDATE';
-    const name = t((d) => d.pages.adminParameters.names)[parameter.code] ?? parameter.code;
+    const name = t((d) => d.pages.taxRules.names)[parameter.code] ?? parameter.code;
 
     const decide = async (approve: boolean): Promise<void> => {
         setBusy(true);
@@ -42,7 +42,7 @@ export default function FiscalParameterDialog({
                 await rejectFiscalParameter(version.id);
             }
 
-            toast.success(t((d) => (approve ? d.pages.adminParameters.approved : d.pages.adminParameters.rejected)));
+            toast.success(t((d) => (approve ? d.pages.taxRules.approved : d.pages.taxRules.rejected)));
             onDecided();
         } catch (cause) {
             toast.error(describeApiFailure(cause, t));
@@ -64,14 +64,14 @@ export default function FiscalParameterDialog({
             description={describePeriod(version, t, locale)}
             actions={
                 <>
-                    <PanelButton onClick={onClose}>{t((d) => d.pages.adminParameters.close)}</PanelButton>
+                    <PanelButton onClick={onClose}>{t((d) => d.pages.taxRules.close)}</PanelButton>
                     {decidable ? (
                         <>
                             <PanelButton disabled={busy} onClick={() => void decide(false)}>
-                                {t((d) => d.pages.adminParameters.reject)}
+                                {t((d) => d.pages.taxRules.reject)}
                             </PanelButton>
                             <PanelButton primary disabled={busy || chosen === ''} onClick={() => void decide(true)}>
-                                {t((d) => d.pages.adminParameters.approve)}
+                                {t((d) => d.pages.taxRules.approve)}
                             </PanelButton>
                         </>
                     ) : null}
@@ -94,14 +94,14 @@ export default function FiscalParameterDialog({
                 )}
 
                 <section>
-                    <h3 className="text-xs font-semibold">{t((d) => d.pages.adminParameters.readFrom)}</h3>
+                    <h3 className="text-xs font-semibold">{t((d) => d.pages.taxRules.readFrom)}</h3>
                     <ul className="mt-1 space-y-1.5">
                         {version.readings.map((reading, index) => (
                             <li key={index} className="text-muted-foreground text-xs">
                                 {reading.kind === 'form' ? (
                                     <>
                                         <a className="link" href={reading.url} target="_blank" rel="noreferrer">
-                                            {t((d) => d.pages.adminParameters.formFile)
+                                            {t((d) => d.pages.taxRules.formFile)
                                                 .replace('{form}', reading.form)
                                                 .replace('{year}', String(reading.formYear))}
                                         </a>
@@ -119,10 +119,7 @@ export default function FiscalParameterDialog({
                                         <span className="ml-1.5 italic">„{reading.quote}”</span>
                                     </>
                                 ) : (
-                                    t((d) => d.pages.adminParameters.carried).replace(
-                                        '{year}',
-                                        String(reading.fromYear),
-                                    )
+                                    t((d) => d.pages.taxRules.carried).replace('{year}', String(reading.fromYear))
                                 )}
                             </li>
                         ))}
@@ -130,13 +127,9 @@ export default function FiscalParameterDialog({
                 </section>
 
                 <section>
-                    <h3 className="text-xs font-semibold">{t((d) => d.pages.adminParameters.inLaw)}</h3>
-                    <p className="note">{t((d) => d.pages.adminParameters.inLawHint)}</p>
-                    <div
-                        className="mt-2 space-y-2"
-                        role="radiogroup"
-                        aria-label={t((d) => d.pages.adminParameters.inLaw)}
-                    >
+                    <h3 className="text-xs font-semibold">{t((d) => d.pages.taxRules.inLaw)}</h3>
+                    <p className="note">{t((d) => d.pages.taxRules.inLawHint)}</p>
+                    <div className="mt-2 space-y-2" role="radiogroup" aria-label={t((d) => d.pages.taxRules.inLaw)}>
                         {paragraphs.map((found) => (
                             <label
                                 key={found.sectionId}
@@ -163,7 +156,7 @@ export default function FiscalParameterDialog({
                                                 target="_blank"
                                                 rel="noreferrer"
                                             >
-                                                {t((d) => d.pages.adminParameters.openLaw)}
+                                                {t((d) => d.pages.taxRules.openLaw)}
                                             </a>
                                         )}
                                     </span>
@@ -200,7 +193,7 @@ export function StatusPill({ status }: { status: ParameterVersion['status'] }): 
 
     return (
         <Pill tone={status === 'APPROVED' ? 'accent' : status === 'CANDIDATE' ? 'locked' : 'neutral'}>
-            {t((d) => d.pages.adminParameters.statuses[status])}
+            {t((d) => d.pages.taxRules.statuses[status])}
         </Pill>
     );
 }

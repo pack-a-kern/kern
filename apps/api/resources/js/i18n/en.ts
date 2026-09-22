@@ -22,7 +22,7 @@ export const en = {
         logs: 'Logs',
         adminGroup: 'Administration',
         adminSettings: 'System settings',
-        adminParameters: 'Tax rules',
+        taxRules: 'Tax rules',
         adminUsers: 'Users & roles',
         adminOperations: 'Operations',
         adminJobs: 'Jobs',
@@ -1802,7 +1802,7 @@ export const en = {
                 neverFetched: 'Never fetched',
             },
         },
-        adminParameters: {
+        taxRules: {
             title: 'Tax rules',
             description: 'The values every tax is computed from, read from the official texts and approved one by one.',
             names: {

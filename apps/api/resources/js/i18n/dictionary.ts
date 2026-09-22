@@ -31,7 +31,7 @@ export interface Dictionary {
         logs: string;
         adminGroup: string;
         adminSettings: string;
-        adminParameters: string;
+        taxRules: string;
         adminUsers: string;
         adminOperations: string;
         adminJobs: string;
@@ -1539,7 +1539,7 @@ export interface Dictionary {
                 neverFetched: string;
             };
         };
-        adminParameters: {
+        taxRules: {
             title: string;
             description: string;
             /** Per parameter code — `RO.CASS.RATE`; one missing shows the code. */
