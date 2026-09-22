@@ -9,11 +9,13 @@ use App\Domain\TaxKnowledge\Exceptions\NoEffectiveVersionFoundException;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterDefinition;
 use App\Domain\TaxKnowledge\Models\SectionHistory;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
+use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
@@ -119,11 +121,19 @@ final class LawMatcher
         }
 
         $readIn = SourceSection::query()->whereIn('id', $noted->pluck('first_section_id'))->pluck('document_version_id', 'id')->all();
+        $readFrom = SourceDocumentVersion::query()->whereIn('id', array_values(array_unique(array_filter($readIn, 'is_string'))))->pluck('effective_from', 'id')->all();
         $replacing = [];
 
         foreach ($noted as $stretch) {
             $version = $readIn[$stretch->first_section_id] ?? null;
-            $provision = is_string($version) ? ($this->indexed($version)[$stretch->first_section_id] ?? null) : null;
+            $firstRead = is_string($version) ? ($readFrom[$version] ?? null) : null;
+
+            // Only a consolidation older than the one the wording is read in lacks it: a later one has it.
+            if (! $firstRead instanceof DateTimeInterface || $firstRead->format('Y-m-d') <= $day) {
+                continue;
+            }
+
+            $provision = $this->indexed((string) $version)[$stretch->first_section_id] ?? null;
 
             if ($provision !== null) {
                 $replacing[$stretch->citation_label] = [...$provision, 'version' => $version, 'dated_by_note' => $stretch->valid_from->format('Y-m-d')];

@@ -339,8 +339,12 @@ it('finds a value in the wording the portal\'s note dates from before the next c
     // No consolidation between 2016 and 2021, as the portal lists the Codul fiscal's.
     $old = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2016-12-06', '2020-12-31');
     heading($old, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', 'Cota de impozit este de 16% și se aplică asupra venitului impozabil']]);
-    $new = SourceDocumentVersion::factory()->create(['source_document_id' => $old->source_document_id, 'effective_from' => '2021-01-01', 'consolidation_ref' => '2021']);
-    heading($new, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', "Cota de impozit este de 10% și se aplică asupra venitului impozabil\n(la 01-01-2018, Partea introductivă a alineatului (1) din Articolul 64 a fost modificată de Punctul 15, Articolul I din ORDONANȚA DE URGENȚĂ nr. 79 din 8 noiembrie 2017)"]]);
+    $new = SourceDocumentVersion::factory()->create(['source_document_id' => $old->source_document_id, 'effective_from' => '2021-01-01', 'effective_until' => '2022-12-31', 'consolidation_ref' => '2021']);
+    $noted = "Cota de impozit este de 10% și se aplică asupra venitului impozabil\n(la 01-01-2018, Partea introductivă a alineatului (1) din Articolul 64 a fost modificată de Punctul 15, Articolul I din ORDONANȚA DE URGENȚĂ nr. 79 din 8 noiembrie 2017)";
+    heading($new, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', $noted]]);
+    // A later consolidation with the same wording has it itself: nothing to date by the note.
+    $later = SourceDocumentVersion::factory()->create(['source_document_id' => $old->source_document_id, 'effective_from' => '2023-01-01', 'consolidation_ref' => '2023']);
+    heading($later, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', $noted]]);
 
     foreach (SourceSection::query()->get() as $section) {
         $section->forceFill(['normative_hash' => SectionText::fingerprint($section->text), 'amended_on' => SectionText::amendedOn($section->text)])->save();
@@ -359,5 +363,7 @@ it('finds a value in the wording the portal\'s note dates from before the next c
         ->and(array_map(static fn (LawMatch $match): array => [$match->documentVersionId, $match->datedByNote], $in2017))
         ->toBe([[$old->id, null]])
         // 16% is not the law on 1 January 2018 any more.
-        ->and($law->find($incomeTax, [16], new DateTimeImmutable('2018-01-01')))->toBe([]);
+        ->and($law->find($incomeTax, [16], new DateTimeImmutable('2018-01-01')))->toBe([])
+        ->and(array_map(static fn (LawMatch $match): array => [$match->documentVersionId, $match->datedByNote], $law->find($incomeTax, [10], new DateTimeImmutable('2023-06-01'))))
+        ->toBe([[$later->id, null]]);
 });

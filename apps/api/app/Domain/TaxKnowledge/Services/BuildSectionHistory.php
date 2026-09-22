@@ -24,8 +24,10 @@ use Illuminate\Support\Str;
  * to 2021 — a wording is first read long after it began. Its own note says when: "(la 01-01-2018,
  * … a fost modificat de …)". A new wording whose latest note falls between the consolidation before
  * and the one it is first read in starts on that day, the one before it ends the day before, and
- * the stretch says it is dated by the note. A note outside that gap is not a start the
- * consolidations leave open, and changes nothing.
+ * the stretch says it is dated by the note. A provision with no note of its own takes its closest
+ * parent's: an article replaced whole is noted once — "(la 01-01-2018, Articolul 138 … a fost
+ * modificat …)" — and its letters, "25% datorată de către persoanele fizice", carry none. A note
+ * outside that gap is not a start the consolidations leave open, and changes nothing.
  */
 final readonly class BuildSectionHistory
 {
@@ -64,7 +66,9 @@ final readonly class BuildSectionHistory
                 ->where('document_version_id', $version->id)
                 ->whereNotNull('normative_hash')
                 ->toBase()
-                ->get(['id', 'citation_label', 'section_type', 'normative_hash', 'amended_on']);
+                ->get(['id', 'parent_id', 'citation_label', 'section_type', 'normative_hash', 'amended_on']);
+            $parents = $sections->pluck('parent_id', 'id')->all();
+            $notes = $sections->pluck('amended_on', 'id')->all();
 
             foreach ($sections as $section) {
                 $label = (string) $section->citation_label;
@@ -79,7 +83,7 @@ final readonly class BuildSectionHistory
                     continue;
                 }
 
-                $noted = self::notedStart($section->amended_on, $previous, $from);
+                $noted = self::notedStart((string) $section->id, $parents, $notes, $previous, $from);
                 $start = $noted ?? $from;
 
                 if ($current !== null) {
@@ -138,19 +142,34 @@ final readonly class BuildSectionHistory
     }
 
     /**
-     * The day a new wording began, by its own note, when that day falls strictly between the
-     * consolidation before and the one it is first read in — the only days the consolidations leave
-     * open. Null when it does not, or when the note gives no day.
+     * The day a new wording began, by its own note or else its closest parent's, when that day falls
+     * strictly between the consolidation before and the one it is first read in — the only days the
+     * consolidations leave open. Null when no note in its line gives such a day.
+     *
+     * @param  array<string, mixed>  $parents  section id => its parent's id
+     * @param  array<string, mixed>  $notes  section id => the day of its latest note
      */
-    private static function notedStart(mixed $amendedOn, ?CarbonImmutable $previous, CarbonImmutable $from): ?CarbonImmutable
+    private static function notedStart(string $sectionId, array $parents, array $notes, ?CarbonImmutable $previous, CarbonImmutable $from): ?CarbonImmutable
     {
-        if ($previous === null || ! is_string($amendedOn) || $amendedOn === '') {
+        if ($previous === null) {
             return null;
         }
 
-        $noted = CarbonImmutable::parse($amendedOn);
+        for ($id = $sectionId; is_string($id); $id = $parents[$id] ?? null) {
+            $day = $notes[$id] ?? null;
 
-        return $noted->greaterThan($previous) && $noted->lessThan($from) ? $noted : null;
+            if (! is_string($day) || $day === '') {
+                continue;
+            }
+
+            $noted = CarbonImmutable::parse($day);
+
+            if ($noted->greaterThan($previous) && $noted->lessThan($from)) {
+                return $noted;
+            }
+        }
+
+        return null;
     }
 
     /**
