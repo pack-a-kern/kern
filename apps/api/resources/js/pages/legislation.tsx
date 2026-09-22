@@ -110,17 +110,12 @@ export default function Legislation({
         <AppShell>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
                 {/* The search first: most visits look for a provision, not a law. */}
-                <section className="panel panel-pad">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <h2 className="text-base font-semibold text-balance">
-                                {t((d) => d.pages.legislation.searchTitle)}
-                            </h2>
-                            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-                                {t((d) => d.pages.legislation.searchHint)}
-                            </p>
-                        </div>
-                        {canAdd ? (
+                <Panel
+                    title={t((d) => d.pages.legislation.searchTitle)}
+                    description={t((d) => d.pages.legislation.searchHint)}
+                    icon={<Search className="size-4" />}
+                    aside={
+                        canAdd ? (
                             <PanelButton
                                 onClick={() => {
                                     setAdding(true);
@@ -129,11 +124,11 @@ export default function Legislation({
                                 <Plus className="size-3.5" />
                                 {t((d) => d.pages.legislation.laws.add)}
                             </PanelButton>
-                        ) : null}
-                    </div>
-
+                        ) : undefined
+                    }
+                >
                     <form
-                        className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:items-end"
+                        className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:items-end"
                         onSubmit={(event) => {
                             event.preventDefault();
                             void run();
@@ -175,7 +170,7 @@ export default function Legislation({
                         </PanelButton>
                     </form>
                     <p className="note mt-2">{t((d) => d.pages.legislation.asOfHint)}</p>
-                </section>
+                </Panel>
 
                 {searching ? (
                     <div className="space-y-2">
