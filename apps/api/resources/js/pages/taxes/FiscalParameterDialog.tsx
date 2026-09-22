@@ -87,7 +87,7 @@ export default function FiscalParameterDialog({
                     <section className="space-y-1">
                         {version.checks.map((check, index) => (
                             <p key={index}>
-                                <Status tone={checkTone(check)}>{describeCheck(check, t)}</Status>
+                                <Status tone={checkTone(check)}>{describeCheck(check, t, locale)}</Status>
                             </p>
                         ))}
                     </section>

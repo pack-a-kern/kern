@@ -199,7 +199,7 @@ export default function AdminParameters(): JSX.Element {
                                                 </a>
                                                 {miss.parameter === '' ? null : <span> · {name(miss.parameter)}</span>}
                                                 <span className="text-muted-foreground block text-xs">
-                                                    {describeCheck(miss, t)}
+                                                    {describeCheck(miss, t, locale)}
                                                 </span>
                                             </li>
                                         )),
@@ -271,13 +271,20 @@ export default function AdminParameters(): JSX.Element {
     );
 }
 
-/** Every year a value is for, oldest first — the table's columns. */
+/** Every year a value is for, oldest first, from the first a D212 file covers — the table's columns. */
 function yearsOf(board: FiscalParameterBoard): number[] {
+    // From the first year a D212 file is about: before it no declaration asks for these values, so
+    // a column there would hold only the minimum wage and read as a gap.
+    const first = Math.min(...board.forms.map((form) => form.year));
     const found = new Set<number>();
 
     for (const parameter of board.parameters) {
         for (const version of parameter.versions) {
-            found.add(Number(version.validFrom.slice(0, 4)));
+            const year = Number(version.validFrom.slice(0, 4));
+
+            if (board.forms.length === 0 || year >= first) {
+                found.add(year);
+            }
         }
     }
 

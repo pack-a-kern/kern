@@ -73,7 +73,7 @@ final readonly class CandidateRecorder
                 }
 
                 if (($matches[0] ?? null)?->datedByNote !== null) {
-                    $checks[] = ['kind' => ParameterCheck::DATED_BY_NOTE->value, 'date' => $matches[0]->datedByNote, 'citation' => $matches[0]->citation];
+                    $checks[] = ['kind' => ParameterCheck::DATED_BY_NOTE->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $matches[0]->datedByNote, 'citation' => $matches[0]->citation];
                 }
 
                 if (count($values[$reading->parameterCode . '|' . $reading->validFrom->format('Y-m-d')]) > 1) {

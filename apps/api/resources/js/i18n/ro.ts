@@ -1855,7 +1855,7 @@ export const ro = {
             periodClosed: 'De la {from} până la {until}',
             statuses: { CANDIDATE: 'De aprobat', APPROVED: 'Aprobat', REJECTED: 'Respins' },
             checks: {
-                dated_by_note: '{citation} este citit dintr-o versiune ulterioară a legii: nota portalului datează această formulare de la {date}.',
+                dated_by_note: 'Portalul nu are textul legii pentru {year}: {citation} este luat dintr-o versiune ulterioară, a cărei notă spune că se aplică de la {date}.',
                 several_paragraphs: 'Mai multe paragrafe ale legii o spun — alege-l pe cel pe care se bazează.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 wage_differs:

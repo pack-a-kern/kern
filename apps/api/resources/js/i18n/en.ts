@@ -1842,7 +1842,7 @@ export const en = {
             periodClosed: 'From {from} to {until}',
             statuses: { CANDIDATE: 'To approve', APPROVED: 'Approved', REJECTED: 'Rejected' },
             checks: {
-                dated_by_note: '{citation} is read in a later version of the law: the portal’s note dates this wording from {date}.',
+                dated_by_note: 'The portal has no text of the law for {year}: {citation} is taken from a later version, whose own note says it applies from {date}.',
                 several_paragraphs: 'Several paragraphs of the law say it — choose the one it rests on.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 wage_differs:

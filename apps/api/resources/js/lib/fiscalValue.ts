@@ -42,21 +42,25 @@ export function describePeriod(
     locale: string,
 ): string {
     return (
-        version.validUntil === null
-            ? t((d) => d.pages.taxRules.periodOpen)
-            : t((d) => d.pages.taxRules.periodClosed)
+        version.validUntil === null ? t((d) => d.pages.taxRules.periodOpen) : t((d) => d.pages.taxRules.periodClosed)
     )
         .replace('{from}', formatDate(version.validFrom, locale))
         .replace('{until}', version.validUntil === null ? '' : formatDate(version.validUntil, locale));
 }
 
-/** Something found out while reading, in the reader's language, what it is about filled in. */
-export function describeCheck(check: { kind: string; detail: Record<string, string | number> }, t: Translate): string {
+/** Something found out while reading, in the reader's language, what it is about filled in — a day as a day. */
+export function describeCheck(
+    check: { kind: string; detail: Record<string, string | number> },
+    t: Translate,
+    locale: string,
+): string {
     let text = t((d) => d.pages.taxRules.checks)[check.kind] ?? check.kind;
 
     for (const [key, value] of Object.entries(check.detail)) {
-        // As given: most are years, which a number format would write "2.017".
-        text = text.replaceAll(`{${key}}`, String(value));
+        // As given, but for a day: most numbers are years, which a number format would write "2.017".
+        const shown =
+            typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDate(value, locale) : String(value);
+        text = text.replaceAll(`{${key}}`, shown);
     }
 
     return text;
@@ -64,5 +68,9 @@ export function describeCheck(check: { kind: string; detail: Record<string, stri
 
 /** What needs a second look is a warning; what only informs is not. */
 export function checkTone(check: { kind: string }): 'ok' | 'warn' | 'idle' {
-    return check.kind === 'confirmed_by_form' ? 'ok' : check.kind === 'several_paragraphs' ? 'idle' : 'warn';
+    return check.kind === 'confirmed_by_form'
+        ? 'ok'
+        : check.kind === 'several_paragraphs' || check.kind === 'dated_by_note'
+          ? 'idle'
+          : 'warn';
 }
