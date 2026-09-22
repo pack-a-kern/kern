@@ -1859,6 +1859,8 @@ export const ro = {
             checks: {
                 dated_by_note:
                     'Portalul nu are textul legii pentru {year}: {citation} este luat dintr-o versiune ulterioară, a cărei notă spune că se aplică de la {date}.',
+                in_force_later:
+                    'Această formă a {citation} este în vigoare de la {date}; declarațiile D212 o aplică întregului an {year}.',
                 several_paragraphs:
                     '{count} paragrafe ale legii spun asta. Alege-l pe cel pe care se bazează regula — ceilalți ani îl vor păstra.',
                 paragraph_changed:

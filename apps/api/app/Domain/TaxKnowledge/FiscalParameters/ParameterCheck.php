@@ -16,6 +16,9 @@ enum ParameterCheck: string
      */
     case DATED_BY_NOTE = 'dated_by_note';
 
+    /** The wording that says it came into force during the value's year, not on its first day. */
+    case IN_FORCE_LATER = 'in_force_later';
+
     /**
      * The law has more than one paragraph that says it, and no year of it was approved yet: a person
      * picks the one it rests on, and the other years keep to it.

@@ -78,7 +78,12 @@ final readonly class CandidateRecorder
                     continue;
                 }
 
-                if (($matches[0] ?? null)?->datedByNote !== null) {
+                if (($matches[0] ?? null)?->inForceFrom !== null) {
+                    $checks[] = ['kind' => ParameterCheck::IN_FORCE_LATER->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $matches[0]->inForceFrom, 'citation' => $matches[0]->citation];
+                }
+
+                // A wording that came into force during the year says its day already.
+                if (($matches[0] ?? null)?->datedByNote !== null && $matches[0]->inForceFrom === null) {
                     $checks[] = ['kind' => ParameterCheck::DATED_BY_NOTE->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $matches[0]->datedByNote, 'citation' => $matches[0]->citation];
                 }
 

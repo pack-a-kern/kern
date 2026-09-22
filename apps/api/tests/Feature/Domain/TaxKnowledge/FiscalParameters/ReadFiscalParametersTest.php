@@ -455,3 +455,25 @@ it('finds a threshold its lettered points say between them in the paragraph they
     expect(array_map(static fn (LawMatch $match): array => [$match->citation, $match->says], $found))
         ->toBe([['Art. 148 alin. (4)', [12, 24]], ['Art. 148 alin. (5)', [12]]]);
 });
+
+it('finds a value in a wording that came into force during its year, and says from when', function (): void {
+    $before = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2018-01-01', '2018-03-22');
+    heading($before, 'Titlul V Capitolul II', [
+        ['Art. 148 alin. (1)', 'Baza lunară de calcul o reprezintă echivalentul a 35% din câştigul salarial mediu brut.'],
+    ]);
+    $after = SourceDocumentVersion::factory()->create([
+        'source_document_id' => $before->source_document_id,
+        'effective_from' => '2018-03-23',
+        'consolidation_ref' => (string) random_int(1, 999999),
+    ]);
+    heading($after, 'Titlul V Capitolul II', [
+        ['Art. 148 alin. (1)', 'datorează contribuția dacă estimează venituri cel puțin egale cu 12 salarii minime brute pe țară.'],
+    ]);
+    $definition = app(ParameterCatalog::class)->find('RO.CAS.BASE_WAGES') ?? throw new RuntimeException('CAS thresholds are not configured.');
+    $matcher = app(LawMatcher::class);
+
+    $found = $matcher->find($definition, [12], new DateTimeImmutable('2018-01-01'), new DateTimeImmutable('2018-12-31'));
+
+    expect($matcher->find($definition, [12], new DateTimeImmutable('2018-01-01')))->toBe([])
+        ->and(array_map(static fn (LawMatch $match): array => [$match->citation, $match->inForceFrom], $found))->toBe([['Art. 148 alin. (1)', '2018-03-23']]);
+});

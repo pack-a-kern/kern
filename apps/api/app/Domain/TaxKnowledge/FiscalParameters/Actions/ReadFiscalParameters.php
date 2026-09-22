@@ -76,7 +76,7 @@ final readonly class ReadFiscalParameters
 
             foreach ($values->readings as $reading) {
                 $reading = $together[$reading->key()] ?? $reading;
-                $matches = $this->law->find($this->definition($reading), $reading->lawValues, $reading->validFrom);
+                $matches = $this->law->find($this->definition($reading), $reading->lawValues, $reading->validFrom, $reading->validUntil);
 
                 if ($matches === []) {
                     $unmatched[] = [

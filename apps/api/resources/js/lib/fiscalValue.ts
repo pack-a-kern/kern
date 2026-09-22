@@ -70,7 +70,7 @@ export function describeCheck(
 export function checkTone(check: { kind: string }): 'ok' | 'warn' | 'idle' {
     return check.kind === 'confirmed_by_form'
         ? 'ok'
-        : check.kind === 'several_paragraphs' || check.kind === 'dated_by_note'
+        : check.kind === 'several_paragraphs' || check.kind === 'dated_by_note' || check.kind === 'in_force_later'
           ? 'idle'
           : 'warn';
 }

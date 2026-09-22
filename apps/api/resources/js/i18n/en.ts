@@ -1846,6 +1846,8 @@ export const en = {
             checks: {
                 dated_by_note:
                     'The portal has no text of the law for {year}: {citation} is taken from a later version, whose own note says it applies from {date}.',
+                in_force_later:
+                    'This wording of {citation} is in force from {date}; the D212 files apply it to all of {year}.',
                 several_paragraphs:
                     '{count} paragraphs of the law say this. Choose the one the rule rests on — the other years will keep to it.',
                 paragraph_changed:

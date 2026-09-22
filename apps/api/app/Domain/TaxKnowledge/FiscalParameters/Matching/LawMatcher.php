@@ -37,6 +37,11 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * tax's paragraph, read in 2021 and noted "(la 01-01-2018, …)", says 10% from that day. A value found
  * that way says so.
  *
+ * A value holds for a year, and the law can change during it: a wording in force from 23 March 2018
+ * — OUG 18/2018's "12 salarii minime" — is what the D212 applies to all of 2018's income. When the law
+ * of the first day says none of the numbers, each later day of the period a wording changed on is
+ * read in turn, and what the first of them says is found, the day with it.
+ *
  * Kept for the run: a version is read once however many values are looked for in it.
  */
 final class LawMatcher
@@ -54,9 +59,10 @@ final class LawMatcher
 
     /**
      * @param  list<int>  $values
+     * @param  DateTimeImmutable|null  $until  the value's last day; none to read only the first
      * @return list<LawMatch> in reading order; empty when the law in force then says none of them
      */
-    public function find(ParameterDefinition $definition, array $values, DateTimeImmutable $on): array
+    public function find(ParameterDefinition $definition, array $values, DateTimeImmutable $on, ?DateTimeImmutable $until = null): array
     {
         if (! $definition->isInLaw() || $values === []) {
             return [];
@@ -68,6 +74,44 @@ final class LawMatcher
             return [];
         }
 
+        $found = $this->findOn($definition, $values, $lawId, $on);
+
+        foreach ($until === null ? [] : $this->changesBetween($lawId, $on, $until) as $day) {
+            if ($found !== []) {
+                break;
+            }
+
+            $found = array_map(static fn (LawMatch $match): LawMatch => $match->inForceFrom($day->format('Y-m-d')), $this->findOn($definition, $values, $lawId, $day));
+        }
+
+        return $found;
+    }
+
+    /**
+     * The days after `$on`, up to `$until`, the law's wording changed on: a consolidation's, or a
+     * wording's the portal's note dates.
+     *
+     * @return list<DateTimeImmutable> in order
+     */
+    private function changesBetween(string $lawId, DateTimeImmutable $on, DateTimeImmutable $until): array
+    {
+        $between = [$on->format('Y-m-d'), $until->format('Y-m-d')];
+        $days = [
+            ...SourceDocumentVersion::query()->where('source_document_id', $lawId)->where('effective_from', '>', $between[0])->where('effective_from', '<=', $between[1])->pluck('effective_from')->all(),
+            ...SectionHistory::query()->where('source_document_id', $lawId)->where('dated_by_note', true)->where('valid_from', '>', $between[0])->where('valid_from', '<=', $between[1])->pluck('valid_from')->all(),
+        ];
+        $days = array_values(array_unique(array_map(static fn (DateTimeInterface $day): string => $day->format('Y-m-d'), array_filter($days, static fn (mixed $day): bool => $day instanceof DateTimeInterface))));
+        sort($days);
+
+        return array_map(static fn (string $day): DateTimeImmutable => new DateTimeImmutable($day), $days);
+    }
+
+    /**
+     * @param  list<int>  $values
+     * @return list<LawMatch>
+     */
+    private function findOn(ParameterDefinition $definition, array $values, string $lawId, DateTimeImmutable $on): array
+    {
         try {
             $version = $this->temporal->versionInForceOn($lawId, $on);
         } catch (NoEffectiveVersionFoundException|AmbiguousEffectiveVersionException) {
