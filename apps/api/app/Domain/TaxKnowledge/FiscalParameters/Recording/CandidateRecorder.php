@@ -24,7 +24,7 @@ use InvalidArgumentException;
  * keeps it for a person to see.
  *
  * Run again, it changes nothing that was decided: a value approved or rejected is not proposed
- * again, and an approved one is never touched. Candidates of the parameters read that are no longer
+ * again, and only its evidence — what it was read from and checked against — is refreshed. Candidates of the parameters read that are no longer
  * read go, so a corrected pattern leaves no stale proposal behind.
  */
 final readonly class CandidateRecorder
@@ -119,7 +119,13 @@ final readonly class CandidateRecorder
             ->filter(static fn (FiscalParameterVersion $version): bool => $version->value_json === $reading->value
                 && $version->valid_until?->format('Y-m-d') === $reading->validUntil?->format('Y-m-d'));
 
-        if ($same->contains(static fn (FiscalParameterVersion $version): bool => in_array($version->status, [RuleApprovalStatus::APPROVED, RuleApprovalStatus::REJECTED], true))) {
+        $decided = $same->filter(static fn (FiscalParameterVersion $version): bool => in_array($version->status, [RuleApprovalStatus::APPROVED, RuleApprovalStatus::REJECTED], true));
+
+        if ($decided->isNotEmpty()) {
+            // What a person decided stays decided: only what it was read from and checked against
+            // is brought up to date — never its value, its source, its status or who decided it.
+            FiscalParameterVersion::query()->whereKey($decided->modelKeys())->update(['evidence' => json_encode($evidence, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)]);
+
             return null;
         }
 

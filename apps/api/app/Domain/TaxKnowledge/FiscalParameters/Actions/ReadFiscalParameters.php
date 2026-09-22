@@ -91,7 +91,7 @@ final readonly class ReadFiscalParameters
         }
 
         $found = [
-            ...array_map(fn (Reading $reading): array => ['reading' => $this->withFormWages($reading, $wagesSeen), 'matches' => []], $wageReadings),
+            ...array_map(fn (Reading $reading): array => ['reading' => $this->withFormWages($reading, $wagesSeen, $wages), 'matches' => []], $wageReadings),
             ...$formReadings,
         ];
 
@@ -108,27 +108,34 @@ final readonly class ReadFiscalParameters
     }
 
     /**
-     * A minimum wage with what the forms say of it: each form formula for a year it is in force on
-     * 1 January either counts in this same wage or in another.
+     * A minimum wage with what the forms say of it.
      *
-     * @param  list<array{year: int, wage: int, url: string}>  $wagesSeen
+     * A form counts a year's income in one wage. Where the wage changed during that year — 2 230 lei
+     * until 12 January 2021, 2 300 from the 13th — the form counting in 2 300 confirms the 2 300
+     * decision and says nothing against the 2 230 one: both were that year's. Only a wage no
+     * decision set for the year is a disagreement, noted on the wage of its 1 January.
+     *
+     * @param  list<array{year: int, wage: int, url: string, form_year: int}>  $wagesSeen
      */
-    private function withFormWages(Reading $reading, array $wagesSeen): Reading
+    private function withFormWages(Reading $reading, array $wagesSeen, MinimumWages $wages): Reading
     {
         $minor = $reading->value['amount_minor'] ?? null;
         $amount = is_int($minor) ? intdiv($minor, 100) : 0;
 
-        foreach ($wagesSeen as $seen) {
-            $day = new DateTimeImmutable(sprintf('%04d-01-01', $seen['year']));
+        foreach (array_unique($wagesSeen, SORT_REGULAR) as $seen) {
+            $start = new DateTimeImmutable(sprintf('%04d-01-01', $seen['year']));
+            $end = new DateTimeImmutable(sprintf('%04d-12-31', $seen['year']));
+            $detail = ['year' => $seen['year'], 'form_year' => $seen['form_year'], 'form_wage' => $seen['wage'], 'url' => $seen['url']];
 
-            if ($reading->validFrom > $day || ($reading->validUntil !== null && $reading->validUntil < $day)) {
+            if ($reading->validFrom > $end || ($reading->validUntil !== null && $reading->validUntil < $start)) {
                 continue;
             }
 
-            $reading = $reading->withCheck(
-                $seen['wage'] === $amount ? ParameterCheck::CONFIRMED_BY_FORM : ParameterCheck::DIFFERS_FROM_FORM,
-                ['year' => $seen['year'], 'form_wage' => $seen['wage'], 'url' => $seen['url']],
-            );
+            if ($seen['wage'] === $amount) {
+                $reading = $reading->withCheck(ParameterCheck::CONFIRMED_BY_FORM, $detail);
+            } elseif (! in_array($seen['wage'], $wages->during($seen['year']), true) && $wages->onFirstOfJanuary($seen['year']) === $amount) {
+                $reading = $reading->withCheck(ParameterCheck::DIFFERS_FROM_FORM, $detail);
+            }
         }
 
         return $reading;

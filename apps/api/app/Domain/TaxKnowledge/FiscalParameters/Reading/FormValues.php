@@ -10,7 +10,7 @@ final readonly class FormValues
     /**
      * @param  list<Reading>  $readings
      * @param  list<array<string, mixed>>  $unmatched
-     * @param  list<array{year: int, wage: int, url: string}>  $wagesSeen
+     * @param  list<array{year: int, wage: int, url: string, form_year: int}>  $wagesSeen
      */
     public function __construct(
         public array $readings,

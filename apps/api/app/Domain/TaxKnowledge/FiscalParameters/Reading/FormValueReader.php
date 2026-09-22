@@ -60,7 +60,7 @@ final readonly class FormValueReader
                     $byYear[$observed['year']][] = ['number' => $observed['number'], 'quote' => self::quote($match[0]), 'checks' => $observed['checks']];
 
                     if ($observed['wage'] !== null) {
-                        $wagesSeen[] = ['year' => $observed['year'], 'wage' => $observed['wage'], 'url' => $form->structure->url];
+                        $wagesSeen[] = ['year' => $observed['year'], 'wage' => $observed['wage'], 'url' => $form->structure->url, 'form_year' => $form->structure->form_year];
                     }
                 }
             }

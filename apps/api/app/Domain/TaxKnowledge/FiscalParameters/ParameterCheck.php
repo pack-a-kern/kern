@@ -19,10 +19,10 @@ enum ParameterCheck: string
     /** The form counts in a minimum wage that is not the decision's for that year. */
     case WAGE_DIFFERS = 'wage_differs';
 
-    /** A form's formula for that year counts in this same minimum wage. */
+    /** A form counts a year's income in this same minimum wage. */
     case CONFIRMED_BY_FORM = 'confirmed_by_form';
 
-    /** A form's formula for that year counts in another minimum wage. */
+    /** A form counts a year's income in a minimum wage no decision set for that year. */
     case DIFFERS_FROM_FORM = 'differs_from_form';
 
     /** An amount in lei that is not a whole number of that year's minimum wages. Never a value. */

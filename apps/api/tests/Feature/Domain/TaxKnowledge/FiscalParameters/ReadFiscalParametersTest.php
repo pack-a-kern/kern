@@ -150,14 +150,14 @@ function decisions(): void
 }
 
 /** ANAF's page listing the file, the file, and the extraction service reading its formulas. */
-function anaf(): void
+function anaf(?string $formulas = null, string $url = FORM_2024): void
 {
     Http::fake([
-        'static.anaf.ro/static/10/Anaf/Declaratii_R/declaratie_unica.html' => Http::response('<html><body><a href="' . FORM_2024 . '">Structura</a></body></html>', 200, ['Content-Type' => 'text/html']),
+        'static.anaf.ro/static/10/Anaf/Declaratii_R/declaratie_unica.html' => Http::response('<html><body><a href="' . $url . '">Structura</a></body></html>', 200, ['Content-Type' => 'text/html']),
         'static.anaf.ro/*' => Http::response('%PDF-1.4 structure file', 200, ['Content-Type' => 'application/pdf']),
     ]);
 
-    $formulas = implode("\n", [
+    $formulas ??= implode("\n", [
         'cas_baza 2.Bază anuală calcul a CAS N(15) IF bifa_cas_real = 1, THEN cas_baza >= 12*3000 IF bifa_cas_real = 2, THEN cas_baza >= 24*3000',
         'cas_datorat 3.CAS datorată (rd.2 x 25%) N(15) cas_datorat = math.round(cas_baza *25/ 100)',
         'ATT: Baza anuala de calcul a CAS nu pot fi mai mici decât nivelul a 12 salarii minime brute pe ţară, în vigoare în anul pentru care se datorează contribuţia(39.600 lei)',
@@ -243,7 +243,7 @@ it('keeps what did not agree beside the value, and every paragraph that says it'
 
     // Compared by content: a jsonb object keeps no key order.
     expect(collect($wage2023->evidence['checks'] ?? [])->firstWhere('kind', 'confirmed_by_form'))
-        ->toEqual(['kind' => 'confirmed_by_form', 'year' => 2023, 'form_wage' => 3000, 'url' => FORM_2024])
+        ->toEqual(['kind' => 'confirmed_by_form', 'year' => 2023, 'form_year' => 2024, 'form_wage' => 3000, 'url' => FORM_2024])
         ->and(array_column($cassBands->evidence['matches'] ?? [], 'citation'))->toBe(['Art. 170 alin. (3)', 'Art. 170 alin. (4)'])
         ->and($cassBands->evidence['checks'] ?? [])->toContain(['kind' => 'several_paragraphs'])
         ->and($cassBands->evidence['readings'][0]['quotes'] ?? [])->toBe(['cass_baza = 6*3000', 'cass_baza = 12*3000', 'csas_baza = 24*3000']);
@@ -298,4 +298,32 @@ it('proposes a new year from the year before, if its law still says each value',
     expect($carried->status)->toBe(RuleApprovalStatus::CANDIDATE)
         ->and($carried->value_json)->toBe(['value' => '0.10'])
         ->and($carried->evidence['readings'][0] ?? [])->toMatchArray(['kind' => 'carried', 'from_year' => 2023]);
+});
+
+it('reads a wage that changed during the year as that year\'s, and warns against neither', function (): void {
+    codulFiscal();
+    minimumWageDecision(
+        'HOTARARE 935/2019',
+        'HOTĂRÂRE nr. 935 din 13 decembrie 2019 pentru stabilirea salariului de bază minim brut pe ţară garantat în plată',
+        '2019-12-16',
+        'Începând cu data de 1 ianuarie 2020, salariul de bază minim brut pe țară garantat în plată, prevăzut la art. 164 alin. (1) din Legea nr. 53/2003 - Codul muncii, republicată , cu modificările și completările ulterioare, se stabilește în bani, fără a include sporuri și alte adaosuri, la suma de 2.230 lei lunar'
+    );
+    minimumWageDecision(
+        'HOTARARE 4/2021',
+        'HOTĂRÂRE nr. 4 din 13 ianuarie 2021 pentru stabilirea salariului de bază minim brut pe ţară garantat în plată',
+        '2021-01-13',
+        'Începând cu data intrării în vigoare a prezentei hotărâri, salariul de bază minim brut pe țară garantat în plată, prevăzut la art. 164 alin. (1) din Legea nr. 53/2003 - Codul muncii, republicată , cu modificările și completările ulterioare, se stabilește în bani, fără a include sporuri și alte adaosuri, la suma de 2.300 lei lunar'
+    );
+    // The 2022 file, about 2021 income: 12 wages of 2 300.
+    anaf('34. cass_baza Baza anuală de calcul a CASS N(15) cass_baza >= 0 1150<=cass_baza <=27600 cass_baza trebuie sa fie multiplu de 1150', 'https://static.anaf.ro/static/10/Anaf/Declaratii_R/AplicatiiDec/structura_declaratieUnica_2022_05012022.pdf');
+
+    app(ReadFiscalParameters::class)();
+
+    $checks = static fn (string $from): array => array_column(FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.MIN_WAGE')->select('id'))
+        ->where('valid_from', $from)
+        ->sole()->evidence['checks'] ?? [], 'kind');
+
+    expect($checks('2020-01-01'))->toBe([])
+        ->and($checks('2021-01-13'))->toBe(['confirmed_by_form']);
 });
