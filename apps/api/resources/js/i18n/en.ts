@@ -1851,7 +1851,7 @@ export const en = {
                 several_paragraphs:
                     '{count} paragraphs of the law say this. Choose the one the rule rests on — the other years will keep to it.',
                 paragraph_changed:
-                    'The rule was approved on {citation} for another year, and in this year’s law {citation} does not say this value. Choose the paragraph that does.',
+                    'The law for {year} was renumbered: {citation}, the paragraph this rule was approved on before, now says something else. The rule is now in {now}, selected below — check it and approve.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 wage_differs:
                     'The form counts in a minimum wage of {form_wage} lei; the decision for that year sets {decision_wage} lei.',

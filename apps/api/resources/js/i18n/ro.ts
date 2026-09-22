@@ -1864,7 +1864,7 @@ export const ro = {
                 several_paragraphs:
                     '{count} paragrafe ale legii spun asta. Alege-l pe cel pe care se bazează regula — ceilalți ani îl vor păstra.',
                 paragraph_changed:
-                    'Regula a fost aprobată pe {citation} pentru alt an, iar în legea din acest an {citation} nu spune această valoare. Alege paragraful care o spune.',
+                    'Legea pentru {year} a fost renumerotată: {citation}, paragraful pe care regula a fost aprobată înainte, spune acum altceva. Regula este acum în {now}, selectat mai jos — verifică-l și aprobă.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 wage_differs:
                     'Formularul folosește un salariu minim de {form_wage} lei; hotărârea pentru acel an stabilește {decision_wage} lei.',

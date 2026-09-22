@@ -426,7 +426,7 @@ it('keeps a rule to the paragraph it was approved on for another year, and says 
     expect($candidate('2024-01-01')->source_section_id)->toBe($section('Art. 170 alin. (4)')->id)
         ->and($candidate('2024-01-01')->evidence['checks'] ?? [])->toBe([])
         ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 170 alin. (3)')->id)
-        ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)']]);
+        ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)', 'now' => 'Art. 170 alin. (3)', 'year' => 2025]]);
 });
 
 it('finds a threshold its lettered points say between them in the paragraph they stand under', function (): void {

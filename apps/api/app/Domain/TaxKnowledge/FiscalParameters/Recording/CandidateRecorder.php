@@ -67,7 +67,7 @@ final readonly class CandidateRecorder
                 if ($onApproved !== []) {
                     $matches = [...$onApproved, ...array_diff_key($matches, $onApproved)];
                 } elseif ($approvedOn !== null) {
-                    $checks[] = ['kind' => ParameterCheck::PARAGRAPH_CHANGED->value, 'citation' => $approvedOn];
+                    $checks[] = ['kind' => ParameterCheck::PARAGRAPH_CHANGED->value, 'citation' => $approvedOn, 'now' => $matches[0]->citation, 'year' => (int) $reading->validFrom->format('Y')];
                 } elseif (count($matches) > 1) {
                     $checks[] = ['kind' => ParameterCheck::SEVERAL_PARAGRAPHS->value, 'count' => count($matches)];
                 }

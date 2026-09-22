@@ -59,7 +59,7 @@ final readonly class StartFiscalYear
             }
 
             $numbers = $definition->lawValues($approved->value_json);
-            $matches = $this->law->find($definition, $numbers, $from);
+            $matches = $this->law->find($definition, $numbers, $from, $until);
 
             if ($matches !== []) {
                 $found[] = [
