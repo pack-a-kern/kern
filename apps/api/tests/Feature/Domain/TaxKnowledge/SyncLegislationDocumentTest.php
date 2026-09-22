@@ -394,3 +394,31 @@ it('searches the portal only for those who may read a law in', function (): void
 
     $this->actingAs(User::factory()->create())->getJson('/api/v1/legislation/portal?title=codul%20fiscal')->assertForbidden();
 });
+
+it('imports the act chosen on the screen, through the task, to the end', function (): void {
+    governmentDecisionPortal();
+    bootstrapIdentityCryptoForTests();
+    Artisan::call('taxos:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+
+    // Exactly what the dialog sends: numbers as numbers. They reach the command as text, as they
+    // would from a terminal — an integer here once failed the command's own check.
+    $this->actingAs($admin)
+        ->postJson('/api/v1/operations/tasks/legislation.ingest/run', ['act_type' => 'HOTARARE', 'act_number' => 4, 'act_year' => 2021, 'portal_id' => 236118])
+        ->assertStatus(202);
+
+    expect(SourceDocument::query()->where('portal_document_id', '236118')->sole()->external_identifier)->toBe('HOTARARE 4/2021');
+});
+
+it('filters a portal search to one type', function (): void {
+    governmentDecisionPortal();
+    bootstrapIdentityCryptoForTests();
+    Artisan::call('taxos:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=LEGE')->assertOk()->assertJsonCount(0, 'acts');
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=HOTARARE')->assertOk()->assertJsonCount(2, 'acts');
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=DECRET')->assertStatus(422);
+});

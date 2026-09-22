@@ -1114,10 +1114,19 @@ export interface Dictionary {
                 none: string;
                 /** `{date}` it came into force. */
                 inForce: string;
-                read: string;
-                open: string;
-                queued: string;
-                notReadable: string;
+                type: string;
+                allTypes: string;
+                /** Per act type as the portal files it — `HOTARARE`; one missing shows the key. */
+                types: Record<string, string | undefined>;
+                import: string;
+                /** Asked beside the act, before anything starts. */
+                confirm: string;
+                confirmImport: string;
+                cancel: string;
+                imported: string;
+                importing: string;
+                /** `{type}` as the portal writes it. */
+                unsupported: string;
                 started: string;
                 busy: string;
                 portalDown: string;

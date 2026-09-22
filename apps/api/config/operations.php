@@ -90,12 +90,15 @@ return [
         // owned by whichever module ingests (the BNR importer writes `FX_DAILY`/`FX_YEARLY` through
         // the same column). This list is only what this screen offers.
         //
+        // As the portal files them, without diacritics: an emergency ordinance is its own type,
+        // "ORDONANTA DE URGENTA", not an "ORDONANTA".
+        //
         // Keep values stable once used: `document_type` is part of
         // `source_documents_identity_unique`, so re-ingesting the same act under a renamed type
         // creates a second document rather than a new version of the first.
         'document_types' => array_values(array_filter(array_map(
             trim(...),
-            explode(',', (string) env('OPERATIONS_LEGISLATION_DOCUMENT_TYPES', 'LEGE,ORDONANTA,HOTARARE,ORDIN,DECIZIE')),
+            explode(',', (string) env('OPERATIONS_LEGISLATION_DOCUMENT_TYPES', 'LEGE,ORDONANTA,ORDONANTA DE URGENTA,HOTARARE,ORDIN,DECIZIE')),
         ))),
 
     ],

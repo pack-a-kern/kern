@@ -1,4 +1,3 @@
-import { router } from '@inertiajs/react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -23,10 +22,13 @@ type Mode = 'title' | 'number';
  */
 export default function AddLawDialog({
     open,
+    types,
     onOpenChange,
     onStarted,
 }: {
     open: boolean;
+    /** The act types a law can be read as — `config/operations.php`, as the portal files them. */
+    types: string[];
     onOpenChange: (open: boolean) => void;
     /** A read was queued: the list of laws will change once it runs. */
     onStarted: () => void;
@@ -36,10 +38,16 @@ export default function AddLawDialog({
     const [title, setTitle] = useState('');
     const [number, setNumber] = useState('');
     const [year, setYear] = useState('');
+    const [type, setType] = useState('');
+    /** The act asked about: importing starts only once it is confirmed. */
+    const [confirming, setConfirming] = useState<string | null>(null);
     const [from, setFrom] = useState<string | null>(null);
     const [results, setResults] = useState<PortalActResult[] | null>(null);
     const [searching, setSearching] = useState(false);
     const [started, setStarted] = useState<Set<string>>(new Set());
+
+    /** A type in the reader's language; the portal's own name for one this screen has no word for. */
+    const typeName = (key: string): string => t((d) => d.pages.legislation.add.types)[key] ?? key;
 
     const canSearch = mode === 'title' ? title.trim().length >= 3 : number !== '' && year !== '';
 
@@ -49,11 +57,13 @@ export default function AddLawDialog({
         try {
             const yearValue = year === '' ? null : Number(year);
 
+            setConfirming(null);
             setResults(
                 await searchPortal(
                     mode === 'title'
                         ? { title: title.trim(), year: yearValue }
                         : { number: Number(number), year: yearValue ?? 0 },
+                    type === '' ? null : type,
                 ),
             );
         } catch (cause) {
@@ -68,6 +78,8 @@ export default function AddLawDialog({
     };
 
     const read = async (act: PortalActResult): Promise<void> => {
+        setConfirming(null);
+
         try {
             await readPortalAct(act, from);
             setStarted((current) => new Set(current).add(act.url));
@@ -105,7 +117,7 @@ export default function AddLawDialog({
             }
         >
             <form
-                className="grid gap-3 sm:grid-cols-[10rem_1fr_7rem]"
+                className="grid gap-3 sm:grid-cols-[10rem_1fr_7rem_11rem]"
                 onSubmit={(event) => {
                     event.preventDefault();
 
@@ -170,6 +182,15 @@ export default function AddLawDialog({
                         }}
                     />
                 </Field>
+                <Field label={t((d) => d.pages.legislation.add.type)} htmlFor="add-law-type">
+                    <PanelSelect
+                        id="add-law-type"
+                        value={type}
+                        onValueChange={setType}
+                        emptyLabel={t((d) => d.pages.legislation.add.allTypes)}
+                        options={types.map((key) => ({ value: key, label: typeName(key) }))}
+                    />
+                </Field>
                 {/* Enter in a field searches; the dialog's own button does the same. */}
                 <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
             </form>
@@ -211,21 +232,36 @@ export default function AddLawDialog({
                                 </div>
                             </div>
                             {act.lawId !== null ? (
+                                <Pill tone="accent">{t((d) => d.pages.legislation.add.imported)}</Pill>
+                            ) : started.has(act.url) ? (
+                                <Pill>{t((d) => d.pages.legislation.add.importing)}</Pill>
+                            ) : !act.importable ? (
+                                <Pill>
+                                    {t((d) => d.pages.legislation.add.unsupported).replace('{type}', act.typeLabel)}
+                                </Pill>
+                            ) : confirming === act.url ? (
+                                // Its own line under the act, so the question never squeezes the title.
+                                <div className="flex basis-full flex-wrap items-center justify-end gap-2">
+                                    <span className="text-xs">{t((d) => d.pages.legislation.add.confirm)}</span>
+                                    <PanelButton
+                                        onClick={() => {
+                                            setConfirming(null);
+                                        }}
+                                    >
+                                        {t((d) => d.pages.legislation.add.cancel)}
+                                    </PanelButton>
+                                    <PanelButton primary onClick={() => void read(act)}>
+                                        {t((d) => d.pages.legislation.add.confirmImport)}
+                                    </PanelButton>
+                                </div>
+                            ) : (
                                 <PanelButton
                                     onClick={() => {
-                                        router.visit(`/legislation/${act.lawId ?? ''}`);
+                                        setConfirming(act.url);
                                     }}
                                 >
-                                    {t((d) => d.pages.legislation.add.open)}
+                                    {t((d) => d.pages.legislation.add.import)}
                                 </PanelButton>
-                            ) : started.has(act.url) ? (
-                                <Pill>{t((d) => d.pages.legislation.add.queued)}</Pill>
-                            ) : act.importable ? (
-                                <PanelButton primary onClick={() => void read(act)}>
-                                    {t((d) => d.pages.legislation.add.read)}
-                                </PanelButton>
-                            ) : (
-                                <Pill>{t((d) => d.pages.legislation.add.notReadable)}</Pill>
                             )}
                         </article>
                     ))

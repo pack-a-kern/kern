@@ -57,10 +57,11 @@ export async function searchLegislation(
 
 /**
  * `GET /api/v1/legislation/portal` — acts on legislatie.just.ro, by words of their title (and a year,
- * if given) or by number and year. Only a search: reading one is the ingest task.
+ * if given) or by number and year, of one type if given. Only a search: reading one is the ingest task.
  */
 export async function searchPortal(
     query: { title: string; year: number | null } | { number: number; year: number },
+    type: string | null = null,
 ): Promise<PortalActResult[]> {
     const params = new URLSearchParams(
         'title' in query ? { title: query.title } : { number: String(query.number) },
@@ -68,6 +69,10 @@ export async function searchPortal(
 
     if (query.year !== null) {
         params.set('year', String(query.year));
+    }
+
+    if (type !== null) {
+        params.set('type', type);
     }
 
     return parsePortalActs(JSON.parse(await apiRequest(`/v1/legislation/portal?${params.toString()}`)));

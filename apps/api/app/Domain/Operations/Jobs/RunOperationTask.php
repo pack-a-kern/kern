@@ -68,7 +68,12 @@ final class RunOperationTask implements ShouldQueue
      * translation happens here — once, next to the call — rather than leaking `--` into the screen,
      * the JSON and the stored `task_runs.arguments`.
      *
-     * @return array<string, int|string>
+     * Every value is handed over as text, as a terminal would: a command reads its input as the
+     * strings it gets from one, and an integer here — the form's act number, `2346` — failed
+     * `taxos:legislation:sync`'s own check that a number is digits, so no act could be read from
+     * the screen at all.
+     *
+     * @return array<string, string>
      */
     private function commandArguments(): array
     {
@@ -76,7 +81,7 @@ final class RunOperationTask implements ShouldQueue
 
         foreach ($this->task->arguments() as $argument) {
             if (array_key_exists($argument->name, $this->arguments)) {
-                $mapped[$argument->commandKey] = $this->arguments[$argument->name];
+                $mapped[$argument->commandKey] = (string) $this->arguments[$argument->name];
             }
         }
 

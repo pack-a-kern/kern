@@ -77,7 +77,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/taxes/explain', fn () => Inertia::render('taxes/explain'))->name('taxes.explain');
 
     Route::get('/declarations', fn () => Inertia::render('declarations'))->name('declarations');
-    Route::get('/legislation', fn () => Inertia::render('legislation'))->name('legislation');
+    // The act types a law can be read as, for the "Add a law" dialog's filter.
+    Route::get('/legislation', fn () => Inertia::render('legislation', [
+        'documentTypes' => config()->array('operations.legislation.document_types'),
+    ]))->name('legislation');
     Route::get('/legislation/{law}', fn (string $law) => Inertia::render('legislation/law', [
         'lawId' => $law,
     ]))->whereUuid('law')->name('legislation.law');
