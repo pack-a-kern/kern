@@ -90,3 +90,12 @@ it('reads the definitions the way the new markup nests them: points holding poin
         ->and(array_key_exists('Art. 7 pct. 4.', $sections))->toBeTrue()
         ->and(array_key_exists('Art. 7 pct. 3. pct. 4.', $sections))->toBeFalse();
 })->with(['2016-01-01', '2016-03-25', '2026-08-08']);
+
+it('keeps the portal\'s notes on the provision they stand in, out of its text', function (): void {
+    $article = sectionsOf('2026-08-08')['Art. 170'];
+
+    expect($article->notes)->toHaveCount(2)
+        ->and($article->notes[0])->toStartWith('Conform literei b) a alineatului (2) al articolului XIII din LEGEA nr. 239')
+        ->and($article->notes[0])->toEndWith('se aplică începând cu veniturile aferente anului 2026.')
+        ->and($article->text)->not->toContain('LEGEA nr. 239');
+});

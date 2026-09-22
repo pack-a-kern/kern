@@ -6,6 +6,7 @@ namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\SectionType;
 use App\Domain\TaxKnowledge\Parsing\SectionText;
+use App\Domain\TaxKnowledge\Services\NoteReader;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\SourceSectionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -38,6 +39,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $amended_on  the date of the section's latest amendment note
  * @property string|null $normative_hash  see {@see SectionText::fingerprint()}
  * @property string|null $outline_id  for an article or annex: the heading it stands under
+ * @property list<ReadNote>|null $notes  the portal's notes on it, as {@see NoteReader} read them
+ *
+ * @phpstan-import-type ReadNote from NoteReader
  */
 #[UseFactory(SourceSectionFactory::class)]
 final class SourceSection extends Model
@@ -65,6 +69,7 @@ final class SourceSection extends Model
         'amended_on',
         'normative_hash',
         'outline_id',
+        'notes',
     ];
 
     /** @var array<string, string> */
@@ -77,6 +82,7 @@ final class SourceSection extends Model
         'effective_until' => 'date:Y-m-d',
         'tables' => 'array',
         'amended_on' => 'date:Y-m-d',
+        'notes' => 'array',
     ];
 
     /** The text with its tables written out row by row — what is searched and quoted. */

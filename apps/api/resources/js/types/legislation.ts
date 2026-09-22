@@ -171,6 +171,101 @@ export interface LawOutline {
     headings: LawOutlineHeading[];
 }
 
+/** An act a note quotes — the one whose words the note copies. */
+export interface NoteAct {
+    /** As the note writes it: `ORDONANȚA DE URGENȚĂ`. */
+    type: string;
+    number: string;
+    date: string | null;
+    journalNumber: string;
+    journalDate: string | null;
+}
+
+export type NoteApplicabilityKind =
+    | 'income_month_after_publication'
+    | 'income_month'
+    | 'income_year'
+    | 'fiscal_year'
+    | 'modified_fiscal_year'
+    | 'quarter'
+    | 'in_force'
+    | 'in_force_on_publication'
+    | 'from_date'
+    | 'until_date'
+    | 'on_date';
+
+/** A sentence of a note that says when the provision applies, and the dates it gives. */
+export interface NoteApplies {
+    kind: NoteApplicabilityKind;
+    /** Null when the note gives no day: a company's own fiscal year, or publication by an act not named. */
+    from: string | null;
+    until: string | null;
+    year: number | null;
+    /** Index into the note's `acts`: the act named last before the sentence. */
+    act: number | null;
+    /** The words the dates were read from. */
+    quote: string;
+}
+
+/** One of the portal's notes on a provision — never part of the provision's own text. */
+export interface LawNote {
+    text: string;
+    acts: NoteAct[];
+    applies: NoteApplies[];
+}
+
+const NOTE_KINDS: readonly NoteApplicabilityKind[] = [
+    'income_month_after_publication',
+    'income_month',
+    'income_year',
+    'fiscal_year',
+    'modified_fiscal_year',
+    'quarter',
+    'in_force',
+    'in_force_on_publication',
+    'from_date',
+    'until_date',
+    'on_date',
+];
+
+function notes(value: unknown): LawNote[] {
+    return (Array.isArray(value) ? value : []).map((entry): LawNote => {
+        const row = obj(entry);
+
+        return {
+            text: str(row, 'text'),
+            acts: (Array.isArray(row.acts) ? row.acts : []).map((act): NoteAct => {
+                const item = obj(act);
+
+                return {
+                    type: str(item, 'type'),
+                    number: str(item, 'number'),
+                    date: nullableStr(item, 'date'),
+                    journalNumber: str(item, 'journal_number'),
+                    journalDate: nullableStr(item, 'journal_date'),
+                };
+            }),
+            applies: (Array.isArray(row.applies) ? row.applies : []).flatMap((applies): NoteApplies[] => {
+                const item = obj(applies);
+                const kind = NOTE_KINDS.find((known) => known === item.kind);
+
+                return kind === undefined
+                    ? []
+                    : [
+                          {
+                              kind,
+                              from: nullableStr(item, 'from'),
+                              until: nullableStr(item, 'until'),
+                              year: nullableNum(item, 'year'),
+                              act: nullableNum(item, 'act'),
+                              quote: str(item, 'quote'),
+                          },
+                      ];
+            }),
+        };
+    });
+}
+
 export interface LawSection {
     id: string;
     type: string;
@@ -182,6 +277,7 @@ export interface LawSection {
     text: string;
     tables: LawTable[];
     amendedOn: string | null;
+    notes: LawNote[];
     /** For an article or annex: the headings it stands under, outermost first. Empty for the rest. */
     headings: LawHeading[];
 }
@@ -208,6 +304,7 @@ export interface ProvisionVersion {
     coverageComplete: boolean;
     text: string;
     tables: LawTable[];
+    notes: LawNote[];
 }
 
 function tables(value: unknown): LawTable[] {
@@ -328,6 +425,7 @@ export function parseLawText(payload: unknown): LawText {
                 text: str(row, 'text'),
                 tables: tables(row.tables),
                 amendedOn: nullableStr(row, 'amended_on'),
+                notes: notes(row.notes),
                 headings: (Array.isArray(row.headings) ? row.headings : []).map(parseHeading),
             };
         }),
@@ -347,6 +445,7 @@ export function parseProvisionHistory(payload: unknown): ProvisionVersion[] {
             coverageComplete: row.coverage_complete !== false,
             text: str(row, 'text'),
             tables: tables(row.tables),
+            notes: notes(row.notes),
         };
     });
 }

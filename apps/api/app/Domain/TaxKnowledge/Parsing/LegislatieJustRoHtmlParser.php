@@ -89,8 +89,9 @@ final class LegislatieJustRoHtmlParser
      * 1.3.0 — the portal's older markup is read too ({@see LegacyMarkup}), and a point or a dash
      * standing after the provision it belongs to is nested into it.
      * 1.4.0 — the table of contents: titles, chapters and sections, with the articles under each.
+     * 1.5.0 — the portal's notes ("Notă") are kept beside the provision they stand in, out of its text.
      */
-    public const string VERSION = '1.4.0';
+    public const string VERSION = '1.5.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -217,6 +218,7 @@ final class LegislatieJustRoHtmlParser
                 $children,
                 $section->tables,
                 $section->outlineIndex,
+                $section->notes,
             );
         }
 
@@ -278,6 +280,7 @@ final class LegislatieJustRoHtmlParser
                 $parsed->children,
                 $parsed->tables,
                 $outlineIndex,
+                $parsed->notes,
             );
             $ordinal++;
         }
@@ -408,9 +411,9 @@ final class LegislatieJustRoHtmlParser
 
         $citationLabel = $this->buildCitationLabel($sectionType, $rawLabel, $parentCitationLabel, $ordinal);
 
-        [$ownText, $childContainers, $tables] = $body !== null
+        [$ownText, $childContainers, $tables, $notes] = $body !== null
             ? $this->splitBodyContent($body)
-            : ['', [], []];
+            : ['', [], [], []];
 
         array_push($childContainers, ...$extraDirectChildren);
 
@@ -422,7 +425,7 @@ final class LegislatieJustRoHtmlParser
             $childOrdinal++;
         }
 
-        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children, $tables);
+        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children, $tables, null, $notes);
     }
 
     /**
@@ -522,39 +525,42 @@ final class LegislatieJustRoHtmlParser
      * Only a genuine dead end — a text node, or an element with neither a container token nor an
      * annotation token — contributes to `text`.
      *
-     * Two kinds of elements are dropped entirely, at *any* depth — neither text nor a section:
-     * - A `_SHORT` element (`S_LIT_SHORT`, the collapsed-view UI duplicate `" ... "` placeholder).
-     * - An `S_NTA` element ("Notă") — confirmed live (2026-09-08 fetch, see class docblock) to be
-     *   editorial amendment-history commentary (e.g. "*) Modificată și completată prin Legea de
-     *   revizuire ... publicată ... 29 octombrie 2003 ..."), not part of the article's own legal
-     *   text. Including it would silently corrupt what a citation's `text` represents — the words
-     *   the law itself uses, not commentary about the law.
+     * Two kinds of elements are kept out of the text, at *any* depth — neither text nor a section:
+     * - A `_SHORT` element (`S_LIT_SHORT`, the collapsed-view UI duplicate `" ... "` placeholder),
+     *   dropped.
+     * - An `S_NTA` element ("Notă") — the portal's commentary, not the law's own words, so never part
+     *   of `text`. Kept apart instead, as the fourth element: it is where the portal copies what an
+     *   amending act says about *when* its changes apply — "prevederile art. 6 … se aplică începând
+     *   cu anul fiscal 2026" — which the consolidation's own date does not say (212 of the 301 notes
+     *   in the 2026-08-08 consolidation of the Codul fiscal say something of the kind).
      *
      * The text keeps a line break between the source's own blocks (an `S_PAR`, a `<p>`, a `<br>`),
      * and a `<table>` is taken out whole: its rows and cells go to the third element, a marker line
      * holds its place in the text ({@see SectionText::tableMarker()}).
      *
-     * @return array{0: string, 1: list<DOMElement>, 2: list<list<list<string>>>}
+     * @return array{0: string, 1: list<DOMElement>, 2: list<list<list<string>>>, 3: list<string>}
      */
     private function splitBodyContent(DOMElement $body): array
     {
         $textParts = [];
         $childContainers = [];
         $tables = [];
+        $notes = [];
 
-        $this->collectBodyContent($body, $textParts, $childContainers, $tables);
+        $this->collectBodyContent($body, $textParts, $childContainers, $tables, $notes);
 
         // Joined with a space, as before: two inline elements with nothing between them in the
         // markup are still two words.
-        return [$this->normalizeLines(implode(' ', $textParts)), $childContainers, $tables];
+        return [$this->normalizeLines(implode(' ', $textParts)), $childContainers, $tables, $notes];
     }
 
     /**
      * @param list<string> $textParts
      * @param list<DOMElement> $childContainers
      * @param list<list<list<string>>> $tables
+     * @param list<string> $notes
      */
-    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers, array &$tables): void
+    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers, array &$tables, array &$notes): void
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMText) {
@@ -564,6 +570,17 @@ final class LegislatieJustRoHtmlParser
             }
 
             if ($child instanceof DOMComment || ! $child instanceof DOMElement) {
+                continue;
+            }
+
+            if (in_array('S_NTA', $this->classTokens($child), true)) {
+                // "Notă ... Potrivit alin. (2) al art. 10 din …" — the label is the portal's own.
+                $note = (string) preg_replace('/^Not[ăa]\s*(?:\.{3}|…)?\s*/u', '', $this->normalizeLines($child->textContent));
+
+                if ($note !== '') {
+                    $notes[] = $note;
+                }
+
                 continue;
             }
 
@@ -593,7 +610,7 @@ final class LegislatieJustRoHtmlParser
             // A plain wrapper (S_PAR, S_LGI, <a>/<b>/...) — recurse rather than flattening its
             // whole subtree into text, since it may itself directly contain a container (the
             // Art. 3 case above).
-            $this->collectBodyContent($child, $textParts, $childContainers, $tables);
+            $this->collectBodyContent($child, $textParts, $childContainers, $tables, $notes);
 
             if ($isBlock) {
                 $textParts[] = "\n";

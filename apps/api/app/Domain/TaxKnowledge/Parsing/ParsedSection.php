@@ -24,6 +24,7 @@ final readonly class ParsedSection
     /**
      * @param list<ParsedSection> $children
      * @param list<list<list<string>>> $tables
+     * @param list<string> $notes
      */
     public function __construct(
         public SectionType $sectionType,
@@ -35,6 +36,8 @@ final readonly class ParsedSection
         public array $tables = [],
         /** For an article or annex: the heading it stands under, as an index into the document's outline. */
         public ?int $outlineIndex = null,
+        /** The portal's notes on this provision, each as its text — never part of `text`. */
+        public array $notes = [],
     ) {
     }
 

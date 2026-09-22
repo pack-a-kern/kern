@@ -1106,6 +1106,27 @@ export interface Dictionary {
                 textTitle: string;
                 unit: string;
                 amended: string;
+                /** `{count}` notes on a provision. */
+                notes: string;
+                notesHint: string;
+                noteNoDate: string;
+                /** `{type}`, `{number}`, `{date}`, `{journal}`, `{journalDate}`. */
+                noteAct: string;
+                /** Per kind of sentence: `{from}`, `{until}`, `{year}` as the kind gives them. */
+                noteApplies: {
+                    income_month_after_publication: string;
+                    income_month: string;
+                    income_year: string;
+                    fiscal_year: string;
+                    modified_fiscal_year: string;
+                    quarter: string;
+                    in_force: string;
+                    in_force_on_publication: string;
+                    from_date: string;
+                    from_date_until: string;
+                    until_date: string;
+                    on_date: string;
+                };
                 history: string;
                 historyTitle: string;
                 historyHint: string;

@@ -121,3 +121,17 @@ it('backfills ext_source_documents.publication_date once, and never overwrites i
 it('throws for an unknown source_document_version id', function (): void {
     app(LegislationSectionPersister::class)->persist('00000000-0000-0000-0000-000000000000', syntheticParsedDocument());
 })->throws(UnknownSourceDocumentVersionException::class);
+
+it('stores a provision\'s notes beside it, with the dates they give, and never in its text', function (): void {
+    $version = SourceDocumentVersion::factory()->create();
+    $note = 'Potrivit alin. (2) al art. 10 din ORDONANȚA DE URGENȚĂ nr. 8 din 24 februarie 2026, publicată în MONITORUL OFICIAL nr. 147 din 25 februarie 2026, prevederile art. 6 pct. 6 se aplică începând cu anul fiscal 2026.';
+    $article = new ParsedSection(SectionType::ARTICOL, 'Articolul 1', 'Art. 1', 1, 'SYNTHETIC: article text', [], notes: [$note]);
+
+    app(LegislationSectionPersister::class)->persist($version->id, new ParsedLegislationDocument(null, [$article]));
+
+    $section = SourceSection::query()->where('citation_label', 'Art. 1')->firstOrFail();
+
+    expect($section->text)->toBe('SYNTHETIC: article text')
+        ->and($section->notes[0]['text'] ?? null)->toBe($note)
+        ->and($section->notes[0]['applies'][0]['from'] ?? null)->toBe('2026-01-01');
+});

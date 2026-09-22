@@ -35,6 +35,48 @@ return [
         'batch' => (int) env('LEGISLATION_EMBEDDING_BATCH', 256),
     ],
 
+    'notes' => [
+        /*
+         * What the portal's notes ("Notă") say about when a provision applies. The consolidation's
+         * own date is when the portal's text changed; an amending act often says its change applies
+         * later — "se aplică începând cu veniturile aferente anului 2026" — and the portal copies
+         * that sentence into a note on the provision. Measured on the 2026-08-08 consolidation of the
+         * Codul fiscal: 212 of its 301 notes say something of the kind.
+         *
+         * Each pattern is matched case-insensitively, in this order; a later one never re-reads words
+         * an earlier one already took. `{date}`, `{month}`, `{year}` and `{quarter}` stand for the
+         * fragments below and are captured by those names; `{until}` is a second date, the end of a
+         * period. What a match means for its dates is its kind's, in `NoteApplicability`.
+         */
+        'applicability' => [
+            ['kind' => 'income_month_after_publication', 'pattern' => 'venituri\p{L}*(?:\s+[\p{L},]+){0,6}?\s+aferente\s+lunii\s+următoare\s+publicării'],
+            ['kind' => 'income_month', 'pattern' => 'venituri\p{L}*(?:\s+[\p{L},]+){0,6}?\s+aferente\s+lunii\s+{month}\s+(?:a\s+anului\s+)?{year}'],
+            ['kind' => 'income_year', 'pattern' => 'venituri\p{L}*(?:\s+[\p{L},]+){0,6}?\s+aferente\s+anului\s+(?:fiscal\s+)?{year}'],
+            ['kind' => 'modified_fiscal_year', 'pattern' => 'anul\s+fiscal\s+modificat\s+care\s+începe\s+în\s+anul\s+{year}'],
+            ['kind' => 'fiscal_year', 'pattern' => '(?:începând\s+cu|pentru\s+întregul)\s+an(?:ul)?\s+fiscal\s+{year}'],
+            ['kind' => 'quarter', 'pattern' => 'începând\s+cu\s+trimestrul\s+{quarter}\s+(?:al\s+anului\s+)?{year}'],
+            ['kind' => 'in_force', 'pattern' => 'intră\s+în\s+vigoare\s+(?:la\s+data\s+de|începând\s+cu(?:\s+data\s+de)?|la)\s+{date}'],
+            ['kind' => 'in_force_on_publication', 'pattern' => 'intră\s+în\s+vigoare\s+la\s+data\s+publicării'],
+            ['kind' => 'from_date', 'pattern' => 'începând\s+cu(?:\s+data\s+de)?\s+{date}(?:\s*,?\s*(?:și\s+)?până\s+la(?:\s+data\s+de)?\s+{until}(?:\s+inclusiv)?)?'],
+            ['kind' => 'until_date', 'pattern' => 'până\s+la\s+data\s+de\s+{until}(?:\s+inclusiv)?'],
+            ['kind' => 'on_date', 'pattern' => 'la\s+data\s+de\s+{date}'],
+        ],
+
+        'fragments' => [
+            'date' => '\d{1,2}\s+(?:ianuarie|februarie|martie|aprilie|mai|iunie|iulie|august|septembrie|octombrie|noiembrie|decembrie)\s+\d{4}',
+            'month' => 'ianuarie|februarie|martie|aprilie|mai|iunie|iulie|august|septembrie|octombrie|noiembrie|decembrie',
+            'year' => '\d{4}',
+            'quarter' => 'I|II|III|IV',
+        ],
+
+        /*
+         * The act a note quotes — "ORDONANȚA DE URGENȚĂ nr. 8 din 24 februarie 2026, publicată în
+         * MONITORUL OFICIAL nr. 147 din 25 februarie 2026". A note may quote several; each date it
+         * gives belongs to the last act named before it.
+         */
+        'act' => '(?<type>LEGEA|LEGE|ORDONANȚA\s+DE\s+URGENȚĂ|ORDONANȚĂ\s+DE\s+URGENȚĂ|ORDONANȚA|ORDONANȚĂ|HOTĂRÂREA|HOTĂRÂRE|ORDINUL|ORDIN|DECIZIA\s+CURȚII\s+CONSTITUȚIONALE|DECIZIA|DECIZIE|RECTIFICAREA|RECTIFICARII|RECTIFICARE)\s+nr\.\s*(?<number>\d+)\s+din\s+(?<date>{date}),?\s+publicat(?:ă|a|e)?\s+în\s+Monitorul\s+Oficial(?:\s+al\s+României)?(?:,?\s+Partea\s+I)?,?\s+nr\.\s*(?<journal_number>\d+(?:\s*bis)?)\s+din\s+(?<journal_date>{date})',
+    ],
+
     'form' => [
         // The earliest year the "Ingest legislation" task offers. The portal holds acts back to the
         // nineteenth century; the tax law this application reads is far more recent.

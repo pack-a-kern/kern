@@ -130,7 +130,7 @@ final readonly class LegislationLibrary
         $all = SourceSection::query()
             ->where('document_version_id', $version->id)
             ->orderBy('ordinal')
-            ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on', 'outline_id']);
+            ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on', 'outline_id', 'notes']);
         $headings = $this->headings($version->id);
 
         $children = [];
@@ -227,7 +227,7 @@ final readonly class LegislationLibrary
 
         $texts = SourceSection::query()
             ->whereIn('id', $rows->pluck('first_section_id'))
-            ->get(['id', 'text', 'tables'])
+            ->get(['id', 'text', 'tables', 'notes'])
             ->keyBy('id');
 
         return array_values($rows->map(static function (SectionHistory $row) use ($texts): array {
@@ -243,6 +243,7 @@ final readonly class LegislationLibrary
                 'coverage_complete' => $row->coverage_complete,
                 'text' => $section->text ?? '',
                 'tables' => $section->tables ?? [],
+                'notes' => $section->notes ?? [],
             ];
         })->all());
     }
@@ -333,6 +334,7 @@ final readonly class LegislationLibrary
             'text' => $section->text,
             'tables' => $section->tables ?? [],
             'amended_on' => $section->amended_on?->format('Y-m-d'),
+            'notes' => $section->notes ?? [],
         ];
 
         foreach ($children[$section->id] ?? [] as $child) {

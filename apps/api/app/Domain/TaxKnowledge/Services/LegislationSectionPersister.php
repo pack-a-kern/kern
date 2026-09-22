@@ -40,10 +40,19 @@ use Illuminate\Support\Str;
  * otherwise. The page itself carries no in-force date; the portal's list of consolidations does,
  * and `SyncLegislationDocument` passes each consolidation's date in. A version reached any other way
  * stays `REQUIRES_REVIEW`.
+ *
+ * What a provision's notes say about when it applies ({@see NoteReader}) is stored with the note,
+ * each date beside the words it was read from — a statement for a person or a rule to weigh, never
+ * written into the section's or the version's own dates.
  */
 final readonly class LegislationSectionPersister
 {
     private const int INSERT_BATCH = 1000;
+
+    public function __construct(
+        private NoteReader $notes,
+    ) {
+    }
 
     public function persist(
         string $sourceDocumentVersionId,
@@ -148,6 +157,7 @@ final readonly class LegislationSectionPersister
             'amended_on' => SectionText::amendedOn($section->text),
             'normative_hash' => SectionText::fingerprint($section->fullText()),
             'outline_id' => $outlineId,
+            'notes' => $section->notes === [] ? null : json_encode(array_map($this->notes->read(...), $section->notes), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
             'page_start' => null,
             'page_end' => null,
             'effective_from' => null,

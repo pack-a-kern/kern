@@ -17,6 +17,7 @@ import { wordDiff } from '../../lib/wordDiff';
 import type {
     LawDetail,
     LawHeading,
+    LawNote,
     LawOutline,
     LawOutlineHeading,
     LawSection,
@@ -426,8 +427,101 @@ function Provision({ section, onHistory }: { section: LawSection; onHistory: (se
                     {t((d) => d.pages.legislation.law.amended).replace('{date}', formatDate(section.amendedOn, locale))}
                 </p>
             )}
+            <ProvisionNotes notes={section.notes} />
         </section>
     );
+}
+
+/**
+ * The portal's notes on a provision, folded away: what each says about when the provision applies,
+ * the act it quotes, and its words with those sentences marked.
+ */
+function ProvisionNotes({ notes }: { notes: LawNote[] }): JSX.Element | null {
+    const { t, locale } = useTranslation();
+
+    if (notes.length === 0) {
+        return null;
+    }
+
+    const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
+
+    return (
+        <details className="mt-1 text-xs">
+            <summary className="text-muted-foreground cursor-pointer select-none">
+                {t((d) => d.pages.legislation.law.notes).replace('{count}', String(notes.length))}
+            </summary>
+            <p className="note mt-1">{t((d) => d.pages.legislation.law.notesHint)}</p>
+            <div className="mt-2 space-y-3">
+                {notes.map((note, index) => (
+                    <div key={index} className="border-border space-y-1 border-l-2 pl-2">
+                        <div className="flex flex-wrap gap-1">
+                            {note.applies.length === 0 ? (
+                                <Pill>{t((d) => d.pages.legislation.law.noteNoDate)}</Pill>
+                            ) : (
+                                note.applies.map((applies, appliesIndex) => (
+                                    <Pill key={appliesIndex} tone="accent">
+                                        {t((d) =>
+                                            applies.kind === 'from_date' && applies.until !== null
+                                                ? d.pages.legislation.law.noteApplies.from_date_until
+                                                : d.pages.legislation.law.noteApplies[applies.kind],
+                                        )
+                                            .replace('{from}', date(applies.from))
+                                            .replace('{until}', date(applies.until))
+                                            .replace('{year}', applies.year === null ? '—' : String(applies.year))}
+                                    </Pill>
+                                ))
+                            )}
+                        </div>
+                        {note.acts.map((act, actIndex) => (
+                            <p key={actIndex} className="text-muted-foreground">
+                                {t((d) => d.pages.legislation.law.noteAct)
+                                    .replace('{type}', act.type)
+                                    .replace('{number}', act.number)
+                                    .replace('{date}', date(act.date))
+                                    .replace('{journal}', act.journalNumber)
+                                    .replace('{journalDate}', date(act.journalDate))}
+                            </p>
+                        ))}
+                        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                            {marked(
+                                note.text,
+                                note.applies.map((applies) => applies.quote),
+                            ).map((part, partIndex) =>
+                                part.quoted ? (
+                                    <mark key={partIndex} className="bg-info/15 text-foreground rounded-sm">
+                                        {part.text}
+                                    </mark>
+                                ) : (
+                                    <span key={partIndex}>{part.text}</span>
+                                ),
+                            )}
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </details>
+    );
+}
+
+/** A text cut where each quote stands in it, in order — the quotes come in the order they appear. */
+function marked(text: string, quotes: string[]): { text: string; quoted: boolean }[] {
+    const parts: { text: string; quoted: boolean }[] = [];
+    let at = 0;
+
+    for (const quote of quotes) {
+        const start = text.indexOf(quote, at);
+
+        if (quote === '' || start < 0) {
+            continue;
+        }
+
+        parts.push({ text: text.slice(at, start), quoted: false }, { text: quote, quoted: true });
+        at = start + quote.length;
+    }
+
+    parts.push({ text: text.slice(at), quoted: false });
+
+    return parts.filter((part) => part.text !== '');
 }
 
 function SectionBody({ text, tables }: { text: string; tables: LawTable[] }): JSX.Element {
@@ -637,6 +731,7 @@ function ProvisionHistory({
                                         ? t((d) => d.pages.legislation.law.firstVersion)
                                         : t((d) => d.pages.legislation.law.changes)}
                                 </p>
+                                <ProvisionNotes notes={version.notes} />
                                 {previous === undefined ? (
                                     <div className="mt-1 text-sm leading-relaxed">
                                         <SectionBody text={version.text} tables={version.tables} />

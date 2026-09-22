@@ -92,13 +92,14 @@ it('parses articles, alineate and litere with correct nesting and citation label
         ->and($alineat2->text)->toBe('Al doilea alineat, fara litere.');
 });
 
-it('excludes S_NTA editorial notes and S_LIT_SHORT placeholders from extracted text', function (): void {
+it('keeps S_NTA notes out of the text, beside it, and drops S_LIT_SHORT placeholders', function (): void {
     $result = (new LegislatieJustRoHtmlParser())->parse(syntheticLegislationHtml());
 
     $article5 = $result->topLevelSections[0];
 
     expect($article5->text)->not->toContain('Nota')
         ->and($article5->text)->not->toContain('Modificat prin Legea de test')
+        ->and($article5->notes)->toBe(['Modificat prin Legea de test nr. 1/2020.'])
         ->and($article5->children[0]->children[0]->text)->not->toContain('...');
 });
 
