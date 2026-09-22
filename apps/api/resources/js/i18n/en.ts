@@ -1833,8 +1833,9 @@ export const en = {
                 'RO.CAS.RATE': 'CAS rate (pension)',
                 'RO.CASS.RATE': 'CASS rate (health)',
                 'RO.CAS.BASE_WAGES': 'CAS base thresholds',
-                'RO.CASS.BASE_WAGES': 'CASS base bands',
-                'RO.CASS.BASE_CAP_WAGES': 'CASS base cap',
+                'RO.CASS.OTHER_INCOME.BANDS_WAGES': 'CASS bands — rent, dividends, interest, investments',
+                'RO.CASS.INDEPENDENT.CAP_WAGES': 'CASS cap — independent activities',
+                'RO.CASS.ALL_INCOME.CAP_WAGES': 'CASS cap — all income (until 2022)',
                 'RO.CASS.NO_INCOME_BASE_WAGES': 'CASS base without income',
             },
             wages: '{count} minimum wages',
@@ -1842,7 +1843,8 @@ export const en = {
             periodClosed: 'From {from} to {until}',
             statuses: { CANDIDATE: 'To approve', APPROVED: 'Approved', REJECTED: 'Rejected' },
             checks: {
-                dated_by_note: 'The portal has no text of the law for {year}: {citation} is taken from a later version, whose own note says it applies from {date}.',
+                dated_by_note:
+                    'The portal has no text of the law for {year}: {citation} is taken from a later version, whose own note says it applies from {date}.',
                 several_paragraphs: 'Several paragraphs of the law say it — choose the one it rests on.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 wage_differs:

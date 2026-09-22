@@ -1846,8 +1846,9 @@ export const ro = {
                 'RO.CAS.RATE': 'Cota CAS (pensie)',
                 'RO.CASS.RATE': 'Cota CASS (sănătate)',
                 'RO.CAS.BASE_WAGES': 'Pragurile bazei CAS',
-                'RO.CASS.BASE_WAGES': 'Pragurile bazei CASS',
-                'RO.CASS.BASE_CAP_WAGES': 'Plafonul bazei CASS',
+                'RO.CASS.OTHER_INCOME.BANDS_WAGES': 'Praguri CASS — chirii, dividende, dobânzi, investiții',
+                'RO.CASS.INDEPENDENT.CAP_WAGES': 'Plafon CASS — activități independente',
+                'RO.CASS.ALL_INCOME.CAP_WAGES': 'Plafon CASS — toate veniturile (până în 2022)',
                 'RO.CASS.NO_INCOME_BASE_WAGES': 'Baza CASS fără venituri',
             },
             wages: '{count} salarii minime',
@@ -1855,7 +1856,8 @@ export const ro = {
             periodClosed: 'De la {from} până la {until}',
             statuses: { CANDIDATE: 'De aprobat', APPROVED: 'Aprobat', REJECTED: 'Respins' },
             checks: {
-                dated_by_note: 'Portalul nu are textul legii pentru {year}: {citation} este luat dintr-o versiune ulterioară, a cărei notă spune că se aplică de la {date}.',
+                dated_by_note:
+                    'Portalul nu are textul legii pentru {year}: {citation} este luat dintr-o versiune ulterioară, a cărei notă spune că se aplică de la {date}.',
                 several_paragraphs: 'Mai multe paragrafe ale legii o spun — alege-l pe cel pe care se bazează.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 wage_differs:

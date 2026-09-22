@@ -26,7 +26,7 @@ it('counts an amount in a wage of the year that started after 1 January, and say
     $wages = new MinimumWages([wage('2020-01-01', '2021-01-12', 2230), wage('2021-01-13', '2021-12-31', 2300)]);
     $form = new FormText(new FormStructure(['form_code' => 'D212', 'form_year' => 2022, 'url' => 'https://static.anaf.ro/structura_declaratieUnica_2022_05012022.pdf']), '34. cass_baza Baza anuală de calcul a CASS N(15) cass_baza >= 0 1150<=cass_baza <=27600 cass_baza trebuie sa fie multiplu de 1150');
 
-    $cap = collect(app(FormValueReader::class)->read($form, $wages)->readings)->firstWhere('parameterCode', 'RO.CASS.BASE_CAP_WAGES');
+    $cap = collect(app(FormValueReader::class)->read($form, $wages)->readings)->firstWhere('parameterCode', 'RO.CASS.ALL_INCOME.CAP_WAGES');
 
     expect($cap?->value)->toBe(['value' => 12])
         ->and($cap?->validFrom->format('Y-m-d'))->toBe('2021-01-01')
@@ -39,6 +39,6 @@ it('never makes a value of an amount that is no whole number of the year\'s wage
 
     $values = app(FormValueReader::class)->read($form, $wages);
 
-    expect(collect($values->readings)->firstWhere('parameterCode', 'RO.CASS.BASE_CAP_WAGES'))->toBeNull()
-        ->and($values->unmatched)->toContain(['parameter' => 'RO.CASS.BASE_CAP_WAGES', 'quote' => '1115<=cass_baza <=27360', 'kind' => 'not_whole_wages', 'year' => 2020, 'amount' => 27360, 'wage' => 2230]);
+    expect(collect($values->readings)->firstWhere('parameterCode', 'RO.CASS.ALL_INCOME.CAP_WAGES'))->toBeNull()
+        ->and($values->unmatched)->toContain(['parameter' => 'RO.CASS.ALL_INCOME.CAP_WAGES', 'quote' => '1115<=cass_baza <=27360', 'kind' => 'not_whole_wages', 'year' => 2020, 'amount' => 27360, 'wage' => 2230]);
 });

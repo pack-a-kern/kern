@@ -215,7 +215,7 @@ it('reads every value from its source and proposes the ones the law says', funct
         ['RO.CAS.BASE_WAGES', '2024-01-01', '2024-12-31', ['wages' => [12]], 'Art. 148 alin. (2)'],
         // Chapter II's 25%, never Chapter IX's.
         ['RO.CAS.RATE', '2023-01-01', '2023-12-31', ['value' => '0.25'], 'Art. 138 alin. (1)'],
-        ['RO.CASS.BASE_WAGES', '2023-01-01', '2023-12-31', ['wages' => [6, 12, 24]], 'Art. 170 alin. (3)'],
+        ['RO.CASS.OTHER_INCOME.BANDS_WAGES', '2023-01-01', '2023-12-31', ['wages' => [6, 12, 24]], 'Art. 170 alin. (3)'],
         ['RO.CASS.RATE', '2023-01-01', '2023-12-31', ['value' => '0.10'], 'Art. 156 alin. (1)'],
         ['RO.MIN_WAGE', '2023-01-01', '2023-09-30', ['amount_minor' => 300000, 'currency' => 'RON'], 'Art. 1'],
         ['RO.MIN_WAGE', '2023-10-01', '2024-12-31', ['amount_minor' => 330000, 'currency' => 'RON'], 'Art. 1'],
@@ -225,7 +225,7 @@ it('reads every value from its source and proposes the ones the law says', funct
     // The 60-wage cap of 2024 is not in this law: kept on its file, for a person to see, never a value.
     // Compared by content: a jsonb object keeps no key order.
     expect(FormStructure::query()->sole()->unmatched)->toEqual([[
-        'parameter' => 'RO.CASS.BASE_CAP_WAGES',
+        'parameter' => 'RO.CASS.INDEPENDENT.CAP_WAGES',
         'kind' => 'not_in_law',
         'year' => 2024,
         'numbers' => '60',
@@ -246,7 +246,7 @@ it('keeps what did not agree beside the value, and every paragraph that says it'
     $wage2023 = FiscalParameterVersion::query()->where('valid_from', '2023-01-01')
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.MIN_WAGE')->select('id'))->sole();
     $cassBands = FiscalParameterVersion::query()
-        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.BASE_WAGES')->select('id'))->sole();
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.OTHER_INCOME.BANDS_WAGES')->select('id'))->sole();
 
     // Compared by content: a jsonb object keeps no key order.
     expect(collect($wage2023->evidence['checks'] ?? [])->firstWhere('kind', 'confirmed_by_form'))

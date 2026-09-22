@@ -118,8 +118,10 @@ return [
             ],
         ],
 
-        // The bands of the income CASS is paid on, from 2023: 6, 12 and 24 minimum wages.
-        'RO.CASS.BASE_WAGES' => [
+        // CASS on the income of art. 155 alin. (1) lit. c)–h) — rent, dividends, interest,
+        // investments, agriculture, other — from 2023: not the income itself but a band of it, 6, 12
+        // or 24 minimum wages, by how much it was. The D212's section for that income.
+        'RO.CASS.OTHER_INCOME.BANDS_WAGES' => [
             'type' => 'JSON',
             'law' => ['within' => 'Titlul V Capitolul III', 'says' => '{value} (?:de )?salarii minime brute pe tara'],
             'form' => [
@@ -128,14 +130,23 @@ return [
             ],
         ],
 
-        // The most the CASS base can be: 12 minimum wages until 2022, 60 from 2024.
-        'RO.CASS.BASE_CAP_WAGES' => [
+        // CASS on independent activities' income, lit. b), from 2024: the net income itself, counted
+        // up to 60 minimum wages at most.
+        'RO.CASS.INDEPENDENT.CAP_WAGES' => [
             'type' => 'INTEGER',
             'law' => ['within' => 'Titlul V Capitolul III', 'says' => '{value} (?:de )?salarii minime brute pe tara'],
             'form' => [
-                // "950 <=cass_baza <=22800": the upper bound, in lei.
-                ['pattern' => '/\d{3,4}\s*<=?\s*cass_baza\s*<=?\s*(?<amount>\d{5,6})\b/i', 'years' => [-1]],
                 ['pattern' => '/baza_cass_estim_B\s*<=\s*(?<wages>\d+)\s*\*\s*(?<wage>\d{4})/i', 'years' => [0]],
+            ],
+        ],
+
+        // Until 2022, the cap of every income together: 12 minimum wages. "950 <=cass_baza <=22800":
+        // the upper bound, in lei.
+        'RO.CASS.ALL_INCOME.CAP_WAGES' => [
+            'type' => 'INTEGER',
+            'law' => ['within' => 'Titlul V Capitolul III', 'says' => '{value} (?:de )?salarii minime brute pe tara'],
+            'form' => [
+                ['pattern' => '/\d{3,4}\s*<=?\s*cass_baza\s*<=?\s*(?<amount>\d{5,6})\b/i', 'years' => [-1]],
             ],
         ],
 
