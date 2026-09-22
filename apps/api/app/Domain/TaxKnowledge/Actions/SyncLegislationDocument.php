@@ -48,13 +48,14 @@ final readonly class SyncLegislationDocument
     public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $portalId = null): LegislationSyncStarted
     {
         $act = $this->search->find($type, $number, $year, $portalId);
-        $consolidatedForm = $this->pages->consolidatedFormUrl($act->link);
+        $found = $this->pages->forAct($act->link);
 
-        if ($consolidatedForm === null) {
+        if ($found === null) {
             $consolidatedForm = $this->pages->actPageUrl($act->link);
             $listed = [$this->onlyVersion($act, $consolidatedForm)];
         } else {
-            $listed = self::inRange($this->pages->consolidations($consolidatedForm), $from);
+            $consolidatedForm = $found->listedOn;
+            $listed = self::inRange($found->consolidations, $from);
         }
 
         $document = SourceDocument::query()->firstOrCreate(
@@ -67,11 +68,20 @@ final readonly class SyncLegislationDocument
         );
 
         // Kept alongside anything an earlier, wider sync listed; a failure mark is dropped, so a
-        // consolidation that could not be read last time is tried again.
+        // consolidation that could not be read last time is tried again. An earlier entry for a day
+        // now listed under another id — the code's list before, the act's now — gives way to it.
+        $now = array_map(static fn (Consolidation $c): array => $c->toArray(), $listed);
+        $listedDays = array_column($now, 'ref', 'date');
         $list = [];
 
-        foreach ([...($document->consolidations ?? []), ...array_map(static fn (Consolidation $c): array => $c->toArray(), $listed)] as $entry) {
-            $list[$entry['ref']] = ['date' => $entry['date'], 'ref' => $entry['ref'], 'url' => $entry['url']];
+        foreach ($document->consolidations ?? [] as $entry) {
+            if (! isset($listedDays[$entry['date']])) {
+                $list[$entry['ref']] = ['date' => $entry['date'], 'ref' => $entry['ref'], 'url' => $entry['url']];
+            }
+        }
+
+        foreach ($now as $entry) {
+            $list[$entry['ref']] = $entry;
         }
 
         uasort($list, static fn (array $a, array $b): int => strcmp($a['date'], $b['date']));
@@ -92,6 +102,8 @@ final readonly class SyncLegislationDocument
             'consolidations' => array_values($list),
         ])->save();
 
+        $this->adoptReadVersions($document, $listedDays);
+
         $stored = SourceDocumentVersion::query()
             ->where('source_document_id', $document->id)
             ->whereIn('consolidation_ref', array_keys($list))
@@ -105,6 +117,31 @@ final readonly class SyncLegislationDocument
             listed: count($listed),
             toRead: count($list) - $stored,
         );
+    }
+
+    /**
+     * A consolidation already read, for a day the list now names by another id, is that day's —
+     * renamed, not read again: the text is the same code on the same day, its provisions keep their
+     * ids, and every value approved against one of them keeps its paragraph.
+     *
+     * @param  array<string, string>  $listedDays  day => the id it is listed under now
+     */
+    private function adoptReadVersions(SourceDocument $document, array $listedDays): void
+    {
+        $versions = SourceDocumentVersion::query()
+            ->where('source_document_id', $document->id)
+            ->whereNotNull('consolidation_ref')
+            ->whereNotIn('consolidation_ref', array_values($listedDays))
+            ->whereIn('effective_from', array_keys($listedDays))
+            ->get(['id', 'effective_from']);
+
+        foreach ($versions as $version) {
+            $day = $version->effective_from?->format('Y-m-d');
+
+            if ($day !== null && isset($listedDays[$day])) {
+                $version->forceFill(['consolidation_ref' => $listedDays[$day]])->save();
+            }
+        }
     }
 
     /** An act never consolidated: its own page, as it stands, from the day it came into force. */

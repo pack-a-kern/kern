@@ -79,8 +79,9 @@ function consolidationPage(string $salaries, bool $withArticle5): string
  * The portal, answering every page the sync reads.
  *
  * @param  array<int, int>  $failing  consolidation id => the status its page answers with
+ * @param  (callable(): bool)|null  $actListsItsOwn  whether the law's own page lists its consolidations — asked on each request
  */
-function portal(array $failing = []): void
+function portal(array $failing = [], ?callable $actListsItsOwn = null): void
 {
     $afis = '<div id="istoric_fa">'
         . "<a title='Consolidarea din 01.08.2025' href='~/../../../Public/DetaliiDocument/1003'>01.08.2025</a><br/>"
@@ -92,9 +93,23 @@ function portal(array $failing = []): void
         '1001' => consolidationPage('6', true),
         '1002' => consolidationPage('12', true),
         '1003' => consolidationPage('12', false),
+        // The code in 2018: not in the code's own list.
+        '1005' => consolidationPage('8', true),
     ];
 
-    Http::fake(static function (HttpRequest $request) use ($afis, $pages, $failing) {
+    // The law's own list, as LEGE 227/2015 has it: one more day, and each entry's page only a
+    // reference to the code as it stood that day.
+    $ownList = '<div id="istoric_fa">'
+        . "<a title='Consolidarea din 01.08.2025' href='~/../../../Public/DetaliiDocument/2004'>01.08.2025</a><br/>"
+        . "<a title='Consolidarea din 01.01.2021' href='~/../../../Public/DetaliiDocument/2003'>01.01.2021</a><br/>"
+        . "<a title='Consolidarea din 01.01.2018' href='~/../../../Public/DetaliiDocument/2002'>01.01.2018</a><br/>"
+        . "<a title='Consolidarea din 01.01.2016' href='~/../../../Public/DetaliiDocument/2001'>01.01.2016</a>"
+        . '</div>';
+    $reference = static fn (string $to): string => '<html><body><div id="div_Formaconsolidata" class="content_forma_act">'
+        . '<span class="S_PAR"><span class="S_REF"><A href="~/../../../Public/DetaliiDocumentAfis/' . $to . '">COD FISCAL</A></span></span></div></body></html>';
+    $references = ['2001' => '1001', '2002' => '1005', '2003' => '1002', '2004' => '1003'];
+
+    Http::fake(static function (HttpRequest $request) use ($afis, $pages, $failing, $actListsItsOwn, $ownList, $reference, $references) {
         $url = $request->url();
 
         if (str_contains($url, '/apiws/')) {
@@ -119,11 +134,17 @@ function portal(array $failing = []): void
             return Http::response('<html><body><div id="div_Formaconsolidata" class="content_forma_act">'
                 . '<span class="S_PAR">În temeiul <A href="~/../../../Public/DetaliiDocumentAfis/47355">art. 108 din Constituția României</A></span>'
                 . '<span class="S_PAR"><span class="S_REF"><A href="~/../../../Public/DetaliiDocumentAfis/171282">COD FISCAL 08/09/2015</A></span></span>'
-                . '</div></body></html>');
+                . '</div>' . ($actListsItsOwn !== null && $actListsItsOwn() ? $ownList : '') . '</body></html>');
         }
 
         if (str_contains($url, '/Public/DetaliiDocumentAfis/171282')) {
             return Http::response("<html><body>{$afis}</body></html>");
+        }
+
+        foreach ($references as $id => $to) {
+            if (str_ends_with($url, "/Public/DetaliiDocument/{$id}")) {
+                return Http::response($reference($to));
+            }
         }
 
         foreach ($pages as $id => $html) {
@@ -421,4 +442,33 @@ it('filters a portal search to one type', function (): void {
     $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=LEGE')->assertOk()->assertJsonCount(0, 'acts');
     $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=HOTARARE')->assertOk()->assertJsonCount(2, 'acts');
     $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=DECRET')->assertStatus(422);
+});
+
+it('reads the act\'s own, longer list through its references, and reads again none already read', function (): void {
+    $ownList = false;
+    portal([], static function () use (&$ownList): bool {
+        return $ownList;
+    });
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $before = SourceDocumentVersion::query()->pluck('id', 'consolidation_ref')->all();
+
+    // The law's own page lists one day more than the code's, 2018 — found once its list is read.
+    $ownList = true;
+    $started = app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+
+    $versions = SourceDocumentVersion::query()->where('source_document_id', fiscalCode()->id)->orderBy('effective_from')->get();
+
+    expect([$started->listed, $started->toRead])->toBe([4, 1])
+        ->and($versions->map(static fn (SourceDocumentVersion $v): array => [$v->consolidation_ref, $v->effective_from?->format('Y-m-d'), $v->effective_until?->format('Y-m-d')])->all())->toBe([
+            ['2001', '2016-01-01', '2017-12-31'],
+            ['2002', '2018-01-01', '2020-12-31'],
+            ['2003', '2021-01-01', '2025-07-31'],
+            ['2004', '2025-08-01', null],
+        ])
+        // Adopted, not read again: the same rows, renamed.
+        ->and($versions->pluck('id')->intersect(array_values($before))->count())->toBe(3)
+        ->and(fiscalCode()->canonical_url)->toEndWith('/Public/DetaliiDocument/171280');
+
+    // The 2018 text is the code the reference pointed at: "8 salarii".
+    expect($versions->get(1)?->sections()->where('citation_label', 'Art. 170 alin. (1)')->sole()->text)->toContain('8 salarii');
 });

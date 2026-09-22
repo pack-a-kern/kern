@@ -79,8 +79,10 @@ return [
         'RO.INCOME_TAX.RATE' => [
             'type' => 'DECIMAL',
             'law' => ['within' => 'Titlul IV', 'says' => 'cota de impozit este de {value}'],
+            // `real_venit_impozit` is last year's income, realised; `estr_…` and `estn_…` are this
+            // year's, estimated — in the real system and by income norms (the form's chapter 2).
             'form' => [
-                ['pattern' => '/estr_impozit_venit\s*=\s*(?<percent>\d+)\s*\/\s*100/i', 'years' => [-1]],
+                ['pattern' => '/estr_impozit_venit\s*=\s*(?<percent>\d+)\s*\/\s*100/i', 'years' => [0]],
                 ['pattern' => '/real_venit_impozit\s*\*\s*(?<percent>\d+)\s*\/\s*100/i', 'years' => [-1]],
                 ['pattern' => '/estn_impozit\s*=\s*(?<percent>\d+)\s*\/\s*100/i', 'years' => [0]],
             ],

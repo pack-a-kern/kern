@@ -13,16 +13,18 @@ use DOMXPath;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
- * The two portal pages that lead from an act to its consolidations.
+ * The portal pages that lead from an act to its consolidations.
  *
  * Followed exactly as a reader clicks through them, checked against the Codul fiscal on 2026-09-22:
  *
- *  1. The act's own page, in its base form (`?isFormaDeBaza=True&rep=True`) — `DetaliiDocument/171280`.
- *     It links to the consolidated form, `DetaliiDocumentAfis/171282`, from the one reference the
- *     portal puts in the form's own box: `div#div_Formaconsolidata span.S_REF a`.
- *  2. The consolidated form. Its "istoric consolidări" list (`div#istoric_fa`) holds one link per
- *     consolidation, titled "Consolidarea din 08.08.2026" and pointing at that consolidation's own
- *     page, `DetaliiDocument/312601`. The Codul fiscal has 91.
+ *  1. The act's own page, in its base form (`?isFormaDeBaza=True&rep=True`) — `DetaliiDocument/171280`
+ *     for LEGE 227/2015. Its "istoric consolidări" list (`div#istoric_fa`) holds one link per
+ *     consolidation, titled "Consolidarea din 08.08.2026" — 154 of them, 2016 to now.
+ *  2. The one reference the portal puts in the form's own box, `div#div_Formaconsolidata span.S_REF
+ *     a`: for this law, "COD FISCAL", `DetaliiDocumentAfis/171282`. The law's consolidations hold
+ *     only that reference too, each to the code as it stood that day — 194295 of 2018 to 194296.
+ *     The code's own page lists 91 consolidations and none from December 2016 to 2021, which is why
+ *     the act's own list comes first.
  *
  * An act never amended has no consolidated form: its page holds its whole text, and that text is its
  * only version (the government's decision setting the minimum wage, `HOTĂRÂRE nr. 1.506/2024`,
@@ -52,21 +54,35 @@ final readonly class ConsolidationPages
     }
 
     /**
-     * The consolidated form's address, from the act's link as the web service gives it — or null for
-     * an act that has none, never amended, whose own page is its one version.
+     * The consolidations of an act, from its link as the web service gives it — or null for an act
+     * never amended, whose own page is its one version.
+     *
+     * An act's own page lists its consolidations where it has them — LEGE 227/2015 lists 154, from
+     * 2016 to now. Where the act is the law approving a code, that page holds only the law's two
+     * articles and a reference to the code (`S_REF` "COD FISCAL"), and so does each consolidation it
+     * lists: those are read through their reference ({@see Consolidation::$throughReference}).
+     * Without a list of its own, the act's reference leads to the code's, whose own list may be the
+     * shorter one — the Codul fiscal's lists 91, none between December 2016 and 2021.
      */
-    public function consolidatedFormUrl(string $actLink): ?string
+    public function forAct(string $actLink): ?ActConsolidations
     {
-        $basePage = $this->actPageUrl($actLink) . '?isFormaDeBaza=True&rep=True';
-        $xpath = new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $basePage)->body));
+        $page = $this->actPageUrl($actLink);
+        $xpath = new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $page . '?isFormaDeBaza=True&rep=True')->body));
+        $reference = $this->reference($xpath);
+        $own = $this->listed($xpath, $reference !== null);
 
-        foreach ($xpath->query(self::OWN_FORM_REFERENCE) ?: [] as $anchor) {
-            if ($anchor instanceof DOMElement && preg_match(self::CONSOLIDATED_FORM_PATH, $anchor->getAttribute('href'), $match) === 1) {
-                return $this->portalUrl('/Public/DetaliiDocumentAfis/' . $match[1]);
-            }
+        if ($own !== []) {
+            return new ActConsolidations($page, $own);
         }
 
-        return null;
+        if ($reference === null) {
+            return null;
+        }
+
+        $form = $this->portalUrl('/Public/DetaliiDocumentAfis/' . $reference);
+        $listed = $this->listed(new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $form)->body)), false);
+
+        return $listed === [] ? throw PortalAnswerException::noConsolidations($form) : new ActConsolidations($form, $listed);
     }
 
     /** The act's own page on the portal: its text as it stands, for an act never consolidated. */
@@ -76,13 +92,35 @@ final readonly class ConsolidationPages
     }
 
     /**
-     * Every consolidation the consolidated form lists, oldest first.
+     * The text a consolidation that is only a reference stands for: the code as it stood that day.
+     * Null when its page refers to nothing.
+     */
+    public function referencedText(string $consolidationUrl): ?string
+    {
+        $reference = $this->reference(new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $consolidationUrl)->body)));
+
+        return $reference === null ? null : $this->portalUrl('/Public/DetaliiDocument/' . $reference);
+    }
+
+    /** The portal id the form's own reference points at — never a citation of another act. */
+    private function reference(DOMXPath $xpath): ?string
+    {
+        foreach ($xpath->query(self::OWN_FORM_REFERENCE) ?: [] as $anchor) {
+            if ($anchor instanceof DOMElement && preg_match(self::CONSOLIDATED_FORM_PATH, $anchor->getAttribute('href'), $match) === 1) {
+                return $match[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Every consolidation a page's "istoric consolidări" lists, oldest first.
      *
      * @return list<Consolidation>
      */
-    public function consolidations(string $consolidatedFormUrl): array
+    private function listed(DOMXPath $xpath, bool $throughReference): array
     {
-        $xpath = new DOMXPath($this->load($this->fetcher->fetch(self::SOURCE, $consolidatedFormUrl)->body));
         $found = [];
 
         foreach ($xpath->query('//*[@id="istoric_fa"]//a') ?: [] as $anchor) {
@@ -103,11 +141,7 @@ final readonly class ConsolidationPages
                 continue;
             }
 
-            $found[$ref[1]] = new Consolidation($day, $ref[1], $this->portalUrl('/Public/DetaliiDocument/' . $ref[1]));
-        }
-
-        if ($found === []) {
-            throw PortalAnswerException::noConsolidations($consolidatedFormUrl);
+            $found[$ref[1]] = new Consolidation($day, $ref[1], $this->portalUrl('/Public/DetaliiDocument/' . $ref[1]), $throughReference);
         }
 
         $list = array_values($found);
