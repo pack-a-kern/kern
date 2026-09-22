@@ -7,6 +7,7 @@ namespace App\Domain\TaxKnowledge\FiscalParameters\Matching;
 use App\Domain\TaxKnowledge\Exceptions\AmbiguousEffectiveVersionException;
 use App\Domain\TaxKnowledge\Exceptions\NoEffectiveVersionFoundException;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterDefinition;
+use App\Domain\TaxKnowledge\Models\SectionHistory;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
 use App\Domain\TaxKnowledge\Models\SourceSection;
@@ -23,6 +24,13 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * table of contents, so Chapter II is never Chapter III — and a paragraph says the value when its
  * text, as a search reads it, holds the phrase with the value in it: "cota de contributie … este de
  * 10". A threshold of several numbers is each number looked for.
+ *
+ * The law in force on a day is its consolidation of that day — with every provision whose wording
+ * the portal's note dates from before it ({@see \App\Domain\TaxKnowledge\Services\BuildSectionHistory})
+ * read as that wording instead. The portal publishes no consolidation of the Codul fiscal from
+ * December 2016 to 2021, so on 1 January 2018 the consolidation is 2016's, saying 16%; the income
+ * tax's paragraph, read in 2021 and noted "(la 01-01-2018, …)", says 10% from that day. A value found
+ * that way says so.
  *
  * Kept for the run: a version is read once however many values are looked for in it.
  */
@@ -70,7 +78,7 @@ final class LawMatcher
 
         $found = [];
 
-        foreach ($this->provisions($version->id) as $provision) {
+        foreach ($this->inForce($lawId, $version->id, $on) as $provision) {
             if ($provision['path'] !== $within && ! str_starts_with($provision['path'], $within . ' ')) {
                 continue;
             }
@@ -78,11 +86,64 @@ final class LawMatcher
             $says = array_values(array_filter($values, static fn (int $value): bool => preg_match($phrases[$value], $provision['text']) === 1));
 
             if ($says !== []) {
-                $found[] = new LawMatch($provision['id'], $provision['citation'], $version->id, $says);
+                $found[] = new LawMatch($provision['id'], $provision['citation'], $provision['version'], $says, $provision['dated_by_note']);
             }
         }
 
         return $found;
+    }
+
+    /**
+     * The provisions in force on a day, in the consolidation's reading order: each replaced by the
+     * wording the portal's note dates from before it where one covers the day, then those the note
+     * dates in that the consolidation does not have at all.
+     *
+     * @return list<array{id: string, citation: string, text: string, path: string, version: string, dated_by_note: string|null}>
+     */
+    private function inForce(string $lawId, string $versionId, DateTimeImmutable $on): array
+    {
+        $day = $on->format('Y-m-d');
+        $noted = SectionHistory::query()
+            ->where('source_document_id', $lawId)
+            ->where('dated_by_note', true)
+            ->where('valid_from', '<=', $day)
+            ->where(static function ($query) use ($day): void {
+                $query->whereNull('valid_until')->orWhere('valid_until', '>=', $day);
+            })
+            ->get(['citation_label', 'first_section_id', 'valid_from']);
+
+        $inVersion = array_map(static fn (array $provision): array => [...$provision, 'version' => $versionId, 'dated_by_note' => null], $this->provisions($versionId));
+
+        if ($noted->isEmpty()) {
+            return $inVersion;
+        }
+
+        $readIn = SourceSection::query()->whereIn('id', $noted->pluck('first_section_id'))->pluck('document_version_id', 'id')->all();
+        $replacing = [];
+
+        foreach ($noted as $stretch) {
+            $version = $readIn[$stretch->first_section_id] ?? null;
+            $provision = is_string($version) ? ($this->indexed($version)[$stretch->first_section_id] ?? null) : null;
+
+            if ($provision !== null) {
+                $replacing[$stretch->citation_label] = [...$provision, 'version' => $version, 'dated_by_note' => $stretch->valid_from->format('Y-m-d')];
+            }
+        }
+
+        $read = [];
+
+        foreach ($inVersion as $provision) {
+            $read[] = $replacing[$provision['citation']] ?? $provision;
+            unset($replacing[$provision['citation']]);
+        }
+
+        return [...$read, ...array_values($replacing)];
+    }
+
+    /** @return array<string, array{id: string, citation: string, text: string, path: string}> a version's provisions by id */
+    private function indexed(string $versionId): array
+    {
+        return array_column($this->provisions($versionId), null, 'id');
     }
 
     private function lawId(): ?string

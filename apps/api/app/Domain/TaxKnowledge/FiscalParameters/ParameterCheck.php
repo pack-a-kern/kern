@@ -10,6 +10,12 @@ namespace App\Domain\TaxKnowledge\FiscalParameters;
  */
 enum ParameterCheck: string
 {
+    /**
+     * The paragraph is read in a later consolidation than the one in force, its wording dated from
+     * before by the portal's own note — the years the portal publishes no consolidation for.
+     */
+    case DATED_BY_NOTE = 'dated_by_note';
+
     /** The law has more than one paragraph that says it; the first is its source until one is picked. */
     case SEVERAL_PARAGRAPHS = 'several_paragraphs';
 

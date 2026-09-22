@@ -1308,6 +1308,7 @@ export const ro = {
                 portalDown: 'legislatie.just.ro nu a răspuns. Încearcă din nou peste puțin timp.',
             },
             law: {
+                datedByNote: 'Datat după nota portalului',
                 reader: 'Cititor de legislație consolidată',
                 consolidatedOn: 'Consolidare {period}',
                 current: 'actuală',
@@ -1854,6 +1855,7 @@ export const ro = {
             periodClosed: 'De la {from} până la {until}',
             statuses: { CANDIDATE: 'De aprobat', APPROVED: 'Aprobat', REJECTED: 'Respins' },
             checks: {
+                dated_by_note: '{citation} este citit dintr-o versiune ulterioară a legii: nota portalului datează această formulare de la {date}.',
                 several_paragraphs: 'Mai multe paragrafe ale legii o spun — alege-l pe cel pe care se bazează.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 wage_differs:

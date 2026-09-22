@@ -1301,6 +1301,7 @@ export const en = {
                 portalDown: 'legislatie.just.ro did not answer. Try again in a moment.',
             },
             law: {
+                datedByNote: 'Dated by the portal’s note',
                 reader: 'Consolidated legislation reader',
                 consolidatedOn: 'Consolidated {period}',
                 current: 'current',
@@ -1841,6 +1842,7 @@ export const en = {
             periodClosed: 'From {from} to {until}',
             statuses: { CANDIDATE: 'To approve', APPROVED: 'Approved', REJECTED: 'Rejected' },
             checks: {
+                dated_by_note: '{citation} is read in a later version of the law: the portal’s note dates this wording from {date}.',
                 several_paragraphs: 'Several paragraphs of the law say it — choose the one it rests on.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 wage_differs:

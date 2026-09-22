@@ -302,6 +302,8 @@ export interface ProvisionVersion {
     snapshotCount: number;
     /** False when a consolidation inside this stretch could not be read. */
     coverageComplete: boolean;
+    /** Its start is the day the portal's own note gives — in a stretch with no consolidation — not a consolidation's. */
+    datedByNote: boolean;
     text: string;
     tables: LawTable[];
     notes: LawNote[];
@@ -443,6 +445,7 @@ export function parseProvisionHistory(payload: unknown): ProvisionVersion[] {
             amendedOn: nullableStr(row, 'amended_on'),
             snapshotCount: num(row, 'snapshot_count'),
             coverageComplete: row.coverage_complete !== false,
+            datedByNote: row.dated_by_note === true,
             text: str(row, 'text'),
             tables: tables(row.tables),
             notes: notes(row.notes),

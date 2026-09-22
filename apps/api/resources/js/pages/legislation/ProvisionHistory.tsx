@@ -90,6 +90,9 @@ export default function ProvisionHistory({
                                             '{until}',
                                             version.validUntil === null ? '' : date(version.validUntil),
                                         )}
+                                    {version.datedByNote ? (
+                                        <Pill tone="accent">{t((d) => d.pages.legislation.law.datedByNote)}</Pill>
+                                    ) : null}
                                     {version.amendedOn === null ? null : (
                                         <Pill>
                                             {t((d) => d.pages.legislation.law.amended).replace(

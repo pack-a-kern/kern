@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $snapshot_count
  * @property \Illuminate\Support\Carbon|null $amended_on
  * @property bool $coverage_complete
+ * @property bool $dated_by_note  its start is the day the portal's note gives, not a consolidation's
  */
 final class SectionHistory extends Model
 {
@@ -52,6 +53,7 @@ final class SectionHistory extends Model
         'snapshot_count',
         'amended_on',
         'coverage_complete',
+        'dated_by_note',
     ];
 
     /** @var array<string, string> */
@@ -62,5 +64,6 @@ final class SectionHistory extends Model
         'snapshot_count' => 'integer',
         'amended_on' => 'date:Y-m-d',
         'coverage_complete' => 'boolean',
+        'dated_by_note' => 'boolean',
     ];
 }

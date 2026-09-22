@@ -264,6 +264,7 @@ final readonly class LegislationLibrary
                 'amended_on' => $row->amended_on?->format('Y-m-d'),
                 'snapshot_count' => $row->snapshot_count,
                 'coverage_complete' => $row->coverage_complete,
+                'dated_by_note' => $row->dated_by_note,
                 'text' => $section->text ?? '',
                 'tables' => $section->tables ?? [],
                 'notes' => $section->notes ?? [],

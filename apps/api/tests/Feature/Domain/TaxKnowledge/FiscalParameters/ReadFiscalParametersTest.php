@@ -14,6 +14,9 @@ use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
 use App\Domain\TaxKnowledge\Enums\SectionType;
 use App\Domain\TaxKnowledge\FiscalParameters\Actions\ReadFiscalParameters;
 use App\Domain\TaxKnowledge\FiscalParameters\Actions\StartFiscalYear;
+use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatch;
+use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatcher;
+use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\FormStructure;
@@ -21,10 +24,14 @@ use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
 use App\Domain\TaxKnowledge\Models\SourceSection;
+use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
+use App\Domain\TaxKnowledge\Services\BuildSectionHistory;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * The fiscal values read end to end: the minimum wage from its decisions, the rest from a D212
@@ -326,4 +333,31 @@ it('reads a wage that changed during the year as that year\'s, and warns against
 
     expect($checks('2020-01-01'))->toBe([])
         ->and($checks('2021-01-13'))->toBe(['confirmed_by_form']);
+});
+
+it('finds a value in the wording the portal\'s note dates from before the next consolidation', function (): void {
+    // No consolidation between 2016 and 2021, as the portal lists the Codul fiscal's.
+    $old = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2016-12-06', '2020-12-31');
+    heading($old, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', 'Cota de impozit este de 16% și se aplică asupra venitului impozabil']]);
+    $new = SourceDocumentVersion::factory()->create(['source_document_id' => $old->source_document_id, 'effective_from' => '2021-01-01', 'consolidation_ref' => '2021']);
+    heading($new, 'Titlul IV Capitolul I', [['Art. 64 alin. (1)', "Cota de impozit este de 10% și se aplică asupra venitului impozabil\n(la 01-01-2018, Partea introductivă a alineatului (1) din Articolul 64 a fost modificată de Punctul 15, Articolul I din ORDONANȚA DE URGENȚĂ nr. 79 din 8 noiembrie 2017)"]]);
+
+    foreach (SourceSection::query()->get() as $section) {
+        $section->forceFill(['normative_hash' => SectionText::fingerprint($section->text), 'amended_on' => SectionText::amendedOn($section->text)])->save();
+    }
+
+    app(BuildSectionHistory::class)($old->source_document_id);
+
+    $incomeTax = app(ParameterCatalog::class)->find('RO.INCOME_TAX.RATE') ?? throw new RuntimeException('RO.INCOME_TAX.RATE is configured.');
+    $law = app(LawMatcher::class);
+
+    $in2018 = $law->find($incomeTax, [10], new DateTimeImmutable('2018-01-01'));
+    $in2017 = $law->find($incomeTax, [16], new DateTimeImmutable('2017-06-01'));
+
+    expect(array_map(static fn (LawMatch $match): array => [$match->citation, $match->documentVersionId, $match->datedByNote], $in2018))
+        ->toBe([['Art. 64 alin. (1)', $new->id, '2018-01-01']])
+        ->and(array_map(static fn (LawMatch $match): array => [$match->documentVersionId, $match->datedByNote], $in2017))
+        ->toBe([[$old->id, null]])
+        // 16% is not the law on 1 January 2018 any more.
+        ->and($law->find($incomeTax, [16], new DateTimeImmutable('2018-01-01')))->toBe([]);
 });

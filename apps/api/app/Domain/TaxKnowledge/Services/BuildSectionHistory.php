@@ -19,6 +19,13 @@ use Illuminate\Support\Str;
  * previous consolidation continues its stretch; a changed one closes it the day before and opens
  * the next; one that is no longer there closes. The whole history is rewritten each time — it is
  * derived, and a consolidation read late (one that failed before) changes what comes after it.
+ *
+ * Where the portal lists no consolidation for years — the Codul fiscal's, none from December 2016
+ * to 2021 — a wording is first read long after it began. Its own note says when: "(la 01-01-2018,
+ * … a fost modificat de …)". A new wording whose latest note falls between the consolidation before
+ * and the one it is first read in starts on that day, the one before it ends the day before, and
+ * the stretch says it is dated by the note. A note outside that gap is not a start the
+ * consolidations leave open, and changes nothing.
  */
 final readonly class BuildSectionHistory
 {
@@ -46,6 +53,8 @@ final readonly class BuildSectionHistory
         $counts = [];
         $rows = [];
 
+        $previous = null;
+
         foreach ($versions as $version) {
             $from = CarbonImmutable::parse($version->effective_from);
             $dayBefore = $from->subDay()->format('Y-m-d');
@@ -70,8 +79,11 @@ final readonly class BuildSectionHistory
                     continue;
                 }
 
+                $noted = self::notedStart($section->amended_on, $previous, $from);
+                $start = $noted ?? $from;
+
                 if ($current !== null) {
-                    $rows[] = [...$current, 'valid_until' => $dayBefore];
+                    $rows[] = [...$current, 'valid_until' => $start->subDay()->format('Y-m-d')];
                 }
 
                 $counts[$label] = ($counts[$label] ?? 0) + 1;
@@ -79,7 +91,8 @@ final readonly class BuildSectionHistory
                     'citation_label' => $label,
                     'section_type' => (string) $section->section_type,
                     'version_index' => $counts[$label],
-                    'valid_from' => $from->format('Y-m-d'),
+                    'valid_from' => $start->format('Y-m-d'),
+                    'dated_by_note' => $noted !== null,
                     'normative_hash' => (string) $section->normative_hash,
                     'first_section_id' => (string) $section->id,
                     'last_section_id' => (string) $section->id,
@@ -93,6 +106,8 @@ final readonly class BuildSectionHistory
                 $rows[] = [...$current, 'valid_until' => $dayBefore];
                 unset($open[$label]);
             }
+
+            $previous = $from;
         }
 
         $lastUntil = $versions->last()?->effective_until?->format('Y-m-d');
@@ -120,6 +135,22 @@ final readonly class BuildSectionHistory
         });
 
         return count($rows);
+    }
+
+    /**
+     * The day a new wording began, by its own note, when that day falls strictly between the
+     * consolidation before and the one it is first read in — the only days the consolidations leave
+     * open. Null when it does not, or when the note gives no day.
+     */
+    private static function notedStart(mixed $amendedOn, ?CarbonImmutable $previous, CarbonImmutable $from): ?CarbonImmutable
+    {
+        if ($previous === null || ! is_string($amendedOn) || $amendedOn === '') {
+            return null;
+        }
+
+        $noted = CarbonImmutable::parse($amendedOn);
+
+        return $noted->greaterThan($previous) && $noted->lessThan($from) ? $noted : null;
     }
 
     /**

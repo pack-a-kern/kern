@@ -13,12 +13,20 @@ final readonly class LawMatch
         public string $citation,
         public string $documentVersionId,
         public array $says,
+        /** The day the portal's note dates this wording from, when it is read in a later consolidation than the one in force. */
+        public ?string $datedByNote = null,
     ) {
     }
 
-    /** @return array{section_id: string, citation: string, document_version_id: string, says: list<int>} */
+    /** @return array{section_id: string, citation: string, document_version_id: string, says: list<int>, dated_by_note?: string} */
     public function toArray(): array
     {
-        return ['section_id' => $this->sectionId, 'citation' => $this->citation, 'document_version_id' => $this->documentVersionId, 'says' => $this->says];
+        return [
+            'section_id' => $this->sectionId,
+            'citation' => $this->citation,
+            'document_version_id' => $this->documentVersionId,
+            'says' => $this->says,
+            ...($this->datedByNote === null ? [] : ['dated_by_note' => $this->datedByNote]),
+        ];
     }
 }

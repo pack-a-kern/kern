@@ -56,7 +56,7 @@ function soapEnvelope(string $inner): string
     return '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' . $inner . '</s:Body></s:Envelope>';
 }
 
-function consolidationPage(string $salaries, bool $withArticle5): string
+function consolidationPage(string $salaries, bool $withArticle5, string $note = ''): string
 {
     $article5 = $withArticle5
         ? '<span class="S_ART"><span class="S_ART_TTL">Articolul 5</span><span class="S_ART_BDY"><span class="S_PAR">Dispoziție tranzitorie.</span></span></span>'
@@ -67,7 +67,7 @@ function consolidationPage(string $salaries, bool $withArticle5): string
         <span class="S_TTL"><span class="S_TTL_TTL">Titlul V</span><span class="S_TTL_DEN">Contribuții sociale obligatorii</span><span class="S_TTL_BDY">
           <span class="S_CAP"><span class="S_CAP_TTL">Capitolul III</span><span class="S_CAP_DEN">Contribuția de asigurări sociale de sănătate</span><span class="S_CAP_BDY">
             <span class="S_ART"><span class="S_ART_TTL">Articolul 170</span><span class="S_ART_BDY">
-              <span class="S_ALN"><span class="S_ALN_TTL">(1)</span><span class="S_ALN_BDY"><span class="S_PAR">Baza de calcul este de {$salaries} salarii minime brute pe țară.</span></span></span>
+              <span class="S_ALN"><span class="S_ALN_TTL">(1)</span><span class="S_ALN_BDY"><span class="S_PAR">Baza de calcul este de {$salaries} salarii minime brute pe țară.</span>{$note}</span></span>
             </span></span>
           </span></span>
           {$article5}
@@ -80,8 +80,9 @@ function consolidationPage(string $salaries, bool $withArticle5): string
  * The portal, answering every page the sync reads.
  *
  * @param  array<int, int>  $failing  consolidation id => the status its page answers with
+ * @param  string  $noted  a note the 2021 page carries on art. 170 alin. (1), as the portal writes one
  */
-function portal(array $failing = []): void
+function portal(array $failing = [], string $noted = ''): void
 {
     $afis = '<div id="istoric_fa">'
         . "<a title='Consolidarea din 01.08.2025' href='~/../../../Public/DetaliiDocument/1003'>01.08.2025</a><br/>"
@@ -91,7 +92,7 @@ function portal(array $failing = []): void
 
     $pages = [
         '1001' => consolidationPage('6', true),
-        '1002' => consolidationPage('12', true),
+        '1002' => consolidationPage('12', true, $noted),
         '1003' => consolidationPage('12', false),
     ];
 
@@ -441,4 +442,24 @@ it('adopts a consolidation already read that the list names by another id, and r
         ->and($versions->pluck('id')->all())->toBe($before)
         ->and($versions->pluck('consolidation_ref')->all())->toBe(['1001', '1002', '1003'])
         ->and(array_column(fiscalCode()->consolidations ?? [], 'ref'))->toBe(['1001', '1002', '1003']);
+});
+
+it('dates a wording from the portal\'s note where no consolidation between tells when it began', function (): void {
+    // As the portal prints it inside the provision; the list has no consolidation from 2016 to 2021.
+    portal([], '<span class="S_PAR">(la 01-01-2018, Alineatul (1) din Articolul 170 a fost modificat de Punctul 1, Articolul I din ORDONANȚA DE URGENȚĂ nr. 79 din 8 noiembrie 2017, publicată în MONITORUL OFICIAL nr. 885 din 10 noiembrie 2017)</span>');
+
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+
+    $stretches = SectionHistory::query()
+        ->where('source_document_id', fiscalCode()->id)
+        ->where('citation_label', 'Art. 170 alin. (1)')
+        ->orderBy('version_index')
+        ->get()
+        ->map(static fn (SectionHistory $h): array => [$h->valid_from->format('Y-m-d'), $h->valid_until?->format('Y-m-d'), $h->dated_by_note])
+        ->all();
+
+    expect($stretches)->toBe([
+        ['2016-01-01', '2017-12-31', false],
+        ['2018-01-01', null, true],
+    ]);
 });

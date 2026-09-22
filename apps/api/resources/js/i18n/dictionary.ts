@@ -1134,6 +1134,8 @@ export interface Dictionary {
                 portalDown: string;
             };
             law: {
+                /** A history stretch whose start is the portal note's day. */
+                datedByNote: string;
                 reader: string;
                 /** `{period}` the consolidation shown applies in. */
                 consolidatedOn: string;
