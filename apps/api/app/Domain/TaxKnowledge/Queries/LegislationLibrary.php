@@ -131,12 +131,17 @@ final readonly class LegislationLibrary
     }
 
     /**
-     * The law as it stood on `$asOf`, a page of articles at a time: each top-level provision with
-     * everything under it, in reading order.
+     * One part of the law as it stood on `$asOf` — the title, chapter or section a reader opened —
+     * with every article under it, each with everything under it, in reading order.
+     *
+     * A part is named by its path in the table of contents, "Titlul V Capitolul III", which a later
+     * consolidation keeps; a provision by its citation, "Art. 64 alin. (1)", which opens the smallest
+     * part its article stands under, the provision marked. Neither given, or not in this version: the
+     * law's first part. A law with no table of contents is one part.
      *
      * @return array<string, mixed>|null null when no consolidation covers the date
      */
-    public function text(string $documentId, DateTimeImmutable $asOf, int $page, int $perPage): ?array
+    public function text(string $documentId, DateTimeImmutable $asOf, ?string $heading = null, ?string $provision = null): ?array
     {
         $document = $this->document($documentId);
 
@@ -155,6 +160,7 @@ final readonly class LegislationLibrary
             ->orderBy('ordinal')
             ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on', 'outline_id', 'notes']);
         $headings = $this->headings($version->id);
+        $byId = $all->keyBy('id');
 
         $children = [];
 
@@ -163,35 +169,51 @@ final readonly class LegislationLibrary
         }
 
         $topLevel = $children[''] ?? [];
-        $pageItems = array_slice($topLevel, ($page - 1) * $perPage, $perPage);
+        $focus = $provision === null ? null : $all->firstWhere('citation_label', $provision);
+        $article = $focus;
+
+        while ($article instanceof SourceSection && $article->parent_id !== null) {
+            $article = $byId->get($article->parent_id);
+        }
+
+        $pathIds = array_column($headings, 'id', 'path');
+        $part = $article instanceof SourceSection
+            ? $article->outline_id
+            : ($pathIds[$heading ?? ''] ?? (self::chain(($topLevel[0] ?? null)?->outline_id, $headings)[0]['id'] ?? null));
         $sections = [];
 
-        foreach ($pageItems as $section) {
+        foreach ($topLevel as $section) {
+            $chain = self::chain($section->outline_id, $headings);
+
+            if ($part === null ? $chain !== [] : ! in_array($part, array_column($chain, 'id'), true)) {
+                continue;
+            }
+
             $first = count($sections);
             $this->flatten($section, $children, 0, $sections);
             // The headings an article stands under, outermost first — the page shows the ones that
             // change from the article before.
-            $sections[$first]['headings'] = self::chain($section->outline_id, $headings);
+            $sections[$first]['headings'] = $chain;
         }
 
         return [
             'version_id' => $version->id,
             'effective_from' => $version->effectiveFrom->format('Y-m-d'),
             'effective_until' => $version->effectiveUntil?->format('Y-m-d'),
-            'page' => $page,
-            'per_page' => $perPage,
-            'total' => count($topLevel),
+            'heading' => self::chain($part, $headings),
+            ...$this->neighbours($part, $headings, $topLevel),
+            'focus' => $focus?->id,
             'sections' => $sections,
         ];
     }
 
     /**
      * The table of contents of the law as it stood on `$asOf`: every heading, with the first and last
-     * article under it and the page of the text it opens on.
+     * article under it — none when no article stands under it.
      *
      * @return array<string, mixed>|null null when no consolidation covers the date
      */
-    public function outline(string $documentId, DateTimeImmutable $asOf, int $perPage): ?array
+    public function outline(string $documentId, DateTimeImmutable $asOf): ?array
     {
         $document = $this->document($documentId);
 
@@ -206,29 +228,18 @@ final readonly class LegislationLibrary
         }
 
         $headings = $this->headings($version->id);
-        $topLevel = SourceSection::query()
+        $spans = $this->spans($headings, SourceSection::query()
             ->where('document_version_id', $version->id)
             ->whereNull('parent_id')
             ->orderBy('ordinal')
-            ->get(['citation_label', 'outline_id']);
-
-        /** @var array<string, array{first: int, first_citation: string, last_citation: string}> $spans */
-        $spans = [];
-
-        foreach ($topLevel->values() as $position => $section) {
-            // An article counts for its own heading and every heading above it.
-            foreach (self::chain($section->outline_id, $headings) as $heading) {
-                $spans[$heading['id']] ??= ['first' => $position, 'first_citation' => $section->citation_label, 'last_citation' => $section->citation_label];
-                $spans[$heading['id']]['last_citation'] = $section->citation_label;
-            }
-        }
+            ->get(['citation_label', 'outline_id'])
+            ->all());
 
         return [
             'version_id' => $version->id,
             'effective_from' => $version->effectiveFrom->format('Y-m-d'),
             'headings' => array_values(array_map(static fn (array $heading): array => [
                 ...$heading,
-                'page' => isset($spans[$heading['id']]) ? intdiv($spans[$heading['id']]['first'], $perPage) + 1 : null,
                 'first_citation' => $spans[$heading['id']]['first_citation'] ?? null,
                 'last_citation' => $spans[$heading['id']]['last_citation'] ?? null,
             ], $headings)),
@@ -321,6 +332,54 @@ final readonly class LegislationLibrary
         }
 
         return $chain;
+    }
+
+    /**
+     * The first and last article under each heading: an article counts for its own heading and every
+     * heading above it.
+     *
+     * @param  array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>  $headings
+     * @param  array<int, SourceSection>  $articles  in reading order
+     * @return array<string, array{first_citation: string, last_citation: string}>
+     */
+    private function spans(array $headings, array $articles): array
+    {
+        $spans = [];
+
+        foreach ($articles as $article) {
+            foreach (self::chain($article->outline_id, $headings) as $heading) {
+                $spans[$heading['id']] ??= ['first_citation' => $article->citation_label, 'last_citation' => $article->citation_label];
+                $spans[$heading['id']]['last_citation'] = $article->citation_label;
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
+     * The parts before and after one, to read on: the headings of the same level, with articles
+     * under them, on either side of it. The articles under no heading have none.
+     *
+     * @param  array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>  $headings
+     * @param  array<int, SourceSection>  $articles  in reading order
+     * @return array{previous: array<string, string|null>|null, next: array<string, string|null>|null}
+     */
+    private function neighbours(?string $part, array $headings, array $articles): array
+    {
+        $level = $part === null ? null : ($headings[$part]['level'] ?? null);
+
+        if ($level === null) {
+            return ['previous' => null, 'next' => null];
+        }
+
+        $spans = $this->spans($headings, $articles);
+        $same = array_values(array_filter($headings, static fn (array $heading): bool => $heading['level'] === $level && isset($spans[$heading['id']])));
+        $at = array_search($part, array_column($same, 'id'), true);
+
+        return [
+            'previous' => $at === false ? null : ($same[$at - 1] ?? null),
+            'next' => $at === false ? null : ($same[$at + 1] ?? null),
+        ];
     }
 
     /** @return array<string, mixed> */

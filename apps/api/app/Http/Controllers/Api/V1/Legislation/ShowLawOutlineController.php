@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 
 /**
  * `GET /api/v1/legislation/laws/{law}/outline?as_of=YYYY-MM-DD` — the law's table of contents on a
- * date: titles, chapters and sections, each with the articles under it and the page it opens on.
+ * date: titles, chapters and sections, each with the articles under it.
  */
 final class ShowLawOutlineController extends Controller
 {
@@ -21,7 +21,7 @@ final class ShowLawOutlineController extends Controller
         $validated = $request->validate(['as_of' => ['sometimes', 'date_format:Y-m-d']]);
 
         $asOf = is_string($validated['as_of'] ?? null) ? new DateTimeImmutable($validated['as_of']) : new DateTimeImmutable('today');
-        $outline = $library->outline($law, $asOf, ShowLawTextController::PER_PAGE);
+        $outline = $library->outline($law, $asOf);
 
         abort_if($outline === null, 404, 'No consolidation of this law covers that date.');
 

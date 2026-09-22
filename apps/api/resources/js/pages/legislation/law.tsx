@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     CalendarDays,
+    ChevronLeft,
     ChevronRight,
     CircleCheck,
     ExternalLink,
@@ -15,7 +16,6 @@ import { toast } from 'sonner';
 
 import { getLaw, getLawOutline, getLawText } from '../../api/legislationApi';
 import AppShell from '../../components/AppShell';
-import Pagination from '../../components/Pagination';
 import { Page, PanelButton, PanelSelect, SearchInput } from '../../components/panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -24,7 +24,7 @@ import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { anchorOf, foldForFind } from '../../lib/lawText';
 import { cn } from '../../lib/utils';
-import type { LawDetail, LawHeading, LawOutline, LawSection, LawText } from '../../types/legislation';
+import type { LawDetail, LawHeading, LawOutline, LawPart, LawSection, LawText } from '../../types/legislation';
 import LawArticle from './LawArticle';
 import LawContents from './LawContents';
 import LawVersions from './LawVersions';
@@ -34,10 +34,35 @@ function today(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
+function query(): URLSearchParams {
+    return new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+}
+
 function initialAsOf(): string {
-    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('as_of');
+    const requested = query().get('as_of');
 
     return requested !== null && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : today();
+}
+
+/** The part a link opens: `?heading=Titlul IV` or `?provision=Art. 64 alin. (1)`. */
+function initialPart(): LawPart {
+    return { heading: query().get('heading'), provision: query().get('provision') };
+}
+
+/** The address of what is on screen, so a reload or a copied link opens the same. */
+function addressOf(asOf: string, part: LawPart): URL {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('as_of', asOf);
+
+    if (part.provision !== null) {
+        url.searchParams.set('provision', part.provision);
+    } else if (part.heading !== null) {
+        url.searchParams.set('heading', part.heading);
+    }
+
+    return url;
 }
 
 /** An article with everything under it, as the page shows it: one card. */
@@ -46,7 +71,7 @@ interface ArticleGroup {
     provisions: LawSection[];
 }
 
-/** The page's provisions as articles: a new one at each provision of depth 0. */
+/** The part's provisions as articles: a new one at each provision of depth 0. */
 function articlesOf(sections: LawSection[]): ArticleGroup[] {
     const groups: ArticleGroup[] = [];
 
@@ -79,18 +104,20 @@ function holds(group: ArticleGroup, words: string[]): boolean {
  *
  * The date decides which consolidation is shown — each applies from its own date until the day before
  * the next — and the page never shows the nearest text for a date no consolidation covers: it says
- * so. Read like a book: its contents to the side, one card per article with its paragraphs on their
- * own labels, the version shown and its source at hand, every other version in a panel beside it.
+ * so. Read like a book, a title, chapter or section at a time — the one chosen in its contents, to
+ * the side, or the one a linked provision stands in, opened at it: one card per article with its
+ * paragraphs on their own labels, the version shown and its source at hand, every other version in a
+ * panel beside it.
  */
 export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Element {
     const { t, locale } = useTranslation();
     const [law, setLaw] = useState<LawDetail | null>(null);
     const [lawFailed, setLawFailed] = useState(false);
     const [asOf, setAsOf] = useState(initialAsOf);
-    const [page, setPage] = useState(1);
-    // Keyed by what was asked, so a change of date or page reads as loading without an effect having
+    const [part, setPart] = useState(initialPart);
+    // Keyed by what was asked, so a change of date or part reads as loading without an effect having
     // to reset anything: the answer on screen belongs to the question until the next one arrives.
-    const textKey = `${asOf}|${String(page)}`;
+    const textKey = `${asOf}|${part.heading ?? ''}|${part.provision ?? ''}`;
     const [answer, setAnswer] = useState<{
         key: string;
         text: LawText | null;
@@ -127,9 +154,9 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
 
     useEffect(() => {
         let active = true;
-        const key = `${asOf}|${String(page)}`;
+        const key = `${asOf}|${part.heading ?? ''}|${part.provision ?? ''}`;
 
-        getLawText(lawId, asOf, page).then(
+        getLawText(lawId, asOf, part).then(
             (loaded) => {
                 if (active) {
                     setAnswer({ key, text: loaded, state: 'ready' });
@@ -149,7 +176,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
         return () => {
             active = false;
         };
-    }, [lawId, asOf, page]);
+    }, [lawId, asOf, part]);
 
     useEffect(() => {
         let active = true;
@@ -172,30 +199,35 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
         };
     }, [lawId, asOf]);
 
-    // A link to an article opens at it, once its page is on screen.
+    // A link to a provision opens at it, once its part is on screen.
+    const focus = textState === 'ready' ? (text?.focus ?? null) : null;
+
     useEffect(() => {
-        if (textState === 'ready' && window.location.hash !== '') {
-            document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' });
+        if (focus !== null) {
+            document.getElementById(anchorOf({ id: focus }))?.scrollIntoView({ block: 'center' });
         }
-    }, [textState]);
+    }, [focus]);
+
+    useEffect(() => {
+        window.history.replaceState(window.history.state, '', addressOf(asOf, part));
+    }, [asOf, part]);
 
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
 
-    const goToPage = (next: number): void => {
-        setPage(next);
+    const openPart = (heading: string): void => {
+        setPart({ heading, provision: null });
+        setFind('');
         setSheet(null);
         document.getElementById('law-reader')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const changeDate = (next: string): void => {
-        setAsOf(next);
-        setPage(1);
-    };
-
     const copyLink = (section: LawSection | null): void => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('as_of', text?.effectiveFrom ?? asOf);
-        url.hash = section === null ? '' : anchorOf(section);
+        const url = addressOf(
+            text?.effectiveFrom ?? asOf,
+            section === null
+                ? { heading: text?.heading.at(-1)?.path ?? null, provision: null }
+                : { heading: null, provision: section.citation },
+        );
 
         navigator.clipboard.writeText(url.toString()).then(
             () => {
@@ -217,7 +249,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
         .split(/\s+/u)
         .filter((word) => word !== '');
     const found = words.length === 0 ? articles : articles.filter((group) => holds(group, words));
-    const current = new Set((articles[0]?.article.headings ?? []).map((heading) => heading.id));
+    const current = new Set((text?.heading ?? []).map((heading) => heading.id));
     const readVersions =
         law === null ? [] : law.consolidations.filter((consolidation) => consolidation.versionId !== null);
     const shown = law?.consolidations.find((consolidation) => consolidation.date === text?.effectiveFrom) ?? null;
@@ -325,7 +357,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         </div>
                         <PanelSelect
                             value={shown?.date ?? ''}
-                            onValueChange={changeDate}
+                            onValueChange={setAsOf}
                             placeholder={t((d) => d.pages.legislation.law.version)}
                             options={readVersions.map((consolidation) => ({
                                 value: consolidation.date,
@@ -346,7 +378,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         ) : outline.outline === null ? (
                             <p className="note px-2">{t((d) => d.pages.legislation.law.contentsEmpty)}</p>
                         ) : (
-                            <LawContents outline={outline.outline} current={current} onOpen={goToPage} />
+                            <LawContents outline={outline.outline} current={current} onOpen={openPart} />
                         )}
                     </aside>
 
@@ -371,29 +403,56 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                                     <LawArticle
                                         article={group.article}
                                         provisions={group.provisions}
+                                        focus={focus}
                                         onHistory={setHistoryOf}
                                         onCopyLink={copyLink}
                                     />
                                 </div>
                             ))
                         )}
-                        {text === null ? null : (
-                            <div className="panel panel-pad-sm">
-                                <Pagination
-                                    page={text.page}
-                                    pageSize={text.perPage}
-                                    total={text.total}
-                                    onPageChange={goToPage}
-                                    unit={t((d) => d.pages.legislation.law.unit)}
-                                />
-                            </div>
+                        {text === null || (text.previous === null && text.next === null) ? null : (
+                            <nav className="grid gap-2.5 sm:grid-cols-2">
+                                {[text.previous, text.next].map((neighbour, index) =>
+                                    neighbour === null ? (
+                                        <span key={index} />
+                                    ) : (
+                                        <button
+                                            key={neighbour.id}
+                                            type="button"
+                                            className={cn(
+                                                'panel panel-pad-sm hover:bg-muted flex items-center gap-2 text-left',
+                                                index === 1 && 'justify-end text-right',
+                                            )}
+                                            onClick={() => {
+                                                openPart(neighbour.path);
+                                            }}
+                                        >
+                                            {index === 0 ? <ChevronLeft className="size-4 shrink-0" /> : null}
+                                            <span className="min-w-0">
+                                                <span className="note block">
+                                                    {t((d) =>
+                                                        index === 0
+                                                            ? d.pages.legislation.law.previousPart
+                                                            : d.pages.legislation.law.nextPart,
+                                                    )}
+                                                </span>
+                                                <span className="block truncate text-xs font-semibold">
+                                                    {neighbour.label}
+                                                    {neighbour.name === '' ? '' : ` — ${neighbour.name}`}
+                                                </span>
+                                            </span>
+                                            {index === 1 ? <ChevronRight className="size-4 shrink-0" /> : null}
+                                        </button>
+                                    ),
+                                )}
+                            </nav>
                         )}
                     </section>
 
                     <aside className="reader-rail hidden flex-col gap-2.5 xl:flex">
                         <div className="panel panel-pad-sm">
                             <h4 className="mb-1.5 text-xs font-semibold">
-                                {t((d) => d.pages.legislation.law.onThisPage)}
+                                {t((d) => d.pages.legislation.law.inThisPart)}
                             </h4>
                             <div className="max-h-64 overflow-y-auto">
                                 {found.map((group) => (
@@ -554,7 +613,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         ) : outline?.outline == null ? (
                             <p className="note">{t((d) => d.pages.legislation.law.contentsEmpty)}</p>
                         ) : (
-                            <LawContents outline={outline.outline} current={current} onOpen={goToPage} />
+                            <LawContents outline={outline.outline} current={current} onOpen={openPart} />
                         )}
                     </div>
                 </SheetContent>
@@ -566,7 +625,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                     shown={shown?.date ?? null}
                     open={versionsOpen}
                     onOpenChange={setVersionsOpen}
-                    onView={changeDate}
+                    onView={setAsOf}
                 />
             )}
 

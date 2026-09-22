@@ -280,8 +280,20 @@ it('shows the law, its text on a date, and a provision\'s history', function ():
     expect($outline->json('headings.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
         ->and($outline->json('headings.*.name'))->toBe(['Contribuții sociale obligatorii', 'Contribuția de asigurări sociale de sănătate'])
         ->and($outline->json('headings.*.first_citation'))->toBe(['Art. 170', 'Art. 170'])
-        ->and($outline->json('headings.*.last_citation'))->toBe(['Art. 5', 'Art. 170'])
-        ->and($outline->json('headings.*.page'))->toBe([1, 1]);
+        ->and($outline->json('headings.*.last_citation'))->toBe(['Art. 5', 'Art. 170']);
+
+    // One part at a time: the title holds both articles, the chapter only its own; a provision opens
+    // the part its article stands in, marked.
+    $title = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&heading=" . rawurlencode('Titlul V'))->assertOk();
+    $chapter = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&heading=" . rawurlencode('Titlul V Capitolul III'))->assertOk();
+    $provision = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&provision=" . rawurlencode('Art. 170 alin. (1)'))->assertOk();
+
+    expect($title->json('sections.*.label'))->toContain('Articolul 170', 'Articolul 5')
+        ->and($chapter->json('sections.*.label'))->toContain('Articolul 170')->not->toContain('Articolul 5')
+        ->and($chapter->json('heading.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
+        ->and($provision->json('heading.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
+        ->and($provision->json('focus'))->toBe($provision->json('sections.1.id'))
+        ->and($text->json('heading.*.path'))->toBe(['Titlul V']);
 
     $history = $this->actingAs($user)
         ->getJson("/api/v1/legislation/laws/{$law->id}/history?citation=" . rawurlencode('Art. 170 alin. (1)'))

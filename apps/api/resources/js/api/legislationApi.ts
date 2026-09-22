@@ -3,6 +3,7 @@ import { runOperationTask } from './operationsApi';
 import {
     type LawDetail,
     type LawOutline,
+    type LawPart,
     type LawSummary,
     type LawText,
     type LegislationSearchResult,
@@ -100,9 +101,18 @@ export async function getLaw(lawId: string): Promise<LawDetail> {
     return parseLawDetail(JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}`)));
 }
 
-/** The law as it stood on `asOf`, a page of articles at a time. 404 when no consolidation covers the date. */
-export async function getLawText(lawId: string, asOf: string, page: number): Promise<LawText> {
-    const params = new URLSearchParams({ as_of: asOf, page: String(page) });
+/**
+ * One part of the law as it stood on `asOf`: the heading at `heading`'s path, or the one `provision`
+ * stands in, or the first. 404 when no consolidation covers the date.
+ */
+export async function getLawText(lawId: string, asOf: string, part: LawPart): Promise<LawText> {
+    const params = new URLSearchParams({ as_of: asOf });
+
+    if (part.provision !== null) {
+        params.set('provision', part.provision);
+    } else if (part.heading !== null) {
+        params.set('heading', part.heading);
+    }
 
     return parseLawText(
         JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/text?${params.toString()}`)),
@@ -118,7 +128,7 @@ export async function getProvisionHistory(lawId: string, citation: string): Prom
     );
 }
 
-/** The law's table of contents on `asOf`, each heading with the page of the text it opens on. */
+/** The law's table of contents on `asOf`, each heading with the articles under it. */
 export async function getLawOutline(lawId: string, asOf: string): Promise<LawOutline> {
     const params = new URLSearchParams({ as_of: asOf });
 

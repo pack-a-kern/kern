@@ -59,17 +59,23 @@ final readonly class CandidateRecorder
 
             foreach ($groups as $group) {
                 $reading = $group[0]['reading'];
-                $matches = $group[0]['matches'];
+                $matches = $this->mostSaidFirst($group[0]['matches']);
+                $checks = array_merge(...array_map(static fn (array $item): array => $item['reading']->checks, $group));
+                $approvedOn = $reading->sourceSectionId === null && $matches !== [] ? $this->approvedOn($reading) : null;
+                $onApproved = $approvedOn === null ? [] : array_filter($matches, static fn (LawMatch $match): bool => $match->citation === $approvedOn);
+
+                if ($onApproved !== []) {
+                    $matches = [...$onApproved, ...array_diff_key($matches, $onApproved)];
+                } elseif ($approvedOn !== null) {
+                    $checks[] = ['kind' => ParameterCheck::PARAGRAPH_CHANGED->value, 'citation' => $approvedOn];
+                } elseif (count($matches) > 1) {
+                    $checks[] = ['kind' => ParameterCheck::SEVERAL_PARAGRAPHS->value, 'count' => count($matches)];
+                }
+
                 $source = $reading->sourceSectionId ?? ($matches[0]->sectionId ?? null);
 
                 if ($source === null) {
                     continue;
-                }
-
-                $checks = array_merge(...array_map(static fn (array $item): array => $item['reading']->checks, $group));
-
-                if (count($matches) > 1) {
-                    $checks[] = ['kind' => ParameterCheck::SEVERAL_PARAGRAPHS->value];
                 }
 
                 if (($matches[0] ?? null)?->datedByNote !== null) {
@@ -101,6 +107,33 @@ final readonly class CandidateRecorder
 
             return count($kept);
         });
+    }
+
+    /**
+     * The paragraphs that say the most of a value's numbers first — "12 and 24 minimum wages" before
+     * a paragraph that says only 12 — otherwise in reading order.
+     *
+     * @param  list<LawMatch>  $matches
+     * @return list<LawMatch>
+     */
+    private function mostSaidFirst(array $matches): array
+    {
+        usort($matches, static fn (LawMatch $a, LawMatch $b): int => count($b->says) <=> count($a->says));
+
+        return $matches;
+    }
+
+    /** The paragraph a person approved this parameter on for the year nearest this one, by its citation. */
+    private function approvedOn(Reading $reading): ?string
+    {
+        $citation = FiscalParameterVersion::query()
+            ->join('ext_source_sections', 'ext_source_sections.id', '=', 'fiscal_parameter_versions.source_section_id')
+            ->where('fiscal_parameter_versions.status', RuleApprovalStatus::APPROVED->value)
+            ->whereIn('fiscal_parameter_versions.fiscal_parameter_id', FiscalParameter::query()->where('code', $reading->parameterCode)->select('id'))
+            ->orderByRaw('abs(fiscal_parameter_versions.valid_from - ?::date)', [$reading->validFrom->format('Y-m-d')])
+            ->value('ext_source_sections.citation_label');
+
+        return is_string($citation) ? $citation : null;
     }
 
     /**

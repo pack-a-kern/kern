@@ -1318,11 +1318,11 @@ export const ro = {
                 versions: 'Versiuni',
                 version: 'Versiune',
                 find: 'Caută',
-                findPlaceholder: 'Caută pe această pagină: un articol, o frază, un impozit',
-                findCount: '{shown} din {total} articole pe această pagină',
-                findNone: 'Niciun articol de pe această pagină nu conține aceste cuvinte.',
+                findPlaceholder: 'Caută în această parte: un articol, o frază, un impozit',
+                findCount: '{shown} din {total} articole în această parte',
+                findNone: 'Niciun articol din această parte nu conține aceste cuvinte.',
                 contentsFilter: 'Filtrează cuprinsul',
-                onThisPage: 'Pe această pagină',
+                inThisPart: 'În această parte',
                 thisVersion: 'Versiunea afișată',
                 allVersions: 'Toate versiunile',
                 source: 'Sursa',
@@ -1331,7 +1331,8 @@ export const ro = {
                 shown: 'Afișată',
                 loadFailed: 'Legea nu a putut fi încărcată.',
                 noVersion: 'Nicio consolidare a acestei legi nu acoperă data de {date}.',
-                unit: 'articole',
+                previousPart: 'Înapoi',
+                nextPart: 'Înainte',
                 amended: 'modificat la {date}',
                 notes: 'Note ({count})',
                 notesHint: 'Notele portalului, nu textul legii. Evidențiat: ce spun despre data de la care se aplică.',
@@ -1858,7 +1859,10 @@ export const ro = {
             checks: {
                 dated_by_note:
                     'Portalul nu are textul legii pentru {year}: {citation} este luat dintr-o versiune ulterioară, a cărei notă spune că se aplică de la {date}.',
-                several_paragraphs: 'Mai multe paragrafe ale legii o spun — alege-l pe cel pe care se bazează.',
+                several_paragraphs:
+                    '{count} paragrafe ale legii spun asta. Alege-l pe cel pe care se bazează regula — ceilalți ani îl vor păstra.',
+                paragraph_changed:
+                    'Regula a fost aprobată pe {citation} pentru alt an, iar în legea din acest an {citation} nu spune această valoare. Alege paragraful care o spune.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 wage_differs:
                     'Formularul folosește un salariu minim de {form_wage} lei; hotărârea pentru acel an stabilește {decision_wage} lei.',

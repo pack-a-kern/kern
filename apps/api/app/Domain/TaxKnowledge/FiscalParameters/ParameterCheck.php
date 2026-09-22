@@ -16,8 +16,14 @@ enum ParameterCheck: string
      */
     case DATED_BY_NOTE = 'dated_by_note';
 
-    /** The law has more than one paragraph that says it; the first is its source until one is picked. */
+    /**
+     * The law has more than one paragraph that says it, and no year of it was approved yet: a person
+     * picks the one it rests on, and the other years keep to it.
+     */
     case SEVERAL_PARAGRAPHS = 'several_paragraphs';
+
+    /** The paragraph it was approved on for another year does not say this value; others do. */
+    case PARAGRAPH_CHANGED = 'paragraph_changed';
 
     /** Another reading gives a different value for the same period. */
     case CONFLICTING = 'conflicting';

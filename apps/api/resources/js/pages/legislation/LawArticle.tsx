@@ -20,12 +20,15 @@ const SUBTITLE_MAX = 160;
 export default function LawArticle({
     article,
     provisions,
+    focus,
     onHistory,
     onCopyLink,
 }: {
     article: LawSection;
     /** Everything under the article, in reading order. */
     provisions: LawSection[];
+    /** The provision a link opened at, marked. */
+    focus: string | null;
     onHistory: (section: LawSection) => void;
     onCopyLink: (section: LawSection) => void;
 }): JSX.Element {
@@ -37,7 +40,10 @@ export default function LawArticle({
             : null;
 
     return (
-        <article id={anchorOf(article)} className="panel scroll-mt-44 overflow-hidden">
+        <article
+            id={anchorOf(article)}
+            className={cn('panel scroll-mt-44 overflow-hidden', focus === article.id && 'ring-info/50 ring-2')}
+        >
             <header className="border-border flex items-start justify-between gap-3 border-b px-4 py-3">
                 <div className="min-w-0">
                     <h3 className="text-sm font-semibold">{article.label}</h3>
@@ -75,7 +81,10 @@ export default function LawArticle({
                     <div
                         key={provision.id}
                         id={anchorOf(provision)}
-                        className="group hover:bg-muted/40 scroll-mt-44 rounded-md py-1"
+                        className={cn(
+                            'group hover:bg-muted/40 scroll-mt-44 rounded-md py-1',
+                            focus === provision.id && 'bg-info/10 ring-info/40 ring-1',
+                        )}
                         style={{ paddingLeft: `${String(Math.min(Math.max(provision.depth - 1, 0), 4) * 1.25)}rem` }}
                     >
                         <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] gap-1">

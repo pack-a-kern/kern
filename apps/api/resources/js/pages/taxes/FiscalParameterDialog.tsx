@@ -113,7 +113,7 @@ export default function FiscalParameterDialog({
                                     </>
                                 ) : reading.kind === 'decision' ? (
                                     <>
-                                        <a className="link" href={`/legislation/${reading.lawId}`}>
+                                        <a className="link" href={lawLink(reading.lawId, null, reading.citation)}>
                                             {reading.act} · {reading.citation}
                                         </a>
                                         <span className="ml-1.5 italic">„{reading.quote}”</span>
@@ -152,7 +152,7 @@ export default function FiscalParameterDialog({
                                         {found.lawId === null ? null : (
                                             <a
                                                 className="link text-xs"
-                                                href={`/legislation/${found.lawId}${found.on === null ? '' : `?as_of=${found.on}`}`}
+                                                href={lawLink(found.lawId, found.on, found.citation)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                             >
@@ -171,6 +171,17 @@ export default function FiscalParameterDialog({
             </div>
         </PanelDialog>
     );
+}
+
+/** The law opened at a paragraph, as it stood on a day — or today. */
+function lawLink(lawId: string, on: string | null, citation: string): string {
+    const params = new URLSearchParams({ provision: citation });
+
+    if (on !== null) {
+        params.set('as_of', on);
+    }
+
+    return `/legislation/${lawId}?${params.toString()}`;
 }
 
 /** The value's own source first, then every other paragraph found, each once. */

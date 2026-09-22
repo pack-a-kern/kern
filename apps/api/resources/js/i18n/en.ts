@@ -1311,11 +1311,11 @@ export const en = {
                 versions: 'Versions',
                 version: 'Version',
                 find: 'Find',
-                findPlaceholder: 'Find on this page: an article, a phrase, a tax',
-                findCount: '{shown} of {total} articles on this page',
-                findNone: 'No article on this page holds these words.',
+                findPlaceholder: 'Find in this part: an article, a phrase, a tax',
+                findCount: '{shown} of {total} articles in this part',
+                findNone: 'No article in this part holds these words.',
                 contentsFilter: 'Filter the contents',
-                onThisPage: 'On this page',
+                inThisPart: 'In this part',
                 thisVersion: 'The version shown',
                 allVersions: 'All versions',
                 source: 'Source',
@@ -1324,7 +1324,8 @@ export const en = {
                 shown: 'Shown',
                 loadFailed: 'The law could not be loaded.',
                 noVersion: 'No consolidation of this law covers {date}.',
-                unit: 'articles',
+                previousPart: 'Previous',
+                nextPart: 'Next',
                 amended: 'amended {date}',
                 notes: 'Notes ({count})',
                 notesHint:
@@ -1845,7 +1846,10 @@ export const en = {
             checks: {
                 dated_by_note:
                     'The portal has no text of the law for {year}: {citation} is taken from a later version, whose own note says it applies from {date}.',
-                several_paragraphs: 'Several paragraphs of the law say it — choose the one it rests on.',
+                several_paragraphs:
+                    '{count} paragraphs of the law say this. Choose the one the rule rests on — the other years will keep to it.',
+                paragraph_changed:
+                    'The rule was approved on {citation} for another year, and in this year’s law {citation} does not say this value. Choose the paragraph that does.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 wage_differs:
                     'The form counts in a minimum wage of {form_wage} lei; the decision for that year sets {decision_wage} lei.',

@@ -159,8 +159,7 @@ export interface LawHeading {
 }
 
 export interface LawOutlineHeading extends LawHeading {
-    /** The page of the text it opens on; null for a heading with no article under it. */
-    page: number | null;
+    /** The first article under it; null for a heading with no article under it. */
     firstCitation: string | null;
     lastCitation: string | null;
 }
@@ -282,15 +281,24 @@ export interface LawSection {
     headings: LawHeading[];
 }
 
+/** Which part of a law to show: a heading by its path, or the one a provision stands in by its citation. */
+export interface LawPart {
+    heading: string | null;
+    provision: string | null;
+}
+
 export interface LawText {
     asOf: string;
     versionId: string;
     effectiveFrom: string;
     effectiveUntil: string | null;
-    page: number;
-    perPage: number;
-    /** Top-level provisions — articles and annexes — in the whole law. */
-    total: number;
+    /** The part shown and those above it, outermost first; empty for the articles under no heading. */
+    heading: LawHeading[];
+    /** The parts of the same level on either side, to read on. */
+    previous: LawHeading | null;
+    next: LawHeading | null;
+    /** The provision asked for, to open at. */
+    focus: string | null;
     sections: LawSection[];
 }
 
@@ -342,7 +350,6 @@ export function parseLawOutline(payload: unknown): LawOutline {
 
             return {
                 ...parseHeading(row),
-                page: nullableNum(row, 'page'),
                 firstCitation: nullableStr(row, 'first_citation'),
                 lastCitation: nullableStr(row, 'last_citation'),
             };
@@ -412,9 +419,10 @@ export function parseLawText(payload: unknown): LawText {
         versionId: str(body, 'version_id'),
         effectiveFrom: str(body, 'effective_from'),
         effectiveUntil: nullableStr(body, 'effective_until'),
-        page: num(body, 'page'),
-        perPage: num(body, 'per_page'),
-        total: num(body, 'total'),
+        heading: (Array.isArray(body.heading) ? body.heading : []).map(parseHeading),
+        previous: body.previous === null || body.previous === undefined ? null : parseHeading(body.previous),
+        next: body.next === null || body.next === undefined ? null : parseHeading(body.next),
+        focus: nullableStr(body, 'focus'),
         sections: (Array.isArray(body.sections) ? body.sections : []).map((entry): LawSection => {
             const row = obj(entry);
 

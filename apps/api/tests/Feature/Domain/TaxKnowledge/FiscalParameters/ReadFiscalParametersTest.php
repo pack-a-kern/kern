@@ -17,6 +17,8 @@ use App\Domain\TaxKnowledge\FiscalParameters\Actions\StartFiscalYear;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatch;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatcher;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
+use App\Domain\TaxKnowledge\FiscalParameters\Reading\Reading;
+use App\Domain\TaxKnowledge\FiscalParameters\Recording\CandidateRecorder;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\FormStructure;
@@ -263,7 +265,7 @@ it('keeps what did not agree beside the value, and every paragraph that says it'
     expect(collect($wage2023->evidence['checks'] ?? [])->firstWhere('kind', 'confirmed_by_form'))
         ->toEqual(['kind' => 'confirmed_by_form', 'year' => 2023, 'form_year' => 2024, 'form_wage' => 3000, 'url' => FORM_2024])
         ->and(array_column($cassBands->evidence['matches'] ?? [], 'citation'))->toBe(['Art. 170 alin. (3)', 'Art. 170 alin. (4)'])
-        ->and($cassBands->evidence['checks'] ?? [])->toContain(['kind' => 'several_paragraphs'])
+        ->and($cassBands->evidence['checks'] ?? [])->toContain(['kind' => 'several_paragraphs', 'count' => 2])
         ->and($cassBands->evidence['readings'][0]['quotes'] ?? [])->toBe(['cass_baza = 6*3000', 'cass_baza = 12*3000', 'csas_baza = 24*3000']);
 });
 
@@ -396,4 +398,33 @@ it('reads the thresholds of one year from two files as one list, the fuller read
     expect($cas->value_json)->toBe(['wages' => [12, 24]])
         ->and(array_column($cas->evidence['readings'] ?? [], 'form_year'))->toEqualCanonicalizing([2024, 2025])
         ->and(array_column($cas->evidence['checks'] ?? [], 'kind'))->not->toContain('conflicting');
+});
+
+it('keeps a rule to the paragraph it was approved on for another year, and says when that one no longer says it', function (): void {
+    codulFiscal();
+    $section = static fn (string $citation): SourceSection => SourceSection::query()->where('citation_label', $citation)->sole();
+    $bands = static fn (int $year): Reading => new Reading(
+        'RO.CASS.OTHER_INCOME.BANDS_WAGES',
+        new DateTimeImmutable("{$year}-01-01"),
+        new DateTimeImmutable("{$year}-12-31"),
+        ['wages' => [6, 12, 24]],
+        [6, 12, 24],
+        ['kind' => 'form'],
+    );
+    $found = static fn (string ...$citations): array => array_values(array_map(
+        static fn (string $citation): LawMatch => new LawMatch($section($citation)->id, $citation, $section($citation)->document_version_id, [6]),
+        $citations,
+    ));
+    $parameter = FiscalParameter::query()->create(['code' => 'RO.CASS.OTHER_INCOME.BANDS_WAGES', 'value_type' => 'JSON']);
+    insertApprovedFiscalParameterVersion($parameter->id, $section('Art. 170 alin. (4)')->id, ['valid_from' => '2023-01-01', 'valid_until' => '2023-12-31', 'value_json' => json_encode(['wages' => [6, 12, 24]], JSON_THROW_ON_ERROR)]);
+
+    app(CandidateRecorder::class)->record([['reading' => $bands(2024), 'matches' => $found('Art. 170 alin. (3)', 'Art. 170 alin. (4)')]], []);
+    app(CandidateRecorder::class)->record([['reading' => $bands(2025), 'matches' => $found('Art. 170 alin. (3)')]], []);
+
+    $candidate = static fn (string $from): FiscalParameterVersion => FiscalParameterVersion::query()->where('valid_from', $from)->sole();
+
+    expect($candidate('2024-01-01')->source_section_id)->toBe($section('Art. 170 alin. (4)')->id)
+        ->and($candidate('2024-01-01')->evidence['checks'] ?? [])->toBe([])
+        ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 170 alin. (3)')->id)
+        ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)']]);
 });

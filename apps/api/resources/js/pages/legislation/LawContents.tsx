@@ -8,9 +8,9 @@ import type { LawOutline, LawOutlineHeading } from '../../types/legislation';
 
 /**
  * The law's table of contents as it stood on the chosen date: its titles, each opening onto its
- * chapters and sections, with the articles each spans. Choosing one opens the text there; the title
- * the page is in stays open and marked. Filtered, it lists every heading whose label or name holds
- * the words, at any depth.
+ * chapters and sections, with the articles each spans. Choosing one shows that part — the title, the
+ * chapter, the section — open and marked; the title shown folds away when chosen again. Filtered, it
+ * lists every heading whose label or name holds the words, at any depth.
  */
 export default function LawContents({
     outline,
@@ -18,9 +18,10 @@ export default function LawContents({
     onOpen,
 }: {
     outline: LawOutline;
-    /** The headings the page's first article stands under — the title it is in, open and marked. */
+    /** The part shown and the headings above it — open and marked. */
     current: Set<string>;
-    onOpen: (page: number) => void;
+    /** Shows the part at this path. */
+    onOpen: (path: string) => void;
 }): JSX.Element {
     const { t } = useTranslation();
     const [filter, setFilter] = useState('');
@@ -40,15 +41,15 @@ export default function LawContents({
         <button
             key={heading.id}
             type="button"
-            disabled={heading.page === null}
+            disabled={heading.firstCitation === null}
             className={cn(
                 'hover:bg-muted w-full rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-50',
                 current.has(heading.id) && 'bg-info/10 text-info',
             )}
             style={{ paddingLeft: `${String(0.5 + depth * 0.75)}rem` }}
             onClick={() => {
-                if (heading.page !== null) {
-                    onOpen(heading.page);
+                if (heading.firstCitation !== null) {
+                    onOpen(heading.path);
                 }
             }}
         >
@@ -94,10 +95,11 @@ export default function LawContents({
                                         current.has(title.id) && 'bg-info/10 text-info',
                                     )}
                                     onClick={() => {
-                                        setToggled((state) => ({ ...state, [title.id]: !open }));
+                                        const shown = current.has(title.id) || title.firstCitation === null;
+                                        setToggled((state) => ({ ...state, [title.id]: shown ? !open : true }));
 
-                                        if (title.page !== null) {
-                                            onOpen(title.page);
+                                        if (!shown) {
+                                            onOpen(title.path);
                                         }
                                     }}
                                 >

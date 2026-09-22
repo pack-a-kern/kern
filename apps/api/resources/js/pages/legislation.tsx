@@ -405,7 +405,7 @@ function Hit({ hit, asOf }: { hit: LegislationHit; asOf: string }): JSX.Element 
                 <Pill tone="locked">{hit.trustTier}</Pill>
                 <Link
                     className="text-info ml-auto text-xs underline underline-offset-2"
-                    href={`/legislation/${hit.sourceDocumentId}?as_of=${encodeURIComponent(asOf)}`}
+                    href={`/legislation/${hit.sourceDocumentId}?${new URLSearchParams({ as_of: asOf, provision: hit.citation }).toString()}`}
                 >
                     {t((d) => d.pages.legislation.openInLaw)}
                 </Link>

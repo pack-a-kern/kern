@@ -1148,11 +1148,11 @@ export interface Dictionary {
                 version: string;
                 find: string;
                 findPlaceholder: string;
-                /** `{shown}` of `{total}` articles on the page. */
+                /** `{shown}` of `{total}` articles in the part shown. */
                 findCount: string;
                 findNone: string;
                 contentsFilter: string;
-                onThisPage: string;
+                inThisPart: string;
                 thisVersion: string;
                 allVersions: string;
                 source: string;
@@ -1163,7 +1163,8 @@ export interface Dictionary {
                 loadFailed: string;
                 /** `{date}` that no consolidation covers. */
                 noVersion: string;
-                unit: string;
+                previousPart: string;
+                nextPart: string;
                 amended: string;
                 /** `{count}` notes on a provision. */
                 notes: string;
