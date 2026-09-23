@@ -160,6 +160,21 @@ final readonly class LawValueReader
 
         $reading = $together === null ? $this->readOn($definition, $from, $approvedOn, $known) : ['answer' => $together, 'reached' => true];
         $first = $reading['answer'];
+        $starts = $from;
+
+        // A rule that is not in the law on the first of January may come into it during the year:
+        // CASS's base of twelve minimum wages was OUG 18/2018's, in force from 23 March 2018 and
+        // owed for that whole year's income. Each day the law changed is read until one answers.
+        foreach ($first === null && $reading['reached'] ? $this->law->changeDays($from, $until) : [] as $day) {
+            $later = $this->readOn($definition, $day, $approvedOn, $known);
+
+            if ($later['answer'] !== null) {
+                $first = $later['answer'];
+                $starts = $day;
+
+                break;
+            }
+        }
 
         if ($first === null) {
             // Nothing read, and the two are not the same: a law that does not say it, or a model
@@ -167,9 +182,9 @@ final readonly class LawValueReader
             return $nothing($reading['reached'] ? ParameterReadOutcome::NOT_IN_LAW : ParameterReadOutcome::UNREAD);
         }
 
-        $stretches = [[$from, $first]];
+        $stretches = [[$starts, $first]];
 
-        foreach ($this->law->changeDaysOf($first[0]->citation, $from, $until) as $day) {
+        foreach ($this->law->changeDaysOf($first[0]->citation, $starts, $until) as $day) {
             $again = $this->readOn($definition, $day, $approvedOn, $known)['answer'];
 
             // The same value read again from the day its wording changed is the same value: the
@@ -208,7 +223,8 @@ final readonly class LawValueReader
                     $provision->documentVersionId,
                     $answer->values,
                     $provision->datedByNote,
-                    $index > 0 ? $starts->format('Y-m-d') : null,
+                    // The day it came into force, where that is not the first of the year.
+                    $starts->format('Y-m-d') === $from->format('Y-m-d') ? null : $starts->format('Y-m-d'),
                 )],
             ];
         }

@@ -649,3 +649,34 @@ it('reads a base with two ends from the two paragraphs that state them', functio
     expect($base->value_json)->toBe(['floor' => 6, 'cap' => 72])
         ->and(SourceSection::query()->whereKey($base->source_section_id)->value('citation_label'))->toBe('Art. 174 alin. (6)');
 });
+
+it('reads a rule that comes into the law during the year, from the day it does', function (): void {
+    $this->travelTo('2018-06-01');
+    // The law of 1 January says nothing of the value; a wording dated from 23 March states it.
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2018-01-01', '2018-03-22');
+    heading($version, 'Titlul IV Capitolul IV', [
+        ['Art. 84 alin. (3)', 'Venitul net din cedarea folosinței bunurilor se stabilește pe baza datelor din contabilitate.'],
+    ]);
+    $after = SourceDocumentVersion::factory()->create([
+        'source_document_id' => $version->source_document_id,
+        'effective_from' => '2018-03-23',
+        'consolidation_ref' => (string) random_int(1, 999999),
+    ]);
+    heading($after, 'Titlul IV Capitolul IV', [
+        ['Art. 84 alin. (3)', 'Venitul net din cedarea folosinței bunurilor se stabilește prin deducerea din venitul brut a cheltuielilor determinate prin aplicarea cotei de 40% asupra venitului brut.'],
+    ]);
+
+    readers(['cedarea folosinței bunurilor' => ['value' => 40, 'citation' => 'Art. 84 alin. (3)']]);
+
+    app(StartFiscalYear::class)(2018);
+
+    $rent = FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->select('id'))
+        ->sole();
+
+    // The value holds from the day the law states it, and says as much.
+    expect($rent->value_json)->toBe(['value' => '0.40'])
+        ->and($rent->valid_from->format('Y-m-d'))->toBe('2018-03-23')
+        ->and($rent->valid_until?->format('Y-m-d'))->toBe('2018-12-31')
+        ->and(array_column($rent->evidence['checks'] ?? [], 'kind'))->toContain('in_force_later');
+});
