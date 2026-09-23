@@ -163,8 +163,6 @@ final class LawProvisions
             return $inVersion;
         }
 
-        /** @var list<string> $replaced */
-        $replaced = array_values(array_filter($noted->pluck('citation_label')->all(), 'is_string'));
         $readIn = SourceSection::query()->whereIn('id', $noted->pluck('first_section_id'))->pluck('document_version_id', 'id')->all();
         $readFrom = SourceDocumentVersion::query()->whereIn('id', array_values(array_unique(array_filter($readIn, 'is_string'))))->pluck('effective_from', 'id')->all();
         $replacing = [];
@@ -199,6 +197,10 @@ final class LawProvisions
             }
         }
 
+        // Only what is replaced takes its old points with it: a wording this consolidation already
+        // has replaces nothing, and its paragraph keeps everything under it.
+        /** @var list<string> $replaced */
+        $replaced = array_values(array_filter(array_keys($replacing), 'is_string'));
         $read = [];
 
         foreach ($inVersion as $provision) {
