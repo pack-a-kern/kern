@@ -554,3 +554,33 @@ it('asks one question per call where a tax is not read in one', function (): voi
     expect(Http::recorded()->count())->toBe(4)
         ->and(FiscalParameterVersion::query()->where('valid_from', '2023-01-01')->count())->toBe(4);
 });
+
+it('leaves a value whole where its paragraph was rewritten without changing what it says', function (): void {
+    $this->travelTo('2024-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2024-01-01', '2024-09-30');
+    heading($version, 'Titlul IV Capitolul VI', [
+        ['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea din venitul din pensie a sumei neimpozabile lunare de 2.000 lei.'],
+    ]);
+    // The same amount, said again in other words, from the first of October.
+    $after = SourceDocumentVersion::factory()->create([
+        'source_document_id' => $version->source_document_id,
+        'effective_from' => '2024-10-01',
+        'consolidation_ref' => (string) random_int(1, 999999),
+    ]);
+    heading($after, 'Titlul IV Capitolul VI', [
+        ['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea sumei neimpozabile lunare de 2.000 lei și, după caz, a contribuției de asigurări sociale de sănătate.'],
+    ]);
+
+    readers(['venitul din pensii' => ['value' => 2000, 'citation' => 'Art. 100 alin. (1)', 'quote' => 'sumei neimpozabile lunare de 2.000 lei']]);
+
+    app(StartFiscalYear::class)(2024);
+
+    // One period for the whole year, not one that ends the day the sentence was touched.
+    $pension = FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.PENSION_TAX_FREE')->select('id'))
+        ->get(['valid_from', 'valid_until']);
+
+    expect($pension)->toHaveCount(1)
+        ->and($pension->first()?->valid_from->format('Y-m-d'))->toBe('2024-01-01')
+        ->and($pension->first()?->valid_until?->format('Y-m-d'))->toBe('2024-12-31');
+});

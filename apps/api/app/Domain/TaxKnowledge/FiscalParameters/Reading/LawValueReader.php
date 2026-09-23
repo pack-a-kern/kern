@@ -26,9 +26,11 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * against the paragraph quoted ({@see LawReader}). Two models read, and where they differ the
  * value is still proposed — the first reader's — saying so.
  *
- * A value holds as long as the sentence it rests on does: where that paragraph's wording changes
+ * A value holds as long as the sentence it rests on says it: where that paragraph's wording changes
  * during the year, the law is read again from that day, and the year carries two values rather than
- * one — dividends were taxed 10% until 31 July 2025 and 16% after it.
+ * one — dividends were taxed 10% until 31 July 2025 and 16% after it. A wording rewritten without
+ * changing what it says leaves the value whole: the same number from the same rule is one period,
+ * not two, and not one that ends the day the sentence was touched.
  *
  * A model is asked only where an answer can still change something. A year a person has decided is
  * not read again — the answer would be thrown away — nor is one whose paragraph stands unchanged
@@ -165,7 +167,9 @@ final readonly class LawValueReader
         foreach ($this->law->changeDaysOf($first[0]->citation, $from, $until) as $day) {
             $again = $this->readOn($definition, $day, $approvedOn, $known);
 
-            if ($again !== null) {
+            // The same value read again from the day its wording changed is the same value: the
+            // sentence was rewritten, not the rule, and the value holds across the day it changed.
+            if ($again !== null && $again[0]->values !== end($stretches)[1][0]->values) {
                 $stretches[] = [$day, $again];
             }
         }
@@ -175,12 +179,6 @@ final readonly class LawValueReader
         foreach ($stretches as $index => [$starts, [$answer, $provision, $second]]) {
             $next = $stretches[$index + 1][0] ?? null;
             $ends = $next instanceof DateTimeImmutable ? $next->modify('-1 day') : $until;
-
-            // The same value read again from the day its wording changed is the same value: the
-            // sentence was rewritten, not the rule.
-            if ($index > 0 && $answer->values === $stretches[$index - 1][1][0]->values) {
-                continue;
-            }
 
             $checks = $answer->agreesWith($second) || $second === null ? [] : [[
                 'kind' => ParameterCheck::READERS_DISAGREE->value,
