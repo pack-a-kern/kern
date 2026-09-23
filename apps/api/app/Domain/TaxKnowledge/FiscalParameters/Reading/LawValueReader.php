@@ -70,19 +70,71 @@ final readonly class LawValueReader
         $years = $onlyYear !== null
             ? [$onlyYear]
             : range($this->config->integer('ai.legislation.from_year'), CarbonImmutable::now()->year + 1);
+        $taxes = [];
+        $approvedOn = [];
+        $known = [];
 
         foreach ($this->catalog->all() as $definition) {
-            if (! $definition->isInLaw()) {
-                continue;
-            }
-
-            $approvedOn = $this->approvedCitations($definition);
-            $known = $this->known($definition);
-
-            foreach ($years as $year) {
-                yield from $this->readYear($definition, $year, $approvedOn, $known);
+            if ($definition->isInLaw()) {
+                $taxes[$definition->tax][] = $definition;
+                $approvedOn[$definition->code] = $this->approvedCitations($definition);
+                $known[$definition->code] = $this->known($definition);
             }
         }
+
+        foreach ($years as $year) {
+            foreach ($taxes as $rules) {
+                $on = new DateTimeImmutable(sprintf('%04d-01-01', $year));
+                $pending = array_values(array_filter($rules, fn (ParameterDefinition $definition): bool => ! $this->settled($definition, $on, $known[$definition->code])));
+                // One call for the whole tax first, and one of its own for whatever that leaves.
+                $together = $this->togetherOn($pending, $on, $approvedOn);
+
+                foreach ($pending as $definition) {
+                    yield from $this->readYear($definition, $year, $approvedOn[$definition->code], $known[$definition->code], $together[$definition->code] ?? null);
+                }
+            }
+        }
+    }
+
+    /**
+     * Every value of one tax read in one call, where that is how the law is asked.
+     *
+     * The rules of a tax stand in the same part of the law: the paragraphs each question is nearest
+     * to, together, are the page that answers all of them. What comes back is checked answer by
+     * answer, and what is missing from it is read by its own question afterwards.
+     *
+     * @param  list<ParameterDefinition>  $definitions
+     * @param  array<string, list<string>>  $approvedOn
+     * @return array<string, array{LawAnswer, Provision, LawAnswer|null}>
+     */
+    private function togetherOn(array $definitions, DateTimeImmutable $on, array $approvedOn): array
+    {
+        $readers = $this->reader->readers();
+
+        if (count($definitions) < 2 || ! $this->config->boolean('ai.legislation.one_call_per_tax') || $readers === []) {
+            return [];
+        }
+
+        $nearest = [];
+
+        foreach ($definitions as $definition) {
+            foreach ($this->nearestFor($definition, $on, $approvedOn[$definition->code]) as $provision) {
+                $nearest[$provision->citation] = $provision;
+            }
+        }
+
+        $provisions = array_values($nearest);
+        $read = [];
+
+        foreach ($this->reader->readTogether($definitions, $provisions, $on, $readers[0]) as $code => $answer) {
+            foreach ($provisions as $provision) {
+                if ($provision->sectionId === $answer->sectionId) {
+                    $read[$code] = [$answer, $provision, null];
+                }
+            }
+        }
+
+        return $read;
     }
 
     /**
@@ -90,9 +142,10 @@ final readonly class LawValueReader
      *
      * @param  list<string>  $approvedOn  the paragraphs a person approved this value on, for any year
      * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known  what is already held for this value, by the day it starts
+     * @param  array{LawAnswer, Provision, LawAnswer|null}|null  $together  what the tax's own call already read for it
      * @return list<array{reading: Reading, matches: list<LawMatch>}>
      */
-    private function readYear(ParameterDefinition $definition, int $year, array $approvedOn, array $known): array
+    private function readYear(ParameterDefinition $definition, int $year, array $approvedOn, array $known, ?array $together = null): array
     {
         $from = new DateTimeImmutable(sprintf('%04d-01-01', $year));
         $until = new DateTimeImmutable(sprintf('%04d-12-31', $year));
@@ -101,7 +154,7 @@ final readonly class LawValueReader
             return [];
         }
 
-        $first = $this->readOn($definition, $from, $approvedOn, $known);
+        $first = $together ?? $this->readOn($definition, $from, $approvedOn, $known);
 
         if ($first === null) {
             return [];
@@ -170,7 +223,7 @@ final readonly class LawValueReader
      */
     private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn, array $known): ?array
     {
-        $nearest = $this->nearest($this->anchored($this->law->inForce((string) $definition->lawWithin, $on), $approvedOn), (string) $definition->question, $approvedOn);
+        $nearest = $this->nearestFor($definition, $on, $approvedOn);
         $readers = $this->reader->readers();
         $answer = $this->reader->read($definition, $nearest, $on, $readers[0] ?? '');
 
@@ -258,6 +311,17 @@ final readonly class LawValueReader
         }
 
         return $held;
+    }
+
+    /**
+     * The paragraphs of the law a value's question is read in on a day.
+     *
+     * @param  list<string>  $approvedOn
+     * @return list<Provision>
+     */
+    private function nearestFor(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn): array
+    {
+        return $this->nearest($this->anchored($this->law->inForce((string) $definition->lawWithin, $on), $approvedOn), (string) $definition->question, $approvedOn);
     }
 
     /**

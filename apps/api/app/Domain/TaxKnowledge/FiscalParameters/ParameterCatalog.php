@@ -26,6 +26,7 @@ final readonly class ParameterCatalog
         $wage = $config->string('fiscal_parameters.minimum_wage.parameter');
         $definitions = [$wage => new ParameterDefinition(
             code: $wage,
+            tax: $wage,
             type: FiscalParameterValueType::MONEY,
             subject: ParameterSubject::PERSON,
             lawWithin: null,
@@ -58,6 +59,7 @@ final readonly class ParameterCatalog
 
                 $definitions[$code] = new ParameterDefinition(
                     code: $code,
+                    tax: $tax,
                     type: FiscalParameterValueType::from(is_string($rule['type'] ?? null) ? $rule['type'] : ''),
                     subject: ParameterSubject::from(is_string($subject) ? $subject : ParameterSubject::PERSON->value),
                     lawWithin: is_string($within) ? $within : null,

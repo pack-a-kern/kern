@@ -154,8 +154,9 @@ function decisions(): void
  *
  * @param  array<string, array<string, mixed>>  $answers  a word of the question => what the reader answers
  * @param  array<string, array<string, mixed>>  $second  what the second reader answers, when one reads too
+ * @param  array<string, array<string, mixed>>  $together  what a tax's own call answers, by the code of each value
  */
-function readers(array $answers, array $second = []): void
+function readers(array $answers, array $second = [], array $together = []): void
 {
     config([
         'ai.providers.env_fallback.enabled' => true,
@@ -167,10 +168,17 @@ function readers(array $answers, array $second = []): void
         'ai.legislation.from_year' => 2023,
     ]);
 
-    Http::fake(['ai.test/*' => static function (HttpRequest $request) use ($answers, $second) {
+    Http::fake(['ai.test/*' => static function (HttpRequest $request) use ($answers, $second, $together) {
+        $sent = json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        // A tax's questions in one call are answered by the code of each.
+        if ($together !== [] && str_contains($sent, 'QUESTIONS')) {
+            return Http::response(['choices' => [['message' => ['content' => json_encode($together, JSON_THROW_ON_ERROR)]]]]);
+        }
+
         // Matched against the question alone: the paragraphs travel in the same request, and a key
         // looked for in all of it would be answered by whatever the law happens to mention.
-        $asked = Str::between(json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'QUESTION:', 'The value asked for is');
+        $asked = Str::between($sent, 'QUESTION:', 'The value asked for is');
         $model = $request->data()['model'] ?? '';
 
         foreach ($model === 'reader-2' ? $second : $answers as $word => $answer) {
@@ -507,4 +515,42 @@ it('reads a note-dated wording with its own points, and none of those it replace
 
     // The 2018 wording of the paragraph, and not the 1.050 lei that stood under the one it replaced.
     expect(implode(' | ', $read))->toContain('2.000 lei')->not->toContain('1.050 lei');
+});
+
+it('reads a tax in one call, and asks again by itself only for what that left out', function (): void {
+    $this->travelTo('2023-06-01');
+    codulFiscal();
+    $answers = read2023();
+
+    // The tax answers three of its four questions, and says nothing of the rent quota.
+    readers(['cedarea folosinței bunurilor' => $answers['cedarea folosinței bunurilor']], [], [
+        'RO.INCOME_TAX.RATE' => $answers['cota de impozit pe venit'],
+        'RO.INCOME_TAX.IP_EXPENSE_QUOTA' => $answers['drepturi de proprietate intelectuală'],
+        'RO.INCOME_TAX.PENSION_TAX_FREE' => $answers['venitul din pensii'],
+        'RO.INCOME_TAX.RENT_EXPENSE_QUOTA' => ['value' => null, 'citation' => null, 'quote' => null],
+    ]);
+
+    app(StartFiscalYear::class)(2023);
+
+    $value = static fn (string $code): array => FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $code)->select('id'))->sole()->value_json;
+
+    // Every value of the tax is read, and two calls did it: one for the tax, one for what it left.
+    expect($value('RO.INCOME_TAX.RATE'))->toBe(['value' => '0.10'])
+        ->and($value('RO.INCOME_TAX.IP_EXPENSE_QUOTA'))->toBe(['value' => '0.40'])
+        ->and($value('RO.INCOME_TAX.PENSION_TAX_FREE'))->toBe(['amount_minor' => 300000, 'currency' => 'RON'])
+        ->and($value('RO.INCOME_TAX.RENT_EXPENSE_QUOTA'))->toBe(['value' => '0.20'])
+        ->and(Http::recorded()->count())->toBe(2);
+});
+
+it('asks one question per call where a tax is not read in one', function (): void {
+    $this->travelTo('2023-06-01');
+    codulFiscal();
+    config(['ai.legislation.one_call_per_tax' => false]);
+    readers(read2023());
+
+    app(StartFiscalYear::class)(2023);
+
+    expect(Http::recorded()->count())->toBe(4)
+        ->and(FiscalParameterVersion::query()->where('valid_from', '2023-01-01')->count())->toBe(4);
 });

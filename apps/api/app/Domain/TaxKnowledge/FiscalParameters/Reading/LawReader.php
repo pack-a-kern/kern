@@ -83,6 +83,41 @@ final readonly class LawReader
     }
 
     /**
+     * What one model makes of these paragraphs, asked every question of one tax at once.
+     *
+     * The rules of a tax are read from the same part of the law, so one page of it answers all of
+     * them. Each answer is checked on its own, exactly as a single one is, and a question the reply
+     * leaves out or answers with something the law does not hold simply has no answer here — the
+     * caller asks that one again by itself.
+     *
+     * @param  list<ParameterDefinition>  $definitions
+     * @param  list<Provision>  $provisions
+     * @return array<string, LawAnswer> by the code of the value each answers
+     */
+    public function readTogether(array $definitions, array $provisions, DateTimeImmutable $on, string $model): array
+    {
+        if ($definitions === [] || $provisions === [] || ! $this->isAvailable()) {
+            return [];
+        }
+
+        $sent = $this->paragraphs($provisions);
+        $reply = $this->ask($this->instructionTogether($definitions, $on), $sent, $model);
+        $read = [];
+
+        foreach ($definitions as $definition) {
+            /** @var array<string, mixed>|null $answer */
+            $answer = is_array($reply[$definition->code] ?? null) ? $reply[$definition->code] : null;
+            $found = $answer === null ? null : $this->verify($definition, $provisions, $sent, $answer, $model);
+
+            if ($found !== null) {
+                $read[$definition->code] = $found;
+            }
+        }
+
+        return $read;
+    }
+
+    /**
      * The answer as the law itself confirms it, or null.
      *
      * @param  list<Provision>  $provisions
@@ -162,6 +197,29 @@ final readonly class LawReader
             static fn (Provision $provision): string => $provision->citation . ' ' . trim((string) preg_replace('/\s+/u', ' ', $provision->text)),
             $provisions,
         ));
+    }
+
+    /**
+     * One instruction carrying every question of a tax, and the shape of the reply: a value, a
+     * paragraph and a quote under each value's own code.
+     *
+     * @param  list<ParameterDefinition>  $definitions
+     */
+    private function instructionTogether(array $definitions, DateTimeImmutable $on): string
+    {
+        $questions = [];
+        $shape = [];
+
+        foreach ($definitions as $definition) {
+            $questions[] = '- ' . $definition->code . ': ' . (string) $definition->question . ' (' . $definition->answer->unit() . ')';
+            $shape[] = '    "' . $definition->code . '": ' . $definition->answer->shape();
+        }
+
+        return str_replace(
+            ['{date}', '{questions}', '{shape}'],
+            [$on->format('d.m.Y'), implode("\n", $questions), "{\n" . implode(",\n", $shape) . "\n}"],
+            $this->config->string('ai.legislation.instruction_together'),
+        );
     }
 
     private function instruction(ParameterDefinition $definition, DateTimeImmutable $on): string

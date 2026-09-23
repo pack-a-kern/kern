@@ -11,6 +11,8 @@ final readonly class ParameterDefinition
 {
     public function __construct(
         public string $code,
+        /** The tax it belongs to — `RO.INCOME_TAX` — whose rules are read from the same part of the law. */
+        public string $tax,
         public FiscalParameterValueType $type,
         /** Who owes what this value is part of: a person, a company, or both. */
         public ParameterSubject $subject,

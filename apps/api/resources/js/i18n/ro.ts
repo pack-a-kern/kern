@@ -1860,7 +1860,7 @@ export const ro = {
                 several_paragraphs:
                     '{count} paragrafe ale legii spun asta. Alege-l pe cel pe care se bazează regula — ceilalți ani îl vor păstra.',
                 paragraph_changed:
-                    'Legea pentru {year} a fost renumerotată: {citation}, paragraful pe care regula a fost aprobată înainte, spune acum altceva. Regula este acum în {now}, selectat mai jos — verifică-l și aprobă.',
+                    'Regula a fost aprobată pe {citation} pentru alt an. În legea din {year} ea se află în {now}, selectat mai jos — citește propoziția și aprob-o acolo.',
                 conflicting: 'O altă citire dă o valoare diferită pentru aceeași perioadă.',
                 readers_disagree:
                     'Al doilea cititor ({model}) a citit {numbers} în {citation}. Valoarea de mai jos este a primului cititor — verific-o înainte de aprobare.',

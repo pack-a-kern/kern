@@ -1847,7 +1847,7 @@ export const en = {
                 several_paragraphs:
                     '{count} paragraphs of the law say this. Choose the one the rule rests on — the other years will keep to it.',
                 paragraph_changed:
-                    'The law for {year} was renumbered: {citation}, the paragraph this rule was approved on before, now says something else. The rule is now in {now}, selected below — check it and approve.',
+                    'This rule was approved on {citation} for another year. In {year}’s law it stands in {now}, selected below — read the sentence and approve it there.',
                 conflicting: 'Another reading gives a different value for the same period.',
                 readers_disagree:
                     'The second reader ({model}) read {numbers} in {citation} instead. The value below is the first reader’s — check it before approving.',
