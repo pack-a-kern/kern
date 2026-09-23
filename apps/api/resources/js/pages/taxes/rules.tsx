@@ -1,8 +1,8 @@
-import { CalendarPlus, RefreshCw, Scale } from 'lucide-react';
+import { CalendarPlus, Scale } from 'lucide-react';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { getFiscalParameterBoard, readFiscalParameters, startFiscalYear } from '../../api/fiscalParametersApi';
+import { getFiscalParameterBoard, readFiscalYear } from '../../api/fiscalParametersApi';
 import AppShell from '../../components/AppShell';
 import { Field, Page, Panel, PanelButton, PanelDialog, PanelSelect, Status } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -27,7 +27,6 @@ export default function AdminParameters(): JSX.Element {
     const { t, locale } = useTranslation();
     const permissions = useSharedAuth()?.user.permissions ?? [];
     const canApprove = permissions.includes('fiscal.parameters.approve');
-    const canRead = canApprove && permissions.includes('operations.run');
     const [board, setBoard] = useState<FiscalParameterBoard | null>(null);
     const [failed, setFailed] = useState<'forbidden' | 'error' | null>(null);
     const [open, setOpen] = useState<{ parameter: FiscalParameter; version: ParameterVersion } | null>(null);
@@ -47,19 +46,6 @@ export default function AdminParameters(): JSX.Element {
 
     useEffect(load, [load]);
 
-    const read = async (): Promise<void> => {
-        try {
-            await readFiscalParameters();
-            toast.success(t((d) => d.pages.taxRules.readStarted));
-        } catch (cause) {
-            toast.error(
-                cause instanceof ApiError && cause.status === 409
-                    ? t((d) => d.pages.taxRules.readBusy)
-                    : describeApiFailure(cause, t),
-            );
-        }
-    };
-
     const years = board === null ? [] : yearsOf(board);
     const name = (code: string): string => t((d) => d.pages.taxRules.names)[code] ?? code;
 
@@ -70,12 +56,6 @@ export default function AdminParameters(): JSX.Element {
                 lede={t((d) => d.pages.taxRules.description)}
                 actions={
                     <div className="flex flex-wrap gap-2">
-                        {canRead ? (
-                            <PanelButton onClick={() => void read()}>
-                                <RefreshCw className="size-3.5" />
-                                {t((d) => d.pages.taxRules.read)}
-                            </PanelButton>
-                        ) : null}
                         {canApprove ? (
                             <PanelButton
                                 onClick={() => {
@@ -191,7 +171,7 @@ export default function AdminParameters(): JSX.Element {
 
             {startingYear ? (
                 <StartYearDialog
-                    years={years}
+                    years={board?.years ?? []}
                     onClose={() => {
                         setStartingYear(false);
                     }}
@@ -224,22 +204,22 @@ function StartYearDialog({
     onClose,
     onStarted,
 }: {
+    /** The years the law can be read for, oldest first. */
     years: number[];
     onClose: () => void;
     onStarted: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
-    const next = (years.at(-1) ?? new Date().getFullYear()) + 1;
-    const options = [...new Set([...years.slice(1), next])].sort((a, b) => b - a).map(String);
-    const [year, setYear] = useState(String(next));
+    const options = [...years].sort((a, b) => b - a).map(String);
+    const [year, setYear] = useState(options[0] ?? String(new Date().getFullYear()));
     const [busy, setBusy] = useState(false);
 
     const start = async (): Promise<void> => {
         setBusy(true);
 
         try {
-            const proposed = await startFiscalYear(Number(year));
-            toast.success(t((d) => d.pages.taxRules.yearStarted).replace('{count}', String(proposed)));
+            await readFiscalYear(Number(year));
+            toast.success(t((d) => d.pages.taxRules.yearQueued).replace('{year}', year));
             onStarted();
         } catch (cause) {
             toast.error(describeApiFailure(cause, t));

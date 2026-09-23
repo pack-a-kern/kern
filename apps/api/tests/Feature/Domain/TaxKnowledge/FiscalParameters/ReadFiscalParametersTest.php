@@ -233,8 +233,8 @@ it('reads every value from the law of its year, and proposes it on the paragraph
     readers(read2023());
 
     app(ReadFiscalParameters::class)();
+    app(StartFiscalYear::class)(2023);
 
-    // 2023 and 2024 are both read: the law in force is the same, so it says the same of each.
     expect(array_values(array_filter(candidates(), static fn (array $row): bool => $row[1] === '2023-01-01')))->toBe([
         ['RO.CAS.BASE_WAGES', '2023-01-01', '2023-12-31', ['wages' => [12, 24]], 'Art. 148 alin. (2)'],
         ['RO.CAS.RATE', '2023-01-01', '2023-12-31', ['value' => '0.25'], 'Art. 138 alin. (1)'],
@@ -273,7 +273,8 @@ it('records nothing from an answer the law does not hold', function (): void {
 
     app(ReadFiscalParameters::class)();
 
-    expect(array_values(array_unique(array_map(static fn (mixed $code): string => is_string($code) ? $code : '', array_column(candidates(), 0)))))->toBe(['RO.MIN_WAGE']);
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
+        ->and(array_values(array_unique(array_map(static fn (mixed $code): string => is_string($code) ? $code : '', array_column(candidates(), 0)))))->toBe(['RO.MIN_WAGE']);
 });
 
 it('proposes the first reader\'s value and says so when the second reads something else', function (): void {
@@ -289,7 +290,7 @@ it('proposes the first reader\'s value and says so when the second reads somethi
         ],
     ]);
 
-    app(ReadFiscalParameters::class)();
+    app(StartFiscalYear::class)(2023);
 
     $checks = static fn (string $code): array => array_column(FiscalParameterVersion::query()
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $code)->select('id'))
@@ -299,32 +300,40 @@ it('proposes the first reader\'s value and says so when the second reads somethi
         ->and($checks('RO.CASS.OTHER_INCOME.BANDS_WAGES'))->toBe(['readers_disagree']);
 });
 
-it('changes nothing decided when read again, and never proposes a rejected value twice', function (): void {
+it('asks nothing again for a year already read, and never proposes a rejected value twice', function (): void {
     $this->travelTo('2023-06-01');
     codulFiscal();
     decisions();
     readers(read2023());
 
     app(ReadFiscalParameters::class)();
+    app(StartFiscalYear::class)(2023);
     $first = FiscalParameterVersion::query()->pluck('id')->sort()->values()->all();
 
     $rejected = FiscalParameterVersion::query()
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CAS.RATE')->select('id'))
         ->where('valid_from', '2023-01-01')->sole();
     $rejected->forceFill(['status' => RuleApprovalStatus::REJECTED->value])->save();
+    readers(read2023());
 
-    app(ReadFiscalParameters::class)();
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class);
 
+    // Nothing was asked about a value already held on a paragraph that still stands — neither the
+    // one a person rejected, nor the ones waiting to be approved.
+    Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains(
+        json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        'cota de impozit pe venit',
+    ));
     expect(FiscalParameterVersion::query()->pluck('id')->sort()->values()->all())->toBe($first)
         ->and($rejected->fresh()?->status)->toBe(RuleApprovalStatus::REJECTED);
 });
 
-it('reads only the decisions when only a decision is new', function (): void {
+it('reads the decisions without asking the law', function (): void {
     codulFiscal();
     decisions();
     readers(read2023());
 
-    app(ReadFiscalParameters::class)(rules: false);
+    app(ReadFiscalParameters::class)();
 
     Http::assertNothingSent();
     expect(array_values(array_unique(array_map(static fn (mixed $code): string => is_string($code) ? $code : '', array_column(candidates(), 0)))))->toBe(['RO.MIN_WAGE']);

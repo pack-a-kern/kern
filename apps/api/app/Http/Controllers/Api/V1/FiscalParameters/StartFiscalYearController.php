@@ -5,37 +5,34 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
 use App\Domain\Audit\Services\AuditChainService;
-use App\Domain\TaxKnowledge\FiscalParameters\Actions\StartFiscalYear;
-use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
+use App\Domain\TaxKnowledge\FiscalParameters\Jobs\ReadFiscalYear;
 use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * `POST /api/v1/fiscal-parameters/years` — a year no form states yet, proposed from the year before:
- * every value approved for it that the new year's law still says, to approve again or change.
+ * `POST /api/v1/fiscal-parameters/years` — read one year's law, for every value it states.
+ *
+ * Queued, and answered at once: reading a year is a model call per value, minutes rather than the
+ * seconds a request may take. What it proposes appears on the screen as it is read.
  */
 final class StartFiscalYearController extends Controller
 {
     use RecordsFiscalParameterDecision;
 
-    public function __invoke(Request $request, StartFiscalYear $start, AuditChainService $audit, ConfigRepository $config): JsonResponse
+    public function __invoke(Request $request, AuditChainService $audit, ConfigRepository $config): JsonResponse
     {
         /** @var array{year: int} $input */
         $input = $request->validate([
-            'year' => ['required', 'integer', 'min:' . ($config->integer('legislation.form.min_year') + 1), 'max:' . ((int) date('Y') + 1)],
+            'year' => ['required', 'integer', 'min:' . $config->integer('ai.legislation.from_year'), 'max:' . ((int) date('Y') + 1)],
         ]);
         $userId = $this->decidedBy($request);
+        $year = (int) $input['year'];
 
-        try {
-            $proposed = $start((int) $input['year']);
-        } catch (FiscalParameterDecisionException $exception) {
-            return $this->refused($exception);
-        }
+        ReadFiscalYear::dispatch($year);
+        $this->audit($audit, $userId, 'FISCAL_YEAR_STARTED', 'fiscal_year', (string) $year, ['year' => $year]);
 
-        $this->audit($audit, $userId, 'FISCAL_YEAR_STARTED', 'fiscal_year', (string) $input['year'], ['year' => (int) $input['year'], 'proposed' => $proposed]);
-
-        return response()->json(['year' => (int) $input['year'], 'proposed' => $proposed], 201);
+        return response()->json(['year' => $year], 202);
     }
 }

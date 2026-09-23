@@ -54,6 +54,8 @@ export interface FiscalParameter {
 
 export interface FiscalParameterBoard {
     parameters: FiscalParameter[];
+    /** The years the law can be read for. */
+    years: number[];
 }
 
 function obj(value: unknown): Record<string, unknown> {
@@ -146,6 +148,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
     const body = obj(payload);
 
     return {
+        years: list(body.years).filter((year): year is number => typeof year === 'number'),
         parameters: list(body.parameters).map((entry): FiscalParameter => {
             const row = obj(entry);
 

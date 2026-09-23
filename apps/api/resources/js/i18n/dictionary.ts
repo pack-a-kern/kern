@@ -1582,15 +1582,12 @@ export interface Dictionary {
             empty: string;
             forbidden: string;
             failed: string;
-            read: string;
-            readStarted: string;
-            readBusy: string;
             newYear: string;
             newYearHint: string;
             year: string;
             propose: string;
-            /** `{count}` values proposed. */
-            yearStarted: string;
+            /** The `{year}` whose law is being read. */
+            yearQueued: string;
             readFrom: string;
             /** Which `{model}` read the paragraph. */
             readBy: string;

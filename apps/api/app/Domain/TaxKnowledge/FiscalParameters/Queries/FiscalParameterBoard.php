@@ -9,6 +9,8 @@ use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
+use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Str;
 
 /**
@@ -22,11 +24,11 @@ final readonly class FiscalParameterBoard
     /** How much of a paragraph is shown beside a value: enough to recognise it, the law page has the rest. */
     private const int EXCERPT = 400;
 
-    public function __construct(private ParameterCatalog $catalog)
+    public function __construct(private ParameterCatalog $catalog, private ConfigRepository $config)
     {
     }
 
-    /** @return array{parameters: list<array<string, mixed>>} */
+    /** @return array{parameters: list<array<string, mixed>>, years: list<int>} */
     public function __invoke(): array
     {
         $parameters = FiscalParameter::query()->get()->keyBy('code');
@@ -65,6 +67,9 @@ final readonly class FiscalParameterBoard
         };
 
         return [
+            // The years the law can be read for: from the first the values are modelled for, to the
+            // one after this, so a rule is ready before the year it applies to starts.
+            'years' => range($this->config->integer('ai.legislation.from_year'), CarbonImmutable::now()->year + 1),
             'parameters' => array_map(function ($definition) use ($parameters, $versions, $paragraph): array {
                 $parameter = $parameters->get($definition->code);
 

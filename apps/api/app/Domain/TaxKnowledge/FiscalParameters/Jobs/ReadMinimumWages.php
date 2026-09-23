@@ -12,7 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * A minimum-wage decision was just read in: its value proposed, beside the others, for a person to
- * approve. Only the decisions are read — the forms have not changed.
+ * approve.
  */
 final class ReadMinimumWages implements ShouldQueue
 {
@@ -29,6 +29,6 @@ final class ReadMinimumWages implements ShouldQueue
 
     public function handle(ReadFiscalParameters $read): void
     {
-        $read(rules: false);
+        $read();
     }
 }

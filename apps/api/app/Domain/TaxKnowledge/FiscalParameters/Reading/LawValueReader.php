@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\FiscalParameters\Reading;
 
+use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatch;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawProvisions;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\Provision;
@@ -28,6 +29,11 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * A value holds as long as the sentence it rests on does: where that paragraph's wording changes
  * during the year, the law is read again from that day, and the year carries two values rather than
  * one — dividends were taxed 10% until 31 July 2025 and 16% after it.
+ *
+ * A model is asked only where an answer can still change something. A year a person has decided is
+ * not read again — the answer would be thrown away — nor is one whose paragraph stands unchanged
+ * since it was last read. The second reader is asked only where the first says something new, which
+ * is where a misreading would otherwise pass.
  *
  * Nothing here decides anything: what comes out is a proposal with its paragraph, its quote and the
  * model that read it, for a person to approve.
@@ -66,9 +72,10 @@ final readonly class LawValueReader
             }
 
             $approvedOn = $this->approvedCitations($definition);
+            $known = $this->known($definition);
 
             foreach ($years as $year) {
-                $found = [...$found, ...$this->readYear($definition, $year, $approvedOn)];
+                $found = [...$found, ...$this->readYear($definition, $year, $approvedOn, $known)];
             }
         }
 
@@ -79,13 +86,19 @@ final readonly class LawValueReader
      * One value for one year — or two, where the paragraph it rests on was rewritten during it.
      *
      * @param  list<string>  $approvedOn  the paragraphs a person approved this value on, for any year
+     * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known  what is already held for this value, by the day it starts
      * @return list<array{reading: Reading, matches: list<LawMatch>}>
      */
-    private function readYear(ParameterDefinition $definition, int $year, array $approvedOn): array
+    private function readYear(ParameterDefinition $definition, int $year, array $approvedOn, array $known): array
     {
         $from = new DateTimeImmutable(sprintf('%04d-01-01', $year));
         $until = new DateTimeImmutable(sprintf('%04d-12-31', $year));
-        $first = $this->readOn($definition, $from, $approvedOn);
+
+        if ($this->settled($definition, $from, $known)) {
+            return [];
+        }
+
+        $first = $this->readOn($definition, $from, $approvedOn, $known);
 
         if ($first === null) {
             return [];
@@ -94,7 +107,7 @@ final readonly class LawValueReader
         $stretches = [[$from, $first]];
 
         foreach ($this->law->changeDaysOf($first[0]->citation, $from, $until) as $day) {
-            $again = $this->readOn($definition, $day, $approvedOn);
+            $again = $this->readOn($definition, $day, $approvedOn, $known);
 
             if ($again !== null) {
                 $stretches[] = [$day, $again];
@@ -145,26 +158,27 @@ final readonly class LawValueReader
     }
 
     /**
-     * What the law says on one day: the paragraphs nearest the question, read by both readers.
+     * What the law says on one day: the paragraphs nearest the question, read by the first reader,
+     * and by the second where the first says something not already held.
      *
      * @param  list<string>  $approvedOn
+     * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known
      * @return array{LawAnswer, Provision, LawAnswer|null}|null
      */
-    private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn): ?array
+    private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn, array $known): ?array
     {
         $nearest = $this->nearest($this->law->inForce((string) $definition->lawWithin, $on), (string) $definition->question, $approvedOn);
-        $answers = [];
-
-        foreach ($this->reader->readers() as $model) {
-            $answers[] = $this->reader->read($definition, $nearest, $on, $model);
-        }
-
-        $answers = array_values(array_filter($answers));
-        $answer = $answers[0] ?? null;
+        $readers = $this->reader->readers();
+        $answer = $this->reader->read($definition, $nearest, $on, $readers[0] ?? '');
 
         if ($answer === null) {
             return null;
         }
+
+        $second = isset($readers[1]) && ! $this->alreadyRead($answer, $known)
+            ? $this->reader->read($definition, $nearest, $on, $readers[1])
+            : null;
+        $answers = [$answer, $second];
 
         foreach ($nearest as $provision) {
             if ($provision->sectionId === $answer->sectionId) {
@@ -173,6 +187,74 @@ final readonly class LawValueReader
         }
 
         return null;
+    }
+
+    /**
+     * Whether a day's value is already settled: a person decided it, or the paragraph it was read in
+     * still stands, word for word, where it was read.
+     *
+     * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known
+     */
+    private function settled(ParameterDefinition $definition, DateTimeImmutable $on, array $known): bool
+    {
+        $held = $known[$on->format('Y-m-d')] ?? null;
+
+        if ($held === null) {
+            return false;
+        }
+
+        if ($held['decided']) {
+            return true;
+        }
+
+        // A provision belongs to one consolidation: the same section still in force is the same
+        // words, so the law has not changed since it was read and the answer cannot either.
+        foreach ($this->law->inForce((string) $definition->lawWithin, $on) as $provision) {
+            if ($provision->sectionId === $held['section_id']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether an answer is one this value already holds, which the second reader need not confirm.
+     *
+     * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known
+     */
+    private function alreadyRead(LawAnswer $answer, array $known): bool
+    {
+        foreach ($known as $held) {
+            if ($held['values'] === $answer->values && $held['section_id'] === $answer->sectionId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * What is already held for a value, by the day each period starts: whether a person decided it,
+     * the paragraph it was read in, and its numbers.
+     *
+     * @return array<string, array{decided: bool, section_id: string|null, values: list<int>}>
+     */
+    private function known(ParameterDefinition $definition): array
+    {
+        $held = [];
+
+        foreach (FiscalParameterVersion::query()
+            ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $definition->code)->select('id'))
+            ->get(['valid_from', 'value_json', 'status', 'source_section_id']) as $version) {
+            $held[$version->valid_from->format('Y-m-d')] = [
+                'decided' => in_array($version->status, [RuleApprovalStatus::APPROVED, RuleApprovalStatus::REJECTED], true),
+                'section_id' => $version->source_section_id,
+                'values' => $definition->lawValues($version->value_json),
+            ];
+        }
+
+        return $held;
     }
 
     /**
