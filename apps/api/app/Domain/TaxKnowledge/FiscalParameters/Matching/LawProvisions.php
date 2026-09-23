@@ -110,6 +110,81 @@ final class LawProvisions
     }
 
     /**
+     * The days between two that one part of the law changed on: a wording the portal's note dates
+     * from that day, or a consolidation that left the part reading differently.
+     *
+     * The whole law changes on a hundred days a year, and a rule is read again on each of them when
+     * the first of January gave nothing. Its own part changes on one or two: Titlul V Capitolul III
+     * changed twice in 2018 and not at all in 2023, where the eleven consolidations of that year
+     * left it as it was.
+     *
+     * @param  list<string>  $withins  parts of the law, from its table of contents
+     * @return list<DateTimeImmutable> in order
+     */
+    public function changeDaysWithin(array $withins, DateTimeImmutable $from, DateTimeImmutable $until): array
+    {
+        $lawId = $this->lawId();
+
+        if ($lawId === null || $withins === []) {
+            return [];
+        }
+
+        $citations = [];
+
+        foreach ($withins as $within) {
+            foreach ($this->inForce($within, $from) as $provision) {
+                $citations[] = $provision->citation;
+            }
+        }
+
+        $between = [$from->format('Y-m-d'), $until->format('Y-m-d')];
+        $noted = SectionHistory::query()
+            ->where('source_document_id', $lawId)
+            ->where('dated_by_note', true)
+            ->whereBetween('valid_from', $between)
+            ->whereIn('citation_label', array_values(array_unique($citations)))
+            ->pluck('valid_from')
+            ->all();
+
+        $days = array_values(array_unique(array_map(
+            static fn (DateTimeInterface $day): string => $day->format('Y-m-d'),
+            array_filter($noted, static fn (mixed $day): bool => $day instanceof DateTimeInterface),
+        )));
+
+        // A consolidation counts only where it left the part reading differently.
+        foreach ($this->changeDays($from, $until) as $day) {
+            if (! in_array($day->format('Y-m-d'), $days, true) && $this->reads($withins, $day) !== $this->reads($withins, $day->modify('-1 day'))) {
+                $days[] = $day->format('Y-m-d');
+            }
+        }
+
+        sort($days);
+
+        return array_values(array_map(
+            static fn (string $day): DateTimeImmutable => new DateTimeImmutable($day),
+            array_filter($days, static fn (string $day): bool => $day > $between[0]),
+        ));
+    }
+
+    /**
+     * What one part of the law is, on a day: the provisions in force in it, by what they say.
+     *
+     * @param  list<string>  $withins
+     */
+    private function reads(array $withins, DateTimeImmutable $on): string
+    {
+        $text = '';
+
+        foreach ($withins as $within) {
+            foreach ($this->inForce($within, $on) as $provision) {
+                $text .= $provision->citation . $provision->text;
+            }
+        }
+
+        return md5($text);
+    }
+
+    /**
      * The days between two that one provision's own wording changed on, by its citation — the law
      * can change during a year, and a value holds only as long as the sentence it rests on does.
      *

@@ -164,8 +164,9 @@ final readonly class LawValueReader
 
         // A rule that is not in the law on the first of January may come into it during the year:
         // CASS's base of twelve minimum wages was OUG 18/2018's, in force from 23 March 2018 and
-        // owed for that whole year's income. Each day the law changed is read until one answers.
-        foreach ($first === null && $reading['reached'] ? $this->law->changeDays($from, $until) : [] as $day) {
+        // owed for that whole year's income. Each day its own part of the law changed is read until
+        // one answers — one or two days a year, where the law as a whole changes on a hundred.
+        foreach ($first === null && $reading['reached'] ? $this->law->changeDaysWithin($definition->lawWithin, $from, $until) : [] as $day) {
             $later = $this->readOn($definition, $day, $approvedOn, $known);
 
             if ($later['answer'] !== null) {

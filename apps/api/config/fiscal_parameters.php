@@ -133,12 +133,14 @@ return [
                 ],
 
                 // The other income — intellectual property, rent, dividends, interest, investments,
-                // agriculture, other — is not counted itself: the base is the band it reaches.
+                // agriculture, other — is not counted itself: the base is the band it reaches. Until
+                // 2022 there were no bands, one base held for every income, and that is the rule
+                // below: a year with a single level answers this question with nothing.
                 'OTHER_INCOME_BANDS_WAGES' => [
                     'type' => 'JSON',
                     'law' => [
                         'within' => ['Titlul V Capitolul III Secţiunea a 5-a', 'Titlul V Capitolul III Secţiunea a 6-a'],
-                        'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h)? Enumeră toate nivelurile.',
+                        'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h), dacă legea prevede mai multe niveluri, după nivelul veniturilor realizate? Enumeră toate nivelurile. Dacă legea prevede un singur nivel pentru toate veniturile, răspunde null.',
                         'answer' => 'wages_list',
                     ],
                 ],
