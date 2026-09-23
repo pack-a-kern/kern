@@ -153,27 +153,6 @@ return [
                         'answer' => 'wages',
                     ],
                 ],
-
-                // Owed by nobody: paid by a person with no income who chooses to be insured.
-                'OPTIONAL_BASE_WAGES' => [
-                    'type' => 'INTEGER',
-                    'law' => [
-                        'within' => ['Titlul V Capitolul III Secţiunea a 10-a'],
-                        'question' => 'Care este baza de calcul al contribuției de asigurări sociale de sănătate pentru persoanele fizice fără venituri care optează pentru plata contribuției?',
-                        'answer' => 'wages',
-                    ],
-                ],
-
-                // A pension carries the contribution only above an amount in lei, which the law has
-                // stated as a threshold and, since August 2025, as a sum deducted from the pension.
-                'PENSION_FREE_AMOUNT' => [
-                    'type' => 'MONEY',
-                    'law' => [
-                        'within' => ['Titlul V Capitolul III Secţiunea a 2-a', 'Titlul V Capitolul III Secţiunea a 3-a'],
-                        'question' => 'Care este suma lunară din venitul din pensii care nu intră în baza de calcul al contribuției de asigurări sociale de sănătate — suma care se deduce sau peste care se datorează contribuția?',
-                        'answer' => 'lei',
-                    ],
-                ],
             ],
         ],
     ],

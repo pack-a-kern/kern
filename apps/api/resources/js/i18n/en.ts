@@ -1838,8 +1838,6 @@ export const en = {
                 'RO.CASS.INDEPENDENT_BASE_WAGES': 'CASS base — independent activities',
                 'RO.CASS.OTHER_INCOME_BANDS_WAGES': 'CASS bands — rent, dividends, interest, investments',
                 'RO.CASS.ALL_INCOME_BASE_WAGES': 'CASS base — all income together (until 2022)',
-                'RO.CASS.OPTIONAL_BASE_WAGES': 'CASS base — no income, paid by choice',
-                'RO.CASS.PENSION_FREE_AMOUNT': 'Pension free of CASS',
             },
             wages: '{count} minimum wages',
             wagesRange: 'from {floor} to {cap} minimum wages',

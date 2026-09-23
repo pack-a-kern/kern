@@ -1851,8 +1851,6 @@ export const ro = {
                 'RO.CASS.INDEPENDENT_BASE_WAGES': 'Baza CASS — activități independente',
                 'RO.CASS.OTHER_INCOME_BANDS_WAGES': 'Praguri CASS — chirii, dividende, dobânzi, investiții',
                 'RO.CASS.ALL_INCOME_BASE_WAGES': 'Baza CASS — toate veniturile cumulate (până în 2022)',
-                'RO.CASS.OPTIONAL_BASE_WAGES': 'Baza CASS — fără venituri, plătită opțional',
-                'RO.CASS.PENSION_FREE_AMOUNT': 'Pensie fără CASS',
             },
             wages: '{count} salarii minime',
             wagesRange: 'de la {floor} la {cap} salarii minime',
