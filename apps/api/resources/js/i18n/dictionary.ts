@@ -1592,10 +1592,8 @@ export interface Dictionary {
             /** `{count}` values proposed. */
             yearStarted: string;
             readFrom: string;
-            /** `{form}` file for `{year}`. */
-            formFile: string;
-            /** Proposed from `{year}`'s approved value. */
-            carried: string;
+            /** Which `{model}` read the paragraph. */
+            readBy: string;
             inLaw: string;
             inLawHint: string;
             openLaw: string;
@@ -1604,13 +1602,6 @@ export interface Dictionary {
             close: string;
             approved: string;
             rejected: string;
-            notInLawTitle: string;
-            notInLawHint: string;
-            notInLawNone: string;
-            formsTitle: string;
-            formsHint: string;
-            /** `{date}` the file was read. */
-            readAt: string;
         };
         adminUsers: {
             title: string;

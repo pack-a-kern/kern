@@ -8,7 +8,6 @@ use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Models\FormStructure;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use Illuminate\Support\Str;
 
@@ -27,7 +26,7 @@ final readonly class FiscalParameterBoard
     {
     }
 
-    /** @return array{parameters: list<array<string, mixed>>, forms: list<array<string, mixed>>} */
+    /** @return array{parameters: list<array<string, mixed>>} */
     public function __invoke(): array
     {
         $parameters = FiscalParameter::query()->get()->keyBy('code');
@@ -72,6 +71,7 @@ final readonly class FiscalParameterBoard
                 return [
                     'code' => $definition->code,
                     'type' => $definition->type->value,
+                    'subject' => $definition->subject->value,
                     'versions' => $parameter === null ? [] : array_values(($versions->get($parameter->id) ?? collect())->map(static fn (FiscalParameterVersion $version): array => [
                         'id' => $version->id,
                         'status' => $version->status->value,
@@ -89,15 +89,6 @@ final readonly class FiscalParameterBoard
                     ])->all()),
                 ];
             }, $this->catalog->all()),
-            'forms' => array_values(FormStructure::query()->orderBy('form_year')->get()->map(static fn (FormStructure $form): array => [
-                'id' => $form->id,
-                'form' => $form->form_code,
-                'year' => $form->form_year,
-                'url' => $form->url,
-                'content_hash' => $form->content_hash,
-                'read_at' => $form->read_at->toIso8601String(),
-                'unmatched' => $form->unmatched ?? [],
-            ])->all()),
         ];
     }
 }

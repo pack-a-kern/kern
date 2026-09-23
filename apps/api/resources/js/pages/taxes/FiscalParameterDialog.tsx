@@ -98,28 +98,21 @@ export default function FiscalParameterDialog({
                     <ul className="mt-1 space-y-1.5">
                         {version.readings.map((reading, index) => (
                             <li key={index} className="text-muted-foreground text-xs">
-                                {reading.kind === 'form' ? (
+                                {reading.kind === 'law' ? (
                                     <>
-                                        <a className="link" href={reading.url} target="_blank" rel="noreferrer">
-                                            {t((d) => d.pages.taxRules.formFile)
-                                                .replace('{form}', reading.form)
-                                                .replace('{year}', String(reading.formYear))}
-                                        </a>
-                                        {reading.quotes.map((quote) => (
-                                            <code key={quote} className="bg-muted ml-1.5 rounded px-1">
-                                                {quote}
-                                            </code>
-                                        ))}
+                                        <span className="font-semibold">{reading.citation}</span>
+                                        <span className="ml-1.5 italic">„{reading.quote}”</span>
+                                        <span className="ml-1.5">
+                                            {t((d) => d.pages.taxRules.readBy).replace('{model}', reading.model)}
+                                        </span>
                                     </>
-                                ) : reading.kind === 'decision' ? (
+                                ) : (
                                     <>
                                         <a className="link" href={lawLink(reading.lawId, null, reading.citation)}>
                                             {reading.act} · {reading.citation}
                                         </a>
                                         <span className="ml-1.5 italic">„{reading.quote}”</span>
                                     </>
-                                ) : (
-                                    t((d) => d.pages.taxRules.carried).replace('{year}', String(reading.fromYear))
                                 )}
                             </li>
                         ))}

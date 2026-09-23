@@ -27,22 +27,18 @@ final readonly class ParameterCatalog
             }
 
             $law = is_array($entry['law'] ?? null) ? $entry['law'] : [];
-            $patterns = [];
 
-            foreach (is_array($entry['form'] ?? null) ? $entry['form'] : [] as $form) {
-                if (! is_array($form) || ! is_string($form['pattern'] ?? null) || ! is_array($form['years'] ?? null) || $form['years'] === []) {
-                    throw new InvalidArgumentException("fiscal_parameters.parameters.{$code}.form: every formula has a pattern and the years it is about.");
-                }
-
-                $patterns[] = ['pattern' => $form['pattern'], 'years' => array_values(array_map(static fn (mixed $year): int => is_numeric($year) ? (int) $year : 0, $form['years']))];
+            if ($law !== [] && ! is_string($law['question'] ?? null)) {
+                throw new InvalidArgumentException("fiscal_parameters.parameters.{$code}.law: a question is what the law is read for.");
             }
 
             $definitions[$code] = new ParameterDefinition(
                 code: $code,
                 type: FiscalParameterValueType::from(is_string($entry['type'] ?? null) ? $entry['type'] : ''),
+                subject: ParameterSubject::from(is_string($entry['subject'] ?? null) ? $entry['subject'] : ParameterSubject::PERSON->value),
                 lawWithin: is_string($law['within'] ?? null) ? $law['within'] : null,
-                lawSays: is_string($law['says'] ?? null) ? $law['says'] : null,
-                formPatterns: $patterns,
+                question: is_string($law['question'] ?? null) ? $law['question'] : null,
+                answer: ParameterAnswer::from(is_string($law['answer'] ?? null) ? $law['answer'] : ParameterAnswer::WAGES->value),
             );
         }
 

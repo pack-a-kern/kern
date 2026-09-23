@@ -26,6 +26,6 @@ final class FiscalParameterDecisionException extends RuntimeException
 
     public static function nothingToCarry(int $year): self
     {
-        return new self("No value approved for {$year} is still said by the law of the year after.", 'FISCAL_PARAMETER_NOTHING_TO_CARRY');
+        return new self("The law in force in {$year} was not read to say any value.", 'FISCAL_PARAMETER_NOTHING_TO_CARRY');
     }
 }

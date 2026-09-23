@@ -59,36 +59,32 @@ final readonly class CandidateRecorder
 
             foreach ($groups as $group) {
                 $reading = $group[0]['reading'];
-                $matches = $this->mostSaidFirst($group[0]['matches']);
+                $matches = $group[0]['matches'];
                 $checks = array_merge(...array_map(static fn (array $item): array => $item['reading']->checks, $group));
-                $approvedOn = $reading->sourceSectionId === null && $matches !== [] ? $this->approvedOn($reading) : null;
-                $onApproved = $approvedOn === null ? [] : array_filter($matches, static fn (LawMatch $match): bool => $match->citation === $approvedOn);
+                $approvedOn = $reading->sourceSectionId === null ? $this->approvedOn($reading) : null;
+                $match = $matches[0] ?? null;
 
-                if ($onApproved !== []) {
-                    $matches = [...$onApproved, ...array_diff_key($matches, $onApproved)];
-                } elseif ($approvedOn !== null) {
-                    $checks[] = ['kind' => ParameterCheck::PARAGRAPH_CHANGED->value, 'citation' => $approvedOn, 'now' => $matches[0]->citation, 'year' => (int) $reading->validFrom->format('Y')];
-                } elseif (count($matches) > 1) {
-                    $checks[] = ['kind' => ParameterCheck::SEVERAL_PARAGRAPHS->value, 'count' => count($matches)];
+                if ($approvedOn !== null && $match !== null && $match->citation !== $approvedOn) {
+                    $checks[] = ['kind' => ParameterCheck::PARAGRAPH_CHANGED->value, 'citation' => $approvedOn, 'now' => $match->citation, 'year' => (int) $reading->validFrom->format('Y')];
                 }
 
-                $source = $reading->sourceSectionId ?? ($matches[0]->sectionId ?? null);
-
-                if ($source === null) {
-                    continue;
-                }
-
-                if (($matches[0] ?? null)?->inForceFrom !== null) {
-                    $checks[] = ['kind' => ParameterCheck::IN_FORCE_LATER->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $matches[0]->inForceFrom, 'citation' => $matches[0]->citation];
+                if ($match?->inForceFrom !== null) {
+                    $checks[] = ['kind' => ParameterCheck::IN_FORCE_LATER->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $match->inForceFrom, 'citation' => $match->citation];
                 }
 
                 // A wording that came into force during the year says its day already.
-                if (($matches[0] ?? null)?->datedByNote !== null && $matches[0]->inForceFrom === null) {
-                    $checks[] = ['kind' => ParameterCheck::DATED_BY_NOTE->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $matches[0]->datedByNote, 'citation' => $matches[0]->citation];
+                if ($match?->datedByNote !== null && $match->inForceFrom === null) {
+                    $checks[] = ['kind' => ParameterCheck::DATED_BY_NOTE->value, 'year' => (int) $reading->validFrom->format('Y'), 'date' => $match->datedByNote, 'citation' => $match->citation];
                 }
 
                 if (count($values[$reading->parameterCode . '|' . $reading->validFrom->format('Y-m-d')]) > 1) {
                     $checks[] = ['kind' => ParameterCheck::CONFLICTING->value];
+                }
+
+                $source = $reading->sourceSectionId ?? $match?->sectionId;
+
+                if ($source === null) {
+                    continue;
                 }
 
                 $version = $this->candidate($reading, $source, [
@@ -112,20 +108,6 @@ final readonly class CandidateRecorder
 
             return count($kept);
         });
-    }
-
-    /**
-     * The paragraphs that say the most of a value's numbers first — "12 and 24 minimum wages" before
-     * a paragraph that says only 12 — otherwise in reading order.
-     *
-     * @param  list<LawMatch>  $matches
-     * @return list<LawMatch>
-     */
-    private function mostSaidFirst(array $matches): array
-    {
-        usort($matches, static fn (LawMatch $a, LawMatch $b): int => count($b->says) <=> count($a->says));
-
-        return $matches;
     }
 
     /** The paragraph a person approved this parameter on for the year nearest this one, by its citation. */

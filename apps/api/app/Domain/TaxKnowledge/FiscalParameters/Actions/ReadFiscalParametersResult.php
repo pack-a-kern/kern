@@ -9,9 +9,7 @@ final readonly class ReadFiscalParametersResult
 {
     public function __construct(
         public int $minimumWages,
-        public int $forms,
         public int $candidates,
-        public int $notInLaw,
     ) {
     }
 }

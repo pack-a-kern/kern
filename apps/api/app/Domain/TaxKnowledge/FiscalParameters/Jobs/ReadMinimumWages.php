@@ -29,6 +29,6 @@ final class ReadMinimumWages implements ShouldQueue
 
     public function handle(ReadFiscalParameters $read): void
     {
-        $read(forms: false);
+        $read(rules: false);
     }
 }

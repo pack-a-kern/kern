@@ -8,8 +8,7 @@ import { Field, Page, Panel, PanelButton, PanelDialog, PanelSelect, Status } fro
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { checkTone, describeCheck, describeFiscalValue } from '../../lib/fiscalValue';
-import { formatDateTime } from '../../lib/format';
+import { checkTone, describeFiscalValue } from '../../lib/fiscalValue';
 import { ApiError } from '../../lib/http';
 import { useSharedAuth } from '../../lib/sharedProps';
 import { cn } from '../../lib/utils';
@@ -173,71 +172,6 @@ export default function AdminParameters(): JSX.Element {
                         </div>
                     )}
                 </Panel>
-
-                {board === null || board.forms.length === 0 ? null : (
-                    <>
-                        <Panel
-                            title={t((d) => d.pages.taxRules.notInLawTitle)}
-                            description={t((d) => d.pages.taxRules.notInLawHint)}
-                        >
-                            {board.forms.every((form) => form.unmatched.length === 0) ? (
-                                <p className="note">{t((d) => d.pages.taxRules.notInLawNone)}</p>
-                            ) : (
-                                <ul className="space-y-2 text-sm">
-                                    {board.forms.flatMap((form) =>
-                                        form.unmatched.map((miss, index) => (
-                                            <li key={`${form.id}-${String(index)}`}>
-                                                <a
-                                                    className="link font-semibold"
-                                                    href={form.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {t((d) => d.pages.taxRules.formFile)
-                                                        .replace('{form}', form.form)
-                                                        .replace('{year}', String(form.year))}
-                                                </a>
-                                                {miss.parameter === '' ? null : <span> · {name(miss.parameter)}</span>}
-                                                <span className="text-muted-foreground block text-xs">
-                                                    {describeCheck(miss, t, locale)}
-                                                </span>
-                                            </li>
-                                        )),
-                                    )}
-                                </ul>
-                            )}
-                        </Panel>
-
-                        <Panel
-                            title={t((d) => d.pages.taxRules.formsTitle)}
-                            description={t((d) => d.pages.taxRules.formsHint)}
-                        >
-                            <ul className="space-y-1 text-xs">
-                                {board.forms.map((form) => (
-                                    <li key={form.id} className="flex flex-wrap gap-x-3">
-                                        <a
-                                            className="link font-semibold"
-                                            href={form.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            {t((d) => d.pages.taxRules.formFile)
-                                                .replace('{form}', form.form)
-                                                .replace('{year}', String(form.year))}
-                                        </a>
-                                        <code className="text-muted-foreground">{form.contentHash.slice(0, 12)}</code>
-                                        <span className="text-muted-foreground">
-                                            {t((d) => d.pages.taxRules.readAt).replace(
-                                                '{date}',
-                                                formatDateTime(form.readAt, locale),
-                                            )}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Panel>
-                    </>
-                )}
             </Page>
 
             {open === null ? null : (
@@ -271,27 +205,20 @@ export default function AdminParameters(): JSX.Element {
     );
 }
 
-/** Every year a value is for, oldest first, from the first a D212 file covers — the table's columns. */
+/** Every year a value is for, oldest first — the table's columns. */
 function yearsOf(board: FiscalParameterBoard): number[] {
-    // From the first year a D212 file is about: before it no declaration asks for these values, so
-    // a column there would hold only the minimum wage and read as a gap.
-    const first = Math.min(...board.forms.map((form) => form.year));
     const found = new Set<number>();
 
     for (const parameter of board.parameters) {
         for (const version of parameter.versions) {
-            const year = Number(version.validFrom.slice(0, 4));
-
-            if (board.forms.length === 0 || year >= first) {
-                found.add(year);
-            }
+            found.add(Number(version.validFrom.slice(0, 4)));
         }
     }
 
     return [...found].sort((a, b) => a - b);
 }
 
-/** Proposes a year from the one before: pick the year, and every value still in its law comes to review. */
+/** Reads one year's law: pick the year, and every value its law states comes to review. */
 function StartYearDialog({
     years,
     onClose,

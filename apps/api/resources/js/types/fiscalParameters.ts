@@ -18,11 +18,10 @@ export interface LawParagraph {
     says: number[];
 }
 
-/** What a value was read from: a form's formulas, a decision's paragraph, or last year's approved value. */
+/** What a value was read from: a paragraph of the law, or a decision's paragraph for the minimum wage. */
 export type ParameterReading =
-    | { kind: 'form'; form: string; url: string; formYear: number; quotes: string[] }
-    | { kind: 'decision'; lawId: string; act: string; citation: string; quote: string }
-    | { kind: 'carried'; fromYear: number };
+    | { kind: 'law'; model: string; citation: string; quote: string }
+    | { kind: 'decision'; lawId: string; act: string; citation: string; quote: string };
 
 /** Something found out while reading, for the person approving — `kind` and what it is about. */
 export interface ParameterCheck {
@@ -43,32 +42,18 @@ export interface ParameterVersion {
     approvedAt: string | null;
 }
 
+/** Who a value is about: what a person owes, what a company owes, or both. */
+export type ParameterSubject = 'PERSON' | 'COMPANY' | 'BOTH';
+
 export interface FiscalParameter {
     code: string;
     type: ParameterType;
+    subject: ParameterSubject;
     versions: ParameterVersion[];
-}
-
-/** What a form says that the law was searched for and not found to say. */
-export interface UnmatchedReading {
-    parameter: string;
-    kind: string;
-    detail: Record<string, string | number>;
-}
-
-export interface FormStructure {
-    id: string;
-    form: string;
-    year: number;
-    url: string;
-    contentHash: string;
-    readAt: string;
-    unmatched: UnmatchedReading[];
 }
 
 export interface FiscalParameterBoard {
     parameters: FiscalParameter[];
-    forms: FormStructure[];
 }
 
 function obj(value: unknown): Record<string, unknown> {
@@ -91,12 +76,6 @@ function nullableStr(row: Record<string, unknown>, key: string): string | null {
     const value = row[key];
 
     return typeof value === 'string' ? value : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : 0;
 }
 
 /** Every scalar beside `kind`, which is what a check or a miss is about. */
@@ -131,13 +110,12 @@ function reading(value: unknown): ParameterReading | null {
     const row = obj(value);
 
     switch (row.kind) {
-        case 'form':
+        case 'law':
             return {
-                kind: 'form',
-                form: str(row, 'form'),
-                url: str(row, 'url'),
-                formYear: num(row, 'form_year'),
-                quotes: list(row.quotes).filter((entry): entry is string => typeof entry === 'string'),
+                kind: 'law',
+                model: str(row, 'model'),
+                citation: str(row, 'citation'),
+                quote: str(row, 'quote'),
             };
         case 'decision':
             return {
@@ -147,8 +125,6 @@ function reading(value: unknown): ParameterReading | null {
                 citation: str(row, 'citation'),
                 quote: str(row, 'quote'),
             };
-        case 'carried':
-            return { kind: 'carried', fromYear: num(row, 'from_year') };
         default:
             return null;
     }
@@ -162,6 +138,10 @@ function type(value: unknown): ParameterType {
     return value === 'MONEY' || value === 'DECIMAL' || value === 'INTEGER' ? value : 'JSON';
 }
 
+function subject(value: unknown): ParameterSubject {
+    return value === 'COMPANY' || value === 'BOTH' ? value : 'PERSON';
+}
+
 export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoard {
     const body = obj(payload);
 
@@ -172,6 +152,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
             return {
                 code: str(row, 'code'),
                 type: type(row.type),
+                subject: subject(row.subject),
                 versions: list(row.versions).map((item): ParameterVersion => {
                     const version = obj(item);
 
@@ -199,23 +180,6 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
                         approvedAt: nullableStr(version, 'approved_at'),
                     };
                 }),
-            };
-        }),
-        forms: list(body.forms).map((entry): FormStructure => {
-            const row = obj(entry);
-
-            return {
-                id: str(row, 'id'),
-                form: str(row, 'form'),
-                year: num(row, 'year'),
-                url: str(row, 'url'),
-                contentHash: str(row, 'content_hash'),
-                readAt: str(row, 'read_at'),
-                unmatched: list(row.unmatched).map((miss) => ({
-                    parameter: str(obj(miss), 'parameter'),
-                    kind: str(obj(miss), 'kind'),
-                    detail: detail(obj(miss)),
-                })),
             };
         }),
     };
