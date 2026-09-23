@@ -139,8 +139,9 @@ final class LawProvisions
 
     /**
      * A version's provisions with, in the place of each, the wording the portal's note dates from
-     * before the day where one covers it, then those the note dates in that the consolidation does
-     * not have at all.
+     * before the day where one covers it — with everything that stands under that wording, and
+     * without what stood under the one it replaces — then those the note dates in that the
+     * consolidation does not have at all.
      *
      * @return list<Provision>
      */
@@ -162,6 +163,8 @@ final class LawProvisions
             return $inVersion;
         }
 
+        /** @var list<string> $replaced */
+        $replaced = array_values(array_filter($noted->pluck('citation_label')->all(), 'is_string'));
         $readIn = SourceSection::query()->whereIn('id', $noted->pluck('first_section_id'))->pluck('document_version_id', 'id')->all();
         $readFrom = SourceDocumentVersion::query()->whereIn('id', array_values(array_unique(array_filter($readIn, 'is_string'))))->pluck('effective_from', 'id')->all();
         $replacing = [];
@@ -178,15 +181,20 @@ final class LawProvisions
             $provision = $this->indexed((string) $version)[$stretch->first_section_id] ?? null;
 
             if ($provision !== null) {
-                $replacing[$stretch->citation_label] = new Provision(
-                    $provision->sectionId,
-                    $provision->citation,
-                    $provision->article,
-                    $provision->path,
-                    $provision->text,
-                    $provision->title,
-                    $provision->documentVersionId,
-                    $stretch->valid_from->format('Y-m-d'),
+                // The wording and everything under it: a paragraph rewritten by an act is rewritten
+                // with its letters and points, and the ones it had before say something else.
+                $replacing[$stretch->citation_label] = array_map(
+                    static fn (Provision $wording): Provision => new Provision(
+                        $wording->sectionId,
+                        $wording->citation,
+                        $wording->article,
+                        $provision->path,
+                        $wording->text,
+                        $wording->title,
+                        $wording->documentVersionId,
+                        $stretch->valid_from->format('Y-m-d'),
+                    ),
+                    self::with($provision, $this->provisions((string) $version)),
                 );
             }
         }
@@ -194,11 +202,24 @@ final class LawProvisions
         $read = [];
 
         foreach ($inVersion as $provision) {
-            $read[] = $replacing[$provision->citation] ?? $provision;
-            unset($replacing[$provision->citation]);
+            $wording = $replacing[$provision->citation] ?? null;
+
+            if ($wording !== null) {
+                $read = [...$read, ...$wording];
+                unset($replacing[$provision->citation]);
+
+                continue;
+            }
+
+            // What stood under a paragraph that was replaced went with it.
+            if (self::under($provision->citation, $replaced)) {
+                continue;
+            }
+
+            $read[] = $provision;
         }
 
-        return [...$read, ...array_values($replacing)];
+        return [...$read, ...($replacing === [] ? [] : array_merge(...array_values($replacing)))];
     }
 
     /**
@@ -211,6 +232,38 @@ final class LawProvisions
         $first = trim((string) strtok(trim($article->text), "\n"));
 
         return mb_strlen($first) > self::TITLE ? '' : $first;
+    }
+
+    /**
+     * A provision and everything under it, in reading order: what stands under a paragraph is part
+     * of it — "baza o reprezintă:" and the letters that say the numbers.
+     *
+     * @param  list<Provision>  $provisions  the version it is read in, in reading order
+     * @return list<Provision>
+     */
+    private static function with(Provision $provision, array $provisions): array
+    {
+        return array_values(array_filter(
+            $provisions,
+            static fn (Provision $one): bool => $one->citation === $provision->citation || str_starts_with($one->citation, $provision->citation . ' '),
+        ));
+    }
+
+    /**
+     * Whether a citation stands under one of these — "Art. 100 alin. (1) lit. b)" under
+     * "Art. 100 alin. (1)".
+     *
+     * @param  list<string>  $citations
+     */
+    private static function under(string $citation, array $citations): bool
+    {
+        foreach ($citations as $above) {
+            if ($citation !== $above && str_starts_with($citation, $above . ' ')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, Provision> a version's provisions by section id */

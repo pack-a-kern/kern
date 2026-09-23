@@ -472,3 +472,39 @@ it('reads a rule where it was approved, so a year whose paragraph no longer says
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->select('id'))
         ->where('valid_from', '2024-01-01')->count())->toBe(0);
 });
+
+it('reads a note-dated wording with its own points, and none of those it replaced', function (): void {
+    // No consolidation between 2016 and 2021, as the portal lists the Codul fiscal's.
+    $old = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2016-12-06', '2020-12-31');
+    heading($old, 'Titlul IV Capitolul VI', [['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea următoarelor:']]);
+    $new = SourceDocumentVersion::factory()->create(['source_document_id' => $old->source_document_id, 'effective_from' => '2021-01-01', 'consolidation_ref' => '2021']);
+    heading($new, 'Titlul IV Capitolul VI', [['Art. 100 alin. (1)', "Venitul impozabil lunar din pensii se stabilește prin deducerea din venitul din pensie a sumei neimpozabile lunare de 2.000 lei.\n(la 01-01-2018, Alineatul (1) din Articolul 100 a fost modificat de Punctul 20, Articolul I din ORDONANȚA DE URGENȚĂ nr. 79 din 8 noiembrie 2017)"]]);
+
+    // What stood under the paragraph in the consolidation that has no 2018 wording of it.
+    $point = static function (SourceDocumentVersion $version, string $text): void {
+        $paragraph = SourceSection::query()->where('document_version_id', $version->id)->where('citation_label', 'Art. 100 alin. (1)')->sole();
+        SourceSection::factory()->create([
+            'document_version_id' => $version->id,
+            'parent_id' => $paragraph->id,
+            'section_type' => SectionType::LITERA,
+            'citation_label' => 'Art. 100 alin. (1) lit. b)',
+            'ordinal' => SourceSection::query()->where('document_version_id', $version->id)->count() + 1,
+            'text' => $text,
+        ]);
+    };
+    $point($old, 'suma neimpozabilă lunară de 1.050 lei.');
+
+    foreach (SourceSection::query()->get() as $section) {
+        $section->forceFill(['normative_hash' => SectionText::fingerprint($section->text), 'amended_on' => SectionText::amendedOn($section->text)])->save();
+    }
+
+    app(BuildSectionHistory::class)($old->source_document_id);
+
+    $read = array_map(
+        static fn (Provision $provision): string => $provision->citation . ' ' . trim((string) preg_replace('/\s+/u', ' ', $provision->text)),
+        app(LawProvisions::class)->inForce('Titlul IV Capitolul VI', new DateTimeImmutable('2018-06-01')),
+    );
+
+    // The 2018 wording of the paragraph, and not the 1.050 lei that stood under the one it replaced.
+    expect(implode(' | ', $read))->toContain('2.000 lei')->not->toContain('1.050 lei');
+});
