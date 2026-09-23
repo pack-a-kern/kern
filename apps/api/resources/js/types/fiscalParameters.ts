@@ -45,11 +45,20 @@ export interface ParameterVersion {
 /** Who a value is about: what a person owes, what a company owes, or both. */
 export type ParameterSubject = 'PERSON' | 'COMPANY' | 'BOTH';
 
+/** A year the law was read for a value and gave none. */
+export interface ParameterRead {
+    year: number;
+    /** NOT_IN_LAW — that year's law does not state it; UNREAD — no model could be asked. */
+    outcome: 'NOT_IN_LAW' | 'UNREAD';
+    readAt: string;
+}
+
 export interface FiscalParameter {
     code: string;
     type: ParameterType;
     subject: ParameterSubject;
     versions: ParameterVersion[];
+    reads: ParameterRead[];
 }
 
 export interface FiscalParameterBoard {
@@ -181,6 +190,15 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
                             detail: detail(obj(check)),
                         })),
                         approvedAt: nullableStr(version, 'approved_at'),
+                    };
+                }),
+                reads: list(row.reads).map((entry): ParameterRead => {
+                    const read = obj(entry);
+
+                    return {
+                        year: Number(read.year),
+                        outcome: read.outcome === 'UNREAD' ? 'UNREAD' : 'NOT_IN_LAW',
+                        readAt: str(read, 'read_at'),
                     };
                 }),
             };

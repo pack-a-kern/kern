@@ -1853,6 +1853,11 @@ export const en = {
                     'The second reader ({model}) read {numbers} in {citation} instead. The value below is the first reader’s — check it before approving.',
                 unread: 'No model could be asked, so the law was not read for this value.',
             },
+            reads: {
+                NOT_IN_LAW: 'The law in force that year was read and does not state this value ({date}).',
+                UNREAD: 'No model could be asked for this value that year ({date}). Read the year again.',
+            },
+            unread: 'Not read',
             valuesTitle: 'Values by year',
             valuesHint:
                 'Each read from the law in force that year, or from a Government decision. Open one to approve it.',

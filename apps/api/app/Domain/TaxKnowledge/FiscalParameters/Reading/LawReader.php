@@ -66,20 +66,20 @@ final readonly class LawReader
     }
 
     /**
-     * What one model makes of these paragraphs, or null when it answers nothing that holds.
+     * What one model makes of these paragraphs — and whether one was reached at all.
      *
      * @param  list<Provision>  $provisions
      */
-    public function read(ParameterDefinition $definition, array $provisions, DateTimeImmutable $on, string $model): ?LawAnswer
+    public function read(ParameterDefinition $definition, array $provisions, DateTimeImmutable $on, string $model): LawReading
     {
         if ($provisions === [] || ! $this->isAvailable()) {
-            return null;
+            return LawReading::unreached();
         }
 
         $sent = $this->paragraphs($provisions);
         $reply = $this->ask($this->instruction($definition, $on), $sent, $model);
 
-        return $reply === null ? null : $this->verify($definition, $provisions, $sent, $reply, $model);
+        return $reply === null ? LawReading::unreached() : LawReading::of($this->verify($definition, $provisions, $sent, $reply, $model));
     }
 
     /**
@@ -92,12 +92,12 @@ final readonly class LawReader
      *
      * @param  list<ParameterDefinition>  $definitions
      * @param  list<Provision>  $provisions
-     * @return array<string, LawAnswer> by the code of the value each answers
+     * @return array{answers: array<string, LawAnswer>, reached: bool} what each question was answered, by the code of its value
      */
     public function readTogether(array $definitions, array $provisions, DateTimeImmutable $on, string $model): array
     {
         if ($definitions === [] || $provisions === [] || ! $this->isAvailable()) {
-            return [];
+            return ['answers' => [], 'reached' => false];
         }
 
         $sent = $this->paragraphs($provisions);
@@ -114,7 +114,7 @@ final readonly class LawReader
             }
         }
 
-        return $read;
+        return ['answers' => $read, 'reached' => $reply !== null];
     }
 
     /**

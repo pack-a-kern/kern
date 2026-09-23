@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\FiscalParameters\Actions;
 
 use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
+use App\Domain\TaxKnowledge\FiscalParameters\ParameterReadOutcome;
 use App\Domain\TaxKnowledge\FiscalParameters\Reading\LawValueReader;
 use App\Domain\TaxKnowledge\FiscalParameters\Recording\CandidateRecorder;
+use App\Domain\TaxKnowledge\FiscalParameters\Recording\ReadRecorder;
 
 /**
  * One year read on its own: the law in force in it read for every value, and each proposed.
@@ -18,12 +20,17 @@ use App\Domain\TaxKnowledge\FiscalParameters\Recording\CandidateRecorder;
  *
  * The minimum wage is not read here — its decisions are its source, and a new one is read in from
  * the legislation page.
+ *
+ * A rule the law of that year does not state, and one no model could be asked for, are both kept as
+ * what they are ({@see ParameterReadOutcome}): the screen shows the first as an answer and the
+ * second as something to try again.
  */
 final readonly class StartFiscalYear
 {
     public function __construct(
         private LawValueReader $lawValues,
         private CandidateRecorder $recorder,
+        private ReadRecorder $reads,
     ) {
     }
 
@@ -34,8 +41,11 @@ final readonly class StartFiscalYear
 
         // One value at a time, as the law is read for it: a year takes a model several minutes, and
         // a value read is kept whether or not the rest of the year is.
-        foreach ($this->lawValues->read($year) as $value) {
-            $proposed += $this->recorder->record([$value], []);
+        foreach ($this->lawValues->read($year) as $read) {
+            $proposed += $this->recorder->record($read['values'], []);
+            // And what gave no value says why, so a year with none reads as an answer or as work
+            // still to do, never as an empty space.
+            $this->reads->record($read['code'], $read['year'], $read['values'] === [] ? $read['outcome'] : null);
         }
 
         if ($proposed === 0) {

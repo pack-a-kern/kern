@@ -1574,6 +1574,10 @@ export interface Dictionary {
             statuses: { CANDIDATE: string; APPROVED: string; REJECTED: string };
             /** Per check kind, its detail filled in by name — `{form_wage}`, `{year}`. */
             checks: Record<string, string | undefined>;
+            /** Why a year holds no value, by `ParameterRead.outcome`; `{date}` it was read. */
+            reads: Record<string, string | undefined>;
+            /** The mark on a year no model could be asked for. */
+            unread: string;
             valuesTitle: string;
             valuesHint: string;
             parameter: string;

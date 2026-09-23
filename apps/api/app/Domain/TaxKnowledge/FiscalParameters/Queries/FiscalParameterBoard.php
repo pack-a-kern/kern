@@ -7,6 +7,7 @@ namespace App\Domain\TaxKnowledge\FiscalParameters\Queries;
 use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
+use App\Domain\TaxKnowledge\Models\FiscalParameterRead;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use Carbon\CarbonImmutable;
@@ -39,6 +40,10 @@ final readonly class FiscalParameterBoard
             ->get()
             ->groupBy('fiscal_parameter_id');
 
+        $reads = FiscalParameterRead::query()
+            ->whereIn('fiscal_parameter_id', $parameters->pluck('id'))
+            ->get()
+            ->groupBy('fiscal_parameter_id');
         $sectionIds = [];
 
         foreach ($versions->flatten() as $version) {
@@ -70,7 +75,7 @@ final readonly class FiscalParameterBoard
             // The years the law can be read for: from the first the values are modelled for, to the
             // one after this, so a rule is ready before the year it applies to starts.
             'years' => range($this->config->integer('ai.legislation.from_year'), CarbonImmutable::now()->year + 1),
-            'parameters' => array_map(function ($definition) use ($parameters, $versions, $paragraph): array {
+            'parameters' => array_map(function ($definition) use ($parameters, $versions, $reads, $paragraph): array {
                 $parameter = $parameters->get($definition->code);
 
                 return [
@@ -91,6 +96,13 @@ final readonly class FiscalParameterBoard
                         'readings' => $version->evidence['readings'] ?? [],
                         'checks' => $version->evidence['checks'] ?? [],
                         'approved_at' => $version->approved_at?->toIso8601String(),
+                    ])->all()),
+                    // The years read that gave no value, and why — an empty cell says nothing of
+                    // whether the law was asked.
+                    'reads' => $parameter === null ? [] : array_values(($reads->get($parameter->id) ?? collect())->map(static fn (FiscalParameterRead $read): array => [
+                        'year' => $read->year,
+                        'outcome' => $read->outcome->value,
+                        'read_at' => $read->read_at->toIso8601String(),
                     ])->all()),
                 ];
             }, $this->catalog->all()),

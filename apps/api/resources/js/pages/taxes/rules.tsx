@@ -9,10 +9,16 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { checkTone, describeFiscalValue } from '../../lib/fiscalValue';
+import { formatDateTime } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { useSharedAuth } from '../../lib/sharedProps';
 import { cn } from '../../lib/utils';
-import type { FiscalParameter, FiscalParameterBoard, ParameterVersion } from '../../types/fiscalParameters';
+import type {
+    FiscalParameter,
+    FiscalParameterBoard,
+    ParameterRead,
+    ParameterVersion,
+} from '../../types/fiscalParameters';
 import FiscalParameterDialog, { StatusPill } from './FiscalParameterDialog';
 
 /**
@@ -105,6 +111,14 @@ export default function AdminParameters(): JSX.Element {
                                             {years.map((year) => (
                                                 <td key={year} className="align-top">
                                                     <div className="flex flex-col gap-1">
+                                                        <ReadOutcome
+                                                            read={parameter.reads.find(
+                                                                (read) => read.year === year,
+                                                            )}
+                                                            hasValue={parameter.versions.some((version) =>
+                                                                version.validFrom.startsWith(String(year)),
+                                                            )}
+                                                        />
                                                         {parameter.versions
                                                             .filter((version) =>
                                                                 version.validFrom.startsWith(String(year)),
@@ -182,6 +196,33 @@ export default function AdminParameters(): JSX.Element {
                 />
             ) : null}
         </AppShell>
+    );
+}
+
+/**
+ * Why a year holds no value: the law of that year was read and does not state it, or nothing could
+ * be asked. A year never read shows nothing at all, which is the third thing an empty cell meant.
+ */
+function ReadOutcome({ read, hasValue }: { read: ParameterRead | undefined; hasValue: boolean }): JSX.Element | null {
+    const { t, locale } = useTranslation();
+
+    if (read === undefined || hasValue) {
+        return null;
+    }
+
+    const said = (t((d) => d.pages.taxRules.reads)[read.outcome] ?? '').replace(
+        '{date}',
+        formatDateTime(read.readAt, locale),
+    );
+
+    return (
+        <span className="text-xs" title={said}>
+            {read.outcome === 'UNREAD' ? (
+                <Status tone="warn">{t((d) => d.pages.taxRules.unread)}</Status>
+            ) : (
+                <span className="text-muted-foreground tabular-nums">—</span>
+            )}
+        </span>
     );
 }
 

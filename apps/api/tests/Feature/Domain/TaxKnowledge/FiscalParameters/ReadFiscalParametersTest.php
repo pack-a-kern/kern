@@ -16,6 +16,7 @@ use App\Domain\TaxKnowledge\FiscalParameters\Matching\Provision;
 use App\Domain\TaxKnowledge\FiscalParameters\Reading\Reading;
 use App\Domain\TaxKnowledge\FiscalParameters\Recording\CandidateRecorder;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
+use App\Domain\TaxKnowledge\Models\FiscalParameterRead;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
@@ -148,6 +149,19 @@ function decisions(): void
     );
 }
 
+/** The provider a reading talks to, without saying what it answers. */
+function usingReader(): void
+{
+    config([
+        'ai.providers.env_fallback.enabled' => true,
+        'ai.providers.env_fallback.provider' => 'custom',
+        'ai.providers.env_fallback.base_url' => 'https://ai.test',
+        'ai.providers.env_fallback.model' => 'reader-1',
+        'ai.legislation.reader' => 'reader-1',
+        'ai.legislation.from_year' => 2023,
+    ]);
+}
+
 /**
  * The models, as a reading talks to them: an answer per question they are asked, matched by a word
  * of the question, and "nothing here" for every other question.
@@ -158,15 +172,8 @@ function decisions(): void
  */
 function readers(array $answers, array $second = [], array $together = []): void
 {
-    config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'custom',
-        'ai.providers.env_fallback.base_url' => 'https://ai.test',
-        'ai.providers.env_fallback.model' => 'reader-1',
-        'ai.legislation.reader' => 'reader-1',
-        'ai.legislation.second_reader' => $second === [] ? '' : 'reader-2',
-        'ai.legislation.from_year' => 2023,
-    ]);
+    usingReader();
+    config(['ai.legislation.second_reader' => $second === [] ? '' : 'reader-2']);
 
     Http::fake(['ai.test/*' => static function (HttpRequest $request) use ($answers, $second, $together) {
         $sent = json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
@@ -204,6 +211,14 @@ function read2023(): array
         'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 84 alin. (3)', 'quote' => 'aplicarea cotei de 20% asupra venitului brut'],
         'venitul din pensii' => ['value' => 3000, 'citation' => 'Art. 100 alin. (1)', 'quote' => 'deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei'],
     ];
+}
+
+/** Why a year gave no value for a rule, where it gave none. */
+function outcomeOf(string $code, int $year): ?string
+{
+    return FiscalParameterRead::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $code)->select('id'))
+        ->where('year', $year)->first()?->outcome->value;
 }
 
 /** @return array<int, array<int, mixed>> code, from, until, value, source citation */
@@ -583,4 +598,34 @@ it('leaves a value whole where its paragraph was rewritten without changing what
     expect($pension)->toHaveCount(1)
         ->and($pension->first()?->valid_from->format('Y-m-d'))->toBe('2024-01-01')
         ->and($pension->first()?->valid_until?->format('Y-m-d'))->toBe('2024-12-31');
+});
+
+it('keeps a year the law does not state a value for as an answer of its own', function (): void {
+    $this->travelTo('2023-06-01');
+    codulFiscal();
+    $answers = read2023();
+    // The law is read, and answers two of the tax's four questions.
+    readers([], [], [
+        'RO.INCOME_TAX.RATE' => $answers['cota de impozit pe venit'],
+        'RO.INCOME_TAX.PENSION_TAX_FREE' => $answers['venitul din pensii'],
+        'RO.INCOME_TAX.IP_EXPENSE_QUOTA' => ['value' => null, 'citation' => null, 'quote' => null],
+        'RO.INCOME_TAX.RENT_EXPENSE_QUOTA' => ['value' => null, 'citation' => null, 'quote' => null],
+    ]);
+
+    app(StartFiscalYear::class)(2023);
+
+    expect(outcomeOf('RO.INCOME_TAX.IP_EXPENSE_QUOTA', 2023))->toBe('NOT_IN_LAW')
+        ->and(outcomeOf('RO.INCOME_TAX.RENT_EXPENSE_QUOTA', 2023))->toBe('NOT_IN_LAW')
+        // A value the law does state keeps nothing: there is nothing to explain.
+        ->and(outcomeOf('RO.INCOME_TAX.RATE', 2023))->toBeNull();
+});
+
+it('keeps a year no model could be asked for as something to try again', function (): void {
+    $this->travelTo('2023-06-01');
+    codulFiscal();
+    usingReader();
+    Http::fake(['ai.test/*' => Http::response('', 502)]);
+
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
+        ->and(outcomeOf('RO.INCOME_TAX.RATE', 2023))->toBe('UNREAD');
 });

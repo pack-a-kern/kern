@@ -11,6 +11,7 @@ use App\Domain\TaxKnowledge\FiscalParameters\Matching\Provision;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterCheck;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterDefinition;
+use App\Domain\TaxKnowledge\FiscalParameters\ParameterReadOutcome;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Parsing\SectionText;
@@ -61,7 +62,7 @@ final readonly class LawValueReader
      * minute, and what is read is worth keeping before the next one is asked.
      *
      * @param  int|null  $onlyYear  one year to read; null for every year the law is read for
-     * @return iterable<array{reading: Reading, matches: list<LawMatch>}>
+     * @return iterable<array{code: string, year: int, values: list<array{reading: Reading, matches: list<LawMatch>}>, outcome: ParameterReadOutcome|null}>
      */
     public function read(?int $onlyYear = null): iterable
     {
@@ -92,7 +93,7 @@ final readonly class LawValueReader
                 $together = $this->togetherOn($pending, $on, $approvedOn);
 
                 foreach ($pending as $definition) {
-                    yield from $this->readYear($definition, $year, $approvedOn[$definition->code], $known[$definition->code], $together[$definition->code] ?? null);
+                    yield $this->readYear($definition, $year, $approvedOn[$definition->code], $known[$definition->code], $together[$definition->code] ?? null);
                 }
             }
         }
@@ -128,7 +129,7 @@ final readonly class LawValueReader
         $provisions = array_values($nearest);
         $read = [];
 
-        foreach ($this->reader->readTogether($definitions, $provisions, $on, $readers[0]) as $code => $answer) {
+        foreach ($this->reader->readTogether($definitions, $provisions, $on, $readers[0])['answers'] as $code => $answer) {
             foreach ($provisions as $provision) {
                 if ($provision->sectionId === $answer->sectionId) {
                     $read[$code] = [$answer, $provision, null];
@@ -145,27 +146,31 @@ final readonly class LawValueReader
      * @param  list<string>  $approvedOn  the paragraphs a person approved this value on, for any year
      * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known  what is already held for this value, by the day it starts
      * @param  array{LawAnswer, Provision, LawAnswer|null}|null  $together  what the tax's own call already read for it
-     * @return list<array{reading: Reading, matches: list<LawMatch>}>
+     * @return array{code: string, year: int, values: list<array{reading: Reading, matches: list<LawMatch>}>, outcome: ParameterReadOutcome|null}
      */
     private function readYear(ParameterDefinition $definition, int $year, array $approvedOn, array $known, ?array $together = null): array
     {
         $from = new DateTimeImmutable(sprintf('%04d-01-01', $year));
         $until = new DateTimeImmutable(sprintf('%04d-12-31', $year));
+        $nothing = fn (?ParameterReadOutcome $outcome): array => ['code' => $definition->code, 'year' => $year, 'values' => [], 'outcome' => $outcome];
 
         if ($this->settled($definition, $from, $known)) {
-            return [];
+            return $nothing(null);
         }
 
-        $first = $together ?? $this->readOn($definition, $from, $approvedOn, $known);
+        $reading = $together === null ? $this->readOn($definition, $from, $approvedOn, $known) : ['answer' => $together, 'reached' => true];
+        $first = $reading['answer'];
 
         if ($first === null) {
-            return [];
+            // Nothing read, and the two are not the same: a law that does not say it, or a model
+            // that could not be asked.
+            return $nothing($reading['reached'] ? ParameterReadOutcome::NOT_IN_LAW : ParameterReadOutcome::UNREAD);
         }
 
         $stretches = [[$from, $first]];
 
         foreach ($this->law->changeDaysOf($first[0]->citation, $from, $until) as $day) {
-            $again = $this->readOn($definition, $day, $approvedOn, $known);
+            $again = $this->readOn($definition, $day, $approvedOn, $known)['answer'];
 
             // The same value read again from the day its wording changed is the same value: the
             // sentence was rewritten, not the rule, and the value holds across the day it changed.
@@ -208,7 +213,7 @@ final readonly class LawValueReader
             ];
         }
 
-        return $read;
+        return ['code' => $definition->code, 'year' => $year, 'values' => $read, 'outcome' => null];
     }
 
     /**
@@ -217,30 +222,31 @@ final readonly class LawValueReader
      *
      * @param  list<string>  $approvedOn
      * @param  array<string, array{decided: bool, section_id: string|null, values: list<int>}>  $known
-     * @return array{LawAnswer, Provision, LawAnswer|null}|null
+     * @return array{answer: array{LawAnswer, Provision, LawAnswer|null}|null, reached: bool}
      */
-    private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn, array $known): ?array
+    private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn, array $known): array
     {
         $nearest = $this->nearestFor($definition, $on, $approvedOn);
         $readers = $this->reader->readers();
-        $answer = $this->reader->read($definition, $nearest, $on, $readers[0] ?? '');
+        $reading = $this->reader->read($definition, $nearest, $on, $readers[0] ?? '');
+        $answer = $reading->answer;
 
         if ($answer === null) {
-            return null;
+            return ['answer' => null, 'reached' => $reading->reached];
         }
 
         $second = isset($readers[1]) && ! $this->alreadyRead($answer, $known)
-            ? $this->reader->read($definition, $nearest, $on, $readers[1])
+            ? $this->reader->read($definition, $nearest, $on, $readers[1])->answer
             : null;
         $answers = [$answer, $second];
 
         foreach ($nearest as $provision) {
             if ($provision->sectionId === $answer->sectionId) {
-                return [$answer, $provision, $answers[1] ?? null];
+                return ['answer' => [$answer, $provision, $answers[1] ?? null], 'reached' => true];
             }
         }
 
-        return null;
+        return ['answer' => null, 'reached' => true];
     }
 
     /**

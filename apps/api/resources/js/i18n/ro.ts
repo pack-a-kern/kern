@@ -1866,6 +1866,11 @@ export const ro = {
                     'Al doilea cititor ({model}) a citit {numbers} în {citation}. Valoarea de mai jos este a primului cititor — verific-o înainte de aprobare.',
                 unread: 'Niciun model nu a putut fi întrebat, așa că legea nu a fost citită pentru această valoare.',
             },
+            reads: {
+                NOT_IN_LAW: 'Legea în vigoare în acel an a fost citită și nu spune această valoare ({date}).',
+                UNREAD: 'Niciun model nu a putut fi întrebat pentru această valoare în acel an ({date}). Citește anul din nou.',
+            },
+            unread: 'Necitit',
             valuesTitle: 'Valori pe ani',
             valuesHint:
                 'Fiecare citită din legea în vigoare în acel an sau dintr-o hotărâre de guvern. Deschide-o pentru a o aproba.',
