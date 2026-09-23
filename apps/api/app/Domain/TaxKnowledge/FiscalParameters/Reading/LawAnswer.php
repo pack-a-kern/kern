@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\FiscalParameters\Reading;
 
-/** What a reader made of the law: the numbers, the paragraph they stand in, and the sentence quoted. */
+/** What a reader made of the law: the numbers and the paragraph of the law that states them. */
 final readonly class LawAnswer
 {
     /** @param list<int> $values */
@@ -12,7 +12,8 @@ final readonly class LawAnswer
         public array $values,
         public string $sectionId,
         public string $citation,
-        public string $quote,
+        /** The paragraph the second number stands in, where a value has two ends in two places. */
+        public string $citationOfLast,
         public string $model,
     ) {
     }

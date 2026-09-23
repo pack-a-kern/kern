@@ -16,8 +16,15 @@ final readonly class ParameterDefinition
         public FiscalParameterValueType $type,
         /** Who owes what this value is part of: a person, a company, or both. */
         public ParameterSubject $subject,
-        /** The part of the law it is read from, from its table of contents — "Titlul V Capitolul III". */
-        public ?string $lawWithin,
+        /**
+         * The parts of the law it is read in, from its table of contents — "Titlul V Capitolul III".
+         * More than one where the law states a rule in more than one place: the base of the health
+         * contribution for independent activities has its cap in one section and its floor in the
+         * next, which is about declaring and paying it.
+         *
+         * @var list<string>
+         */
+        public array $lawWithin,
         /** What is asked of the law, in the words of the law — "Care este cota de impozit pe venit?". */
         public ?string $question,
         /** What an answer looks like: one number, several, a percentage, an amount in lei. */
@@ -28,7 +35,7 @@ final readonly class ParameterDefinition
     /** Whether the law is read for it — every value but the minimum wage, whose decision is its source. */
     public function isInLaw(): bool
     {
-        return $this->lawWithin !== null && $this->question !== null;
+        return $this->lawWithin !== [] && $this->question !== null;
     }
 
     /**
@@ -42,7 +49,9 @@ final readonly class ParameterDefinition
     {
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => ['value' => sprintf('%d.%02d', intdiv($numbers[0], 100), $numbers[0] % 100)],
-            FiscalParameterValueType::JSON => ['wages' => $numbers],
+            FiscalParameterValueType::JSON => $this->answer->isRange()
+                ? ['floor' => $numbers[0], 'cap' => $numbers[1] ?? $numbers[0]]
+                : ['wages' => $numbers],
             FiscalParameterValueType::MONEY => ['amount_minor' => $numbers[0] * 100, 'currency' => $currency],
             default => ['value' => $numbers[0]],
         };
@@ -59,7 +68,9 @@ final readonly class ParameterDefinition
     {
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => [(int) round((float) (is_string($value['value'] ?? null) ? $value['value'] : 0) * 100)],
-            FiscalParameterValueType::JSON => array_values(array_map(static fn (mixed $wages): int => is_numeric($wages) ? (int) $wages : 0, is_array($value['wages'] ?? null) ? $value['wages'] : [])),
+            FiscalParameterValueType::JSON => $this->answer->isRange()
+                ? array_values(array_map(static fn (int|float|string $wages): int => (int) $wages, array_filter([$value['floor'] ?? null, $value['cap'] ?? null], static fn (mixed $wages): bool => is_numeric($wages))))
+                : array_values(array_map(static fn (mixed $wages): int => is_numeric($wages) ? (int) $wages : 0, is_array($value['wages'] ?? null) ? $value['wages'] : [])),
             FiscalParameterValueType::INTEGER => is_int($value['value'] ?? null) ? [$value['value']] : [],
             FiscalParameterValueType::MONEY => is_int($value['amount_minor'] ?? null) ? [intdiv($value['amount_minor'], 100)] : [],
             FiscalParameterValueType::DATE => [],

@@ -188,6 +188,7 @@ final class LawProvisions
                         $wording->article,
                         $provision->path,
                         $wording->text,
+                        $wording->under,
                         $wording->title,
                         $wording->documentVersionId,
                         $stretch->valid_from->format('Y-m-d'),
@@ -314,18 +315,29 @@ final class LawProvisions
         }
 
         $ordered = [];
-        $walk = static function (SourceSection $section, string $path, string $title, string $article) use (&$walk, &$ordered, $children, $versionId): void {
-            $ordered[] = new Provision($section->id, $section->citation_label, $article, $path, $section->fullText(), $title, $versionId);
+        // Each provision is written before what stands under it, and carries that as its own text
+        // too: a rule the law states across a paragraph and its points is read whole either way.
+        $walk = static function (SourceSection $section, string $path, string $title, string $article) use (&$walk, &$ordered, $children, $versionId): string {
+            $at = count($ordered);
+            $ordered[] = null;
+            $under = '';
 
             foreach ($children[$section->id] ?? [] as $child) {
-                $walk($child, $path, $title, $article);
+                $under .= ' ' . $walk($child, $path, $title, $article);
             }
+
+            $text = $section->fullText();
+            $ordered[$at] = new Provision($section->id, $section->citation_label, $article, $path, $text, trim($under), $title, $versionId);
+
+            return $text . ' ' . $under;
         };
 
         foreach ($children[''] ?? [] as $article) {
             $path = $paths[$article->outline_id ?? ''] ?? '';
             $walk($article, SectionText::searchable(is_string($path) ? $path : ''), self::titleOf($article), $article->citation_label);
         }
+
+        /** @var list<Provision> $ordered */
 
         return $this->provisions[$versionId] = $ordered;
     }

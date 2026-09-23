@@ -15,6 +15,8 @@ final readonly class Provision
         /** The heading path its article stands under, as a search reads it. */
         public string $path,
         public string $text,
+        /** Everything that stands under it — its letters and points — as one text. */
+        public string $under,
         /** The marginal title of the article it belongs to — "Cota de contribuție de asigurări sociale de sănătate". */
         public string $title,
         public string $documentVersionId,

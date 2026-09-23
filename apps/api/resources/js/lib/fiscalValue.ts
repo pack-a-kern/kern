@@ -27,6 +27,15 @@ export function describeFiscalValue(
         return formatPercent(Number(typeof value.value === 'string' ? value.value : 0), locale);
     }
 
+    // A base with two ends — not less than six wages, not more than seventy-two — reads as a range.
+    if (typeof value.floor === 'number' || typeof value.cap === 'number') {
+        const end = (one: unknown): string => (typeof one === 'number' ? String(one) : '—');
+
+        return t((d) => d.pages.taxRules.wagesRange)
+            .replace('{floor}', end(value.floor))
+            .replace('{cap}', end(value.cap));
+    }
+
     const wages = type === 'JSON' ? (Array.isArray(value.wages) ? value.wages : []) : [value.value];
 
     return t((d) => d.pages.taxRules.wages).replace(

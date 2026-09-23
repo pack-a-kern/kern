@@ -21,16 +21,17 @@ use JsonException;
  * One question put to a model about the law, and the answer checked against the law itself.
  *
  * The model is given the paragraphs closest to the question — never the whole chapter, which is
- * where it starts leaving things out — and answers with the numbers, the paragraph and the sentence
- * it read them in. Three checks then decide whether that answer exists at all:
+ * where it starts leaving things out — and answers with the numbers and the label of the paragraph
+ * that states them. Two checks then decide whether that answer exists at all:
  *
  *  1. the paragraph it names is one of those it was given;
- *  2. the sentence it quotes stands in that paragraph, word for word as a search reads it;
- *  3. every number it gives is in that sentence.
+ *  2. every number it gives stands in that paragraph, read with the lettered points under it, as
+ *     the law writes a rule across them: "baza o reprezintă: a) 6 salarii … b) 12 salarii".
  *
- * An answer failing any of them is not a value and is not recorded — an invented quote cannot become
- * a rule. What the checks cannot catch is a model answering about the wrong thing in the right
- * words, which is why a second reader is asked and a person approves.
+ * An answer failing either is not a value and is not recorded. The law's own words are never asked
+ * for — this application holds them already, and a sentence copied back is the same sentence
+ * mistyped. What the checks cannot catch is a model answering about the wrong thing from the right
+ * paragraph, which is why a second reader can be asked and a person approves.
  */
 final readonly class LawReader
 {
@@ -126,38 +127,77 @@ final readonly class LawReader
      */
     private function verify(ParameterDefinition $definition, array $provisions, string $sent, array $reply, string $model): ?LawAnswer
     {
-        $citation = is_string($reply['citation'] ?? null) ? trim($reply['citation']) : '';
-        $quote = is_string($reply['quote'] ?? null) ? trim($reply['quote']) : '';
         $values = $this->numbers($definition, $reply);
-        $said = null;
+        $citations = $this->citations($definition, $reply);
 
-        foreach ($provisions as $provision) {
-            if ($provision->citation === $citation) {
-                $said = $provision;
-            }
-        }
-
-        if ($said === null || $values === [] || $quote === '') {
+        if ($values === [] || $citations === []) {
             return null;
         }
 
-        // The quote as a search reads it, against the paragraphs as the reader was given them: a
-        // rule the law writes as a paragraph and the lettered points below it — "baza o reprezintă:
-        // a) 6 salarii … b) 12 salarii" — is quoted across them, and that is still the law's own
-        // words. The labels travel with the text, so a quote that keeps them still matches.
-        $searchable = SectionText::searchable($quote);
+        $said = [];
 
-        if (! str_contains(SectionText::searchable($sent), $searchable)) {
-            return null;
-        }
+        foreach ($citations as $at => $citation) {
+            $paragraph = $this->paragraph($citation, $provisions);
 
-        foreach ($values as $value) {
-            if (preg_match('/\b' . preg_quote((string) $value, '/') . '\b/', self::digits($searchable)) !== 1) {
+            if ($paragraph === null || ! $this->states($paragraph, $definition->answer->isRange() ? [$values[$at] ?? $values[0]] : $values)) {
                 return null;
             }
+
+            $said[] = $paragraph;
         }
 
-        return new LawAnswer($values, $said->sectionId, $said->citation, $quote, $model);
+        return new LawAnswer($values, $said[0]->sectionId, $said[0]->citation, end($said)->citation, $model);
+    }
+
+    /**
+     * Whether a paragraph states every one of these numbers, read with the lettered points under
+     * it: the law writes a rule as "baza o reprezintă:" and its numbers in the points below.
+     *
+     * @param  list<int>  $values
+     */
+    private function states(Provision $paragraph, array $values): bool
+    {
+        $text = self::digits(SectionText::searchable($paragraph->text . ' ' . $paragraph->under));
+
+        foreach ($values as $value) {
+            if (preg_match('/\b' . preg_quote((string) $value, '/') . '\b/', $text) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The paragraph a reader named, among those it was given.
+     *
+     * @param  list<Provision>  $provisions
+     */
+    private function paragraph(string $citation, array $provisions): ?Provision
+    {
+        foreach ($provisions as $provision) {
+            if ($provision->citation === $citation) {
+                return $provision;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The paragraphs a reader named: one, or one per end of a value with two.
+     *
+     * @param  array<string, mixed>  $reply
+     * @return list<string>
+     */
+    private function citations(ParameterDefinition $definition, array $reply): array
+    {
+        $named = $definition->answer->isRange()
+            ? [$reply['floor_citation'] ?? null, $reply['cap_citation'] ?? null]
+            : [$reply['citation'] ?? null];
+        $citations = array_values(array_map('trim', array_filter($named, static fn (mixed $citation): bool => is_string($citation) && trim($citation) !== '')));
+
+        return count($citations) === count($named) ? $citations : [];
     }
 
     /**
@@ -169,9 +209,11 @@ final readonly class LawReader
      */
     private function numbers(ParameterDefinition $definition, array $reply): array
     {
-        $given = $definition->answer === ParameterAnswer::WAGES_LIST
-            ? (is_array($reply['values'] ?? null) ? $reply['values'] : [])
-            : [$reply['value'] ?? null];
+        $given = match ($definition->answer) {
+            ParameterAnswer::WAGES_LIST => is_array($reply['values'] ?? null) ? $reply['values'] : [],
+            ParameterAnswer::WAGES_RANGE => [$reply['floor'] ?? null, $reply['cap'] ?? null],
+            default => [$reply['value'] ?? null],
+        };
         $said = array_values(array_filter($given, static fn (mixed $value): bool => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value))));
         $numbers = array_map(static fn (int|float|string $value): int => (int) round((float) $value), $said);
 
@@ -179,7 +221,10 @@ final readonly class LawReader
             return [];
         }
 
-        sort($numbers);
+        // A range is the floor and the cap, in that order; everything else reads smallest first.
+        if (! $definition->answer->isRange()) {
+            sort($numbers);
+        }
 
         return $numbers;
     }

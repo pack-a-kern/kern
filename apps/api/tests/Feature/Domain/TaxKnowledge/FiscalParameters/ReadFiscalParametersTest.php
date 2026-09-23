@@ -264,7 +264,6 @@ it('reads every value from the law of its year, and proposes it on the paragraph
         'kind' => 'law',
         'model' => 'reader-1',
         'citation' => 'Art. 64 alin. (1)',
-        'quote' => 'Cota de impozit este de 10%',
     ])
         // Every value is only proposed; none counts yet.
         ->and(FiscalParameterVersion::query()->where('status', '<>', RuleApprovalStatus::CANDIDATE->value)->count())->toBe(0);
@@ -275,11 +274,10 @@ it('records nothing from an answer the law does not hold', function (): void {
     codulFiscal();
     decisions();
     readers([
-        // A sentence no paragraph holds, a paragraph that says another number, and a paragraph that
-        // is not in the text the reader was given.
-        'cota de impozit pe venit' => ['value' => 16, 'citation' => 'Art. 64 alin. (1)', 'quote' => 'Cota de impozit este de 16%'],
-        'drepturi de proprietate intelectuală' => ['value' => 25, 'citation' => 'Art. 72 alin. (2)', 'quote' => 'aplicarea cotei de 40% asupra venitului brut'],
-        'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 999', 'quote' => 'aplicarea cotei de 20% asupra venitului brut'],
+        // A number its paragraph does not state, and a paragraph the reader was never given.
+        'cota de impozit pe venit' => ['value' => 16, 'citation' => 'Art. 64 alin. (1)'],
+        'drepturi de proprietate intelectuală' => ['value' => 33, 'citation' => 'Art. 72 alin. (2)'],
+        'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 999'],
     ]);
 
     app(ReadFiscalParameters::class)();
@@ -416,7 +414,7 @@ it('keeps a rule to the paragraph it was approved on for another year, and says 
         ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 84 alin. (3)', 'now' => 'Art. 72 alin. (2)', 'year' => 2025]]);
 });
 
-it('takes a quote across the points of one paragraph, and a number the law writes with a separator', function (): void {
+it('takes a number from the points under the paragraph named, and one the law writes with a separator', function (): void {
     $this->travelTo('2023-06-01');
     $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
     heading($version, 'Titlul IV Capitolul IV', [
@@ -436,18 +434,11 @@ it('takes a quote across the points of one paragraph, and a number the law write
     ]);
 
     readers([
-        // The rule is written across the paragraph and the point below it, and the reader quotes it
-        // as one — labels and all, which is how the paragraphs were given to it.
-        'cedarea folosinței bunurilor' => [
-            'value' => 20,
-            'citation' => 'Art. 84 alin. (3)',
-            'quote' => 'Art. 84 alin. (3) Venitul net anual din cedarea folosinței bunurilor se stabilește astfel: Art. 84 alin. (3) lit. a) prin aplicarea cotei de 20% asupra venitului brut;',
-        ],
-        'suma neimpozabilă lunară' => [
-            'value' => 3000,
-            'citation' => 'Art. 100 alin. (1)',
-            'quote' => 'deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei',
-        ],
+        // The rule stands in the paragraph and the point under it, and the paragraph is what a
+        // reader names: the number is looked for in both.
+        'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 84 alin. (3)'],
+        // The law writes the amount with its own thousands separator.
+        'suma neimpozabilă lunară' => ['value' => 3000, 'citation' => 'Art. 100 alin. (1)'],
     ]);
 
     app(StartFiscalYear::class)(2023);
@@ -628,4 +619,33 @@ it('keeps a year no model could be asked for as something to try again', functio
 
     expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
         ->and(outcomeOf('RO.INCOME_TAX.RATE', 2023))->toBe('UNREAD');
+});
+
+it('reads a base with two ends from the two paragraphs that state them', function (): void {
+    $this->travelTo('2026-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2026-01-01');
+    // The cap where the base is set, the floor in the section on declaring and paying it.
+    heading($version, 'Titlul V Capitolul III Secţiunea a 5-a', [
+        ['Art. 170 alin. (1)', 'Persoanele fizice care realizează venituri din cele prevăzute la art. 155 alin. (1) lit. b) datorează contribuția la o bază anuală de calcul care nu poate fi mai mare decât nivelul de 72 de salarii minime brute pe țară.'],
+    ]);
+    heading($version, 'Titlul V Capitolul III Secţiunea a 6-a', [
+        ['Art. 174 alin. (6)', 'În situația în care baza de calcul este mai mică decât cea corespunzătoare a 6 salarii minime brute pe țară, persoanele fizice datorează contribuția la această bază.'],
+    ]);
+
+    readers(['baza anuală de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. b)' => [
+        'floor' => 6,
+        'floor_citation' => 'Art. 174 alin. (6)',
+        'cap' => 72,
+        'cap_citation' => 'Art. 170 alin. (1)',
+    ]]);
+
+    app(StartFiscalYear::class)(2026);
+
+    $base = FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.INDEPENDENT_BASE_WAGES')->select('id'))
+        ->sole();
+
+    // One value with two ends, kept on the paragraph its first number stands in.
+    expect($base->value_json)->toBe(['floor' => 6, 'cap' => 72])
+        ->and(SourceSection::query()->whereKey($base->source_section_id)->value('citation_label'))->toBe('Art. 174 alin. (6)');
 });

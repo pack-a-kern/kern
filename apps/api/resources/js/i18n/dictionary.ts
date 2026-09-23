@@ -1568,6 +1568,8 @@ export interface Dictionary {
             names: Record<string, string | undefined>;
             /** `{count}` minimum wages, "6 / 12 / 24". */
             wages: string;
+            /** A base between `{floor}` and `{cap}` minimum wages. */
+            wagesRange: string;
             /** `{from}`, and `{until}` when it has an end. */
             periodOpen: string;
             periodClosed: string;

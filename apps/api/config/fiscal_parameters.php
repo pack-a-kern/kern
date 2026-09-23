@@ -66,14 +66,14 @@ return [
 
         'RO.INCOME_TAX' => [
             'subject' => 'PERSON',
-            'law' => ['within' => 'Titlul IV'],
+            'law' => ['within' => ['Titlul IV']],
 
             'rules' => [
                 // What the tax is, on every income of a person.
                 'RATE' => [
                     'type' => 'DECIMAL',
                     'law' => [
-                        'within' => 'Titlul IV Capitolul I',
+                        'within' => ['Titlul IV Capitolul I'],
                         'question' => 'Care este cota de impozit pe venit care se aplică veniturilor persoanelor fizice?',
                         'answer' => 'percent',
                     ],
@@ -100,6 +100,77 @@ return [
                     'type' => 'MONEY',
                     'law' => [
                         'question' => 'Care este suma neimpozabilă lunară care se deduce din venitul din pensii la stabilirea venitului impozabil lunar din pensii?',
+                        'answer' => 'lei',
+                    ],
+                ],
+            ],
+        ],
+
+        'RO.CASS' => [
+            'subject' => 'PERSON',
+            'law' => ['within' => ['Titlul V Capitolul III']],
+
+            'rules' => [
+                'RATE' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 2-a'],
+                        'question' => 'Care este cota contribuției de asigurări sociale de sănătate?',
+                        'answer' => 'percent',
+                    ],
+                ],
+
+                // Independent activities, art. 155 alin. (1) lit. b): the base is the income itself,
+                // between two levels — the cap stated where the base is, the floor in the section on
+                // declaring and paying it, which is why both are read.
+                'INDEPENDENT_BASE_WAGES' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 5-a', 'Titlul V Capitolul III Secţiunea a 6-a'],
+                        'question' => 'Între ce niveluri, exprimate în salarii minime brute pe țară, se situează baza anuală de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. b) — nivelul minim sub care baza nu poate coborî și nivelul maxim peste care nu poate urca?',
+                        'answer' => 'wages_range',
+                    ],
+                ],
+
+                // The other income — intellectual property, rent, dividends, interest, investments,
+                // agriculture, other — is not counted itself: the base is the band it reaches.
+                'OTHER_INCOME_BANDS_WAGES' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 5-a', 'Titlul V Capitolul III Secţiunea a 6-a'],
+                        'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h)? Enumeră toate nivelurile.',
+                        'answer' => 'wages_list',
+                    ],
+                ],
+
+                // Until 2022 one base held for every income together. The law stopped saying it, and
+                // the years since say so themselves.
+                'ALL_INCOME_BASE_WAGES' => [
+                    'type' => 'INTEGER',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 5-a'],
+                        'question' => 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate, pentru toate veniturile cumulate, o reprezintă echivalentul a câte salarii minime brute pe țară?',
+                        'answer' => 'wages',
+                    ],
+                ],
+
+                // Owed by nobody: paid by a person with no income who chooses to be insured.
+                'OPTIONAL_BASE_WAGES' => [
+                    'type' => 'INTEGER',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 10-a'],
+                        'question' => 'Care este baza de calcul al contribuției de asigurări sociale de sănătate pentru persoanele fizice fără venituri care optează pentru plata contribuției?',
+                        'answer' => 'wages',
+                    ],
+                ],
+
+                // A pension carries the contribution only above an amount in lei, which the law has
+                // stated as a threshold and, since August 2025, as a sum deducted from the pension.
+                'PENSION_FREE_AMOUNT' => [
+                    'type' => 'MONEY',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 2-a', 'Titlul V Capitolul III Secţiunea a 3-a'],
+                        'question' => 'Care este suma lunară din venitul din pensii care nu intră în baza de calcul al contribuției de asigurări sociale de sănătate — suma care se deduce sau peste care se datorează contribuția?',
                         'answer' => 'lei',
                     ],
                 ],

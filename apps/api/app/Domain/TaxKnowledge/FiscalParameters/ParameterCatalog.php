@@ -29,7 +29,7 @@ final readonly class ParameterCatalog
             tax: $wage,
             type: FiscalParameterValueType::MONEY,
             subject: ParameterSubject::PERSON,
-            lawWithin: null,
+            lawWithin: [],
             question: null,
             answer: ParameterAnswer::LEI,
         )];
@@ -54,15 +54,17 @@ final readonly class ParameterCatalog
                 }
 
                 $subject = $rule['subject'] ?? $entry['subject'] ?? null;
-                // The rule's own part of the law where it names one, the tax's otherwise.
-                $within = $law['within'] ?? $taxLaw['within'] ?? null;
+                // The rule's own parts of the law where it names any, the tax's otherwise — one
+                // part or several, as a rule the law states in more than one place needs.
+                $within = $law['within'] ?? $taxLaw['within'] ?? [];
+                $within = array_values(array_filter(is_array($within) ? $within : [$within], 'is_string'));
 
                 $definitions[$code] = new ParameterDefinition(
                     code: $code,
                     tax: $tax,
                     type: FiscalParameterValueType::from(is_string($rule['type'] ?? null) ? $rule['type'] : ''),
                     subject: ParameterSubject::from(is_string($subject) ? $subject : ParameterSubject::PERSON->value),
-                    lawWithin: is_string($within) ? $within : null,
+                    lawWithin: $within,
                     question: $law['question'],
                     answer: ParameterAnswer::from(is_string($law['answer'] ?? null) ? $law['answer'] : ParameterAnswer::WAGES->value),
                 );

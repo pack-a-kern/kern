@@ -199,7 +199,7 @@ final readonly class LawValueReader
                     $ends,
                     $definition->value($answer->values, $this->config->string('fiscal_parameters.currency')),
                     $answer->values,
-                    ['kind' => 'law', 'model' => $answer->model, 'citation' => $answer->citation, 'quote' => $answer->quote],
+                    ['kind' => 'law', 'model' => $answer->model, 'citation' => $answer->citation],
                     $checks,
                 ),
                 'matches' => [new LawMatch(
@@ -269,9 +269,11 @@ final readonly class LawValueReader
 
         // A provision belongs to one consolidation: the same section still in force is the same
         // words, so the law has not changed since it was read and the answer cannot either.
-        foreach ($this->law->inForce((string) $definition->lawWithin, $on) as $provision) {
-            if ($provision->sectionId === $held['section_id']) {
-                return true;
+        foreach ($definition->lawWithin as $within) {
+            foreach ($this->law->inForce($within, $on) as $provision) {
+                if ($provision->sectionId === $held['section_id']) {
+                    return true;
+                }
             }
         }
 
@@ -325,7 +327,15 @@ final readonly class LawValueReader
      */
     private function nearestFor(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn): array
     {
-        return $this->nearest($this->anchored($this->law->inForce((string) $definition->lawWithin, $on), $approvedOn), (string) $definition->question, $approvedOn);
+        $provisions = [];
+
+        // Every part of the law the rule is read in, in the order the rule names them: the base of
+        // a contribution has its cap in one section and its floor in the next.
+        foreach ($definition->lawWithin as $within) {
+            $provisions = [...$provisions, ...$this->law->inForce($within, $on)];
+        }
+
+        return $this->nearest($this->anchored($provisions, $approvedOn), (string) $definition->question, $approvedOn);
     }
 
     /**
