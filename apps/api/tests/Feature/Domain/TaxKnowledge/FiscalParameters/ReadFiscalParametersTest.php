@@ -104,22 +104,18 @@ function codulFiscal(): void
     heading($version, 'Titlul IV Capitolul I', [
         ['Art. 64 alin. (1)', 'Cota de impozit este de 10% și se aplică asupra venitului impozabil corespunzător fiecărei surse din fiecare categorie'],
     ]);
-    heading($version, 'Titlul V Capitolul II Secţiunea a 2-a', [
-        ['Art. 138 alin. (1)', '25% datorată de către persoanele fizice care au calitatea de angajați sau pentru care există obligația plății contribuției de asigurări sociale, potrivit prezentei legi;'],
+    heading($version, 'Titlul IV Capitolul II', [
+        ['Art. 72 alin. (2)', 'Venitul net din drepturile de proprietate intelectuală se determină prin deducerea din venitul brut a cheltuielilor determinate prin aplicarea cotei de 40% asupra venitului brut, iar pentru drepturile conexe prin aplicarea cotei de 25% asupra venitului brut.'],
     ]);
-    heading($version, 'Titlul V Capitolul II Secţiunea a 5-a', [
-        ['Art. 148 alin. (2)', 'nivelul de 12 salarii minime brute pe țară, în cazul veniturilor realizate cuprinse între 12 salarii minime brute pe țară inclusiv și 24 de salarii minime brute pe țară;'],
+    heading($version, 'Titlul IV Capitolul IV', [
+        ['Art. 84 alin. (3)', 'Venitul net anual din cedarea folosinței bunurilor se stabilește prin deducerea din venitul brut a cheltuielilor determinate prin aplicarea cotei de 20% asupra venitului brut.'],
     ]);
-    heading($version, 'Titlul V Capitolul III Secţiunea a 2-a', [
-        ['Art. 156 alin. (1)', 'Cota de contribuție de asigurări sociale de sănătate este de 10% și se datorează de către persoanele fizice care au calitatea de angajați'],
+    heading($version, 'Titlul IV Capitolul VI', [
+        ['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei.'],
     ]);
-    heading($version, 'Titlul V Capitolul III Secţiunea a 5-a', [
-        ['Art. 170 alin. (3)', 'nivelul a 6 salarii minime brute pe țară, în cazul veniturilor realizate cuprinse între 6 salarii minime brute pe țară inclusiv și 12 salarii minime brute pe țară;'],
-        ['Art. 170 alin. (4)', 'nivelul de 24 de salarii minime brute pe țară, în cazul veniturilor realizate cel puțin egale cu 24 de salarii minime brute pe țară.'],
-    ]);
-    // Chapter IX says "25% datorată de către persoanele fizice" too — and is not Chapter II.
-    heading($version, 'Titlul V Capitolul IX', [
-        ['Art. 220^3 alin. (1)', '25% datorată de către persoanele fizice pentru care se datorează contribuția asiguratorie pentru muncă'],
+    // Another chapter of the same title applies a quota of its own, to something else entirely.
+    heading($version, 'Titlul IV Capitolul VIII', [
+        ['Art. 110 alin. (3)', 'Veniturile din jocuri de noroc se impun prin aplicarea cotei de 40% asupra venitului net care depășește 66.750 lei.'],
     ]);
 }
 
@@ -172,7 +168,9 @@ function readers(array $answers, array $second = []): void
     ]);
 
     Http::fake(['ai.test/*' => static function (HttpRequest $request) use ($answers, $second) {
-        $asked = json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        // Matched against the question alone: the paragraphs travel in the same request, and a key
+        // looked for in all of it would be answered by whatever the law happens to mention.
+        $asked = Str::between(json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'ÎNTREBARE:', 'Răspunde doar cu JSON');
         $model = $request->data()['model'] ?? '';
 
         foreach ($model === 'reader-2' ? $second : $answers as $word => $answer) {
@@ -186,7 +184,7 @@ function readers(array $answers, array $second = []): void
 }
 
 /**
- * What each reader answers for the law the fixture holds: the paragraph, the numbers, the sentence.
+ * What each reader answers for the law the fixture holds: the paragraph, the number, the sentence.
  *
  * @return array<string, array<string, mixed>>
  */
@@ -194,18 +192,9 @@ function read2023(): array
 {
     return [
         'cota de impozit pe venit' => ['value' => 10, 'citation' => 'Art. 64 alin. (1)', 'quote' => 'Cota de impozit este de 10%'],
-        'sociale datorată de persoanele fizice' => ['value' => 25, 'citation' => 'Art. 138 alin. (1)', 'quote' => '25% datorată de către persoanele fizice'],
-        'cota contribuției de asigurări sociale de sănătate' => ['value' => 10, 'citation' => 'Art. 156 alin. (1)', 'quote' => 'Cota de contribuție de asigurări sociale de sănătate este de 10%'],
-        'contribuției de asigurări sociale pentru veniturile din activități independente' => [
-            'values' => [12, 24],
-            'citation' => 'Art. 148 alin. (2)',
-            'quote' => 'nivelul de 12 salarii minime brute pe țară, în cazul veniturilor realizate cuprinse între 12 salarii minime brute pe țară inclusiv și 24 de salarii minime brute pe țară;',
-        ],
-        'art. 155 alin. (1) lit. c)-h)' => [
-            'values' => [6, 12],
-            'citation' => 'Art. 170 alin. (3)',
-            'quote' => 'nivelul a 6 salarii minime brute pe țară, în cazul veniturilor realizate cuprinse între 6 salarii minime brute pe țară inclusiv și 12 salarii minime brute pe țară;',
-        ],
+        'drepturi de proprietate intelectuală' => ['value' => 40, 'citation' => 'Art. 72 alin. (2)', 'quote' => 'aplicarea cotei de 40% asupra venitului brut'],
+        'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 84 alin. (3)', 'quote' => 'aplicarea cotei de 20% asupra venitului brut'],
+        'venitul din pensii' => ['value' => 3000, 'citation' => 'Art. 100 alin. (1)', 'quote' => 'deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei'],
     ];
 }
 
@@ -236,11 +225,10 @@ it('reads every value from the law of its year, and proposes it on the paragraph
     app(StartFiscalYear::class)(2023);
 
     expect(array_values(array_filter(candidates(), static fn (array $row): bool => $row[1] === '2023-01-01')))->toBe([
-        ['RO.CAS.BASE_WAGES', '2023-01-01', '2023-12-31', ['wages' => [12, 24]], 'Art. 148 alin. (2)'],
-        ['RO.CAS.RATE', '2023-01-01', '2023-12-31', ['value' => '0.25'], 'Art. 138 alin. (1)'],
-        ['RO.CASS.OTHER_INCOME.BANDS_WAGES', '2023-01-01', '2023-12-31', ['wages' => [6, 12]], 'Art. 170 alin. (3)'],
-        ['RO.CASS.RATE', '2023-01-01', '2023-12-31', ['value' => '0.10'], 'Art. 156 alin. (1)'],
+        ['RO.INCOME_TAX.IP_EXPENSE_QUOTA', '2023-01-01', '2023-12-31', ['value' => '0.40'], 'Art. 72 alin. (2)'],
+        ['RO.INCOME_TAX.PENSION_TAX_FREE', '2023-01-01', '2023-12-31', ['amount_minor' => 300000, 'currency' => 'RON'], 'Art. 100 alin. (1)'],
         ['RO.INCOME_TAX.RATE', '2023-01-01', '2023-12-31', ['value' => '0.10'], 'Art. 64 alin. (1)'],
+        ['RO.INCOME_TAX.RENT_EXPENSE_QUOTA', '2023-01-01', '2023-12-31', ['value' => '0.20'], 'Art. 84 alin. (3)'],
         ['RO.MIN_WAGE', '2023-01-01', '2023-09-30', ['amount_minor' => 300000, 'currency' => 'RON'], 'Art. 1'],
     ]);
 
@@ -267,8 +255,8 @@ it('records nothing from an answer the law does not hold', function (): void {
         // A sentence no paragraph holds, a paragraph that says another number, and a paragraph that
         // is not in the text the reader was given.
         'cota de impozit pe venit' => ['value' => 16, 'citation' => 'Art. 64 alin. (1)', 'quote' => 'Cota de impozit este de 16%'],
-        'cota contribuției de asigurări sociale de sănătate' => ['value' => 25, 'citation' => 'Art. 156 alin. (1)', 'quote' => 'Cota de contribuție de asigurări sociale de sănătate este de 10%'],
-        'sociale datorată de persoanele fizice' => ['value' => 25, 'citation' => 'Art. 999', 'quote' => '25% datorată de către persoanele fizice'],
+        'drepturi de proprietate intelectuală' => ['value' => 25, 'citation' => 'Art. 72 alin. (2)', 'quote' => 'aplicarea cotei de 40% asupra venitului brut'],
+        'cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 999', 'quote' => 'aplicarea cotei de 20% asupra venitului brut'],
     ]);
 
     app(ReadFiscalParameters::class)();
@@ -283,10 +271,11 @@ it('proposes the first reader\'s value and says so when the second reads somethi
     decisions();
     readers(read2023(), [
         'cota de impozit pe venit' => ['value' => 10, 'citation' => 'Art. 64 alin. (1)', 'quote' => 'Cota de impozit este de 10%'],
-        'art. 155 alin. (1) lit. c)-h)' => [
-            'values' => [24],
-            'citation' => 'Art. 170 alin. (4)',
-            'quote' => 'nivelul de 24 de salarii minime brute pe țară, în cazul veniturilor realizate cel puțin egale cu 24 de salarii minime brute pe țară.',
+        // The second reader reads the same paragraph and takes the other quota in it.
+        'drepturi de proprietate intelectuală' => [
+            'value' => 25,
+            'citation' => 'Art. 72 alin. (2)',
+            'quote' => 'pentru drepturile conexe prin aplicarea cotei de 25% asupra venitului brut',
         ],
     ]);
 
@@ -297,7 +286,7 @@ it('proposes the first reader\'s value and says so when the second reads somethi
         ->where('valid_from', '2023-01-01')->sole()->evidence['checks'] ?? [], 'kind');
 
     expect($checks('RO.INCOME_TAX.RATE'))->toBe([])
-        ->and($checks('RO.CASS.OTHER_INCOME.BANDS_WAGES'))->toBe(['readers_disagree']);
+        ->and($checks('RO.INCOME_TAX.IP_EXPENSE_QUOTA'))->toBe(['readers_disagree']);
 });
 
 it('asks nothing again for a year already read, and never proposes a rejected value twice', function (): void {
@@ -311,7 +300,7 @@ it('asks nothing again for a year already read, and never proposes a rejected va
     $first = FiscalParameterVersion::query()->pluck('id')->sort()->values()->all();
 
     $rejected = FiscalParameterVersion::query()
-        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CAS.RATE')->select('id'))
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->select('id'))
         ->where('valid_from', '2023-01-01')->sole();
     $rejected->forceFill(['status' => RuleApprovalStatus::REJECTED->value])->save();
     readers(read2023());
@@ -344,7 +333,7 @@ it('reads one year on its own, and refuses a year its law says nothing for', fun
     codulFiscal();
     readers(read2023());
 
-    expect(app(StartFiscalYear::class)(2024))->toBe(5)
+    expect(app(StartFiscalYear::class)(2024))->toBe(4)
         ->and(array_column(array_values(candidates()), 1))->each->toBe('2024-01-01');
 
     // Before the law was read in there is no text to read, and nothing is proposed.
@@ -382,57 +371,54 @@ it('reads a wording the portal\'s note dates from before the next consolidation'
 it('keeps a rule to the paragraph it was approved on for another year, and says when it moved', function (): void {
     codulFiscal();
     $section = static fn (string $citation): SourceSection => SourceSection::query()->where('citation_label', $citation)->sole();
-    $bands = static fn (int $year): Reading => new Reading(
-        'RO.CASS.OTHER_INCOME.BANDS_WAGES',
+    $quota = static fn (int $year): Reading => new Reading(
+        'RO.INCOME_TAX.RENT_EXPENSE_QUOTA',
         new DateTimeImmutable("{$year}-01-01"),
         new DateTimeImmutable("{$year}-12-31"),
-        ['wages' => [6, 12]],
-        [6, 12],
+        ['value' => '0.20'],
+        [20],
         ['kind' => 'law'],
     );
-    $found = static fn (string $citation): array => [new LawMatch($section($citation)->id, $citation, $section($citation)->document_version_id, [6, 12])];
-    $parameter = FiscalParameter::query()->create(['code' => 'RO.CASS.OTHER_INCOME.BANDS_WAGES', 'value_type' => 'JSON']);
-    insertApprovedFiscalParameterVersion($parameter->id, $section('Art. 170 alin. (4)')->id, ['valid_from' => '2023-01-01', 'valid_until' => '2023-12-31', 'value_json' => json_encode(['wages' => [6, 12]], JSON_THROW_ON_ERROR)]);
+    $found = static fn (string $citation): array => [new LawMatch($section($citation)->id, $citation, $section($citation)->document_version_id, [20])];
+    $parameter = FiscalParameter::query()->create(['code' => 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA', 'value_type' => 'DECIMAL']);
+    insertApprovedFiscalParameterVersion($parameter->id, $section('Art. 84 alin. (3)')->id, ['valid_from' => '2023-01-01', 'valid_until' => '2023-12-31', 'value_json' => json_encode(['value' => '0.20'], JSON_THROW_ON_ERROR)]);
 
-    app(CandidateRecorder::class)->record([['reading' => $bands(2024), 'matches' => $found('Art. 170 alin. (4)')]], []);
-    app(CandidateRecorder::class)->record([['reading' => $bands(2025), 'matches' => $found('Art. 170 alin. (3)')]], []);
+    app(CandidateRecorder::class)->record([['reading' => $quota(2024), 'matches' => $found('Art. 84 alin. (3)')]], []);
+    app(CandidateRecorder::class)->record([['reading' => $quota(2025), 'matches' => $found('Art. 72 alin. (2)')]], []);
 
     $candidate = static fn (string $from): FiscalParameterVersion => FiscalParameterVersion::query()->where('valid_from', $from)->sole();
 
     expect($candidate('2024-01-01')->evidence['checks'] ?? [])->toBe([])
-        ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 170 alin. (3)')->id)
-        ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)', 'now' => 'Art. 170 alin. (3)', 'year' => 2025]]);
+        ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 72 alin. (2)')->id)
+        ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 84 alin. (3)', 'now' => 'Art. 72 alin. (2)', 'year' => 2025]]);
 });
 
 it('takes a quote across the points of one paragraph, and a number the law writes with a separator', function (): void {
     $this->travelTo('2023-06-01');
     $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
-    heading($version, 'Titlul V Capitolul III', [
-        ['Art. 170 alin. (3)', 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate o reprezintă:'],
+    heading($version, 'Titlul IV Capitolul IV', [
+        ['Art. 84 alin. (3)', 'Venitul net anual din cedarea folosinței bunurilor se stabilește astfel:'],
     ]);
     heading($version, 'Titlul IV Capitolul VI', [
         ['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei.'],
     ]);
-    $paragraph = SourceSection::query()->where('citation_label', 'Art. 170 alin. (3)')->sole();
-
-    foreach (['lit. a)' => 'nivelul a 6 salarii minime brute pe țară;', 'lit. b)' => 'nivelul de 12 salarii minime brute pe țară.'] as $letter => $text) {
-        SourceSection::factory()->create([
-            'document_version_id' => $version->id,
-            'parent_id' => $paragraph->id,
-            'section_type' => SectionType::LITERA,
-            'citation_label' => "Art. 170 alin. (3) {$letter}",
-            'ordinal' => SourceSection::query()->where('document_version_id', $version->id)->count() + 1,
-            'text' => $text,
-        ]);
-    }
+    $paragraph = SourceSection::query()->where('citation_label', 'Art. 84 alin. (3)')->sole();
+    SourceSection::factory()->create([
+        'document_version_id' => $version->id,
+        'parent_id' => $paragraph->id,
+        'section_type' => SectionType::LITERA,
+        'citation_label' => 'Art. 84 alin. (3) lit. a)',
+        'ordinal' => SourceSection::query()->where('document_version_id', $version->id)->count() + 1,
+        'text' => 'prin aplicarea cotei de 20% asupra venitului brut;',
+    ]);
 
     readers([
-        // The rule is written across the paragraph and the points below it, and the reader quotes it
+        // The rule is written across the paragraph and the point below it, and the reader quotes it
         // as one — labels and all, which is how the paragraphs were given to it.
-        'art. 155 alin. (1) lit. c)-h)' => [
-            'values' => [6, 12],
-            'citation' => 'Art. 170 alin. (3)',
-            'quote' => 'Art. 170 alin. (3) Baza anuală de calcul al contribuției de asigurări sociale de sănătate o reprezintă: Art. 170 alin. (3) lit. a) nivelul a 6 salarii minime brute pe țară; Art. 170 alin. (3) lit. b) nivelul de 12 salarii minime brute pe țară.',
+        'cedarea folosinței bunurilor' => [
+            'value' => 20,
+            'citation' => 'Art. 84 alin. (3)',
+            'quote' => 'Art. 84 alin. (3) Venitul net anual din cedarea folosinței bunurilor se stabilește astfel: Art. 84 alin. (3) lit. a) prin aplicarea cotei de 20% asupra venitului brut;',
         ],
         'suma neimpozabilă lunară' => [
             'value' => 3000,
@@ -446,40 +432,43 @@ it('takes a quote across the points of one paragraph, and a number the law write
     $value = static fn (string $code): array => FiscalParameterVersion::query()
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $code)->select('id'))->sole()->value_json;
 
-    expect($value('RO.CASS.OTHER_INCOME.BANDS_WAGES'))->toBe(['wages' => [6, 12]])
-        ->and($value('RO.PENSION.TAX_FREE_AMOUNT'))->toBe(['amount_minor' => 300000, 'currency' => 'RON']);
+    expect($value('RO.INCOME_TAX.RENT_EXPENSE_QUOTA'))->toBe(['value' => '0.20'])
+        ->and($value('RO.INCOME_TAX.PENSION_TAX_FREE'))->toBe(['amount_minor' => 300000, 'currency' => 'RON']);
 });
 
 it('reads a rule where it was approved, so a year whose paragraph no longer says it proposes nothing', function (): void {
     $this->travelTo('2024-06-01');
     bootstrapIdentityCryptoForTests();
     $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2024-01-01');
-    heading($version, 'Titlul V Capitolul III', [
-        // The paragraph the rule rested on, rewritten: it no longer sets a base for every income.
-        ['Art. 170 alin. (4)', 'La încadrarea în plafon nu se iau în calcul veniturile neimpozabile.'],
-        // Another paragraph of the same chapter, holding a number like the one looked for.
-        ['Art. 174 alin. (6)', 'Baza de calcul este mai mică decât cea corespunzătoare a 12 salarii minime brute pe țară.'],
+    heading($version, 'Titlul IV Capitolul IV', [
+        // The paragraph the rule rested on, rewritten: it no longer sets a quota of expenses.
+        ['Art. 84 alin. (3)', 'Venitul net anual din cedarea folosinței bunurilor se stabilește pe baza datelor din contabilitate.'],
     ]);
-    $approvedOn = SourceSection::query()->where('citation_label', 'Art. 170 alin. (4)')->sole();
-    $parameter = FiscalParameter::query()->create(['code' => 'RO.CASS.ALL_INCOME.CAP_WAGES', 'value_type' => 'INTEGER']);
+    heading($version, 'Titlul IV Capitolul VIII', [
+        // Another article of the same title, applying a quota of its own.
+        ['Art. 110 alin. (3)', 'Veniturile din jocuri de noroc se impun prin aplicarea cotei de 20% asupra venitului net.'],
+    ]);
+    $approvedOn = SourceSection::query()->where('citation_label', 'Art. 84 alin. (3)')->sole();
+    $parameter = FiscalParameter::query()->create(['code' => 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA', 'value_type' => 'DECIMAL']);
     insertApprovedFiscalParameterVersion($parameter->id, $approvedOn->id, [
         'valid_from' => '2022-01-01',
         'valid_until' => '2022-12-31',
-        'value_json' => json_encode(['value' => 12], JSON_THROW_ON_ERROR),
+        'value_json' => json_encode(['value' => '0.20'], JSON_THROW_ON_ERROR),
     ]);
 
     // Whatever it is asked, the reader answers from the paragraph it is given.
-    readers(['salarii minime' => [
-        'value' => 12,
-        'citation' => 'Art. 174 alin. (6)',
-        'quote' => 'mai mică decât cea corespunzătoare a 12 salarii minime brute pe țară',
+    readers(['cedarea folosinței bunurilor' => [
+        'value' => 20,
+        'citation' => 'Art. 110 alin. (3)',
+        'quote' => 'aplicarea cotei de 20% asupra venitului net',
     ]]);
 
-    app(StartFiscalYear::class)(2024);
+    // The rule rests on Art. 84 alin. (3), which no longer says it: nothing is proposed for 2024,
+    // though another article of the title holds a quota like the one it used to have — and with
+    // nothing else in this law to read, the year proposes nothing at all.
+    expect(fn () => app(StartFiscalYear::class)(2024))->toThrow(FiscalParameterDecisionException::class);
 
-    // The rule rests on Art. 170 alin. (4), which no longer says it: nothing is proposed for 2024,
-    // though another paragraph of the chapter holds a number like the one it used to have.
     expect(FiscalParameterVersion::query()
-        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.ALL_INCOME.CAP_WAGES')->select('id'))
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->select('id'))
         ->where('valid_from', '2024-01-01')->count())->toBe(0);
 });

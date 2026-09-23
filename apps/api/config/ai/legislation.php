@@ -34,7 +34,7 @@ return [
      * approving is the check. Where two are named and read differently, the value is still proposed,
      * the first reader's, saying so.
      */
-    'reader' => env('LEGISLATION_AI_MODEL', 'gemma4:latest'),
+    'reader' => env('LEGISLATION_AI_MODEL', 'gemma4:e4b-it-bf16'),
     'second_reader' => env('LEGISLATION_AI_SECOND_MODEL', ''),
 
     /*

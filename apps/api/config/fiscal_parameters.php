@@ -46,163 +46,63 @@ return [
     ],
 
     /*
-     * Every value looked for, and what is asked of the law for it.
+     * Every value looked for, by the tax it belongs to.
      *
-     * `subject` is who it is about: what a PERSON owes through their own declaration, what a COMPANY
-     * owes, or BOTH. `law.within` is the part of the Codul fiscal it is read from, from its table of
-     * contents; `law.question` is the question, in Romanian, as the law puts it; `law.answer` is the
-     * shape of the answer ({@see App\Domain\TaxKnowledge\FiscalParameters\ParameterAnswer}), which
-     * is also what the answer is checked against.
+     * A tax is read from one part of the law — everything about the income tax is Titlul IV, all of
+     * CAS is Titlul V Capitolul II — so `law.within` is written once for the tax and narrowed by a
+     * rule only where a narrower part answers it better: the rate stands in the general chapter,
+     * while a chapter of nine hundred provisions answers anything and nothing.
      *
-     * A question names the income it is about — "activități independente", "art. 155 alin. (1) lit.
-     * c)-h)" — because the law sets a different base for each, and a question that does not say
-     * which is answered with whichever the reader meets first.
+     * A rule's code is its tax and its own name — `RO.INCOME_TAX.RATE` — which is what a value is
+     * stored under and what a calculation asks for.
+     *
+     * `subject` is who owes it: a PERSON through their own declaration, a COMPANY, or BOTH.
+     * `law.question` is what is asked of the law, in Romanian, as the law puts it; `law.answer` is
+     * the shape of the answer ({@see App\Domain\TaxKnowledge\FiscalParameters\ParameterAnswer}),
+     * which is also what the answer is checked against. A question names the income it is about,
+     * because the law sets a different base for each.
      */
-    'parameters' => [
-        'RO.MIN_WAGE' => ['type' => 'MONEY', 'subject' => 'PERSON'],
+    'taxes' => [
 
-        'RO.INCOME_TAX.RATE' => [
-            'type' => 'DECIMAL',
+        'RO.INCOME_TAX' => [
             'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul IV',
-                'question' => 'Care este cota de impozit pe venit care se aplică veniturilor persoanelor fizice?',
-                'answer' => 'percent',
-            ],
-        ],
+            'law' => ['within' => 'Titlul IV'],
 
-        'RO.CAS.RATE' => [
-            'type' => 'DECIMAL',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul II',
-                'question' => 'Care este cota contribuției de asigurări sociale datorată de persoanele fizice?',
-                'answer' => 'percent',
-            ],
-        ],
+            'rules' => [
+                // What the tax is, on every income of a person.
+                'RATE' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => 'Titlul IV Capitolul I',
+                        'question' => 'Care este cota de impozit pe venit care se aplică veniturilor persoanelor fizice?',
+                        'answer' => 'percent',
+                    ],
+                ],
 
-        'RO.CASS.RATE' => [
-            'type' => 'DECIMAL',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                'question' => 'Care este cota contribuției de asigurări sociale de sănătate?',
-                'answer' => 'percent',
-            ],
-        ],
+                // What is taken out of the gross before the tax is applied, per kind of income.
+                'IP_EXPENSE_QUOTA' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'question' => 'Ce cotă forfetară de cheltuieli se deduce din venitul brut din drepturi de proprietate intelectuală?',
+                        'answer' => 'percent',
+                    ],
+                ],
 
-        // The income CAS is owed on: at least 12 minimum wages, and from 2023 a second band from 24.
-        'RO.CAS.BASE_WAGES' => [
-            'type' => 'JSON',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul II',
-                'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale pentru veniturile din activități independente și din drepturi de proprietate intelectuală? Enumeră toate nivelurile.',
-                'answer' => 'wages_list',
-            ],
-        ],
+                'RENT_EXPENSE_QUOTA' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'question' => 'Ce cotă forfetară de cheltuieli se deduce din venitul brut din cedarea folosinței bunurilor (chirii)?',
+                        'answer' => 'percent',
+                    ],
+                ],
 
-        // CASS on the income of art. 155 alin. (1) lit. c)-h) — intellectual property, rent,
-        // dividends, interest, investments, agriculture, other: not the income itself but the band
-        // of it reached.
-        'RO.CASS.OTHER_INCOME.BANDS_WAGES' => [
-            'type' => 'JSON',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h)? Enumeră toate nivelurile.',
-                'answer' => 'wages_list',
-            ],
-        ],
-
-        // CASS on independent activities' income, lit. b): the net income itself, counted between a
-        // floor and a cap.
-        'RO.CASS.INDEPENDENT.CAP_WAGES' => [
-            'type' => 'INTEGER',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                'question' => 'Care este nivelul MAXIM al bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile din activități independente (art. 155 alin. (1) lit. b))?',
-                'answer' => 'wages',
-            ],
-        ],
-
-        'RO.CASS.INDEPENDENT.FLOOR_WAGES' => [
-            'type' => 'INTEGER',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                'question' => 'Care este nivelul MINIM al bazei anuale de calcul al contribuției de asigurări sociale de sănătate datorate de persoanele care realizează venituri din activități independente sub acest nivel?',
-                'answer' => 'wages',
-            ],
-        ],
-
-        // Until 2022, the base of every income together: 12 minimum wages.
-        'RO.CASS.ALL_INCOME.CAP_WAGES' => [
-            'type' => 'INTEGER',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                // As the law put it until 2022, when one base held for every income together. The
-                // question quotes it, so a year whose law says no such thing answers nothing —
-                // Art. 170 alin. (4) was not withdrawn in 2023, it was rewritten into the bands.
-                'question' => 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate, pentru toate veniturile cumulate, o reprezintă echivalentul a câte salarii minime brute pe țară?',
-                'answer' => 'wages',
-            ],
-        ],
-
-        // The CASS base of a person with no income who opts to pay it.
-        'RO.CASS.NO_INCOME_BASE_WAGES' => [
-            'type' => 'INTEGER',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                'question' => 'Care este baza de calcul al contribuției de asigurări sociale de sănătate pentru persoanele fizice fără venituri care optează pentru plata contribuției?',
-                'answer' => 'wages',
-            ],
-        ],
-
-        // What is deducted from the gross before the tax and the contributions are counted.
-        'RO.IP_INCOME.EXPENSE_QUOTA' => [
-            'type' => 'DECIMAL',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul IV',
-                'question' => 'Ce cotă forfetară de cheltuieli se deduce din venitul brut din drepturi de proprietate intelectuală?',
-                'answer' => 'percent',
-            ],
-        ],
-
-        'RO.RENT_INCOME.EXPENSE_QUOTA' => [
-            'type' => 'DECIMAL',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul IV',
-                'question' => 'Ce cotă forfetară de cheltuieli se deduce din venitul brut din cedarea folosinței bunurilor (chirii)?',
-                'answer' => 'percent',
-            ],
-        ],
-
-        // Pensions: the part free of tax, and the part above which health contribution is owed.
-        'RO.PENSION.TAX_FREE_AMOUNT' => [
-            'type' => 'MONEY',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul IV',
-                'question' => 'Care este suma neimpozabilă lunară care se deduce din venitul din pensii înainte de aplicarea impozitului?',
-                'answer' => 'lei',
-            ],
-        ],
-
-        'RO.PENSION.CASS_THRESHOLD_AMOUNT' => [
-            'type' => 'MONEY',
-            'subject' => 'PERSON',
-            'law' => [
-                'within' => 'Titlul V Capitolul III',
-                // The law asked this two ways: until July 2025 the part of a pension above 4.000 lei
-                // was owed, and since Legea 141/2025 a sum is deducted from the pension instead.
-                'question' => 'Care este suma lunară care se deduce din venitul din pensie la stabilirea bazei de calcul al contribuției de asigurări sociale de sănătate, sau suma peste care venitul din pensii se cuprinde în această bază?',
-                'answer' => 'lei',
+                'PENSION_TAX_FREE' => [
+                    'type' => 'MONEY',
+                    'law' => [
+                        'question' => 'Care este suma neimpozabilă lunară care se deduce din venitul din pensii la stabilirea venitului impozabil lunar din pensii?',
+                        'answer' => 'lei',
+                    ],
+                ],
             ],
         ],
     ],
