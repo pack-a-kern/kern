@@ -26,8 +26,8 @@ enum ParameterAnswer: string
     public function shape(): string
     {
         return match ($this) {
-            self::WAGES_LIST => '{"values": [<numere de salarii minime>], "citation": "Art. X alin. (Y)", "quote": "<propoziția exactă din text>"}',
-            default => '{"value": <număr>, "citation": "Art. X alin. (Y)", "quote": "<propoziția exactă din text>"}',
+            self::WAGES_LIST => '{"values": [<numbers of minimum wages>], "citation": "Art. X alin. (Y)", "quote": "<the exact sentence from the text>"}',
+            default => '{"value": <number or null>, "citation": "Art. X alin. (Y)", "quote": "<the exact sentence from the text>"}',
         };
     }
 
@@ -35,9 +35,9 @@ enum ParameterAnswer: string
     public function unit(): string
     {
         return match ($this) {
-            self::PERCENT => 'procent (doar numărul, fără semnul %)',
-            self::WAGES, self::WAGES_LIST => 'număr de salarii minime brute pe țară',
-            self::LEI => 'sumă în lei (doar numărul)',
+            self::PERCENT => 'a percentage (the number alone, without the % sign)',
+            self::WAGES, self::WAGES_LIST => 'a number of minimum gross wages ("salarii minime brute pe țară")',
+            self::LEI => 'an amount in lei (the number alone)',
         };
     }
 }

@@ -170,7 +170,7 @@ function readers(array $answers, array $second = []): void
     Http::fake(['ai.test/*' => static function (HttpRequest $request) use ($answers, $second) {
         // Matched against the question alone: the paragraphs travel in the same request, and a key
         // looked for in all of it would be answered by whatever the law happens to mention.
-        $asked = Str::between(json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'ÎNTREBARE:', 'Răspunde doar cu JSON');
+        $asked = Str::between(json_encode($request->data(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'QUESTION:', 'The value asked for is');
         $model = $request->data()['model'] ?? '';
 
         foreach ($model === 'reader-2' ? $second : $answers as $word => $answer) {
