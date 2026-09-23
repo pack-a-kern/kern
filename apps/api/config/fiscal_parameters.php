@@ -143,7 +143,10 @@ return [
             'subject' => 'PERSON',
             'law' => [
                 'within' => 'Titlul V Capitolul III',
-                'question' => 'Care este nivelul bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru toate veniturile cumulate, pentru anii în care legea prevede un singur nivel?',
+                // As the law put it until 2022, when one base held for every income together. The
+                // question quotes it, so a year whose law says no such thing answers nothing —
+                // Art. 170 alin. (4) was not withdrawn in 2023, it was rewritten into the bands.
+                'question' => 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate, pentru toate veniturile cumulate, o reprezintă echivalentul a câte salarii minime brute pe țară?',
                 'answer' => 'wages',
             ],
         ],

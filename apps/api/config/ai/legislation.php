@@ -29,12 +29,12 @@ return [
      * Who reads, and who reads after them.
      *
      * A second reader catches what verification cannot: asked for the cap on independent activities,
-     * `gpt-oss:20b` quoted, correctly and verifiably, the band for a different kind of income. It is
-     * off by default — one reader, one call, and the person approving is the check — and is named
-     * here to turn on. Where two read differently the value is still proposed, the first reader's,
-     * saying so.
+     * `gpt-oss:20b` quoted, correctly and verifiably, the band for a different kind of income. Named
+     * as nothing, as it is here, no second call is made at all — one reading, and the person
+     * approving is the check. Where two are named and read differently, the value is still proposed,
+     * the first reader's, saying so.
      */
-    'reader' => env('LEGISLATION_AI_MODEL', 'gemma4:e4b-it-bf16'),
+    'reader' => env('LEGISLATION_AI_MODEL', 'gemma4:latest'),
     'second_reader' => env('LEGISLATION_AI_SECOND_MODEL', ''),
 
     /*

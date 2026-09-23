@@ -51,19 +51,18 @@ final readonly class LawReader
     }
 
     /**
-     * The models that read, in order: the reader, then the one that reads after them.
+     * The models that read, in order: the reader, and the one that reads after it where a second is
+     * named. Naming none is one reading and one call — the person approving is the check.
      *
      * @return list<string>
      */
     public function readers(): array
     {
-        $configured = [$this->config->string('ai.legislation.reader'), $this->config->string('ai.legislation.second_reader')];
-        $fallback = ($this->credentials)()->model;
+        $reader = $this->config->string('ai.legislation.reader');
+        $reader = $reader !== '' ? $reader : (string) ($this->credentials)()->model;
+        $second = $this->config->string('ai.legislation.second_reader');
 
-        return array_values(array_unique(array_filter(array_map(
-            static fn (string $model): string => $model !== '' ? $model : (string) $fallback,
-            $configured,
-        ), static fn (string $model): bool => $model !== '')));
+        return array_values(array_unique(array_filter([$reader, $second], static fn (string $model): bool => $model !== '')));
     }
 
     /**

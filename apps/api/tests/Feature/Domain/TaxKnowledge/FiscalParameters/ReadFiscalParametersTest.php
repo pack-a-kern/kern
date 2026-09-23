@@ -449,3 +449,37 @@ it('takes a quote across the points of one paragraph, and a number the law write
     expect($value('RO.CASS.OTHER_INCOME.BANDS_WAGES'))->toBe(['wages' => [6, 12]])
         ->and($value('RO.PENSION.TAX_FREE_AMOUNT'))->toBe(['amount_minor' => 300000, 'currency' => 'RON']);
 });
+
+it('reads a rule where it was approved, so a year whose paragraph no longer says it proposes nothing', function (): void {
+    $this->travelTo('2024-06-01');
+    bootstrapIdentityCryptoForTests();
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2024-01-01');
+    heading($version, 'Titlul V Capitolul III', [
+        // The paragraph the rule rested on, rewritten: it no longer sets a base for every income.
+        ['Art. 170 alin. (4)', 'La încadrarea în plafon nu se iau în calcul veniturile neimpozabile.'],
+        // Another paragraph of the same chapter, holding a number like the one looked for.
+        ['Art. 174 alin. (6)', 'Baza de calcul este mai mică decât cea corespunzătoare a 12 salarii minime brute pe țară.'],
+    ]);
+    $approvedOn = SourceSection::query()->where('citation_label', 'Art. 170 alin. (4)')->sole();
+    $parameter = FiscalParameter::query()->create(['code' => 'RO.CASS.ALL_INCOME.CAP_WAGES', 'value_type' => 'INTEGER']);
+    insertApprovedFiscalParameterVersion($parameter->id, $approvedOn->id, [
+        'valid_from' => '2022-01-01',
+        'valid_until' => '2022-12-31',
+        'value_json' => json_encode(['value' => 12], JSON_THROW_ON_ERROR),
+    ]);
+
+    // Whatever it is asked, the reader answers from the paragraph it is given.
+    readers(['salarii minime' => [
+        'value' => 12,
+        'citation' => 'Art. 174 alin. (6)',
+        'quote' => 'mai mică decât cea corespunzătoare a 12 salarii minime brute pe țară',
+    ]]);
+
+    app(StartFiscalYear::class)(2024);
+
+    // The rule rests on Art. 170 alin. (4), which no longer says it: nothing is proposed for 2024,
+    // though another paragraph of the chapter holds a number like the one it used to have.
+    expect(FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.ALL_INCOME.CAP_WAGES')->select('id'))
+        ->where('valid_from', '2024-01-01')->count())->toBe(0);
+});

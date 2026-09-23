@@ -55,19 +55,21 @@ final readonly class LawValueReader
     }
 
     /**
+     * Each value as it is read, rather than the year at the end of it: a value takes a model a
+     * minute, and what is read is worth keeping before the next one is asked.
+     *
      * @param  int|null  $onlyYear  one year to read; null for every year the law is read for
-     * @return list<array{reading: Reading, matches: list<LawMatch>}>
+     * @return iterable<array{reading: Reading, matches: list<LawMatch>}>
      */
-    public function read(?int $onlyYear = null): array
+    public function read(?int $onlyYear = null): iterable
     {
         if (! $this->reader->isAvailable()) {
-            return [];
+            return;
         }
 
         $years = $onlyYear !== null
             ? [$onlyYear]
             : range($this->config->integer('ai.legislation.from_year'), CarbonImmutable::now()->year + 1);
-        $found = [];
 
         foreach ($this->catalog->all() as $definition) {
             if (! $definition->isInLaw()) {
@@ -78,11 +80,9 @@ final readonly class LawValueReader
             $known = $this->known($definition);
 
             foreach ($years as $year) {
-                $found = [...$found, ...$this->readYear($definition, $year, $approvedOn, $known)];
+                yield from $this->readYear($definition, $year, $approvedOn, $known);
             }
         }
-
-        return $found;
     }
 
     /**
@@ -170,7 +170,7 @@ final readonly class LawValueReader
      */
     private function readOn(ParameterDefinition $definition, DateTimeImmutable $on, array $approvedOn, array $known): ?array
     {
-        $nearest = $this->nearest($this->law->inForce((string) $definition->lawWithin, $on), (string) $definition->question, $approvedOn);
+        $nearest = $this->nearest($this->anchored($this->law->inForce((string) $definition->lawWithin, $on), $approvedOn), (string) $definition->question, $approvedOn);
         $readers = $this->reader->readers();
         $answer = $this->reader->read($definition, $nearest, $on, $readers[0] ?? '');
 
@@ -258,6 +258,31 @@ final readonly class LawValueReader
         }
 
         return $held;
+    }
+
+    /**
+     * The articles a rule already rests on, where it rests on any: a value approved on Art. 170
+     * alin. (4) is that paragraph's rule, and the year it stops saying it is the year the rule ends
+     * — not the year some other paragraph of the chapter happens to hold a number like it.
+     *
+     * The law rewrites a paragraph rather than withdrawing it: Art. 170 alin. (4) held the single
+     * base of twelve minimum wages until 2022, the bands in 2023, and something else since. Asked of
+     * the whole chapter, a question about the first is answered from the others.
+     *
+     * @param  list<Provision>  $provisions
+     * @param  list<string>  $approvedOn
+     * @return list<Provision>
+     */
+    private function anchored(array $provisions, array $approvedOn): array
+    {
+        $articles = array_values(array_unique(array_map(
+            static fn (Provision $provision): string => $provision->article,
+            array_filter($provisions, static fn (Provision $provision): bool => in_array($provision->citation, $approvedOn, true)),
+        )));
+
+        return $articles === []
+            ? $provisions
+            : array_values(array_filter($provisions, static fn (Provision $provision): bool => in_array($provision->article, $articles, true)));
     }
 
     /**
