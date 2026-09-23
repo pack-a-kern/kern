@@ -43,6 +43,9 @@ final readonly class LawValueReader
     /** How much of a word is its stem, for telling "veniturile" and "veniturilor" apart from the rest. */
     private const int STEM = 6;
 
+    /** The shortest word worth weighing: "cota" and "155" say more than any long word around them. */
+    private const int WORD = 3;
+
     public function __construct(
         private ParameterCatalog $catalog,
         private LawProvisions $law,
@@ -258,41 +261,91 @@ final readonly class LawValueReader
     }
 
     /**
-     * The paragraphs a question is most likely answered in: those holding the most of its own words,
-     * with the ones a person already approved this value on always among them.
+     * The articles a question is most likely answered in, whole.
      *
-     * A word counts by its stem, not whole: Romanian inflects every noun a law and a question have
-     * in common — "veniturile" in the question, "veniturilor" in the paragraph — and whole-word
-     * matching scores those at nothing. Where a question shares no word with any paragraph, the part
-     * is read from its beginning rather than not at all.
+     * Whole, because a paragraph is written to be read under its article: "Baza anuală de calcul …
+     * o reprezintă:" says nothing on its own, and the numbers stand in the lettered points below it.
+     * An article is scored by everything in it, its marginal title counting double — the law's own
+     * name for what it is about, "Cota de contribuție de asigurări sociale de sănătate", which is
+     * the question almost word for word.
+     *
+     * A word is worth what it tells apart, not that it is there: "contribuția de asigurări sociale
+     * de sănătate" stands in two hundred of Chapter III's paragraphs and separates none of them,
+     * while "cota" stands in four. Counting words alone returned the chapter's opening definitions
+     * for every question asked of it.
+     *
+     * A word counts by its stem, since Romanian inflects every noun a law and a question have in
+     * common — "veniturile" against "veniturilor" — and short words count like any other: "cota" is
+     * four letters and names the value the whole question is about.
+     *
+     * An article is weighed against its own length: Art. 154 lists sixty exemptions and so holds
+     * most words of most questions about health contributions, while answering none of them.
      *
      * @param  list<Provision>  $provisions
-     * @param  list<string>  $approvedOn
+     * @param  list<string>  $approvedOn  the paragraphs a person approved this value on
      * @return list<Provision> in reading order
      */
     private function nearest(array $provisions, string $question, array $approvedOn): array
     {
         $stems = array_values(array_unique(array_map(
             static fn (string $word): string => mb_substr($word, 0, self::STEM),
-            array_filter(explode(' ', SectionText::searchable($question)), static fn (string $word): bool => mb_strlen($word) >= self::STEM),
+            array_filter(explode(' ', SectionText::searchable($question)), static fn (string $word): bool => mb_strlen($word) >= self::WORD),
         )));
-        $scored = [];
+        $articles = [];
 
-        foreach ($provisions as $position => $provision) {
-            $text = SectionText::searchable($provision->text);
-            $score = count(array_filter($stems, static fn (string $stem): bool => str_contains($text, $stem)));
-            $scored[] = ['position' => $position, 'score' => in_array($provision->citation, $approvedOn, true) ? $score + count($stems) : $score];
+        foreach ($provisions as $provision) {
+            $articles[$provision->article] ??= ['title' => SectionText::searchable($provision->title), 'texts' => [], 'approved' => false];
+            $articles[$provision->article]['texts'][] = SectionText::searchable($provision->text);
+            $articles[$provision->article]['approved'] = $articles[$provision->article]['approved'] || in_array($provision->citation, $approvedOn, true);
         }
 
-        usort($scored, static fn (array $a, array $b): int => [$b['score'], $a['position']] <=> [$a['score'], $b['position']]);
-        $closest = array_filter($scored, static fn (array $entry): bool => $entry['score'] > 0);
-        $keep = array_map(
-            static fn (array $entry): int => $entry['position'],
-            array_slice($closest === [] ? $scored : $closest, 0, $this->config->integer('ai.legislation.paragraphs')),
-        );
-        sort($keep);
+        $weights = [];
 
-        return array_map(static fn (int $position): Provision => $provisions[$position], $keep);
+        foreach ($stems as $stem) {
+            $in = count(array_filter($articles, static fn (array $article): bool => $article['title'] !== '' && str_contains($article['title'], $stem)
+                || array_filter($article['texts'], static fn (string $text): bool => str_contains($text, $stem)) !== []));
+            $weights[$stem] = $in === 0 ? 0.0 : log(1 + count($articles) / $in);
+        }
+
+        $of = static function (string $text) use ($stems, $weights): float {
+            $score = 0.0;
+
+            foreach ($stems as $stem) {
+                $score += str_contains($text, $stem) ? $weights[$stem] : 0.0;
+            }
+
+            return $score;
+        };
+        $scored = [];
+
+        foreach ($articles as $citation => $article) {
+            // The article's best paragraph, not all of them together: an article listing sixty
+            // exemptions holds most words of most questions between them, and answers none.
+            $scored[$citation] = ($article['approved'] ? array_sum($weights) : 0.0)
+                + $of($article['title']) * 2
+                + max(array_map($of, $article['texts']));
+        }
+
+        arsort($scored);
+        $read = array_slice(array_keys(array_filter($scored, static fn (float $score): bool => $score > 0.0)), 0, $this->config->integer('ai.legislation.articles'));
+        $room = $this->config->integer('ai.legislation.paragraphs');
+        $kept = [];
+
+        // The nearest article first and whole: an article of a hundred lettered points would
+        // otherwise fill the room by itself and leave the one that answers the question outside it.
+        foreach ($read as $citation) {
+            $article = array_values(array_filter($provisions, static fn (Provision $provision): bool => $provision->article === $citation));
+
+            if (count($article) <= $room) {
+                $kept = [...$kept, ...$article];
+                $room -= count($article);
+            }
+        }
+
+        $order = array_map(static fn (Provision $provision): string => $provision->citation, $provisions);
+        usort($kept, static fn (Provision $a, Provision $b): int => array_search($a->citation, $order, true) <=> array_search($b->citation, $order, true));
+
+        return $kept;
     }
 
     /**

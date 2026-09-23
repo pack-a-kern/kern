@@ -196,7 +196,9 @@ return [
             'subject' => 'PERSON',
             'law' => [
                 'within' => 'Titlul V Capitolul III',
-                'question' => 'Peste ce sumă lunară a venitului din pensii se datorează contribuția de asigurări sociale de sănătate?',
+                // The law asked this two ways: until July 2025 the part of a pension above 4.000 lei
+                // was owed, and since Legea 141/2025 a sum is deducted from the pension instead.
+                'question' => 'Care este suma lunară care se deduce din venitul din pensie la stabilirea bazei de calcul al contribuției de asigurări sociale de sănătate, sau suma peste care venitul din pensii se cuprinde în această bază?',
                 'answer' => 'lei',
             ],
         ],

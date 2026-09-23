@@ -10,9 +10,13 @@ final readonly class Provision
     public function __construct(
         public string $sectionId,
         public string $citation,
+        /** The citation of the article it belongs to — its own, for an article. */
+        public string $article,
         /** The heading path its article stands under, as a search reads it. */
         public string $path,
         public string $text,
+        /** The marginal title of the article it belongs to — "Cota de contribuție de asigurări sociale de sănătate". */
+        public string $title,
         public string $documentVersionId,
         /** The day the portal's note dates this wording from, when it is read in a later consolidation. */
         public ?string $datedByNote = null,

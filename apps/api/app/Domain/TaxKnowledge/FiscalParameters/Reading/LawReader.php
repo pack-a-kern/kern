@@ -77,18 +77,20 @@ final readonly class LawReader
             return null;
         }
 
-        $reply = $this->ask($this->instruction($definition, $on), $this->paragraphs($provisions), $model);
+        $sent = $this->paragraphs($provisions);
+        $reply = $this->ask($this->instruction($definition, $on), $sent, $model);
 
-        return $reply === null ? null : $this->verify($definition, $provisions, $reply, $model);
+        return $reply === null ? null : $this->verify($definition, $provisions, $sent, $reply, $model);
     }
 
     /**
      * The answer as the law itself confirms it, or null.
      *
      * @param  list<Provision>  $provisions
+     * @param  string  $sent  the paragraphs as the reader was given them
      * @param  array<string, mixed>  $reply
      */
-    private function verify(ParameterDefinition $definition, array $provisions, array $reply, string $model): ?LawAnswer
+    private function verify(ParameterDefinition $definition, array $provisions, string $sent, array $reply, string $model): ?LawAnswer
     {
         $citation = is_string($reply['citation'] ?? null) ? trim($reply['citation']) : '';
         $quote = is_string($reply['quote'] ?? null) ? trim($reply['quote']) : '';
@@ -105,19 +107,18 @@ final readonly class LawReader
             return null;
         }
 
-        // The quote as a search reads it: the model may keep the paragraph's own label in front of
-        // the sentence, or write the diacritics differently, and neither makes it a different
-        // sentence. Anything else must stand in the paragraph as written.
+        // The quote as a search reads it, against the paragraphs as the reader was given them: a
+        // rule the law writes as a paragraph and the lettered points below it — "baza o reprezintă:
+        // a) 6 salarii … b) 12 salarii" — is quoted across them, and that is still the law's own
+        // words. The labels travel with the text, so a quote that keeps them still matches.
         $searchable = SectionText::searchable($quote);
-        $inText = SectionText::searchable($said->text);
-        $withoutLabel = trim(str_replace(SectionText::searchable($said->citation), '', $searchable));
 
-        if (! str_contains($inText, $searchable) && ! str_contains($inText, $withoutLabel)) {
+        if (! str_contains(SectionText::searchable($sent), $searchable)) {
             return null;
         }
 
         foreach ($values as $value) {
-            if (preg_match('/\b' . preg_quote((string) $value, '/') . '\b/', $searchable) !== 1) {
+            if (preg_match('/\b' . preg_quote((string) $value, '/') . '\b/', self::digits($searchable)) !== 1) {
                 return null;
             }
         }
@@ -147,6 +148,12 @@ final readonly class LawReader
         sort($numbers);
 
         return $numbers;
+    }
+
+    /** A text with the law's own thousands separators taken out, so "3.000 lei" holds the number 3000. */
+    private static function digits(string $text): string
+    {
+        return (string) preg_replace('/(?<=\d)[.\s](?=\d{3}(?!\d))/u', '', $text);
     }
 
     /** @param list<Provision> $provisions */

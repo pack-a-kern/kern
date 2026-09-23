@@ -403,3 +403,49 @@ it('keeps a rule to the paragraph it was approved on for another year, and says 
         ->and($candidate('2025-01-01')->source_section_id)->toBe($section('Art. 170 alin. (3)')->id)
         ->and($candidate('2025-01-01')->evidence['checks'] ?? [])->toEqual([['kind' => 'paragraph_changed', 'citation' => 'Art. 170 alin. (4)', 'now' => 'Art. 170 alin. (3)', 'year' => 2025]]);
 });
+
+it('takes a quote across the points of one paragraph, and a number the law writes with a separator', function (): void {
+    $this->travelTo('2023-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
+    heading($version, 'Titlul V Capitolul III', [
+        ['Art. 170 alin. (3)', 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate o reprezintă:'],
+    ]);
+    heading($version, 'Titlul IV Capitolul VI', [
+        ['Art. 100 alin. (1)', 'Venitul impozabil lunar din pensii se stabilește prin deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei.'],
+    ]);
+    $paragraph = SourceSection::query()->where('citation_label', 'Art. 170 alin. (3)')->sole();
+
+    foreach (['lit. a)' => 'nivelul a 6 salarii minime brute pe țară;', 'lit. b)' => 'nivelul de 12 salarii minime brute pe țară.'] as $letter => $text) {
+        SourceSection::factory()->create([
+            'document_version_id' => $version->id,
+            'parent_id' => $paragraph->id,
+            'section_type' => SectionType::LITERA,
+            'citation_label' => "Art. 170 alin. (3) {$letter}",
+            'ordinal' => SourceSection::query()->where('document_version_id', $version->id)->count() + 1,
+            'text' => $text,
+        ]);
+    }
+
+    readers([
+        // The rule is written across the paragraph and the points below it, and the reader quotes it
+        // as one — labels and all, which is how the paragraphs were given to it.
+        'art. 155 alin. (1) lit. c)-h)' => [
+            'values' => [6, 12],
+            'citation' => 'Art. 170 alin. (3)',
+            'quote' => 'Art. 170 alin. (3) Baza anuală de calcul al contribuției de asigurări sociale de sănătate o reprezintă: Art. 170 alin. (3) lit. a) nivelul a 6 salarii minime brute pe țară; Art. 170 alin. (3) lit. b) nivelul de 12 salarii minime brute pe țară.',
+        ],
+        'suma neimpozabilă lunară' => [
+            'value' => 3000,
+            'citation' => 'Art. 100 alin. (1)',
+            'quote' => 'deducerea din venitul din pensie a sumei neimpozabile lunare de 3.000 lei',
+        ],
+    ]);
+
+    app(StartFiscalYear::class)(2023);
+
+    $value = static fn (string $code): array => FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $code)->select('id'))->sole()->value_json;
+
+    expect($value('RO.CASS.OTHER_INCOME.BANDS_WAGES'))->toBe(['wages' => [6, 12]])
+        ->and($value('RO.PENSION.TAX_FREE_AMOUNT'))->toBe(['amount_minor' => 300000, 'currency' => 'RON']);
+});

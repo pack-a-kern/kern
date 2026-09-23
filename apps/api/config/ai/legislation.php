@@ -28,13 +28,14 @@ return [
     /*
      * Who reads, and who reads after them.
      *
-     * Two models, because verification catches an invented quote but not a misunderstanding: asked
-     * for the cap on independent activities, `gpt-oss:20b` quoted, correctly and verifiably, the
-     * band for a different kind of income. Where the two disagree the value is still proposed — the
-     * first reader's — and says so, for a person to settle.
+     * A second reader catches what verification cannot: asked for the cap on independent activities,
+     * `gpt-oss:20b` quoted, correctly and verifiably, the band for a different kind of income. It is
+     * off by default — one reader, one call, and the person approving is the check — and is named
+     * here to turn on. Where two read differently the value is still proposed, the first reader's,
+     * saying so.
      */
     'reader' => env('LEGISLATION_AI_MODEL', 'gemma4:e4b-it-bf16'),
-    'second_reader' => env('LEGISLATION_AI_SECOND_MODEL', 'gpt-oss:20b'),
+    'second_reader' => env('LEGISLATION_AI_SECOND_MODEL', ''),
 
     /*
      * Room for the reply.
@@ -45,13 +46,16 @@ return [
     'max_tokens' => (int) env('LEGISLATION_AI_MAX_TOKENS', 16_000),
 
     /*
-     * How many paragraphs of the chapter are sent.
+     * How much of the chapter is sent: the articles nearest the question, whole, up to this many
+     * paragraphs between them.
      *
      * The whole chapter is 30 000 tokens and reading it whole is where a model starts leaving things
-     * out silently; the paragraphs closest to the question are a page, and that is what it answers
-     * well. The paragraph a person already approved for another year is always among them.
+     * out silently; three articles are a page or two, and that is what it answers well. Whole
+     * articles rather than single paragraphs, because the law writes "baza anuală o reprezintă:" in
+     * one paragraph and the numbers in the lettered points under it.
      */
-    'paragraphs' => (int) env('LEGISLATION_AI_PARAGRAPHS', 12),
+    'articles' => (int) env('LEGISLATION_AI_ARTICLES', 3),
+    'paragraphs' => (int) env('LEGISLATION_AI_PARAGRAPHS', 60),
 
     // The years the law is read for. The last is the year after this one, so a rule is ready before
     // the year it applies to starts.

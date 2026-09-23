@@ -33,6 +33,13 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  */
 final class LawProvisions
 {
+    /**
+     * Longest a first line can be and still be an article's title rather than its text. The law
+     * writes long ones: Art. 170's is 163 characters, and naming every income it covers is exactly
+     * what makes it worth reading.
+     */
+    private const int TITLE = 280;
+
     /** @var array<string, list<Provision>> version id => its provisions, in reading order */
     private array $provisions = [];
 
@@ -174,8 +181,10 @@ final class LawProvisions
                 $replacing[$stretch->citation_label] = new Provision(
                     $provision->sectionId,
                     $provision->citation,
+                    $provision->article,
                     $provision->path,
                     $provision->text,
+                    $provision->title,
                     $provision->documentVersionId,
                     $stretch->valid_from->format('Y-m-d'),
                 );
@@ -190,6 +199,18 @@ final class LawProvisions
         }
 
         return [...$read, ...array_values($replacing)];
+    }
+
+    /**
+     * An article's marginal title: the portal prints it as the article's own first line, above its
+     * paragraphs — "Cota de contribuție de asigurări sociale de sănătate". It names what the article
+     * is about in the law's own words, which is what a question about that value is written in.
+     */
+    private static function titleOf(SourceSection $article): string
+    {
+        $first = trim((string) strtok(trim($article->text), "\n"));
+
+        return mb_strlen($first) > self::TITLE ? '' : $first;
     }
 
     /** @return array<string, Provision> a version's provisions by section id */
@@ -238,17 +259,17 @@ final class LawProvisions
         }
 
         $ordered = [];
-        $walk = static function (SourceSection $section, string $path) use (&$walk, &$ordered, $children, $versionId): void {
-            $ordered[] = new Provision($section->id, $section->citation_label, $path, $section->fullText(), $versionId);
+        $walk = static function (SourceSection $section, string $path, string $title, string $article) use (&$walk, &$ordered, $children, $versionId): void {
+            $ordered[] = new Provision($section->id, $section->citation_label, $article, $path, $section->fullText(), $title, $versionId);
 
             foreach ($children[$section->id] ?? [] as $child) {
-                $walk($child, $path);
+                $walk($child, $path, $title, $article);
             }
         };
 
         foreach ($children[''] ?? [] as $article) {
             $path = $paths[$article->outline_id ?? ''] ?? '';
-            $walk($article, SectionText::searchable(is_string($path) ? $path : ''));
+            $walk($article, SectionText::searchable(is_string($path) ? $path : ''), self::titleOf($article), $article->citation_label);
         }
 
         return $this->provisions[$versionId] = $ordered;
