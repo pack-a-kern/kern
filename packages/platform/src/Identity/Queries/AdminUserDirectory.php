@@ -175,7 +175,8 @@ final readonly class AdminUserDirectory
         $rows = DB::table('model_has_roles as mhr')
             ->join('roles as r', 'r.id', '=', 'mhr.role_id')
             ->whereIn('mhr.model_id', $ids)
-            ->where('mhr.model_type', User::class)
+            // The alias the platform registers, not the class name: see PlatformServiceProvider.
+            ->where('mhr.model_type', (new User())->getMorphClass())
             ->get(['mhr.model_id', 'r.name']);
 
         $byUser = [];

@@ -6,11 +6,13 @@ namespace Kern\Platform;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
 use Kern\Platform\Identity\IdentityServiceProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
 use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Settings\SettingsServiceProvider;
@@ -70,6 +72,20 @@ final class PlatformServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        /*
+         * `users` rows are referenced polymorphically as `user`, never as a class name.
+         *
+         * Spatie's `model_has_roles.model_type` and Laravel's `notifications.notifiable_type` store
+         * whatever `getMorphClass()` returns, and by default that is the fully qualified class name.
+         * So moving `User` from `App\Domain\Identity\Models` to this package silently detached every
+         * role assignment and every notification in an existing installation: the rows still named a
+         * class that no longer exists, so the user held no roles and saw no notices, and the only
+         * symptom was a 403 on every administrative screen.
+         *
+         * An alias fixes it for good — the stored value no longer depends on where the class lives.
+         */
+        Relation::morphMap(['user' => User::class]);
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->publishes([
