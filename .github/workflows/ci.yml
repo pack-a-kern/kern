@@ -19,6 +19,13 @@
 #                       containers. `needs: php-quality` — do not spend a
 #                       database + full test run on a change that doesn't
 #                       even pass static analysis.
+#   package-suites    — every `packages/*` suite, each with its own
+#                       `composer install` and its own Laravel. `needs:
+#                       php-quality`, same reasoning as php-tests. This is
+#                       the lane that answers "is each package installable
+#                       on its own", which php-tests structurally cannot:
+#                       it runs against an application where every package
+#                       happens to be present (docs/adr/0016, Stage 2).
 #   js-api            — apps/api's Inertia/React frontend: lint, format,
 #                       typecheck, build, audit. No `needs`. Uploads the
 #                       Vite build as an artifact for the `containers` job.
@@ -139,6 +146,11 @@ jobs:
       - name: Pint
         run: vendor/bin/pint --test
 
+      # `../../packages` is the local Composer packages. PHPStan and Deptrac already reach them
+      # through their own config files (`phpstan.neon`'s paths, `deptrac.php`'s); Pint takes a path.
+      - name: Pint (packages)
+        run: vendor/bin/pint --test ../../packages
+
       - name: PHPStan
         env:
           # Non-secret, test-only Laravel APP_KEY (see php-tests job below
@@ -241,6 +253,73 @@ jobs:
 
       - name: Pest
         run: vendor/bin/pest
+
+  # ---------------------------------------------------------------------
+  # Each package on its own — the lane php-tests cannot be.
+  # ---------------------------------------------------------------------
+  package-suites:
+    name: Package suites (kern/*, each installed alone)
+    runs-on: ubuntu-latest
+    needs: php-quality
+    services:
+      postgres:
+        # Same image as php-tests: `kern/audit` needs `SELECT … FOR UPDATE`
+        # and a trigger, `kern/legislation` needs pgvector and pg_trgm.
+        image: pgvector/pgvector:pg18-trixie
+        env:
+          POSTGRES_DB: kern_pkg_test
+          POSTGRES_USER: kern
+          POSTGRES_PASSWORD: kern_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U kern"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      # Read by each package's own TestCase. No APP_KEY: none of these suites
+      # encrypts anything with Laravel's own encrypter — the platform's cipher
+      # takes its keys from the in-memory KMS double these suites bind.
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USERNAME: kern
+      DB_PASSWORD: kern_ci
+      KERN_PACKAGE_TEST_DATABASE: kern_pkg_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          extensions: pdo_pgsql, redis, bcmath, intl, pcntl, sodium
+          tools: composer:2.10.3
+          coverage: none
+
+      # One suite per package, each with its own vendor directory — sharing the
+      # application's would let a test resolve a class from a package this one
+      # does not require, which is the whole property under test.
+      #
+      # No `composer.lock` is committed for a package and none is restored here,
+      # so each run resolves against the newest versions its constraints allow.
+      # That is the right default for a library: the lock belongs to the
+      # application that installs it, and this lane is where a dependency that
+      # broke its own compatibility promise should surface.
+      #
+      # Sequential, not a matrix: every suite migrates the same `kern_pkg_test`
+      # database from nothing, so two of them at once would drop each other's
+      # tables mid-run.
+      - name: Run every package's suite
+        run: |
+          set -euo pipefail
+          for package in packages/*/; do
+            name="$(basename "$package")"
+            echo "::group::kern/$name"
+            (cd "$package" && composer install --no-interaction --prefer-dist && vendor/bin/pest)
+            echo "::endgroup::"
+          done
 
   # ---------------------------------------------------------------------
   # JavaScript/TypeScript — apps/api (Inertia/React frontend).
@@ -391,7 +470,7 @@ jobs:
   containers:
     name: Containers (${{ matrix.name }})
     runs-on: ubuntu-latest
-    needs: [php-quality, php-tests, js-api, js-spv-browser, python]
+    needs: [php-quality, php-tests, package-suites, js-api, js-spv-browser, python]
     strategy:
       fail-fast: false
       matrix:
