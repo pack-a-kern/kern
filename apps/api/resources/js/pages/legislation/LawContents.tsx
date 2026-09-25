@@ -108,12 +108,13 @@ export default function LawContents({
                                     ) : (
                                         <ChevronRight className="mt-0.5 size-3.5 shrink-0" />
                                     )}
-                                    <span className="min-w-0">
-                                        <span className="block text-xs font-semibold">
-                                            {title.label}
-                                            {title.name === '' ? '' : ` — ${title.name}`}
-                                        </span>
-                                        {span === null ? null : <span className="note block">{span}</span>}
+                                    {/* The articles a title spans read as part of its line, not under
+                                        it: a closed outline of fourteen titles is fourteen lines
+                                        rather than twenty-eight, and usually needs no scrolling. */}
+                                    <span className="min-w-0 text-xs font-semibold">
+                                        {title.label}
+                                        {title.name === '' ? '' : ` — ${title.name}`}
+                                        {span === null ? null : <span className="note ml-1.5 font-normal">{span}</span>}
                                     </span>
                                 </button>
                                 {open ? <div className="pb-1.5 pl-4">{below(title, 0)}</div> : null}

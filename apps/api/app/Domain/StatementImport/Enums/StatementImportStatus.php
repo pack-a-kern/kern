@@ -30,8 +30,6 @@ enum StatementImportStatus: string
     /** The file could not be read, or the mapping could not be applied. `failure_reason` says which. */
     case FAILED = 'FAILED';
 
-    /** Imported, then taken back out again. The transactions it made are gone. */
-    case UNDONE = 'UNDONE';
 
     /** Whether a person can still change what this import will do. */
     public function isOpen(): bool

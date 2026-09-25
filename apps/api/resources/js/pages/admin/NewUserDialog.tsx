@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { AtSignIcon, CopyIcon } from 'lucide-react';
+import { AtSignIcon, Check, CopyIcon, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createUser } from '../../api/adminApi';
@@ -100,6 +100,7 @@ export default function NewUserDialog(props: {
                 created === null ? (
                     <>
                         <PanelButton variant="outline" onClick={close}>
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -109,11 +110,13 @@ export default function NewUserDialog(props: {
                                 void submit();
                             }}
                         >
+                            <Plus className="size-3.5" aria-hidden="true" />
                             {saving ? t((d) => d.pages.adminUsers.saving) : t((d) => d.pages.adminUsers.newSubmit)}
                         </PanelButton>
                     </>
                 ) : (
                     <PanelButton primary onClick={close}>
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.adminUsers.newDone)}
                     </PanelButton>
                 )

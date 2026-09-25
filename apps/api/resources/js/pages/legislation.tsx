@@ -1,15 +1,17 @@
 import { Link, router } from '@inertiajs/react';
-import { FileText, Landmark, Plus, Scale, ScrollText, Search, type LucideIcon } from 'lucide-react';
+import { FileText, Landmark, Plus, Scale, ScrollText, Search, Trash2, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { listLaws, searchLegislation } from '../api/legislationApi';
+import { deleteLaw, listLaws, searchLegislation } from '../api/legislationApi';
 import AppShell from '../components/AppShell';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { Field, Page, Panel, PanelButton, PanelSelect, Pill, SearchInput, Status } from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
+import { describeApiFailure } from '../lib/apiErrors';
 import { formatDate } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { useSharedAuth } from '../lib/sharedProps';
@@ -270,6 +272,9 @@ function Laws({ reload }: { reload: number }): JSX.Element {
     const { t, locale } = useTranslation();
     const [laws, setLaws] = useState<LawSummary[] | null>(null);
     const [failed, setFailed] = useState(false);
+    const [removing, setRemoving] = useState<LawSummary | null>(null);
+    const [again, setAgain] = useState(0);
+    const mayRemove = useSharedAuth()?.user.permissions.includes('operations.run') === true;
 
     useEffect(() => {
         let active = true;
@@ -290,7 +295,7 @@ function Laws({ reload }: { reload: number }): JSX.Element {
         return () => {
             active = false;
         };
-    }, [reload]);
+    }, [reload, again]);
 
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
 
@@ -380,13 +385,65 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                                         ))}
                                     </dl>
                                 </div>
-                                <div className="col-start-2 sm:col-start-auto">
+                                <div className="col-start-2 flex items-start gap-1.5 sm:col-start-auto">
+                                    {mayRemove ? (
+                                        <PanelButton
+                                            onClick={(event) => {
+                                                // The card itself opens the law; this one must not.
+                                                event.stopPropagation();
+                                                setRemoving(law);
+                                            }}
+                                        >
+                                            <Trash2 className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.legislation.laws.remove)}
+                                        </PanelButton>
+                                    ) : null}
                                     <PanelButton onClick={open}>{t((d) => d.pages.legislation.laws.open)}</PanelButton>
                                 </div>
                             </article>
                         );
                     })}
                 </div>
+            )}
+
+            {removing === null ? null : (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setRemoving(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.legislation.laws.removeTitle)}
+                    description={removing.title ?? removing.url}
+                    detail={
+                        <p className="note">
+                            {t((d) => d.pages.legislation.laws.removeDetail).replace(
+                                '{consolidations}',
+                                String(removing.consolidationsRead),
+                            )}
+                        </p>
+                    }
+                    confirmLabel={t((d) => d.pages.legislation.laws.remove)}
+                    cancelLabel={t((d) => d.common.cancel)}
+                    onConfirm={async () => {
+                        try {
+                            await deleteLaw(removing.id);
+                            toast.success(t((d) => d.pages.legislation.laws.removed));
+                            setRemoving(null);
+                            setAgain((run) => run + 1);
+                        } catch (cause) {
+                            // A law the fiscal values rest on is refused, and says how many rest on it.
+                            const said =
+                                cause instanceof ApiError && cause.reason === 'LAW_HAS_VALUES'
+                                    ? t((d) => d.pages.legislation.laws.removeRefused)
+                                    : describeApiFailure(cause, t);
+
+                            toast.error(said);
+                            throw cause;
+                        }
+                    }}
+                />
             )}
         </section>
     );

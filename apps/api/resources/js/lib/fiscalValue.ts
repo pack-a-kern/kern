@@ -28,12 +28,15 @@ export function describeFiscalValue(
     }
 
     // A base with two ends — not less than six wages, not more than seventy-two — reads as a range.
+    // Both ends the same is a base that cannot move, which the law set as one level: it reads as one.
     if (typeof value.floor === 'number' || typeof value.cap === 'number') {
         const end = (one: unknown): string => (typeof one === 'number' ? String(one) : '—');
 
-        return t((d) => d.pages.taxRules.wagesRange)
-            .replace('{floor}', end(value.floor))
-            .replace('{cap}', end(value.cap));
+        return value.floor === value.cap
+            ? t((d) => d.pages.taxRules.wages).replace('{count}', end(value.floor))
+            : t((d) => d.pages.taxRules.wagesRange)
+                  .replace('{floor}', end(value.floor))
+                  .replace('{cap}', end(value.cap));
     }
 
     const wages = type === 'JSON' ? (Array.isArray(value.wages) ? value.wages : []) : [value.value];
@@ -76,10 +79,8 @@ export function describeCheck(
 }
 
 /** What needs a second look is a warning; what only informs is not. */
-export function checkTone(check: { kind: string }): 'ok' | 'warn' | 'idle' {
-    return check.kind === 'confirmed_by_form'
-        ? 'ok'
-        : check.kind === 'several_paragraphs' || check.kind === 'dated_by_note' || check.kind === 'in_force_later'
-          ? 'idle'
-          : 'warn';
+export function checkTone(check: { kind: string }): 'warn' | 'idle' {
+    return check.kind === 'several_paragraphs' || check.kind === 'dated_by_note' || check.kind === 'in_force_later'
+        ? 'idle'
+        : 'warn';
 }

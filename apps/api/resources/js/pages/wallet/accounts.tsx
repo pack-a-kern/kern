@@ -1,4 +1,4 @@
-import { Banknote, LandmarkIcon, PercentIcon, PlusIcon, TagIcon, Trash2 } from 'lucide-react';
+import { Banknote, Check, LandmarkIcon, PercentIcon, PlusIcon, TagIcon, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -745,6 +745,7 @@ export default function WalletAccounts(): JSX.Element {
                                 errors.reset();
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -763,6 +764,7 @@ export default function WalletAccounts(): JSX.Element {
                                 void submit();
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.save)}
                         </PanelButton>
                     </>

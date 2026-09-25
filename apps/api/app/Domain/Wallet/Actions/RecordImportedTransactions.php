@@ -12,6 +12,7 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,54 +62,77 @@ final readonly class RecordImportedTransactions
                     continue;
                 }
 
-                if ($row->categoryCode !== null) {
-                    $this->categories->assertFitsDirection($row->categoryCode, $row->amountMinor);
+                /*
+                 * Each row on its own savepoint, so a line the ledger already holds costs that line
+                 * and nothing more.
+                 *
+                 * The import excludes duplicates before staging anything, and the unique key on
+                 * `(account_id, external_id_blind_index)` is the guard under that check — for two
+                 * imports of the same file written at the same moment. Without a savepoint the
+                 * collision would abort the whole batch and lose a statement a person had just
+                 * finished going through, to save them a row they did not want.
+                 */
+                try {
+                    DB::transaction(function () use ($taxSubjectId, $accountId, $row, &$written): void {
+                        $written[$row->rowId] = $this->write($taxSubjectId, $accountId, $row);
+                    });
+                } catch (UniqueConstraintViolationException) {
+                    // Already in the ledger, by the fingerprint that says so.
                 }
-
-                $transaction = new FinancialTransaction([
-                    'tax_subject_id' => $taxSubjectId,
-                    'account_id' => $accountId,
-                    'bank_id' => $row->bankId,
-                    'booked_at' => $row->bookedAt,
-                    'amount_minor' => $row->amountMinor,
-                    'currency_code' => strtoupper($row->currencyCode),
-                    'description_ciphertext' => $row->description,
-                    'counterparty_ciphertext' => $row->counterparty,
-                    'counterparty_blind_index' => $row->counterpartyBlindIndex,
-                    'classification_status' => $row->categoryCode === null
-                        ? TransactionClassificationStatus::UNCLASSIFIED
-                        : TransactionClassificationStatus::CLASSIFIED,
-                    'source' => RecordSource::IMPORT,
-                    'import_id' => $row->importId,
-                ]);
-
-                // The fingerprint of the statement line, in the column whose uniqueness per account
-                // is what makes a second import of the same file write nothing.
-                $transaction->external_id_blind_index = $row->fingerprint;
-                $transaction->save();
-
-                if ($row->categoryCode !== null) {
-                    TransactionSplit::create([
-                        'tax_subject_id' => $taxSubjectId,
-                        'transaction_id' => $transaction->id,
-                        'amount_minor' => $row->amountMinor,
-                        'category_code' => $row->categoryCode,
-                        'country_code' => $row->countryCode,
-                    ]);
-                }
-
-                if ($row->tagIds !== []) {
-                    $transaction->tags()->sync(array_fill_keys(
-                        $row->tagIds,
-                        ['tax_subject_id' => $taxSubjectId],
-                    ));
-                }
-
-                $written[$row->rowId] = $transaction->id;
             }
         });
 
         return $written;
+    }
+
+    /** One transaction, its split and its tags — the part that a duplicate fingerprint rolls back. */
+    private function write(string $taxSubjectId, string $accountId, ImportedTransactionInput $row): string
+    {
+
+        if ($row->categoryCode !== null) {
+            $this->categories->assertFitsDirection($row->categoryCode, $row->amountMinor);
+        }
+
+        $transaction = new FinancialTransaction([
+            'tax_subject_id' => $taxSubjectId,
+            'account_id' => $accountId,
+            'bank_id' => $row->bankId,
+            'booked_at' => $row->bookedAt,
+            'amount_minor' => $row->amountMinor,
+            'currency_code' => strtoupper($row->currencyCode),
+            'description_ciphertext' => $row->description,
+            'counterparty_ciphertext' => $row->counterparty,
+            'counterparty_blind_index' => $row->counterpartyBlindIndex,
+            'classification_status' => $row->categoryCode === null
+                ? TransactionClassificationStatus::UNCLASSIFIED
+                : TransactionClassificationStatus::CLASSIFIED,
+            'source' => RecordSource::IMPORT,
+            'import_id' => $row->importId,
+        ]);
+
+        // The fingerprint of the statement line, in the column whose uniqueness per account
+        // is what makes a second import of the same file write nothing.
+        $transaction->external_id_blind_index = $row->fingerprint;
+        $transaction->save();
+
+        if ($row->categoryCode !== null) {
+            TransactionSplit::create([
+                'tax_subject_id' => $taxSubjectId,
+                'transaction_id' => $transaction->id,
+                'amount_minor' => $row->amountMinor,
+                'category_code' => $row->categoryCode,
+                'country_code' => $row->countryCode,
+            ]);
+        }
+
+        if ($row->tagIds !== []) {
+            $transaction->tags()->sync(array_fill_keys(
+                $row->tagIds,
+                ['tax_subject_id' => $taxSubjectId],
+            ));
+        }
+
+        return $transaction->id;
     }
 
     /**

@@ -46,7 +46,6 @@ use Illuminate\Support\Facades\DB;
  * @property string|null $ai_failure_reason
  * @property string|null $created_by
  * @property \Illuminate\Support\Carbon|null $imported_at
- * @property \Illuminate\Support\Carbon|null $undone_at
  */
 final class StatementImport extends Model implements EncryptsWithSubjectDek
 {
@@ -79,7 +78,6 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
         'ai_failure_reason',
         'created_by',
         'imported_at',
-        'undone_at',
     ];
 
     /** @var array<string, string> */
@@ -90,7 +88,6 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
         'preview_ciphertext' => Encrypted::class,
         'column_mapping' => 'array',
         'imported_at' => 'datetime',
-        'undone_at' => 'datetime',
     ];
 
     /**

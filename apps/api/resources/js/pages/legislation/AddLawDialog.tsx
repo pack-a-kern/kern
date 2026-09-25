@@ -1,3 +1,4 @@
+import { Search, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -115,9 +116,11 @@ export default function AddLawDialog({
                             onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.legislation.add.close)}
                     </PanelButton>
                     <PanelButton primary disabled={!canSearch || searching} onClick={() => void search()}>
+                        <Search className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.legislation.add.search)}
                     </PanelButton>
                 </>

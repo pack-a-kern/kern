@@ -84,6 +84,14 @@ final class ShowStatementImportController extends Controller
             // confirmed and the real rows exist — the screen has moved on by then.
             'preview' => $preview,
             'mapping' => $model->column_mapping,
+            // Which fields of the form may name several places, and how many. Sent rather than
+            // mirrored in the client: the rule lives in `statement_import.multi_source_fields` and
+            // the ceiling in the validator, and a second copy in TypeScript would disagree with them
+            // the first time either changed — by refusing a place the screen had just offered.
+            'multi_source' => [
+                'fields' => config()->array('statement_import.multi_source_fields'),
+                'max' => config()->integer('statement_import.max_source_places'),
+            ],
             // How many rows each side has answered, so the screen can say what is still waiting on
             // the model rather than leaving a person to scroll and count.
             'proposals' => [

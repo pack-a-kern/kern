@@ -33,6 +33,16 @@ final class ReadFiscalYear implements ShouldBeUnique, ShouldQueue
     /** Long enough for a year of values to be read, one model call at a time. */
     public int $timeout = 3600;
 
+    /**
+     * How long the year is held against a second reading — the same as the job may run for.
+     *
+     * A job killed mid-reading, by a deploy or by a worker restart, never releases the lock it
+     * took. Without an end to it, that year could never be read again: the screen would ask, the
+     * request would be accepted, and the job would be dropped on dispatch with nothing to show for
+     * it. It ends when the job itself must.
+     */
+    public int $uniqueFor = 3600;
+
     public function __construct(public readonly int $year)
     {
         $this->onQueue(config()->string('legislation.queue'));

@@ -55,6 +55,8 @@ export interface ParameterRead {
 
 export interface FiscalParameter {
     code: string;
+    /** The tax it belongs to — `RO.INCOME_TAX` — whose rules are shown together. */
+    tax: string;
     type: ParameterType;
     subject: ParameterSubject;
     versions: ParameterVersion[];
@@ -163,6 +165,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
 
             return {
                 code: str(row, 'code'),
+                tax: str(row, 'tax'),
                 type: type(row.type),
                 subject: subject(row.subject),
                 versions: list(row.versions).map((item): ParameterVersion => {

@@ -59,6 +59,44 @@ final readonly class StatementField
         };
     }
 
+    /**
+     * A field's places, in the order they are tried.
+     *
+     * One place arrives as an object and several as a list, because a form written when every field
+     * had exactly one answer is still stored that way — and a mapping saved a month ago must keep
+     * reading the same statement the same way.
+     *
+     * @return list<self>
+     */
+    public static function chain(mixed $raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $places = array_is_list($raw) ? $raw : [$raw];
+
+        return array_values(array_filter(array_map(self::fromArray(...), $places)));
+    }
+
+    /**
+     * What a chain is written back as: one place stays an object, several become a list.
+     *
+     * The narrower shape is kept for the common case so that a form nobody has added a place to
+     * looks exactly as it always did, in the database and in a diff.
+     *
+     * @param  list<self>  $chain
+     * @return array<string, mixed>|list<array<string, mixed>>|null
+     */
+    public static function chainToArray(array $chain): array|null
+    {
+        return match (count($chain)) {
+            0 => null,
+            1 => $chain[0]->toArray(),
+            default => array_map(static fn (self $field): array => $field->toArray(), $chain),
+        };
+    }
+
     /** The column number a field names, or null when it names something else. */
     public static function indexIn(mixed $raw): ?int
     {

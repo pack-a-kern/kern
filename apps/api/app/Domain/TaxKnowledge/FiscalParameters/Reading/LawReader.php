@@ -16,6 +16,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Psr\Log\LoggerInterface;
 
 /**
  * One question put to a model about the law, and the answer checked against the law itself.
@@ -40,6 +41,7 @@ final readonly class LawReader
         private AiProviderCatalogue $catalogue,
         private ResolveAiProviderCredentials $credentials,
         private ConfigRepository $config,
+        private LoggerInterface $log,
     ) {
     }
 
@@ -78,9 +80,20 @@ final readonly class LawReader
         }
 
         $sent = $this->paragraphs($provisions);
-        $reply = $this->ask($this->instruction($definition, $on), $sent, $model);
+        $reply = $this->ask($this->instruction($definition, $on), $sent, $model, [
+            'asked' => $definition->code,
+            'on' => $on->format('Y-m-d'),
+            'provisions' => count($provisions),
+        ]);
 
-        return $reply === null ? LawReading::unreached() : LawReading::of($this->verify($definition, $provisions, $sent, $reply, $model));
+        if ($reply === null) {
+            return LawReading::unreached();
+        }
+
+        $answer = $this->verify($definition, $provisions, $sent, $reply, $model);
+        $this->refused($definition, $answer, $reply);
+
+        return LawReading::of($answer);
     }
 
     /**
@@ -102,7 +115,11 @@ final readonly class LawReader
         }
 
         $sent = $this->paragraphs($provisions);
-        $reply = $this->ask($this->instructionTogether($definitions, $on), $sent, $model);
+        $reply = $this->ask($this->instructionTogether($definitions, $on), $sent, $model, [
+            'asked' => implode(', ', array_map(static fn (ParameterDefinition $definition): string => $definition->code, $definitions)),
+            'on' => $on->format('Y-m-d'),
+            'provisions' => count($provisions),
+        ]);
         $read = [];
 
         foreach ($definitions as $definition) {
@@ -112,6 +129,10 @@ final readonly class LawReader
 
             if ($found !== null) {
                 $read[$definition->code] = $found;
+            }
+
+            if ($answer !== null) {
+                $this->refused($definition, $found, $answer);
             }
         }
 
@@ -127,8 +148,9 @@ final readonly class LawReader
      */
     private function verify(ParameterDefinition $definition, array $provisions, string $sent, array $reply, string $model): ?LawAnswer
     {
-        $values = $this->numbers($definition, $reply);
-        $citations = $this->citations($definition, $reply);
+        $range = $definition->answer->isRangeIn($reply);
+        $values = $this->numbers($definition, $reply, $range);
+        $citations = $this->citations($definition, $reply, $range);
 
         if ($values === [] || $citations === []) {
             return null;
@@ -139,14 +161,16 @@ final readonly class LawReader
         foreach ($citations as $at => $citation) {
             $paragraph = $this->paragraph($citation, $provisions);
 
-            if ($paragraph === null || ! $this->states($paragraph, $definition->answer->isRange() ? [$values[$at] ?? $values[0]] : $values)) {
+            // A range stands on two paragraphs, a number each; every other answer states all of its
+            // numbers in the one paragraph it names.
+            if ($paragraph === null || ! $this->states($paragraph, $range ? [$values[$at] ?? $values[0]] : $values)) {
                 return null;
             }
 
             $said[] = $paragraph;
         }
 
-        return new LawAnswer($values, $said[0]->sectionId, $said[0]->citation, end($said)->citation, $model);
+        return new LawAnswer($values, $said[0]->sectionId, $said[0]->citation, end($said)->citation, $model, $range);
     }
 
     /**
@@ -190,9 +214,9 @@ final readonly class LawReader
      * @param  array<string, mixed>  $reply
      * @return list<string>
      */
-    private function citations(ParameterDefinition $definition, array $reply): array
+    private function citations(ParameterDefinition $definition, array $reply, bool $range): array
     {
-        $named = $definition->answer->isRange()
+        $named = $range
             ? [$reply['floor_citation'] ?? null, $reply['cap_citation'] ?? null]
             : [$reply['citation'] ?? null];
         $citations = array_values(array_map('trim', array_filter($named, static fn (mixed $citation): bool => is_string($citation) && trim($citation) !== '')));
@@ -207,11 +231,17 @@ final readonly class LawReader
      * @param  array<string, mixed>  $reply
      * @return list<int>
      */
-    private function numbers(ParameterDefinition $definition, array $reply): array
+    private function numbers(ParameterDefinition $definition, array $reply, bool $range): array
     {
-        $given = match ($definition->answer) {
-            ParameterAnswer::WAGES_LIST => is_array($reply['values'] ?? null) ? $reply['values'] : [],
-            ParameterAnswer::WAGES_RANGE => [$reply['floor'] ?? null, $reply['cap'] ?? null],
+        // A reply that names one shape and answers in the other is not an answer: "steps" with a
+        // floor, or an interval with a list, is a reader that has not decided what it read.
+        if ($definition->answer->isEither() && ($range === is_array($reply['values'] ?? null))) {
+            return [];
+        }
+
+        $given = match (true) {
+            $range => [$reply['floor'] ?? null, $reply['cap'] ?? null],
+            $definition->answer === ParameterAnswer::WAGES_LIST, $definition->answer->isEither() => is_array($reply['values'] ?? null) ? $reply['values'] : [],
             default => [$reply['value'] ?? null],
         };
         $said = array_values(array_filter($given, static fn (mixed $value): bool => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value))));
@@ -222,7 +252,7 @@ final readonly class LawReader
         }
 
         // A range is the floor and the cap, in that order; everything else reads smallest first.
-        if (! $definition->answer->isRange()) {
+        if (! $range) {
             sort($numbers);
         }
 
@@ -277,12 +307,42 @@ final readonly class LawReader
     }
 
     /**
+     * What a reply said, where nothing in it was a value.
+     *
+     * An answer is refused for reasons the law can settle — a paragraph that was never sent, a
+     * number that does not stand in it, a citation left out where two are asked for — and the reply
+     * is the only thing that says which. Kept at debug, and only when refused: what it holds is
+     * numbers and the label of a paragraph of a public law, never a person's anything.
+     *
+     * @param  array<string, mixed>  $reply
+     */
+    private function refused(ParameterDefinition $definition, ?LawAnswer $answer, array $reply): void
+    {
+        if ($answer !== null) {
+            return;
+        }
+
+        $this->log->debug('legislation.refused', [
+            'asked' => $definition->code,
+            'said' => json_encode($reply, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR),
+        ]);
+    }
+
+    /**
      * One call, and the JSON object of its reply — or null when the provider refuses, the model
      * runs out of room, or what comes back is not one object.
      *
+     * Every call is logged, before and after: reading a year is a handful of calls whose number is
+     * not obvious from the outside — one per tax, one more for each question the first reply left
+     * unanswered, one for each day the law changed under a rule — and a reading that sits for
+     * minutes is one of them waiting on the model. The line before says which is out; the line
+     * after says how long it took and whether anything came back. Nothing of the law is logged:
+     * what is sent is public text this application already holds, and the counts locate the call.
+     *
+     * @param  array{asked: string, on: string, provisions: int}  $about  which question, in the law of which day
      * @return array<string, mixed>|null
      */
-    private function ask(string $instruction, string $paragraphs, string $model): ?array
+    private function ask(string $instruction, string $paragraphs, string $model, array $about): ?array
     {
         $credentials = ($this->credentials)();
         $baseUrl = $credentials->baseUrl;
@@ -290,6 +350,10 @@ final readonly class LawReader
         if ($baseUrl === null) {
             return null;
         }
+
+        $context = [...$about, 'model' => $model, 'characters' => mb_strlen($paragraphs)];
+        $started = microtime(true);
+        $this->log->debug('legislation.asking', $context);
 
         $dialect = $this->catalogue->dialectFor($credentials->provider);
         $body = $dialect->extractionBody(
@@ -304,18 +368,30 @@ final readonly class LawReader
             ? $dialect->unauthenticatedHeaders($this->catalogue->anthropicVersion())
             : $dialect->authHeaders($credentials->apiKey, $this->catalogue->anthropicVersion());
 
+        $said = function (string $reply) use ($context, $started): void {
+            $this->log->info('legislation.read', [...$context, 'seconds' => round(microtime(true) - $started, 1), 'reply' => $reply]);
+        };
+
         try {
             $response = $this->http
                 ->timeout($this->config->integer('ai.legislation.timeout_seconds'))
                 ->withHeaders($headers)
                 ->post(rtrim($baseUrl, '/') . $dialect->chatPath(), $body);
         } catch (ConnectionException) {
+            $said('unreachable');
+
             return null;
         }
 
         $reply = $response->successful() ? data_get($response->json(), $dialect->replyTextPath()) : null;
+        $read = is_string($reply) ? $this->decode($reply) : null;
+        $said(match (true) {
+            ! $response->successful() => 'refused ' . $response->status(),
+            $read !== null => 'read',
+            default => 'unreadable',
+        });
 
-        return is_string($reply) ? $this->decode($reply) : null;
+        return $read;
     }
 
     /**

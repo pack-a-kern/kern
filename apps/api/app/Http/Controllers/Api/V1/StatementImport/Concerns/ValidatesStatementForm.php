@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\StatementImport\Concerns;
 
 use App\Domain\StatementImport\DataTransferObjects\StatementField;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
@@ -18,6 +19,44 @@ use Illuminate\Validation\Rule;
 trait ValidatesStatementForm
 {
     /**
+     * The request's form, with every chainable field written as a list of places.
+     *
+     * The wire keeps accepting one place as an object, because that is what is stored today and what
+     * the model proposes; everything after this point sees one shape.
+     *
+     * @return array<string, mixed>
+     */
+    protected function asChains(Request $request): array
+    {
+        $form = $request->all();
+
+        foreach (['counterparty', 'reference'] as $field) {
+            if (! self::chainable($field) || ! is_array($form[$field] ?? null)) {
+                continue;
+            }
+
+            foreach (['debit', 'credit'] as $side) {
+                $place = $form[$field][$side] ?? null;
+
+                if (is_array($place) && ! array_is_list($place)) {
+                    $form[$field][$side] = [$place];
+                }
+            }
+        }
+
+        return $form;
+    }
+
+    /** Whether this field of the form may name several places. */
+    protected static function chainable(string $field): bool
+    {
+        /** @var list<string> $fields */
+        $fields = config()->array('statement_import.multi_source_fields');
+
+        return in_array($field, $fields, true);
+    }
+
+    /**
      * @return array<string, array<int, mixed>>
      */
     protected function formRules(): array
@@ -27,10 +66,28 @@ trait ValidatesStatementForm
          * rules are built once rather than written out eight times. Amount fields are columns only:
          * a figure written on a detail line as a label is not something this can add up.
          */
-        $field = static function (string $key, bool $columnsOnly = false): array {
+        $field = static function (string $key, bool $columnsOnly = false, bool $chain = false): array {
             $kinds = $columnsOnly
                 ? [StatementField::INDEX]
                 : [StatementField::INDEX, StatementField::LABEL, StatementField::CODE];
+
+            /*
+             * A field that may name several places is a list by the time it gets here.
+             *
+             * One place still arrives as an object — that is how every mapping saved so far is
+             * written, and how the model proposes one — and `asChains()` wraps it before the rules
+             * run. Describing both shapes here is not possible: `field.*` matches an object's own
+             * keys as readily as a list's items, so a single place would be asked to have a `type`
+             * that is itself an array.
+             */
+            if ($chain) {
+                return [
+                    $key => ['sometimes', 'nullable', 'array', 'max:' . config()->integer('statement_import.max_source_places')],
+                    $key . '.*' => ['array'],
+                    $key . '.*.type' => ['required', Rule::in($kinds)],
+                    $key . '.*.value' => ['required', 'max:120'],
+                ];
+            }
 
             return [
                 $key => ['sometimes', 'nullable', 'array'],
@@ -71,10 +128,12 @@ trait ValidatesStatementForm
             $field('amounts.credit', columnsOnly: true),
             $field('currency'),
             $field('description'),
-            $field('counterparty.debit'),
-            $field('counterparty.credit'),
-            $field('reference.debit'),
-            $field('reference.credit'),
+            // Which of these may name more than one place is `statement_import.multi_source_fields`,
+            // so this layer, the form and the screen cannot disagree about it.
+            $field('counterparty.debit', chain: self::chainable('counterparty')),
+            $field('counterparty.credit', chain: self::chainable('counterparty')),
+            $field('reference.debit', chain: self::chainable('reference')),
+            $field('reference.credit', chain: self::chainable('reference')),
         );
     }
 }

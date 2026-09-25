@@ -235,6 +235,14 @@ final readonly class SuggestColumnMapping
             };
         };
 
+        /**
+         * The same, for a field that may name several places: every place the file actually has.
+         *
+         * @param  list<StatementField>  $chain
+         * @return list<StatementField>
+         */
+        $knownChain = static fn (array $chain): array => array_values(array_filter(array_map($known, $chain)));
+
         if ($form->dateColumn < 0 || $form->dateColumn >= $columns) {
             return null;
         }
@@ -264,10 +272,12 @@ final readonly class SuggestColumnMapping
             thousandsSeparator: $form->thousandsSeparator,
             currency: $known($form->currency),
             description: $known($form->description),
-            counterpartyOut: $known($form->counterpartyOut),
-            counterpartyIn: $known($form->counterpartyIn),
-            referenceOut: $known($form->referenceOut),
-            referenceIn: $known($form->referenceIn),
+            // A model proposes one place per field; a second is a person's answer to a file whose
+            // first choice turned out to be empty on some rows, which only the rows show.
+            counterpartyOut: $knownChain($form->counterpartyOut),
+            counterpartyIn: $knownChain($form->counterpartyIn),
+            referenceOut: $knownChain($form->referenceOut),
+            referenceIn: $knownChain($form->referenceIn),
             nonTransactionLines: $form->nonTransactionLines,
             identityLabels: array_values(array_filter(
                 $form->identityLabels,

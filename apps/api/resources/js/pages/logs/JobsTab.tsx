@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { ListChecks } from 'lucide-react';
+import { Check, ListChecks, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { forgetFailedJob, listQueueJobs, retryFailedJob } from '../../api/operationsApi';
@@ -364,6 +364,7 @@ export default function AdminJobs(): JSX.Element {
                             setSelected(null);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.adminJobs.cancel)}
                     </PanelButton>
                 }
@@ -431,6 +432,7 @@ export default function AdminJobs(): JSX.Element {
                                 setToDiscard(null);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminJobs.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -440,6 +442,7 @@ export default function AdminJobs(): JSX.Element {
                                 void confirmDiscard();
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminJobs.confirm)}
                         </PanelButton>
                     </>

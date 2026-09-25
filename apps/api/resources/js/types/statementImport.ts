@@ -8,12 +8,14 @@ import type { TaxCategory } from './wallet';
  */
 
 /** `App\Domain\StatementImport\Enums\StatementImportStatus`. */
-export type StatementImportStatus = 'READING' | 'MAPPING' | 'REVIEW' | 'IMPORTING' | 'IMPORTED' | 'FAILED' | 'UNDONE';
+export type StatementImportStatus = 'READING' | 'MAPPING' | 'REVIEW' | 'IMPORTING' | 'IMPORTED' | 'FAILED';
 
 export interface StatementImport {
     id: string;
     accountId: string;
     bankId: string | null;
+    /** The bank's own name, where one is known. */
+    bankName: string | null;
     documentId: string | null;
     /** CSV, XLSX, XLS or PDF — decided by the bytes, never by the file's name. */
     format: string | null;
@@ -34,7 +36,6 @@ export interface StatementImport {
     /** Why no form was suggested — UNAVAILABLE, REFUSED, NO_ROOM, UNREADABLE, NOT_THIS_FILE. */
     aiFailureReason: string | null;
     importedAt: string | null;
-    undoneAt: string | null;
     createdAt: string;
 }
 
@@ -90,7 +91,11 @@ function parseConversion(value: unknown): StatementConversion | null {
 
     return row === null
         ? null
-        : { pipeline: nullableStr(row, 'pipeline'), milliseconds: nullableNum(row, 'ms'), warning: nullableStr(row, 'warning') };
+        : {
+              pipeline: nullableStr(row, 'pipeline'),
+              milliseconds: nullableNum(row, 'ms'),
+              warning: nullableStr(row, 'warning'),
+          };
 }
 
 /** One call asking what counterparties are: what was sent, what came back, or why nothing did. */
@@ -162,9 +167,15 @@ export interface StatementForm {
         thousands_separator: string;
     };
     description: StatementField | null;
-    /** Answered per direction: a statement names the two sides differently. */
-    counterparty: { debit: StatementField | null; credit: StatementField | null };
-    reference: { debit: StatementField | null; credit: StatementField | null };
+    /**
+     * Answered per direction, and each side may name several places to look.
+     *
+     * A statement is not written by one machine: a card payment names its payee in a column and a
+     * transfer names it on a detail line. The places are tried in order, and the first with anything
+     * in it wins — see `statement_import.multi_source_fields` for which fields are allowed this.
+     */
+    counterparty: { debit: StatementField[]; credit: StatementField[] };
+    reference: { debit: StatementField[]; credit: StatementField[] };
     non_transaction_lines: string[];
     identity_labels: string[];
 }
@@ -191,6 +202,8 @@ export interface StatementRow {
 }
 
 export interface StatementImportDetail {
+    /** Which fields of the form may name several places, and how many each may name. */
+    multiSource: { fields: string[]; max: number };
     import: StatementImport;
     preview: StatementPreview;
     mapping: StatementForm | null;
@@ -230,7 +243,7 @@ function nullableNum(row: Record<string, unknown>, key: string): number | null {
     return typeof row[key] === 'number' ? row[key] : null;
 }
 
-const STATUSES: StatementImportStatus[] = ['READING', 'MAPPING', 'REVIEW', 'IMPORTING', 'IMPORTED', 'FAILED', 'UNDONE'];
+const STATUSES: StatementImportStatus[] = ['READING', 'MAPPING', 'REVIEW', 'IMPORTING', 'IMPORTED', 'FAILED'];
 
 function parseImport(payload: unknown): StatementImport {
     const row = obj(payload);
@@ -240,6 +253,7 @@ function parseImport(payload: unknown): StatementImport {
         id: str(row, 'id'),
         accountId: str(row, 'account_id'),
         bankId: nullableStr(row, 'bank_id'),
+        bankName: nullableStr(row, 'bank_name'),
         documentId: nullableStr(row, 'document_id'),
         format: nullableStr(row, 'format'),
         sheet: nullableStr(row, 'sheet'),
@@ -257,7 +271,6 @@ function parseImport(payload: unknown): StatementImport {
         linesSkipped: num(row, 'lines_skipped'),
         aiFailureReason: nullableStr(row, 'ai_failure_reason'),
         importedAt: nullableStr(row, 'imported_at'),
-        undoneAt: nullableStr(row, 'undone_at'),
         createdAt: str(row, 'created_at'),
     };
 }
@@ -368,6 +381,29 @@ function parseStrings(value: unknown): string[] {
     return (Array.isArray(value) ? value : []).filter((entry): entry is string => typeof entry === 'string');
 }
 
+/**
+ * A field's places, in the order they are tried.
+ *
+ * Accepts either shape: one place as an object, which is how every mapping saved so far is written
+ * and how the model proposes one, or a list of them.
+ */
+/** Which fields may name several places, and how many — decided by the server, never mirrored here. */
+function parseMultiSource(payload: unknown): { fields: string[]; max: number } {
+    const row = obj(payload);
+    const fields = Array.isArray(row.fields) ? row.fields : [];
+
+    return {
+        fields: fields.filter((field): field is string => typeof field === 'string'),
+        max: num(row, 'max'),
+    };
+}
+
+function parseChain(payload: unknown): StatementField[] {
+    const places = Array.isArray(payload) ? payload : [payload];
+
+    return places.map(parseField).filter((place): place is StatementField => place !== null);
+}
+
 function parseForm(payload: unknown): StatementForm | null {
     if (payload === null || typeof payload !== 'object') {
         return null;
@@ -393,8 +429,10 @@ function parseForm(payload: unknown): StatementForm | null {
             thousands_separator: str(amounts, 'thousands_separator'),
         },
         description: parseField(row.description),
-        counterparty: { debit: parseField(counterparty.debit), credit: parseField(counterparty.credit) },
-        reference: { debit: parseField(reference.debit), credit: parseField(reference.credit) },
+        // One place is stored as an object and several as a list, and both are read back: a mapping
+        // the server holds and this parser drops is a choice that vanishes on refresh.
+        counterparty: { debit: parseChain(counterparty.debit), credit: parseChain(counterparty.credit) },
+        reference: { debit: parseChain(reference.debit), credit: parseChain(reference.credit) },
         non_transaction_lines: parseStrings(row.non_transaction_lines),
         identity_labels: parseStrings(row.identity_labels),
     };
@@ -468,6 +506,7 @@ export function parseStatementImportDetail(payload: unknown): StatementImportDet
         import: parseImport(body.import),
         preview: parsePreview(body.preview),
         mapping: parseForm(body.mapping),
+        multiSource: parseMultiSource(body.multi_source),
         proposals: { ai: num(obj(body.proposals), 'ai'), rule: num(obj(body.proposals), 'rule') },
         rows: (Array.isArray(body.rows) ? body.rows : []).map(parseRow),
         total: num(body, 'total'),

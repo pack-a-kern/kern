@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react';
 import { useState, type JSX, type ReactNode } from 'react';
 
 import { PanelButton, PanelDialog } from './panel';
@@ -62,6 +63,7 @@ export default function ConfirmDialog({
                             onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {cancelLabel}
                     </PanelButton>
                     <PanelButton
@@ -71,6 +73,7 @@ export default function ConfirmDialog({
                             void confirm();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {confirmLabel}
                     </PanelButton>
                 </>

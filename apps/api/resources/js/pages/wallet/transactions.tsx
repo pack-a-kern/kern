@@ -18,13 +18,15 @@ import {
 } from '../../api/walletApi';
 import {
     AlignLeftIcon,
-    UserIcon,
     ArrowLeftRight,
+    Check,
     FileSpreadsheet,
     Landmark,
     PlusIcon,
     TagsIcon,
     Trash2,
+    UserIcon,
+    X,
 } from 'lucide-react';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -588,7 +590,10 @@ export default function WalletTransactions(): JSX.Element {
                             }}
                             options={banks.map((bank) => ({
                                 value: bank.id,
-                                label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                                label: bankLabel(
+                                    bank,
+                                    t((d) => d.pages.walletTransactions.bank.closed),
+                                ),
                             }))}
                         />
                         <PanelSelect
@@ -974,6 +979,7 @@ export default function WalletTransactions(): JSX.Element {
                                 errors.reset();
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -990,6 +996,7 @@ export default function WalletTransactions(): JSX.Element {
                                 void submit();
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.save)}
                         </PanelButton>
                     </>
@@ -1185,7 +1192,10 @@ export default function WalletTransactions(): JSX.Element {
                             }}
                             options={banks.map((bank) => ({
                                 value: bank.id,
-                                label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                                label: bankLabel(
+                                    bank,
+                                    t((d) => d.pages.walletTransactions.bank.closed),
+                                ),
                             }))}
                         />
                     </Field>

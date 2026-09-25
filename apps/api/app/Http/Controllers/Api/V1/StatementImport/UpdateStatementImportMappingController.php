@@ -38,13 +38,13 @@ final class UpdateStatementImportMappingController extends Controller
     ): JsonResponse {
         $model = StatementImport::query()->findOrFail($import);
 
-        $validated = $request->validate([
+        $validated = validator($this->asChains($request), [
             ...$this->formRules(),
             // Asked here rather than at upload: by now the file has been read, and the bank found
             // from its IBAN — or suggested — is already in the field for the person to confirm.
             // A closed bank too: a statement from before a merger was issued by the bank that existed then.
             'bank_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ext_banks', 'id')],
-        ]);
+        ])->validate();
 
         try {
             if ($request->has('bank_id')) {

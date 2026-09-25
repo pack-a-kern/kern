@@ -213,7 +213,7 @@ final readonly class LawValueReader
                     $definition->code,
                     $starts,
                     $ends,
-                    $definition->value($answer->values, $this->config->string('fiscal_parameters.currency')),
+                    $definition->value($answer->values, $answer->isRange, $this->config->string('fiscal_parameters.currency')),
                     $answer->values,
                     ['kind' => 'law', 'model' => $answer->model, 'citation' => $answer->citation],
                     $checks,
@@ -347,12 +347,16 @@ final readonly class LawValueReader
         $provisions = [];
 
         // Every part of the law the rule is read in, in the order the rule names them: the base of
-        // a contribution has its cap in one section and its floor in the next.
+        // a contribution has its cap in one section and its floor in the next. Each part is
+        // anchored on its own, because a rule read in two of them is approved on a citation from
+        // one: anchoring the whole set on it would drop the other part entirely, and the answer it
+        // holds with it — the cap of an independent activity's base stands in Secţiunea a 5-a, and
+        // asking for the floor there is asking for something that is not written.
         foreach ($definition->lawWithin as $within) {
-            $provisions = [...$provisions, ...$this->law->inForce($within, $on)];
+            $provisions = [...$provisions, ...$this->anchored($this->law->inForce($within, $on), $approvedOn)];
         }
 
-        return $this->nearest($this->anchored($provisions, $approvedOn), (string) $definition->question, $approvedOn);
+        return $this->nearest($provisions, (string) $definition->question, $approvedOn);
     }
 
     /**

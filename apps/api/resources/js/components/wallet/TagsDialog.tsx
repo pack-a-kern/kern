@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -85,6 +85,7 @@ export default function TagsDialog({
                             onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.close)}
                     </PanelButton>
                 }

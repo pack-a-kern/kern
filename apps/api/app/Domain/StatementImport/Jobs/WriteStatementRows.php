@@ -11,6 +11,7 @@ use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
+use App\Domain\StatementImport\Services\NameStatementFile;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Subjects\Tenancy\TenantContext;
@@ -70,6 +71,7 @@ final class WriteStatementRows implements ShouldQueue
         TenantContext $tenant,
         ConfigRepository $config,
         NotifyImportOwner $notify,
+        NameStatementFile $name,
     ): void {
         $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
 
@@ -177,6 +179,10 @@ final class WriteStatementRows implements ShouldQueue
         $import->status = StatementImportStatus::IMPORTED;
         $import->imported_at = now('UTC');
         $import->save();
+
+        // The file can be named now that the bank and the period are known, rather than sitting in
+        // the documents list under a hash for the rest of its life.
+        $name($import);
 
         // Without this the screen sat on "Importing…" until someone refreshed it.
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);

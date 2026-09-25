@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { EllipsisVertical, LogIn, Pencil, Plus, Trash2, UsersIcon } from 'lucide-react';
+import { Check as CheckIcon, EllipsisVertical, LogIn, Pencil, Plus, Trash2, UsersIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -754,6 +754,7 @@ function EditUserDialog(props: {
             actions={
                 <>
                     <PanelButton variant="outline" onClick={props.onClose}>
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.cancel)}
                     </PanelButton>
                     <PanelButton
@@ -766,6 +767,7 @@ function EditUserDialog(props: {
                             });
                         }}
                     >
+                        <CheckIcon className="size-3.5" aria-hidden="true" />
                         {saving ? t((d) => d.pages.adminUsers.saving) : t((d) => d.common.save)}
                     </PanelButton>
                 </>

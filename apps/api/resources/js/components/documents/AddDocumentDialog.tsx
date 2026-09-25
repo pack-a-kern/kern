@@ -1,4 +1,4 @@
-import { Camera, FileText, FolderOpen, Wand2 } from 'lucide-react';
+import { Camera, FileText, FolderOpen, Upload, Wand2, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
 import Checkbox from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
@@ -305,7 +305,6 @@ export default function AddDocumentDialog({
                 actions={
                     <>
                         <PanelButton
-                            className="mr-auto"
                             onClick={() => {
                                 if (outstanding === 0) {
                                     onOpenChange(false);
@@ -316,6 +315,7 @@ export default function AddDocumentDialog({
                                 setConfirmingClose(true);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.close)}
                         </PanelButton>
 
@@ -350,6 +350,7 @@ export default function AddDocumentDialog({
                                     void upload();
                                 }}
                             >
+                                <Upload className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.documentsCapture.uploadCount).replace('{count}', String(staged.length))}
                             </PanelButton>
                         )}

@@ -64,9 +64,7 @@ export async function searchPortal(
     query: { title: string; year: number | null } | { number: number; year: number },
     type: string | null = null,
 ): Promise<PortalActResult[]> {
-    const params = new URLSearchParams(
-        'title' in query ? { title: query.title } : { number: String(query.number) },
-    );
+    const params = new URLSearchParams('title' in query ? { title: query.title } : { number: String(query.number) });
 
     if (query.year !== null) {
         params.set('year', String(query.year));
@@ -95,6 +93,16 @@ export async function readPortalAct(act: PortalActResult): Promise<void> {
 /** Every law read from legislatie.just.ro. */
 export async function listLaws(): Promise<LawSummary[]> {
     return parseLaws(JSON.parse(await apiRequest('/v1/legislation/laws')));
+}
+
+/**
+ * Removes a law read in from the portal, with every consolidation and provision it brought.
+ *
+ * Refused with 409 while any fiscal value rests on one of its paragraphs: a value's whole claim is
+ * the paragraph it was read in, and a law the values stand on is not something to lose by a click.
+ */
+export async function deleteLaw(lawId: string): Promise<void> {
+    await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}`, { method: 'DELETE' });
 }
 
 export async function getLaw(lawId: string): Promise<LawDetail> {

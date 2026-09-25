@@ -1,4 +1,4 @@
-import { Banknote, MapPinIcon, PercentIcon, UserIcon } from 'lucide-react';
+import { Banknote, Check, MapPinIcon, PercentIcon, UserIcon, X } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -162,6 +162,7 @@ export default function RentalDialog({
                             onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.cancel)}
                     </PanelButton>
                     <PanelButton
@@ -178,6 +179,7 @@ export default function RentalDialog({
                             void submit();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.save)}
                     </PanelButton>
                 </>

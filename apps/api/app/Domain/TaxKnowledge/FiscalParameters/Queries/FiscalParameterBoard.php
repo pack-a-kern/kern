@@ -9,6 +9,8 @@ use App\Domain\TaxKnowledge\FiscalParameters\ParameterCatalog;
 use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterRead;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
+use App\Domain\TaxKnowledge\Models\SourceDocument;
+use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
@@ -27,6 +29,31 @@ final readonly class FiscalParameterBoard
 
     public function __construct(private ParameterCatalog $catalog, private ConfigRepository $config)
     {
+    }
+
+    /**
+     * The years the law can be read for: from the first the values are modelled for, to this one —
+     * and the next as soon as its law exists.
+     *
+     * A year's wording is published in the December before it starts: Legea 239/2025 was in the
+     * Monitorul Oficial on 15 December 2025, in force from 1 January 2026, so 2026 could be read
+     * weeks before it began. Offering the next year before any of it has been published would offer
+     * a year whose law is only this year's, still in force for want of anything replacing it, and
+     * the values read for it would be a guess dressed as a reading.
+     *
+     * @return list<int>
+     */
+    private function years(): array
+    {
+        $from = $this->config->integer('ai.legislation.from_year');
+        $now = CarbonImmutable::now()->year;
+        $law = SourceDocument::query()->where('external_identifier', $this->config->string('fiscal_parameters.law'))->value('id');
+        $published = is_string($law) && SourceDocumentVersion::query()
+            ->where('source_document_id', $law)
+            ->whereYear('effective_from', $now + 1)
+            ->exists();
+
+        return range($from, $published ? $now + 1 : $now);
     }
 
     /** @return array{parameters: list<array<string, mixed>>, years: list<int>} */
@@ -72,14 +99,13 @@ final readonly class FiscalParameterBoard
         };
 
         return [
-            // The years the law can be read for: from the first the values are modelled for, to the
-            // one after this, so a rule is ready before the year it applies to starts.
-            'years' => range($this->config->integer('ai.legislation.from_year'), CarbonImmutable::now()->year + 1),
+            'years' => $this->years(),
             'parameters' => array_map(function ($definition) use ($parameters, $versions, $reads, $paragraph): array {
                 $parameter = $parameters->get($definition->code);
 
                 return [
                     'code' => $definition->code,
+                    'tax' => $definition->tax,
                     'type' => $definition->type->value,
                     'subject' => $definition->subject->value,
                     'versions' => $parameter === null ? [] : array_values(($versions->get($parameter->id) ?? collect())->map(static fn (FiscalParameterVersion $version): array => [

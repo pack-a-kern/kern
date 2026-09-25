@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -338,6 +338,7 @@ export default function AdminOperations(): JSX.Element {
                                 setTaskToRun(null);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminOperations.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -347,6 +348,7 @@ export default function AdminOperations(): JSX.Element {
                                 void confirmRun();
                             }}
                         >
+                            <Play className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminOperations.tasks.run)}
                         </PanelButton>
                     </>
@@ -386,9 +388,16 @@ export default function AdminOperations(): JSX.Element {
                                 {argument.type === 'date' ? (
                                     <PanelDate
                                         block
-                                        value={(taskArguments[argument.name] ?? '') === '' ? null : (taskArguments[argument.name] ?? null)}
+                                        value={
+                                            (taskArguments[argument.name] ?? '') === ''
+                                                ? null
+                                                : (taskArguments[argument.name] ?? null)
+                                        }
                                         onChange={(next) => {
-                                            setTaskArguments((current) => ({ ...current, [argument.name]: next ?? '' }));
+                                            setTaskArguments((current) => ({
+                                                ...current,
+                                                [argument.name]: next ?? '',
+                                            }));
                                         }}
                                     />
                                 ) : argument.type === 'choice' ? (
@@ -503,7 +512,12 @@ function TaskHistoryDialog(props: {
             size="lg"
             title={t((d) => d.pages.adminOperations.tasks.detailsTitle)}
             description={t((d) => d.pages.adminOperations.tasks.historyDescription)}
-            actions={<PanelButton onClick={props.onClose}>{t((d) => d.pages.adminOperations.cancel)}</PanelButton>}
+            actions={
+                <PanelButton onClick={props.onClose}>
+                    <X className="size-3.5" aria-hidden="true" />
+                    {t((d) => d.pages.adminOperations.cancel)}
+                </PanelButton>
+            }
         >
             {props.task === null ? null : (
                 <div className="space-y-3">

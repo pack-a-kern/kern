@@ -119,6 +119,16 @@ PROMPT),
     ],
 
     'classification' => [
+        /*
+         * Whether a statement's counterparties are put to a model at all.
+         *
+         * Off, the rows are still staged, still answered by whatever was remembered from earlier
+         * decisions, and still answerable by hand — only the calls do not happen, and the review
+         * opens at once instead of waiting for a round. For working on the prompt without every
+         * import spending it, and for an installation that would rather answer its own statements.
+         */
+        'enabled' => filter_var(env('STATEMENT_IMPORT_CLASSIFICATION_ENABLED', true), FILTER_VALIDATE_BOOL),
+
         'model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL', 'gpt-oss:20b'),
         'max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
         'batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 100),

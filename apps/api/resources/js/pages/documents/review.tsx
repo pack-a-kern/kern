@@ -6,8 +6,10 @@ import {
     ArrowLeft,
     Banknote,
     CalendarDays,
+    Check,
     Coins,
     CreditCard,
+    Eraser,
     FileText,
     FileType2,
     FileUp,
@@ -26,6 +28,7 @@ import {
     Tag,
     Trash2,
     User,
+    X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode, type SyntheticEvent } from 'react';
 import AppShell from '../../components/AppShell';
@@ -1605,6 +1608,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                             setShowingChain(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.close)}
                     </PanelButton>
                 }
@@ -1657,6 +1661,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                 void handleRename(null);
                             }}
                         >
+                            <Eraser className="size-3.5" aria-hidden="true" />
                             {t((d) => d.documentsReview.renameCleared)}
                         </PanelButton>
                         <PanelButton
@@ -1666,6 +1671,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                 void handleRename(nameDraft);
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.documentsReview.renameSave)}
                         </PanelButton>
                     </>
@@ -1714,7 +1720,8 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                 description={t((d) => d.documentsReview.correctionHint)}
                 actions={
                     <>
-                        <PanelButton className="mr-auto" onClick={cancelCorrection}>
+                        <PanelButton onClick={cancelCorrection}>
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.documentsReview.cancelCorrection)}
                         </PanelButton>
                         <PanelButton
@@ -1726,6 +1733,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                 }
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.documentsReview.submitCorrection)}
                         </PanelButton>
                     </>
@@ -1825,6 +1833,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                             setRowsShown(null);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.close)}
                     </PanelButton>
                 }

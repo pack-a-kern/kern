@@ -42,7 +42,11 @@ import {
     ActivityIcon,
     BanknoteIcon,
     BotIcon,
+    Check,
     FilesIcon,
+    GaugeIcon,
+    GlobeIcon,
+    KeyRound,
     KeyRoundIcon,
     LandmarkIcon,
     LinkIcon,
@@ -51,8 +55,7 @@ import {
     ScanLineIcon,
     ServerIcon,
     ShieldCheckIcon,
-    GaugeIcon,
-    GlobeIcon,
+    X,
 } from 'lucide-react';
 
 import { iconForSetting } from '../../lib/settingIcons';
@@ -557,6 +560,7 @@ function UploadLimitsPanel(props: {
                             }}
                             disabled={props.saving}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminSettings.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -567,6 +571,7 @@ function UploadLimitsPanel(props: {
                                 setOpen(false);
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {props.saving
                                 ? t((d) => d.pages.adminSettings.saving)
                                 : t((d) => d.pages.adminSettings.save)}
@@ -1084,6 +1089,7 @@ function ReplaceKeyDialog(props: {
                             props.onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.adminSettings.cancel)}
                     </PanelButton>
                     <PanelButton
@@ -1094,6 +1100,7 @@ function ReplaceKeyDialog(props: {
                             props.onOpenChange(false);
                         }}
                     >
+                        <KeyRound className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.adminSettings.ai.replaceKey)}
                     </PanelButton>
                 </>

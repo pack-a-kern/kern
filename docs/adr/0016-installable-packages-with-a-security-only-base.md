@@ -1,0 +1,130 @@
+# ADR 0016 — Installable packages, with a base that carries only the security spine
+
+**Status:** accepted
+**Date:** 2026-09-25
+**Extends:** ADR 0001 (modular monolith). Nothing is superseded: this is the same boundaries,
+enforced by Composer instead of by deptrac alone.
+
+## Context
+
+`app/Domain` holds sixteen modules and deptrac reports zero violations — every cross-module reach
+is already a DTO, a contract or an application service rather than a foreign Eloquent model. The
+boundaries hold. What they do not do is let anything *leave*.
+
+Three wants pushed this:
+
+1. A second product should start from this one's security work — envelope encryption per subject,
+   blind indexes, the append-only audit chain, MFA and passkeys — without inheriting a single line
+   about Romanian tax.
+2. The legislation half of `TaxKnowledge` is useful on its own. A site that only indexes and lists
+   the law wants ingestion, consolidations, provision history and hybrid search, and wants no tax
+   engine anywhere near it.
+3. The user interface is not settled. It is Inertia and React today and may be Blade tomorrow, and
+   that decision should not be able to reach into the domain code at all.
+
+The blocker is not the code — it is where the code's *supporting files* live. All 113 migrations sit
+in one flat directory with no per-module ownership; `routes/api.php` (486 lines) and `routes/web.php`
+register every module's routes centrally; only eight of sixteen modules have a ServiceProvider. A
+module is therefore not a thing that can be moved — it is a folder of classes plus an unmarked share
+of three other files.
+
+One genuine coupling is not a filing problem. The tenant scope every business model uses
+(`Subjects\Tenancy\{TaxSubjectScope,ScopedToTaxSubject,TenantContext}`) is generic in behaviour and
+Romanian in vocabulary: the mechanism is "every row belongs to an owner, every read is restricted to
+the active one, every insert is stamped with it", but the column is `tax_subject_id`, the table is
+`tax_subjects` and the model is `TaxSubject` — and `Subjects` also owns taxpayer registration and
+membership, which no other product wants.
+
+## Decision
+
+Four packages, consumed by a thin application.
+
+| Package | Holds | Depends on |
+|---|---|---|
+| `taxos/platform` | `Support\{Crypto,KeyManagement,ObjectStore}`, `Audit`, `Identity`, `Settings`, `Operations`, and the generic tenancy scope | — |
+| `taxos/documents` | upload, virus scan, encryption at rest, extraction | platform |
+| `taxos/legislation` | official sources, parsing, consolidations, provision history, hybrid search | platform |
+| `taxos/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV | platform, documents, legislation |
+| `apps/api` | routes to pages, the user interface, wiring | all of the above |
+
+Four things decide the shape.
+
+**The base carries no product vocabulary.** Encryption, key management, the audit chain, identity
+and settings are the same for any application. Nothing in `taxos/platform` knows what a taxpayer is.
+
+**Tenancy is a mechanism in the base, named by configuration.** `config/tenancy.php` carries the
+model, table and column, defaulting to `TaxSubject`, `tax_subjects` and `tax_subject_id` so this
+product behaves exactly as it does now. `taxos/tax-romania` sets the model when it installs. An
+application with no such concept leaves it null: no scope is applied, no middleware binds anything,
+and identity, audit, crypto and documents all work unscoped.
+
+**Owner foreign keys are added when the owner's table exists.** A package cannot declare a foreign
+key to a table another package may not have installed. Each owner column is added with a shared
+schema helper that reads `config('tenancy.table')` and constrains only when that table is present —
+so this installation keeps today's `cascadeOnDelete`, and an installation with no tenants gets an
+indexed column and no constraint. The alternatives were rejected: a column with no constraint
+anywhere loses referential integrity this product relies on, and a generic `tenants` table in the
+base forces a table on every future application, which is what the base exists to avoid.
+
+**Packages ship PHP, never pages.** Actions, jobs, models, migrations, config, JSON routes. The
+Inertia pages, `AppShell` and its navigation stay in the application, so replacing React with Blade
+replaces application code and leaves every package untouched.
+
+`Documents` is its own package rather than part of the base because encrypted file handling is
+independently useful, and it arrives anyway for anyone installing tax — `taxos/tax-romania` requires
+it, the way a Laravel application acquires `illuminate/*`.
+
+`TaxKnowledge` splits. Its legislation half reaches only `Audit` and `Settings`; everything tax-bound
+is in `FiscalParameters/*` and the two `Providers/Eloquent*Provider` classes that satisfy
+`TaxEngine`'s contracts. The first half becomes `taxos/legislation`; the second goes to
+`taxos/tax-romania`.
+
+The Romanian modules are **one** package, not eight. `TaxEngine`, `Declarations`, `Fx`, `Banks`,
+`Rental` and `Spv` have exactly one consumer between them, and `StatementImport` depends on seven
+other modules precisely because it is where Wallet and Documents meet. Splitting them further buys
+version numbers and cross-repository test matrices, and buys no reuse.
+
+## How it is done
+
+**Stage 0 — inside the application, nothing published.** Every module gets a ServiceProvider that
+loads its own routes and migrations from paths relative to itself; the migrations move into
+per-module directories, sorted by which table they create; the two route files become thin
+aggregations; the tenancy scope moves out of `Subjects` and takes its names from configuration; the
+conditional foreign-key helper arrives. Done when deptrac is green, the suite is green, and no
+runtime behaviour has changed. This stage carries the whole risk of the work and it carries it while
+everything is still in one place.
+
+**Stage 1 — packages as path repositories.** `packages/*` wired through Composer path repositories,
+so it stays one repository and one `composer install`. Modules move in dependency order — `Audit`
+first, having no outbound dependencies, then crypto, key management and the object store, then
+tenancy, identity and settings, then documents, legislation, and the remainder. Each move is a
+folder rename plus a namespace change, because the provider already loads its own files.
+
+**Stage 2 — prove the isolation.** Each package gets its own Testbench suite. The proof that matters
+is installing `taxos/legislation` into an empty Laravel application and ingesting and searching a law
+with no tax code present.
+
+**Stage 3 — publish, if wanted.** Private Packagist or plain git repositories with version
+constraints. Path repositories are enough until a second product exists.
+
+`Audit` is the pilot: zero outbound dependencies, so it answers whether the provider-and-paths shape
+works here before sixteen modules commit to it.
+
+## Consequences
+
+**A rename touching roughly six hundred files.** Mechanical, and one enormous diff.
+
+**Migration ownership has to be decided**, including for tables nobody owns cleanly.
+
+**Cross-package foreign keys become conditional** — `rental_contracts`, `spv_messages` and
+`declaration_submissions` all point at `documents`.
+
+**CI grows.** One suite becomes several, and each package needs its own.
+
+**The boundaries stop being advisory.** Today a cross-module reach is a deptrac failure a developer
+can waive; afterwards it is a class that does not exist unless the package is required. That is the
+point, and it is also the cost: a shortcut that used to take an afternoon now takes a released
+version of another package.
+
+**Nothing here is urgent.** Doing Stage 0 speculatively spends real time for a payoff that arrives
+with the second product. It is sequenced for when that product is real.

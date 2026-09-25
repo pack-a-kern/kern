@@ -26,6 +26,17 @@ enum ParameterAnswer: string
     /** The two ends of one base: not less than 6 minimum wages, not more than 72. */
     case WAGES_RANGE = 'wages_range';
 
+    /**
+     * One base, set either way — because the law has set it both ways.
+     *
+     * CASS on an independent activity's income is the income itself, between 6 and 60 minimum wages,
+     * from 2024; in 2023 the same income was taxed on a step — 6, 12 or 24 — and until 2022 on one
+     * level for everything. A rule told in advance which shape to expect can only answer in that
+     * shape, and 2023 read as an interval says the base slides where the law says it steps. So the
+     * reader is given both forms and names the one it found.
+     */
+    case WAGES_BASE = 'wages_base';
+
     /** An amount in lei — "suma lunară de 4.000 lei". */
     case LEI = 'lei';
 
@@ -35,6 +46,9 @@ enum ParameterAnswer: string
         return match ($this) {
             self::WAGES_LIST => '{"values": [<numbers of minimum wages>], "citation": "Art. X alin. (Y)"}',
             self::WAGES_RANGE => '{"floor": <number or null>, "floor_citation": "Art. X alin. (Y)", "cap": <number or null>, "cap_citation": "Art. X alin. (Y)"}',
+            self::WAGES_BASE => 'one of these two forms, whichever the law sets:' . PHP_EOL
+                . '    {"shape": "interval", "floor": <number>, "floor_citation": "Art. X alin. (Y)", "cap": <number>, "cap_citation": "Art. X alin. (Y)"}' . PHP_EOL
+                . '    {"shape": "steps", "values": [<numbers, ascending>], "citation": "Art. X alin. (Y)"}',
             default => '{"value": <number or null>, "citation": "Art. X alin. (Y)"}',
         };
     }
@@ -46,6 +60,7 @@ enum ParameterAnswer: string
             self::PERCENT => 'a percentage (the number alone, without the % sign)',
             self::WAGES, self::WAGES_LIST => 'a number of minimum gross wages ("salarii minime brute pe țară")',
             self::WAGES_RANGE => 'two numbers of minimum gross wages: the lowest the base can be, and the highest',
+            self::WAGES_BASE => 'numbers of minimum gross wages',
             self::LEI => 'an amount in lei (the number alone)',
         };
     }
@@ -54,5 +69,21 @@ enum ParameterAnswer: string
     public function isRange(): bool
     {
         return $this === self::WAGES_RANGE;
+    }
+
+    /** Whether the reply says which shape it is, the law having set this value both ways. */
+    public function isEither(): bool
+    {
+        return $this === self::WAGES_BASE;
+    }
+
+    /**
+     * Whether a reply of this kind is a range: the shape it names, where it names one.
+     *
+     * @param  array<string, mixed>  $reply
+     */
+    public function isRangeIn(array $reply): bool
+    {
+        return $this->isEither() ? ($reply['shape'] ?? null) === 'interval' : $this->isRange();
     }
 }

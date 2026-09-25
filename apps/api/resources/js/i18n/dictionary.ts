@@ -96,6 +96,7 @@ export interface Dictionary {
         cancel: string;
         close: string;
         open: string;
+        view: string;
         /** The destructive action's own label — never "OK", which says nothing about what happens. */
         delete: string;
         edit: string;
@@ -112,8 +113,8 @@ export interface Dictionary {
     };
     pagination: {
         nav: string;
-        previous: string;
         next: string;
+        previous: string;
         morePages: string;
         /** `{first}`, `{last}`, `{total}` and `{unit}` are substituted. */
         range: string;
@@ -593,12 +594,25 @@ export interface Dictionary {
             start: string;
             /** Removing an import that never became transactions. One that did is undone instead. */
             delete: string;
+            deleteSelected: string;
+            deleteSelectedTitle: string;
+            deletedCount: string;
+            table: {
+                statement: string;
+                kind: string;
+                state: string;
+                noBank: string;
+            };
+            losesImports: string;
+            losesTransactions: string;
+            losesFiles: string;
             deleteTitle: string;
             deleteHint: string;
             deleted: string;
+            opening: string;
+            working: string;
             historyTitle: string;
             historyHint: string;
-            columnsHeader: string;
             empty: string;
             steps: { file: string; columns: string; review: string; done: string };
             /** The screen shown instead of the review while the model is still suggesting. */
@@ -619,6 +633,12 @@ export interface Dictionary {
                 skip: string;
             };
             file: {
+                startCount: string;
+                batch: string;
+                queued: string;
+                waiting: string;
+                openOne: string;
+                next: string;
                 choose: string;
                 /** Under the picker once a file is chosen: `{name}` is substituted. */
                 chosen: string;
@@ -629,6 +649,8 @@ export interface Dictionary {
             };
             columns: {
                 /** Reads the file again and asks for the form again — no re-upload. */
+                askAgainFailed: string;
+                notApplied: string;
                 askAgain: string;
                 title: string;
                 hint: string;
@@ -666,6 +688,15 @@ export interface Dictionary {
                 reference: string;
                 referenceOut: string;
                 referenceIn: string;
+                orHere: string;
+                chainHint: string;
+                referenceHint: string;
+                thenSeparator: string;
+                referenceFallbackOut: string;
+                referenceFallbackIn: string;
+                referenceFallbackHint: string;
+                bankRequired: string;
+                currencyRequired: string;
                 dropLines: string;
                 dropLinesHint: string;
                 identityLabels: string;
@@ -716,6 +747,9 @@ export interface Dictionary {
                 statDuplicates: string;
                 statAi: string;
                 statRules: string;
+                fileLine: string;
+                answeredOf: string;
+                statAnswered: string;
                 /** `{done}` and `{expected}` are substituted. */
                 aiWaiting: string;
                 /** `{rows}` is substituted. */
@@ -1083,6 +1117,11 @@ export interface Dictionary {
                 /** No law read yet — says where to read one. */
                 empty: string;
                 failed: string;
+                remove: string;
+                removeTitle: string;
+                removeDetail: string;
+                removed: string;
+                removeRefused: string;
                 open: string;
                 /** `{number}` is the Monitorul Oficial issue. */
                 journal: string;
@@ -1580,6 +1619,20 @@ export interface Dictionary {
             reads: Record<string, string | undefined>;
             /** The mark on a year no model could be asked for. */
             unread: string;
+            overviewTitle: string;
+            overviewHint: string;
+            wageInForce: string;
+            /** The right end of the wage's history: today. */
+            wageHistory: string;
+            rulesRead: string;
+            yearsRead: string;
+            waiting: string;
+            /** The name of each tax, by its code, for the table it heads. */
+            taxes: Record<string, string | undefined>;
+            /** `{count}` rules a tax has. */
+            rulesCount: string;
+            /** What a dot, a dash and an empty cell mean. */
+            legend: string;
             valuesTitle: string;
             valuesHint: string;
             parameter: string;
@@ -1600,6 +1653,12 @@ export interface Dictionary {
             inLaw: string;
             inLawHint: string;
             openLaw: string;
+            approveAll: string;
+            approveAllHint: string;
+            approveAllAction: string;
+            approveAllNoParagraph: string;
+            approveAllProgress: string;
+            period: string;
             approve: string;
             reject: string;
             close: string;

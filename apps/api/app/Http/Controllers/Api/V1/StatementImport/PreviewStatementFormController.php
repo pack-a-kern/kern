@@ -45,7 +45,7 @@ final class PreviewStatementFormController extends Controller
         StatementRowBuilder $builder,
     ): JsonResponse {
         $model = StatementImport::query()->findOrFail($import);
-        $form = StatementForm::fromArray($request->validate($this->formRules()));
+        $form = StatementForm::fromArray(validator($this->asChains($request), $this->formRules())->validate());
 
         $account = FinancialAccount::query()->find($model->account_id);
         $rows = $model->preview()['rows'];

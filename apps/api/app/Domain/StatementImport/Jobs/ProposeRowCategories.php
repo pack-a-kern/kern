@@ -56,6 +56,9 @@ final class ProposeRowCategories implements ShouldQueue
     /** Recorded when there was nobody to act as, so no tags or rules could be read. */
     private const string NO_ACTOR = 'NO_ACTOR';
 
+    /** Recorded when this installation does not put statements to a model at all. */
+    private const string TURNED_OFF = 'TURNED_OFF';
+
     public function __construct(
         private readonly string $importId,
         private readonly ?string $actorId = null,
@@ -84,6 +87,15 @@ final class ProposeRowCategories implements ShouldQueue
          * because minutes pass between confirming the form and this running.
          */
         $run = (string) Str::uuid();
+
+        // Turned off for this installation: the round is over before it starts, so the review opens
+        // with the remembered answers and nothing waiting on a model that will never be asked.
+        if (! config()->boolean('ai.statements.classification.enabled')) {
+            $import->startClassification($run, 0, 0, self::TURNED_OFF);
+            StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status, true);
+
+            return;
+        }
 
         if ($this->actorId === null) {
             $import->startClassification($run, 0, 0, self::NO_ACTOR);

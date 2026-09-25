@@ -8,6 +8,7 @@ use App\Domain\StatementImport\DataTransferObjects\BuiltStatementRows;
 use App\Domain\StatementImport\DataTransferObjects\StatementField;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Exceptions\MappingNotUsableException;
+use App\Support\Crypto\BlindIndex\Normalizer;
 
 /**
  * Applying a confirmed form to a statement's lines, to get transactions.
@@ -159,8 +160,8 @@ final readonly class StatementRowBuilder
             'text' => $this->field($form->description, $cells, $labels),
             // Which side the money moved decides which labels are asked for: a statement names the
             // counterparty of a card payment and of an incoming transfer differently.
-            'counterparty' => $this->field($form->counterpartyFor($amount ?? 0), $cells, $labels),
-            'reference' => $this->field($form->referenceFor($amount ?? 0), $cells, $labels),
+            'counterparty' => $counterparty = $this->firstOf($form->counterpartyFor($amount ?? 0), $cells, $labels),
+            'reference' => $this->reference($form, $amount ?? 0, $counterparty, $cells, $labels),
         ];
     }
 
@@ -268,6 +269,62 @@ final readonly class StatementRowBuilder
      * states it nowhere at all, so the only place it can come from is the form. Leaving it out here
      * meant a person could pick `RON` and watch every row come out with no currency anyway.
      *
+     * @param  list<string>  $cells
+     * @param  array<string, string>  $labels
+     */
+    /**
+     * The first of a field's places that this row actually has something in.
+     *
+     * A statement is not written by one machine: a card payment names its payee in a column and a
+     * transfer names it on a detail line. So a field may name several places, and the row takes the
+     * first that says anything.
+     *
+     * @param  list<StatementField>  $chain
+     * @param  list<string>  $cells
+     * @param  array<string, string>  $labels
+     */
+    private function firstOf(array $chain, array $cells, array $labels): string
+    {
+        foreach ($chain as $place) {
+            $value = $this->field($place, $cells, $labels);
+
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * The bank's own reference for this row, from the next place where the first has none.
+     *
+     * "None" is either empty or the counterparty repeated: a reference column filled with the payee's
+     * name looks like an identity and is not one, and taking it would put every payment to that shop
+     * on a day under the same fingerprint. So a place saying what the counterparty already says is
+     * passed over exactly as an empty one is — and if every place does, the row keeps what it found,
+     * because a reference that repeats the payee is still better than claiming there is none.
+     *
+     * @param  list<string>  $cells
+     * @param  array<string, string>  $labels
+     */
+    private function reference(StatementForm $form, int $amount, string $counterparty, array $cells, array $labels): string
+    {
+        $first = '';
+
+        foreach ($form->referenceFor($amount) as $place) {
+            $value = $this->field($place, $cells, $labels);
+            $first = $first === '' ? $value : $first;
+
+            if ($value !== '' && Normalizer::text($value) !== Normalizer::text($counterparty)) {
+                return $value;
+            }
+        }
+
+        return $first;
+    }
+
+    /**
      * @param  list<string>  $cells
      * @param  array<string, string>  $labels
      */

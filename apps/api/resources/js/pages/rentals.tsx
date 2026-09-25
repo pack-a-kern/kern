@@ -1,4 +1,4 @@
-import { Banknote, KeyRoundIcon, PlusIcon } from 'lucide-react';
+import { Banknote, Check, KeyRoundIcon, PlusIcon, X } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -419,7 +419,10 @@ function ChangeRentDialog({
             description={t((d) => d.pages.rentals.changeRentHint)}
             actions={
                 <>
-                    <PanelButton onClick={onClose}>{t((d) => d.common.cancel)}</PanelButton>
+                    <PanelButton onClick={onClose}>
+                        <X className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.common.cancel)}
+                    </PanelButton>
                     <PanelButton
                         primary
                         disabled={saving || effectiveFrom === '' || rent.trim() === ''}
@@ -427,6 +430,7 @@ function ChangeRentDialog({
                             void submit();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.save)}
                     </PanelButton>
                 </>
@@ -536,7 +540,10 @@ function EndRentalDialog({
             description={t((d) => d.pages.rentals.endHint)}
             actions={
                 <>
-                    <PanelButton onClick={onClose}>{t((d) => d.common.cancel)}</PanelButton>
+                    <PanelButton onClick={onClose}>
+                        <X className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.common.cancel)}
+                    </PanelButton>
                     <PanelButton
                         primary
                         disabled={saving || endDate === ''}
@@ -544,6 +551,7 @@ function EndRentalDialog({
                             void submit();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.save)}
                     </PanelButton>
                 </>

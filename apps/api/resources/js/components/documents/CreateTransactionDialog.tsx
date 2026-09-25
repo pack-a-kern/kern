@@ -1,4 +1,4 @@
-import { AlignLeft, Banknote, Building2 } from 'lucide-react';
+import { AlignLeft, Banknote, Building2, Check, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -172,6 +172,7 @@ export default function CreateTransactionDialog({
                             onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.cancel)}
                     </PanelButton>
                     <PanelButton
@@ -187,6 +188,7 @@ export default function CreateTransactionDialog({
                             void submit();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.common.save)}
                     </PanelButton>
                 </>

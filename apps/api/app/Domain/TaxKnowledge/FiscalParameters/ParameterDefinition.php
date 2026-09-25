@@ -45,11 +45,11 @@ final readonly class ParameterDefinition
      * @param  list<int>  $numbers  percentages in hundredths, wages and lei as stated
      * @return array<string, mixed>
      */
-    public function value(array $numbers, string $currency = 'RON'): array
+    public function value(array $numbers, bool $range = false, string $currency = 'RON'): array
     {
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => ['value' => sprintf('%d.%02d', intdiv($numbers[0], 100), $numbers[0] % 100)],
-            FiscalParameterValueType::JSON => $this->answer->isRange()
+            FiscalParameterValueType::JSON => $range
                 ? ['floor' => $numbers[0], 'cap' => $numbers[1] ?? $numbers[0]]
                 : ['wages' => $numbers],
             FiscalParameterValueType::MONEY => ['amount_minor' => $numbers[0] * 100, 'currency' => $currency],
@@ -68,7 +68,10 @@ final readonly class ParameterDefinition
     {
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => [(int) round((float) (is_string($value['value'] ?? null) ? $value['value'] : 0) * 100)],
-            FiscalParameterValueType::JSON => $this->answer->isRange()
+            // What it is read as is what it was saved as: a base with two ends carries them, and a
+            // rule the law has set both ways — CASS on independent income — is one shape in one year
+            // and the other in the next.
+            FiscalParameterValueType::JSON => is_numeric($value['floor'] ?? null) || is_numeric($value['cap'] ?? null)
                 ? array_values(array_map(static fn (int|float|string $wages): int => (int) $wages, array_filter([$value['floor'] ?? null, $value['cap'] ?? null], static fn (mixed $wages): bool => is_numeric($wages))))
                 : array_values(array_map(static fn (mixed $wages): int => is_numeric($wages) ? (int) $wages : 0, is_array($value['wages'] ?? null) ? $value['wages'] : [])),
             FiscalParameterValueType::INTEGER => is_int($value['value'] ?? null) ? [$value['value']] : [],

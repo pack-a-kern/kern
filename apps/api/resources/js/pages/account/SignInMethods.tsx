@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { LockIcon, ShieldCheckIcon } from 'lucide-react';
+import { Check, LockIcon, ShieldCheckIcon, ShieldOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { startRegistration } from '@simplewebauthn/browser';
 
@@ -272,6 +272,7 @@ export default function SignInMethods(props: {
                                 setCode('');
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsSecurity.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -281,6 +282,7 @@ export default function SignInMethods(props: {
                                 void confirmTotp();
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsSecurity.confirm)}
                         </PanelButton>
                     </>
@@ -352,6 +354,7 @@ export default function SignInMethods(props: {
                                 setPassword('');
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsSecurity.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -361,6 +364,7 @@ export default function SignInMethods(props: {
                                 void turnOffTotp();
                             }}
                         >
+                            <ShieldOff className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsSecurity.disable)}
                         </PanelButton>
                     </>
@@ -404,6 +408,7 @@ export default function SignInMethods(props: {
                             setRecoveryCodes(null);
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.settingsSecurity.codesSaved)}
                     </PanelButton>
                 }

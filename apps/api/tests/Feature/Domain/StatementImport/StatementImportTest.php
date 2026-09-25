@@ -54,6 +54,11 @@ use Tests\TestCase;
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();
 
+    // Asking a model about counterparties can be turned off for an installation, and the machine
+    // running the suite may have it off. What the suite checks is the behaviour, not the operator's
+    // choice, so it is pinned on here and turned off by the one test that is about it.
+    config(['ai.statements.classification.enabled' => true]);
+
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
@@ -205,6 +210,52 @@ function mappingBody(): array
     ];
 }
 
+it('takes the reference from the next place when the first repeats the counterparty', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $gateway = fakeReader();
+
+    // A card export of the kind this exists for: the reference column holds the payee's name again,
+    // and the row's own identity sits one column further along.
+    $gateway->rows = [
+        ['05.03.2026', 'PLATA CARD', '123,45', '', 'KAUFLAND', 'AUT 004521'],
+        ['06.03.2026', 'PLATA CARD', '123,45', '', 'KAUFLAND', 'AUT 004522'],
+    ];
+
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-referinte.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", [
+            ...mappingBody(),
+            'counterparty' => ['debit' => ['type' => 'index', 'value' => 4]],
+            'reference' => [
+                // Two places: the first is the counterparty's own column, which is what makes it
+                // worthless as identity, so each row falls through to the second.
+                'debit' => [
+                    ['type' => 'index', 'value' => 4],
+                    ['type' => 'index', 'value' => 5],
+                ],
+            ],
+        ])
+        ->assertOk();
+
+    $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        ->where('import_id', $import->id)
+        ->orderBy('row_number')
+        ->get();
+
+    // Each row keeps its own identity, so the two are not one payment read twice.
+    expect($rows->pluck('reference_ciphertext')->all())->toBe(['AUT 004521', 'AUT 004522'])
+        ->and($rows->pluck('fingerprint')->unique())->toHaveCount(2);
+
+    // And the choice survives the round trip, so going back to the columns still shows it.
+    $shown = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk();
+
+    expect($shown->json('mapping.reference.debit.1.value'))->toBe(5)
+        ->and($shown->json('multi_source.fields'))->toContain('reference');
+});
+
 it('stores the statement as a document that is never sent to a model', function (): void {
     [$user, $subjectId, $accountId] = importer();
 
@@ -273,22 +324,26 @@ it('adds nothing when the same statement is imported twice', function (): void {
     expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3);
 });
 
-it('takes every transaction back out when an import is undone', function (): void {
+it('takes the transactions, the rows and the file with it when an import is deleted', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId);
 
     $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")->assertStatus(202);
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3);
+    $documentId = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->document_id;
+
+    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3)
+        ->and($documentId)->not->toBeNull();
 
     $this->actingAs($user)
-        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/undo")
-        ->assertOk();
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertNoContent();
 
+    // One act: the ledger, the import and the statement file.
     expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0)
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
-        ->toBe(StatementImportStatus::UNDONE);
+        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)->exists())->toBeFalse()
+        ->and(Document::withoutGlobalScope(TaxSubjectScope::class)->whereKey($documentId)->exists())->toBeFalse();
 });
 
 /**
@@ -542,7 +597,7 @@ it('deletes an import that reached the end having written nothing', function ():
     expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($import->id))->toBeNull();
 });
 
-it('deletes an import that never became transactions, and refuses one that did', function (): void {
+it('deletes an import whether or not it became transactions, and refuses only one being written', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId);
 
@@ -563,16 +618,28 @@ it('deletes an import that never became transactions, and refuses one that did',
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}/commit")
         ->assertStatus(202);
 
-    /*
-     * One that wrote transactions is undone, never deleted: deleting it would leave figures in the
-     * ledger pointing at an import nobody can look up, and no way to take them back out.
-     */
+    // One that wrote transactions goes the same way: they come out of the ledger with it, which is
+    // what "this import was a mistake" has always meant.
     $this->actingAs($user)
         ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}")
+        ->assertNoContent();
+
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($second->id))->toBeNull()
+        ->and(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $second->id)->count())
+        ->toBe(0);
+
+    // Only a write in flight refuses: deleting underneath it would corrupt the write itself.
+    $third = startImport($this, $user, $subjectId, $accountId, 'extras-iunie.csv');
+    StatementImport::withoutGlobalScope(TaxSubjectScope::class)
+        ->whereKey($third->id)
+        ->update(['status' => StatementImportStatus::IMPORTING->value]);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$third->id}")
         ->assertStatus(409)
         ->assertJsonPath('reason', 'IMPORT_HOLDS_TRANSACTIONS');
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($second->id))->not->toBeNull();
+    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($third->id))->not->toBeNull();
 });
 
 it('serves the page of rows that was asked for', function (): void {
@@ -655,6 +722,28 @@ it('says suggestions are coming as soon as the rows are staged', function (): vo
         ->and($shown->json('preview.classification.failure'))->toBeNull();
 });
 
+it('asks no model at all where an installation has turned the suggestions off', function (): void {
+    config(['ai.statements.classification.enabled' => false]);
+
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-sugestii.csv');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $shown = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertOk();
+
+    // The round is over before it starts: the rows are staged and the review opens, with nothing
+    // waiting on a call that will never be made.
+    expect($shown->json('import.status'))->toBe('REVIEW')
+        ->and($shown->json('preview.classification.expected'))->toBe(0)
+        ->and($shown->json('preview.classification.failure'))->toBe('TURNED_OFF')
+        ->and($shown->json('proposals.ai'))->toBe(0);
+});
+
 it('records that no model was asked, so the screen does not wait for one', function (): void {
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId, 'extras-fara-ai.csv');
@@ -716,14 +805,14 @@ it('marks a write that stopped part-way failed, and lets it be undone', function
         ->and($failed->failure_reason)->toBe('WRITE_FAILED')
         ->and($failed->imported_count)->toBe($written);
 
-    // Nothing else could take those transactions back out, so undo has to.
+    // A write that died part-way leaves transactions nothing else can reach: deleting the import is
+    // what takes them back out.
     $this->actingAs($user)
-        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/undo")
-        ->assertOk();
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->assertNoContent();
 
     expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())->toBe(0)
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
-        ->toBe(StatementImportStatus::UNDONE);
+        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)->exists())->toBeFalse();
 });
 
 it('asks the model again about unanswered rows without rebuilding them', function (): void {

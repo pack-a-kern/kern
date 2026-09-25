@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { Building2Icon, MapPinIcon, TagIcon, UserIcon } from 'lucide-react';
+import { Building2Icon, Check, MapPinIcon, TagIcon, UserIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { updateSubject } from '../../api/accountApi';
@@ -95,6 +95,7 @@ export default function EditSubjectDialog(props: {
             actions={
                 <>
                     <PanelButton variant="outline" onClick={props.onClose}>
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.settingsSubjects.cancel)}
                     </PanelButton>
                     <PanelButton
@@ -104,6 +105,7 @@ export default function EditSubjectDialog(props: {
                             void submit();
                         }}
                     >
+                        <Check className="size-3.5" aria-hidden="true" />
                         {saving ? t((d) => d.pages.settingsSubjects.saving) : t((d) => d.pages.settingsSubjects.save)}
                     </PanelButton>
                 </>

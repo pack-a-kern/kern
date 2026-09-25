@@ -107,6 +107,11 @@ x-php-image: &php-image
     SETTINGS_ADMIN_USER_IDS: ${SETTINGS_ADMIN_USER_IDS:-}
     CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see .env.example}
     CRYPTO_BLIND_INDEX_CURRENT_VERSION: ${CRYPTO_BLIND_INDEX_CURRENT_VERSION:-1}
+    # Whether a statement's counterparties are put to a model for a category and tags. Off, the rows
+    # are still staged, still filled in from earlier decisions, and still answerable by hand — the
+    # calls simply do not happen. Named here because this block is the only channel by which the
+    # root .env reaches these containers.
+    STATEMENT_IMPORT_CLASSIFICATION_ENABLED: ${STATEMENT_IMPORT_CLASSIFICATION_ENABLED:-true}
     REVERB_SCHEME: ${REVERB_SCHEME:-http}
     # Page origins allowed to open a websocket, comma-separated. Passed through explicitly because
     # this `environment:` block is the only channel by which the root .env reaches these containers

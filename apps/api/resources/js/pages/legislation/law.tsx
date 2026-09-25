@@ -19,6 +19,7 @@ import AppShell from '../../components/AppShell';
 import { Page, PanelButton, PanelSelect, SearchInput } from '../../components/panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTranslation } from '../../i18n';
 import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
@@ -130,6 +131,40 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
     const [find, setFind] = useState('');
     const [versionsOpen, setVersionsOpen] = useState(false);
     const [sheet, setSheet] = useState<'contents' | 'find' | null>(null);
+    const [head, setHead] = useState<HTMLElement | null>(null);
+    const [reader, setReader] = useState<HTMLElement | null>(null);
+
+    /*
+     * Where the rails begin and how tall they may be, measured rather than guessed.
+     *
+     * The window does not scroll — the shell is `h-dvh` and `main` is the scrollport — so a rail
+     * sized against the viewport is taller than the pane holding it, and its last rows sit below
+     * the fold whatever the person does. Two numbers settle it: where the header's bottom comes to
+     * rest when it sticks, and how much of `main` is left under it. Both change with the title's
+     * length, the width, and a window resize, so both are observed.
+     */
+    useEffect(() => {
+        const pane = reader?.closest('main') ?? null;
+
+        if (head === null || reader === null || pane === null) {
+            return;
+        }
+
+        const measure = new ResizeObserver(() => {
+            // The header sticks at `-top-3`, so its bottom rests three quarters of a rem higher.
+            const top = Math.round(head.getBoundingClientRect().height - 12);
+
+            reader.style.setProperty('--reader-top', `${String(top)}px`);
+            reader.style.setProperty('--reader-rail', `${String(Math.max(pane.clientHeight - top - 8, 160))}px`);
+        });
+
+        measure.observe(head);
+        measure.observe(pane);
+
+        return () => {
+            measure.disconnect();
+        };
+    }, [head, reader]);
 
     useEffect(() => {
         let active = true;
@@ -271,7 +306,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
             <Head title={law?.title ?? shortName} />
             <Page title={shortName} lede={t((d) => d.pages.legislation.law.reader)}>
                 {/* The law's heading stays in sight while its text scrolls under it. */}
-                <header className="panel panel-pad sticky -top-3 z-20 sm:-top-5">
+                <header ref={setHead} className="panel panel-pad sticky -top-3 z-20 sm:-top-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                             <nav className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs">
@@ -368,6 +403,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                 </header>
 
                 <div
+                    ref={setReader}
                     id="law-reader"
                     className="grid scroll-mt-44 items-start gap-3 pb-24 lg:grid-cols-[16rem_minmax(0,1fr)] lg:pb-0 xl:grid-cols-[17rem_minmax(0,1fr)_15rem]"
                 >
@@ -449,12 +485,12 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         )}
                     </section>
 
-                    <aside className="reader-rail hidden flex-col gap-2.5 xl:flex">
-                        <div className="panel panel-pad-sm">
+                    <aside className="reader-stack hidden flex-col gap-2.5 xl:flex">
+                        <div className="panel panel-pad-sm flex min-h-0 flex-1 flex-col">
                             <h4 className="mb-1.5 text-xs font-semibold">
                                 {t((d) => d.pages.legislation.law.inThisPart)}
                             </h4>
-                            <div className="max-h-64 overflow-y-auto">
+                            <div className="reader-scroll min-h-0 flex-1">
                                 {found.map((group) => (
                                     <button
                                         key={group.article.id}
@@ -518,21 +554,22 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                             </div>
                         )}
                         {shown === null ? null : (
-                            <div className="panel panel-pad-sm">
-                                <h4 className="mb-1 text-xs font-semibold">
-                                    {t((d) => d.pages.legislation.law.source)}
-                                </h4>
-                                <p className="note">{t((d) => d.pages.legislation.law.sourceHint)}</p>
-                                <a
-                                    className="text-info mt-2 inline-flex items-center gap-1 text-xs font-semibold"
-                                    href={shown.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {t((d) => d.pages.legislation.law.openSource)}
-                                    <ExternalLink className="size-3" />
-                                </a>
-                            </div>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <a
+                                        className="panel panel-pad-sm text-info flex items-center justify-between gap-2 text-xs font-semibold"
+                                        href={shown.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {t((d) => d.pages.legislation.law.openSource)}
+                                        <ExternalLink className="size-3 shrink-0" />
+                                    </a>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-72">
+                                    {t((d) => d.pages.legislation.law.sourceHint)}
+                                </TooltipContent>
+                            </Tooltip>
                         )}
                     </aside>
                 </div>

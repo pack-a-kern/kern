@@ -1057,11 +1057,57 @@ label:has(
 
 /* A reading's side column — its contents, what is on the page — held in view beside a long text
    while the text scrolls, and scrolling itself when it is the longer. */
+/* The reader's two side columns, and any list inside them.
+   Thin and colourless until pointed at: on Windows a default scrollbar is fifteen pixels of grey
+   down a sixteen-rem rail, which is a tenth of the column spent saying "this scrolls". `contain`
+   keeps a rail's last line from carrying on into the page behind it. */
+.reader-rail,
+.reader-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+.reader-rail:hover,
+.reader-rail:focus-within,
+.reader-scroll:hover,
+.reader-scroll:focus-within {
+    scrollbar-color: var(--border) transparent;
+}
+.reader-rail::-webkit-scrollbar,
+.reader-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.reader-rail::-webkit-scrollbar-thumb,
+.reader-scroll::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+}
+.reader-rail:hover::-webkit-scrollbar-thumb,
+.reader-rail:focus-within::-webkit-scrollbar-thumb,
+.reader-scroll:hover::-webkit-scrollbar-thumb,
+.reader-scroll:focus-within::-webkit-scrollbar-thumb {
+    background: var(--border);
+}
+
+/* `--reader-top` is where the sticky header's bottom comes to rest, and `--reader-rail` what is
+   left of the scrollport under it — both measured on the page (see `law.tsx`), because the window
+   itself never scrolls and a rail sized against the viewport hangs below the pane that holds it. */
 .reader-rail {
     position: sticky;
-    top: 10rem;
-    max-height: calc(100vh - 12rem);
-    overflow-y: auto;
+    top: var(--reader-top, 10rem);
+    max-height: var(--reader-rail, calc(100dvh - 12rem));
+    padding-bottom: 0.5rem;
+}
+
+/* The right column: the list of articles takes what height is left and scrolls on its own, so the
+   cards under it — which version is shown, where the text came from — are on the screen from the
+   first look rather than under a list that grows with the part. */
+.reader-stack {
+    position: sticky;
+    top: var(--reader-top, 10rem);
+    height: var(--reader-rail, calc(100dvh - 12rem));
 }
 
 /* A sheet rising from the bottom of a phone's screen: never taller than three quarters of it. */
@@ -1286,6 +1332,12 @@ label:has(
     background: color-mix(in oklab, var(--muted) 40%, transparent);
     border-end-start-radius: inherit;
     border-end-end-radius: inherit;
+}
+/* The way out on the left, the decisions on the right: a dialog's first button is the one that
+   dismisses it — close, cancel, go back — and a person's eye should not have to pick it out of the
+   row it is undone by. A footer holding one button keeps it with the others, on the right. */
+.dialog-footer > :first-child:not(:last-child) {
+    margin-inline-end: auto;
 }
 .dialog-title {
     font-size: 15px;

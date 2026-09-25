@@ -1,3 +1,4 @@
+import { Ban, Check, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -64,13 +65,18 @@ export default function FiscalParameterDialog({
             description={describePeriod(version, t, locale)}
             actions={
                 <>
-                    <PanelButton onClick={onClose}>{t((d) => d.pages.taxRules.close)}</PanelButton>
+                    <PanelButton onClick={onClose}>
+                        <X className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.pages.taxRules.close)}
+                    </PanelButton>
                     {decidable ? (
                         <>
                             <PanelButton disabled={busy} onClick={() => void decide(false)}>
+                                <Ban className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.taxRules.reject)}
                             </PanelButton>
                             <PanelButton primary disabled={busy || chosen === ''} onClick={() => void decide(true)}>
+                                <Check className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.taxRules.approve)}
                             </PanelButton>
                         </>

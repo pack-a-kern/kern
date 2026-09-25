@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 
 import { getProvisionHistory } from '../../api/legislationApi';
@@ -65,7 +66,12 @@ export default function ProvisionHistory({
             size="lg"
             title={t((d) => d.pages.legislation.law.historyTitle).replace('{citation}', section?.citation ?? '')}
             description={t((d) => d.pages.legislation.law.historyHint)}
-            actions={<PanelButton onClick={onClose}>{t((d) => d.pages.legislation.law.close)}</PanelButton>}
+            actions={
+                <PanelButton onClick={onClose}>
+                    <X className="size-3.5" aria-hidden="true" />
+                    {t((d) => d.pages.legislation.law.close)}
+                </PanelButton>
+            }
         >
             {failed ? (
                 <p className="note">{t((d) => d.pages.legislation.law.historyFailed)}</p>

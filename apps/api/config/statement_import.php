@@ -63,6 +63,29 @@ return [
      */
     'formats' => ['CSV', 'XLSX', 'XLS', 'PDF'],
 
+    /*
+     * Which fields of the form may name more than one place to look.
+     *
+     * A field is normally one answer — the date is in column 0 — but two of them are not, because a
+     * statement is not written by one machine: a card payment names its payee in a column and a
+     * transfer names it on a detail line, and a reference column is sometimes the payee's name
+     * again. Those fields take an ordered chain of places, tried until one has a value.
+     *
+     * Named here rather than decided in the screen, so the validator, the form and the mapping
+     * screen cannot disagree about it — and so a statement shape nobody has met yet costs a line
+     * here rather than a release. Anything not named takes exactly one place.
+     */
+    'multi_source_fields' => ['counterparty', 'reference'],
+
+    /*
+     * How many places one such field may name.
+     *
+     * A ceiling rather than a preference: a form is a description of how a statement is written, and
+     * a person adding a sixth place is no longer describing one. Read by the validator that refuses
+     * a longer chain and by the screen that stops offering another row, so the two agree.
+     */
+    'max_source_places' => 4,
+
     'limits' => [
         /*
          * The largest file the upload accepts, checked before a byte is stored.

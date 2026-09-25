@@ -8,9 +8,12 @@ use App\Domain\Identity\Models\User;
 use App\Domain\TaxKnowledge\Actions\SyncLegislationDocument;
 use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
 use App\Domain\TaxKnowledge\Legislatie\Exceptions\PortalAnswerException;
+use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\SectionHistory;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
+use App\Domain\TaxKnowledge\Models\SourceSection;
+use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
 use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
 use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
 use DateTimeImmutable;
@@ -492,4 +495,68 @@ it('dates a wording by its article\'s note when the article was replaced whole',
         ->all();
 
     expect($stretches)->toBe([['2016-01-01', false], ['2018-01-01', true]]);
+});
+
+it('deletes a law read in by mistake, with every consolidation and provision it brought', function (): void {
+    bootstrapIdentityCryptoForTests();
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $versions = SourceDocumentVersion::query()->where('source_document_id', $law->id)->pluck('id');
+
+    expect($versions)->toHaveCount(3)
+        ->and(SourceSection::query()->whereIn('document_version_id', $versions)->count())->toBeGreaterThan(0)
+        ->and(SectionHistory::query()->where('source_document_id', $law->id)->count())->toBeGreaterThan(0);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
+        ->assertOk()
+        ->assertJsonPath('versions', 3);
+
+    // The law, its consolidations, its provisions and what was assembled from them: all of it.
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeFalse()
+        ->and(SourceDocumentVersion::query()->whereIn('id', $versions)->count())->toBe(0)
+        ->and(SourceSection::query()->whereIn('document_version_id', $versions)->count())->toBe(0)
+        ->and(SectionHistory::query()->where('source_document_id', $law->id)->count())->toBe(0)
+        ->and(DB::table('audit_events')->where('event_type', 'LawDeleted')->count())->toBe(1);
+});
+
+it('refuses to delete a law a fiscal value rests on, and says how many', function (): void {
+    bootstrapIdentityCryptoForTests();
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $section = SourceSection::query()
+        ->whereIn('document_version_id', SourceDocumentVersion::query()->where('source_document_id', $law->id)->select('id'))
+        ->firstOrFail();
+    $parameter = FiscalParameter::factory()->create(['code' => 'RO.CASS.RATE', 'value_type' => 'DECIMAL']);
+    insertApprovedFiscalParameterVersion($parameter->id, $section->id);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'LAW_HAS_VALUES')
+        ->assertJsonPath('values', 1);
+
+    // Nothing was touched: a law the values rest on stays whole.
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue()
+        ->and(SourceSection::query()->whereKey($section->id)->exists())->toBeTrue();
+});
+
+it('does not delete an exchange-rate source through the law route, and refuses a person who may not run operations', function (): void {
+    bootstrapIdentityCryptoForTests();
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+
+    // The same table holds the BNR's rates; they are not laws and are not found here.
+    $rates = SourceDocument::query()->create([
+        'official_source_id' => app(OfficialSourceRepository::class)->idForCode('BNR'),
+        'document_type' => 'FX_DAILY',
+        'canonical_url' => 'https://www.bnr.ro/nbrfxrates.xml',
+    ]);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$rates->id}")->assertNotFound();
+    $this->actingAs(ordinaryUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")->assertForbidden();
+
+    expect(SourceDocument::query()->whereKey($rates->id)->exists())->toBeTrue()
+        ->and(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue();
 });

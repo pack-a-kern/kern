@@ -1,5 +1,15 @@
 import { useState, type JSX } from 'react';
-import { Building2Icon, CalendarIcon, GlobeIcon, IdCardIcon, MapPinIcon, TagIcon, UserIcon } from 'lucide-react';
+import {
+    Building2Icon,
+    CalendarIcon,
+    GlobeIcon,
+    IdCardIcon,
+    MapPinIcon,
+    Plus,
+    TagIcon,
+    UserIcon,
+    X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { type RegisterPfInput, inspectCnp, registerPfSubject } from '../../api/accountApi';
@@ -147,6 +157,7 @@ export default function AddSubjectDialog(props: {
                             props.onOpenChange(false);
                         }}
                     >
+                        <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.settingsSubjects.cancel)}
                     </PanelButton>
                     {details === null ? null : (
@@ -157,6 +168,7 @@ export default function AddSubjectDialog(props: {
                                 void submit();
                             }}
                         >
+                            <Plus className="size-3.5" aria-hidden="true" />
                             {saving
                                 ? t((d) => d.pages.settingsSubjects.saving)
                                 : t((d) => d.pages.settingsSubjects.add)}

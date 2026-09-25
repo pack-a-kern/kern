@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { FileSpreadsheet, Sparkles, Upload } from 'lucide-react';
+import { ArrowRight, CopyCheck, FileSpreadsheet, FileText, ListChecks, Plus, Sparkles, Upload, X } from 'lucide-react';
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -7,6 +7,7 @@ import { listAccounts, listBanks, listTags } from '../../api/walletApi';
 import {
     commitStatementImport,
     getStatementImport,
+    listStatementImports,
     previewStatementForm,
     requestColumnSuggestion,
     requestRowSuggestions,
@@ -29,9 +30,9 @@ import {
     PanelButton,
     PanelSelect,
     Pill,
+    Status,
     Toolbar,
 } from '../../components/panel';
-import { Skeleton } from '../../components/ui/skeleton';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
@@ -113,7 +114,9 @@ export default function WalletImport(): JSX.Element {
 
     // Step 1 — the file. The account is not asked: a statement lands in the general source.
     const [accountId, setAccountId] = useState('');
-    const [file, setFile] = useState<File | null>(null);
+    const [staged, setStaged] = useState<File[]>([]);
+    const [batch, setBatch] = useState<Queued[]>([]);
+    const [reached, setReached] = useState<Record<string, string>>({});
     const [dragging, setDragging] = useState(false);
     const [starting, setStarting] = useState(false);
 
@@ -122,7 +125,6 @@ export default function WalletImport(): JSX.Element {
     // The bank as a person picked it; undefined until they do, so the guess from the file shows.
     const [bankChoice, setBankChoice] = useState<string | null | undefined>(undefined);
     const [applying, setApplying] = useState(false);
-    const [mappingError, setMappingError] = useState<string | null>(null);
     /*
      * Reopening the form once the rows exist.
      *
@@ -254,6 +256,15 @@ export default function WalletImport(): JSX.Element {
             if (event.importId === importId) {
                 setReloadKey((current) => current + 1);
             }
+
+            // One of the others of the batch moved on: the strip says so without being opened.
+            setBatch((queue) => {
+                if (queue.some((one) => one.importId === event.importId)) {
+                    setReached((known) => ({ ...known, [event.importId]: event.status }));
+                }
+
+                return queue;
+            });
         },
         [importId],
     );
@@ -314,6 +325,39 @@ export default function WalletImport(): JSX.Element {
         classification.failure === null &&
         (classification.expected === null || classification.batches.length < classification.expected);
 
+    useEffect(() => {
+        if (subjectId === null || batch.length < 2) {
+            return;
+        }
+
+        let active = true;
+
+        listStatementImports(subjectId).then(
+            (loaded) => {
+                if (active) {
+                    setReached(Object.fromEntries(loaded.imports.map((one) => [one.id, one.status])));
+                }
+            },
+            () => {
+                // The strip falls back to what the upload itself reported.
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, [subjectId, batch.length]);
+
+    // The next of the batch still to be answered for: not this one, and not one that failed.
+    const waiting =
+        batch.find(
+            (one) =>
+                one.importId !== null &&
+                one.importId !== importId &&
+                one.state === 'queued' &&
+                (reached[one.importId] ?? 'READING') !== 'IMPORTED',
+        ) ?? null;
+
     const rows = useMemo(() => detail?.rows ?? [], [detail]);
     const selection = useRowSelection(useMemo(() => rows.map((row) => row.id), [rows]));
 
@@ -332,23 +376,66 @@ export default function WalletImport(): JSX.Element {
     const status = detail?.import.status ?? null;
     const chosenBank = bankChoice === undefined ? (detail?.import.bankId ?? '') : (bankChoice ?? '');
 
+    /*
+     * Every file chosen, sent one after another — two at a time.
+     *
+     * Each is its own import: its own columns to confirm, its own rows to answer for, read by the
+     * queue on its own. So each is its own request too, and a file refused — already imported, too
+     * large, unreadable — says so on its own line while the rest carry on. Ten at once would open ten
+     * connections and reach the upload limit for nothing; two keeps the queue fed.
+     */
     const upload = async (): Promise<void> => {
-        if (file === null || accountId === '') {
+        if (staged.length === 0 || accountId === '') {
             return;
         }
 
+        const files = [...staged];
         setStarting(true);
+        setBatch(files.map((chosen) => ({ name: chosen.name, importId: null, state: 'waiting' })));
 
-        try {
-            const started = await startStatementImport(subjectId, file, accountId);
-            setImportId(started.id);
-        } catch (cause: unknown) {
-            toast.error(
-                t((d) => d.pages.walletImports.failed),
-                { description: describeApiFailure(cause, t) },
-            );
-        } finally {
-            setStarting(false);
+        const accepted: string[] = [];
+        const mark = (at: number, change: Partial<Queued>): void => {
+            setBatch((queue) => queue.map((one, index) => (index === at ? { ...one, ...change } : one)));
+        };
+
+        let next = 0;
+        const send = async (): Promise<void> => {
+            while (next < files.length) {
+                const at = next++;
+                const chosen = files[at];
+
+                if (chosen === undefined) {
+                    return;
+                }
+
+                mark(at, { state: 'uploading' });
+
+                try {
+                    const started = await startStatementImport(subjectId, chosen, accountId);
+                    accepted.push(started.id);
+                    mark(at, { state: 'queued', importId: started.id });
+                } catch (cause: unknown) {
+                    mark(at, { state: 'failed', said: describeApiFailure(cause, t) });
+                }
+            }
+        };
+
+        await Promise.all([send(), send()]);
+
+        setStarting(false);
+        setStaged([]);
+
+        /*
+         * Somewhere to go only if something is going there.
+         *
+         * Each accepted file is its own import with its own columns to confirm, and this page can
+         * only show one of them — so the list is where they are followed. But a drop where every
+         * file was refused (already imported, too large, unreadable) has produced nothing to follow,
+         * and sending a person to a list that looks exactly as it did leaves them wondering what
+         * happened. The refusals stay on screen instead, one line each.
+         */
+        if (accepted.length > 0) {
+            router.visit(IMPORTS_PATH);
         }
     };
 
@@ -367,7 +454,10 @@ export default function WalletImport(): JSX.Element {
             setRemapping(false);
             setReloadKey((current) => current + 1);
         } catch (cause: unknown) {
-            setMappingError(describeApiFailure(cause, t));
+            toast.error(
+                t((d) => d.pages.walletImports.columns.askAgainFailed),
+                { description: describeApiFailure(cause, t) },
+            );
         }
     };
 
@@ -392,7 +482,6 @@ export default function WalletImport(): JSX.Element {
         }
 
         setApplying(true);
-        setMappingError(null);
 
         try {
             await setStatementImportMapping(subjectId, importId, mapping, chosenBank === '' ? null : chosenBank);
@@ -400,7 +489,12 @@ export default function WalletImport(): JSX.Element {
             setRemapping(false);
             setReloadKey((current) => current + 1);
         } catch (cause: unknown) {
-            setMappingError(describeApiFailure(cause, t));
+            // A toast, not a line under the form: the form is long, the button is at its foot, and a
+            // sentence below the fold is a refusal a person does not see.
+            toast.error(
+                t((d) => d.pages.walletImports.columns.notApplied),
+                { description: describeApiFailure(cause, t) },
+            );
         } finally {
             setApplying(false);
         }
@@ -453,7 +547,13 @@ export default function WalletImport(): JSX.Element {
         <AppShell>
             <Head title={t((d) => d.pages.walletImports.title)} />
             <Page title={t((d) => d.pages.walletImports.title)} lede={t((d) => d.pages.walletImports.description)}>
-                {status === null ? (
+                {importId !== null && detail === null ? (
+                    <Panel title={t((d) => d.pages.walletImports.title)} aside={<Steps status={null} />}>
+                        <Working label={t((d) => d.pages.walletImports.opening)} />
+                    </Panel>
+                ) : null}
+
+                {status === null && importId === null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.steps.file)}
                         icon={<Upload className="size-4" />}
@@ -461,14 +561,18 @@ export default function WalletImport(): JSX.Element {
                         footActions={
                             <PanelButton
                                 primary
-                                disabled={starting || file === null || accountId === ''}
+                                disabled={starting || staged.length === 0 || accountId === ''}
                                 onClick={() => {
                                     void upload();
                                 }}
                             >
+                                <Upload className="size-3.5" aria-hidden="true" />
                                 {starting
                                     ? t((d) => d.pages.walletImports.file.uploading)
-                                    : t((d) => d.pages.walletImports.start)}
+                                    : t((d) => d.pages.walletImports.file.startCount).replace(
+                                          '{count}',
+                                          String(staged.length),
+                                      )}
                             </PanelButton>
                         }
                     >
@@ -490,7 +594,7 @@ export default function WalletImport(): JSX.Element {
                             onDrop={(event) => {
                                 event.preventDefault();
                                 setDragging(false);
-                                setFile(event.dataTransfer.files[0] ?? null);
+                                setStaged((chosen) => [...chosen, ...statements(event.dataTransfer.files)]);
                             }}
                         >
                             <Upload className="text-muted-foreground size-8" aria-hidden="true" />
@@ -499,36 +603,66 @@ export default function WalletImport(): JSX.Element {
                                 {t((d) => d.pages.walletImports.file.choose)}
                             </span>
                             <span className="note max-w-sm">{t((d) => d.pages.walletImports.file.hint)}</span>
-                            {file === null ? null : (
-                                <span className="mt-1 text-sm font-medium break-all">
-                                    {t((d) => d.pages.walletImports.file.chosen).replace('{name}', file.name)}
-                                </span>
-                            )}
                             <input
                                 id="import-file"
                                 type="file"
+                                multiple
                                 className="sr-only"
-                                accept=".csv,.xlsx,.xls,.pdf"
+                                accept={STATEMENT_FILES.join(',')}
                                 onChange={(event) => {
-                                    setFile(event.target.files?.[0] ?? null);
+                                    setStaged((chosen) => [...chosen, ...statements(event.target.files)]);
                                 }}
                             />
                         </label>
+
+                        {/* Chosen, not yet sent: a wrong one is taken off the list here rather than
+                            deleted from the documents afterwards. */}
+                        {staged.length === 0 ? null : (
+                            <ul className="border-border divide-border mx-auto mt-3 w-full max-w-md divide-y overflow-hidden rounded-lg border">
+                                {staged.map((chosen, index) => (
+                                    <li
+                                        key={`${chosen.name}-${String(index)}`}
+                                        className="flex items-center gap-2 px-3 py-2"
+                                    >
+                                        <FileText
+                                            className="text-muted-foreground size-3.5 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                                            {chosen.name}
+                                        </span>
+                                        <span className="note tabular-nums">{kilobytes(chosen.size)}</span>
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-destructive"
+                                            aria-label={t((d) => d.common.delete)}
+                                            onClick={() => {
+                                                setStaged((files) => files.filter((_, at) => at !== index));
+                                            }}
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
+                        {batch.length === 0 ? null : (
+                            <BatchQueue queue={batch} reached={reached} onOpen={setImportId} />
+                        )}
                     </Panel>
                 ) : null}
 
                 {status === 'READING' || status === 'IMPORTING' ? (
                     <Panel title={t((d) => d.pages.walletImports.title)} aside={<Steps status={status} />}>
-                        <p className="note">
-                            {status === 'READING'
-                                ? t((d) => d.pages.walletImports.file.reading)
-                                : t((d) => d.pages.walletImports.review.importing)}
-                        </p>
-                        <div className="mt-3 space-y-2">
-                            {[0, 1, 2].map((index) => (
-                                <Skeleton key={index} className="tile h-9 w-full" />
-                            ))}
-                        </div>
+                        <Working
+                            label={
+                                status === 'READING'
+                                    ? t((d) => d.pages.walletImports.file.reading)
+                                    : t((d) => d.pages.walletImports.review.importing)
+                            }
+                            note={t((d) => d.pages.walletImports.working)}
+                        />
                     </Panel>
                 ) : null}
 
@@ -547,7 +681,6 @@ export default function WalletImport(): JSX.Element {
                                 )}
                             </p>
                         )}
-                        {mappingError === null ? null : <p className="text-destructive mt-2 text-sm">{mappingError}</p>}
                         <p className="mt-3 flex flex-wrap gap-2">
                             {detail?.import.canReadAgain === true ? (
                                 <PanelButton
@@ -575,9 +708,6 @@ export default function WalletImport(): JSX.Element {
                         description={t((d) => d.pages.walletImports.columns.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
                         aside={<Steps status={status} />}
-                        footNote={
-                            mappingError === null ? undefined : <span className="text-destructive">{mappingError}</span>
-                        }
                         footActions={
                             <>
                                 <PanelButton
@@ -611,7 +741,10 @@ export default function WalletImport(): JSX.Element {
                             bank={{
                                 options: banks.map((bank) => ({
                                     value: bank.id,
-                                    label: bankLabel(bank, t((d) => d.pages.walletTransactions.bank.closed)),
+                                    label: bankLabel(
+                                        bank,
+                                        t((d) => d.pages.walletTransactions.bank.closed),
+                                    ),
                                 })),
                                 value: chosenBank,
                                 source: bankChoice === undefined ? detail.preview.bankSource : null,
@@ -909,7 +1042,13 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
 
-                {status === 'IMPORTED' || status === 'UNDONE' ? (
+                {/* The rest of the batch, while one of them is open: which still want the columns
+                    confirmed, which are still being read, which are done. */}
+                {batch.length > 1 && status !== null ? (
+                    <BatchQueue queue={batch} reached={reached} open={importId} onOpen={setImportId} />
+                ) : null}
+
+                {status === 'IMPORTED' ? (
                     <Panel title={t((d) => d.pages.walletImports.done.title)} aside={<Steps status={status} />}>
                         <p className="note">
                             {t((d) => d.pages.walletImports.done.summary)
@@ -932,11 +1071,200 @@ export default function WalletImport(): JSX.Element {
                             >
                                 {t((d) => d.pages.walletImports.historyTitle)}
                             </PanelButton>
+                            {/* One statement of several: straight on to the next rather than back
+                                to the list to find it. */}
+                            {waiting === null ? null : (
+                                <PanelButton
+                                    primary
+                                    onClick={() => {
+                                        setImportId(waiting.importId);
+                                    }}
+                                >
+                                    <ArrowRight className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.walletImports.file.next)
+                                        .replace('{at}', String(batch.indexOf(waiting) + 1))
+                                        .replace('{count}', String(batch.length))}
+                                </PanelButton>
+                            )}
                         </div>
                     </Panel>
                 ) : null}
             </Page>
         </AppShell>
+    );
+}
+
+/** One file of a batch on its way in: what it is called, where it got to, and why it did not. */
+interface Queued {
+    name: string;
+    importId: string | null;
+    state: 'waiting' | 'uploading' | 'queued' | 'failed';
+    said?: string;
+}
+
+/** What a statement can be: the same list the picker accepts, so a `.docx` never leaves the screen. */
+const STATEMENT_FILES = ['.csv', '.xlsx', '.xls', '.pdf'];
+
+/** The files of a drop or a picker that could be a statement at all. */
+function statements(chosen: FileList | null): File[] {
+    return [...(chosen ?? [])].filter((file) =>
+        STATEMENT_FILES.some((extension) => file.name.toLocaleLowerCase().endsWith(extension)),
+    );
+}
+
+function kilobytes(bytes: number): string {
+    return `${String(Math.max(Math.round(bytes / 1024), 1))} KB`;
+}
+
+/**
+ * The files of one batch, each on its own line: uploading, queued, or refused and why.
+ *
+ * Every file is a separate import with its own columns and its own rows, so this is a way through
+ * them rather than a progress bar — the one being worked on is marked, and the others are one click
+ * away.
+ */
+function BatchQueue({
+    queue,
+    reached,
+    open,
+    onOpen,
+}: {
+    queue: Queued[];
+    /** How far each import has got, by its id — the same words the imports list uses. */
+    reached: Record<string, string>;
+    open?: string | null;
+    onOpen: (importId: string) => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <Panel title={t((d) => d.pages.walletImports.file.batch).replace('{count}', String(queue.length))} flush>
+            <ul className="divide-border divide-y">
+                {queue.map((one, index) => (
+                    <li
+                        key={`${one.name}-${String(index)}`}
+                        className={cn(
+                            'flex items-center gap-2 px-3 py-2',
+                            one.importId !== null && one.importId === open && 'bg-muted/50',
+                        )}
+                    >
+                        <FileText className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{one.name}</span>
+
+                        {one.state === 'failed' ? (
+                            <Status tone="bad">{one.said ?? t((d) => d.pages.walletImports.failed)}</Status>
+                        ) : one.state === 'queued' ? (
+                            <Status tone={statusTone(one.importId === null ? null : (reached[one.importId] ?? null))}>
+                                {one.importId !== null && reached[one.importId] !== undefined
+                                    ? (t((d) => d.pages.walletImports.status)[reached[one.importId] ?? ''] ??
+                                      t((d) => d.pages.walletImports.file.queued))
+                                    : t((d) => d.pages.walletImports.file.queued)}
+                            </Status>
+                        ) : (
+                            <Status tone="idle">
+                                {t((d) =>
+                                    one.state === 'uploading'
+                                        ? d.pages.walletImports.file.uploading
+                                        : d.pages.walletImports.file.waiting,
+                                )}
+                            </Status>
+                        )}
+
+                        {one.importId === null || one.importId === open ? null : (
+                            <PanelButton
+                                onClick={() => {
+                                    onOpen(one.importId ?? '');
+                                }}
+                            >
+                                {t((d) => d.pages.walletImports.file.openOne)}
+                            </PanelButton>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </Panel>
+    );
+}
+
+/** A statement's stage as a colour: done, gone wrong, or still moving. */
+function statusTone(status: string | null): 'ok' | 'bad' | 'warn' | 'idle' {
+    if (status === 'IMPORTED') {
+        return 'ok';
+    }
+
+    if (status === 'FAILED') {
+        return 'bad';
+    }
+
+    return status === 'MAPPING' || status === 'REVIEW' ? 'warn' : 'idle';
+}
+
+/**
+ * One number of the review, with what it counts and — where it is a share of something — a bar.
+ *
+ * A bar rather than a second number: how much of a statement is answered is the one thing a person
+ * checks repeatedly while working through it, and a length is read at a glance where a fraction is
+ * read a digit at a time.
+ */
+function Fact({
+    icon,
+    label,
+    value,
+    quiet = false,
+    marked = false,
+    bar = null,
+}: {
+    icon: JSX.Element;
+    label: string;
+    value: string;
+    /** Nothing to see here: a zero that means "none of this happened" reads smaller. */
+    quiet?: boolean;
+    /** Done: everything this counts has been answered. */
+    marked?: boolean;
+    /** How much of it is done, 0 to 1, where that is a question this number answers. */
+    bar?: number | null;
+}): JSX.Element {
+    return (
+        <div className={cn('rounded-lg border px-3 py-2', marked ? 'border-success/40 bg-success/10' : 'bg-muted/40')}>
+            <p className={cn('note flex items-center gap-1.5', marked && 'text-success')}>
+                {icon}
+                {label}
+            </p>
+            <p
+                className={cn(
+                    'mt-0.5 font-semibold tabular-nums',
+                    quiet ? 'text-muted-foreground text-sm' : 'text-lg',
+                    marked && 'text-success',
+                )}
+            >
+                {value}
+            </p>
+            {bar === null ? null : (
+                <span className="bg-border mt-1.5 block h-1 overflow-hidden rounded-full">
+                    <span
+                        className={cn('block h-full rounded-full', marked ? 'bg-success' : 'bg-info')}
+                        style={{ width: `${String(Math.round(bar * 100))}%` }}
+                    />
+                </span>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Work happening elsewhere, said plainly.
+ *
+ * A file is read and rows are written on a queue, and the screen is told when it changes rather than
+ * asking — so there is no percentage to show honestly. What it can say is what is being done and
+ * that it is still being done, which is what three grey rectangles never said.
+ */
+function Working({ label, note }: { label: string; note?: string }): JSX.Element {
+    return (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <span className="border-info/30 border-t-info size-8 animate-spin rounded-full border-2" />
+            <p className="text-sm font-semibold">{label}</p>
+            {note === undefined ? null : <p className="note max-w-sm">{note}</p>}
+        </div>
     );
 }
 
@@ -1090,8 +1418,8 @@ function suggestForm(detail: StatementImportDetail): StatementForm {
         description: asField(texts[0]),
         // Left empty rather than guessed: which label names the other side of a payment is exactly
         // what a local guess gets wrong, and an empty select asks where a wrong one misleads.
-        counterparty: { debit: null, credit: null },
-        reference: { debit: null, credit: null },
+        counterparty: { debit: [], credit: [] },
+        reference: { debit: [], credit: [] },
         non_transaction_lines: [],
         identity_labels: [],
     };
@@ -1185,6 +1513,10 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
  * A model call's failure code, in words. An unknown code is shown as itself rather than hidden:
  * a new failure the screen has no sentence for is still worth seeing.
  */
+/**
+ * A model call's failure code, in words. An unknown code is shown as itself rather than hidden:
+ * a new failure the screen has no sentence for is still worth seeing.
+ */
 /** Says the table was made by the provider's converter, and passes on what it warned about. */
 function ConversionNote({ conversion }: { conversion: StatementConversion }): JSX.Element {
     const { t, locale } = useTranslation();
@@ -1201,7 +1533,9 @@ function ConversionNote({ conversion }: { conversion: StatementConversion }): JS
                     .replace('{seconds}', seconds)}
             </p>
             {conversion.warning === null ? null : (
-                <p>{t((d) => d.pages.walletImports.columns.convertedWarning).replace('{warning}', conversion.warning)}</p>
+                <p>
+                    {t((d) => d.pages.walletImports.columns.convertedWarning).replace('{warning}', conversion.warning)}
+                </p>
             )}
         </div>
     );
@@ -1232,23 +1566,23 @@ function ReviewOverview({
     const current = detail.import;
     const classification = detail.preview.classification;
 
-    // Imports read before the line counts existed have none; showing zeros would claim an empty file.
-    const lines =
+    /*
+     * What there is to do, rather than seven numbers in a row.
+     *
+     * A review screen is opened to answer rows, so the one that matters is how many still want an
+     * answer — as a bar, because "0 of 529" and "500 of 529" are the same sentence and a different
+     * afternoon. How the file was read is provenance rather than work: one quiet line above, and
+     * only for imports that recorded it (older ones have no counts, and zeroes would claim an
+     * empty file).
+     */
+    const answered = detail.proposals.ai + detail.proposals.rule;
+    const fileLine =
         current.linesRead === 0
-            ? []
-            : [
-                  { label: t((d) => d.pages.walletImports.review.statLines), value: current.linesRead },
-                  { label: t((d) => d.pages.walletImports.review.statFolded), value: current.linesFolded },
-                  { label: t((d) => d.pages.walletImports.review.statSkipped), value: current.linesSkipped },
-              ];
-
-    const stats = [
-        ...lines,
-        { label: t((d) => d.pages.walletImports.review.statTransactions), value: current.rowCount },
-        { label: t((d) => d.pages.walletImports.review.statDuplicates), value: current.duplicateCount },
-        { label: t((d) => d.pages.walletImports.review.statAi), value: detail.proposals.ai },
-        { label: t((d) => d.pages.walletImports.review.statRules), value: detail.proposals.rule },
-    ];
+            ? null
+            : t((d) => d.pages.walletImports.review.fileLine)
+                  .replace('{lines}', current.linesRead.toLocaleString(locale))
+                  .replace('{folded}', current.linesFolded.toLocaleString(locale))
+                  .replace('{skipped}', current.linesSkipped.toLocaleString(locale));
 
     const done = classification?.batches.length ?? 0;
     const expected = classification?.expected ?? null;
@@ -1262,8 +1596,10 @@ function ReviewOverview({
     const withoutSuggestion = Math.max(0, current.rowCount - detail.proposals.ai - detail.proposals.rule);
 
     const aiStatus =
-        classification === null
-            ? null
+        classification === null || classification.failure === 'TURNED_OFF'
+            ? // Turned off for this installation: no round ran, so there is nothing to report and
+              // nothing to ask again. A line saying a code nobody chose is worse than silence.
+              null
             : classification.failure === 'UNAVAILABLE'
               ? t((d) => d.pages.walletImports.review.aiUnavailable)
               : classification.failure !== null
@@ -1288,14 +1624,31 @@ function ReviewOverview({
 
     return (
         <div className="border-border border-b px-4 py-3">
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-                {stats.map((stat) => (
-                    <div key={stat.label} className="min-w-0">
-                        <dt className="note leading-tight">{stat.label}</dt>
-                        <dd className="text-lg font-semibold tabular-nums">{stat.value.toLocaleString(locale)}</dd>
-                    </div>
-                ))}
-            </dl>
+            {fileLine === null ? null : <p className="note mb-2.5">{fileLine}</p>}
+
+            <div className="grid gap-2 sm:grid-cols-3">
+                <Fact
+                    icon={<FileSpreadsheet className="size-3.5" aria-hidden="true" />}
+                    label={t((d) => d.pages.walletImports.review.statTransactions)}
+                    value={current.rowCount.toLocaleString(locale)}
+                />
+                <Fact
+                    icon={<CopyCheck className="size-3.5" aria-hidden="true" />}
+                    label={t((d) => d.pages.walletImports.review.statDuplicates)}
+                    value={current.duplicateCount.toLocaleString(locale)}
+                    quiet={current.duplicateCount === 0}
+                />
+                <Fact
+                    icon={<ListChecks className="size-3.5" aria-hidden="true" />}
+                    label={t((d) => d.pages.walletImports.review.statAnswered)}
+                    value={t((d) => d.pages.walletImports.review.answeredOf)
+                        .replace('{answered}', answered.toLocaleString(locale))
+                        .replace('{total}', current.rowCount.toLocaleString(locale))}
+                    quiet={answered === 0}
+                    marked={answered >= current.rowCount && current.rowCount > 0}
+                    bar={current.rowCount === 0 ? null : answered / current.rowCount}
+                />
+            </div>
             {aiStatus === null ? null : (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <p className={'text-sm' + (waiting ? ' motion-safe:animate-pulse' : '')}>{aiStatus}</p>
@@ -1312,14 +1665,6 @@ function ReviewOverview({
         </div>
     );
 }
-
-/**
- * Every call made to suggest categories: what was sent, and what came back.
- *
- * Closed by default — it is for checking why a counterparty got the category it got, not for reading
- * through. It shows exactly the payload that left this application, so "what did we tell the model"
- * never needs answering from memory.
- */
 function AiCalls({ classification }: { classification: StatementClassification | null }): JSX.Element | null {
     const { t } = useTranslation();
 
@@ -1388,6 +1733,12 @@ function FormSummary({ detail, form }: { detail: StatementImportDetail; form: St
 
     // A label is shown with its colon — `Tranzactie la:` is what a person sees in their own file,
     // and it is what distinguishes a label from a column with a similar name.
+    /** A field's places as one line: "Beneficiar, then Tranzactie la:" — the order they are tried. */
+    const describeChain = (chain: StatementField[]): string =>
+        chain.length === 0
+            ? t((d) => d.pages.walletImports.columns.none)
+            : chain.map((place) => describe(place)).join(t((d) => d.pages.walletImports.columns.thenSeparator));
+
     const describe = (field: StatementField | null): string =>
         field === null
             ? t((d) => d.pages.walletImports.columns.none)
@@ -1409,10 +1760,10 @@ function FormSummary({ detail, form }: { detail: StatementImportDetail; form: St
                   { label: t((d) => d.pages.walletImports.columns.credit), value: describe(form.amounts.credit) },
               ]),
         { label: t((d) => d.pages.walletImports.columns.description), value: describe(form.description) },
-        { label: t((d) => d.pages.walletImports.columns.counterpartyOut), value: describe(form.counterparty.debit) },
-        { label: t((d) => d.pages.walletImports.columns.counterpartyIn), value: describe(form.counterparty.credit) },
-        { label: t((d) => d.pages.walletImports.columns.referenceOut), value: describe(form.reference.debit) },
-        { label: t((d) => d.pages.walletImports.columns.referenceIn), value: describe(form.reference.credit) },
+        { label: t((d) => d.pages.walletImports.columns.counterpartyOut), value: describeChain(form.counterparty.debit) },
+        { label: t((d) => d.pages.walletImports.columns.counterpartyIn), value: describeChain(form.counterparty.credit) },
+        { label: t((d) => d.pages.walletImports.columns.referenceOut), value: describeChain(form.reference.debit) },
+        { label: t((d) => d.pages.walletImports.columns.referenceIn), value: describeChain(form.reference.credit) },
         { label: t((d) => d.pages.walletImports.columns.currency), value: describe(form.currency) },
     ];
 
@@ -1490,6 +1841,10 @@ function MappingFields({
     }));
 
     const none = { value: '', label: t((d) => d.pages.walletImports.columns.none) };
+    const chainable = (field: string): boolean => detail.multiSource.fields.includes(field);
+    // An empty row waiting to be answered is the screen's business, not the form's: the mapping
+    // holds places, and a place nobody has chosen yet is not one.
+    const [extra, setExtra] = useState<Record<string, number>>({});
     const plainColumns = detail.preview.columns.map((column) => ({
         value: String(column.index),
         label: `${column.header === '' ? `#${String(column.index + 1)}` : column.header} · ${column.shape}`,
@@ -1562,6 +1917,67 @@ function MappingFields({
                         : options
                 }
             />
+        );
+    };
+
+    /**
+     * A field that may be in several places: the places in order, and a way to name another.
+     *
+     * One select where the field takes a single answer — which is most of them, and which the server
+     * decides (`statement_import.multi_source_fields`). Where several are allowed, each place is a
+     * row numbered with the order it is tried in, and an empty row is offered until the ceiling the
+     * validator holds, so the screen never offers a place the server would refuse.
+     */
+    const chainSelect = (
+        chain: StatementField[],
+        labels: { value: string; label: string }[],
+        field: string,
+        onChange: (next: StatementField[]) => void,
+    ): JSX.Element => {
+        if (!chainable(field)) {
+            return fieldSelect(chain[0] ?? null, labels, (next) => {
+                onChange(next === null ? [] : [next]);
+            });
+        }
+
+        const empty = extra[field] ?? 0;
+        const places: (StatementField | null)[] = [...chain, ...Array.from({ length: empty }, () => null)];
+        const shown = places.length === 0 ? [null] : places;
+
+        return (
+            <div className="flex flex-col gap-1.5">
+                {shown.map((place, index) => (
+                    <div key={index} className="flex items-center gap-1.5">
+                        {shown.length === 1 ? null : (
+                            <span className="note w-3 shrink-0 tabular-nums">{index + 1}</span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                            {fieldSelect(place, labels, (next) => {
+                                const kept = [...shown];
+                                kept[index] = next;
+
+                                setExtra((counts) => ({ ...counts, [field]: 0 }));
+                                onChange(kept.filter((one): one is StatementField => one !== null));
+                            })}
+                        </span>
+                    </div>
+                ))}
+
+                {/* Only once the places named so far are answered: an empty row below an empty row
+                    asks a person to fill in two things to say one. */}
+                {shown.every((place) => place !== null) && shown.length < detail.multiSource.max ? (
+                    <button
+                        type="button"
+                        className="text-info inline-flex w-fit items-center gap-1 text-xs font-semibold"
+                        onClick={() => {
+                            setExtra((counts) => ({ ...counts, [field]: (counts[field] ?? 0) + 1 }));
+                        }}
+                    >
+                        <Plus className="size-3" aria-hidden="true" />
+                        {t((d) => d.pages.walletImports.columns.orHere)}
+                    </button>
+                ) : null}
+            </div>
         );
     };
 
@@ -1703,39 +2119,61 @@ function MappingFields({
                     })}
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.counterpartyOut)}>
-                    {fieldSelect(mapping.counterparty.debit, labelsFor(debitColumn), (next) => {
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.counterpartyOut)}
+                    {...(chainable('counterparty')
+                        ? { help: t((d) => d.pages.walletImports.columns.chainHint) }
+                        : {})}
+                >
+                    {chainSelect(mapping.counterparty.debit, labelsFor(debitColumn), 'counterparty', (next) => {
                         set({ counterparty: { ...mapping.counterparty, debit: next } });
                     })}
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.counterpartyIn)}>
-                    {fieldSelect(mapping.counterparty.credit, labelsFor(creditColumn), (next) => {
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.counterpartyIn)}
+                    {...(chainable('counterparty')
+                        ? { help: t((d) => d.pages.walletImports.columns.chainHint) }
+                        : {})}
+                >
+                    {chainSelect(mapping.counterparty.credit, labelsFor(creditColumn), 'counterparty', (next) => {
                         set({ counterparty: { ...mapping.counterparty, credit: next } });
                     })}
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.referenceOut)}>
-                    {fieldSelect(mapping.reference.debit, labelsFor(debitColumn), (next) => {
+                {/* A place that repeats the counterparty is passed over here as an empty one is: a
+                    reference column holding the payee's name looks like an identity and is not one. */}
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.referenceOut)}
+                    help={t((d) => d.pages.walletImports.columns.referenceHint)}
+                >
+                    {chainSelect(mapping.reference.debit, labelsFor(debitColumn), 'reference', (next) => {
                         set({ reference: { ...mapping.reference, debit: next } });
                     })}
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.referenceIn)}>
-                    {fieldSelect(mapping.reference.credit, labelsFor(creditColumn), (next) => {
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.referenceIn)}
+                    help={t((d) => d.pages.walletImports.columns.referenceHint)}
+                >
+                    {chainSelect(mapping.reference.credit, labelsFor(creditColumn), 'reference', (next) => {
                         set({ reference: { ...mapping.reference, credit: next } });
                     })}
                 </Field>
 
+                {/* Required, like the currency: it is part of a transaction's identity — the same
+                    reference from two banks is two payments — so a statement without one cannot be
+                    read in. */}
                 <Field
                     label={t((d) => d.pages.walletImports.columns.bank)}
-                    hint={
+                    help={
                         bank.source === 'IBAN'
                             ? t((d) => d.pages.walletImports.columns.bankFromIban)
                             : bank.source === 'AI'
                               ? t((d) => d.pages.walletImports.columns.bankFromAi)
                               : t((d) => d.pages.walletImports.columns.bankHint)
                     }
+                    error={bank.value === '' ? t((d) => d.pages.walletImports.columns.bankRequired) : undefined}
                     htmlFor="import-bank"
                 >
                     <PanelSelect
@@ -1751,18 +2189,28 @@ function MappingFields({
                     />
                 </Field>
 
+                {/* A currency, not a place to read one from: a statement prints it once at the top
+                    or nowhere at all, never in a column, so offering columns here only invited the
+                    wrong answer. */}
                 <Field
                     label={t((d) => d.pages.walletImports.columns.currency)}
-                    hint={t((d) => d.pages.walletImports.columns.currencyHint)}
+                    help={t((d) => d.pages.walletImports.columns.currencyHint)}
+                    error={
+                        mapping.currency === null ? t((d) => d.pages.walletImports.columns.currencyRequired) : undefined
+                    }
+                    htmlFor="import-currency"
                 >
-                    {fieldSelect(
-                        mapping.currency,
-                        labelsFor(null),
-                        (next) => {
-                            set({ currency: next });
-                        },
-                        CURRENCIES,
-                    )}
+                    <PanelSelect
+                        searchable
+                        id="import-currency"
+                        value={mapping.currency?.type === 'code' ? String(mapping.currency.value) : ''}
+                        placeholder={t((d) => d.pages.walletImports.columns.none)}
+                        emptyLabel={t((d) => d.pages.walletImports.columns.none)}
+                        onValueChange={(next) => {
+                            set({ currency: next === '' ? null : { type: 'code', value: next } });
+                        }}
+                        options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                    />
                 </Field>
 
                 {mapping.non_transaction_lines.length === 0 ? null : (

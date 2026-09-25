@@ -6,6 +6,8 @@ namespace App\Domain\StatementImport\Actions;
 
 use App\Domain\Audit\DataTransferObjects\AuditEventInput;
 use App\Domain\Audit\Services\AuditChainService;
+use App\Domain\Documents\Actions\DeleteDocument;
+use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
@@ -14,61 +16,69 @@ use App\Domain\Wallet\Models\FinancialTransaction;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Removes an import that never became anything.
+ * Removes an import and everything it produced: its rows, the transactions it wrote, and the file.
  *
- * ## Why this is not undo
+ * ## Why this is the only way out
  *
- * Undo takes transactions back out of the ledger and keeps the import, because the history of what
- * happened to an account is worth more than a tidy list. This is the other case: a file read with
- * the wrong account, a mapping that was never confirmed, a statement uploaded twice. Nothing was
- * written, so there is nothing to keep a record of — and an import list a person cannot clear is one
- * they stop reading.
+ * There were two — undo, which took the transactions back out and left the import behind, and
+ * delete, which refused while any transaction pointed at it. Between them a person could reach a
+ * statement that could not be opened, could not be imported again and said nothing about itself.
+ * Two controls for one intention ("this import was a mistake"), and the order mattered.
  *
- * ## What goes, and what stays
+ * So there is one. It removes the transactions, the staged rows, the import and the statement file,
+ * and the screen asking for it says so plainly before it happens.
  *
- * The import and its staged rows, which the database cascades. The document the file was stored as
- * stays: it is evidence in its own right, it appears in the documents list, and deleting a person's
- * file because they tidied an import list would be a surprise. They can delete it there.
+ * ## What it still refuses
  *
- * ## An import holding transactions is refused
+ * An import being written. `IMPORTING` is a job putting rows into the ledger right now, and deleting
+ * the import underneath it corrupts the write rather than merely losing a record.
  *
- * Deleting one would leave transactions in the ledger pointing at an import that no longer exists —
- * no way to see where those figures came from, and no way to undo them afterwards. Undo first; then
- * this is allowed, because an undone import holds nothing.
+ * ## What survives, deliberately
  *
- * What decides that is the ledger, not the status. An import can reach `IMPORTED` having written
- * nothing — every row unticked, say — and refusing to delete that one on the strength of its label
- * would leave a person with an entry they can neither use nor remove.
+ * The counterparty rules the import wrote — the person's own answers about what a shop is, which
+ * were not wrong because the month was — and the audit chain, which keeps every entry this import
+ * produced plus one recording its removal. That chain is the only place a deleted import still
+ * exists, which is the point of an append-only chain.
  */
 final readonly class DeleteStatementImport
 {
-    public function __construct(private AuditChainService $audit)
-    {
+    public function __construct(
+        private AuditChainService $audit,
+        private DeleteDocument $deleteDocument,
+    ) {
     }
 
     public function __invoke(StatementImport $import, ?string $actorId = null): void
     {
-        // `IMPORTING` is a job writing rows right now, which is the one moment deleting the import
-        // underneath it would corrupt the write rather than merely lose a record.
         if ($import->status === StatementImportStatus::IMPORTING) {
             throw ImportNotOpenException::forImport($import->id);
         }
 
-        if (FinancialTransaction::query()->where('import_id', $import->id)->exists()) {
-            throw ImportNotOpenException::forImport($import->id);
-        }
-
+        // Read before deleting: afterwards the audit entry is the only trace left.
         $subjectId = $import->tax_subject_id;
         $accountId = $import->account_id;
         $importId = $import->id;
         $status = $import->status->value;
+        $documentId = $import->document_id;
+        $removed = 0;
 
-        DB::transaction(static function () use ($import): void {
+        DB::transaction(function () use ($import, &$removed): void {
+            // The ledger first: a transaction outliving its import is a figure with no provenance,
+            // and the rows and splits and tag links cascade from it.
+            $removed = FinancialTransaction::query()->where('import_id', $import->id)->delete();
+
             $import->delete();
         });
 
-        // Recorded after the fact and by id: the row is gone, so the chain is the only place that
-        // still says a statement was read for this account and then discarded.
+        // The file last, and outside the transaction: a document deleted for an import that then
+        // failed to commit would be unrecoverable, while an orphaned document is merely a file in
+        // the documents list.
+        $document = $documentId === null ? null : Document::query()->find($documentId);
+
+        if ($document instanceof Document) {
+            ($this->deleteDocument)($document, $actorId);
+        }
+
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: $subjectId,
             actorId: $actorId,
@@ -78,6 +88,8 @@ final readonly class DeleteStatementImport
             payloadHash: $this->audit->hashPayload([
                 'account_id' => $accountId,
                 'status' => $status,
+                'removed_transactions' => $removed,
+                'document_deleted' => $document instanceof Document,
             ]),
         ));
     }

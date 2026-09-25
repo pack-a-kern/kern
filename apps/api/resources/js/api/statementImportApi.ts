@@ -24,11 +24,7 @@ function base(subjectId: string): string {
 }
 
 /** Uploads the file and starts an import. Resolves as soon as it is queued, not when it is read. */
-export async function startStatementImport(
-    subjectId: string,
-    file: File,
-    accountId: string,
-): Promise<StatementImport> {
+export async function startStatementImport(subjectId: string, file: File, accountId: string): Promise<StatementImport> {
     const body = new FormData();
     body.append('file', file);
     body.append('account_id', accountId);
@@ -133,10 +129,10 @@ export async function commitStatementImport(subjectId: string, importId: string)
 }
 
 /**
- * Removes an import that never became transactions — a wrong account, a file read twice.
+ * Removes an import and everything it produced: its rows, the transactions it wrote, and the file.
  *
- * Refused for one that did: those are undone first, so the ledger never holds figures pointing at
- * an import nobody can look up. The statement file itself stays in the documents list.
+ * The one way out of a statement — a wrong account, a wrong month, a file read twice. Refused only
+ * while the rows are being written, which is the moment deleting underneath would corrupt the write.
  */
 export async function deleteStatementImport(subjectId: string, importId: string): Promise<void> {
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}`, { method: 'DELETE' });
@@ -158,9 +154,4 @@ export async function requestRowSuggestions(subjectId: string, importId: string)
  */
 export async function requestColumnSuggestion(subjectId: string, importId: string): Promise<void> {
     await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/mapping/suggest`, { method: 'POST' });
-}
-
-/** Takes a whole import back out: every transaction it created goes. */
-export async function undoStatementImport(subjectId: string, importId: string): Promise<void> {
-    await apiRequest(`${base(subjectId)}/${encodeURIComponent(importId)}/undo`, { method: 'POST' });
 }

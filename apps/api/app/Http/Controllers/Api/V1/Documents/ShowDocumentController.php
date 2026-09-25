@@ -44,7 +44,7 @@ final class ShowDocumentController extends Controller
             'original_filename' => $model->firstPart()?->original_filename_ciphertext,
             'type' => $model->type?->value,
             'status' => $model->status->value,
-            'stage' => DocumentStage::of($model->status, $import)->value,
+            'stage' => DocumentStage::of($model->status, $import, $model->source)->value,
             // The field names a correction may use, for this document's type. Sent rather than
             // mirrored in the client: `ExtractionSchema` is where required-vs-optional is decided,
             // and a second copy in TypeScript would drift the first time a type gained a field.

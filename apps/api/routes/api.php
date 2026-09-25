@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\FiscalParameters\ApproveFiscalParameterVersionCo
 use App\Http\Controllers\Api\V1\FiscalParameters\RejectFiscalParameterVersionController;
 use App\Http\Controllers\Api\V1\FiscalParameters\ShowFiscalParameterBoardController;
 use App\Http\Controllers\Api\V1\FiscalParameters\StartFiscalYearController;
+use App\Http\Controllers\Api\V1\Legislation\DeleteLawController;
 use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
 use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
 use App\Http\Controllers\Api\V1\Legislation\SearchPortalController;
@@ -84,7 +85,6 @@ use App\Http\Controllers\Api\V1\StatementImport\RequestColumnSuggestionControlle
 use App\Http\Controllers\Api\V1\StatementImport\RequestRowSuggestionsController;
 use App\Http\Controllers\Api\V1\StatementImport\ShowStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\StartStatementImportController;
-use App\Http\Controllers\Api\V1\StatementImport\UndoStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\UpdateStatementImportMappingController;
 use App\Http\Controllers\Api\V1\StatementImport\UpdateStatementImportRowsController;
 use App\Http\Controllers\Api\V1\Subjects\ChangeSubjectStatusController;
@@ -304,8 +304,6 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
         ->where('import', '[0-9a-f-]{36}');
     Route::post('wallet/imports/{import}/commit', CommitStatementImportController::class)
         ->where('import', '[0-9a-f-]{36}');
-    Route::post('wallet/imports/{import}/undo', UndoStatementImportController::class)
-        ->where('import', '[0-9a-f-]{36}');
 
     Route::get('wallet/transactions', ShowTransactionsController::class);
     // Lookalikes: gathered for a person, never refused at import. See `DuplicateTransactionGroups`.
@@ -408,6 +406,11 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     Route::get('{law}/text', ShowLawTextController::class)->whereUuid('law');
     Route::get('{law}/outline', ShowLawOutlineController::class)->whereUuid('law');
     Route::get('{law}/history', ShowProvisionHistoryController::class)->whereUuid('law');
+
+    // Removing a law read in from the portal — one added to try, or the wrong act — is changing what
+    // this installation holds, so it belongs to the same people who may start a reading. A law any
+    // fiscal value rests on is refused rather than cascaded: see `DeleteLaw`.
+    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware('permission:operations.run');
 });
 
 /*

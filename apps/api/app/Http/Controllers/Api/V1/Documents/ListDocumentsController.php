@@ -180,6 +180,7 @@ final class ListDocumentsController extends Controller
                 'stage' => DocumentStage::of(
                     $document->status,
                     $imports[$document->id] ?? TransactionImportState::UNAVAILABLE,
+                    $document->source,
                 )->value,
                 'rejection_reason' => $document->rejection_reason?->value,
                 'mime_type' => $document->firstPart()?->mime_type,

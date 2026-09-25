@@ -47,8 +47,20 @@ enum DocumentStage: string
     /** Refused, and terminal: infected, unreadable, or a type this app does not accept. */
     case REJECTED = 'REJECTED';
 
-    public static function of(DocumentStatus $status, TransactionImportState $import): self
+    public static function of(DocumentStatus $status, TransactionImportState $import, ?DocumentSource $source = null): self
     {
+        /*
+         * A statement uploaded to be imported is never reviewed.
+         *
+         * No model reads it — its rows are parsed locally and answered on the import's own screens —
+         * so it reaches `READY` with nothing proposed, and the rule below would call that "waiting
+         * on a person". It is not: whatever there was to do with it was done on the import, and a
+         * documents list that keeps asking for attention it does not need is one people stop reading.
+         */
+        if ($source === DocumentSource::IMPORT && $status === DocumentStatus::READY) {
+            return self::DONE;
+        }
+
         return match ($status) {
             DocumentStatus::QUARANTINE => self::CHECKING,
             DocumentStatus::SCANNED => self::QUEUED,

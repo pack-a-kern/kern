@@ -3,14 +3,15 @@ import { useTranslation } from '../../i18n';
 import { Link } from '@inertiajs/react';
 import { setPageHeader } from '../../lib/pageHeader';
 import { iconForInputType } from '../../lib/inputIcons';
-import { useEffect, cloneElement, isValidElement } from 'react';
+import { cloneElement, isValidElement, type MouseEvent, useEffect } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
-import { SearchIcon } from 'lucide-react';
+import { CircleHelp, SearchIcon } from 'lucide-react';
 
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { cn } from '../../lib/utils';
 
@@ -241,6 +242,14 @@ export function Field(props: {
     error?: string | undefined;
     /** A small state indicator shown *before* the label — provenance, a lock. */
     mark?: ReactNode;
+    /**
+     * An explanation, behind a mark beside the label rather than set under the control.
+     *
+     * A sentence under every field turns a form of eight into a wall of prose, and the one field a
+     * person is actually unsure about is no easier to find. Use `hint` where the text must be read
+     * before answering, and `help` where it answers a question a few people will have.
+     */
+    help?: string;
     /** Appended to the label in parentheses, e.g. `MB`. Never rendered inside the input: the unit
      *  would collide with a number input's spinner arrows. */
     unit?: string | undefined;
@@ -258,9 +267,26 @@ export function Field(props: {
         <div className={cn('min-w-0', invalid && 'field-invalid', props.className)}>
             <div className="field-label-row">
                 {props.mark}
-                <Label htmlFor={props.htmlFor} className="field-label truncate">
-                    {props.unit !== undefined && props.unit !== '' ? `${props.label} (${props.unit})` : props.label}
-                </Label>
+                {/* The mark sits beside the label's own text, not out at the field's right edge: it
+                    explains this label, and a question mark a column away belongs to nothing. */}
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <Label htmlFor={props.htmlFor} className="field-label truncate">
+                        {props.unit !== undefined && props.unit !== '' ? `${props.label} (${props.unit})` : props.label}
+                    </Label>
+                    {props.help === undefined || props.help === '' ? null : (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
+                                    <CircleHelp className="size-3.5" />
+                                    <span className="sr-only">{props.help}</span>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-72">
+                                {props.help}
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </span>
             </div>
 
             {/* `aria-invalid` on the control as well, so it is announced as invalid and not only
@@ -819,7 +845,8 @@ export function Pill({
 /** 30px tall, 11.5px label — smaller than the default control, per these screens' scale. */
 export function PanelButton(props: {
     children: ReactNode;
-    onClick: () => void;
+    /** The event comes with it: an action inside a card that is itself clickable stops it there. */
+    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
     disabled?: boolean;
     primary?: boolean;
     variant?: 'ghost' | 'outline';

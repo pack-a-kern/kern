@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Queries;
 
+use App\Domain\Banks\Models\Bank;
 use App\Domain\StatementImport\Models\StatementImport;
 
 /**
@@ -20,6 +21,8 @@ final readonly class StatementImportSummary
         public string $id,
         public string $accountId,
         public ?string $bankId,
+        /** The bank's own name, so a list of statements reads as banks rather than as ids. */
+        public ?string $bankName,
         public ?string $documentId,
         public ?string $format,
         public ?string $sheet,
@@ -35,7 +38,6 @@ final readonly class StatementImportSummary
         public int $linesSkipped,
         public ?string $aiFailureReason,
         public ?string $importedAt,
-        public ?string $undoneAt,
         public string $createdAt,
     ) {
     }
@@ -46,6 +48,7 @@ final readonly class StatementImportSummary
             id: $import->id,
             accountId: $import->account_id,
             bankId: $import->bank_id,
+            bankName: self::bankName($import->bank_id),
             documentId: $import->document_id,
             format: $import->format?->value,
             sheet: $import->sheet,
@@ -61,9 +64,16 @@ final readonly class StatementImportSummary
             linesSkipped: $import->lines_skipped,
             aiFailureReason: $import->ai_failure_reason,
             importedAt: $import->imported_at?->toIso8601String(),
-            undoneAt: $import->undone_at?->toIso8601String(),
             createdAt: $import->created_at?->toIso8601String() ?? '',
         );
+    }
+
+    /** The bank's own name, where the statement names one. */
+    private static function bankName(?string $bankId): ?string
+    {
+        $name = $bankId === null ? null : Bank::query()->whereKey($bankId)->value('name');
+
+        return is_string($name) ? $name : null;
     }
 
     /** @return array<string, mixed> */
@@ -73,6 +83,7 @@ final readonly class StatementImportSummary
             'id' => $this->id,
             'account_id' => $this->accountId,
             'bank_id' => $this->bankId,
+            'bank_name' => $this->bankName,
             'document_id' => $this->documentId,
             'format' => $this->format,
             'sheet' => $this->sheet,
@@ -90,7 +101,6 @@ final readonly class StatementImportSummary
             'lines_skipped' => $this->linesSkipped,
             'ai_failure_reason' => $this->aiFailureReason,
             'imported_at' => $this->importedAt,
-            'undone_at' => $this->undoneAt,
             'created_at' => $this->createdAt,
         ];
     }

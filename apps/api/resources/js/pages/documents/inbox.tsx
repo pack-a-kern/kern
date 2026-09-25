@@ -495,27 +495,29 @@ export default function DocumentsInbox(): JSX.Element {
                         {/* Only once something is ticked. A permanently-present "0 selected" button
                             is a control that does nothing most of the time, and the row it sits in
                             is already full of filters. */}
-                        <BulkActions count={selection.size} disabled={bulkDeleting || bulkRenaming}>
-                            {/* Offered only when a ticked document still has a proposed name to take. */}
-                            <DropdownMenuItem
-                                disabled={selectedWithNames.length === 0}
-                                onSelect={() => {
-                                    void acceptSelectedNames();
-                                }}
-                            >
-                                <Sparkles className="size-4" />
-                                {t((d) => d.documentsInbox.acceptNames)}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => {
-                                    setConfirmingBulkDelete(true);
-                                }}
-                            >
-                                <Trash2 className="size-4" />
-                                {t((d) => d.documentsInbox.deleteSelected)}
-                            </DropdownMenuItem>
-                        </BulkActions>
+                        <div className="sm:ml-auto">
+                            <BulkActions count={selection.size} disabled={bulkDeleting || bulkRenaming}>
+                                {/* Offered only when a ticked document still has a proposed name to take. */}
+                                <DropdownMenuItem
+                                    disabled={selectedWithNames.length === 0}
+                                    onSelect={() => {
+                                        void acceptSelectedNames();
+                                    }}
+                                >
+                                    <Sparkles className="size-4" />
+                                    {t((d) => d.documentsInbox.acceptNames)}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => {
+                                        setConfirmingBulkDelete(true);
+                                    }}
+                                >
+                                    <Trash2 className="size-4" />
+                                    {t((d) => d.documentsInbox.deleteSelected)}
+                                </DropdownMenuItem>
+                            </BulkActions>
+                        </div>
                     </Toolbar>
 
                     {documents === null ? (

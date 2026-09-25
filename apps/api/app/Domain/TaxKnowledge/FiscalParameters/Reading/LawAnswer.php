@@ -15,6 +15,8 @@ final readonly class LawAnswer
         /** The paragraph the second number stands in, where a value has two ends in two places. */
         public string $citationOfLast,
         public string $model,
+        /** The two ends of one base, rather than a value of its own for each level of income. */
+        public bool $isRange = false,
     ) {
     }
 

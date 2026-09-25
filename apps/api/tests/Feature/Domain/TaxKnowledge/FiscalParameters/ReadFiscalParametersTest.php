@@ -29,6 +29,7 @@ use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -632,7 +633,8 @@ it('reads a base with two ends from the two paragraphs that state them', functio
         ['Art. 174 alin. (6)', 'În situația în care baza de calcul este mai mică decât cea corespunzătoare a 6 salarii minime brute pe țară, persoanele fizice datorează contribuția la această bază.'],
     ]);
 
-    readers(['baza anuală de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. b)' => [
+    readers(['activități independente prevăzute la art. 155 alin. (1) lit. b)' => [
+        'shape' => 'interval',
         'floor' => 6,
         'floor_citation' => 'Art. 174 alin. (6)',
         'cap' => 72,
@@ -648,6 +650,114 @@ it('reads a base with two ends from the two paragraphs that state them', functio
     // One value with two ends, kept on the paragraph its first number stands in.
     expect($base->value_json)->toBe(['floor' => 6, 'cap' => 72])
         ->and(SourceSection::query()->whereKey($base->source_section_id)->value('citation_label'))->toBe('Art. 174 alin. (6)');
+});
+
+it('keeps the other part of the law a rule is read in, where a value approved anchors the first', function (): void {
+    $this->travelTo('2026-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2026-01-01');
+    heading($version, 'Titlul V Capitolul III Secţiunea a 5-a', [
+        ['Art. 170 alin. (1)', 'Persoanele fizice care realizează venituri din cele prevăzute la art. 155 alin. (1) lit. b) datorează contribuția la o bază anuală de calcul care nu poate fi mai mare decât nivelul de 72 de salarii minime brute pe țară.'],
+        ['Art. 171 alin. (1)', 'Contribuția se plătește în lei.'],
+    ]);
+    heading($version, 'Titlul V Capitolul III Secţiunea a 6-a', [
+        ['Art. 174 alin. (6)', 'În situația în care baza de calcul este mai mică decât cea corespunzătoare a 6 salarii minime brute pe țară, persoanele fizice datorează contribuția până la nivelul acestei baze.'],
+    ]);
+
+    // A value approved on a paragraph of the fifth section: the rule keeps to that article there —
+    // and the sixth section, where the other end of the base stands, is still read whole.
+    $rule = FiscalParameter::factory()->create(['code' => 'RO.CASS.INDEPENDENT_BASE_WAGES', 'value_type' => 'JSON']);
+    $cap = SourceSection::query()->where('citation_label', 'Art. 170 alin. (1)')->sole();
+    insertApprovedFiscalParameterVersion(
+        $rule->id,
+        $cap->id,
+        ['valid_from' => '2025-01-01', 'valid_until' => '2025-12-31', 'value_json' => json_encode(['floor' => 6, 'cap' => 72])],
+    );
+
+    readers(['activități independente prevăzute la art. 155 alin. (1) lit. b)' => [
+        'shape' => 'interval',
+        'floor' => 6,
+        'floor_citation' => 'Art. 174 alin. (6)',
+        'cap' => 72,
+        'cap_citation' => 'Art. 170 alin. (1)',
+    ]]);
+
+    app(StartFiscalYear::class)(2026);
+
+    $read = FiscalParameterVersion::query()
+        ->where('fiscal_parameter_id', $rule->id)
+        ->where('valid_from', '>=', '2026-01-01')
+        ->sole();
+
+    expect($read->value_json)->toBe(['floor' => 6, 'cap' => 72]);
+});
+
+it('logs every call it makes to a model, so a year’s reading can be counted and a slow one found', function (): void {
+    $this->travelTo('2026-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2026-01-01');
+    heading($version, 'Titlul IV Capitolul IV', [
+        ['Art. 84 alin. (3)', 'Venitul net din cedarea folosinței bunurilor se stabilește prin deducerea din venitul brut a cheltuielilor determinate prin aplicarea cotei de 20% asupra venitului brut.'],
+    ]);
+    readers(['cedarea folosinței bunurilor' => ['value' => 20, 'citation' => 'Art. 84 alin. (3)']]);
+    $log = Log::spy();
+
+    app(StartFiscalYear::class)(2026);
+
+    // One line per call: which questions went out, in the law of which day, and what came back.
+    $log->shouldHaveReceived('info')->withArgs(static function (string $message, array $context): bool {
+        return $message === 'legislation.read'
+            && str_contains((string) $context['asked'], 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')
+            && $context['on'] === '2026-01-01'
+            && $context['reply'] === 'read'
+            && is_float($context['seconds']);
+    })->atLeast()->once();
+});
+
+it('reads the same base in steps where the law sets steps', function (): void {
+    $this->travelTo('2023-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
+    // The 2023 wording: one paragraph, three levels, for every income including lit. b).
+    heading($version, 'Titlul V Capitolul III Secţiunea a 5-a', [
+        ['Art. 170 alin. (4)', 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate în cazul persoanelor care realizează venituri din cele prevăzute la art. 155 alin. (1) lit. b)-h) o reprezintă: a) nivelul a 6 salarii minime brute pe țară, în cazul veniturilor realizate cuprinse între 6 salarii minime brute pe țară inclusiv și 12 salarii minime brute pe țară; b) nivelul de 12 salarii minime brute pe țară, în cazul veniturilor cuprinse între 12 salarii minime brute pe țară inclusiv și 24 de salarii minime brute pe țară; c) nivelul de 24 de salarii minime brute pe țară, în cazul veniturilor cel puțin egale cu 24 de salarii minime brute pe țară.'],
+    ]);
+
+    readers(['activități independente prevăzute la art. 155 alin. (1) lit. b)' => [
+        'shape' => 'steps',
+        'values' => [6, 12, 24],
+        'citation' => 'Art. 170 alin. (4)',
+    ]]);
+
+    app(StartFiscalYear::class)(2023);
+
+    $base = FiscalParameterVersion::query()
+        ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.INDEPENDENT_BASE_WAGES')->select('id'))
+        ->sole();
+
+    // Steps are kept as steps: a base that does not slide between them.
+    expect($base->value_json)->toBe(['wages' => [6, 12, 24]]);
+});
+
+it('refuses a base whose reply names one shape and answers in the other', function (): void {
+    $this->travelTo('2023-06-01');
+    $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
+    heading($version, 'Titlul V Capitolul III Secţiunea a 5-a', [
+        ['Art. 170 alin. (4)', 'Baza anuală de calcul o reprezintă: a) nivelul a 6 salarii minime brute pe țară; b) nivelul de 12 salarii minime brute pe țară; c) nivelul de 24 de salarii minime brute pe țară.'],
+    ]);
+
+    // Three levels, called an interval: a reader that has not decided what it read.
+    readers(['activități independente prevăzute la art. 155 alin. (1) lit. b)' => [
+        'shape' => 'interval',
+        'values' => [6, 12, 24],
+        'citation' => 'Art. 170 alin. (4)',
+    ]]);
+
+    try {
+        app(StartFiscalYear::class)(2023);
+    } catch (FiscalParameterDecisionException) {
+        // Nothing else of that year is in this law, so the year proposes nothing at all.
+    }
+
+    expect(FiscalParameterVersion::query()->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.CASS.INDEPENDENT_BASE_WAGES')->select('id'))->count())->toBe(0)
+        ->and(FiscalParameterRead::query()->count())->toBeGreaterThan(0);
 });
 
 it('reads a rule that comes into the law during the year, from the day it does', function (): void {

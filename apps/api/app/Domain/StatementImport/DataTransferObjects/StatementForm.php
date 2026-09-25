@@ -66,10 +66,23 @@ final readonly class StatementForm
         public string $thousandsSeparator,
         public ?StatementField $currency,
         public ?StatementField $description,
-        public ?StatementField $counterpartyOut,
-        public ?StatementField $counterpartyIn,
-        public ?StatementField $referenceOut,
-        public ?StatementField $referenceIn,
+        /**
+         * The places a counterparty and a reference may be found, in the order they are tried.
+         *
+         * A statement is not written by one machine: a card payment names its payee in a column and
+         * a transfer names it on a detail line, and a reference column is sometimes the payee's name
+         * again. So these two take a chain rather than an answer — `statement_import
+         * .multi_source_fields` says which, and everything else takes exactly one place.
+         *
+         * @var list<StatementField>
+         */
+        public array $counterpartyOut,
+        /** @var list<StatementField> */
+        public array $counterpartyIn,
+        /** @var list<StatementField> */
+        public array $referenceOut,
+        /** @var list<StatementField> */
+        public array $referenceIn,
         public array $nonTransactionLines = [],
         public array $identityLabels = [],
     ) {
@@ -80,13 +93,18 @@ final readonly class StatementForm
         return $this->layout === self::LAYOUT_BLOCK;
     }
 
-    /** The counterparty field for money moving this way — the sign decides which one is asked. */
-    public function counterpartyFor(int $amountMinor): ?StatementField
+    /**
+     * The counterparty's places for money moving this way — the sign decides which side is asked.
+     *
+     * @return list<StatementField>
+     */
+    public function counterpartyFor(int $amountMinor): array
     {
         return $amountMinor < 0 ? $this->counterpartyOut : $this->counterpartyIn;
     }
 
-    public function referenceFor(int $amountMinor): ?StatementField
+    /** @return list<StatementField> */
+    public function referenceFor(int $amountMinor): array
     {
         return $amountMinor < 0 ? $this->referenceOut : $this->referenceIn;
     }
@@ -118,10 +136,10 @@ final readonly class StatementForm
             thousandsSeparator: self::separator($amounts['thousands_separator'] ?? null, ''),
             currency: StatementField::fromArray($raw['currency'] ?? null),
             description: StatementField::fromArray($raw['description'] ?? null),
-            counterpartyOut: StatementField::fromArray($counterparty['debit'] ?? null),
-            counterpartyIn: StatementField::fromArray($counterparty['credit'] ?? null),
-            referenceOut: StatementField::fromArray($reference['debit'] ?? null),
-            referenceIn: StatementField::fromArray($reference['credit'] ?? null),
+            counterpartyOut: StatementField::chain($counterparty['debit'] ?? null),
+            counterpartyIn: StatementField::chain($counterparty['credit'] ?? null),
+            referenceOut: StatementField::chain($reference['debit'] ?? null),
+            referenceIn: StatementField::chain($reference['credit'] ?? null),
             nonTransactionLines: $strings('non_transaction_lines'),
             identityLabels: $strings('identity_labels'),
         );
@@ -144,12 +162,12 @@ final readonly class StatementForm
             ],
             'description' => $this->description?->toArray(),
             'counterparty' => [
-                'debit' => $this->counterpartyOut?->toArray(),
-                'credit' => $this->counterpartyIn?->toArray(),
+                'debit' => StatementField::chainToArray($this->counterpartyOut),
+                'credit' => StatementField::chainToArray($this->counterpartyIn),
             ],
             'reference' => [
-                'debit' => $this->referenceOut?->toArray(),
-                'credit' => $this->referenceIn?->toArray(),
+                'debit' => StatementField::chainToArray($this->referenceOut),
+                'credit' => StatementField::chainToArray($this->referenceIn),
             ],
             'non_transaction_lines' => $this->nonTransactionLines,
             'identity_labels' => $this->identityLabels,

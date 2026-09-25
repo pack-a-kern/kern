@@ -106,6 +106,42 @@ return [
             ],
         ],
 
+        /*
+         * CAS is owed on two incomes only — activități independente, and drepturi de proprietate
+         * intelectuală or contracte de activitate sportivă (art. 137 alin. (1) lit. b) and b^1)).
+         * Nothing else: no rent, no dividends, no interest, which is where CAS and CASS part.
+         */
+        'RO.CAS' => [
+            'subject' => 'PERSON',
+            'law' => ['within' => ['Titlul V Capitolul II']],
+
+            'rules' => [
+                // Art. 138 states three rates in one article: the person's 25%, and the 4% and 8% an
+                // employer owes for hazardous work. The question names who owes it, in the law's own
+                // words, because the answer is one number and the wrong one is also in there.
+                'RATE' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul II Secţiunea a 2-a'],
+                        'question' => 'Care este cota contribuției de asigurări sociale datorată de persoanele fizice care au calitatea de angajați sau pentru care există obligația plății contribuției de asigurări sociale?',
+                        'answer' => 'percent',
+                    ],
+                ],
+
+                // The base is the income the taxpayer chooses, which may not be below a level: one
+                // level until 2022, two from 2023, by the income realised. Unlike CASS there is no
+                // cap — the levels are a floor, and a chosen base above them is the base.
+                'BASE_MIN_WAGES' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul II Secţiunea a 5-a'],
+                        'question' => 'Care sunt nivelurile sub care nu poate coborî baza anuală de calcul al contribuției de asigurări sociale pentru veniturile din activități independente și din drepturi de proprietate intelectuală, după nivelul veniturilor realizate? Enumeră toate nivelurile; dacă legea prevede un singur nivel pentru toate veniturile, dă acel nivel.',
+                        'answer' => 'wages_list',
+                    ],
+                ],
+            ],
+        ],
+
         'RO.CASS' => [
             'subject' => 'PERSON',
             'law' => ['within' => ['Titlul V Capitolul III']],
@@ -120,41 +156,33 @@ return [
                     ],
                 ],
 
-                // Independent activities, art. 155 alin. (1) lit. b): the base is the income itself,
-                // between two levels — the cap stated where the base is, the floor in the section on
-                // declaring and paying it, which is why both are read.
+                // Independent activities, art. 155 alin. (1) lit. b). The law has set this base three
+                // ways, and the rule asks for whichever is there: the income itself between two
+                // levels from 2024 — the cap stated where the base is, the floor in the section on
+                // declaring and paying it, which is why both are read; in steps in 2023, the same
+                // 6, 12 and 24 as every other income that year; and one level, 12 to 12, until 2022.
                 'INDEPENDENT_BASE_WAGES' => [
                     'type' => 'JSON',
                     'law' => [
                         'within' => ['Titlul V Capitolul III Secţiunea a 5-a', 'Titlul V Capitolul III Secţiunea a 6-a'],
-                        'question' => 'Între ce niveluri, exprimate în salarii minime brute pe țară, se situează baza anuală de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. b) — nivelul minim sub care baza nu poate coborî și nivelul maxim peste care nu poate urca?',
-                        'answer' => 'wages_range',
+                        'question' => 'Cum se stabilește baza anuală de calcul al contribuției de asigurări sociale de sănătate pentru veniturile din activități independente prevăzute la art. 155 alin. (1) lit. b)? Legea o poate stabili în două feluri: (a) ca un interval — baza este venitul realizat, cu un nivel minim sub care nu poate coborî și un nivel maxim peste care nu poate urca; (b) în trepte — baza este un nivel fix, alt nivel pentru fiecare interval de venituri realizate. Răspunde în forma care corespunde legii în vigoare la data cerută. Dacă legea prevede un singur nivel pentru toate veniturile, răspunde ca interval, cu acel nivel la amândouă capetele.',
+                        'answer' => 'wages_base',
                     ],
                 ],
 
                 // The other income — intellectual property, rent, dividends, interest, investments,
-                // agriculture, other — is not counted itself: the base is the band it reaches. Until
-                // 2022 there were no bands, one base held for every income, and that is the rule
-                // below: a year with a single level answers this question with nothing.
+                // agriculture, other — is not counted itself: the base is the level it reaches. From
+                // 2023 there are three of them; before, one level held for every income, and the
+                // same rule reads that year as the one level it has.
                 'OTHER_INCOME_BANDS_WAGES' => [
                     'type' => 'JSON',
                     'law' => [
                         'within' => ['Titlul V Capitolul III Secţiunea a 5-a', 'Titlul V Capitolul III Secţiunea a 6-a'],
-                        'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h), dacă legea prevede mai multe niveluri, după nivelul veniturilor realizate? Enumeră toate nivelurile. Dacă legea prevede un singur nivel pentru toate veniturile, răspunde null.',
+                        'question' => 'Care sunt nivelurile bazei anuale de calcul al contribuției de asigurări sociale de sănătate pentru veniturile prevăzute la art. 155 alin. (1) lit. c)-h), după nivelul veniturilor realizate? Enumeră toate nivelurile; dacă legea prevede un singur nivel pentru toate veniturile, dă acel nivel.',
                         'answer' => 'wages_list',
                     ],
                 ],
 
-                // Until 2022 one base held for every income together. The law stopped saying it, and
-                // the years since say so themselves.
-                'ALL_INCOME_BASE_WAGES' => [
-                    'type' => 'INTEGER',
-                    'law' => [
-                        'within' => ['Titlul V Capitolul III Secţiunea a 5-a'],
-                        'question' => 'Baza anuală de calcul al contribuției de asigurări sociale de sănătate, pentru toate veniturile cumulate, o reprezintă echivalentul a câte salarii minime brute pe țară?',
-                        'answer' => 'wages',
-                    ],
-                ],
             ],
         ],
     ],
