@@ -3,22 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Admin\ShowUsersController;
-use App\Http\Controllers\Api\V1\Documents\AcceptDocumentExtractionController;
-use App\Http\Controllers\Api\V1\Documents\CorrectDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\CreateTransactionFromDocumentController;
-use App\Http\Controllers\Api\V1\Documents\DeleteDocumentController;
-use App\Http\Controllers\Api\V1\Documents\DocumentAiConsentController;
-use App\Http\Controllers\Api\V1\Documents\EnhanceImageController;
-use App\Http\Controllers\Api\V1\Documents\ListDocumentExtractionsController;
-use App\Http\Controllers\Api\V1\Documents\ListDocumentsController;
-use App\Http\Controllers\Api\V1\Documents\RenameDocumentController;
-use App\Http\Controllers\Api\V1\Documents\RetryDocumentExtractionController;
-use App\Http\Controllers\Api\V1\Documents\ShowDocumentAiConsentsController;
-use App\Http\Controllers\Api\V1\Documents\ShowDocumentContentController;
-use App\Http\Controllers\Api\V1\Documents\ShowDocumentController;
-use App\Http\Controllers\Api\V1\Documents\ShowDocumentHistoryController;
-use App\Http\Controllers\Api\V1\Documents\ShowDocumentPartContentController;
-use App\Http\Controllers\Api\V1\Documents\UploadDocumentController;
 use App\Http\Controllers\Api\V1\FiscalParameters\ApproveFiscalParameterVersionController;
 use App\Http\Controllers\Api\V1\FiscalParameters\RejectFiscalParameterVersionController;
 use App\Http\Controllers\Api\V1\FiscalParameters\ShowFiscalParameterBoardController;
@@ -82,6 +67,7 @@ use App\Http\Controllers\Api\V1\Wallet\UpdateDisplayCurrencyController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateTagController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateTransactionController;
 use Illuminate\Support\Facades\Route;
+use Kern\Documents\Http\Controllers\ShowDocumentAiConsentsController;
 
 Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListSubjectsController::class);
@@ -105,37 +91,10 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
  * automatically from that point on.
  */
 Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])->group(function (): void {
-    Route::post('documents', UploadDocumentController::class)
-        ->middleware('throttle:documents-upload-per-subject');
-    // The subject's own documents, from the server rather than from whichever device uploaded them.
-    // A photograph, cleaned up before it is uploaded. Stores nothing; the screen sends the result.
-    Route::post('documents/enhance', EnhanceImageController::class)
-        ->middleware('throttle:documents-upload-per-subject');
-    Route::get('documents', ListDocumentsController::class);
-    Route::get('documents/{document}', ShowDocumentController::class);
-    // Removes the row, its derivatives and the encrypted bytes. A transaction built from it keeps
-    // its own row with a null link — the figure was real; only its evidence is gone.
-    // Naming a document something recognisable; until then it is shown under its content hash.
-    Route::patch('documents/{document}', RenameDocumentController::class);
-    Route::delete('documents/{document}', DeleteDocumentController::class);
-    Route::get('documents/{document}/content', ShowDocumentContentController::class);
-    // One page of a document made of several files; the review screen pages through these.
-    Route::get('documents/{document}/parts/{part}/content', ShowDocumentPartContentController::class);
-    // What was done to this document: the virus-scan records, and this document's own entries in
-    // the subject's audit chain. Subject-scoped, unlike the cross-tenant /v1/audit screens.
-    Route::get('documents/{document}/history', ShowDocumentHistoryController::class);
     // The bridge: a reviewed document becomes a wallet transaction that keeps it as evidence. A
-    // person does this, so the figures are the ones they saw and agreed to.
+    // person does this, so the figures are the ones they saw and agreed to. Here rather than in
+    // `kern/documents`, because a transaction is Wallet's and a package cannot reach into another.
     Route::post('documents/{document}/transaction', CreateTransactionFromDocumentController::class);
-
-    Route::get('documents/{document}/extractions', ListDocumentExtractionsController::class);
-    // The remedy offered next to a recorded extraction failure on the review screen.
-    Route::post('documents/{document}/extractions/retry', RetryDocumentExtractionController::class);
-    Route::post('documents/{document}/extractions/{extraction}/accept', AcceptDocumentExtractionController::class);
-    Route::post('documents/{document}/extractions/{extraction}/correct', CorrectDocumentExtractionController::class);
-
-    Route::post('document-ai-consent', [DocumentAiConsentController::class, 'store']);
-    Route::delete('document-ai-consent', [DocumentAiConsentController::class, 'destroy']);
 
     /*
      * Wallet (`BLUEPRINT.md` §6.4) — accounts, deposits and their totals for the active tax

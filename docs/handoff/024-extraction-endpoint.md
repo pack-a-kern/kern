@@ -17,7 +17,7 @@ security control or quality threshold from `processing.documents`.
 `processing.documents` actually produces, and does not match this task's own auth/error
 requirements.** Per the task brief, those mismatches are implemented correctly here and stated
 explicitly below, not silently patched to look like the original assumption. **The Laravel side
-(`apps/api/app/Domain/Documents/Extraction/HttpTextExtractionGateway.php`) will need changes to
+(`apps/api/packages/documents/src/Extraction/HttpTextExtractionGateway.php`) will need changes to
 match — see "Differences from `docs/handoff/022`'s assumed contract."**
 
 Entry point: `POST /v1/documents/extract-text` (`src/processing/documents/http.py`).
@@ -343,7 +343,7 @@ never the extracted text.
 - `docs/CODE-QUALITY.md`, `docs/DEPENDENCY-POLICY.md` (full read per task brief; one new dependency,
   `python-multipart`, justified above with version/license/maintenance per §4).
 - `docs/handoff/022-document-pipeline.md` (full read) and its referenced source files,
-  `apps/api/app/Domain/Documents/Extraction/{HttpTextExtractionGateway,TextExtractionGateway}.php`,
+  `apps/api/packages/documents/src/Extraction/{HttpTextExtractionGateway,TextExtractionGateway}.php`,
   `.../DataTransferObjects/NativeTextExtractionResult.php`,
   `.../Exceptions/TextExtractionUnavailableException.php`, `apps/api/config/documents.php` — read
   directly (not just the handoff's prose) to confirm the exact assumed request/response shape and

@@ -23,15 +23,39 @@ final class PackageRoutes
 {
     public static function load(string $file): void
     {
+        self::mount($file, 'kern.routing.middleware', 'kern.routing.prefix');
+    }
+
+    /**
+     * The same, for routes that act inside one tenant.
+     *
+     * The extra segment and the middleware that binds the tenant from it are the application's
+     * words — `v1/subjects/{subject}` and `tax-subject` here — so a package writes
+     * `Route::get('documents', …)` and never learns what a taxpayer is.
+     */
+    public static function loadForTenant(string $file): void
+    {
+        self::mount(
+            $file,
+            'kern.routing.tenant.middleware',
+            'kern.routing.prefix',
+            'kern.routing.tenant.prefix',
+        );
+    }
+
+    private static function mount(string $file, string $middlewareKey, string ...$prefixKeys): void
+    {
         if (app()->routesAreCached()) {
             return;
         }
 
-        /** @var array<int, string> $middleware */
-        $middleware = config()->array('kern.routing.middleware');
+        $prefix = implode('/', array_map(
+            static fn (string $key): string => config()->string($key),
+            $prefixKeys,
+        ));
 
-        Route::middleware($middleware)
-            ->prefix(config()->string('kern.routing.prefix'))
+        Route::middleware(config()->array($middlewareKey))
+            ->prefix($prefix)
             ->group($file);
     }
 }

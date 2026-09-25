@@ -14,7 +14,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString;
  * The internal contract to `apps/spv-browser` (`BLUEPRINT.md` §13.4). One implementation
  * ({@see \App\Domain\Spv\Transport\HttpSpvBrowserSessionClient}) — the interface exists so tests
  * exercise `App\Domain\Spv\Actions\*` without a real HTTP call, the same seam
- * `App\Domain\Documents\Extraction\TextExtractionGateway` establishes for the Python service.
+ * `Kern\Documents\Extraction\TextExtractionGateway` establishes for the Python service.
  *
  * `$password`/`$code` are `SensitiveString` all the way to this boundary — never a bare `string`
  * anywhere upstream (`BLUEPRINT.md` §13.2 steps 3/6).

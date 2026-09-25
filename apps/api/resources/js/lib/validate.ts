@@ -112,7 +112,7 @@ export function vObject<T extends Record<string, unknown>>(shape: { [K in keyof 
 /**
  * Accepts any JSON object without validating its keys/values — used for payloads this codebase
  * has no fixed schema for (`document_extractions.result_ciphertext`; see
- * `App\Domain\Documents\Review\CorrectDocumentExtraction`'s own docblock: `BLUEPRINT.md` §14.4
+ * `Kern\Documents\Review\CorrectDocumentExtraction`'s own docblock: `BLUEPRINT.md` §14.4
  * describes a per-document-type JSON schema, but none exists yet, and inventing one client-side
  * would be exactly the fabrication `docs/AGENTS.md` §2 forbids). Callers must render every value
  * as inert text/data — never `dangerouslySetInnerHTML`, never `eval`, never treated as markup or

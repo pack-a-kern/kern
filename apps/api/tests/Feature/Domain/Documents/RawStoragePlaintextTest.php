@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\RawStoragePlaintextTest;
 
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\DocumentObjectKind;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;

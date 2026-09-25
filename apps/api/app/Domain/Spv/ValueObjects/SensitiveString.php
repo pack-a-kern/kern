@@ -12,7 +12,7 @@ use Stringable;
  * the single call site that must see the real value (`App\Domain\Spv\Transport\
  * HttpSpvBrowserSessionClient`).
  *
- * Mirrors `App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText`'s exact
+ * Mirrors `Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText`'s exact
  * "wrap at the boundary, reveal only at the one sanctioned crossing" shape, plus a `__debugInfo()`
  * override that plain `Stringable` redaction does not cover: `var_dump()`/`dd()` bypass
  * `__toString()` entirely and print private properties verbatim, which is exactly the accidental-

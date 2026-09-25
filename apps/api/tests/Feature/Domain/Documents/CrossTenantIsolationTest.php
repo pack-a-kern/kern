@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\CrossTenantIsolationTest;
 
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\Models\Document;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
@@ -18,7 +18,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * The mandatory cross-tenant isolation test (`docs/AGENTS.md` §21.4, `BLUEPRINT.md` §5.3) for the
- * `documents` table specifically — `App\Domain\Documents\Models\Document` is the first *real*
+ * `documents` table specifically — `Kern\Documents\Models\Document` is the first *real*
  * business model (not a throwaway fixture) to exercise `App\Domain\Subjects\Tenancy\
  * ScopedToTenant` end to end with an encrypted field, proving the mechanism
  * `docs/handoff/011-identity-tenancy.md` built holds for this module's own table.
@@ -114,7 +114,7 @@ it('auto-tags a newly created document with the active subject', function (): vo
 
     activateAs($user, $subject);
     // Document has an encrypted field, so tax_subject_id must still be passed explicitly
-    // (App\Domain\Documents\Models\Document's own docblock) — this proves the *scope*, not the
+    // (Kern\Documents\Models\Document's own docblock) — this proves the *scope*, not the
     // auto-fill-on-create hook, is what matters for this model.
     $document = Document::factory()->create(['tax_subject_id' => $subject->id]);
 

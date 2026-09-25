@@ -13,7 +13,7 @@ use Kern\Platform\Settings\Services\AiProviderSettingsService;
  * field. A separate endpoint (rather than overloading `PUT .../ai` with a "clear" sentinel value)
  * because the two operations have different, unambiguous intents — mirrors this codebase's
  * existing `POST`/`DELETE .../document-ai-consent` grant/revoke split
- * (`App\Http\Controllers\Api\V1\Documents\DocumentAiConsentController`).
+ * (`Kern\Documents\Http\Controllers\DocumentAiConsentController`).
  */
 final class ClearAiApiKeyController
 {

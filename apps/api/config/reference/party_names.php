@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 // Words that appear in party names without saying *which* party.
 //
-// `App\Support\Text\PartyName::sharesName()` decides whether two names printed in different places
+// `Kern\Platform\Text\PartyName::sharesName()` decides whether two names printed in different places
 // could be the same party by looking for a word they share. Legal forms and a few ubiquitous words
 // have to be ignored for that to mean anything: "Kaufland Romania SCS" and "Lidl Romania SCS" share
 // two words and are different shops, while "Kaufland Romania SCS" and "KAUFLAND 1234 BUCURESTI"

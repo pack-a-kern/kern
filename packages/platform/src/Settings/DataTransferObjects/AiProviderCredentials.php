@@ -11,7 +11,7 @@ namespace Kern\Platform\Settings\DataTransferObjects;
  * `Kern\Platform\Settings\DataTransferObjects\AiProviderPublicView` is the redacted shape safe to
  * expose over the API; this one is for server-side use only
  * (`Kern\Platform\Settings\Services\ResolveAiProviderCredentials`,
- * `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction`).
+ * `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction`).
  */
 final readonly class AiProviderCredentials
 {

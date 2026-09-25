@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\UntrustedDocumentTextTest;
 
-use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
+use Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 
 /**
  * Defeats PHPStan's static narrowing so `is_string()` below is a genuine runtime regression

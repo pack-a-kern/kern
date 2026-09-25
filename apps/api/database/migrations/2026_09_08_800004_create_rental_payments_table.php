@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * `transaction_match_status` (`App\Domain\Rental\Enums\TransactionMatchStatus`) starts
  * `UNMATCHED`; a `PROPOSED`/`REJECTED` link's `transaction_id` is still populated (kept for audit,
- * per `App\Domain\Documents\Models\DocumentExtraction`'s identical precedent) — only `CONFIRMED`
+ * per `Kern\Documents\Models\DocumentExtraction`'s identical precedent) — only `CONFIRMED`
  * should ever be treated as ground truth.
  */
 return new class () extends Migration {

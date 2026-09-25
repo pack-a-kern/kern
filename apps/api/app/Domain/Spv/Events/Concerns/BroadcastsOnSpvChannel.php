@@ -8,7 +8,7 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 
 /**
- * Shared by every `App\Domain\Spv\Events\*` broadcast event — mirrors `App\Domain\Documents\
+ * Shared by every `App\Domain\Spv\Events\*` broadcast event — mirrors `Kern\Documents\
  * Events\Concerns\BroadcastsOnDocumentsChannel` exactly, one private channel per subject,
  * authorized in `routes/channels.php` against an active `SubjectMembership`.
  */

@@ -20,7 +20,7 @@ use Kern\Platform\Settings\Repositories\SettingsRepository;
  * specific `settings` row does not exist yet — an existing deployment relying on `AI_*` env vars
  * keeps working unchanged until an administrator explicitly overrides one field through the API.
  *
- * Used both by `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` (the document
+ * Used both by `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction` (the document
  * pipeline) and, redacted, by `Kern\Platform\Settings\Services\AiProviderSettingsService` (the
  * settings screen) — the fallback logic lives in exactly one place.
  */

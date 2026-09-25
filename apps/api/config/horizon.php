@@ -209,7 +209,7 @@ return [
         /*
          * Reading a document is serialised: one supervisor, one process, its own queue.
          *
-         * See `App\Domain\Documents\Jobs\ProcessScannedDocument::$queue`. `maxProcesses` is 1 in
+         * See `Kern\Documents\Jobs\ProcessScannedDocument::$queue`. `maxProcesses` is 1 in
          * every environment, deliberately not scaled with the others — the constraint is a single
          * model endpoint, not this machine's cores.
          *

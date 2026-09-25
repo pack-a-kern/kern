@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\ClamdVirusScannerUnavailableTest;
 
-use App\Domain\Documents\Scanning\ClamdVirusScanner;
-use App\Domain\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
+use Kern\Documents\Scanning\ClamdVirusScanner;
+use Kern\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
 use RuntimeException;
 
 /**

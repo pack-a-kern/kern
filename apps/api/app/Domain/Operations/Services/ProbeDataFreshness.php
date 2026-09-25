@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Operations\Services;
 
-use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Operations\DataTransferObjects\FreshnessItem;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\DB;
+use Kern\Documents\Enums\DocumentStatus;
 use Throwable;
 
 /**
@@ -21,7 +21,7 @@ use Throwable;
  * These probes measure the data, not the machinery.
  *
  * Every table is read through the plain query builder, never through another module's Eloquent
- * models — the same crossing `App\Domain\Documents\Queries\ResolveTransactionImportState`
+ * models — the same crossing `Kern\Documents\Queries\ResolveTransactionImportState`
  * already makes into `financial_transactions` (`docs/AGENTS.md` §6). The one import from
  * another module is {@see DocumentStatus}, a backed enum: restating `'READY'`/`'REJECTED'` as
  * string literals here would silently stop matching the day that lifecycle gains a state.

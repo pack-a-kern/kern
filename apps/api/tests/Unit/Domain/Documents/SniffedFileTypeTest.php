@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\SniffedFileTypeTest;
 
-use App\Domain\Documents\FileSecurity\SniffedFileType;
+use Kern\Documents\FileSecurity\SniffedFileType;
 use Tests\Fixtures\Documents\FileFixtures;
 
 it('identifies a PDF by its header', function (): void {

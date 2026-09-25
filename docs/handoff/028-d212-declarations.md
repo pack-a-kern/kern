@@ -421,7 +421,7 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
 - Existing code read directly before writing anything: `App\Domain\TaxEngine\{Models\
   TaxAssessment, Services\TaxAssessmentRecorder}`, `App\Domain\Rental\{Models\RentalContract,
   Actions\{AmendRentalContract,TerminateRentalContract}, Services\Matching\
-  TransactionMatchCandidateFinder}`, `App\Domain\Documents\Models\DocumentExtraction`,
+  TransactionMatchCandidateFinder}`, `Kern\Documents\Models\DocumentExtraction`,
   `App\Domain\Subjects\Tenancy\{ScopedToTaxSubject,TaxSubjectScope,TenantContext}`,
   `App\Support\Crypto\{Casts\Encrypted,Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}`,
   `App\Support\ObjectStore\{ObjectKey,DocumentObjectKind,EncryptedObjectStore}`, `apps/api/

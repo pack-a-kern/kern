@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ProcessScannedDocumentJobTest;
 
-use App\Domain\Documents\Enums\AiExtractionOutcome;
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\Enums\RejectionReason;
-use App\Domain\Documents\Events\DocumentAiExtractionFinished;
-use App\Domain\Documents\Events\DocumentTextExtracted;
-use App\Domain\Documents\Events\DocumentTextExtractionRejected;
-use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
-use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
-use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
-use App\Domain\Documents\Jobs\ProcessScannedDocument;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentExtraction;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Enums\AiExtractionOutcome;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\Enums\RejectionReason;
+use Kern\Documents\Events\DocumentAiExtractionFinished;
+use Kern\Documents\Events\DocumentTextExtracted;
+use Kern\Documents\Events\DocumentTextExtractionRejected;
+use Kern\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
+use Kern\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
+use Kern\Documents\ExternalAi\ExternalDocumentAiProvider;
+use Kern\Documents\Jobs\ProcessScannedDocument;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentExtraction;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\ObjectStore\ObjectKey;
@@ -135,7 +135,7 @@ it('reads a document within the limit and records the proposal', function (): vo
     putOriginal($document, FileFixtures::minimalPdf());
 
     fakePageCount(3);
-    app(\App\Domain\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+    app(\Kern\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
     fakeProvider(proposal());
 
     ProcessScannedDocument::dispatchSync($document->id);
@@ -157,7 +157,7 @@ it('never counts pages for a document that has none to count', function (): void
     $document = Document::factory()->part(['mime_type' => 'image/png'])->create(['status' => DocumentStatus::SCANNED]);
     putOriginal($document, FileFixtures::pngWithDimensions(10, 10));
 
-    app(\App\Domain\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+    app(\Kern\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
     fakeProvider(proposal());
 
     ProcessScannedDocument::dispatchSync($document->id);
@@ -175,7 +175,7 @@ it('clears the previous attempt\'s verdict when a new one starts', function (): 
     putOriginal($document, FileFixtures::minimalPdf());
 
     fakePageCount(2);
-    app(\App\Domain\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+    app(\Kern\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
     fakeProvider(proposal());
 
     ProcessScannedDocument::dispatchSync($document->id);
@@ -193,12 +193,12 @@ it('records why a model could not be asked, rather than leaving the document loo
     putOriginal($document, FileFixtures::minimalPdf());
 
     fakePageCount(1);
-    app(\App\Domain\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
+    app(\Kern\Documents\Consent\DocumentAiConsentGate::class)->grant($document->tax_subject_id);
     // No provider bound at all: the ordinary state of an installation nobody has configured.
     $this->app->instance(ExternalDocumentAiProvider::class, new class () implements ExternalDocumentAiProvider {
         public function sendForExtraction(DocumentAiRequest $request): DocumentAiResponse
         {
-            throw \App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException::noProviderBound();
+            throw \Kern\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException::noProviderBound();
         }
     });
 

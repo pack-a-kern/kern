@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\BroadcastPayloadContainsNoPiiTest;
 
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Enums\ExtractionStatus;
-use App\Domain\Documents\Enums\RejectionReason;
-use App\Domain\Documents\Events\DocumentExtractionProposed;
-use App\Domain\Documents\Events\DocumentScanned;
-use App\Domain\Documents\Events\DocumentTextExtracted;
-use App\Domain\Documents\Events\DocumentTextExtractionRejected;
-use App\Domain\Documents\Events\DocumentUploaded;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Enums\ExtractionStatus;
+use Kern\Documents\Enums\RejectionReason;
+use Kern\Documents\Events\DocumentExtractionProposed;
+use Kern\Documents\Events\DocumentScanned;
+use Kern\Documents\Events\DocumentTextExtracted;
+use Kern\Documents\Events\DocumentTextExtractionRejected;
+use Kern\Documents\Events\DocumentUploaded;
 use ReflectionClass;
 use ReflectionProperty;
 
 /**
  * `BLUEPRINT.md` §16 — broadcast events carry status and progress only, never document text or any
- * other PII. Constructs every `App\Domain\Documents\Events\*` broadcast event directly (no
+ * other PII. Constructs every `Kern\Documents\Events\*` broadcast event directly (no
  * database, no queue, no Reverb connection needed — `broadcastWith()` is a pure method) and
  * asserts its payload is exactly a closed, small set of safe keys.
  *

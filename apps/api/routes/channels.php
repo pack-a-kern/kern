@@ -6,7 +6,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
- * `App\Domain\Documents\Events\*` broadcast on `tax-subjects.{subjectId}.documents` (`BLUEPRINT.md`
+ * `Kern\Documents\Events\*` broadcast on `tax-subjects.{subjectId}.documents` (`BLUEPRINT.md`
  * §16). Authorization mirrors `Kern\Platform\Tenancy\TenantContext::authorizeAndActivate()`
  * exactly — an active, non-revoked `SubjectMembership` — queried directly rather than through
  * `TenantContext` because a broadcasting-auth request has no bound tenant context to activate; it

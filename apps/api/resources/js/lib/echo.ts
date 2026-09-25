@@ -68,7 +68,7 @@ export interface DocumentsChannelHandlers {
 
 /**
  * Subscribes to the private `tax-subjects.{subjectId}.documents` channel
- * (`App\Domain\Documents\Events\Concerns\BroadcastsOnDocumentsChannel`, authorized in
+ * (`Kern\Documents\Events\Concerns\BroadcastsOnDocumentsChannel`, authorized in
  * `routes/channels.php`) and calls `onEvent` for each of the five lifecycle broadcasts
  * (`DocumentUploaded`, `DocumentScanned`, `DocumentTextExtracted`, `DocumentTextExtractionRejected`,
  * `DocumentExtractionProposed`). Returns an unsubscribe function — callers must invoke it on
@@ -76,7 +76,7 @@ export interface DocumentsChannelHandlers {
  *
  * Per `BLUEPRINT.md` §16, the payload is status/progress/ids only; this app never treats it as more
  * than "something changed, go re-fetch" — every handler using this re-fetches
- * `App\Http\Controllers\Api\V1\Documents\ShowDocumentController` for the authoritative state.
+ * `Kern\Documents\Http\Controllers\ShowDocumentController` for the authoritative state.
  */
 export function subscribeToDocumentsChannel(subjectId: string, handlers: DocumentsChannelHandlers): () => void {
     const channelName = `tax-subjects.${subjectId}.documents`;

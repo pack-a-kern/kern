@@ -13,7 +13,7 @@ own claim about itself.
 
 - one new table (`pfa_profiles`), one new model, one new DTO, one new action, one new exception —
   all in `App\Domain\Subjects`;
-- **zero changes** to `Kern\Platform\Identity`, `App\Domain\Wallet`, `App\Domain\Documents`,
+- **zero changes** to `Kern\Platform\Identity`, `App\Domain\Wallet`, `Kern\Documents`,
   `App\Domain\Fx`, `App\Domain\Spv`, `App\Domain\Audit`, `App\Domain\Declarations`, or any file
   under `App\Support\**` (encryption, key management, blind indexing, logging);
 - **zero changes** to `App\Domain\TaxEngine` — `RuleResolver`, `ParameterResolver`, `RuleInvoker`,
@@ -155,7 +155,7 @@ fine is evidence about the architecture") means a silent audit is not a complete
   across the whole module — zero matches. `OpenFinancialAccount` (used unmodified in this task's
   own `PfaEncryptionAndCoexistenceTest.php`) takes a bare `taxSubjectId` string and never inspects
   what kind of subject it belongs to.
-- **`App\Domain\Documents`** — same result: zero `SubjectType`/`PfProfile` matches in application
+- **`Kern\Documents`** — same result: zero `SubjectType`/`PfProfile` matches in application
   code. `DocumentAiConsent`'s docblock mentions `PfProfile` once, only as a precedent citation for
   its own self-referential-primary-key pattern (identical reasoning, not a dependency) — read in
   full to confirm this is documentation, not an import.

@@ -30,7 +30,7 @@ function isKnownRejectionReason(value: string): value is RejectionReason {
  * no `Content-Range`/chunking support on the server).
  *
  * Retries automatically when the browser comes back online, and once right after enqueueing.
- * `App\Domain\Documents\Enums\RejectionReason` failures (a `422` naming exactly why this file is
+ * `Kern\Documents\Enums\RejectionReason` failures (a `422` naming exactly why this file is
  * bad) are never retried automatically — see `resources/js/lib/db.ts`'s `CaptureStatus` docblock.
  */
 export function useUploadQueue(

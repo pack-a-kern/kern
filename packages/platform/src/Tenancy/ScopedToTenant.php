@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Platform\Tenancy;
 
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 
 /**
  * Put this on any model whose table has the tenant column, and two things become automatic.
@@ -34,11 +35,40 @@ trait ScopedToTenant
         static::addGlobalScope(new TenantScope());
 
         static::creating(static function (Model $model): void {
-            $column = config()->string('tenancy.column');
+            $column = Tenancy::column();
 
             if ($model->getAttribute($column) === null) {
                 $model->setAttribute($column, app(TenantContext::class)->currentTenantId());
             }
         });
+    }
+
+    /**
+     * The tenant column is fillable without any model listing it.
+     *
+     * A `$fillable` array cannot name a column whose name comes from configuration, and a model that
+     * left it out would silently drop the one attribute every write needs.
+     */
+    public function initializeScopedToTenant(): void
+    {
+        $this->mergeFillable([Tenancy::column()]);
+    }
+
+    /**
+     * Which tenant this row belongs to.
+     *
+     * Reading `$model->tax_subject_id` works and is exactly what a package must not do: the
+     * attribute's name is this installation's word. Throws rather than returning null — a row of a
+     * scoped table with no tenant is not a state any caller can do anything sensible with.
+     */
+    public function tenantId(): string
+    {
+        $value = $this->getAttribute(Tenancy::column());
+
+        if (! is_string($value) || $value === '') {
+            throw NoTenantContextException::notOnRow(static::class, Tenancy::column());
+        }
+
+        return $value;
     }
 }

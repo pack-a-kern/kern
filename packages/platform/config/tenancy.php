@@ -17,4 +17,7 @@ return [
     // the hook that stamps writes; nothing else in the platform knows the tenant by any other name.
     'column' => 'tenant_id',
 
+    // The table that column points at, or null where this installation has no tenants at all.
+    'table' => null,
+
 ];

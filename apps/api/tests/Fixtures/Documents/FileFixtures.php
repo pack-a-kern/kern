@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Fixtures\Documents;
 
 /**
- * Minimal-but-real byte fixtures for `App\Domain\Documents\FileSecurity\*` tests. Every fixture
+ * Minimal-but-real byte fixtures for `Kern\Documents\FileSecurity\*` tests. Every fixture
  * here is genuinely parseable by the same PHP functions the production code uses
  * (`getimagesize()`, the `%PDF-`/JPEG/PNG magic-byte checks) — not a fake string that merely
  * looks right. PNG dimensions in particular are real, verified against `getimagesize()` directly

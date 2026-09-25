@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ClamdVirusScannerLiveTest;
 
-use App\Domain\Documents\Scanning\ClamdVirusScanner;
-use App\Domain\Documents\Scanning\ScanOutcome;
+use Kern\Documents\Scanning\ClamdVirusScanner;
+use Kern\Documents\Scanning\ScanOutcome;
 use RuntimeException;
 use Tests\Fixtures\Documents\FileFixtures;
 

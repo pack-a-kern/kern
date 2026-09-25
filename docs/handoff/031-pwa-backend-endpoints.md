@@ -17,7 +17,7 @@ explicitly out of this task's scope; another agent owns `Spv`).
    all.
 2. **Extraction review** — reading a document's proposed `document_extractions` rows, accepting
    one exactly as proposed, or correcting it. `BLUEPRINT.md` §14.6's "nothing auto-confirms; a human
-   accepts or corrects" is enforced by `App\Domain\Documents\Models\DocumentExtraction::review()`
+   accepts or corrects" is enforced by `Kern\Documents\Models\DocumentExtraction::review()`
    (already existed, never called); correcting **never overwrites** the original row — it creates
    a new one and marks the old `REJECTED`, so both survive.
 3. **Document preview/content** — decrypts and streams a document's original bytes back to its
@@ -29,7 +29,7 @@ Entry points:
 - `GET /api/v1/subjects` → `App\Http\Controllers\Api\V1\Subjects\ListSubjectsController`.
 - `POST /api/v1/subjects/pf` → `App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController`.
 - `GET /api/v1/subjects/{subject}/documents/{document}/extractions` →
-  `App\Http\Controllers\Api\V1\Documents\ListDocumentExtractionsController`.
+  `Kern\Documents\Http\Controllers\ListDocumentExtractionsController`.
 - `POST .../extractions/{extraction}/accept` → `AcceptDocumentExtractionController`.
 - `POST .../extractions/{extraction}/correct` → `CorrectDocumentExtractionController`.
 - `GET /api/v1/subjects/{subject}/documents/{document}/content` → `ShowDocumentContentController`.
@@ -44,7 +44,7 @@ Entry points:
   `TenantContext` — this query answers "which subjects could I activate," which must be answerable
   *before* any one of them is bound.
 
-**Documents** (`apps/api/app/Domain/Documents/`)
+**Documents** (`apps/api/packages/documents/src/`)
 - `Enums/ExtractorType.php` — added `HUMAN_CORRECTION` (the extractor type a correction row is
   tagged with).
 - `Models/DocumentExtraction.php` — added `withEncryptionSubjectId(string $subjectId): static`
@@ -99,7 +99,7 @@ new `Queries`/`Review` namespaces stay inside those same two layers), and no dep
    it only adds an explicit, named way to supply what `propose()` already supplies implicitly.
 
 2. **Correcting an extraction creates a second row; it never overwrites `result_ciphertext` in
-   place.** `App\Domain\Documents\Review\CorrectDocumentExtraction` transitions the original to
+   place.** `Kern\Documents\Review\CorrectDocumentExtraction` transitions the original to
    `ExtractionStatus::REJECTED` (a real, sanctioned `DocumentExtraction::review()` call — its
    content is never touched by that call) and writes the correction through the same
    `DocumentExtraction::propose()` used everywhere else, tagged `ExtractorType::HUMAN_CORRECTION`
@@ -111,7 +111,7 @@ new `Queries`/`Review` namespaces stay inside those same two layers), and no dep
 
 3. **The correction request body is `{"fields": {...}}` with no per-field schema validation
    beyond "a non-empty JSON object."** `BLUEPRINT.md` §14.4 describes a JSON schema per document
-   type, but none exists anywhere in this codebase yet — `App\Domain\Documents\ExternalAi\
+   type, but none exists anywhere in this codebase yet — `Kern\Documents\ExternalAi\
    DataTransferObjects\DocumentAiResponse::$result` is already a bare `array<array-key, mixed>`
    with the same honesty note. Inventing a schema here would be exactly the fabrication
    `docs/AGENTS.md` §2 forbids. Flagged under "What is NOT done" below, not silently assumed away.
@@ -136,7 +136,7 @@ new `Queries`/`Review` namespaces stay inside those same two layers), and no dep
    structured `409 {"reason": "CONTENT_NOT_AVAILABLE"}`, never a blank/broken response.
 6. **`response()->streamDownload(..., 'inline')` (Symfony's `HeaderUtils::makeDisposition`), not a
    hand-rolled `Content-Disposition` header.** The stored filename is already sanitized at upload
-   time (`App\Domain\Documents\FileSecurity\FilenameSanitizer`), but building the header via
+   time (`Kern\Documents\FileSecurity\FilenameSanitizer`), but building the header via
    Symfony's own RFC 6266 encoder is still safer than string-formatting it by hand, and is what
    `EncryptedObjectStore::get()`'s already-bounded-memory stream (chunked, spills to disk past a
    small in-memory threshold — `docs/handoff/012-encrypted-object-store.md`) is piped straight
@@ -320,7 +320,7 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
    `document_id` + `status` + timestamps? Not added here — outside this task's migration-free file
    scope, and the response body already surfaces `supersedes_extraction_id` to callers who need it
    at correction time.
-3. `App\Domain\Documents\Models\DocumentExtraction::withEncryptionSubjectId()` is a fairly sharp
+3. `Kern\Documents\Models\DocumentExtraction::withEncryptionSubjectId()` is a fairly sharp
    tool — calling it with the wrong subject id would not silently succeed (the AAD binding would
    make decryption fail loudly), but nothing stops a future caller from simply forgetting to call
    it at all, which throws a `RuntimeException` rather than failing at the type level. Left as is,
@@ -355,8 +355,8 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   rate limiter" call in "What is NOT done."
 - Source files read directly, not assumed: `apps/api/routes/api.php`, `routes/channels.php`,
   `bootstrap/app.php`, `app/Http/Middleware/BindTaxSubjectContext.php`,
-  `app/Domain/Documents/Models/{Document,DocumentExtraction,DocumentDerivative}.php`,
-  `app/Domain/Documents/Jobs/{ScanQuarantinedDocument,ProcessScannedDocument}.php`,
+  `packages/documents/src/Models/{Document,DocumentExtraction,DocumentDerivative}.php`,
+  `packages/documents/src/Jobs/{ScanQuarantinedDocument,ProcessScannedDocument}.php`,
   `app/Domain/Subjects/{Actions/RegisterPfSubject,Models/*,Tenancy/*}.php`,
   `app/Support/ObjectStore/{EncryptedObjectStore,ObjectKey,DocumentObjectKind}.php`,
   `app/Domain/Audit/{Services/AuditChainService,DataTransferObjects/AuditEventInput}.php`, and the

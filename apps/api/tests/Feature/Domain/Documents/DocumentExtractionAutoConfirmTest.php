@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\DocumentExtractionAutoConfirmTest;
 
-use App\Domain\Documents\Enums\ExtractionStatus;
-use App\Domain\Documents\Enums\ExtractorType;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentExtraction;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Kern\Documents\Enums\ExtractionStatus;
+use Kern\Documents\Enums\ExtractorType;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentExtraction;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;

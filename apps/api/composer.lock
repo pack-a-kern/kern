@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b05efd95884b8c91cbb026df91b4edd6",
+    "content-hash": "63c9ca838df3b186c45f577e724526c6",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1546,6 +1546,55 @@
                 "proprietary"
             ],
             "description": "An append-only, hash-chained audit log: every entry carries the hash of the one before it, so a removed or edited row is visible as a break in the chain.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "kern/documents",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/documents",
+                "reference": "13595d3916b1744fb4670c0bbb375d9e4e018842"
+            },
+            "require": {
+                "illuminate/bus": "^13.0",
+                "illuminate/cache": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/filesystem": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/queue": "^13.0",
+                "illuminate/routing": "^13.0",
+                "illuminate/support": "^13.0",
+                "illuminate/validation": "^13.0",
+                "kern/audit": "@dev",
+                "kern/platform": "@dev",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "fakerphp/faker": "^1.23"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Documents\\DocumentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Documents\\": "src/",
+                    "Kern\\Documents\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "A document a tenant owns: uploaded in parts, quarantined, virus-scanned, encrypted at rest, read for its text and - with recorded consent - for its figures.",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -13249,6 +13298,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "kern/audit": 20,
+        "kern/documents": 20,
         "kern/platform": 20
     },
     "prefer-stable": true,

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\HttpTextExtractionGatewayTest;
 
-use App\Domain\Documents\Extraction\Exceptions\TextExtractionUnavailableException;
-use App\Domain\Documents\Extraction\TextExtractionGateway;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Kern\Documents\Extraction\Exceptions\TextExtractionUnavailableException;
+use Kern\Documents\Extraction\TextExtractionGateway;
 use RuntimeException;
 
 /**
  * `docs/handoff/024-extraction-endpoint.md`'s real, verified `POST
  * /v1/documents/extract-text` contract, exercised directly against `HttpTextExtractionGateway`
- * (bound by `App\Domain\Documents\DocumentsServiceProvider`) rather than only through
+ * (bound by `Kern\Documents\DocumentsServiceProvider`) rather than only through
  * `ProcessScannedDocument` — the gateway's own `parse()` contract validation is the unit under
  * test here.
  */

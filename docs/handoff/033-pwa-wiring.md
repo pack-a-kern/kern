@@ -130,7 +130,7 @@ GET  /dashboard, /documents, /documents/capture, /documents/{d}/review (authenti
 done") and native-PDF-text extraction alone does not create a `document_extractions` row — so no
 proposal is ever produced by the live pipeline in this environment. To exercise the real `accept`/
 `correct` HTTP endpoints against the live app and database (not a `Http::fake()`), I seeded one
-`PROPOSED` row directly via `App\Domain\Documents\Models\DocumentExtraction::propose()` — the exact
+`PROPOSED` row directly via `Kern\Documents\Models\DocumentExtraction::propose()` — the exact
 domain method the real pipeline calls, invoked through `php artisan tinker` against the live
 container, not a new code path. Everything downstream of that row's creation (list, correct, accept,
 the 409 conflict, the audit-trail visibility) is the real HTTP → controller → domain → Postgres round

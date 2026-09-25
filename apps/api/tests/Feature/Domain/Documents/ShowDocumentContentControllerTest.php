@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ShowDocumentContentControllerTest;
 
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Models\Document;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;

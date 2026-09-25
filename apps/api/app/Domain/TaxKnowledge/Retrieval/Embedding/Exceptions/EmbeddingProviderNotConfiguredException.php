@@ -9,7 +9,7 @@ use RuntimeException;
 /**
  * Thrown by `UnconfiguredEmbeddingProvider` — the concrete, container-bound answer to "no
  * embedding provider is configured" (`docs/STATUS.md` blocked item #3), mirroring
- * `App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException`
+ * `Kern\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException`
  * exactly. A caller (`App\Domain\TaxKnowledge\Retrieval\Query\HybridLegislationSearch`,
  * `App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks`) catches this specific,
  * narrowly-typed exception to degrade to lexical-only retrieval or to leave chunks unembedded —

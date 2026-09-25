@@ -14,23 +14,23 @@ external AI provider/DPA to use) are built as concrete, tested seams rather than
 
 Entry points:
 
-- `App\Domain\Documents\Actions\InitiateDocumentUpload` — validates a temp file, creates the
+- `Kern\Documents\Actions\InitiateDocumentUpload` — validates a temp file, creates the
   `documents` row, writes to quarantine, dispatches the scan job. The one place a file can be
   rejected before ever touching storage.
-- `App\Domain\Documents\Jobs\ScanQuarantinedDocument` — the ClamAV stage.
-- `App\Domain\Documents\Jobs\ProcessScannedDocument` — native text extraction, the OCR decision,
+- `Kern\Documents\Jobs\ScanQuarantinedDocument` — the ClamAV stage.
+- `Kern\Documents\Jobs\ProcessScannedDocument` — native text extraction, the OCR decision,
   and the external-extraction attempt.
-- `App\Domain\Documents\Consent\DocumentAiConsentGate` — ADR 0005's per-subject consent record.
-- `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` — the consent-gated,
+- `Kern\Documents\Consent\DocumentAiConsentGate` — ADR 0005's per-subject consent record.
+- `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction` — the consent-gated,
   audited, currently-unimplemented external send.
-- `App\Domain\Documents\Quarantine\QuarantineObjectStore` — the physically separate store that
+- `Kern\Documents\Quarantine\QuarantineObjectStore` — the physically separate store that
   makes an unscanned upload unreachable by construction, not by convention.
 - `POST /api/v1/subjects/{subject}/documents`, `GET .../documents/{document}`,
   `POST`/`DELETE .../document-ai-consent` — the HTTP surface (`routes/api.php`).
 
 ## The exact lifecycle states
 
-`documents.status` (`App\Domain\Documents\Enums\DocumentStatus`):
+`documents.status` (`Kern\Documents\Enums\DocumentStatus`):
 
 ```text
 QUARANTINE -> SCANNED -> PROCESSING -> READY
@@ -42,7 +42,7 @@ safety-relevant check could not be completed:
 
 - **`QUARANTINE`**: the file passed `FileSecurityValidator` (size, magic bytes vs. declared
   extension, image pixel ceiling) and is sitting, encrypted, on the `quarantine` disk —
-  `App\Domain\Documents\Quarantine\QuarantineObjectStore`, a disk the rest of the app never reads
+  `Kern\Documents\Quarantine\QuarantineObjectStore`, a disk the rest of the app never reads
   documents from. A scanner that cannot be reached (`VirusScannerUnavailableException`) leaves the
   document here indefinitely (Horizon retries `ScanQuarantinedDocument`); this is deliberate, not a
   bug — `BLUEPRINT.md` §14.2 "a scan failure or unreachable scanner must block, never fail open."
@@ -67,7 +67,7 @@ this task's code ever writes; `REVIEWED`/`ACCEPTED`/`REJECTED` are reachable onl
 ## What the PWA frontend will call (not built here — Milestone 7's frontend is a separate task)
 
 - `POST /api/v1/subjects/{subject}/documents` — multipart, fields `file` and `type` (one of
-  `App\Domain\Documents\Enums\DocumentType`). `202 {"id", "status": "QUARANTINE"}` or `422
+  `Kern\Documents\Enums\DocumentType`). `202 {"id", "status": "QUARANTINE"}` or `422
   {"message", "reason"}` where `reason` is a closed `RejectionReason` value
   (`INVALID_MAGIC_BYTES`... actually the exact values are `EXTENSION_MISMATCH`,
   `UNSUPPORTED_FILE_TYPE`, `FILE_TOO_LARGE`, `IMAGE_PIXEL_LIMIT_EXCEEDED`, `INFECTED` — the last
@@ -104,7 +104,7 @@ this task's code ever writes; `REVIEWED`/`ACCEPTED`/`REJECTED` are reachable onl
 - `2026_09_08_700003_create_document_ai_consents_table.php` — **not** one of §6.6's literal
   tables; see "Key decisions" #2 for why it exists.
 
-**Domain** (`apps/api/app/Domain/Documents/`)
+**Domain** (`apps/api/packages/documents/src/`)
 - `Enums/{DocumentStatus,DocumentType,DocumentSource,RejectionReason,ExtractorType,ExtractionStatus}.php`
 - `Models/{Document,DocumentDerivative,DocumentExtraction,DocumentAiConsent}.php`
 - `DataTransferObjects/ValidatedUpload.php`
@@ -177,7 +177,7 @@ prior handoff in this repo uses for this kind of change)
    and no table anywhere in the blueprint's schema carries that flag. Modeled exactly like
    `pf_profiles` (subject id as both PK and FK, one current-state row per subject) rather than an
    event log, because there is exactly one current consent state, not a history the pipeline needs
-   to reason about. `App\Domain\Documents\Consent\DocumentAiConsentGate` is its only reader/writer.
+   to reason about. `Kern\Documents\Consent\DocumentAiConsentGate` is its only reader/writer.
 
 3. **`ClamdVirusScanner` is a hand-written ~140-line INSTREAM client, not a Composer dependency.**
    `docs/DEPENDENCY-POLICY.md` §4 orders "standard library" above "a well-maintained third-party
@@ -295,7 +295,7 @@ $ docker run --rm -e APP_KEY=... kern-php-test:local vendor/bin/phpstan analyse 
  [ERROR] Found 1 error
 ```
 That one error is pre-existing, in `App\Domain\TaxEngine`'s own test fixture — not touched by this
-task, not in `app/Domain/Documents/**`. **Zero errors anywhere in this task's own files.**
+task, not in `packages/documents/src/**`. **Zero errors anywhere in this task's own files.**
 
 **Deptrac, whole project:**
 ```text
@@ -352,15 +352,15 @@ MinIO in `docs/handoff/012-encrypted-object-store.md`; this task's own raw-bucke
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Documents\Models\Document` — read-only reference point for a future Wallet/TaxEngine
+- `Kern\Documents\Models\Document` — read-only reference point for a future Wallet/TaxEngine
   linkage (e.g. "this rental payment came from this bank-statement document") — no such linkage
   exists yet; not asked for.
-- `App\Domain\Documents\Consent\DocumentAiConsentGate::isConsented(string $subjectId): bool` — any
+- `Kern\Documents\Consent\DocumentAiConsentGate::isConsented(string $subjectId): bool` — any
   future module gating its own external-AI use on the same consent record should call this rather
   than duplicating consent storage.
-- `App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider` — the interface whoever resolves
+- `Kern\Documents\ExternalAi\ExternalDocumentAiProvider` — the interface whoever resolves
   `docs/STATUS.md` blocked item #3 implements and binds in place of `NullDocumentAiProvider`.
-- `App\Domain\Documents\Extraction\TextExtractionGateway` — the interface whoever builds the
+- `Kern\Documents\Extraction\TextExtractionGateway` — the interface whoever builds the
   Python-side `/v1/documents/extract-text` endpoint should confirm this Laravel client's assumed
   request/response shape against (`HttpTextExtractionGateway`'s own docblock states the assumed
   contract in full).
@@ -381,7 +381,7 @@ MinIO in `docs/handoff/012-encrypted-object-store.md`; this task's own raw-bucke
 - **No document-download/content-serving endpoint.** Only status metadata is ever returned over
   HTTP. Serving original bytes (or a derivative, or a review UI for `PROPOSED` extractions) is
   future work — see the download-endpoint caveat under "What the PWA frontend will call."
-  `App\Domain\Documents\Models\DocumentExtraction::review()` exists as the one sanctioned
+  `Kern\Documents\Models\DocumentExtraction::review()` exists as the one sanctioned
   status-transition method for that future reviewer UI, but nothing calls it yet.
 - **No re-trigger-on-consent-granted flow.** A document that reached `READY` without external
   extraction (no consent yet) is not automatically retried once consent is later granted — a human
@@ -414,7 +414,7 @@ MinIO in `docs/handoff/012-encrypted-object-store.md`; this task's own raw-bucke
    `HttpTextExtractionGateway`'s docblock as a proposal, not a contract already agreed with the
    Python side — it was written by this task alone.
 2. Should `document_ai_consents` eventually move under `App\Domain\Subjects` instead of
-   `App\Domain\Documents`? It is conceptually "a subject-level setting," but its only reader/writer
+   `Kern\Documents`? It is conceptually "a subject-level setting," but its only reader/writer
    is this module, and `docs/AGENTS.md` §10 says extend an existing pattern rather than pre-emptively
    relocate something with one current consumer. Left here; revisit if a second module needs it.
 3. The `clamav` compose capability fix (add `CAP_CHOWN`/`CAP_DAC_OVERRIDE`/`CAP_SETUID`/

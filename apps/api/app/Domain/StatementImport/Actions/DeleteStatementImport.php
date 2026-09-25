@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Actions;
 
-use App\Domain\Documents\Actions\DeleteDocument;
-use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
@@ -14,6 +12,8 @@ use App\Domain\Wallet\Models\FinancialTransaction;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Documents\Actions\DeleteDocument;
+use Kern\Documents\Models\Document;
 
 /**
  * Removes an import and everything it produced: its rows, the transactions it wrote, and the file.

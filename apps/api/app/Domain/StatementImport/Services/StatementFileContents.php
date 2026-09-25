@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Services;
 
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentDerivative;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentDerivative;
 use Kern\Platform\ObjectStore\DocumentObjectKind;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;

@@ -15,7 +15,7 @@ return [
         // Shared secret sent as `Authorization: Bearer <token>` — must equal the worker's own
         // `SPV_BROWSER_AUTH_TOKEN`. Empty by default so a missing value fails closed
         // (SpvWorkerUnavailableException::authenticationNotConfigured()), matching
-        // App\Domain\Documents\Extraction\HttpTextExtractionGateway's identical precedent.
+        // Kern\Documents\Extraction\HttpTextExtractionGateway's identical precedent.
         // Never logged (BLUEPRINT.md §4.10).
         'auth_token' => env('SPV_BROWSER_AUTH_TOKEN', ''),
     ],

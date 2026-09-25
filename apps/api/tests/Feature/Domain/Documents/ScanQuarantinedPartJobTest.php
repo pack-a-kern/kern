@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ScanQuarantinedPartJobTest;
 
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Enums\RejectionReason;
-use App\Domain\Documents\Events\DocumentScanned;
-use App\Domain\Documents\Jobs\ProcessScannedDocument;
-use App\Domain\Documents\Jobs\ScanQuarantinedPart;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentScan;
-use App\Domain\Documents\Quarantine\QuarantineObjectStore;
-use App\Domain\Documents\Scanning\ClamdVirusScanner;
-use App\Domain\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
-use App\Domain\Documents\Scanning\ScanOutcome;
-use App\Domain\Documents\Scanning\VirusScanner;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Enums\RejectionReason;
+use Kern\Documents\Events\DocumentScanned;
+use Kern\Documents\Jobs\ProcessScannedDocument;
+use Kern\Documents\Jobs\ScanQuarantinedPart;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentScan;
+use Kern\Documents\Quarantine\QuarantineObjectStore;
+use Kern\Documents\Scanning\ClamdVirusScanner;
+use Kern\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
+use Kern\Documents\Scanning\ScanOutcome;
+use Kern\Documents\Scanning\VirusScanner;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
@@ -33,7 +33,7 @@ use Tests\Fixtures\Documents\FileFixtures;
 /**
  * `BLUEPRINT.md` §14.1/§14.2 ClamAV stage, and `docs/AGENTS.md` §21.4's mandatory test: an infected
  * document is rejected and its bytes never leave quarantine into the real object store; an
- * unreachable scanner blocks a document rather than passing it. `App\Domain\Documents\Scanning\
+ * unreachable scanner blocks a document rather than passing it. `Kern\Documents\Scanning\
  * VirusScanner` is faked here to make both outcomes deterministic and fast — the real ClamAV
  * daemon's own EICAR detection is proven separately (live, env-gated) below, and the wire-protocol
  * client (`ClamdVirusScanner`) has its own fail-closed unit tests.

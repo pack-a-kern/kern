@@ -11,7 +11,7 @@ import type { DocumentStatus, DocumentType, RejectionReason } from '../types/doc
  * - `captureQueue` — a document picked/photographed on this device but not yet confirmed uploaded.
  *   Holds the actual file bytes (`Blob`) only until the upload succeeds, at which point the row is
  *   deleted — this is a transient upload buffer, not a document archive.
- * - `knownDocuments` — the exact fields `App\Http\Controllers\Api\V1\Documents\
+ * - `knownDocuments` — the exact fields `Kern\Documents\Http\Controllers\
  *   ShowDocumentController` returns (id/type/status/rejection_reason/mime_type/size_bytes/
  *   received_at), cached so the inbox has something to show instantly and offline. No original
  *   filename, no OCR text, no extracted content is ever written here — see
@@ -26,7 +26,7 @@ const DOCUMENTS_STORE = 'knownDocuments';
 
 /**
  * `failed` is transient (network error, server unavailable) and is retried automatically the next
- * time the queue processes. `rejected` is permanent — `App\Domain\Documents\FileSecurity\
+ * time the queue processes. `rejected` is permanent — `Kern\Documents\FileSecurity\
  * FileSecurityValidator` returned a `422` with a closed `RejectionReason` for *this exact file*,
  * which will fail identically on every retry — so it is never retried automatically, only shown to
  * the user with the reason, to be removed or replaced with a different file.

@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Calls `apps/spv-browser` over the internal network (`BLUEPRINT.md` §13.4). Structurally identical
- * to `App\Domain\Documents\Extraction\HttpTextExtractionGateway` — see that class's docblock for
+ * to `Kern\Documents\Extraction\HttpTextExtractionGateway` — see that class's docblock for
  * the shared shape (bearer-token internal auth, `TextExtractionUnavailableException`-vs-
  * `DocumentRejectedByExtractionException` split mirrored here as
  * `SpvWorkerUnavailableException`-vs-`SpvPortalAutomationUnavailableException`).

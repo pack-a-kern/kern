@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\FileSecurityValidatorTest;
 
-use App\Domain\Documents\FileSecurity\Exceptions\ExtensionMismatchException;
-use App\Domain\Documents\FileSecurity\Exceptions\FileTooLargeException;
-use App\Domain\Documents\FileSecurity\Exceptions\ImagePixelLimitExceededException;
-use App\Domain\Documents\FileSecurity\Exceptions\UnsupportedFileTypeException;
-use App\Domain\Documents\FileSecurity\FilenameSanitizer;
-use App\Domain\Documents\FileSecurity\FileSecurityValidator;
-use App\Domain\Documents\FileSecurity\SniffedFileType;
+use Kern\Documents\FileSecurity\Exceptions\ExtensionMismatchException;
+use Kern\Documents\FileSecurity\Exceptions\FileTooLargeException;
+use Kern\Documents\FileSecurity\Exceptions\ImagePixelLimitExceededException;
+use Kern\Documents\FileSecurity\Exceptions\UnsupportedFileTypeException;
+use Kern\Documents\FileSecurity\FilenameSanitizer;
+use Kern\Documents\FileSecurity\FileSecurityValidator;
+use Kern\Documents\FileSecurity\SniffedFileType;
 use RuntimeException;
 use Tests\Fixtures\Documents\FileFixtures;
 

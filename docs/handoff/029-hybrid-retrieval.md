@@ -59,7 +59,7 @@ blocked item #3, ADR 0007).
   `kern_unaccent(lower(citation_label))` for fuzzy article lookup.
 
 **`App\Domain\TaxKnowledge\Retrieval\Embedding`** (the seam, mirroring
-`App\Domain\Documents\ExternalAi` exactly)
+`Kern\Documents\ExternalAi` exactly)
 - `EmbeddingProvider.php` — interface: `embed(list<string> $texts): list<EmbeddingVector>`,
   `modelIdentifier(): string`.
 - `EmbeddingVector.php` — value object: non-empty `list<float>`, validates every value is finite,
@@ -380,7 +380,7 @@ $result = app(HybridLegislationSearch::class)->search(new HybridSearchQuery(
 - `docs/adr/0007-provider-agnostic-ai.md` — the OpenAI-compatible-protocol shape a real
   `EmbeddingProvider` implementation would follow; not built here (no provider decision to build
   it against).
-- `App\Domain\Documents\ExternalAi\{ExternalDocumentAiProvider,NullDocumentAiProvider,
+- `Kern\Documents\ExternalAi\{ExternalDocumentAiProvider,NullDocumentAiProvider,
   RequestExternalDocumentExtraction}` — the exact precedent `EmbeddingProvider`/
   `UnconfiguredEmbeddingProvider`/the graceful-degrade catch in `HybridLegislationSearch` mirror.
 - Direct empirical verification against the real `pgvector/pgvector:pg18-trixie` image (not

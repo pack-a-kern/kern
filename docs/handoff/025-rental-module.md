@@ -171,7 +171,7 @@ Among survivors, the smallest date distance wins; ties break on the transaction 
 principle, applied to a financial link exactly as it applies to a document extraction. Only
 `ConfirmRentalPaymentTransactionMatch` (a human decision) can reach `CONFIRMED`.
 `RejectRentalPaymentTransactionMatch` moves to `REJECTED` but **keeps** `transaction_id` for audit
-— the same precedent `App\Domain\Documents\Models\DocumentExtraction` already sets for keeping
+— the same precedent `Kern\Documents\Models\DocumentExtraction` already sets for keeping
 `result_ciphertext` regardless of review decision. All six matching scenarios (propose, confirm,
 reject-keeps-candidate, refuse-to-decide-an-unproposed-match, outside-date-window,
 already-confirmed-elsewhere) are proven in
@@ -270,7 +270,7 @@ depend on `Domain/Rental` and this task builds no `Event::listen()` wiring):
    this codebase, not a shortcut invented for this task.
 
 6. **`RentalAccrual.status` / `RentalPayment.transaction_match_status` are deliberately excluded
-   from `$fillable`**, matching `App\Domain\Documents\Models\DocumentExtraction`'s precedent
+   from `$fillable`**, matching `Kern\Documents\Models\DocumentExtraction`'s precedent
    exactly: mass-assignment can never move an accrual to `PAID` or fabricate a payment's
    transaction link from outside this module's own sanctioned actions. **This surfaced a real bug
    during development, worth recording**: because these columns are not fillable, a freshly
@@ -445,7 +445,7 @@ task's own verification runs.
   DepositRatePeriod}`, `App\Domain\Wallet\Actions\{OpenDeposit,RecordFinancialTransaction,
   GenerateDepositInterestSchedule}`, `App\Domain\Wallet\Services\Interest\{
   DepositRateCoverageValidator,DepositPaymentScheduleBuilder,DepositInterestCalculator}`,
-  `App\Domain\Wallet\ValueObjects\{Money,Decimal}`, `App\Domain\Documents\Models\{Document,
+  `App\Domain\Wallet\ValueObjects\{Money,Decimal}`, `Kern\Documents\Models\{Document,
   DocumentExtraction}` directly (not assumed) before writing the equivalent Rental code.
 - `apps/api/pint.json`, `apps/api/deptrac.php`, `apps/api/phpstan.neon` — read directly before
   relying on their configured rules.

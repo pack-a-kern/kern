@@ -19,7 +19,7 @@ use RuntimeException;
  * `declaration_submissions` (`BLUEPRINT.md` §6.10) — see that migration's docblock. No
  * `tax_subject_id` column (matches the blueprint's own schema); `encryptionSubjectId()` is
  * supplied explicitly by {@see self::record()} from the owning `Declaration` for a freshly
- * created row (the identical shape `App\Domain\Documents\Models\DocumentExtraction` establishes
+ * created row (the identical shape `Kern\Documents\Models\DocumentExtraction` establishes
  * for the same case), and falls back to looking the owning `Declaration`'s `tax_subject_id` up
  * directly for a row hydrated by a normal query (e.g. `App\Domain\Declarations\Actions\
  * RecordDeclarationSubmissionResponse`'s `DeclarationSubmission::query()->findOrFail(...)`, which

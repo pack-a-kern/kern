@@ -457,7 +457,7 @@ export default function AdminJobs(): JSX.Element {
 /**
  * The class without its namespace.
  *
- * `App\Domain\Documents\Jobs\ProcessScannedDocument` is unreadable in a table cell and the namespace
+ * `Kern\Documents\Jobs\ProcessScannedDocument` is unreadable in a table cell and the namespace
  * is the same for almost every row; the full name is one click away in the details.
  */
 function shortClass(name: string): string {

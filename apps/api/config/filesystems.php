@@ -53,7 +53,7 @@ return [
             'report' => false,
         ],
 
-        // A physically separate bucket from 's3' — App\Domain\Documents\Quarantine\
+        // A physically separate bucket from 's3' — Kern\Documents\Quarantine\
         // QuarantineObjectStore (docs/handoff/022-document-pipeline.md) relies on this being a
         // disk the rest of the application never reads documents from, so an unscanned upload is
         // unreachable by construction, not merely by a status check. Same MinIO credentials/

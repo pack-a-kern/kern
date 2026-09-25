@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Domain\Declarations\DeclarationsServiceProvider;
-use App\Domain\Documents\DocumentsServiceProvider;
 use App\Domain\Fx\FxServiceProvider;
 use App\Domain\Spv\SpvServiceProvider;
 use App\Domain\StatementImport\StatementImportServiceProvider;
@@ -16,7 +15,6 @@ return [
     SubjectsServiceProvider::class,
     TaxKnowledgeServiceProvider::class,
     FxServiceProvider::class,
-    DocumentsServiceProvider::class,
     DeclarationsServiceProvider::class,
     SpvServiceProvider::class,
     StatementImportServiceProvider::class,

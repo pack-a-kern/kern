@@ -19,4 +19,8 @@ return [
 
     'column' => 'tax_subject_id',
 
+    // What that column points at. A package's migration adds the foreign key only where this table
+    // already exists, so `kern/documents` can be installed without whatever owns the tenant.
+    'table' => 'tax_subjects',
+
 ];

@@ -26,6 +26,20 @@ return [
     'routing' => [
         'prefix' => env('KERN_ROUTE_PREFIX', 'api'),
         'middleware' => ['web'],
+
+        /*
+         * And where the ones that act *inside* a tenant hang from.
+         *
+         * A package that handles a tenant's documents has to put its routes under something that
+         * names the tenant, and it must not be the one to decide what that is called: here a tenant
+         * is a taxpayer and the segment reads `v1/subjects/{subject}`, elsewhere it is a workspace.
+         * The middleware named second is what turns that segment into a bound tenant — the
+         * application's, because authorising it is the application's answer (see `TenantGate`).
+         */
+        'tenant' => [
+            'prefix' => 'v1/tenants/{tenant}',
+            'middleware' => ['auth:web', 'tenant'],
+        ],
     ],
 
 ];

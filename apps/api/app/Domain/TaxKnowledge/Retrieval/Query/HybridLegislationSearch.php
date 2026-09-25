@@ -34,7 +34,7 @@ use stdClass;
  * proceeds lexical+fuzzy-only (`semantic_similarity` stays `NULL` for every row; the SQL's own
  * `CASE` already handles a `NULL` `query_embedding` parameter the same way). This is a narrowly
  * targeted catch of one named exception matching an established precedent in this codebase
- * (`App\Domain\Documents\Jobs\ProcessScannedDocument` does the same for `ExternalDocumentAiProvider`),
+ * (`Kern\Documents\Jobs\ProcessScannedDocument` does the same for `ExternalDocumentAiProvider`),
  * not a catch-all — `docs/CODE-QUALITY.md` §4's "no catch-all exception handlers" rule governs
  * swallowing an *unknown* error, not a documented, typed unavailability this class is explicitly
  * designed to degrade under.

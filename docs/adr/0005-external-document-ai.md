@@ -132,7 +132,7 @@ Two things were built for the OCR pipeline this ADR cancelled and were never rea
   and slept. Removed from `compose.yaml` and `compose.override.yaml`, and §3.1 amended.
 - **`apps/processing/src/processing/ai/`** — a complete LLM client, config, schemas and
   structured-output helper, imported by no route and no other module. The provider that actually
-  runs is `App\Domain\Documents\ExternalAi\OpenAiCompatibleDocumentAiProvider`, in PHP. Two
+  runs is `Kern\Documents\ExternalAi\OpenAiCompatibleDocumentAiProvider`, in PHP. Two
   implementations of one job, one of them wired to nothing. Removed, with its tests.
 
 Dropping them also dropped `httpx2` (used only by `processing.ai`) and `opencv-python-headless`,

@@ -15,7 +15,7 @@ Entry points:
   `POST /api/v1/settings/ai/test-connection` — the HTTP surface, all behind `auth:web` +
   `settings-admin`.
 - `Kern\Platform\Settings\Services\ResolveAiProviderCredentials` — what
-  `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` now calls, fresh on every
+  `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction` now calls, fresh on every
   invocation, to learn the current AI provider configuration (settings store, falling back to env
   only when a field was never saved).
 - `Kern\Platform\Settings\Support\SystemEncryptionScope` — the non-tenant encryption principal a
@@ -230,7 +230,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local
 $ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     php -d memory_limit=1G vendor/bin/phpstan analyse packages/platform/src/Settings \
     packages/platform/src/Http/Controllers/Settings app/Http/Middleware/EnsureSettingsAdmin.php \
-    app/Domain/Documents/ExternalAi tests/Feature/Domain/Settings tests/Unit/Domain/Settings \
+    packages/documents/src/ExternalAi tests/Feature/Domain/Settings tests/Unit/Domain/Settings \
     tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php \
     tests/Feature/Domain/Documents/RequestExternalDocumentExtractionTest.php --memory-limit=1G
  [OK] No errors
@@ -446,8 +446,8 @@ Any future `ExternalDocumentAiProvider` implementation should read its credentia
   Contracts/*}.php`, `app/Domain/Subjects/Infrastructure/EloquentSubjectDekRepository.php` (and its
   `tax_subjects`/`users` table assumption — the reason a third table was needed rather than a third
   entry in that repository's own `TABLES` constant), `app/Domain/Subjects/Models/{TaxSubject,
-  SubjectMembership}.php`, `packages/platform/src/Identity/Models/User.php`, `app/Domain/Documents/
-  ExternalAi/**`, `app/Domain/Documents/DocumentsServiceProvider.php`, `app/Domain/Documents/
+  SubjectMembership}.php`, `packages/platform/src/Identity/Models/User.php`, `packages/documents/src/
+  ExternalAi/**`, `packages/documents/src/DocumentsServiceProvider.php`, `packages/documents/src/
   Consent/DocumentAiConsentGate.php` (the `POST`/`DELETE` grant/revoke precedent this task's
   api-key clear endpoint follows), `routes/api.php`, `bootstrap/app.php`, `tests/Pest.php`,
   `tests/Fakes/{InMemoryKeyManagementService,InMemorySubjectDekRepository}.php`.

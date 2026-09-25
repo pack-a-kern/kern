@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Wallet;
 
-use App\Domain\Documents\Actions\MergeDocuments;
-use App\Domain\Documents\Models\Document;
 use App\Domain\Wallet\Actions\MergeDuplicateTransactions;
 use App\Domain\Wallet\Exceptions\NotDuplicateTransactionsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Kern\Documents\Actions\MergeDocuments;
+use Kern\Documents\Models\Document;
 
 /**
  * `POST /api/v1/subjects/{subject}/wallet/transactions/duplicates/merge` — combine lookalike

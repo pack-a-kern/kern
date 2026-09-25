@@ -383,7 +383,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
   installing Chromium is a Docker-image concern outside this task's path scope; nothing here
   changes browser launch behaviour, only the HTTP layer around the existing session lifecycle.
 - Did not touch `docs/STATUS.md` (explicit instruction), `app/Domain/Subjects/**`,
-  `app/Domain/Documents/**`, or `app/Http/**` (all explicitly another agent's concurrent work per
+  `packages/documents/src/**`, or `app/Http/**` (all explicitly another agent's concurrent work per
   this task's brief).
 
 ## Open questions
@@ -432,9 +432,9 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
 - `docs/CODE-QUALITY.md` — DRY/no-dead-code discipline (e.g. dropping the blueprint's unused
   `SpvAuthMethod::OTHER` case, matching `RentalContractStatus`'s precedent), the object-comparison
   trap (not triggered here — no `==`/`!=` on objects in this module).
-- Existing code read directly before writing anything: `App\Domain\Documents\Extraction\
+- Existing code read directly before writing anything: `Kern\Documents\Extraction\
   {TextExtractionGateway,HttpTextExtractionGateway}` (the HTTP-gateway pattern this module's
-  `HttpSpvBrowserSessionClient` mirrors exactly), `App\Domain\Documents\Events\Concerns\
+  `HttpSpvBrowserSessionClient` mirrors exactly), `Kern\Documents\Events\Concerns\
   BroadcastsOnDocumentsChannel` and `routes/channels.php` (the broadcast-channel pattern),
   `App\Domain\Rental\{Models\*, Actions\CreateRentalContract}` (denormalised `tax_subject_id`,
   single-write-with-explicit-FK Eloquent conventions), `App\Support\Crypto\{Casts\Encrypted,

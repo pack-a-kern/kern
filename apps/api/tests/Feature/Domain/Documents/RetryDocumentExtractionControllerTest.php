@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\RetryDocumentExtractionControllerTest;
 
-use App\Domain\Documents\Enums\AiExtractionOutcome;
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Enums\ExtractorType;
-use App\Domain\Documents\Jobs\ProcessScannedDocument;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Queue;
+use Kern\Documents\Enums\AiExtractionOutcome;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Enums\ExtractorType;
+use Kern\Documents\Jobs\ProcessScannedDocument;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentExtraction;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;

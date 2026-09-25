@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
-use App\Domain\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
-use App\Domain\Documents\Scanning\ScannerDescription;
-use App\Domain\Documents\Scanning\ScanOutcome;
-use App\Domain\Documents\Scanning\VirusScanner;
+use Kern\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
+use Kern\Documents\Scanning\ScannerDescription;
+use Kern\Documents\Scanning\ScanOutcome;
+use Kern\Documents\Scanning\VirusScanner;
 
 /**
  * A scanner whose verdict the test chooses.

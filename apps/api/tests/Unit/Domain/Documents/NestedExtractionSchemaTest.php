@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\NestedExtractionSchemaTest;
 
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\ExternalAi\ExtractionPrompt;
-use App\Domain\Documents\ExternalAi\ExtractionSchemaValidator;
 use Illuminate\Config\Repository as ConfigRepository;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\ExternalAi\ExtractionPrompt;
+use Kern\Documents\ExternalAi\ExtractionSchemaValidator;
+use ReflectionClass;
 
 /**
  * A field can be a value, a group, or a list of groups — and the prompt, the JSON schema and the
@@ -30,6 +31,18 @@ function validator(): ExtractionSchemaValidator
 function at(?array $subject, string $path): mixed
 {
     return data_get($subject, $path);
+}
+
+/**
+ * The real `ai/documents.php`, found through the class that reads it.
+ *
+ * It ships with `kern/documents` rather than sitting in the application's `config/`, and a test that
+ * hardcoded either location would pass by loading the wrong file or fail by loading none.
+ */
+function documentsConfigFile(): string
+{
+    return dirname((string) (new ReflectionClass(ExtractionPrompt::class))->getFileName(), 3)
+        . '/config/ai/documents.php';
 }
 
 it('asks for invoice lines as an array of typed objects', function (): void {
@@ -188,7 +201,7 @@ it('stores a contract that commits no money at all', function (): void {
 it('names every nested field in the prompt it sends', function (): void {
     // The real config file, not a stub: the point is that the words shipped for these fields
     // actually reach the prompt.
-    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
+    $config = new ConfigRepository(['ai' => ['documents' => require documentsConfigFile()]]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     // The prompt and the JSON schema are generated from one definition, so the words asked for and
@@ -232,7 +245,7 @@ it('keeps a reading whose kind it does not recognise, rather than destroying it'
 });
 
 it('offers the model every kind it can store, each with a line saying what it is', function (): void {
-    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
+    $config = new ConfigRepository(['ai' => ['documents' => require documentsConfigFile()]]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     // Generated from the enum, so a kind that exists is offered and one that does not cannot be.
@@ -249,7 +262,7 @@ it('offers the model every kind it can store, each with a line saying what it is
 });
 
 it('asks an untyped document to classify itself', function (): void {
-    $config = new ConfigRepository(['ai' => ['documents' => require __DIR__ . '/../../../../config/ai/documents.php']]);
+    $config = new ConfigRepository(['ai' => ['documents' => require documentsConfigFile()]]);
     $instruction = (new ExtractionPrompt($config))->instruction();
 
     expect($instruction)->toContain('document_kind')

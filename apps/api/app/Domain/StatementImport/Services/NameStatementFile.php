@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Services;
 
 use App\Domain\Banks\Models\Bank;
-use App\Domain\Documents\Enums\DocumentSource;
-use App\Domain\Documents\FileSecurity\FilenameSanitizer;
-use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use Illuminate\Support\Str;
+use Kern\Documents\Enums\DocumentSource;
+use Kern\Documents\FileSecurity\FilenameSanitizer;
+use Kern\Documents\Models\Document;
 use Kern\Platform\Tenancy\TenantScope;
 
 /**

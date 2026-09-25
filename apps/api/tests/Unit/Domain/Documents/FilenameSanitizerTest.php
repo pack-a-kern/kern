@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Documents\FilenameSanitizerTest;
 
-use App\Domain\Documents\FileSecurity\FilenameSanitizer;
+use Kern\Documents\FileSecurity\FilenameSanitizer;
 
 it('keeps an already-safe filename unchanged', function (): void {
     expect((new FilenameSanitizer())->sanitize('invoice-2026.pdf'))->toBe('invoice-2026.pdf');

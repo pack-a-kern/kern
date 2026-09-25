@@ -8,7 +8,7 @@ use App\Domain\TaxKnowledge\Retrieval\Embedding\Exceptions\EmbeddingProviderNotC
 
 /**
  * The embedding call as a seam (`docs/handoff/029-hybrid-retrieval.md`) — deliberately mirroring
- * `App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider`'s exact shape: an interface, a
+ * `Kern\Documents\ExternalAi\ExternalDocumentAiProvider`'s exact shape: an interface, a
  * concrete `UnconfiguredEmbeddingProvider` bound by default (`docs/STATUS.md` blocked item #3 —
  * no AI provider chosen), and nothing that calls an external service. ADR 0007 already commits
  * this project's LLM/embedding traffic to the OpenAI-compatible wire protocol once a provider is

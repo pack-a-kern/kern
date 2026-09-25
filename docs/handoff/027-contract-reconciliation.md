@@ -8,7 +8,7 @@
 `docs/handoff/024-extraction-endpoint.md` built the real `POST /v1/documents/extract-text`
 endpoint on the Python side and found it differs from `docs/handoff/022-document-pipeline.md`'s
 assumed contract in five specific ways. This task closes that gap on the Laravel side —
-`apps/api/app/Domain/Documents/Extraction/HttpTextExtractionGateway.php` and everything downstream
+`apps/api/packages/documents/src/Extraction/HttpTextExtractionGateway.php` and everything downstream
 of it — so the two services actually agree, and proves it with a real call against a live
 `python-api` container, not just a `Http::fake()`.
 
@@ -31,19 +31,19 @@ All five mismatches are closed:
    top-level `$qualityScoreDecimal` field).
 3. **`text` is `{"kind": "untrusted_document_text", "content": ...}`.** `parse()` validates the
    `kind` discriminator and unwraps `content` into a new `UntrustedDocumentText` value object
-   (`App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText`) — a Laravel-side
+   (`Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText`) — a Laravel-side
    mirror of the Python type from `docs/handoff/019-pdf-text-extraction.md`: not `Stringable`-
    transparent (`(string) $wrapped` renders a redacted marker, never the content), content only
    reachable via the explicit `reveal()` call. This is threaded all the way through
    `NativeTextExtractionResult::joinedText()` (now returns `UntrustedDocumentText`, not `string`),
    `ProcessScannedDocument` (reveals it exactly twice: once to write raw bytes to the encrypted
    derivative, once left un-revealed and passed straight through to the external-AI request), and
-   `App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest::$extractedText`
+   `Kern\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest::$extractedText`
    (retyped from `?string` to `?UntrustedDocumentText`) and
    `RequestExternalDocumentExtraction::__invoke()`'s second parameter. Nothing downstream holds a
    bare `string` of document content any earlier than an explicit, grep-able `reveal()` call.
 4. **Specific error codes are now mapped, not collapsed.** A new
-   `App\Domain\Documents\Extraction\Exceptions\DocumentRejectedByExtractionException` (carrying a
+   `Kern\Documents\Extraction\Exceptions\DocumentRejectedByExtractionException` (carrying a
    closed `RejectionReason`) is thrown for the service's documented "this document is bad" codes —
    `file_too_large` (413), `invalid_magic_bytes`, `encrypted_pdf`, `too_many_pages`,
    `empty_document`, `malformed_pdf`, `extraction_timeout`, `extraction_failed` (all 422) — via a
@@ -69,38 +69,38 @@ pipeline. `DocumentStatus`'s docblock now documents the new `PROCESSING -> REJEC
 
 ## Files created / changed
 
-- `apps/api/app/Domain/Documents/Extraction/DataTransferObjects/UntrustedDocumentText.php` — new.
+- `apps/api/packages/documents/src/Extraction/DataTransferObjects/UntrustedDocumentText.php` — new.
   The Laravel-side untrusted-text marker (mismatch #3).
-- `apps/api/app/Domain/Documents/Extraction/DataTransferObjects/PageExtractionResult.php` — new.
+- `apps/api/packages/documents/src/Extraction/DataTransferObjects/PageExtractionResult.php` — new.
   Per-page `pageNumber`/`qualityScoreDecimal`/`text` (mismatch #2 + #3).
-- `apps/api/app/Domain/Documents/Extraction/DataTransferObjects/NativeTextExtractionResult.php` —
+- `apps/api/packages/documents/src/Extraction/DataTransferObjects/NativeTextExtractionResult.php` —
   `$pageTexts`/`$qualityScoreDecimal` replaced by `$pages` (`array<int, PageExtractionResult>`);
   `joinedText()` now returns `UntrustedDocumentText`.
-- `apps/api/app/Domain/Documents/Extraction/HttpTextExtractionGateway.php` — rewritten: sends the
+- `apps/api/packages/documents/src/Extraction/HttpTextExtractionGateway.php` — rewritten: sends the
   bearer token (fails closed if empty), maps `401` and the eight documented error codes distinctly,
   parses the real per-page `quality_score`/structural `text` shape. Docblock now documents the real
   contract instead of the old assumed one.
-- `apps/api/app/Domain/Documents/Extraction/TextExtractionGateway.php` — `@throws` updated to name
+- `apps/api/packages/documents/src/Extraction/TextExtractionGateway.php` — `@throws` updated to name
   both exception types and when each applies.
-- `apps/api/app/Domain/Documents/Extraction/Exceptions/DocumentRejectedByExtractionException.php`
+- `apps/api/packages/documents/src/Extraction/Exceptions/DocumentRejectedByExtractionException.php`
   — new. Carries a `RejectionReason`; never retried.
-- `apps/api/app/Domain/Documents/Extraction/Exceptions/TextExtractionUnavailableException.php` —
+- `apps/api/packages/documents/src/Extraction/Exceptions/TextExtractionUnavailableException.php` —
   added `authenticationNotConfigured()`/`authenticationRejected()`; docblock now distinguishes this
   class from the new rejection exception.
-- `apps/api/app/Domain/Documents/Events/DocumentTextExtractionRejected.php` — new broadcast event,
+- `apps/api/packages/documents/src/Events/DocumentTextExtractionRejected.php` — new broadcast event,
   mirroring `DocumentScanned`'s contract (status/reason/progress only, never document content).
-- `apps/api/app/Domain/Documents/Jobs/ProcessScannedDocument.php` — catches
+- `apps/api/packages/documents/src/Jobs/ProcessScannedDocument.php` — catches
   `DocumentRejectedByExtractionException` and rejects the document instead of retrying; reveals
   `UntrustedDocumentText` only at the two boundaries that need raw bytes/an already-documented data
   field.
-- `apps/api/app/Domain/Documents/ExternalAi/DataTransferObjects/DocumentAiRequest.php` —
+- `apps/api/packages/documents/src/ExternalAi/DataTransferObjects/DocumentAiRequest.php` —
   `$extractedText` retyped `?string` -> `?UntrustedDocumentText`.
-- `apps/api/app/Domain/Documents/ExternalAi/RequestExternalDocumentExtraction.php` — `__invoke()`'s
+- `apps/api/packages/documents/src/ExternalAi/RequestExternalDocumentExtraction.php` — `__invoke()`'s
   second parameter retyped to match.
-- `apps/api/app/Domain/Documents/DocumentsServiceProvider.php` — passes the configured auth token
+- `apps/api/packages/documents/src/DocumentsServiceProvider.php` — passes the configured auth token
   into `HttpTextExtractionGateway`'s constructor.
-- `apps/api/app/Domain/Documents/Enums/RejectionReason.php` — six new cases (see above).
-- `apps/api/app/Domain/Documents/Enums/DocumentStatus.php` — docblock documents `PROCESSING ->
+- `apps/api/packages/documents/src/Enums/RejectionReason.php` — six new cases (see above).
+- `apps/api/packages/documents/src/Enums/DocumentStatus.php` — docblock documents `PROCESSING ->
   REJECTED`.
 - `apps/api/config/documents.php` — new `text_extraction.auth_token` key, `env('INTERNAL_SERVICE_AUTH_TOKEN', '')`.
 - `compose.yaml` — `INTERNAL_SERVICE_AUTH_TOKEN` added to `&php-environment` (shared by
@@ -267,7 +267,7 @@ UNAVAILABLE: The document text-extraction service auth token is not configured.
 $ ... with INTERNAL_SERVICE_AUTH_TOKEN=<wrong value>
 UNAVAILABLE: The document text-extraction service rejected this request as unauthenticated.
 ```
-This exercised `App\Domain\Documents\Extraction\HttpTextExtractionGateway` — the real class, via a
+This exercised `Kern\Documents\Extraction\HttpTextExtractionGateway` — the real class, via a
 Laravel-bootstrapped script resolving `TextExtractionGateway` from the container exactly as
 `ProcessScannedDocument` does — against the real, running `python-api` container over the real
 `processing_net`-equivalent Docker network, using real PDF bytes. Confirmed via
@@ -278,16 +278,16 @@ session state and were left as they were.
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText` — `wrap()`, `join()`,
+- `Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText` — `wrap()`, `join()`,
   `reveal()`, `equals()`. Any future consumer of extracted document text (a human-review UI, a
   future real `ExternalDocumentAiProvider`) should accept this type, not a bare `string`.
-- `App\Domain\Documents\Extraction\DataTransferObjects\PageExtractionResult` — `pageNumber`,
+- `Kern\Documents\Extraction\DataTransferObjects\PageExtractionResult` — `pageNumber`,
   `qualityScoreDecimal`, `text`. Available on `NativeTextExtractionResult::$pages` for a future
   human-review UI that wants per-page quality data (`docs/handoff/024`'s open question #3) — not
   consumed by any code path in this task beyond being parsed and held.
-- `App\Domain\Documents\Extraction\Exceptions\DocumentRejectedByExtractionException` — `reason():
+- `Kern\Documents\Extraction\Exceptions\DocumentRejectedByExtractionException` — `reason():
   RejectionReason`. Never retry on this; it means the same document will fail the same way again.
-- `App\Domain\Documents\Events\DocumentTextExtractionRejected` — broadcasts `document_id`, `status`
+- `Kern\Documents\Events\DocumentTextExtractionRejected` — broadcasts `document_id`, `status`
   (always `"REJECTED"`), `rejection_reason`, `progress` (100) on the same private
   `tax-subjects.{id}.documents` channel as every other Documents lifecycle event.
 - `INTERNAL_SERVICE_AUTH_TOKEN` — the env var name is now a cross-service contract. Both
@@ -344,13 +344,13 @@ session state and were left as they were.
   this task's own Postgres runs (and the honestly-recorded transient deadlock) follow.
 - `docs/handoff/008-ci-pipeline.md` — the `kern-php-test:local` test-image build convention used
   for every quality-gate command in this task.
-- Source files read directly (not just their handoffs): `apps/api/app/Domain/Documents/FileSecurity/
+- Source files read directly (not just their handoffs): `apps/api/packages/documents/src/FileSecurity/
   Exceptions/{FileSecurityException,FileTooLargeException}.php` and `FileSecurityValidator.php` (the
   existing rejection-reason pattern this task's `DocumentRejectedByExtractionException` follows),
-  `apps/api/app/Domain/Documents/Enums/{DocumentStatus,RejectionReason}.php`,
-  `apps/api/app/Domain/Documents/Events/{DocumentScanned,DocumentTextExtracted}.php` and their
-  shared `Concerns/BroadcastsOnDocumentsChannel` trait, `apps/api/app/Domain/Documents/Models/
-  Document.php`, `apps/api/app/Domain/Documents/ExternalAi/**`,
+  `apps/api/packages/documents/src/Enums/{DocumentStatus,RejectionReason}.php`,
+  `apps/api/packages/documents/src/Events/{DocumentScanned,DocumentTextExtracted}.php` and their
+  shared `Concerns/BroadcastsOnDocumentsChannel` trait, `apps/api/packages/documents/src/Models/
+  Document.php`, `apps/api/packages/documents/src/ExternalAi/**`,
   `apps/processing/tests/documents/pdf_builders.py` (read-only use of `build_text_pdf`/
   `build_blank_pdf`/`build_encrypted_pdf` to generate real verification fixtures — no
   `apps/processing` file was modified), `apps/processing/src/processing/internal_auth.py` (to

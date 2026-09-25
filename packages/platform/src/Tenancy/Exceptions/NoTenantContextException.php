@@ -20,4 +20,14 @@ final class NoTenantContextException extends RuntimeException
     {
         return new self('No tenant is bound to this request or job.');
     }
+
+    /** A row of a scoped table that reached a reader without its tenant. */
+    public static function notOnRow(string $model, string $column): self
+    {
+        return new self(sprintf(
+            '%s has no %s: a scoped row must carry its tenant before it is read.',
+            $model,
+            $column,
+        ));
+    }
 }

@@ -127,7 +127,7 @@ x-php-image: &php-image
     AWS_DEFAULT_REGION: eu-central-1
     AWS_BUCKET: kern-documents
     # The physically separate bucket unscanned uploads land in
-    # (App\Domain\Documents\Quarantine\QuarantineObjectStore). Named here beside AWS_BUCKET so
+    # (Kern\Documents\Quarantine\QuarantineObjectStore). Named here beside AWS_BUCKET so
     # one place declares both, and `minio-init-buckets` below creates exactly these two.
     QUARANTINE_BUCKET: kern-quarantine
     AWS_ENDPOINT: http://minio:9000
@@ -136,7 +136,7 @@ x-php-image: &php-image
     MAIL_HOST: ${MAIL_HOST:-mailpit}
     MAIL_PORT: ${MAIL_PORT:-1025}
     # Shared secret with python-api's own INTERNAL_SERVICE_AUTH_TOKEN below — BLUEPRINT.md §4.10,
-    # docs/handoff/024-extraction-endpoint.md. App\Domain\Documents\Extraction\
+    # docs/handoff/024-extraction-endpoint.md. Kern\Documents\Extraction\
     # HttpTextExtractionGateway sends it as `Authorization: Bearer <token>`.
     INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}
     # Legislation retrieval's embedding half (BLUEPRINT.md §15.2). `..._DIMENSION` must equal the

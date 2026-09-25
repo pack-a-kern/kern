@@ -18,10 +18,10 @@ use Illuminate\Support\Facades\Schema;
  * filing itself. There is no `tax_subject_id` column on this table (the blueprint's own schema
  * does not carry one here); `App\Domain\Declarations\Models\DeclarationSubmission` reads its
  * owning subject id from the parent `declarations` row it belongs to, the identical shape
- * `App\Domain\Documents\Models\DocumentExtraction` already establishes for the same "encrypted
+ * `Kern\Documents\Models\DocumentExtraction` already establishes for the same "encrypted
  * child row with no tenant column of its own" case.
  *
- * `receipt_document_id` references `App\Domain\Documents`' `documents` table as a real,
+ * `receipt_document_id` references `Kern\Documents`' `documents` table as a real,
  * schema-level foreign key only (`nullOnDelete()`) — the identical precedent
  * `rental_contracts.source_document_id -> documents` already establishes.
  *

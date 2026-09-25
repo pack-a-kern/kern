@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\DocumentExtractionReviewControllerTest;
 
-use App\Domain\Documents\Enums\ExtractionStatus;
-use App\Domain\Documents\Enums\ExtractorType;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
+use Kern\Documents\Enums\ExtractionStatus;
+use Kern\Documents\Enums\ExtractorType;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentExtraction;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use RuntimeException;
@@ -200,7 +200,7 @@ it('corrects a proposed extraction: the original row is preserved, a new accepte
 
     // The original proposal is preserved, byte for byte, never overwritten in place. Reloaded
     // fresh from the database, so decrypting it needs the subject id supplied explicitly
-    // (App\Domain\Documents\Models\DocumentExtraction::withEncryptionSubjectId()'s own docblock).
+    // (Kern\Documents\Models\DocumentExtraction::withEncryptionSubjectId()'s own docblock).
     $originalFresh = $original->fresh()?->withEncryptionSubjectId($subject->id);
     expect($originalFresh)->not->toBeNull();
     assert($originalFresh !== null);

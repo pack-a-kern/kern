@@ -20,7 +20,7 @@ import {
 } from '../types/documents';
 
 /**
- * Thrown when `App\Domain\Documents\FileSecurity\FileSecurityValidator` rejects a file
+ * Thrown when `Kern\Documents\FileSecurity\FileSecurityValidator` rejects a file
  * synchronously (`422`, before any `documents` row exists) — `reason` is the closed
  * `RejectionReason` value from `docs/handoff/022-document-pipeline.md`. Distinguished from a
  * generic {@link ApiError} so the capture UI can show the specific, translated rejection reason
@@ -84,7 +84,7 @@ export async function uploadDocument(
  * The subject already has a byte-identical document.
  *
  * Identity is the content hash, not the filename — see
- * `App\Domain\Documents\Exceptions\DuplicateDocumentException`.
+ * `Kern\Documents\Exceptions\DuplicateDocumentException`.
  */
 export class DocumentDuplicateError extends Error {
     constructor(message: string) {

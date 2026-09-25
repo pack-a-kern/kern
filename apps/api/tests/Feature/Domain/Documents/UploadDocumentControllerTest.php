@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\UploadDocumentControllerTest;
 
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Events\DocumentUploaded;
-use App\Domain\Documents\Jobs\ScanQuarantinedPart;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -17,6 +12,11 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Events\DocumentUploaded;
+use Kern\Documents\Jobs\ScanQuarantinedPart;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;

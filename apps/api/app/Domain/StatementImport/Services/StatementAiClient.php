@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Services;
 
-use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\StatementImport\DataTransferObjects\AiAnswer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Kern\Documents\Consent\DocumentAiConsentGate;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 

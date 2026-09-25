@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ShowDocumentHistoryControllerTest;
 
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentScan;
-use App\Domain\Documents\Scanning\ScanOutcome;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Carbon;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentScan;
+use Kern\Documents\Scanning\ScanOutcome;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;

@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Rentals;
 
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\Enums\TransactionImportState;
-use App\Domain\Documents\Models\Document;
-use App\Domain\Documents\Models\DocumentExtraction;
-use App\Domain\Documents\Queries\ResolveTransactionImportState;
 use App\Domain\Rental\Actions\OpenRental;
 use App\Domain\Rental\DataTransferObjects\OpenRentalInput;
 use App\Domain\Rental\Enums\PropertyType;
@@ -18,6 +13,11 @@ use App\Domain\Rental\Exceptions\InvalidOwnershipPercentException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\Enums\TransactionImportState;
+use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentExtraction;
+use Kern\Documents\Queries\ResolveTransactionImportState;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

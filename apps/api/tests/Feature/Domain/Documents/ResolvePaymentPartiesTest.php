@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ResolvePaymentPartiesTest;
 
-use App\Domain\Documents\Payments\ResolvePaymentParties;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Models\TaxSubject;
+use Kern\Documents\Payments\ResolvePaymentParties;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
@@ -28,7 +28,17 @@ beforeEach(function (): void {
     );
 });
 
-function subjectCalled(string $name, ?string $identifier = null): TaxSubject
+/**
+ * Which side of this payment a taxpayer with these names is on.
+ *
+ * Resolved through the container so the name lookup is the real one —
+ * `App\Domain\Subjects\Tenancy\SubjectNames`, bound by this application. The package itself only
+ * knows that something can hand it a list of names for a tenant id.
+ *
+ * @param  array<array-key, mixed>  $payment
+ * @return array{direction: 'IN'|'OUT'|null, counterparty: string|null}
+ */
+function partiesOf(string $name, array $payment, ?string $identifier = null): array
 {
     $subject = TaxSubject::factory()->create();
     $subject->display_name_ciphertext = $name;
@@ -36,13 +46,13 @@ function subjectCalled(string $name, ?string $identifier = null): TaxSubject
     $subject->fiscal_identifier_ciphertext = $identifier;
     $subject->save();
 
-    return $subject;
+    return app(ResolvePaymentParties::class)($subject->id, $payment);
 }
 
 it('reads a dividend to an associate as money in, from the company', function (): void {
     // The exact row that came back inverted: the account says "laur sandu", the decision says
     // "SANDU LAURENTIU-CONSTANTIN" — surname first, full given names, upper case.
-    $parties = (new ResolvePaymentParties())(subjectCalled('laur sandu'), [
+    $parties = partiesOf('laur sandu', [
         'payer' => 'S.C. SENDWISE S.R.L.',
         'beneficiary' => 'SANDU LAURENTIU-CONSTANTIN',
         'amount_paid' => '279448',
@@ -55,11 +65,11 @@ it('reads a dividend to an associate as money in, from the company', function ()
 it('reads the same decision as money out when the company is the one filing', function (): void {
     // One document, two subjects, opposite answers — which is why this is derived rather than
     // stored on the reading.
-    $parties = (new ResolvePaymentParties())(subjectCalled('SENDWISE SRL', 'RO37266479'), [
+    $parties = partiesOf('SENDWISE SRL', [
         'payer' => 'S.C. SENDWISE S.R.L.',
         'beneficiary' => 'SANDU LAURENTIU-CONSTANTIN',
         'amount_paid' => '279448',
-    ]);
+    ], 'RO37266479');
 
     expect($parties['direction'])->toBe('OUT')
         ->and($parties['counterparty'])->toBe('SANDU LAURENTIU-CONSTANTIN');
@@ -69,7 +79,7 @@ it('says nothing about a payment between two other people', function (): void {
     // The other two associates on the same decision. Their rows are facts about the document, not
     // transactions this person can record — and offering to import them would book somebody else's
     // money.
-    $parties = (new ResolvePaymentParties())(subjectCalled('laur sandu'), [
+    $parties = partiesOf('laur sandu', [
         'payer' => 'S.C. SENDWISE S.R.L.',
         'beneficiary' => 'MOLDOVEANU MARIAN-CIPRIAN',
     ]);
@@ -79,7 +89,7 @@ it('says nothing about a payment between two other people', function (): void {
 });
 
 it('matches across diacritics and case', function (): void {
-    $parties = (new ResolvePaymentParties())(subjectCalled('Ștefan Măldăianu'), [
+    $parties = partiesOf('Ștefan Măldăianu', [
         'payer' => 'SENDWISE SRL',
         'beneficiary' => 'MALDAIANU STEFAN',
     ]);
@@ -91,7 +101,7 @@ it('does not match a longer name against a shorter one', function (): void {
     // "Ion" may stand for "Ionescu" on the document; "Ionescu" must not stand for "Ion". The
     // account name is the shorter side of the test on purpose — otherwise every Ionescu in the
     // country matches an Ion.
-    $parties = (new ResolvePaymentParties())(subjectCalled('Ionescu Mihai'), [
+    $parties = partiesOf('Ionescu Mihai', [
         'payer' => 'SENDWISE SRL',
         'beneficiary' => 'ION MIHAI',
     ]);
@@ -100,15 +110,15 @@ it('does not match a longer name against a shorter one', function (): void {
 });
 
 it('matches a company on its fiscal code as well as its name', function (): void {
-    $parties = (new ResolvePaymentParties())(subjectCalled('Altceva SRL', 'RO37266479'), [
+    $parties = partiesOf('Altceva SRL', [
         'payer' => 'RO37266479',
         'beneficiary' => 'SANDU LAURENTIU-CONSTANTIN',
-    ]);
+    ], 'RO37266479');
 
     expect($parties['direction'])->toBe('OUT');
 });
 
 it('says nothing when the payment names nobody', function (): void {
-    expect((new ResolvePaymentParties())(subjectCalled('laur sandu'), ['amount_paid' => '100']))
+    expect(partiesOf('laur sandu', ['amount_paid' => '100']))
         ->toBe(['direction' => null, 'counterparty' => null]);
 });

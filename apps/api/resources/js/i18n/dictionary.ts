@@ -365,7 +365,7 @@ export interface Dictionary {
         aiOutcomeRetryQueued: string;
         aiOutcomeRetryFailed: string;
         aiOutcomeRetryHint: string;
-        /** Keyed by `App\Domain\Documents\Enums\AiExtractionOutcome`. */
+        /** Keyed by `Kern\Documents\Enums\AiExtractionOutcome`. */
         showAiReply: string;
         askedModel: string;
         rowCount: string;
@@ -438,7 +438,7 @@ export interface Dictionary {
         noEvents: string;
         chainEvents: Record<string, string | undefined>;
     };
-    /** Keyed by `App\Domain\Documents\Enums\DocumentStage` — what a person is told. */
+    /** Keyed by `Kern\Documents\Enums\DocumentStage` — what a person is told. */
     documentStage: Record<DocumentStage, string>;
     statusBadge: {
         QUARANTINE: string;
@@ -477,7 +477,7 @@ export interface Dictionary {
     /**
      * The extraction field names, as a person reads them.
      *
-     * Keyed by the wire names `App\Domain\Documents\Parsing\ExtractionSchema` defines. A
+     * Keyed by the wire names `Kern\Documents\Parsing\ExtractionSchema` defines. A
      * `Record<string, string>` rather than a closed union because the schema is server-side: a new
      * field appears here as a missing translation, not a type error.
      */

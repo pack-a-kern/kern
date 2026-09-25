@@ -26,6 +26,7 @@
         "spomky-labs/otphp": "^11.5.0",
         "web-auth/webauthn-lib": "^5.3.8",
         "kern/audit": "@dev",
+        "kern/documents": "@dev",
         "kern/platform": "@dev"
     },
     "require-dev": {

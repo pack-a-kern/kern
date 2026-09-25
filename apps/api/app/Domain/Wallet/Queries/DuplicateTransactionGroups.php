@@ -8,7 +8,7 @@ use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\DuplicateSurvivor;
 use App\Domain\Wallet\Services\LookalikeTransactions;
-use App\Support\Text\PartyName;
+use Kern\Platform\Text\PartyName;
 
 /**
  * Transactions that look like the same payment recorded more than once.

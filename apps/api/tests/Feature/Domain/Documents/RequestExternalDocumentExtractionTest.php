@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\RequestExternalDocumentExtractionTest;
 
-use App\Domain\Documents\Consent\DocumentAiConsentGate;
-use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
-use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
-use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
-use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
-use App\Domain\Documents\ExternalAi\NullDocumentAiProvider;
-use App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction;
-use App\Domain\Documents\Models\Document;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Documents\Consent\DocumentAiConsentGate;
+use Kern\Documents\Consent\Exceptions\AiConsentRequiredException;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\ExternalAi\DataTransferObjects\DocumentAiRequest;
+use Kern\Documents\ExternalAi\DataTransferObjects\DocumentAiResponse;
+use Kern\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
+use Kern\Documents\ExternalAi\ExternalDocumentAiProvider;
+use Kern\Documents\ExternalAi\NullDocumentAiProvider;
+use Kern\Documents\ExternalAi\RequestExternalDocumentExtraction;
+use Kern\Documents\Models\Document;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
@@ -41,7 +41,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
 function sendableDocument(): Document
 {
     $document = Document::factory()->part(['mime_type' => 'application/pdf'])->create([
-        'status' => \App\Domain\Documents\Enums\DocumentStatus::SCANNED,
+        'status' => \Kern\Documents\Enums\DocumentStatus::SCANNED,
     ]);
     $part = $document->parts->sole();
 

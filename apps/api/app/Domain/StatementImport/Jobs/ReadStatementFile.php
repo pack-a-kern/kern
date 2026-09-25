@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Jobs;
 
-use App\Domain\Documents\Enums\DocumentStatus;
-use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\DataTransferObjects\ConvertedStatement;
 use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\MappingSource;
@@ -29,6 +27,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Documents\Enums\DocumentStatus;
+use Kern\Documents\Models\Document;
 use Kern\Platform\Tenancy\TenantScope;
 use Throwable;
 

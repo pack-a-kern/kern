@@ -20,7 +20,7 @@ use RuntimeException;
  * `App\Domain\TaxKnowledge\Retrieval\Embedding\UnconfiguredEmbeddingProvider` by default, so
  * calling this in production today throws {@see EmbeddingProviderNotConfiguredException} —
  * exactly the same accepted, visible limitation shape
- * `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction`'s docblock describes for its
+ * `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction`'s docblock describes for its
  * own provider seam. A caller is expected to catch that specific exception and leave the affected
  * chunks unembedded (lexically/fuzzy searchable, not semantically) rather than treat it as a
  * retryable error — this is a business-decision gap, not a transient failure.

@@ -87,7 +87,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 /** Statuses for which `GET .../documents/{document}/content` can return bytes
- * (`App\Http\Controllers\Api\V1\Documents\ShowDocumentContentController::CONTENT_AVAILABLE_STATUSES`). */
+ * (`Kern\Documents\Http\Controllers\ShowDocumentContentController::CONTENT_AVAILABLE_STATUSES`). */
 const CONTENT_AVAILABLE_STATUSES: DocumentSummary['status'][] = ['SCANNED', 'PROCESSING', 'READY'];
 
 /**

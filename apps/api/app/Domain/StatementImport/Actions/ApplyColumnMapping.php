@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Actions;
 
-use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\RowProposalSource;
@@ -24,6 +23,7 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\CounterpartyRules;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\DB;
+use Kern\Documents\Models\Document;
 
 /**
  * Turns the file into rows a person can go through, using the mapping they confirmed.

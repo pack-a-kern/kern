@@ -13,7 +13,7 @@ import {
     vString,
 } from '../lib/validate';
 
-/** `App\Domain\Documents\Enums\DocumentType`. */
+/** `Kern\Documents\Enums\DocumentType`. */
 export const DOCUMENT_TYPES = [
     'RECEIPT',
     'INVOICE',
@@ -26,13 +26,13 @@ export const DOCUMENT_TYPES = [
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
-/** `App\Domain\Documents\Enums\DocumentStatus`. */
+/** `Kern\Documents\Enums\DocumentStatus`. */
 export const DOCUMENT_STATUSES = ['QUARANTINE', 'SCANNED', 'PROCESSING', 'READY', 'REJECTED'] as const;
 
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
 /**
- * `App\Domain\Documents\Enums\DocumentStage` — where a document stands, in a person's terms.
+ * `Kern\Documents\Enums\DocumentStage` — where a document stands, in a person's terms.
  *
  * Derived on the server from the pipeline status plus whether anybody has acted on the document,
  * because "acted on" means an accepted reading *or* a transaction made from it, and that rule lives
@@ -50,7 +50,7 @@ export const DOCUMENT_STAGES = [
 
 export type DocumentStage = (typeof DOCUMENT_STAGES)[number];
 
-/** `App\Domain\Documents\Enums\RejectionReason`. */
+/** `Kern\Documents\Enums\RejectionReason`. */
 export const REJECTION_REASONS = [
     'INFECTED',
     'INVALID_MAGIC_BYTES',
@@ -69,7 +69,7 @@ export const REJECTION_REASONS = [
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
 /**
- * `App\Domain\Documents\Enums\AiExtractionOutcome` — what came of the external-AI reading.
+ * `Kern\Documents\Enums\AiExtractionOutcome` — what came of the external-AI reading.
  *
  * `null` on a document means no attempt was made, which is the ordinary case when a deterministic
  * parser already read it. Anything else means an attempt ended, and the review screen owes the
@@ -91,7 +91,7 @@ export const AI_EXTRACTION_OUTCOMES = [
 export type AiExtractionOutcome = (typeof AI_EXTRACTION_OUTCOMES)[number];
 
 /**
- * `App\Domain\Documents\Enums\TransactionImportState` — whether this document may still become a
+ * `Kern\Documents\Enums\TransactionImportState` — whether this document may still become a
  * transaction.
  *
  * Decided on the server, never re-derived here: the button and the endpoint's own refusal have to
@@ -114,7 +114,7 @@ export interface DocumentPart {
     rejectionReason: RejectionReason | null;
 }
 
-/** `App\Http\Controllers\Api\V1\Documents\ShowDocumentController` response — metadata only. */
+/** `Kern\Documents\Http\Controllers\ShowDocumentController` response — metadata only. */
 export interface DocumentSummary {
     id: string;
     /** Decrypted server-side for the owning subject — see `ShowDocumentController`. */
@@ -211,7 +211,7 @@ export function parseDocumentSummary(text: string): DocumentSummary {
 }
 
 /**
- * `App\Domain\Documents\Models\Document::presentedFilename()` — the name a document is shown
+ * `Kern\Documents\Models\Document::presentedFilename()` — the name a document is shown
  * under, which is the one a person chose or, failing that, one derived from its content hash.
  *
  * Deliberately not the uploaded filename: a phone calls every photograph `IMG_0042.jpg`, so a list
@@ -219,13 +219,13 @@ export function parseDocumentSummary(text: string): DocumentSummary {
  * anything at all.
  */
 
-/** `App\Domain\Documents\Enums\DocumentSource`. */
+/** `Kern\Documents\Enums\DocumentSource`. */
 export const DOCUMENT_SOURCES = ['USER_UPLOAD', 'SPV', 'IMPORT', 'SYSTEM'] as const;
 
 export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];
 
 /**
- * One row of `App\Http\Controllers\Api\V1\Documents\ListDocumentsController` — the inbox.
+ * One row of `Kern\Documents\Http\Controllers\ListDocumentsController` — the inbox.
  *
  * Carries `source`, which the single-document endpoint does not, and `stage` — where the document
  * stands in a person's terms, so the inbox can be read without opening anything.
@@ -360,7 +360,7 @@ export function parseDocumentHistory(text: string): DocumentHistory {
     };
 }
 
-/** `App\Http\Controllers\Api\V1\Documents\UploadDocumentController` — `202` success body. */
+/** `Kern\Documents\Http\Controllers\UploadDocumentController` — `202` success body. */
 export interface UploadAccepted {
     id: string;
     status: DocumentStatus;
@@ -418,7 +418,7 @@ export function parseDocumentLifecycleEvent(raw: unknown): DocumentLifecycleEven
     };
 }
 
-/** `App\Domain\Documents\Enums\ExtractorType`. */
+/** `Kern\Documents\Enums\ExtractorType`. */
 /** Which way money moves for the filing subject — derived here, never asked of a model. */
 export const PAYMENT_DIRECTIONS = ['IN', 'OUT'] as const;
 
@@ -433,7 +433,7 @@ export const EXTRACTOR_TYPES = [
 
 export type ExtractorType = (typeof EXTRACTOR_TYPES)[number];
 
-/** `App\Domain\Documents\Enums\ExtractionStatus`. */
+/** `Kern\Documents\Enums\ExtractionStatus`. */
 export const EXTRACTION_STATUSES = ['PROPOSED', 'REVIEWED', 'ACCEPTED', 'REJECTED'] as const;
 
 export type ExtractionStatus = (typeof EXTRACTION_STATUSES)[number];

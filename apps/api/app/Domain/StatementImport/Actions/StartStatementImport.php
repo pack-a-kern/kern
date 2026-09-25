@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Actions;
 
-use App\Domain\Documents\Actions\InitiateDocumentUpload;
-use App\Domain\Documents\DataTransferObjects\IncomingFile;
-use App\Domain\Documents\Enums\DocumentSource;
-use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Jobs\ReadStatementFile;
 use App\Domain\StatementImport\Models\StatementImport;
 use Illuminate\Support\Facades\DB;
+use Kern\Documents\Actions\InitiateDocumentUpload;
+use Kern\Documents\DataTransferObjects\IncomingFile;
+use Kern\Documents\Enums\DocumentSource;
+use Kern\Documents\Enums\DocumentType;
 
 /**
  * Takes a statement file and starts an import of it.

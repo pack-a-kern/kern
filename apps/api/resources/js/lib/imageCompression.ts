@@ -52,7 +52,7 @@ function isRasterImage(file: File): boolean {
  * Resizes/re-encodes `file` as a JPEG when it is a raster image larger than {@link MAX_DIMENSION_PX}
  * on its long edge; otherwise returns `file` untouched. Never throws for a decode failure — a file
  * this browser cannot decode as an image is returned as-is and lets the server's own validation
- * (`App\Domain\Documents\FileSecurity\FileSecurityValidator`) be the source of truth on whether it
+ * (`Kern\Documents\FileSecurity\FileSecurityValidator`) be the source of truth on whether it
  * is acceptable at all.
  */
 export async function compressImageIfNeeded(file: File): Promise<File> {

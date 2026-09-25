@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\DocumentAiConsentControllerTest;
 
-use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
+use Kern\Documents\Consent\DocumentAiConsentGate;
 use Kern\Platform\Identity\Models\User;
 
 /**

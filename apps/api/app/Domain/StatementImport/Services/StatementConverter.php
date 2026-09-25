@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Services;
 
-use App\Domain\Documents\Consent\DocumentAiConsentGate;
-use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\StatementImport\DataTransferObjects\ConvertedStatement;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Log;
+use Kern\Documents\Consent\DocumentAiConsentGate;
+use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\Documents\Enums\DocumentType;
-use App\Domain\Documents\Parsing\ExtractionSchema;
+use Kern\Documents\Enums\DocumentType;
+use Kern\Documents\Parsing\ExtractionSchema;
 
 /**
  * Every extraction field a document type can yield must have a label in every locale.

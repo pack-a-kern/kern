@@ -125,7 +125,7 @@ Entry points:
    to the user rather than pretending it's a real subject picker.
 
 2. **The extraction-review screen shows real document metadata but illustrative-only proposed
-   fields, with Accept/Correct visibly disabled.** `App\Http\Controllers\Api\V1\Documents\
+   fields, with Accept/Correct visibly disabled.** `Kern\Documents\Http\Controllers\
    ShowDocumentController`'s own docblock says extraction content "never crosses this boundary; a
    future review endpoint is explicitly out of this task's scope" — confirmed by reading the
    controller and `routes/api.php`: there is no `GET`-extraction-content, no accept, and no correct
@@ -174,7 +174,7 @@ Entry points:
    other in-app navigation (dashboard ↔ inbox ↔ capture ↔ review) uses Inertia's `<Link>`/router
    normally.
 8. **The offline capture queue is whole-file retry, not byte-range resumable upload.**
-   `App\Http\Controllers\Api\V1\Documents\UploadDocumentController` is a single multipart `POST`
+   `Kern\Documents\Http\Controllers\UploadDocumentController` is a single multipart `POST`
    with no `Content-Range`/chunk-id support (confirmed by reading it — no such handling exists).
    "Resume upload" (`BLUEPRINT.md` §1.4) is implemented as: the file is durably queued in IndexedDB
    before any network call, survives an app close/crash/lost connection, and is retried
@@ -266,7 +266,7 @@ thing a future backend task should treat as a contract this frontend now depends
   workaround, not add a second mechanism next to it.
 - `resources/js/types/documents.ts`'s `DocumentLifecycleEvent`/`parseDocumentLifecycleEvent` is the
   frontend's one parser for all five Reverb broadcast shapes — extend it, don't duplicate it, if a
-  sixth event is ever added to `App\Domain\Documents\Events\*`.
+  sixth event is ever added to `Kern\Documents\Events\*`.
 
 ## What is NOT done
 
@@ -331,12 +331,12 @@ thing a future backend task should treat as a contract this frontend now depends
   `apps/api/packages/platform/src/Http/Controllers/Auth/*.php`, not the handoff prose alone.
 - `docs/handoff/022-document-pipeline.md`, `docs/handoff/027-contract-reconciliation.md` — read in
   full; `documentsApi.ts`/`types/documents.ts` match `UploadDocumentController`/
-  `ShowDocumentController`/`DocumentAiConsentController` and the five `App\Domain\Documents\
+  `ShowDocumentController`/`DocumentAiConsentController` and the five `Kern\Documents\
   Events\*` broadcast payloads exactly, read from the real PHP source, not the handoff summaries.
 - Source files read directly (not assumed from any handoff): `apps/api/routes/api.php`,
   `routes/channels.php`, `bootstrap/app.php`, every controller under
   `app/Http/Controllers/Api/V1/**`, `packages/platform/src/Identity/Support/Webauthn/PasskeyManager.php` and
-  `WebauthnCredentialRepository.php` (the WebAuthn JSON contract), `app/Domain/Documents/Events/*`.
+  `WebauthnCredentialRepository.php` (the WebAuthn JSON contract), `packages/documents/src/Events/*`.
 - npm registry queried live (`npm view <pkg> version/engines/license/time.modified`) for every
   dependency added — `laravel-echo`, `pusher-js`, `@simplewebauthn/browser`, `vitest`, `jsdom`,
   `fake-indexeddb`, `@testing-library/*`, `@types/node`, and the rejected `vite-plugin-pwa`

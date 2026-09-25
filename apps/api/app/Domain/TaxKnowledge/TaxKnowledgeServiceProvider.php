@@ -57,7 +57,7 @@ final class TaxKnowledgeServiceProvider extends ServiceProvider
         $this->app->bind(FiscalParameterProvider::class, EloquentFiscalParameterProvider::class);
 
         // Milestone 11 (docs/handoff/029-hybrid-retrieval.md): mirrors
-        // App\Domain\Documents\DocumentsServiceProvider's ExternalDocumentAiProvider ->
+        // Kern\Documents\DocumentsServiceProvider's ExternalDocumentAiProvider ->
         // NullDocumentAiProvider binding exactly. Singleton: UnconfiguredEmbeddingProvider is
         // stateless and holds no per-request resources, same reasoning as that precedent.
         // Off by default, and deliberately so: an installation whose `python-api` image predates

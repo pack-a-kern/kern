@@ -11,7 +11,7 @@ use Throwable;
  * `apps/spv-browser` could not be reached, is misconfigured, or returned a response this client
  * does not understand — as opposed to {@see SpvPortalAutomationUnavailableException}, which means
  * the worker was reached and correctly answered "the portal action itself is not built yet."
- * Mirrors `App\Domain\Documents\Extraction\Exceptions\TextExtractionUnavailableException`'s
+ * Mirrors `Kern\Documents\Extraction\Exceptions\TextExtractionUnavailableException`'s
  * identical split.
  */
 final class SpvWorkerUnavailableException extends RuntimeException

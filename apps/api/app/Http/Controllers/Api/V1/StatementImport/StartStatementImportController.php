@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\StatementImport;
 
-use App\Domain\Documents\DataTransferObjects\IncomingFile;
-use App\Domain\Documents\Exceptions\DuplicateDocumentException;
-use App\Domain\Documents\FileSecurity\Exceptions\FileSecurityException;
 use App\Domain\StatementImport\Actions\StartStatementImport;
 use App\Domain\Wallet\Models\FinancialAccount;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Kern\Documents\DataTransferObjects\IncomingFile;
+use Kern\Documents\Exceptions\DuplicateDocumentException;
+use Kern\Documents\FileSecurity\Exceptions\FileSecurityException;
 use Kern\Platform\Tenancy\TenantContext;
 use RuntimeException;
 
