@@ -12,13 +12,9 @@ use App\Domain\StatementImport\StatementImportServiceProvider;
 use App\Domain\Subjects\SubjectsServiceProvider;
 use App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider;
 use App\Providers\AppServiceProvider;
-use App\Support\KeyManagement\KeyManagementServiceProvider;
-use App\Support\ObjectStore\ObjectStoreServiceProvider;
 
 return [
     AppServiceProvider::class,
-    KeyManagementServiceProvider::class,
-    ObjectStoreServiceProvider::class,
     SubjectsServiceProvider::class,
     IdentityServiceProvider::class,
     TaxKnowledgeServiceProvider::class,

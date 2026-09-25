@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Settings\Infrastructure;
 
-use App\Support\KeyManagement\Contracts\SubjectDekRepository;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 use RuntimeException;
 
 /**

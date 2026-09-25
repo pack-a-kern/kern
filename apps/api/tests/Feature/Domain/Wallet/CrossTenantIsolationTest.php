@@ -20,14 +20,14 @@ use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3: a user authorized for one `TaxSubject` must never
  * reach another subject's row, through any of the seven tables this module owns — every one uses
- * `App\Support\Tenancy\ScopedToTenant`, so this test exercises that mechanism directly
+ * `Kern\Platform\Tenancy\ScopedToTenant`, so this test exercises that mechanism directly
  * against each model rather than trusting that "it uses the same trait" is enough on its own.
  */
 beforeEach(function (): void {

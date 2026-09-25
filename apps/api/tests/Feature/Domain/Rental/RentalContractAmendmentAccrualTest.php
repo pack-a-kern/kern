@@ -22,10 +22,10 @@ use App\Domain\Rental\Models\RentalAccrual;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * The hard requirement this milestone states explicitly: a contract amended mid-period must

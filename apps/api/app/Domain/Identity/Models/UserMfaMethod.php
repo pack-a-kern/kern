@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Identity\Models;
 
 use App\Domain\Identity\Enums\MfaMethodType;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use RuntimeException;
 
 /**

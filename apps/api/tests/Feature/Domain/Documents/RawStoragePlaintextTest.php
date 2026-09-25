@@ -6,12 +6,12 @@ namespace Tests\Feature\Domain\Documents\RawStoragePlaintextTest;
 
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\ObjectStore\ObjectKey;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;

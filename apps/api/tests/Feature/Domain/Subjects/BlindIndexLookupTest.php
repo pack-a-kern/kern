@@ -7,11 +7,11 @@ namespace Tests\Feature\Domain\Subjects\BlindIndexLookupTest;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Database\Factories\TaxSubjectFactory;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -19,7 +19,7 @@ use Tests\Fakes\InMemoryKeyManagementService;
  * `users.email_blind_index` (login-by-email) and `tax_subjects.fiscal_identifier_blind_index`
  * (duplicate-identifier detection, ADR 0011 — `docs/adr/0011-canonical-fiscal-identifier.md`).
  * Both must find a row despite realistic formatting differences a human would consider "the same
- * value" — `App\Support\Crypto\BlindIndex\Normalizer` is what makes that true, this test proves
+ * value" — `Kern\Platform\Crypto\BlindIndex\Normalizer` is what makes that true, this test proves
  * it end-to-end through this module's own schema/queries.
  *
  * Diacritic folding (`Normalizer::text()`, e.g. "Ștefan"/"Stefan"/"ştefan") is exercised directly

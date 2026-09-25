@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Support\Crypto\EncryptedCastTest;
 
-use App\Support\Crypto\EnvelopeCipher;
-use App\Support\Crypto\Exceptions\EnvelopeException;
-use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Kern\Platform\Crypto\EnvelopeCipher;
+use Kern\Platform\Crypto\Exceptions\EnvelopeException;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;

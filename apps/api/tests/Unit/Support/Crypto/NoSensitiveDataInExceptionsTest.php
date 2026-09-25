@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\Crypto\NoSensitiveDataInExceptionsTest;
 
-use App\Support\Crypto\AssociatedData;
-use App\Support\Crypto\EnvelopeCipher;
-use App\Support\Crypto\Exceptions\CastConfigurationException;
-use App\Support\Crypto\Exceptions\EnvelopeException;
-use App\Support\KeyManagement\Exceptions\KeyManagementException;
+use Kern\Platform\Crypto\AssociatedData;
+use Kern\Platform\Crypto\EnvelopeCipher;
+use Kern\Platform\Crypto\Exceptions\CastConfigurationException;
+use Kern\Platform\Crypto\Exceptions\EnvelopeException;
+use Kern\Platform\KeyManagement\Exceptions\KeyManagementException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionClass;
 use SplFileInfo;
 
 const SECRET_PLAINTEXT = 'super-secret-cnp-1900101234567';
@@ -57,10 +58,12 @@ it('CastConfigurationException messages never include a field value, only class 
     expect($message)->not->toContain(SECRET_PLAINTEXT);
 });
 
-it('no file under Support/Crypto or Support/KeyManagement calls a logging function', function (): void {
+it('no file in the platform\'s crypto or key management calls a logging function', function (): void {
+    // Located through the classes themselves rather than a path: this code is `kern/platform` now,
+    // and a guard that hardcoded where a package is installed would pass by scanning nothing.
     $roots = [
-        dirname(__DIR__, 4) . '/app/Support/Crypto',
-        dirname(__DIR__, 4) . '/app/Support/KeyManagement',
+        dirname((string) (new ReflectionClass(EnvelopeCipher::class))->getFileName()),
+        dirname((string) (new ReflectionClass(KeyManagementException::class))->getFileName(), 2),
     ];
 
     $offenders = [];

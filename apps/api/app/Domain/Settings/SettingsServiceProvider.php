@@ -6,10 +6,10 @@ namespace App\Domain\Settings;
 
 use App\Domain\Settings\Infrastructure\SystemDekRepository;
 use App\Domain\Settings\Support\SystemSecretCipher;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\KeyManagement\SubjectDekService;
 
 /**
  * Wires this module's two seams that need explicit container construction:

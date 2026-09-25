@@ -15,10 +15,10 @@ use App\Domain\Spv\Models\SpvMessage;
 use App\Domain\Spv\Models\SpvSyncRun;
 use App\Domain\Spv\Transport\AnafCertificateApiTransport;
 use App\Domain\Spv\Transport\BrowserPortalInboxSyncTransport;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * The transport-agnostic entry point `docs/reference/anaf-spv-integration.md`'s "real

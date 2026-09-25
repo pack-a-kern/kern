@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\Subjects\Models;
 
 use App\Domain\Subjects\Enums\MembershipRole;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `subject_memberships` (`BLUEPRINT.md` §5.3) — the single source of truth for "which `User`s may
- * access which `TaxSubject`s, and with what role". `App\Support\Tenancy\TenantContext`
+ * access which `TaxSubject`s, and with what role". `Kern\Platform\Tenancy\TenantContext`
  * is the only sanctioned way another module resolves this; nothing else in this codebase should
  * query this table directly to make an authorization decision.
  *

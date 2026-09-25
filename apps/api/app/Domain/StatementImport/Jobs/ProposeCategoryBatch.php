@@ -11,13 +11,13 @@ use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\ClassifyCounterparties;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
-use App\Support\Tenancy\TenantContext;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Tenancy\TenantScope;
 use Throwable;
 
 /**

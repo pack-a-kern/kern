@@ -8,8 +8,8 @@ use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\TagDirectory;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * What a year of transactions adds up to: by tag, by bank, by category.

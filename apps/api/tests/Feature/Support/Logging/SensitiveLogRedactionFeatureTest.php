@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * End-to-end proof that config/logging.php's `tap` wiring actually redacts before anything
- * touches disk — not just that App\Support\Logging\SensitiveDataProcessor works in isolation
+ * touches disk — not just that Kern\Platform\Logging\SensitiveDataProcessor works in isolation
  * (see tests/Unit/Support/Logging/SensitiveDataProcessorTest.php for that).
  *
  * Also proves processor ordering: the message uses a PSR-3 `{cnp}` placeholder, which
- * `PsrLogMessageProcessor` only substitutes *after* App\Support\Logging\SensitiveDataProcessor has
+ * `PsrLogMessageProcessor` only substitutes *after* Kern\Platform\Logging\SensitiveDataProcessor has
  * already run (see that class's docblock) — so the substituted value in the formatted line is
  * `[REDACTED]`, not the raw CNP.
  */

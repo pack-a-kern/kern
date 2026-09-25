@@ -8,7 +8,6 @@ use App\Domain\Operations\Jobs\RunOperationTask;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
 use App\Http\Middleware\BindTaxSubjectContext;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Support\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -18,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 

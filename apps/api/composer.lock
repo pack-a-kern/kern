@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "40ecec1c72e882bba75727d9224019d3",
+    "content-hash": "b05efd95884b8c91cbb026df91b4edd6",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1540,6 +1540,49 @@
                 "proprietary"
             ],
             "description": "An append-only, hash-chained audit log: every entry carries the hash of the one before it, so a removed or edited row is visible as a break in the chain.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "kern/platform",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform",
+                "reference": "94f86c73bf21c6ee140e349789462e97d42a290b"
+            },
+            "require": {
+                "ext-intl": "*",
+                "ext-sodium": "*",
+                "illuminate/config": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/filesystem": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/log": "^13.0",
+                "illuminate/support": "^13.0",
+                "monolog/monolog": "^3.0",
+                "php": "^8.4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Platform\\PlatformServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Platform\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "The security spine an application is built on: envelope encryption under per-tenant keys, blind indexes for exact lookup of encrypted values, an encrypted object store, tenant scoping, and a log processor that redacts what must never reach a log file.",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -13185,7 +13228,8 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "kern/audit": 20
+        "kern/audit": 20,
+        "kern/platform": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

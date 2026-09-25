@@ -7,12 +7,12 @@ namespace App\Domain\TaxKnowledge\Models;
 use App\Domain\TaxKnowledge\Enums\SectionType;
 use App\Domain\TaxKnowledge\Parsing\SectionText;
 use App\Domain\TaxKnowledge\Services\NoteReader;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\SourceSectionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_source_sections` — see `2026_09_08_301001_create_source_sections_table.php`'s docblock for the

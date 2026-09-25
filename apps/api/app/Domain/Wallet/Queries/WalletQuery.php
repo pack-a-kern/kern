@@ -15,9 +15,9 @@ use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\Fx\DisplayCurrencyConverter;
 use App\Domain\Wallet\Services\TagDirectory;
-use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantContext;
 use RuntimeException;
 
 /**

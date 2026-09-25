@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * (`audit_events`/`audit_chain_heads`, docs/handoff/006-audit-chain.md): `security_events` is an
  * operational/monitoring log meant to be queried and alerted on directly (`BLUEPRINT.md` §23's "SPV
  * login failure by reason" class of metric), not a forensic ledger. A denied cross-tenant access
- * attempt is written here by `App\Support\Tenancy\TenantContext`; nothing in this task
+ * attempt is written here by `Kern\Platform\Tenancy\TenantContext`; nothing in this task
  * also chains it through `AuditChainService` — recording the same event twice in two systems with
  * different retention/verification semantics was judged unnecessary duplication for this task's
  * scope (see docs/handoff/011-identity-tenancy.md).

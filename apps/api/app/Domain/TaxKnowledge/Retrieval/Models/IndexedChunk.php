@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Retrieval\Models;
 
 use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\IndexedChunkFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_source_section_chunks` — see that migration's docblock for why this is deliberately not

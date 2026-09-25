@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterReadOutcome;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * A year the law was read for a value and gave none — see the migration's docblock.

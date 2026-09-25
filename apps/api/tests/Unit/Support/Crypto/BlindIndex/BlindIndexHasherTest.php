@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\Crypto\BlindIndex\BlindIndexHasherTest;
 
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use InvalidArgumentException;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 function keysJson(int ...$versions): string
 {

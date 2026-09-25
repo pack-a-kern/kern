@@ -6,7 +6,7 @@ namespace App\Domain\Settings\Support;
 
 /**
  * The encryption principal id for system-wide secrets that have no `TaxSubject` at all — today,
- * the AI provider API key (`docs/handoff/041-settings-module.md`). `App\Support\Crypto\
+ * the AI provider API key (`docs/handoff/041-settings-module.md`). `Kern\Platform\Crypto\
  * AssociatedData` requires a `subject_id` segment for every field it protects; this is
  * deliberately **not** a real `TaxSubject`/`User` id pretending to be one (`docs/AGENTS.md` rule
  * 1's spirit applied here: do not invent a fake subject id). `self::ID` is a short, non-UUID
@@ -21,7 +21,7 @@ namespace App\Domain\Settings\Support;
  * (wrong key material) even before the AAD is ever checked, and a tenant's ciphertext fails to
  * decrypt under this key for the same reason, in addition to the AAD's leading segment differing.
  * See `tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php` for both directions,
- * proven against the real `App\Support\Crypto\EnvelopeCipher`.
+ * proven against the real `Kern\Platform\Crypto\EnvelopeCipher`.
  */
 final class SystemEncryptionScope
 {

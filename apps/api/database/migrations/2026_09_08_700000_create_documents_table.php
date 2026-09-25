@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  * `tax_subjects`/`users` (`Casts\Encrypted` on a model's *own* id, which cannot exist before the
  * row does — see that migration's docblock), a `Document`'s `encryptionSubjectId()` is its
  * *already-existing* `tax_subject_id` foreign key, which is always set before any encrypted
- * attribute is assigned (`App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst`). No two-phase
+ * attribute is assigned (`Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst`). No two-phase
  * insert is needed here.
  */
 return new class () extends Migration {

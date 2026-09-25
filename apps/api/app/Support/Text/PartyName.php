@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Text;
 
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * Whether two names, printed in different places, could be the same party.

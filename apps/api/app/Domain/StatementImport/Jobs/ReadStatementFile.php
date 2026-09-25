@@ -22,7 +22,6 @@ use App\Domain\StatementImport\Services\StatementConverter;
 use App\Domain\StatementImport\Services\StatementFileContents;
 use App\Domain\StatementImport\Services\SuggestColumnMapping;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,6 +29,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Tenancy\TenantScope;
 use Throwable;
 
 /**

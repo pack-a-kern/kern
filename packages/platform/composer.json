@@ -1,0 +1,35 @@
+{
+    "name": "kern/platform",
+    "description": "The security spine an application is built on: envelope encryption under per-tenant keys, blind indexes for exact lookup of encrypted values, an encrypted object store, tenant scoping, and a log processor that redacts what must never reach a log file.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "ext-intl": "*",
+        "ext-sodium": "*",
+        "illuminate/config": "^13.0",
+        "illuminate/contracts": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/filesystem": "^13.0",
+        "illuminate/http": "^13.0",
+        "illuminate/log": "^13.0",
+        "illuminate/support": "^13.0",
+        "monolog/monolog": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kern\\Platform\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kern\\Platform\\PlatformServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

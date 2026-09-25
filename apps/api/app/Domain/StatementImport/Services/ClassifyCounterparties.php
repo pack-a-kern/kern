@@ -10,8 +10,8 @@ use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Asks what each counterparty is — a tax category and a few tags — and writes the answers onto rows.

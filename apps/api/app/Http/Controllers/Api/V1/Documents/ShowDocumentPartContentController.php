@@ -8,9 +8,9 @@ use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentPart;
 use App\Http\Controllers\Controller;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
 use Illuminate\Http\JsonResponse;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 

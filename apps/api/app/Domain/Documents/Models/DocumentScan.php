@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Documents\Models;
 
 use App\Domain\Documents\Scanning\ScanOutcome;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * One virus-scan attempt against one document — the evidence that a scan happened, separate from

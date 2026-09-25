@@ -6,9 +6,9 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Http\Controllers\Controller;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `PUT /api/v1/subjects/{subject}/wallet/display-currency` — which currency this subject's totals

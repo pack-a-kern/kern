@@ -13,8 +13,6 @@ use App\Domain\Documents\Models\DocumentScan;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ScanOutcome;
 use App\Domain\Documents\Scanning\VirusScanner;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,6 +21,8 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * `BLUEPRINT.md` §14.1 ClamAV stage, for one file of a document.
@@ -42,7 +42,7 @@ use Kern\Audit\Services\AuditChainService;
  *
  * Resolves models via `withoutGlobalScope(TenantScope::class)` — this job is the system's own
  * trusted pipeline acting on a specific, already-known part, not a user request; there is no
- * per-job authenticated user to bind `App\Support\Tenancy\TenantContext` against.
+ * per-job authenticated user to bind `Kern\Platform\Tenancy\TenantContext` against.
  */
 final class ScanQuarantinedPart implements ShouldQueue
 {

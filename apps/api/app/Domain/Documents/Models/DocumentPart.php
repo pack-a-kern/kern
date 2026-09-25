@@ -6,13 +6,13 @@ namespace App\Domain\Documents\Models;
 
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\RejectionReason;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\ObjectStore\ObjectKey;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\ObjectStore\ObjectKey;
+use Kern\Platform\Tenancy\TenantScope;
 use RuntimeException;
 
 /**
@@ -24,7 +24,7 @@ use RuntimeException;
  *
  * ## Why this is not tenant-scoped itself
  *
- * There is no `tax_subject_id` column, and no {@see \App\Support\Tenancy\ScopedToTenant}.
+ * There is no `tax_subject_id` column, and no {@see \Kern\Platform\Tenancy\ScopedToTenant}.
  * A part is reachable only through its document, which *is* scoped, so the tenant check happens
  * once at the only door — adding a second copy of the subject id here would create a second thing
  * that can disagree with the first about who owns this file.

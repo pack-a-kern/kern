@@ -6,10 +6,10 @@ namespace App\Domain\Wallet\Models;
 
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\ProposalSource;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `counterparty_rules` — what this taxpayer already decided about a counterparty, per direction.

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\TrustTier;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\OfficialSourceFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_official_sources` (`BLUEPRINT.md` §6.8). Mirrors one `config/sources.php` entry — see that

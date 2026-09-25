@@ -22,9 +22,9 @@ use App\Domain\TaxKnowledge\Models\TaxRule;
 use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
 use App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider;
 use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 

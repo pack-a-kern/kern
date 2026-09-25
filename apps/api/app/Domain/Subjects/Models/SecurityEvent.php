@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
  * `security_events` (`BLUEPRINT.md` §6.1). Placed in `Subjects`, not `Identity`, even though the
  * blueprint's schema section lists it in the same group as `users`/`audit_events`: this
  * project's own `docs/ARCHITECTURE.md` module map does not assign `security_events` to either
- * module, and its only writer in this task is `App\Support\Tenancy\TenantContext`
+ * module, and its only writer in this task is `Kern\Platform\Tenancy\TenantContext`
  * (denied cross-tenant access) — keeping it here avoids an otherwise-unneeded `Subjects → Identity`
  * Eloquent-model dependency for a table with no logic tying it to `Identity` specifically. A
  * later task adding login/session security events is free to write into this same table from
@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  * `context_json` must never contain PII, a credential, or a token (`BLUEPRINT.md` §23) — only
  * structural identifiers (resource type/id, a reason code). This is enforced by convention and by
  * every caller in this task; there is no automatic redaction on this specific column the way
- * `App\Support\Logging\SensitiveDataProcessor` redacts log lines.
+ * `Kern\Platform\Logging\SensitiveDataProcessor` redacts log lines.
  *
  * @property string $id
  * @property string $event_type

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\Spv\Models;
 
 use App\Domain\Spv\Enums\SpvSyncRunStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `spv_sync_runs` (`BLUEPRINT.md` §6.11). `summary_json` carries counts only, never message content

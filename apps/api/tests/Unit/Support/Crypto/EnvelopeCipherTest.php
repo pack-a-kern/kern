@@ -8,9 +8,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\Crypto\EnvelopeCipherTest;
 
-use App\Support\Crypto\AssociatedData;
-use App\Support\Crypto\EnvelopeCipher;
-use App\Support\Crypto\Exceptions\EnvelopeException;
+use Kern\Platform\Crypto\AssociatedData;
+use Kern\Platform\Crypto\EnvelopeCipher;
+use Kern\Platform\Crypto\Exceptions\EnvelopeException;
 
 function makeKey(): string
 {

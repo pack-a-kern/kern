@@ -58,7 +58,7 @@ use Illuminate\Support\Facades\Schema;
  * without a schema change. Same treatment M2/M3 gave other under-specified literal columns
  * (`fx_rate_anomalies.resolved_at`, `source_sections.page_start/end`).
  *
- * `metadata_ciphertext` uses `App\Support\Crypto\Casts\Encrypted` (`BLUEPRINT.md` §4.3 — encrypt
+ * `metadata_ciphertext` uses `Kern\Platform\Crypto\Casts\Encrypted` (`BLUEPRINT.md` §4.3 — encrypt
  * anything that could carry PII) — see `App\Domain\TaxEngine\Models\TaxFact`'s docblock for the
  * AAD-ordering requirements this implies.
  */

@@ -25,7 +25,8 @@
         "spatie/laravel-permission": "8.3.0",
         "spomky-labs/otphp": "^11.5.0",
         "web-auth/webauthn-lib": "^5.3.8",
-        "kern/audit": "@dev"
+        "kern/audit": "@dev",
+        "kern/platform": "@dev"
     },
     "require-dev": {
         "deptrac/deptrac": "^4.7.1",

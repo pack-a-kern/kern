@@ -68,9 +68,15 @@ check-js:
 ## Pint runs on the host (it must WRITE) and is then re-checked inside the container, because the
 ## container mounts the source read-only. Tests use sqlite in memory; see `check-php-pg` for the
 ## suites that need a real Postgres.
+##
+## `../../packages` is the local Composer packages — `packages/` from the host, `/var/packages` from
+## a container rooted at `/var/www/html`. They are linted and analysed as source, not skipped as a
+## dependency: phpstan.neon already names them, Pint has to be told twice.
 check-php:
 	cd apps/api && vendor/bin/pint
+	cd apps/api && vendor/bin/pint ../../packages
 	docker compose exec -T $(SERVICE) vendor/bin/pint --test
+	docker compose exec -T $(SERVICE) vendor/bin/pint --test ../../packages
 	docker compose exec -T $(SERVICE) vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 	docker compose exec -T $(SERVICE) vendor/bin/deptrac --no-progress
 	docker compose exec -T $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=:memory: vendor/bin/pest'

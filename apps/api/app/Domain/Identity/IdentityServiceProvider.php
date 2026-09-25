@@ -8,12 +8,12 @@ use App\Domain\Identity\Support\Webauthn\ChallengeStore;
 use App\Domain\Identity\Support\Webauthn\PasskeyManager;
 use App\Domain\Identity\Support\Webauthn\WebauthnCredentialRepository;
 use App\Domain\Identity\Support\Webauthn\WebauthnSerializer;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * Wires the WebAuthn support classes (`Support\Webauthn\*`, all stateless or request-scoped-safe —

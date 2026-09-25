@@ -8,15 +8,15 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\Tenancy\Exceptions\NoTenantContextException;
-use App\Support\Tenancy\TenantContext;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
+use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Tenancy\TenantScope;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Feature\Domain\Subjects\Fixtures\ScopedFixtureRecord;
 
@@ -25,7 +25,7 @@ use Tests\Feature\Domain\Subjects\Fixtures\ScopedFixtureRecord;
  * "Test automat obligatoriu pentru cross-tenant isolation"): a user authorized for one
  * `TaxSubject` must not be able to read, list, update, or delete any row belonging to a
  * different `TaxSubject`, through the one mechanism every future business module is meant to
- * use (`App\Support\Tenancy\ScopedToTenant` + `TenantContext`) — see
+ * use (`Kern\Platform\Tenancy\ScopedToTenant` + `TenantContext`) — see
  * `Fixtures\ScopedFixtureRecord`.
  */
 beforeEach(function (): void {

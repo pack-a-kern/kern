@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * `subject_memberships` (`BLUEPRINT.md` §5.3) — the only table that says which `User`s may access
  * which `TaxSubject`s, and with what role. Every tenant-scoping decision in this codebase
- * ultimately resolves through this table (`App\Support\Tenancy\TenantContext`).
+ * ultimately resolves through this table (`Kern\Platform\Tenancy\TenantContext`).
  *
  * No Eloquent relationship to `App\Domain\Identity\Models\User` is defined on the model over this
  * table — only a plain `user_id` column — per `docs/AGENTS.md` §6: a module never imports another

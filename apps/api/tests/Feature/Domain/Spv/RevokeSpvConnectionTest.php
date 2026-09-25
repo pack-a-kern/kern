@@ -13,9 +13,9 @@ use App\Domain\Spv\Models\SpvConnection;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\Tenancy\TenantContext;
 
 /** The natural counterpart to connecting SPV — a user must be able to disconnect it. */
 beforeEach(function (): void {

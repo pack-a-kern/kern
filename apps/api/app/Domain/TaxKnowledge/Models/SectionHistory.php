@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_section_histories` — one provision of a law, and one stretch of time its wording held.

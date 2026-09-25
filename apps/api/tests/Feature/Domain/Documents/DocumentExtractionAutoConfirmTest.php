@@ -9,9 +9,9 @@ use App\Domain\Documents\Enums\ExtractorType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Identity\Models\User;
-use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

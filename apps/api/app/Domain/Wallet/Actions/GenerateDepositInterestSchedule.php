@@ -34,9 +34,9 @@ use Illuminate\Support\Facades\DB;
  * - an unpaid row the current terms no longer produce is deleted, so an edit that moves the dates
  *   replaces the schedule instead of adding a second one beside it.
  *
- * Requires an active `App\Support\Tenancy\TenantContext` authorized for the deposit's own
+ * Requires an active `Kern\Platform\Tenancy\TenantContext` authorized for the deposit's own
  * `tax_subject_id` — every model this action reads/writes is tenant-scoped
- * (`App\Support\Tenancy\ScopedToTenant`).
+ * (`Kern\Platform\Tenancy\ScopedToTenant`).
  */
 final readonly class GenerateDepositInterestSchedule
 {

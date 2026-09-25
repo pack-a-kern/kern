@@ -18,9 +18,9 @@ use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\EncryptedObjectStore;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

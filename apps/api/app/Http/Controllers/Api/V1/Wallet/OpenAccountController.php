@@ -16,11 +16,11 @@ use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Http\Controllers\Controller;
 use App\Rules\StreamSource;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `POST /api/v1/subjects/{subject}/wallet/accounts` — add an account by hand.

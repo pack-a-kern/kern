@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * Same nullable-until-first-use shape as `tax_subjects.encrypted_dek`/`users.encrypted_dek`: no
  * row exists here until the first secret setting is ever written
- * (`App\Support\KeyManagement\SubjectDekService::plaintextDekFor()`'s "generate on first use"
+ * (`Kern\Platform\KeyManagement\SubjectDekService::plaintextDekFor()`'s "generate on first use"
  * path, reused verbatim with a different `SubjectDekRepository` implementation).
  */
 return new class () extends Migration {

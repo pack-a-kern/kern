@@ -8,7 +8,7 @@ use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 
 /**
  * Is this CNP already registered, and if so, is it one of mine?

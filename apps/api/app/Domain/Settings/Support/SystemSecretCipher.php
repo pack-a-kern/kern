@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Domain\Settings\Support;
 
-use App\Support\Crypto\AssociatedData;
-use App\Support\Crypto\EnvelopeCipher;
-use App\Support\KeyManagement\SubjectDekService;
 use Closure;
+use Kern\Platform\Crypto\AssociatedData;
+use Kern\Platform\Crypto\EnvelopeCipher;
+use Kern\Platform\KeyManagement\SubjectDekService;
 
 /**
  * Encrypts/decrypts secret setting values under the system-wide DEK (`SystemEncryptionScope`),
- * reusing `App\Support\Crypto\EnvelopeCipher`/`AssociatedData` exactly as every tenant-scoped
+ * reusing `Kern\Platform\Crypto\EnvelopeCipher`/`AssociatedData` exactly as every tenant-scoped
  * encrypted field does — only the DEK source and the AAD's leading segment differ.
  *
- * Not implemented as an `App\Support\Crypto\Casts\Encrypted` Eloquent cast: that cast requires
+ * Not implemented as an `Kern\Platform\Crypto\Casts\Encrypted` Eloquent cast: that cast requires
  * the owning model to have a UUID primary key assigned before construction
  * (`Concerns\HasUuidPrimaryKey`) and to implement `Contracts\EncryptsWithSubjectDek`. A `settings`
  * row's primary key is the setting's own name (e.g. `"ai.api_key"`), not a generated UUID, and
@@ -29,8 +29,8 @@ use Closure;
  * matters: `App\Domain\Settings\Repositories\SettingsRepository` needs a `SystemSecretCipher` for
  * *every* read/write, including the overwhelming majority that touch a non-secret key
  * (`ai.provider`/`ai.base_url`/`ai.model`/`ai.enabled`) and therefore never call `seal()`/`open()`
- * at all. Building a `SubjectDekService` eagerly resolves `App\Support\KeyManagement\Contracts\
- * KeyManagementService`, whose container binding (`App\Support\KeyManagement\
+ * at all. Building a `SubjectDekService` eagerly resolves `Kern\Platform\KeyManagement\Contracts\
+ * KeyManagementService`, whose container binding (`Kern\Platform\KeyManagement\
  * KeyManagementServiceProvider`) eagerly validates every `crypto.kms.openbao.*` config value —
  * a real regression found by running this module's own test suite: every caller of
  * `RequestExternalDocumentExtraction` started failing with "Missing or invalid config value
@@ -51,7 +51,7 @@ final readonly class SystemSecretCipher
         return EnvelopeCipher::seal($plaintext, $this->key(), $this->aad($settingKey));
     }
 
-    /** @throws \App\Support\Crypto\Exceptions\EnvelopeException */
+    /** @throws \Kern\Platform\Crypto\Exceptions\EnvelopeException */
     public function open(string $settingKey, string $envelope): string
     {
         return EnvelopeCipher::open($envelope, $this->key(), $this->aad($settingKey));

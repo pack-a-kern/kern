@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
  * matching row in the real session store (`Illuminate\Contracts\Session\Session::getHandler()->
  * destroy($id)`), so a surrogate id would only add a lookup with no benefit.
  *
- * `ip_address`/`user_agent` are stored **plaintext**, not through `App\Support\Crypto\Casts\
+ * `ip_address`/`user_agent` are stored **plaintext**, not through `Kern\Platform\Crypto\Casts\
  * Encrypted`. `BLUEPRINT.md` §4.3's mandatory-encryption list is CNP/ID/address/phone/IBAN/account
  * number/SPV credentials/tokens/documents/bank details/counterparties/private notes/OCR
  * output/PII-bearing transaction text — a login IP and browser user-agent string are ordinary

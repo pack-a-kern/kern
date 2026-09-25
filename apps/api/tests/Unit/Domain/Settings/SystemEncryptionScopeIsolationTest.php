@@ -9,13 +9,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\Settings\SystemEncryptionScopeIsolationTest;
 
 use App\Domain\Settings\Support\SystemEncryptionScope;
-use App\Support\Crypto\AssociatedData;
-use App\Support\Crypto\EnvelopeCipher;
-use App\Support\Crypto\Exceptions\EnvelopeException;
+use Kern\Platform\Crypto\AssociatedData;
+use Kern\Platform\Crypto\EnvelopeCipher;
+use Kern\Platform\Crypto\Exceptions\EnvelopeException;
 
 /**
  * `docs/adr/0013-system-settings-scope-and-admin-gate.md` §1's central guarantee, proven directly
- * against the real `App\Support\Crypto\EnvelopeCipher` — no fakes, no database, no container: a
+ * against the real `Kern\Platform\Crypto\EnvelopeCipher` — no fakes, no database, no container: a
  * system-scoped ciphertext must never be decryptable as a subject-scoped one, and a
  * subject-scoped ciphertext must never be decryptable as a system-scoped one. Pure unit test, per
  * `docs/CODE-QUALITY.md` §5 ("no database, no HTTP, no clock" for this kind of guarantee).

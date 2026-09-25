@@ -10,8 +10,8 @@ use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Enums\SubjectType;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 
 /**
  * @extends Factory<TaxSubject>

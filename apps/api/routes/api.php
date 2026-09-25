@@ -191,7 +191,7 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
 
 /*
  * `docs/handoff/022-document-pipeline.md` — Milestone 7. `tax-subject` binds
- * `App\Support\Tenancy\TenantContext` from `{subject}` (docs/handoff/011-identity-
+ * `Kern\Platform\Tenancy\TenantContext` from `{subject}` (docs/handoff/011-identity-
  * tenancy.md step 2) before any controller runs; every business query below is tenant-scoped
  * automatically from that point on.
  */

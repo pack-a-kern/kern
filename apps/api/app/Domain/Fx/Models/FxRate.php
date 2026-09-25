@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Fx\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_fx_rates` (`BLUEPRINT.md` §6.9) — see that migration's docblock for the multiplier rule and for

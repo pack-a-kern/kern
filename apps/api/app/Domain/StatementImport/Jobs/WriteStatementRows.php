@@ -18,8 +18,6 @@ use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\TagDirectory;
-use App\Support\Tenancy\TenantContext;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,6 +26,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Tenancy\TenantScope;
 use Throwable;
 
 /**

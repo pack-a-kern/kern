@@ -7,12 +7,12 @@ namespace Tests\Feature\Domain\Subjects\RawDatabasePlaintextTest;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -113,7 +113,7 @@ it('never stores a PF subject\'s plaintext name, CNP, or address anywhere in the
     }
 
     // The DEK itself is never plaintext either — it's KMS-wrapped opaque ciphertext, never the
-    // raw 32-byte key material `App\Support\KeyManagement\SubjectDekService` generated.
+    // raw 32-byte key material `Kern\Platform\KeyManagement\SubjectDekService` generated.
     expect($subjectRow->encrypted_dek)->not->toBeNull()
         ->and(strlen((string) $subjectRow->encrypted_dek))->not->toBe(32);
 });

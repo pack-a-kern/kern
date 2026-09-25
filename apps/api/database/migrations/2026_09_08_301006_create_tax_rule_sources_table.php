@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * `BLUEPRINT.md`'s own listing gives this table only `rule_version_id`/`source_section_id`/
  * `relation`, with no explicit `id`; an `id` UUID primary key is added here to match this
  * codebase's own "every table has a UUID primary key" convention
- * (`docs/AGENTS.md` §6, `App\Support\Crypto\Concerns\HasUuidPrimaryKey`), not a deviation from the
+ * (`docs/AGENTS.md` §6, `Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey`), not a deviation from the
  * blueprint's actual columns.
  *
  * `source_section_id` is NOT NULL for the same reason as `fiscal_parameter_versions.source_section_id`

@@ -15,10 +15,10 @@ use App\Domain\TaxEngine\Models\TaxAssessmentLine;
 use App\Domain\TaxEngine\Services\TaxAssessmentRecorder;
 use App\Domain\TaxEngine\ValueObjects\Money;
 use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\Tenancy\TenantScope;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Tenancy\TenantScope;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {

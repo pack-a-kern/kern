@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Support\Logging\RedactSensitiveData;
+use Kern\Platform\Logging\RedactSensitiveData;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
@@ -56,7 +56,7 @@ return [
 
         // 'stack' needs no 'tap' of its own: Illuminate\Log\LogManager::createStackDriver()
         // gathers getProcessors() from each constituent channel it fans out to, and each of those
-        // channels (below) is already tapped with App\Support\Logging\RedactSensitiveData —
+        // channels (below) is already tapped with Kern\Platform\Logging\RedactSensitiveData —
         // BLUEPRINT.md §4.10/§23, docs/handoff/006-audit-chain.md.
         'stack' => [
             'driver' => 'stack',

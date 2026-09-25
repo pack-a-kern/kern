@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Domain\TaxEngine\Models;
 
 use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\TaxAssessmentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `tax_assessments` (`BLUEPRINT.md` §6.7) — see that migration's docblock. No column here carries

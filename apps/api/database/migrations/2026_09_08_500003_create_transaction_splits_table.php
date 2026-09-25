@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * No timestamps: the blueprint's literal column list for this table has none, and a split's own
  * identity/insert order is already recoverable from its UUIDv7 primary key
- * (`App\Support\Crypto\Concerns\HasUuidPrimaryKey` — time-ordered by construction), so adding an
+ * (`Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey` — time-ordered by construction), so adding an
  * unused `created_at` here would be redundant, not merely harmless.
  */
 return new class () extends Migration {

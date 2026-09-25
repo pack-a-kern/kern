@@ -10,7 +10,7 @@ use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Notifications\StatementImportNotice;
-use App\Support\Tenancy\TenantScope;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Tells the person who started an import that it has moved on without them.

@@ -16,10 +16,10 @@ use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Rental\Exceptions\InvalidOwnershipPercentException;
 use App\Http\Controllers\Controller;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `POST /api/v1/subjects/{subject}/rentals` — let a property, optionally from a contract document.

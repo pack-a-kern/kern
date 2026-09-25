@@ -7,11 +7,6 @@ namespace App\Domain\Identity\Models;
 use function app;
 
 use App\Domain\Identity\Enums\UserStatus;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
@@ -24,6 +19,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Notifications\Notifiable;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use RuntimeException;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -119,7 +119,7 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
     /**
      * Exact-match lookup by email without ever decrypting a row to find it (`BLUEPRINT.md` §4.4).
      * The blind index is computed under the single global key
-     * (`App\Support\Crypto\BlindIndex\BlindIndexHasher`) — this is, by design, a cross-tenant
+     * (`Kern\Platform\Crypto\BlindIndex\BlindIndexHasher`) — this is, by design, a cross-tenant
      * query (ADR 0002 "login-by-email is inherently cross-tenant"), not a tenant-scoped one.
      *
      * @param Builder<self> $query

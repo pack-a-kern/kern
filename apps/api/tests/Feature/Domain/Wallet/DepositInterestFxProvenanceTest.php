@@ -20,10 +20,10 @@ use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
-use App\Support\Tenancy\TenantContext;
 use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `BLUEPRINT.md` §7.5 / this milestone's stated definition of done: a foreign-currency deposit's

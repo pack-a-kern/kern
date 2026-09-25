@@ -15,14 +15,14 @@ use App\Domain\Rental\Models\RentalContractVersion;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3: a user authorized for one `TaxSubject` must never
  * reach another subject's row, through any of the five tables this module owns — every one uses
- * `App\Support\Tenancy\ScopedToTenant` — the same test shape
+ * `Kern\Platform\Tenancy\ScopedToTenant` — the same test shape
  * `tests/Feature/Domain/Wallet/CrossTenantIsolationTest.php` establishes first.
  */
 beforeEach(function (): void {

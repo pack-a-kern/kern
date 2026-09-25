@@ -11,10 +11,10 @@ use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
 use App\Domain\Spv\Enums\SpvCredentialPolicy;
 use App\Domain\Spv\Models\SpvConnection;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * `BLUEPRINT.md` §13.2 step 1 ("Connect SPV") and §4.7 ("MFA obligatoriu pentru conturi care

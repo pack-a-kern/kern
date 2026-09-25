@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
  * (`AcceptDocumentExtractionController`/`CorrectDocumentExtractionController`).
  *
  * `{document}` is resolved through `Document::query()` first — tenant-scoped by
- * `App\Support\Tenancy\ScopedToTenant` via the `tax-subject` middleware already bound
+ * `Kern\Platform\Tenancy\ScopedToTenant` via the `tax-subject` middleware already bound
  * for this route group — so a document belonging to another subject 404s before this ever touches
  * `document_extractions`, a table with no `tax_subject_id` column of its own to scope on
  * directly (`App\Domain\Documents\Models\DocumentExtraction`'s own docblock explains why).

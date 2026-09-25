@@ -7,8 +7,8 @@ namespace App\Domain\TaxEngine\Repositories;
 use App\Domain\TaxEngine\DataTransferObjects\TaxFactSnapshot;
 use App\Domain\TaxEngine\Models\TaxFact;
 use App\Domain\TaxEngine\ValueObjects\Money;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Support\Collection;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * The sanctioned way `App\Domain\TaxEngine\TaxContext::withFacts()` is populated from persisted
@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
  * (`docs/AGENTS.md` §11.2/§6).
  *
  * Filters explicitly by `$taxSubjectId` (via `withoutGlobalScope(TenantScope::class)`) rather
- * than relying on `App\Support\Tenancy\TenantContext` being bound: whoever calls
+ * than relying on `Kern\Platform\Tenancy\TenantContext` being bound: whoever calls
  * `TaxContext::forSubject($id)` already knows and has authorized that subject id (an HTTP
  * controller with a bound `TenantContext`, or a background recompute job with no HTTP request at
  * all) — this repository does not assume which. The explicit `WHERE tax_subject_id = $id` is

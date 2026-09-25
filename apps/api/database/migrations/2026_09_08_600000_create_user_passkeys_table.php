@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * (`App\Domain\Identity\Models\UserPasskey`).
  *
  * `public_key` and `credential_id` are stored **plaintext** (base64url), not through
- * `App\Support\Crypto\Casts\Encrypted`, despite this module's general "encrypt everything
+ * `Kern\Platform\Crypto\Casts\Encrypted`, despite this module's general "encrypt everything
  * identity-adjacent" posture. This is a deliberate exception, not an oversight: a WebAuthn
  * credential public key is, by construction, not a secret — the whole point of asymmetric
  * signature verification is that the verifier only ever needs the *public* half, and the

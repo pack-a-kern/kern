@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Kern\Audit\Services;
 
-use Kern\Audit\DataTransferObjects\AuditEventInput;
-use Kern\Audit\DataTransferObjects\AuditEventRecord;
-use Kern\Audit\Support\AuditEventHasher;
-use Kern\Audit\Support\CanonicalJson;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\ConnectionResolverInterface;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\DataTransferObjects\AuditEventRecord;
+use Kern\Audit\Support\AuditEventHasher;
+use Kern\Audit\Support\CanonicalJson;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\Crypto\AssociatedDataTest;
 
-use App\Support\Crypto\AssociatedData;
+use Kern\Platform\Crypto\AssociatedData;
 
 it('joins the four segments in the documented order', function (): void {
     $aad = AssociatedData::for('subject-1', 'pf_profiles', 'cnp', 'record-1');

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\KeyManagement\SubjectDekServiceTest;
 
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

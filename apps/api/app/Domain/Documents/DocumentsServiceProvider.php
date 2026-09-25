@@ -17,8 +17,6 @@ use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ClamdVirusScanner;
 use App\Domain\Documents\Scanning\VirusScanner;
 use App\Domain\Settings\Services\ResolveAiProviderCredentials;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\EncryptedObjectStore;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
@@ -27,6 +25,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
 
 /**
  * Wires Milestone 7's document pipeline (`docs/handoff/022-document-pipeline.md`). See that
@@ -102,7 +102,7 @@ final class DocumentsServiceProvider extends ServiceProvider
         });
         $this->app->singleton(DocumentAiConsentGate::class);
 
-        // Transient, like App\Support\ObjectStore\ObjectStoreServiceProvider's own
+        // Transient, like Kern\Platform\ObjectStore\ObjectStoreServiceProvider's own
         // EncryptedObjectStore binding: SubjectDekService is scoped per-request, so this must be
         // resolved fresh rather than pinned by a singleton (see that provider's docblock).
         $this->app->bind(QuarantineObjectStore::class, static function (Application $app): QuarantineObjectStore {

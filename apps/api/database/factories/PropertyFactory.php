@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
  * @extends Factory<Property>
  *
  * `tax_subject_id` must still be supplied explicitly by the caller (an already-created
- * `TaxSubject`) — `App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst` makes attribute order
+ * `TaxSubject`) — `Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst` makes attribute order
  * in that call irrelevant, the same shape `Database\Factories\FinancialAccountFactory` documents.
  * `ownership_percent_decimal` defaults to full (sole) ownership — the common case; co-ownership
  * tests override it explicitly.

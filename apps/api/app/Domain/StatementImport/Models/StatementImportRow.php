@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Models;
 
 use App\Domain\StatementImport\Enums\RowProposalSource;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `statement_import_rows` — one line of a statement, while a person decides what to do with it.

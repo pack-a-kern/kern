@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\Declarations\Models;
 
 use App\Domain\Declarations\Enums\FormVersionStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\FormVersionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `form_versions` (`BLUEPRINT.md` §6.10, §12.2) — see that migration's docblock for `schema_json`,

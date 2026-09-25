@@ -17,8 +17,8 @@ use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

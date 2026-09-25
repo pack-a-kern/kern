@@ -17,9 +17,9 @@ use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `BLUEPRINT.md` §4.3 lists a full address and identifiable counterparties as mandatory to encrypt.

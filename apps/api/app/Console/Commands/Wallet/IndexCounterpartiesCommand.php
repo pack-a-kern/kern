@@ -6,8 +6,8 @@ namespace App\Console\Commands\Wallet;
 
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\CounterpartyRules;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Console\Command;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Fills `financial_transactions.counterparty_blind_index` for rows recorded before it existed.

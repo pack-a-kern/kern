@@ -19,12 +19,16 @@ use Deptrac\Deptrac\Contract\Config\Ruleset;
 return static function (DeptracConfig $config): void {
 
     /*
-     * The audit chain is not a layer here any more.
+     * Neither the audit chain nor the security spine is a layer here any more.
      *
-     * It is `kern/audit`, required like any other package, so deptrac — which collects this
-     * application's own directories — has nothing to say about it, exactly as it has nothing to say
-     * about illuminate/support. The boundary it used to describe is now enforced by Composer: a
-     * module that should not record audit events does not get to, by not requiring the package.
+     * They are `kern/audit` and `kern/platform`, required like any other package, so deptrac —
+     * which collects this application's own directories — has nothing to say about them, exactly as
+     * it has nothing to say about illuminate/support. The boundaries they used to describe are now
+     * enforced by Composer: a module that should not record audit events does not get to, by not
+     * requiring the package.
+     *
+     * What is left under `app/Support` is `Text\PartyName`, and only the two modules that read a
+     * counterparty's name out of a document or a statement are granted it below.
      */
     $support = Layer::withName('Support')->collectors(
         DirectoryConfig::create('app/Support/.*'),
@@ -106,11 +110,11 @@ return static function (DeptracConfig $config): void {
             // and for the same reason: whether sign-ups are open is an operational switch an owner
             // flips at runtime, so the module that registers users has to ask rather than assume.
             // Identity never touches a Settings Eloquent model.
-            Ruleset::forLayer($identity)->accesses($support, $settings),
+            Ruleset::forLayer($identity)->accesses($settings),
             // Subjects -> Audit: App\Domain\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
             // "application service" cross-module traffic shape) to record TaxSubjectRegistered.
-            Ruleset::forLayer($subjects)->accesses($support),
+            Ruleset::forLayer($subjects),
             // TaxKnowledge -> TaxEngine: App\Domain\TaxKnowledge\Providers\
             // {EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider} implement
             // App\Domain\TaxEngine\Contracts\{TaxRuleVersionProvider,FiscalParameterProvider} —
@@ -137,21 +141,21 @@ return static function (DeptracConfig $config): void {
             // credentials to use is a system setting (App\Domain\Settings\Services\
             // {AiProviderCatalogue,ResolveAiProviderCredentials}) rather than a second copy of the
             // provider configuration living here.
-            Ruleset::forLayer($taxKnowledge)->accesses($support, $taxEngine, $documents, $settings),
+            Ruleset::forLayer($taxKnowledge)->accesses($taxEngine, $documents, $settings),
             // Fx -> TaxKnowledge: App\Domain\Fx\Actions\{ImportBnrDailyRates,BackfillBnrYear} call
             // App\Domain\TaxKnowledge\Services\SourceIngestionService (fetch/store/version the raw
             // BNR XML) and App\Domain\Fx\Services\FxRateQuery and the BNR actions call
             // App\Domain\TaxKnowledge\Repositories\{OfficialSourceRepository,
             // SourceDocumentVersionRepository} — both are the sanctioned "application service" /
             // DTO cross-module shape (docs/AGENTS.md §6); Fx never imports a TaxKnowledge model.
-            Ruleset::forLayer($fx)->accesses($support, $taxKnowledge),
+            Ruleset::forLayer($fx)->accesses($taxKnowledge),
             // Banks -> TaxKnowledge: App\Domain\Banks\Actions\ImportBanks downloads through
             // App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher and stores each file through
             // App\Domain\TaxKnowledge\Services\SourceIngestionService — the same application-service
             // crossing Fx makes for BNR's files. Banks never imports a TaxKnowledge model. Wallet does
             // not access Banks: a deposit stores only `bank_id`, and the controllers that turn a bank
             // into a name use App\Domain\Banks\Queries\BankDirectory from the HTTP layer.
-            Ruleset::forLayer($banks)->accesses($support, $taxKnowledge),
+            Ruleset::forLayer($banks)->accesses($taxKnowledge),
             // Wallet -> Subjects: every Wallet model uses App\Domain\Subjects\Tenancy\
             // ScopedToTaxSubject (a trait, not an Eloquent model import) and
             // App\Domain\Subjects\Tenancy\TenantContext (a scoped service) — exactly the reusable
@@ -188,7 +192,7 @@ return static function (DeptracConfig $config): void {
             // them (see the TaxKnowledge -> TaxEngine grant above). The dependency direction is
             // inverted, not merely hidden: this layer's ruleset below carries no TaxKnowledge
             // grant, and deptrac enforces that, not just code review.
-            Ruleset::forLayer($taxEngine)->accesses($support, $subjects, $fx),
+            Ruleset::forLayer($taxEngine)->accesses($subjects, $fx),
             // Documents -> Subjects: every Documents model/job uses App\Domain\Subjects\Tenancy\
             // ScopedToTaxSubject/TaxSubjectScope/TenantContext, the same reusable tenancy
             // mechanism Wallet/TaxEngine already adopt above (docs/handoff/011-identity-tenancy.md).
@@ -214,7 +218,7 @@ return static function (DeptracConfig $config): void {
             // read to establish it. `rental_contracts.source_document_id` is a foreign key at the
             // schema level only, and rental income reaches `Domain/TaxEngine` only through
             // App\Domain\Rental\Events\RentalAccrualRecorded, a plain event class.
-            Ruleset::forLayer($rental)->accesses($support, $subjects),
+            Ruleset::forLayer($rental)->accesses($subjects),
             // Declarations -> Subjects: App\Domain\Declarations\Models\Declaration uses
             // App\Domain\Subjects\Tenancy\ScopedToTaxSubject, the same reusable tenancy mechanism
             // every other business module above adopts (docs/handoff/011-identity-tenancy.md).
@@ -227,7 +231,7 @@ return static function (DeptracConfig $config): void {
             // `declaration_submissions.receipt_document_id -> documents` are real foreign keys at
             // the migration/schema level only, the same precedent
             // `rental_contracts.source_document_id -> documents` already establishes.
-            Ruleset::forLayer($declarations)->accesses($support, $subjects),
+            Ruleset::forLayer($declarations)->accesses($subjects),
             // Spv -> Identity: App\Domain\Spv\Actions\{RegisterSpvConnection,InitiateSpvAuthAttempt}
             // call App\Domain\Identity\Support\SpvMfaPolicy::ensureStrongAuthentication() and take
             // an App\Domain\Identity\Models\User parameter — the enforceable MFA-before-SPV gate
@@ -239,18 +243,18 @@ return static function (DeptracConfig $config): void {
             // `spv_messages.document_id -> documents` is a real foreign key at the migration/
             // schema level only, the same precedent `rental_contracts.source_document_id ->
             // documents` already establishes — no Documents grant is needed here.
-            Ruleset::forLayer($spv)->accesses($support, $subjects, $identity),
-            // Settings -> Support: App\Domain\Settings\Support\SystemSecretCipher uses
-            // App\Support\Crypto\{EnvelopeCipher,AssociatedData} and
-            // App\Support\KeyManagement\{SubjectDekService,Contracts\KeyManagementService}
-            // directly — this module's own encryption scope, not a TaxSubject's (see
-            // App\Domain\Settings\Support\SystemEncryptionScope). Settings -> Audit:
+            Ruleset::forLayer($spv)->accesses($subjects, $identity),
+            // Settings has no grant at all: App\Domain\Settings\Support\SystemSecretCipher
+            // encrypts under this module's own scope rather than a TaxSubject's (see
+            // App\Domain\Settings\Support\SystemEncryptionScope), but it does so with
+            // Kern\Platform\Crypto and Kern\Platform\KeyManagement — a package, not a layer.
+            // Settings -> Audit:
             // App\Domain\Settings\Services\AiProviderSettingsService calls
             // AuditChainService::record() for every settings change, the same sanctioned
             // application-service crossing every other module above uses. Settings never
             // accesses Subjects/Identity/Documents: it has no TaxSubject scoping (these are
             // system-wide, not per-subject, settings) and no Eloquent model of its own to import.
-            Ruleset::forLayer($settings)->accesses($support),
+            Ruleset::forLayer($settings),
             // Operations -> Audit: every act on the operations console (starting a task, pausing
             // the schedule, retrying or discarding a failed job, disabling an official source)
             // records an AuditChainService::record() event, the same sanctioned application-service
@@ -273,7 +277,7 @@ return static function (DeptracConfig $config): void {
             // App\Domain\Settings\Services\ProbeSystemHealth is composed into the operations
             // *overview response* by the HTTP controller, which belongs to no layer, not by
             // anything under app/Domain/Operations.
-            Ruleset::forLayer($operations)->accesses($support, $documents),
+            Ruleset::forLayer($operations)->accesses($documents),
             // StatementImport -> Wallet, Documents: this module is the one place the two meet, and it
             // exists precisely so neither has to know about the other. A statement is stored as a
             // document (`App\Domain\Documents\Actions\InitiateDocumentUpload`, read back through
@@ -288,6 +292,6 @@ return static function (DeptracConfig $config): void {
             // the user who started an import, to tell them it moved on. Nothing else here reads Identity.
             // StatementImport -> Banks: App\Domain\StatementImport\Services\GuessStatementBank matches the
             // statement's IBAN, or the bank the model named, against the bank directory.
-            Ruleset::forLayer($statementImport)->accesses($support, $identity, $subjects, $settings, $wallet, $documents, $banks),
+            Ruleset::forLayer($statementImport)->accesses($identity, $subjects, $settings, $wallet, $documents, $banks),
         );
 };

@@ -10,22 +10,22 @@ use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Enums\RejectionReason;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\ScopedToTenant;
 use RuntimeException;
 
 /**
  * `documents` (`BLUEPRINT.md` §6.6) — one row per uploaded document, tenant-scoped to the owning
- * `TaxSubject` (`App\Support\Tenancy\ScopedToTenant`).
+ * `TaxSubject` (`Kern\Platform\Tenancy\ScopedToTenant`).
  *
  * A document is an *ordered list of files*, not a file: the object keys, MIME types, sizes and
  * per-file hashes live on {@see DocumentPart}. What stays here is what describes the document as a

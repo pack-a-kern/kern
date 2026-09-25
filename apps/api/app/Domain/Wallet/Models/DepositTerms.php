@@ -8,10 +8,10 @@ use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `deposit_terms` — what makes one `FinancialAccount` a term deposit rather than a current account.

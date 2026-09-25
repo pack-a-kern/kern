@@ -19,9 +19,9 @@ use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Domain\Wallet\Services\WalletAudit;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * Records one manually-entered `financial_transactions` row and its optional

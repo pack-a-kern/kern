@@ -7,13 +7,13 @@ namespace App\Domain\Documents\Actions;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentDerivative;
 use App\Domain\Documents\Models\DocumentPart;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
+use Kern\Platform\ObjectStore\ObjectKey;
 use Throwable;
 
 /**

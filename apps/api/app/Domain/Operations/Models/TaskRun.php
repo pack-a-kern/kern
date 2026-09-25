@@ -7,8 +7,8 @@ namespace App\Domain\Operations\Models;
 use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Enums\TaskRunStatus;
 use App\Domain\Operations\Enums\TaskRunTrigger;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * One execution of a background operation — see this table's migration docblock for why it exists

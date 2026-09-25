@@ -10,10 +10,10 @@ use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentPart;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Collection;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\ObjectKey;
 
 /**
  * @extends Factory<Document>

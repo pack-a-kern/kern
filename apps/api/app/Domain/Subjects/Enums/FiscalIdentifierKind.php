@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Enums;
 
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * The kind of value stored in `tax_subjects.fiscal_identifier_ciphertext`/
@@ -45,7 +45,7 @@ enum FiscalIdentifierKind: string
     }
 
     /**
-     * The exact string handed to `App\Support\Crypto\BlindIndex\BlindIndexHasher::compute()`.
+     * The exact string handed to `Kern\Platform\Crypto\BlindIndex\BlindIndexHasher::compute()`.
      * Never store or hash a bare `normalize()` result for this column — it would put this kind
      * back into the single, unqualified uniqueness namespace ADR 0011 removes it from.
      */

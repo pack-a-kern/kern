@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `transaction_splits` (`BLUEPRINT.md` §6.3). No encrypted fields and no timestamp columns — see the

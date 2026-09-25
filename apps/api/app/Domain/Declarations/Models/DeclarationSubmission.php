@@ -6,13 +6,13 @@ namespace App\Domain\Declarations\Models;
 
 use App\Domain\Declarations\Enums\SubmissionTransport;
 use App\Domain\Declarations\Exceptions\SubmissionResponseAlreadyRecordedException;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\TenantScope;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\TenantScope;
 use RuntimeException;
 
 /**
@@ -25,7 +25,7 @@ use RuntimeException;
  * RecordDeclarationSubmissionResponse`'s `DeclarationSubmission::query()->findOrFail(...)`, which
  * never goes through {@see self::record()}) — otherwise `recordResponse()`'s encrypted
  * `response_ciphertext` write would have no subject id to encrypt under. That lookup bypasses
- * `App\Support\Tenancy\TenantScope` deliberately: resolving *which* DEK protects this
+ * `Kern\Platform\Tenancy\TenantScope` deliberately: resolving *which* DEK protects this
  * row is infrastructure, not an authorized business read of the declaration's own data, the same
  * "genuinely subject-agnostic system query" category that trait's own docblock names as its
  * sanctioned escape hatch.

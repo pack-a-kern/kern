@@ -7,10 +7,10 @@ namespace App\Domain\Wallet\Services;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Models\CounterpartyRule;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * What this taxpayer already decided about a counterparty — looked up, and written down.

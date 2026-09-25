@@ -25,8 +25,8 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * The end-to-end path: `CreateDeclarationDraft` (not re-tested here, see

@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Schema;
  * `calculation_trace_object_path` is nullable and **unpopulated by this milestone** — the full
  * `App\Domain\TaxEngine\DataTransferObjects\CalculationTrace` per line is fully computed and
  * returned to the caller (see `TaxAssessmentResult`), but persisting it to encrypted object
- * storage would require extending `App\Support\ObjectStore` (out of this task's path scope,
+ * storage would require extending `Kern\Platform\ObjectStore` (out of this task's path scope,
  * `apps/api/app/Domain/TaxEngine/**` only) or building a second, unencrypted, ad hoc writer this
  * task chose not to invent. See `docs/handoff/020-tax-engine.md` "What is NOT done".
  *

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `rental_accruals` (`BLUEPRINT.md` §6.5). `rental_contract_version_id` is a justified addition

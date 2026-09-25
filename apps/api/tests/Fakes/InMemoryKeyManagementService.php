@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\KeyManagement\Exceptions\KeyManagementException;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\KeyManagement\Exceptions\KeyManagementException;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 
 /**
  * In-memory stand-in for OpenBao's transit engine, for tests that need real wrap/unwrap/rotate
@@ -19,7 +19,7 @@ use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
  *    `vault:v<N>:...` format, so `WrappedDataKey::$kekVersion` is derived the same way in both
  *    the real and fake implementations.
  *
- * Lives under tests/, not app/Support — this is a test double, not a production driver (ADR 0002
+ * Lives under tests/, not in `kern/platform` — a test double, not a production driver (ADR 0002
  * has no no-op/fake KMS driver in production; docs/CODE-QUALITY.md forbids code that exists only
  * "for later" in app/).
  */

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Kern\Audit\Services;
 
-use Kern\Audit\ChainVerificationFailureReason;
-use Kern\Audit\DataTransferObjects\ChainVerificationResult;
-use Kern\Audit\Support\AuditEventHasher;
 use DateTimeImmutable;
 use DateTimeZone;
 
 use function hash_equals;
 
 use Illuminate\Database\ConnectionResolverInterface;
+use Kern\Audit\ChainVerificationFailureReason;
+use Kern\Audit\DataTransferObjects\ChainVerificationResult;
+use Kern\Audit\Support\AuditEventHasher;
 
 /**
  * Walks one subject's (or the system's) audit chain in sequence order and reports the exact

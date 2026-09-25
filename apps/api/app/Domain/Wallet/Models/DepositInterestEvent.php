@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `deposit_interest_events` (`BLUEPRINT.md` §6.4). See the migration's docblock for the FX

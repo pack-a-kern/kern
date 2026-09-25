@@ -155,10 +155,10 @@ return [
     ],
 
     // App\Domain\TaxKnowledge\Storage\RawSourceObjectStore — immutable raw storage (BLUEPRINT.md
-    // §9.1). Deliberately not the subject-scoped App\Support\ObjectStore\EncryptedObjectStore —
+    // §9.1). Deliberately not the subject-scoped Kern\Platform\ObjectStore\EncryptedObjectStore —
     // see docs/handoff/014-source-registry-bnr.md "Key decisions" for why an official source
     // document (no tax_subject_id, public, not PII) cannot be expressed by that module's
-    // ObjectKey::forDocument() without a scope-violating change to app/Support/ObjectStore.
+    // ObjectKey::forDocument() without a scope-violating change to Kern\Platform\ObjectStore.
     'storage' => [
         'disk' => env('SOURCES_STORAGE_DISK', 's3'),
         'prefix' => env('SOURCES_STORAGE_PREFIX', 'sources'),

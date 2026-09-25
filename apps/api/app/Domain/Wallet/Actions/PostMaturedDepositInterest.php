@@ -9,9 +9,9 @@ use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\WalletAudit;
-use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Turns interest that has actually accrued into money that has actually arrived.

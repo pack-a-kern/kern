@@ -8,15 +8,15 @@ use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\ScopedToTenant;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\ScopedToTenant;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * `statement_imports` — one bank statement on its way from a file to transactions.

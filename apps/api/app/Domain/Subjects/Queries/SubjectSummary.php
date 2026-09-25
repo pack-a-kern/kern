@@ -12,7 +12,7 @@ use App\Domain\Subjects\Enums\SubjectType;
  * One row of {@see ListSubjectsForUser}'s result — a `TaxSubject` the requesting user can
  * currently access, together with the role that access is held under. `displayName` is already
  * decrypted (`App\Domain\Subjects\Models\TaxSubject::display_name_ciphertext`'s own
- * `App\Support\Crypto\Casts\Encrypted` cast did that on read) — never a ciphertext column.
+ * `Kern\Platform\Crypto\Casts\Encrypted` cast did that on read) — never a ciphertext column.
  */
 final readonly class SubjectSummary
 {

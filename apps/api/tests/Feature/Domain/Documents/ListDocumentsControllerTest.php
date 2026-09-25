@@ -18,9 +18,9 @@ use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Support\KeyManagement\SubjectDekService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

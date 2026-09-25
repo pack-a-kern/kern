@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\FiscalParameterValueType;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\FiscalParameterFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `fiscal_parameters` (`BLUEPRINT.md` §6.8) — one row per value a tax is computed from, made the

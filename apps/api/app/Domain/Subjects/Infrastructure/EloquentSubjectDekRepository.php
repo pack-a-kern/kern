@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Infrastructure;
 
-use App\Support\KeyManagement\Contracts\SubjectDekRepository;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 use RuntimeException;
 
 /**
@@ -15,7 +15,7 @@ use RuntimeException;
  * Backs **two** tables, not one: `tax_subjects.encrypted_dek`/`.dek_kek_version` for a
  * `App\Domain\Subjects\Models\TaxSubject`'s own DEK, and `users.encrypted_dek`/`.dek_kek_version`
  * for a `App\Domain\Identity\Models\User`'s own DEK (see `docs/handoff/011-identity-tenancy.md`
- * "Key decisions" for why a `User` needs its own DEK at all). `App\Support\KeyManagement\
+ * "Key decisions" for why a `User` needs its own DEK at all). `Kern\Platform\KeyManagement\
  * SubjectDekService` is registered as a single scoped container binding with exactly one bound
  * `SubjectDekRepository` — it has no way to know, from an id alone, which table a caller's id
  * belongs to, so this class checks both. Deliberately implemented with the plain query builder

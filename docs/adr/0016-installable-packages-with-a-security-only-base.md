@@ -52,17 +52,20 @@ Four things decide the shape.
 **The base carries no product vocabulary.** Encryption, key management, the audit chain, identity
 and settings are the same for any application. Nothing in `kern/platform` knows what a taxpayer is.
 
-**Tenancy is a mechanism in the base, named by configuration.** `config/tenancy.php` carries the
-model, table and column, defaulting to `TaxSubject`, `tax_subjects` and `tax_subject_id` so this
-product behaves exactly as it does now. `kern/tax-romania` sets the model when it installs. An
-application with no such concept leaves it null: no scope is applied, no middleware binds anything,
-and identity, audit, crypto and documents all work unscoped.
+**Tenancy is a mechanism in the base, named by configuration.** The global scope, the stamping on
+insert and the refusal when nothing is bound live in `kern/platform`; `config/tenancy.php` carries
+the column, which this product names `tax_subject_id`. Who may act for whom is a contract,
+`Tenancy\Contracts\TenantGate`, answered here by a non-revoked subject membership — elsewhere it
+would be a seat in a workspace. An application with no such concept binds no gate and puts the
+column on no table: identity, audit, crypto and documents all work unscoped.
 
 **Owner foreign keys are added when the owner's table exists.** A package cannot declare a foreign
 key to a table another package may not have installed. Each owner column is added with a shared
-schema helper that reads `config('tenancy.table')` and constrains only when that table is present —
+schema helper that reads the configured owner table and constrains only when that table is present —
 so this installation keeps today's `cascadeOnDelete`, and an installation with no tenants gets an
-indexed column and no constraint. The alternatives were rejected: a column with no constraint
+indexed column and no constraint. The helper, and the configuration naming that table, arrive with
+the first package migration that needs them; the migrations written so far all belong to the
+application, which knows the table is there. The alternatives were rejected: a column with no constraint
 anywhere loses referential integrity this product relies on, and a generic `tenants` table in the
 base forces a table on every future application, which is what the base exists to avoid.
 

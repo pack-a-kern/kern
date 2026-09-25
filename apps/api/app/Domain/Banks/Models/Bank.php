@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Banks\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\BankFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * One bank from the ECB's list — see the `ext_banks` migration for what each column is and why the

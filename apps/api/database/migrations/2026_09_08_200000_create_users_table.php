@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
  * `WHERE email_blind_index = HMAC(...)`, which never needs to decrypt a row to find it.
  *
  * `encrypted_dek`/`dek_kek_version`: every `User` gets its own per-record Data Encryption Key,
- * wrapped via the same OpenBao-backed KMS as a `TaxSubject`'s DEK (`App\Support\KeyManagement`,
+ * wrapped via the same OpenBao-backed KMS as a `TaxSubject`'s DEK (`Kern\Platform\KeyManagement`,
  * docs/handoff/005-crypto-core.md). BLUEPRINT.md's envelope-encryption design (§4.2) is written in
  * terms of "per-TaxSubject DEK", and a `User` is not a `TaxSubject` — see
  * `docs/handoff/011-identity-tenancy.md` "Key decisions" for why a `User` is treated as its own
@@ -48,9 +48,9 @@ return new class () extends Migration {
 
             $table->string('password_hash')->nullable();
 
-            // Wrapped per-user DEK (App\Support\KeyManagement\ValueObjects\WrappedDataKey).
+            // Wrapped per-user DEK (Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey).
             // Nullable: populated on first encrypted-field write via
-            // App\Support\KeyManagement\SubjectDekService — never plaintext, never eagerly
+            // Kern\Platform\KeyManagement\SubjectDekService — never plaintext, never eagerly
             // generated before it's needed. See App\Domain\Subjects\Infrastructure\
             // EloquentSubjectDekRepository for exactly how this column is read/written.
             $table->text('encrypted_dek')->nullable();

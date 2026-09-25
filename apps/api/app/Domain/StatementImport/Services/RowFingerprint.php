@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Services;
 
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * What makes importing the same statement twice add nothing.

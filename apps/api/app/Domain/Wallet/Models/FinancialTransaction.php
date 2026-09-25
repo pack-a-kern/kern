@@ -6,15 +6,15 @@ namespace App\Domain\Wallet\Models;
 
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\ScopedToTenant;
 use RuntimeException;
 
 /**

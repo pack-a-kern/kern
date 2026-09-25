@@ -17,11 +17,11 @@ use App\Domain\Documents\Jobs\ScanQuarantinedPart;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentPart;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\ObjectKey;
 use RuntimeException;
 use Throwable;
 

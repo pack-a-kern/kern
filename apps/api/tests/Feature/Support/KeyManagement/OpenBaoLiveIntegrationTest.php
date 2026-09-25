@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Support\KeyManagement\OpenBaoLiveIntegrationTest;
 
-use App\Support\KeyManagement\OpenBaoTransitKeyManagementService;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Kern\Platform\KeyManagement\OpenBaoTransitKeyManagementService;
 
 /**
  * Proves `OpenBaoTransitKeyManagementService` against a real, running dev-mode OpenBao

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Declarations\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\FormDefinitionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `form_definitions` (`BLUEPRINT.md` §6.10) — see that migration's docblock. Global registry, not

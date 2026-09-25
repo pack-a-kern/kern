@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\Wallet\Services;
 
 use App\Domain\Wallet\Models\Tag;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * The taxpayer's own tags: finding them by name, creating the ones that do not exist yet, and the

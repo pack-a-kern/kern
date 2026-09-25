@@ -14,8 +14,8 @@ use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\NullDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction;
 use App\Domain\Documents\Models\Document;
-use App\Support\KeyManagement\SubjectDekService;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
@@ -53,7 +53,7 @@ function sendableDocument(): Document
 
     fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
     rewind($stream);
-    app(\App\Support\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
+    app(\Kern\Platform\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
     fclose($stream);
 
     return $document->fresh(['parts']) ?? $document;

@@ -8,9 +8,9 @@ use function app;
 
 use App\Domain\Identity\Enums\UserStatus;
 use App\Domain\Identity\Models\User;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\Normalizer;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * @extends Factory<User>

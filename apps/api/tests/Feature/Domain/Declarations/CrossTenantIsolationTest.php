@@ -11,8 +11,8 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — a user authorized for one `TaxSubject` must never

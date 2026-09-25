@@ -19,10 +19,10 @@ use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Support\Tenancy\TenantContext;
-use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
+use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Tenancy\TenantScope;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

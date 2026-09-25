@@ -26,7 +26,7 @@ use Illuminate\Http\Request;
  * that also stores the result.
  *
  * Nothing is written here and nothing is looked up: the CNP is read, not stored, and it is never
- * logged (`App\Support\Logging`'s redaction covers the shape in any case). Registration re-derives
+ * logged (`Kern\Platform\Logging`'s redaction covers the shape in any case). Registration re-derives
  * from the CNP it is given, so a caller cannot use this endpoint to smuggle a mismatched pair in.
  */
 final class InspectCnpController extends Controller

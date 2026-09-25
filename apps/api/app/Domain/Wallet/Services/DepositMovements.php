@@ -10,7 +10,7 @@ use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
-use App\Support\Tenancy\TenantScope;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Every transaction a deposit produces, written the same way.

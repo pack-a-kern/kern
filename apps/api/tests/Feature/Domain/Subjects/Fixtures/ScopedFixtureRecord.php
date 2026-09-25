@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\Fixtures;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * Stand-in for a future real business table (Wallet's `financial_accounts`, Ledger's
- * `financial_transactions`, …) that adopts `App\Support\Tenancy\ScopedToTenant`.
- * Exists only under `tests/` — see `App\Support\Crypto\Casts\Encrypted`'s own
+ * `financial_transactions`, …) that adopts `Kern\Platform\Tenancy\ScopedToTenant`.
+ * Exists only under `tests/` — see `Kern\Platform\Crypto\Casts\Encrypted`'s own
  * `EncryptedNoteA`/`EncryptedNoteB` fixtures for the identical precedent (a real reusable
  * mechanism, proven against a throwaway table, since no real consumer exists yet at this
  * milestone).

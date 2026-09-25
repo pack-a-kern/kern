@@ -10,9 +10,9 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\WalletAudit;
-use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Ends every deposit that has reached its maturity, and sends its money back where it came from.

@@ -5,6 +5,12 @@ includes:
 parameters:
     level: 9
     paths:
+        # `../../packages/*` is `<repository>/packages` from the host and `/var/packages` from
+        # inside a container whose root is `/var/www/html` — the same files Composer symlinks into
+        # `vendor/kern/*`, analysed as source rather than skipped as a dependency. A package with no
+        # static analysis is a package that breaks the application it was extracted from.
+        - ../../packages/audit/src
+        - ../../packages/platform/src
         - app
         - bootstrap/app.php
         - bootstrap/providers.php

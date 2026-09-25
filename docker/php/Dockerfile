@@ -65,6 +65,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends unzip=6.0-29+deb13u1 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /var/www/html
+# The local packages first: composer.json requires kern/* from a path repository at
+# `../../packages/*`, which from /var/www/html is exactly /var/packages. Without them here,
+# `composer install` cannot resolve its own lock file.
+COPY packages /var/packages
 COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install \
         --no-interaction --no-dev --no-scripts --no-autoloader --prefer-dist
@@ -104,6 +108,10 @@ RUN groupadd --gid 10001 appuser \
 
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
 COPY --from=vendor --chown=appuser:appuser /var/www/html/vendor /var/www/html/vendor
+# `vendor/kern/*` are symlinks into /var/packages (a path repository installed with symlink: true,
+# so that editing a package in development needs no reinstall). Copied from the vendor stage rather
+# than from the build context, so the image carries exactly the sources that were resolved.
+COPY --from=vendor --chown=appuser:appuser /var/packages /var/packages
 COPY --chown=appuser:appuser apps/api /var/www/html
 
 WORKDIR /var/www/html

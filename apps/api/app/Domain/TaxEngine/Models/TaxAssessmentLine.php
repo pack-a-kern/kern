@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxEngine\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\TaxAssessmentLineFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `tax_assessment_lines` (`BLUEPRINT.md` §6.7) — see that migration's docblock, in particular the
  * `calculation_trace_json` addition. Reached only through its owning `TaxAssessment` (no direct
  * `tax_subject_id` column of its own — tenancy is enforced one level up); this table intentionally
- * does **not** use `App\Support\Tenancy\ScopedToTenant` for that reason.
+ * does **not** use `Kern\Platform\Tenancy\ScopedToTenant` for that reason.
  *
  * @property string $id
  * @property string $assessment_id

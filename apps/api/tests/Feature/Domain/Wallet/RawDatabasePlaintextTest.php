@@ -13,9 +13,9 @@ use App\Domain\Wallet\Actions\RecordFinancialTransaction;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\AccountKind;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `BLUEPRINT.md` §4.3 lists IBAN, account number, and transaction description as mandatory to
@@ -30,7 +30,7 @@ beforeEach(function (): void {
 
 /**
  * Creates a subject, an owning user/membership, and activates `TenantContext` for it — every
- * wallet model's `creating` hook (`App\Support\Tenancy\ScopedToTenant`) needs an
+ * wallet model's `creating` hook (`Kern\Platform\Tenancy\ScopedToTenant`) needs an
  * authorized subject bound before a row can be created.
  */
 function activatedSubject(): TaxSubject

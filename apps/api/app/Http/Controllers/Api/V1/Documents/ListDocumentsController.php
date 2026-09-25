@@ -13,11 +13,11 @@ use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Documents\Queries\ResolveTransactionImportState;
 use App\Http\Controllers\Controller;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `GET /api/v1/subjects/{subject}/documents` — every document this subject owns, newest first.
@@ -44,7 +44,7 @@ use Illuminate\Validation\Rule;
  * protects against a stolen database, a leaked backup, an operator reading rows; it was never meant
  * to hide a person's own filenames from them, and a list of documents identified only by a UUID and
  * a MIME type is unusable. Every row is tenant-scoped
- * (`App\Support\Tenancy\ScopedToTenant`), so the only reader is a user with an active
+ * (`Kern\Platform\Tenancy\ScopedToTenant`), so the only reader is a user with an active
  * membership on this subject.
  *
  * There is deliberately **no filename search**. The column is encrypted with a random nonce, so it
@@ -84,7 +84,7 @@ final class ListDocumentsController extends Controller
 
         // Newest first, ordered by the primary key rather than by `received_at`.
         //
-        // `id` is a UUIDv7 (`App\Support\Crypto\Concerns\HasUuidPrimaryKey`), whose leading 48
+        // `id` is a UUIDv7 (`Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey`), whose leading 48
         // bits are a millisecond timestamp — so descending id *is* newest-arrival-first, with no
         // ties to break and no second ordering column needed.
         //

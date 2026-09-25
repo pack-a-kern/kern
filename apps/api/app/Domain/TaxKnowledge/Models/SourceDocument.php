@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\SourceDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_source_documents` (`BLUEPRINT.md` §6.8) — see that migration's docblock for the identity rule

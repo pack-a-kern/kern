@@ -7,11 +7,11 @@ namespace App\Domain\Declarations\Models;
 use App\Domain\Declarations\Enums\DeclarationKind;
 use App\Domain\Declarations\Enums\DeclarationStatus;
 use App\Domain\Declarations\Exceptions\DeclarationIsImmutableException;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Tenancy\ScopedToTenant;
 
 /**
  * `declarations` (`BLUEPRINT.md` §6.10, §12.3) — see that migration's docblock. Carries no

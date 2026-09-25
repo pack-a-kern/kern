@@ -18,14 +18,14 @@ use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Kern\Audit\Services\ChainVerifier;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -35,7 +35,7 @@ use Tests\Fakes\InMemoryKeyManagementService;
  *
  * 1. The Milestone 1 "raw dump contains no plaintext" guarantee
  *    (`tests/Feature/Domain/Subjects/RawDatabasePlaintextTest.php`) holds for `pfa_profiles`
- *    exactly as it does for `pf_profiles`, with zero change to `App\Support\Crypto\**`.
+ *    exactly as it does for `pf_profiles`, with zero change to `Kern\Platform\Crypto\**`.
  * 2. A single `User` holding both a PF and a PFA `TaxSubject` (`BLUEPRINT.md` §33's literal example)
  *    works with the existing `TenantContext`/`ScopedToTenant` mechanism and an unmodified
  *    `App\Domain\Wallet` action, with no PFA-aware branch anywhere in either.

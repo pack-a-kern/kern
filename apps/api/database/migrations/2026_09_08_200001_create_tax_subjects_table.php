@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  * encodes and still pass the constraint. See the ADR for the full reasoning.
  *
  * `encrypted_dek`/`dek_kek_version` are nullable and populated on first encrypted-field write
- * (`App\Support\KeyManagement\SubjectDekService`, docs/handoff/005-crypto-core.md) — deliberately
+ * (`Kern\Platform\KeyManagement\SubjectDekService`, docs/handoff/005-crypto-core.md) — deliberately
  * NOT eagerly generated at row-insert time. This resolves handoff 005's open question about the
  * create-only race: a `TaxSubject` is inserted first with these two columns null (and, therefore,
  * with `display_name_ciphertext`/`fiscal_identifier_ciphertext` also still null — a row must exist

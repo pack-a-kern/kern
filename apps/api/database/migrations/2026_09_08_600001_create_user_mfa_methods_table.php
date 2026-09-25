@@ -13,12 +13,12 @@ use Illuminate\Support\Facades\Schema;
  * pattern `tax_subjects.type` uses for PFA/II/IF/SRL): adding a second MFA type later (e.g. a
  * hardware OTP token) is a new enum case plus a new implementation, not a schema change.
  *
- * `secret_ciphertext` is the raw TOTP shared secret (`App\Support\Crypto\Casts\Encrypted`) —
+ * `secret_ciphertext` is the raw TOTP shared secret (`Kern\Platform\Crypto\Casts\Encrypted`) —
  * unlike a WebAuthn public key, this genuinely is a symmetric secret whose disclosure lets an
  * attacker generate valid codes, so it is encrypted under **the owning `User`'s own DEK**, not a
  * fresh DEK of its own: `App\Domain\Identity\Models\UserMfaMethod::encryptionSubjectId()` returns
  * `user_id`, reusing exactly the same DEK `users.email_ciphertext` is encrypted under (see
- * `App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst`, overridden to read `user_id` instead
+ * `Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst`, overridden to read `user_id` instead
  * of the trait's default `tax_subject_id`).
  *
  * `confirmed_at` is null until the user proves possession of the secret with one valid code during

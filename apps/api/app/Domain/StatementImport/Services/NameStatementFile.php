@@ -10,8 +10,8 @@ use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Support\Str;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Names a statement's file after it has been read, from what the reading found out about it.

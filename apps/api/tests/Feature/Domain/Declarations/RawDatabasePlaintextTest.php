@@ -13,10 +13,10 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Support\Tenancy\TenantContext;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `BLUEPRINT.md` §4.3 requires `declaration_submissions.external_reference_ciphertext`/

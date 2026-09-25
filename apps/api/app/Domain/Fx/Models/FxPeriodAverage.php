@@ -6,8 +6,8 @@ namespace App\Domain\Fx\Models;
 
 use App\Domain\Fx\Enums\PeriodType;
 use App\Domain\Fx\Enums\VerificationStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_fx_period_averages` (`BLUEPRINT.md` §6.9/§7.4) — see that migration's docblock for why this table,

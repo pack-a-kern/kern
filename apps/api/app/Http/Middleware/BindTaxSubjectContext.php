@@ -6,13 +6,13 @@ namespace App\Http\Middleware;
 
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Kern\Platform\Tenancy\TenantContext;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Binds `App\Support\Tenancy\TenantContext` from the `{subject}` route parameter before a
+ * Binds `Kern\Platform\Tenancy\TenantContext` from the `{subject}` route parameter before a
  * controller runs — the request-lifecycle piece `docs/handoff/011-identity-tenancy.md` "How
  * another module scopes a query to a subject correctly" step 2 says every module owns for itself.
  * Throws (and records a `security_events` row, via `TenantContext` itself) if the authenticated

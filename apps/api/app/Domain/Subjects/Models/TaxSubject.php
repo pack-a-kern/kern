@@ -7,19 +7,19 @@ namespace App\Domain\Subjects\Models;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Enums\SubjectType;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Database\Factories\TaxSubjectFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use RuntimeException;
 
 /**
  * `tax_subjects` (`BLUEPRINT.md` §5.2) — the tenant boundary. Every other business table this project
  * ever builds scopes its rows to one `tax_subject_id`; see
- * `App\Support\Tenancy\ScopedToTenant` for the reusable mechanism other modules use.
+ * `Kern\Platform\Tenancy\ScopedToTenant` for the reusable mechanism other modules use.
  *
  * `fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index`/`fiscal_identifier_kind` are the
  * single canonical location for **any** subject type's fiscal identifier (ADR 0011,

@@ -7,7 +7,7 @@ namespace Tests\Feature\Domain\Documents\ResolvePaymentPartiesTest;
 use App\Domain\Documents\Payments\ResolvePaymentParties;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\KeyManagement\SubjectDekService;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

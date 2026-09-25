@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * `key` is the primary key (e.g. `"ai.api_key"`) rather than a generated UUID: the set of valid
  * keys is a small, closed enum (`SettingKey`), not a general-purpose arbitrary key/value store,
- * and the key string itself is exactly the stable row identity `App\Support\Crypto\AssociatedData`
+ * and the key string itself is exactly the stable row identity `Kern\Platform\Crypto\AssociatedData`
  * needs as its AAD's `record_uuid` segment (`App\Domain\Settings\Support\SystemSecretCipher`) —
  * a system-controlled identifier, never free-form user input, matching that class's own "safe to
  * use unescaped" contract.

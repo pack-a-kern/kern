@@ -8,7 +8,7 @@ use App\Domain\StatementImport\DataTransferObjects\BuiltStatementRows;
 use App\Domain\StatementImport\DataTransferObjects\StatementField;
 use App\Domain\StatementImport\DataTransferObjects\StatementForm;
 use App\Domain\StatementImport\Exceptions\MappingNotUsableException;
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 /**
  * Applying a confirmed form to a statement's lines, to get transactions.

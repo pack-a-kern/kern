@@ -13,14 +13,14 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Tenancy\TenantScope;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\Fakes\UnwritableDisk;
@@ -172,7 +172,7 @@ it('refuses an upload for a subject the authenticated user has no membership for
     $response->assertStatus(403);
     // No TenantContext was ever bound during that rejected request (authorization failed before
     // it could be) — an unscoped, explicit system-level count is the correct way to check "no
-    // document exists anywhere," matching App\Support\Tenancy\ScopedToTenant's own
+    // document exists anywhere," matching Kern\Platform\Tenancy\ScopedToTenant's own
     // documented escape hatch for genuinely cross-tenant checks.
     expect(Document::withoutGlobalScope(TenantScope::class)->count())->toBe(0);
 });

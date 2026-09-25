@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * `user_recovery_codes` (`BLUEPRINT.md` §6.1) — single-use MFA fallback codes.
  *
  * `code_hash` is a one-way hash (`Illuminate\Support\Facades\Hash`, Argon2id — the same driver
- * `password_hash` uses, `BLUEPRINT.md` §4.7), **not** `App\Support\Crypto\Casts\Encrypted`: a
+ * `password_hash` uses, `BLUEPRINT.md` §4.7), **not** `Kern\Platform\Crypto\Casts\Encrypted`: a
  * recovery code only ever needs to be *verified*, never redisplayed, and a one-way hash is a
  * strictly stronger guarantee than reversible encryption for a value that must never be recovered
  * even by the application itself — encrypting it as well would add nothing (`docs/CODE-QUALITY.md`

@@ -7,9 +7,9 @@ namespace App\Http\Controllers\Api\V1\Documents;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Http\Controllers\Controller;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
 use Illuminate\Http\JsonResponse;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * **Why there is no separate signed/temporary-URL scheme.** The object is encrypted per-subject
  * (`BLUEPRINT.md` §4.6) — a raw storage URL (even a presigned one) would only ever hand back
- * ciphertext, since decryption requires `App\Support\KeyManagement\SubjectDekService`, which only
+ * ciphertext, since decryption requires `Kern\Platform\KeyManagement\SubjectDekService`, which only
  * this authenticated application can invoke. So this endpoint *is* the only possible access path,
  * and it is authorized exactly like every other endpoint in this module: the caller's session
  * cookie plus an active, non-revoked `SubjectMembership`, re-checked on every single request by

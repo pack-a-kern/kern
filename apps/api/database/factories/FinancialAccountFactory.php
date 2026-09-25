@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
  * problem — `tax_subject_id` still must be supplied explicitly by the caller (it references an
  * already-created `TaxSubject`), but a single `create(['tax_subject_id' => $subject->id, ...])`
  * call works correctly regardless of attribute order, thanks to
- * `App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst`.
+ * `Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst`.
  */
 final class FinancialAccountFactory extends Factory
 {

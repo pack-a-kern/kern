@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_source_document_versions` (`BLUEPRINT.md` §6.8/§9.1).

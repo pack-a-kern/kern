@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Audit\ChainVerificationFailureReason;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Audit\Services\ChainVerifier;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**

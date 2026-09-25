@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\ObjectStore\StreamEnvelopeTest;
 
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\Exceptions\ObjectIntegrityException;
-use App\Support\ObjectStore\ObjectKey;
-use App\Support\ObjectStore\StreamEnvelopeReader;
-use App\Support\ObjectStore\StreamEnvelopeWriter;
-use App\Support\ObjectStore\ValueObjects\ObjectManifest;
 use Illuminate\Support\Str;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\Exceptions\ObjectIntegrityException;
+use Kern\Platform\ObjectStore\ObjectKey;
+use Kern\Platform\ObjectStore\StreamEnvelopeReader;
+use Kern\Platform\ObjectStore\StreamEnvelopeWriter;
+use Kern\Platform\ObjectStore\ValueObjects\ObjectManifest;
 use RuntimeException;
 
 /**

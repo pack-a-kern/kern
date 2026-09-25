@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * A registered WebAuthn credential (`user_passkeys` — see that migration's docblock for why

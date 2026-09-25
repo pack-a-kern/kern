@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * beyond the blueprint's literal column list (which only names `account_id`): the task brief for
  * this module states scoping every table to a tax subject is mandatory, and this is a
  * denormalisation of `financial_accounts.tax_subject_id` rather than a join-based scope, so
- * `App\Support\Tenancy\ScopedToTenant` protects this table exactly like every other
+ * `Kern\Platform\Tenancy\ScopedToTenant` protects this table exactly like every other
  * one in this module, with no exception for "child" tables. The same reasoning applies to every
  * other wallet table below that is not itself in `BLUEPRINT.md`'s literal list of directly
  * subject-scoped tables (`transaction_splits`, `deposit_rate_periods`, `deposit_interest_events`).

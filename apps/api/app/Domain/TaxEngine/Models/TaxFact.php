@@ -5,31 +5,31 @@ declare(strict_types=1);
 namespace App\Domain\TaxEngine\Models;
 
 use App\Domain\TaxEngine\Enums\TaxFactStatus;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
-use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\TaxFactFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Tenancy\ScopedToTenant;
 use RuntimeException;
 
 /**
  * `tax_facts` (`BLUEPRINT.md` §6.7) — see that migration's docblock for the §10.3 date columns and
  * the `fx_conversion_json` deviation from the literal `fx_rate_id`.
  *
- * Uses `App\Support\Tenancy\ScopedToTenant` (`docs/AGENTS.md` §8 — every business
+ * Uses `Kern\Platform\Tenancy\ScopedToTenant` (`docs/AGENTS.md` §8 — every business
  * query scoped to `tax_subject_id`) as defence in depth, even though
  * `App\Domain\TaxEngine\Repositories\TaxFactRepository` (this module's own sanctioned read path)
  * always filters by an explicitly-supplied subject id itself rather than relying on
- * `App\Support\Tenancy\TenantContext` being bound — see that repository's docblock for
+ * `Kern\Platform\Tenancy\TenantContext` being bound — see that repository's docblock for
  * why a background assessment job cannot assume an HTTP-request-scoped `TenantContext` exists.
  *
  * Composes `HasUuidPrimaryKey` (own primary key) with `FillsSubjectForeignKeyFirst`
  * (`tax_subject_id` must be set before `metadata_ciphertext`'s `Casts\Encrypted` cast runs during
- * `fill()`) — the exact combination `App\Support\Tenancy\ScopedToTenant`'s own
+ * `fill()`) — the exact combination `Kern\Platform\Tenancy\ScopedToTenant`'s own
  * docblock describes for "a model with both an encrypted field and this trait".
  *
  * @property string $id

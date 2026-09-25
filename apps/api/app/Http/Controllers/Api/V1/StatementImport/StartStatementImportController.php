@@ -10,11 +10,11 @@ use App\Domain\Documents\FileSecurity\Exceptions\FileSecurityException;
 use App\Domain\StatementImport\Actions\StartStatementImport;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Http\Controllers\Controller;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Kern\Platform\Tenancy\TenantContext;
 use RuntimeException;
 
 /**

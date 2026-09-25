@@ -21,9 +21,6 @@ use App\Domain\Documents\Extraction\TextExtractionGateway;
 use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
@@ -32,6 +29,9 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * `BLUEPRINT.md` §14.1: native text extraction, the OCR-needed decision, then the (consent-gated,

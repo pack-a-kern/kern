@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\Crypto\BlindIndex\NormalizerTest;
 
-use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
 
 describe('email', function (): void {
     it('lowercases and trims', function (): void {

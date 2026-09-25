@@ -10,9 +10,9 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\KeyManagement\SubjectDekService;
-use App\Support\Tenancy\Exceptions\NoTenantContextException;
-use App\Support\Tenancy\TenantContext;
+use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
+use Kern\Platform\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

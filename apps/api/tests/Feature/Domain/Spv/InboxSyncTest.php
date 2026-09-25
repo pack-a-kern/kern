@@ -17,11 +17,11 @@ use App\Domain\Spv\Models\SpvMessage;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `docs/reference/anaf-spv-integration.md`'s two-transport inbox sync — `App\Domain\Spv\Actions\

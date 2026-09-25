@@ -7,7 +7,7 @@ namespace App\Domain\Wallet\Actions;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Support\Tenancy\TenantScope;
+use Kern\Platform\Tenancy\TenantScope;
 
 /**
  * Gives a taxpayer the one source they should never have to create.

@@ -6,11 +6,11 @@ namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval;
 use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Database\Factories\FiscalParameterVersionFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `fiscal_parameter_versions` (`BLUEPRINT.md` §6.8) — a value for a period, proposed from what an

@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * No `tax_subject_id` column, matching `document_extractions`: this row is only ever reached
  * through its `document_id`, and `documents` is itself tenant-scoped
- * (`App\Support\Tenancy\ScopedToTenant`), so the tenant boundary is enforced one table
+ * (`Kern\Platform\Tenancy\ScopedToTenant`), so the tenant boundary is enforced one table
  * up rather than duplicated — and therefore cannot disagree with itself.
  */
 return new class () extends Migration {

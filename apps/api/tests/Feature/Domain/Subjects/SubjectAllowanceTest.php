@@ -7,9 +7,9 @@ use App\Domain\Subjects\Actions\RegisterPfSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
 use App\Domain\Subjects\Services\SubjectAllowance;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**

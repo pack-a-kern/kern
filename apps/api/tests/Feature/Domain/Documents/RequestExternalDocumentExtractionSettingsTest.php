@@ -15,7 +15,7 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Identity\Models\User;
 use App\Domain\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
 use App\Domain\Settings\Services\AiProviderSettingsService;
-use App\Support\KeyManagement\SubjectDekService;
+use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
@@ -48,7 +48,7 @@ function sendableDocument(): Document
 
     fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
     rewind($stream);
-    app(\App\Support\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
+    app(\Kern\Platform\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
     fclose($stream);
 
     return $document->fresh(['parts']) ?? $document;

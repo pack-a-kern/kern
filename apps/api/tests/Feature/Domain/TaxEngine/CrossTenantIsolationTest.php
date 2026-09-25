@@ -8,16 +8,16 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\TaxEngine\Models\TaxAssessment;
 use App\Domain\TaxEngine\Models\TaxFact;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
-use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use App\Support\KeyManagement\Contracts\KeyManagementService;
-use App\Support\Tenancy\TenantContext;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — mandatory. Proves
  * `App\Domain\TaxEngine\Models\TaxFact`/`TaxAssessment` are correctly wired to
- * `App\Support\Tenancy\ScopedToTenant` as defence in depth, on top of
+ * `Kern\Platform\Tenancy\ScopedToTenant` as defence in depth, on top of
  * `App\Domain\TaxEngine\Repositories\TaxFactRepository`'s own explicit `tax_subject_id` filter
  * (that repository's own tests prove the explicit-filter path; this test proves the underlying
  * model-level guard a less careful caller would still hit).

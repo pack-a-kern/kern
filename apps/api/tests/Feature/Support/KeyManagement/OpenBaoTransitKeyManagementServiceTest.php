@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Support\KeyManagement\OpenBaoTransitKeyManagementServiceTest;
 
-use App\Support\KeyManagement\Exceptions\KeyManagementException;
-use App\Support\KeyManagement\OpenBaoTransitKeyManagementService;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Request as Psr7Request;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Http;
+use Kern\Platform\KeyManagement\Exceptions\KeyManagementException;
+use Kern\Platform\KeyManagement\OpenBaoTransitKeyManagementService;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 
 /**
  * Exercises the OpenBao transit adapter's request construction and response parsing against a

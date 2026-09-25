@@ -17,10 +17,10 @@ use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use App\Http\Controllers\Controller;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Tenancy\TenantContext;
 
 /**
  * `POST /api/v1/subjects/{subject}/documents/{document}/transaction` — turn a document into a

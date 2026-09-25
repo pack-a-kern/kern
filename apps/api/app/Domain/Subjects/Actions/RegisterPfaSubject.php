@@ -15,17 +15,17 @@ use App\Domain\Subjects\Models\PfaProfile;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Services\SubjectAllowance;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 
 /**
  * Registers a new PFA `TaxSubject` — the extension proof `docs/handoff/034-pfa-extension.md`
  * (Milestone 12, `BLUEPRINT.md` §38.B) exists to demonstrate: this class is a file added without
  * modifying `App\Domain\Subjects\Actions\RegisterPfSubject`, `SubjectMembership`, `TenantContext`,
- * `ScopedToTenant`, or anything under `Domain/Audit`, `Domain/Identity`, `App\Support\Crypto`,
- * or `App\Support\KeyManagement`.
+ * `ScopedToTenant`, or anything under `Domain/Audit`, `Domain/Identity`, `Kern\Platform\Crypto`,
+ * or `Kern\Platform\KeyManagement`.
  *
  * Deliberately structured identically to `RegisterPfSubject` — same two-write `TaxSubject`
  * creation (see that class's own docblock for exactly why), same duplicate-identifier check
@@ -51,7 +51,7 @@ use Kern\Audit\Services\AuditChainService;
  *
  * ## Why the registration-number normalisation differs from CNP's
  *
- * `App\Support\Crypto\BlindIndex\Normalizer::cnp()` strips everything but digits — a rule that is
+ * `Kern\Platform\Crypto\BlindIndex\Normalizer::cnp()` strips everything but digits — a rule that is
  * true of CNP specifically and would be an unverified assumption about a registration number's
  * shape. `FiscalIdentifierKind::CUI` normalises with `Normalizer::text()` instead (already used
  * for `App\Domain\Spv\Actions\RegisterSpvConnection`'s SPV username and `App\Domain\Wallet\

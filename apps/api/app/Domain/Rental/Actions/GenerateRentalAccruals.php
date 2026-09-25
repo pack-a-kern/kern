@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  * ending moves period boundaries, and without it the old periods stayed beside the new ones — the
  * same fault a deposit's interest schedule had until it gained the same rule.
  *
- * Requires an active `App\Support\Tenancy\TenantContext` authorized for the contract's own
+ * Requires an active `Kern\Platform\Tenancy\TenantContext` authorized for the contract's own
  * `tax_subject_id` — every model this action reads/writes is tenant-scoped.
  */
 final readonly class GenerateRentalAccruals

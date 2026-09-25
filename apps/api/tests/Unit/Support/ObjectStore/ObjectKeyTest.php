@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\ObjectStore\ObjectKeyTest;
 
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\Exceptions\InvalidObjectKeyException;
-use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Str;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\Exceptions\InvalidObjectKeyException;
+use Kern\Platform\ObjectStore\ObjectKey;
 
 it('builds the exact BLUEPRINT.md §4.6 key shape for a document original', function (): void {
     $subjectId = (string) Str::uuid7();

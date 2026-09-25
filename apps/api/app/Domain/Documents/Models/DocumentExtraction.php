@@ -6,11 +6,11 @@ namespace App\Domain\Documents\Models;
 
 use App\Domain\Documents\Enums\ExtractionStatus;
 use App\Domain\Documents\Enums\ExtractorType;
-use App\Support\Crypto\Casts\Encrypted;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
-use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Kern\Platform\Crypto\Casts\Encrypted;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use RuntimeException;
 
 /**

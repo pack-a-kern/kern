@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Fx\Models;
 
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_fx_rate_anomalies` — written instead of overwriting an existing `ext_fx_rates` row whose value

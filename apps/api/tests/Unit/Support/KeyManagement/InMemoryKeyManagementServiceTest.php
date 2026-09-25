@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\KeyManagement\InMemoryKeyManagementServiceTest;
 
-use App\Support\KeyManagement\Exceptions\KeyManagementException;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
+use Kern\Platform\KeyManagement\Exceptions\KeyManagementException;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 it('round-trips a wrapped DEK', function (): void {

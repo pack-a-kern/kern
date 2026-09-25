@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
-use App\Support\KeyManagement\Contracts\SubjectDekRepository;
-use App\Support\KeyManagement\ValueObjects\WrappedDataKey;
+use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 use RuntimeException;
 
 /**
@@ -14,7 +14,7 @@ use RuntimeException;
  * table exists yet. Enforces the same create-only contract the real implementation must:
  * `save()` throws if a wrapped DEK already exists for the subject.
  *
- * Lives under tests/, not app/Support — a test double, not a production driver.
+ * Lives under tests/, not in `kern/platform` — a test double, not a production driver.
  */
 final class InMemorySubjectDekRepository implements SubjectDekRepository
 {

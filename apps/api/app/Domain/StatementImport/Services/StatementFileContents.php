@@ -6,10 +6,10 @@ namespace App\Domain\StatementImport\Services;
 
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentDerivative;
-use App\Support\ObjectStore\DocumentObjectKind;
-use App\Support\ObjectStore\EncryptedObjectStore;
-use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
-use App\Support\ObjectStore\ObjectKey;
+use Kern\Platform\ObjectStore\DocumentObjectKind;
+use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
+use Kern\Platform\ObjectStore\ObjectKey;
 use RuntimeException;
 
 /**

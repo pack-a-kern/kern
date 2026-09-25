@@ -15,10 +15,10 @@ use App\Domain\Subjects\Models\PfProfile;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Services\SubjectAllowance;
-use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 
 /**
  * Registers a new PF `TaxSubject`: checks for a duplicate CNP across the whole system
@@ -34,7 +34,7 @@ use Kern\Audit\Services\AuditChainService;
  *
  * `TaxSubject::encryptionSubjectId()` returns its own primary key — encrypting its
  * `display_name_ciphertext`/`fiscal_identifier_ciphertext` requires that subject's own DEK to
- * already exist, and `App\Support\KeyManagement\SubjectDekService`'s first-use path
+ * already exist, and `Kern\Platform\KeyManagement\SubjectDekService`'s first-use path
  * (`App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository`) needs the `tax_subjects`
  * row to already exist in the database before it can record a wrapped DEK against it. So: insert
  * the bare row first (no encrypted columns set — they stay `NULL`), then assign the encrypted

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Support\Logging\SensitiveDataProcessor;
+use Kern\Platform\Logging\SensitiveDataProcessor;
 use Monolog\Level;
 use Monolog\LogRecord;
 

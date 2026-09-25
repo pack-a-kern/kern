@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\TaxKnowledge\Models;
 
 use App\Domain\TaxKnowledge\Enums\OutlineLevel;
-use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
+use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `ext_source_outline` — one heading of a version's table of contents.

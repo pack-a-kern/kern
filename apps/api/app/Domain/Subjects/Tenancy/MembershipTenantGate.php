@@ -6,7 +6,7 @@ namespace App\Domain\Subjects\Tenancy;
 
 use App\Domain\Subjects\Models\SecurityEvent;
 use App\Domain\Subjects\Models\SubjectMembership;
-use App\Support\Tenancy\Contracts\TenantGate;
+use Kern\Platform\Tenancy\Contracts\TenantGate;
 
 /**
  * What "may act for" means here: a membership of this taxpayer that has not been revoked.

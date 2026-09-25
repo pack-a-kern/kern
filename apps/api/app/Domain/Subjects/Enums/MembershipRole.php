@@ -6,7 +6,7 @@ namespace App\Domain\Subjects\Enums;
 
 /**
  * `BLUEPRINT.md` §5.3 — roles a `User` can hold against a `TaxSubject` via `subject_memberships`.
- * Ordered here from most to least privileged; `App\Support\Tenancy\TenantContext` exposes
+ * Ordered here from most to least privileged; `Kern\Platform\Tenancy\TenantContext` exposes
  * the resolved role but this task defines no permission matrix beyond the role name itself — that
  * is for whichever module first needs to distinguish, e.g., `ACCOUNTANT` from `VIEWER` in practice.
  */
