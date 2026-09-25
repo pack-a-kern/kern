@@ -2,17 +2,19 @@
 
 declare(strict_types=1);
 
+use Kern\TaxRomania\Rental\Models\RentalContract;
+
 /**
  * `docs/AGENTS.md` rule 6 / `BLUEPRINT.md` §19.1: no float for money, anywhere. This module has no
  * single `Money` class to point a reflection test at (see `docs/handoff/025-rental-module.md`
  * "Key decisions" for why — every amount is a plain `int` of minor units), so this test instead
- * walks every class file under `app/Domain/Rental` and asserts none of them declares a `float`
+ * walks every class file in `kern/tax-romania`'s `Rental` and asserts none of them declares a `float`
  * type on any property, parameter, or return type. A raw source-text search for the word "float"
  * would false-positive on this very docblock and others like it; reflecting over actual type
  * declarations does not.
  */
-it('never declares a float type on any property, parameter, or return type in Domain/Rental', function (): void {
-    $root = dirname(__DIR__, 4) . '/app/Domain/Rental';
+it('never declares a float type on any property, parameter, or return type in Rental', function (): void {
+    $root = packageRoot(RentalContract::class) . '/src/Rental';
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 
     $floatOffenders = [];
@@ -30,7 +32,7 @@ it('never declares a float type on any property, parameter, or return type in Do
             continue;
         }
 
-        $className = 'App\\Domain\\Rental\\' . classNamespaceSuffix($file->getPathname(), $root) . $matches[1];
+        $className = 'Kern\\TaxRomania\\Rental\\' . classNamespaceSuffix($file->getPathname(), $root) . $matches[1];
 
         if (! class_exists($className) && ! interface_exists($className) && ! enum_exists($className)) {
             continue;

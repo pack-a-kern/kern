@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Banks\SourceDownloadLinksTest;
 
-use App\Domain\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
-use App\Domain\Banks\Parsing\SourceDownloadLinks;
+use Kern\TaxRomania\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
+use Kern\TaxRomania\Banks\Parsing\SourceDownloadLinks;
 
 it('takes the newest ECB list, made absolute, and never the day’s change file', function (): void {
     $html = <<<'HTML'

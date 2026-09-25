@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Banks\BackfillBanksTest;
 
-use App\Domain\Banks\Actions\BackfillBanks;
-use App\Domain\Banks\Exceptions\BankSourceNotConfiguredException;
-use App\Domain\Banks\Models\Bank;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
+use Kern\TaxRomania\Banks\Actions\BackfillBanks;
+use Kern\TaxRomania\Banks\Exceptions\BankSourceNotConfiguredException;
+use Kern\TaxRomania\Banks\Models\Bank;
 
 /**
  * Closed banks, read back from the ECB's archive.

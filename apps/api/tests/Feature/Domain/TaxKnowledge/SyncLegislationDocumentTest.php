@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\SyncLegislationDocumentTest;
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
@@ -22,6 +21,7 @@ use Kern\Legislation\Repositories\OfficialSourceRepository;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Services\LegislationTemporalQuery;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 
 /**
  * A law read from a faked legislatie.just.ro, end to end: found through the web service, followed to

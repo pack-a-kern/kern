@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Fx\FxRateImporterTest;
 
-use App\Domain\Fx\DataTransferObjects\ParsedFxRate;
-use App\Domain\Fx\Enums\FxRateImportOutcome;
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxRateAnomaly;
-use App\Domain\Fx\Services\FxRateImporter;
-use App\Domain\Fx\ValueObjects\DecimalRate;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxRate;
+use Kern\TaxRomania\Fx\Enums\FxRateImportOutcome;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Models\FxRateAnomaly;
+use Kern\TaxRomania\Fx\Services\FxRateImporter;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

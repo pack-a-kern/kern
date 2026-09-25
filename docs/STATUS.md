@@ -41,7 +41,7 @@ Claim a path here before editing it, release it when your handoff note is writte
 | Path | Agent / task | Since |
 |------|--------------|-------|
 | `apps/api/app/Support/Crypto/**`, key migrations | 005 crypto core | wave 2 |
-| `apps/api/app/Domain/Audit/**` | 006 audit chain | wave 2 |
+| `apps/api/packages/tax-romania/src/Audit/**` | 006 audit chain | wave 2 |
 | `apps/processing/pyproject.toml`, `docs/adr/0008-*` | 007 PDF licence swap | wave 2 |
 
 ---

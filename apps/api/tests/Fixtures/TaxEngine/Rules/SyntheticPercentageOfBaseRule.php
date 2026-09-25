@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures\TaxEngine\Rules;
 
-use App\Domain\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
-use App\Domain\TaxEngine\Contracts\TaxRuleContract;
-use App\Domain\TaxEngine\DataTransferObjects\CalculationStep;
-use App\Domain\TaxEngine\DataTransferObjects\CalculationTrace;
-use App\Domain\TaxEngine\DataTransferObjects\TaxRuleInput;
-use App\Domain\TaxEngine\DataTransferObjects\TaxRuleOutcome;
-use App\Domain\TaxEngine\Enums\RoundingMode;
-use App\Domain\TaxEngine\ValueObjects\Money;
+use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
+use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationTrace;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleInput;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleOutcome;
+use Kern\TaxRomania\TaxEngine\Enums\RoundingMode;
+use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 
 /**
  * SYNTHETIC, TEST-ONLY fixture rule (`docs/AGENTS.md` §2 / the task brief: "your tests supply
  * their own clearly-synthetic parameters"). Not a real Romanian tax rule — no rate, threshold, or
  * ceiling is hardcoded anywhere in this class; the only number involved (`RO.TEST.SYNTHETIC_RATE`)
- * is a `fiscal_parameter_versions` value resolved by `App\Domain\TaxEngine\Services\
+ * is a `fiscal_parameter_versions` value resolved by `Kern\TaxRomania\TaxEngine\Services\
  * ParameterResolver` at test-setup time from a factory-created row, never a literal here.
  *
  * Demonstrates the generic "percentage of the summed RON gross base" shape end to end —
- * `App\Domain\TaxEngine\Services\TaxAssessor`'s own tests use this as their
+ * `Kern\TaxRomania\TaxEngine\Services\TaxAssessor`'s own tests use this as their
  * `tax_rule_versions.implementation_class` — and is itself proven pure by
  * `tests/Feature/Domain/TaxEngine/RulePurityArchitectureTest.php`.
  */

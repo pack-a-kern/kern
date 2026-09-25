@@ -4,26 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\CredentialFlowTest;
 
-use App\Domain\Spv\Actions\DestroySpvSession;
-use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
-use App\Domain\Spv\Actions\SubmitSpvChallengeCode;
-use App\Domain\Spv\Actions\SubmitSpvCredentials;
-use App\Domain\Spv\DataTransferObjects\SubmitSpvChallengeCodeInput;
-use App\Domain\Spv\DataTransferObjects\SubmitSpvCredentialsInput;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\Enums\SpvSessionState;
-use App\Domain\Spv\Events\SpvAuthChallengeRequired;
-use App\Domain\Spv\Events\SpvAuthenticated;
-use App\Domain\Spv\Exceptions\InvalidSpvSessionTransitionException;
-use App\Domain\Spv\Exceptions\SpvChallengeExpiredException;
-use App\Domain\Spv\Exceptions\SpvPortalAutomationUnavailableException;
-use App\Domain\Spv\Models\SpvConnection;
-use App\Domain\Spv\ValueObjects\SensitiveString;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -34,6 +14,26 @@ use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Spv\Actions\DestroySpvSession;
+use Kern\TaxRomania\Spv\Actions\InitiateSpvAuthAttempt;
+use Kern\TaxRomania\Spv\Actions\SubmitSpvChallengeCode;
+use Kern\TaxRomania\Spv\Actions\SubmitSpvCredentials;
+use Kern\TaxRomania\Spv\DataTransferObjects\SubmitSpvChallengeCodeInput;
+use Kern\TaxRomania\Spv\DataTransferObjects\SubmitSpvCredentialsInput;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\Enums\SpvSessionState;
+use Kern\TaxRomania\Spv\Events\SpvAuthChallengeRequired;
+use Kern\TaxRomania\Spv\Events\SpvAuthenticated;
+use Kern\TaxRomania\Spv\Exceptions\InvalidSpvSessionTransitionException;
+use Kern\TaxRomania\Spv\Exceptions\SpvChallengeExpiredException;
+use Kern\TaxRomania\Spv\Exceptions\SpvPortalAutomationUnavailableException;
+use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `BLUEPRINT.md` §13.2 steps 1-11, exercised end to end against `apps/spv-browser`'s real (documented
@@ -72,7 +72,7 @@ function spvConnectionFor(TaxSubject $subject): SpvConnection
 }
 
 /**
- * `App\Domain\Spv\Actions\*` read `spv_connections`/`spv_sessions` through
+ * `Kern\TaxRomania\Spv\Actions\*` read `spv_connections`/`spv_sessions` through
  * `Kern\Platform\Tenancy\ScopedToTenant`, exactly like every other business module —
  * an authorized membership must be activated before any of them can query, the same
  * `docs/handoff/011-identity-tenancy.md` mechanism `tests/Feature/Domain/Rental/

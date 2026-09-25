@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Domain\Subjects\Queries\MembershipRoleCounts;
 use Illuminate\Http\JsonResponse;
 use Kern\Platform\Identity\Queries\AdminUserDirectory;
+use Kern\TaxRomania\Subjects\Queries\MembershipRoleCounts;
 
 /**
  * `GET /api/v1/admin/users` — the people who can sign in, their MFA posture and their memberships.
  *
  * `roles` here are the *platform* roles from `config/access.php`, which are enforced. They are a
- * different thing from `App\Domain\Subjects\Enums\MembershipRole`, which is recorded on every
+ * different thing from `Kern\TaxRomania\Subjects\Enums\MembershipRole`, which is recorded on every
  * tax-subject membership and is still consulted by nothing — `grep` for `MembershipRole::` finds
  * only writes. `enforcement.membership_roles_enforced` reports that, so the screen cannot imply a
  * per-subject permission model that does not exist yet.

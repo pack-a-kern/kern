@@ -82,7 +82,7 @@ Route::prefix('v1/auth')->group(function (): void {
 /*
  * `docs/handoff/031-pwa-backend-endpoints.md` — which `TaxSubject`s the authenticated user can
  * access (driven by `subject_memberships`, `docs/handoff/011-identity-tenancy.md`), and
- * registering a new PF one (`App\Domain\Subjects\Actions\RegisterPfSubject`, reused verbatim).
+ * registering a new PF one (`Kern\TaxRomania\Subjects\Actions\RegisterPfSubject`, reused verbatim).
  * Neither route binds `{subject}`/`tax-subject` — listing must work *before* any subject is
  * chosen, and registration creates one.
  */

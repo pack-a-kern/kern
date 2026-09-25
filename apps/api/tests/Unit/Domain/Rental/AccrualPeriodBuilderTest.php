@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domain\Rental\Enums\RentalPaymentFrequency;
-use App\Domain\Rental\Exceptions\InvalidDateRangeException;
-use App\Domain\Rental\Services\AccrualPeriodBuilder;
+use Kern\TaxRomania\Rental\Enums\RentalPaymentFrequency;
+use Kern\TaxRomania\Rental\Exceptions\InvalidDateRangeException;
+use Kern\TaxRomania\Rental\Services\AccrualPeriodBuilder;
 
 beforeEach(function (): void {
     $this->builder = new AccrualPeriodBuilder();

@@ -10,7 +10,7 @@ declare(strict_types=1);
  * "72" the next, "salarii minime" here and "salarii de bază minime" there. A model reads the
  * paragraphs this application already holds and names the one that answers the question; nothing it
  * says is believed — the sentence it quotes must stand, word for word, in that paragraph
- * ({@see \App\Domain\FiscalParameters\Reading\LawReader}), and a person approves the
+ * ({@see \Kern\TaxRomania\FiscalParameters\Reading\LawReader}), and a person approves the
  * value before it counts.
  *
  * Only public law is sent. No taxpayer's data passes through here, which is why this reading needs

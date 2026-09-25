@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\ValidateDeclarationTest;
 
-use App\Domain\Declarations\Actions\ValidateDeclaration;
-use App\Domain\Declarations\DataTransferObjects\ValidationIssue;
-use App\Domain\Declarations\Enums\DeclarationStatus;
-use App\Domain\Declarations\Exceptions\DeclarationValidationFailedException;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Declarations\Actions\ValidateDeclaration;
+use Kern\TaxRomania\Declarations\DataTransferObjects\ValidationIssue;
+use Kern\TaxRomania\Declarations\Enums\DeclarationStatus;
+use Kern\TaxRomania\Declarations\Exceptions\DeclarationValidationFailedException;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use RuntimeException;
 
 /**

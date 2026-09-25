@@ -29,9 +29,9 @@ Backend
 - `deptrac.php` — PHP-format Deptrac config (Deptrac 4.x's native format; YAML still works but this
   is what `deptrac init` generates and what the installed 4.7.1 actually documents in its own
   vendored template). Declares layers `Support`, `Identity`, `Subjects`, `Audit` matching
-  `app/Support/*` and `app/Domain/{Identity,Subjects,Audit}/*`. Ruleset: each domain layer may
+  `app/Support/*` and `packages/tax-romania/src/{Identity,Subjects,Audit}/*`. Ruleset: each domain layer may
   depend on `Support`; domain layers may not depend on each other. **No layer contains any file yet**
-  — `app/Domain/` does not exist (§19.1/AGENTS.md §6 forbid empty scaffolding). The M1 agent adding
+  — `packages/tax-romania/src/` does not exist (§19.1/AGENTS.md §6 forbid empty scaffolding). The M1 agent adding
   `packages/platform/src/Identity/...` gets boundary enforcement for free; adding a *new* module (Wallet,
   Documents, …) requires adding its layer to `deptrac.php` in the same change, or Deptrac won't see it.
 - `app/Http/Middleware/HandleInertiaRequests.php` — Inertia root-view middleware, registered in
@@ -283,11 +283,11 @@ every dependency addition in this task.
 - `resources/js/pages/<name>.tsx` — convention for every future page (`Inertia::render('module/page')`
   → `resources/js/pages/module/page.tsx`), matching `inertia.pages.paths` default
   (`resource_path('js/pages')`), which was never overridden.
-- `deptrac.php` — add a `Layer::withName('<Module>')` + `DirectoryConfig::create('app/Domain/<Module>/.*')`
+- `deptrac.php` — add a `Layer::withName('<Module>')` + `DirectoryConfig::create('packages/tax-romania/src/<Module>/.*')`
   and a `Ruleset::forLayer(...)` entry in the same commit that adds the module's first class.
   Undeclared modules are invisible to the boundary check, not automatically forbidden.
 - `phpstan.neon` — add new top-level directories to `parameters.paths` as they're created (e.g.
-  `app/Domain` once it exists) so they're actually analysed.
+  `packages/tax-romania/src` once it exists) so they're actually analysed.
 - Redis connections `default` and `cache` (`config/database.php`), queue connection `redis`
   (`config/queue.php`), cache store `redis` (`config/cache.php`), session driver `redis` — all wired
   and env-driven, ready for `docker-compose`'s `redis` service.
@@ -296,7 +296,7 @@ every dependency addition in this task.
 
 ## What is NOT done
 
-- No `app/Domain/*` modules — Identity, Subjects, Wallet, Ledger, Documents, TaxKnowledge, TaxEngine,
+- No `packages/tax-romania/src/*` modules — Identity, Subjects, Wallet, Ledger, Documents, TaxKnowledge, TaxEngine,
   Declarations, Spv, Notifications, Audit are all Milestone 1+ (per this task's explicit scope).
 - No auth, no users table, no passkeys/MFA, no envelope encryption, no blind indexes — Milestone 1.
 - No `routes/channels.php`, no private/presence Reverb channels — nothing to authorize yet.

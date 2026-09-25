@@ -13,7 +13,7 @@ use RuntimeException;
  * Persists the wrapped system-wide DEK in `system_encryption_keys`, one row per scope —
  * `Kern\Platform\Settings\Support\SystemEncryptionScope::ID` (`'system'`) is the only scope that
  * exists today. A deliberately **separate** table and a **separate** `SubjectDekService` instance
- * from `App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository`: that repository only
+ * from `Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository`: that repository only
  * ever looks at `tax_subjects.id`/`users.id`, both native Postgres `uuid`-typed primary keys, and
  * `SystemEncryptionScope::ID` is deliberately not a UUID — a lookup against either of those tables
  * with this scope's id would not merely "not find a row", it could fail at the database level on

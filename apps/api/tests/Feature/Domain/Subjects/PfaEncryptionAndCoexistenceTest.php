@@ -4,19 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\PfaEncryptionAndCoexistenceTest;
 
-use App\Domain\Subjects\Actions\RegisterPfaSubject;
-use App\Domain\Subjects\Actions\RegisterPfSubject;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
-use App\Domain\Subjects\Enums\FiscalIdentifierKind;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\PfaProfile;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Models\FinancialAccount;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -26,6 +13,19 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
+use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\PfaProfile;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -38,7 +38,7 @@ use Tests\Fakes\InMemoryKeyManagementService;
  *    exactly as it does for `pf_profiles`, with zero change to `Kern\Platform\Crypto\**`.
  * 2. A single `User` holding both a PF and a PFA `TaxSubject` (`BLUEPRINT.md` §33's literal example)
  *    works with the existing `TenantContext`/`ScopedToTenant` mechanism and an unmodified
- *    `App\Domain\Wallet` action, with no PFA-aware branch anywhere in either.
+ *    `Kern\TaxRomania\Wallet` action, with no PFA-aware branch anywhere in either.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -174,7 +174,7 @@ it('lets one user hold an active PF subject and an active PFA subject at the sam
     expect(app(ChainVerifier::class)->verify($pf->id)->ok)->toBeTrue()
         ->and(app(ChainVerifier::class)->verify($pfa->id)->ok)->toBeTrue();
 
-    // TenantContext (App\Domain\Subjects\Tenancy — unmodified by this task) authorizes both,
+    // TenantContext (Kern\TaxRomania\Subjects\Tenancy — unmodified by this task) authorizes both,
     // one at a time, exactly as it does for two PF subjects.
     $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $pf->id);
@@ -204,7 +204,7 @@ it('opens a Wallet financial account for a PFA subject through the unmodified Wa
 
     expect($account->tax_subject_id)->toBe($pfa->id);
 
-    // FinancialAccount::query() is scoped by ScopedToTenant (App\Domain\Wallet, unmodified
+    // FinancialAccount::query() is scoped by ScopedToTenant (Kern\TaxRomania\Wallet, unmodified
     // by this task) — reading it back needs the same TenantContext activation any other module's
     // caller would already have performed.
     app(TenantContext::class)->authorizeAndActivate($user->id, $pfa->id);

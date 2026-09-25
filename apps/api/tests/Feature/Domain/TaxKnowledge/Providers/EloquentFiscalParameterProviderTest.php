@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
-use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
-use App\Domain\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
-use App\Domain\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
-use App\Domain\TaxEngine\Exceptions\UnknownFiscalParameterException;
 use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
+use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
+use Kern\TaxRomania\TaxEngine\Exceptions\UnknownFiscalParameterException;
 
 /**
  * Relocated from `tests/Feature/Domain/TaxEngine/FiscalParameterTemporalReaderTest.php` when the
- * class it tests moved from `App\Domain\TaxEngine\Repositories\FiscalParameterTemporalReader` to
+ * class it tests moved from `Kern\TaxRomania\TaxEngine\Repositories\FiscalParameterTemporalReader` to
  * this adapter (`docs/adr/0010-tax-engine-ports-and-adapters.md`) — same assertions, same
  * behaviour, only the class under test and its location changed.
  */

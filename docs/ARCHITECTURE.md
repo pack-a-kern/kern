@@ -46,7 +46,7 @@ the write, applying the same authorization and validation any other write path w
 ## 2. Laravel: modular monolith
 
 ```text
-apps/api/app/Domain/<Module>/
+apps/api/packages/tax-romania/src/<Module>/
 ```
 
 Per ADR 0001, a module directory is created only when it has real code — this project has not

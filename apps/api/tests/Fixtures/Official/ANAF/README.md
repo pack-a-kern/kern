@@ -34,10 +34,10 @@ official sources justify a fiscal figure).
 
 1. M4 approves a `fiscal_parameter_versions`/`tax_rule_versions` row with a real
    `source_section_id`.
-2. A real `App\Domain\TaxEngine\Contracts\TaxRuleContract` implementation is written for that rule,
-   under `app/Domain/TaxEngine/Rules/**` (an empty directory today — `docs/CODE-QUALITY.md` §2
+2. A real `Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract` implementation is written for that rule,
+   under `packages/tax-romania/src/TaxEngine/Rules/**` (an empty directory today — `docs/CODE-QUALITY.md` §2
    forbids scaffolding it before there is a rule to put there).
 3. The official ANAF worked example becomes a fixture here.
 4. A Pest test loads the fixture, builds a `TaxContext` from its `input`, calls
-   `App\Domain\TaxEngine\Services\TaxAssessor::assess()`, and asserts the result equals `expected`
+   `Kern\TaxRomania\TaxEngine\Services\TaxAssessor::assess()`, and asserts the result equals `expected`
    exactly — the CI gate `docs/AGENTS.md` §9 requires for any change touching a computed figure.

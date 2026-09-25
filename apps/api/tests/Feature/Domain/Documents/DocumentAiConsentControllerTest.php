@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\DocumentAiConsentControllerTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Kern\Documents\Consent\DocumentAiConsentGate;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `POST`/`DELETE /api/v1/subjects/{subject}/document-ai-consent` — ADR 0005's consent gate, the

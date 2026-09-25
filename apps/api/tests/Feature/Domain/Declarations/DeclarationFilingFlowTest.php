@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\DeclarationFilingFlowTest;
 
-use App\Domain\Declarations\Actions\CreateRectificativeDeclaration;
-use App\Domain\Declarations\Actions\RecordDeclarationSubmissionResponse;
-use App\Domain\Declarations\Actions\SubmitDeclaration;
-use App\Domain\Declarations\Actions\ValidateDeclaration;
-use App\Domain\Declarations\DataTransferObjects\CreateRectificativeDeclarationInput;
-use App\Domain\Declarations\DataTransferObjects\RecordDeclarationSubmissionResponseInput;
-use App\Domain\Declarations\DataTransferObjects\SubmitDeclarationInput;
-use App\Domain\Declarations\Enums\DeclarationKind;
-use App\Domain\Declarations\Enums\DeclarationStatus;
-use App\Domain\Declarations\Enums\SubmissionTransport;
-use App\Domain\Declarations\Exceptions\DeclarationNotSubmittedException;
-use App\Domain\Declarations\Exceptions\DeclarationNotValidException;
-use App\Domain\Declarations\Exceptions\InvalidSubmissionOutcomeException;
-use App\Domain\Declarations\Exceptions\RectificativeSourceNotFiledException;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Declarations\Actions\CreateRectificativeDeclaration;
+use Kern\TaxRomania\Declarations\Actions\RecordDeclarationSubmissionResponse;
+use Kern\TaxRomania\Declarations\Actions\SubmitDeclaration;
+use Kern\TaxRomania\Declarations\Actions\ValidateDeclaration;
+use Kern\TaxRomania\Declarations\DataTransferObjects\CreateRectificativeDeclarationInput;
+use Kern\TaxRomania\Declarations\DataTransferObjects\RecordDeclarationSubmissionResponseInput;
+use Kern\TaxRomania\Declarations\DataTransferObjects\SubmitDeclarationInput;
+use Kern\TaxRomania\Declarations\Enums\DeclarationKind;
+use Kern\TaxRomania\Declarations\Enums\DeclarationStatus;
+use Kern\TaxRomania\Declarations\Enums\SubmissionTransport;
+use Kern\TaxRomania\Declarations\Exceptions\DeclarationNotSubmittedException;
+use Kern\TaxRomania\Declarations\Exceptions\DeclarationNotValidException;
+use Kern\TaxRomania\Declarations\Exceptions\InvalidSubmissionOutcomeException;
+use Kern\TaxRomania\Declarations\Exceptions\RectificativeSourceNotFiledException;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
  * The end-to-end path: `CreateDeclarationDraft` (not re-tested here, see

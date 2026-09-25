@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\Rental\Services\RentalDueDateCalculator;
+use Kern\TaxRomania\Rental\Services\RentalDueDateCalculator;
 
 beforeEach(function (): void {
     $this->calculator = new RentalDueDateCalculator();

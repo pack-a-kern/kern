@@ -96,7 +96,7 @@ return [
         ],
 
         // The European Central Bank's list of financial institutions — every bank in the EU, daily.
-        // Read by App\Domain\Banks\Actions\ImportBanks. Verified 2026-09-15: the list page and the
+        // Read by Kern\TaxRomania\Banks\Actions\ImportBanks. Verified 2026-09-15: the list page and the
         // file it links to are both served from this host, without a redirect.
         'ECB' => [
             'trust_tier' => 'D',
@@ -164,11 +164,11 @@ return [
         'prefix' => env('SOURCES_STORAGE_PREFIX', 'sources'),
     ],
 
-    // App\Domain\Fx — BLUEPRINT.md §7.4/§7.5. No floats anywhere: every rate is a BCMath decimal
-    // string (App\Domain\Fx\ValueObjects\DecimalRate). `decimal_scale` is the ext_fx_rates/
+    // Kern\TaxRomania\Fx — BLUEPRINT.md §7.4/§7.5. No floats anywhere: every rate is a BCMath decimal
+    // string (Kern\TaxRomania\Fx\ValueObjects\DecimalRate). `decimal_scale` is the ext_fx_rates/
     // ext_fx_period_averages storage precision; `verification_tolerance` is the maximum absolute
     // difference between a calculated period average and BNR's own published value before
-    // App\Domain\Fx\Enums\VerificationStatus::MISMATCH is recorded instead of VERIFIED.
+    // Kern\TaxRomania\Fx\Enums\VerificationStatus::MISMATCH is recorded instead of VERIFIED.
     'fx' => [
         'decimal_scale' => (int) env('FX_DECIMAL_SCALE', 6),
         'verification_tolerance' => env('FX_VERIFICATION_TOLERANCE', '0.0001'),

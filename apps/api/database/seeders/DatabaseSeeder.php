@@ -9,10 +9,16 @@ use Illuminate\Database\Seeder;
 final class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Nothing, on purpose.
+     *
+     * Every list this product needs is either configuration (`reference/*`, the official-source
+     * allowlist) projected onto tables by a command that can be re-run, or real data fetched from the
+     * institution that publishes it — banks from the ECB, rates from the BNR, the law from the
+     * portal. Seeded rows would be a fourth source of truth for figures that must be traceable to
+     * the body that issued them.
      */
     public function run(): void
     {
-        // No seed data yet — Identity/Subjects seeders arrive with Milestone 1.
+        //
     }
 }

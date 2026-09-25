@@ -2,10 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
-use App\Domain\Operations\Enums\TaskRunTrigger;
-use App\Domain\Operations\Jobs\RunOperationTask;
-use App\Domain\Operations\Services\ScheduledTaskRegistry;
 use App\Http\Middleware\BindTaxSubjectContext;
 use App\Http\Middleware\HandleInertiaRequests;
 use Carbon\CarbonImmutable;
@@ -18,6 +14,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
+use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
+use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
+use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 
@@ -72,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //  - the **file**, read by `docker/php/scheduler-healthcheck.php` inside this same
         //    container. Local on purpose: a healthcheck that went red because Redis was down would
         //    restart a scheduler that is working perfectly.
-        //  - the **cache**, read by `App\Domain\Operations\Services\ProbeSchedulerStatus` in the
+        //  - the **cache**, read by `Kern\TaxRomania\Operations\Services\ProbeSchedulerStatus` in the
         //    `app` container for /admin/operatiuni. That is a *different* container with its own
         //    tmpfs — it cannot see the file at all, and a screen that reported a healthy scheduler
         //    as stalled would be worse than no screen.
@@ -113,7 +113,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Everything below the heartbeat comes from `ScheduledTaskRegistry`, not from literals
         // here. The split it enforces is the security property, and it is worth stating plainly:
         //
-        //   *which* tasks exist  -> App\Domain\Operations\Enums\OperationTask, a closed PHP enum
+        //   *which* tasks exist  -> Kern\TaxRomania\Operations\Enums\OperationTask, a closed PHP enum
         //   *when* they run      -> config/operations.php, env-overridable
         //   *whether* they run   -> scheduled_tasks.enabled, the one runtime-mutable bit
         //

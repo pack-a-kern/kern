@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\Declarations\Exceptions\InvalidFormSchemaException;
-use App\Domain\Declarations\Services\FormSchemaValidator;
+use Kern\TaxRomania\Declarations\Exceptions\InvalidFormSchemaException;
+use Kern\TaxRomania\Declarations\Services\FormSchemaValidator;
 
 /**
  * @return array<string, mixed>

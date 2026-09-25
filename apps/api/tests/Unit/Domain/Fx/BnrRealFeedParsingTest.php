@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\Fx\Parsing\BnrXmlParser;
+use Kern\TaxRomania\Fx\Parsing\BnrXmlParser;
 
 /**
  * Parses a REAL BNR daily feed, captured verbatim from https://curs.bnr.ro/nbrfxrates.xml on

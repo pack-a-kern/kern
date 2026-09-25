@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Domain\TaxEngine\Models\TaxFact;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Models\TaxFact;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — mandatory. Proves
- * `App\Domain\TaxEngine\Models\TaxFact`/`TaxAssessment` are correctly wired to
+ * `Kern\TaxRomania\TaxEngine\Models\TaxFact`/`TaxAssessment` are correctly wired to
  * `Kern\Platform\Tenancy\ScopedToTenant` as defence in depth, on top of
- * `App\Domain\TaxEngine\Repositories\TaxFactRepository`'s own explicit `tax_subject_id` filter
+ * `Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository`'s own explicit `tax_subject_id` filter
  * (that repository's own tests prove the explicit-filter path; this test proves the underlying
  * model-level guard a less careful caller would still hit).
  */

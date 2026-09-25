@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\MoneyTest;
 
-use App\Domain\Wallet\ValueObjects\Exceptions\CurrencyMismatchException;
-use App\Domain\Wallet\ValueObjects\Exceptions\InvalidMoneyException;
-use App\Domain\Wallet\ValueObjects\Money;
+use Kern\TaxRomania\Wallet\ValueObjects\Exceptions\CurrencyMismatchException;
+use Kern\TaxRomania\Wallet\ValueObjects\Exceptions\InvalidMoneyException;
+use Kern\TaxRomania\Wallet\ValueObjects\Money;
 
 it('stores an exact integer minor-unit amount, never a float', function (): void {
     $money = Money::fromMinorUnits(123_456, 'RON');

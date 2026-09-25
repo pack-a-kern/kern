@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\DepositRateCoverageValidatorTest;
 
-use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\Exceptions\InvalidDepositRateCoverageException;
-use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use DateTimeImmutable;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
+use Kern\TaxRomania\Wallet\Exceptions\InvalidDepositRateCoverageException;
+use Kern\TaxRomania\Wallet\Services\Interest\DepositRateCoverageValidator;
 
 it('accepts a single open-ended period covering the whole deposit life', function (): void {
     $validator = new DepositRateCoverageValidator();

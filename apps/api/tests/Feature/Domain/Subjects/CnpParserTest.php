@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\Sex;
-use App\Domain\Subjects\Exceptions\InvalidCnpException;
-use App\Domain\Subjects\Support\CnpParser;
+use Kern\TaxRomania\Subjects\Enums\Sex;
+use Kern\TaxRomania\Subjects\Exceptions\InvalidCnpException;
+use Kern\TaxRomania\Subjects\Support\CnpParser;
 
 /**
  * Reading a CNP.

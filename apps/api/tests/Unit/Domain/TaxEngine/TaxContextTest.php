@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Domain\TaxEngine\Exceptions\IncompleteTaxContextException;
-use App\Domain\TaxEngine\TaxContext;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\IncompleteTaxContextException;
+use Kern\TaxRomania\TaxEngine\TaxContext;
 
 it('builds immutably, each call returning a new instance', function (): void {
     $base = TaxContext::forSubject('subject-1');

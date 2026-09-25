@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\DepositLifecycleTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\CloseMaturedDeposits;
-use App\Domain\Wallet\Actions\PostMaturedDepositInterest;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Models\FinancialAccount;
 use Carbon\CarbonImmutable;
-use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\TaxRomania\Database\Factories\BankFactory;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\CloseMaturedDeposits;
+use Kern\TaxRomania\Wallet\Actions\PostMaturedDepositInterest;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\TestCase;

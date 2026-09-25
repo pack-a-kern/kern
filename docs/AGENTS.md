@@ -133,7 +133,7 @@ full blueprint but zero memory of your session.
 
 ## 6. Architecture rules
 
-- **Modular monolith.** Modules live in `apps/api/app/Domain/<Module>/`.
+- **Modular monolith.** Modules live in `apps/api/packages/tax-romania/src/<Module>/`.
 - A module **never** imports another module's Eloquent models. Cross-module traffic goes through
   DTOs, contracts/interfaces, application services, or domain events. `deptrac` enforces this.
 - No fiscal logic outside `Domain/TaxEngine` — not in controllers, form requests, jobs, React, or

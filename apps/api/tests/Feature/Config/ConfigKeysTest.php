@@ -25,11 +25,20 @@ const CONFIG_READ = "/(?:\\bconfig\\(\\)->\\w+\\(|\\bconfig\\(|\\$(?:this->)?con
 /** @return array<string, list<string>> key => the files reading it */
 function configKeysReadInCode(): array
 {
+    // `../../packages` is the local packages — the same spelling `phpstan.neon` and `make check-php`
+    // use, and the reason this test still finds anything: almost every `config()` call in this
+    // product is in one of them now, not in `app/`.
     $finder = Finder::create()
         ->files()
         ->name('*.php')
-        ->exclude('cache')
-        ->in([base_path('app'), base_path('routes'), base_path('bootstrap'), base_path('database')]);
+        ->exclude(['cache', 'vendor', 'node_modules'])
+        ->in([
+            base_path('app'),
+            base_path('routes'),
+            base_path('bootstrap'),
+            base_path('database'),
+            base_path('../../packages'),
+        ]);
 
     $keys = [];
 

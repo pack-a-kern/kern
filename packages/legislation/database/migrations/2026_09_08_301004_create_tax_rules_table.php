@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  * table (Milestone 4/5).
  *
  * `subject_type` is a plain nullable string, deliberately **not** a foreign key or shared enum
- * with `App\Domain\Subjects`' `tax_subjects.type` — importing that module's enum here would be a
+ * with `Kern\TaxRomania\Subjects`' `tax_subjects.type` — importing that module's enum here would be a
  * cross-module code dependency `deptrac.php` does not currently grant `TaxKnowledge`
  * (`docs/AGENTS.md` §6: a module never imports another module's types unless the ruleset says so),
  * and this skeleton has no code that reads or validates the value yet to justify asking for that

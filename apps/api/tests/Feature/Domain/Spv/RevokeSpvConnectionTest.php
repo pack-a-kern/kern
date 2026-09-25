@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\RevokeSpvConnectionTest;
 
-use App\Domain\Spv\Actions\RevokeSpvConnection;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\Models\SpvConnection;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Spv\Actions\RevokeSpvConnection;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /** The natural counterpart to connecting SPV — a user must be able to disconnect it. */
 beforeEach(function (): void {

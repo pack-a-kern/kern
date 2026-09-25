@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Fx\DecimalRateTest;
 
-use App\Domain\Fx\Exceptions\InvalidDecimalRateException;
-use App\Domain\Fx\ValueObjects\DecimalRate;
 use InvalidArgumentException;
+use Kern\TaxRomania\Fx\Exceptions\InvalidDecimalRateException;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 
 it('parses a valid non-negative decimal string', function (): void {
     expect(DecimalRate::fromString('4.976400')->toString())->toBe('4.976400')

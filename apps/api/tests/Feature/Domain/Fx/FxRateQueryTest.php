@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Fx\FxRateQueryTest;
 
-use App\Domain\Fx\Exceptions\FxRateNotFoundException;
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Services\FxRateQuery;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\TaxRomania\Fx\Exceptions\FxRateNotFoundException;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Services\FxRateQuery;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

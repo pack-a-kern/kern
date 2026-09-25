@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\WalletMutationTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Models\DepositTerms;
-use App\Domain\Wallet\Models\FinancialAccount;
-use App\Domain\Wallet\Models\FinancialTransaction;
-use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Database\Factories\BankFactory;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Models\DepositTerms;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Tests\TestCase;
 
 /**

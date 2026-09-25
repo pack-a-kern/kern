@@ -19,7 +19,7 @@ use Kern\Platform\KeyManagement\SubjectDekService;
  * (`Concerns\HasUuidPrimaryKey`) and to implement `Contracts\EncryptsWithSubjectDek`. A `settings`
  * row's primary key is the setting's own name (e.g. `"ai.api_key"`), not a generated UUID, and
  * `Kern\Platform\Settings\Repositories\SettingsRepository` deliberately uses the plain query builder
- * rather than an Eloquent model (the same choice `App\Domain\Subjects\Infrastructure\
+ * rather than an Eloquent model (the same choice `Kern\TaxRomania\Subjects\Infrastructure\
  * EloquentSubjectDekRepository` makes, for the same reason: this is a small, closed-shape
  * infrastructure table, not a domain entity). A dedicated cipher class calling `EnvelopeCipher`
  * directly is the simpler, equally-typed answer (`docs/CODE-QUALITY.md` §1 — no cast machinery

@@ -7,13 +7,13 @@
 
 The official source registry (`BLUEPRINT.md` §8.2) and the BNR exchange-rate importer (§7), as two
 new bounded contexts: `Kern\Legislation` (source registry, allowlisted fetching, immutable
-raw storage, document/version bookkeeping) and `App\Domain\Fx` (FX sources, rates, anomalies,
+raw storage, document/version bookkeeping) and `Kern\TaxRomania\Fx` (FX sources, rates, anomalies,
 period averages, the BNR-specific pipeline).
 
 **The hard blocker, unchanged from before this task:** every documented BNR XML URL still
 302-redirects to the homepage (`docs/reference/bnr-fx-endpoints.md`). No endpoint was invented.
 `BNR_DAILY_XML_URL` / `BNR_YEARLY_XML_URL_TEMPLATE` are both `null` by default in
-`config/sources.php` — the importer throws `App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException`
+`config/sources.php` — the importer throws `Kern\TaxRomania\Fx\Exceptions\BnrEndpointNotConfiguredException`
 rather than guessing. **Everything else asked for — registry, fetcher, storage, parser,
 idempotency, anomaly detection, monthly/annual averaging — is built and tested against fixtures.**
 
@@ -24,17 +24,17 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
   `source_documents`/`source_document_versions` row (only if content actually changed). The single
   entry point other modules (and `Domain/Fx`) use — never touch
   `Kern\Legislation\Models\*` directly from outside this module.
-- `App\Domain\Fx\Actions\ImportBnrDailyRates` (`__invoke(): FxImportSummary`) and
-  `App\Domain\Fx\Actions\BackfillBnrYear` (`__invoke(int $year): FxImportSummary`) — the two named
+- `Kern\TaxRomania\Fx\Actions\ImportBnrDailyRates` (`__invoke(): FxImportSummary`) and
+  `Kern\TaxRomania\Fx\Actions\BackfillBnrYear` (`__invoke(int $year): FxImportSummary`) — the two named
   jobs from `BLUEPRINT.md` §7.2/§7.3. Thin `ShouldQueue` wrappers exist at
-  `App\Domain\Fx\Jobs\FetchBnrDailyRates` / `BackfillBnrYear` for naming parity, but nothing
+  `Kern\TaxRomania\Fx\Jobs\FetchBnrDailyRates` / `BackfillBnrYear` for naming parity, but nothing
   schedules them yet (see "What is NOT done").
-- `App\Domain\Fx\Services\FxRateQuery::rate($currencyCode, DateTimeImmutable $date, $sourceCode = 'BNR'): DecimalRate`
+- `Kern\TaxRomania\Fx\Services\FxRateQuery::rate($currencyCode, DateTimeImmutable $date, $sourceCode = 'BNR'): DecimalRate`
   — **this is how another module asks for a rate on a date.** Exact match only, no
   interpolation/fallback; throws `FxRateNotFoundException` on a miss. `rateWithProvenance(...)`
   returns the same rate plus the raw document's hash, storage path, and fetch time
   (`FxRateWithProvenance` DTO) — BLUEPRINT.md §26 DoD F / §39.
-- `App\Domain\Fx\Services\FxPeriodAverageCalculator::calculateMonthly/calculateAnnual/recordOfficialPublishedValue`.
+- `Kern\TaxRomania\Fx\Services\FxPeriodAverageCalculator::calculateMonthly/calculateAnnual/recordOfficialPublishedValue`.
 
 ## Files created / changed
 
@@ -71,7 +71,7 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
 - `TaxKnowledgeServiceProvider.php` — binds `AllowlistedHttpFetcher` (see "Key decisions" #2 for
   why `bind()`, not `singleton()`) and `RawSourceObjectStore`.
 
-**`App\Domain\Fx`** (`apps/api/app/Domain/Fx/`)
+**`Kern\TaxRomania\Fx`** (`apps/api/packages/tax-romania/src/Fx/`)
 - `Enums/{PeriodType,VerificationStatus,FxRateImportOutcome}.php`.
 - `ValueObjects/DecimalRate.php` — the money-precision decision (see "Key decisions" #3): a
   validated, non-negative, BCMath-only numeric string. No float touches this module anywhere.
@@ -160,7 +160,7 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
    `NUMERIC` column would have made every rate silently float-lossy **in the very tests meant to
    prove "no float for money"**. `string(32)` behaves identically — exact, no float, ever — on
    every engine. No Eloquent cast is applied to these columns; every reader goes through
-   `App\Domain\Fx\ValueObjects\DecimalRate::fromString()`, which validates format at read time.
+   `Kern\TaxRomania\Fx\ValueObjects\DecimalRate::fromString()`, which validates format at read time.
 
 5. **`FxPeriodAverageCalculator::upsertCalculated()` unconditionally calls `$model->refresh()`
    before returning.** `updateOrCreate()`'s create path leaves `verification_status` as PHP `null`
@@ -204,14 +204,14 @@ libpq-dev libzip-dev`, `docker-php-ext-install intl pdo_pgsql pcntl bcmath`) aga
 already-vendored `apps/api/vendor/`. All commands below were actually run; output is real.
 
 ```text
-$ vendor/bin/pint --test packages/legislation/src app/Domain/Fx tests/Unit/Domain/Fx \
+$ vendor/bin/pint --test packages/legislation/src packages/tax-romania/src/Fx tests/Unit/Domain/Fx \
     tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
     database/migrations database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
     config/sources.php bootstrap/providers.php deptrac.php
   PASS .......................................................... 86 files
 
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src \
-    app/Domain/Fx tests/Unit/Domain/Fx tests/Unit/Domain/TaxKnowledge \
+    packages/tax-romania/src/Fx tests/Unit/Domain/Fx tests/Unit/Domain/TaxKnowledge \
     tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
     database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
     config/sources.php bootstrap/providers.php
@@ -256,14 +256,14 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\Fx\Services\FxRateQuery;
+use Kern\TaxRomania\Fx\Services\FxRateQuery;
 
 $rate = app(FxRateQuery::class)->rate('EUR', new DateTimeImmutable('2026-01-15')); // DecimalRate, BNR by default
 $withProvenance = app(FxRateQuery::class)->rateWithProvenance('EUR', new DateTimeImmutable('2026-01-15'));
 // $withProvenance->contentSha256, ->rawObjectPath, ->retrievedAt, ->sourceDocumentVersionId
 ```
 
-- `FxRateQuery::rate()`/`rateWithProvenance()` throw `App\Domain\Fx\Exceptions\FxRateNotFoundException`
+- `FxRateQuery::rate()`/`rateWithProvenance()` throw `Kern\TaxRomania\Fx\Exceptions\FxRateNotFoundException`
   on an exact miss — never interpolates or falls back to an adjacent day.
 - `Kern\Legislation\Services\SourceIngestionService::ingest()` is the only sanctioned way
   any future module (Milestone 3's legislation ingestion) fetches+stores an official source
@@ -274,7 +274,7 @@ $withProvenance = app(FxRateQuery::class)->rateWithProvenance('EUR', new DateTim
 
 - **Live BNR import** — blocked on a confirmed URL (`docs/reference/bnr-fx-endpoints.md`). Nothing
   else in this milestone is blocked by this.
-- **Scheduling** — `App\Domain\Fx\Jobs\{FetchBnrDailyRates,BackfillBnrYear}` exist as thin
+- **Scheduling** — `Kern\TaxRomania\Fx\Jobs\{FetchBnrDailyRates,BackfillBnrYear}` exist as thin
   `ShouldQueue` wrappers but nothing calls `Schedule::job(...)` for them in `routes/console.php`.
   Not done because there is no live endpoint to schedule against yet; wiring a schedule for a job
   that would immediately throw `BnrEndpointNotConfiguredException` on every run seemed like the
@@ -289,7 +289,7 @@ $withProvenance = app(FxRateQuery::class)->rateWithProvenance('EUR', new DateTim
   should use, per `BLUEPRINT.md` §6.9's closing note) — `FxRateQuery` provides the primitives; no
   `TaxRule` consumes them yet (Milestone 5).
 - Did not touch `docs/STATUS.md` (explicit instruction for this task) or any file under
-  `app/Domain/{Identity,Subjects,Audit}/**` or `app/Support/**`.
+  `packages/tax-romania/src/{Identity,Subjects,Audit}/**` or `app/Support/**`.
 
 ## Open questions
 

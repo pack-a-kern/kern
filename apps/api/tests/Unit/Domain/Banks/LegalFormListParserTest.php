@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Banks\LegalFormListParserTest;
 
-use App\Domain\Banks\Parsing\LegalFormListParser;
+use Kern\TaxRomania\Banks\Parsing\LegalFormListParser;
 
 const HEADER = '"ELF Code","Country Code (ISO 3166-1)","Entity Legal Form name Local name","Entity Legal Form name Transliterated name (per ISO 01-140-10)","Abbreviations Local language","Abbreviations transliterated"';
 

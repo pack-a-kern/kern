@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Operations\ProbeQueueStatusTest;
 
-use App\Domain\Operations\Services\ProbeQueueStatus;
+use Kern\TaxRomania\Operations\Services\ProbeQueueStatus;
 use Laravel\Horizon\Contracts\JobRepository;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 use Laravel\Horizon\Contracts\MetricsRepository;

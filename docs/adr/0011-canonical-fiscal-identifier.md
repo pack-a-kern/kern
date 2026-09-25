@@ -8,7 +8,7 @@ Two schema defects, both flagged by `docs/reference/pf-coupling-audit.md` during
 extension proof (`docs/handoff/034-pfa-extension.md`) but left unfixed there as out of that task's
 scope:
 
-**1. The CNP was stored twice.** `App\Domain\Subjects\Actions\RegisterPfSubject` wrote the same
+**1. The CNP was stored twice.** `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` wrote the same
 CNP blind index to both `tax_subjects.fiscal_identifier_blind_index` and
 `pf_profiles.cnp_blind_index` — two independent `UNIQUE` constraints enforcing the identical
 invariant, and two places a future key-rotation batch job would have to touch. The `pf_profiles`
@@ -39,7 +39,7 @@ deliberate resolution, not indefinite avoidance.
 
 **`tax_subjects.fiscal_identifier_ciphertext` / `fiscal_identifier_blind_index` /
 `fiscal_identifier_kind` is the single canonical location for a subject's fiscal identifier,
-whatever its type.** `App\Domain\Subjects\Models\PfProfile` and `PfaProfile` no longer store an
+whatever its type.** `Kern\TaxRomania\Subjects\Models\PfProfile` and `PfaProfile` no longer store an
 identifier of their own — `pf_profiles` dropped `cnp_ciphertext`/`cnp_blind_index`,
 `pfa_profiles` dropped `registration_number_ciphertext`/`registration_number_blind_index`. Both
 tables now hold only genuinely type-specific data: name/birth date/residency for PF, trade
@@ -56,7 +56,7 @@ collision risk — which the second half of this decision removes.
 
 ### Closing the uniqueness-namespace risk: kind bound into the hashed input
 
-A new enum, `App\Domain\Subjects\Enums\FiscalIdentifierKind` (`CNP`, `CUI`), makes "what kind of
+A new enum, `Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind` (`CNP`, `CUI`), makes "what kind of
 identifier is this" an explicit, typed concept instead of an assumption baked into which table a
 caller happened to write to. Its `keyedValue(string $rawValue): string` method returns
 `"{$this->value}:{normalize($rawValue)}"` — normalising with `Normalizer::cnp()` for `CNP` (a
@@ -66,7 +66,7 @@ registration number — no verified single format rule exists for a business ide
 unverified assumption, `docs/AGENTS.md` §2). This keyed string, not the bare normalised value, is
 what gets hashed into the blind index.
 
-Concretely: `App\Domain\Subjects\Actions\RegisterPfSubject` computes
+Concretely: `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` computes
 `FiscalIdentifierKind::CNP->keyedValue($cnp)`; `RegisterPfaSubject` computes
 `FiscalIdentifierKind::CUI->keyedValue($registrationNumber)`. Because `CNP`/`CUI` are a fixed,
 closed set of literal prefixes that never appear as user input, the two hashed inputs can never
@@ -107,7 +107,7 @@ unchanged; `fiscal_identifier_kind` is not part of any constraint.
 
 ## Consequences
 
-- `App\Domain\Subjects\Models\PfProfile`/`PfaProfile` are smaller and hold only what their names
+- `Kern\TaxRomania\Subjects\Models\PfProfile`/`PfaProfile` are smaller and hold only what their names
   promise: type-specific profile data, never a copy of the tenant's fiscal identifier.
 - `RegisterPfaSubject` now populates `tax_subjects.fiscal_identifier_*` exactly the way
   `RegisterPfSubject` does — the asymmetry `docs/reference/pf-coupling-audit.md` Finding 2 recorded

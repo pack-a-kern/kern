@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Documents;
 
-use App\Domain\Wallet\Actions\RecordFinancialTransaction;
-use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
-use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Exceptions\CategoryDirectionException;
-use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,6 +13,13 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\Queries\ResolveTransactionImportState;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Http\Controllers\Wallet\Concerns\RespondsToCategoryDirection;
+use Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction;
+use Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\TransactionSplitInput;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Exceptions\CategoryDirectionException;
+use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
 /**
  * `POST /api/v1/subjects/{subject}/documents/{document}/transaction` — turn a document into a

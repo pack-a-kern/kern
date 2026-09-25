@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\DayCountCalculatorTest;
 
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Exceptions\InvalidDateRangeException;
-use App\Domain\Wallet\Services\DayCount\DayCountCalculator;
 use DateTimeImmutable;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Exceptions\InvalidDateRangeException;
+use Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator;
 
 /**
  * Hand-computed expectations — see `DayCountCalculator`'s own docblock for the worked examples

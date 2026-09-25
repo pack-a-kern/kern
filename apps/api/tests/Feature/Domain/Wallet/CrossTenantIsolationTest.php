@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\CrossTenantIsolationTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Enums\RateType;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Models\DepositInterestEvent;
-use App\Domain\Wallet\Models\DepositRatePeriod;
-use App\Domain\Wallet\Models\DepositTerms;
-use App\Domain\Wallet\Models\FinancialAccount;
-use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Domain\Wallet\Models\TransactionSplit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
+use Kern\TaxRomania\Wallet\Models\DepositRatePeriod;
+use Kern\TaxRomania\Wallet\Models\DepositTerms;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
+use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3: a user authorized for one `TaxSubject` must never

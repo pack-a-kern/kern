@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Banks\BankNameBuilderTest;
 
-use App\Domain\Banks\DataTransferObjects\EcbInstitution;
-use App\Domain\Banks\Parsing\LegalForms;
-use App\Domain\Banks\Services\BankNameBuilder;
+use Kern\TaxRomania\Banks\DataTransferObjects\EcbInstitution;
+use Kern\TaxRomania\Banks\Parsing\LegalForms;
+use Kern\TaxRomania\Banks\Services\BankNameBuilder;
 
 /**
  * Names as the ECB printed them for Romania on 2026-09-14, against the legal forms ISO 20275 lists

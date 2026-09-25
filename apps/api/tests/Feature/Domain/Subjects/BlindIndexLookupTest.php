@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\BlindIndexLookupTest;
 
-use App\Domain\Subjects\Enums\FiscalIdentifierKind;
-use App\Domain\Subjects\Models\TaxSubject;
-use Database\Factories\TaxSubjectFactory;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Database\Factories\TaxSubjectFactory;
+use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -79,7 +79,7 @@ it('does not flag a genuinely different CNP as a duplicate', function (): void {
 /**
  * ADR 0011's core guarantee: a CNP and an unrelated PFA business identifier that happen to
  * normalise to the identical digit string must not be treated as the same fiscal identifier —
- * `App\Domain\Subjects\Enums\FiscalIdentifierKind::keyedValue()` binds the kind into the hashed
+ * `Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind::keyedValue()` binds the kind into the hashed
  * input specifically to prevent this.
  */
 it('does not collide a CNP and a business identifier that normalise to the same digits', function (): void {

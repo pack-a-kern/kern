@@ -18,7 +18,7 @@ use RuntimeException;
  * attempt. There is no `tax_subject_id` column (the blueprint's own schema does not carry one on
  * this table), yet `result_ciphertext` must still be encrypted under the owning subject's DEK
  * (§4.3 — "date extrase OCR" is on the mandatory-encrypt list). Rather than an extra relation
- * query inside `encryptionSubjectId()` — which would need `App\Domain\Subjects\Tenancy\
+ * query inside `encryptionSubjectId()` — which would need `Kern\TaxRomania\Subjects\Tenancy\
  * TenantContext` bound in contexts (queue jobs) that legitimately have none — the owning
  * subject id is supplied explicitly and held in a plain, non-persisted PHP property. This is why
  * `Model::create()`/`new self([...])` is never used directly for this model: {@see self::propose()}

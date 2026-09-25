@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\DepositInterestScheduleTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\GenerateDepositInterestSchedule;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\Actions\RecordDepositInterestWithholding;
-use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Enums\RateType;
-use App\Domain\Wallet\Events\DepositInterestEventRecorded;
-use App\Domain\Wallet\Exceptions\InvalidWithholdingAmountException;
-use App\Domain\Wallet\Models\DepositInterestEvent;
-use App\Domain\Wallet\Models\FinancialAccount;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\GenerateDepositInterestSchedule;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\Actions\RecordDepositInterestWithholding;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded;
+use Kern\TaxRomania\Wallet\Exceptions\InvalidWithholdingAmountException;
+use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

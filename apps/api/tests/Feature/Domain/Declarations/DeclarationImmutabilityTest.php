@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\DeclarationImmutabilityTest;
 
-use App\Domain\Declarations\Enums\DeclarationStatus;
-use App\Domain\Declarations\Exceptions\DeclarationIsImmutableException;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Declarations\Services\DeclarationLifecycle;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Declarations\Enums\DeclarationStatus;
+use Kern\TaxRomania\Declarations\Exceptions\DeclarationIsImmutableException;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Declarations\Services\DeclarationLifecycle;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
  * `docs/AGENTS.md` rule 18 — "retroactively change a submitted declaration" — proven directly
- * against `App\Domain\Declarations\Models\Declaration`'s own `saving` guard, bypassing
- * `App\Domain\Declarations\Services\DeclarationLifecycle` entirely: this is the model-level
+ * against `Kern\TaxRomania\Declarations\Models\Declaration`'s own `saving` guard, bypassing
+ * `Kern\TaxRomania\Declarations\Services\DeclarationLifecycle` entirely: this is the model-level
  * defense-in-depth layer, not the action-layer one already proven in
  * `DeclarationLifecycleTransitionTest.php`.
  */

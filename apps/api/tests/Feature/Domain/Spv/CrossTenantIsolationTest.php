@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\CrossTenantIsolationTest;
 
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\Enums\SpvSessionState;
-use App\Domain\Spv\Enums\SpvSyncRunStatus;
-use App\Domain\Spv\Models\SpvConnection;
-use App\Domain\Spv\Models\SpvMessage;
-use App\Domain\Spv\Models\SpvSession;
-use App\Domain\Spv\Models\SpvSyncRun;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\Enums\SpvSessionState;
+use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
+use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvMessage;
+use Kern\TaxRomania\Spv\Models\SpvSession;
+use Kern\TaxRomania\Spv\Models\SpvSyncRun;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §26 M10 DoD ("one tax subject cannot access another
- * browser state") — every table this module owns uses `App\Domain\Subjects\Tenancy\
+ * browser state") — every table this module owns uses `Kern\TaxRomania\Subjects\Tenancy\
  * ScopedToTenant`, the same test shape `tests/Feature/Domain/Rental/CrossTenantIsolationTest.php`
  * establishes first.
  */

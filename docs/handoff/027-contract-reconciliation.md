@@ -122,7 +122,7 @@ pipeline. `DocumentStatus`'s docblock now documents the new `PROCESSING -> REJEC
 - `apps/api/tests/Feature/Domain/Documents/RequestExternalDocumentExtractionTest.php` — updated to
   construct `UntrustedDocumentText::wrap(...)` instead of a bare string, matching the new signature.
 
-No file under `apps/processing/**` was touched. No file in `app/Domain/{TaxEngine,TaxKnowledge,
+No file under `apps/processing/**` was touched. No file in `packages/tax-romania/src/{TaxEngine,TaxKnowledge,
 Rental}/**` was touched. `docs/STATUS.md` was not touched, per this task's scope.
 
 ## Key decisions

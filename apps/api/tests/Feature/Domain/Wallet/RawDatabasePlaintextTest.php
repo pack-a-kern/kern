@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\RawDatabasePlaintextTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\Actions\RecordFinancialTransaction;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
-use App\Domain\Wallet\Enums\AccountKind;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
 
 /**
  * `BLUEPRINT.md` §4.3 lists IBAN, account number, and transaction description as mandatory to

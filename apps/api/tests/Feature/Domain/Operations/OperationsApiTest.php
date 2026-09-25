@@ -2,12 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Operations\Enums\OperationTask;
-use App\Domain\Operations\Enums\TaskRunStatus;
-use App\Domain\Operations\Enums\TaskRunTrigger;
-use App\Domain\Operations\Jobs\RunOperationTask;
-use App\Domain\Operations\Models\ScheduledTask;
-use App\Domain\Operations\Models\TaskRun;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -15,6 +9,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Operations\Enums\OperationTask;
+use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
+use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
+use Kern\TaxRomania\Operations\Models\ScheduledTask;
+use Kern\TaxRomania\Operations\Models\TaskRun;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {

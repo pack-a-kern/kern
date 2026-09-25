@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\Actions\PostMaturedDepositInterest;
-use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Enums\RateType;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Models\DepositInterestEvent;
-use App\Domain\Wallet\Models\FinancialTransaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\Actions\PostMaturedDepositInterest;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

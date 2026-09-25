@@ -350,7 +350,7 @@ tests.
 - **No scheduling.** Nothing calls `IngestAndParseLegislationDocument` on a cron; this task builds
   the capability, not the job.
 - Did not touch `docs/STATUS.md` (explicit instruction for this task) or any file under
-  `app/Domain/{Identity,Subjects,Audit}/**`, `apps/processing/**`, or the review-UI/RAG-index
+  `packages/tax-romania/src/{Identity,Subjects,Audit}/**`, `apps/processing/**`, or the review-UI/RAG-index
   layers.
 
 ## Open questions

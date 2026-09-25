@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\ForbidsAgentApprovalTest;
 
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
 use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
 /**
  * `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3: "No agent may set APPROVED." Proves the rule is

@@ -23,14 +23,14 @@ same coupling mistake happen over a network, with worse debuggability.
 ## Decision
 
 1. Laravel stays one deployable application (`apps/api`). Modules live under
-   `apps/api/app/Domain/<Module>/`.
+   `apps/api/packages/tax-romania/src/<Module>/`.
 2. A module **never** imports another module's Eloquent models directly. Cross-module
    communication happens only through:
    - DTOs (readonly value objects) passed as method arguments/return values,
    - contracts/interfaces bound in a service provider,
    - application services that sit above the domain layer and are allowed to know about more
      than one module,
-   - domain events (`App\Domain\<Module>\Events\...`) for anything that should be decoupled in
+   - domain events (`Kern\TaxRomania\<Module>\Events\...`) for anything that should be decoupled in
      time, not just in namespace.
 3. This boundary is enforced **mechanically**, not by code review discipline: `deptrac` (see
    `docs/reference/verified-versions.md` — `deptrac/deptrac` 4.7.1; the abandoned

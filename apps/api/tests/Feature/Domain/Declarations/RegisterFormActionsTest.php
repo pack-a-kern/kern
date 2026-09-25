@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\RegisterFormActionsTest;
 
-use App\Domain\Declarations\Actions\CreateDeclarationDraft;
-use App\Domain\Declarations\Actions\RegisterFormDefinition;
-use App\Domain\Declarations\Actions\RegisterFormVersion;
-use App\Domain\Declarations\DataTransferObjects\CreateDeclarationDraftInput;
-use App\Domain\Declarations\DataTransferObjects\RegisterFormDefinitionInput;
-use App\Domain\Declarations\DataTransferObjects\RegisterFormVersionInput;
-use App\Domain\Declarations\Enums\DeclarationKind;
-use App\Domain\Declarations\Enums\DeclarationStatus;
-use App\Domain\Declarations\Enums\FormVersionStatus;
-use App\Domain\Declarations\Exceptions\InvalidFormSchemaException;
-use App\Domain\Declarations\Exceptions\InvalidFormVersionDateRangeException;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Declarations\Actions\CreateDeclarationDraft;
+use Kern\TaxRomania\Declarations\Actions\RegisterFormDefinition;
+use Kern\TaxRomania\Declarations\Actions\RegisterFormVersion;
+use Kern\TaxRomania\Declarations\DataTransferObjects\CreateDeclarationDraftInput;
+use Kern\TaxRomania\Declarations\DataTransferObjects\RegisterFormDefinitionInput;
+use Kern\TaxRomania\Declarations\DataTransferObjects\RegisterFormVersionInput;
+use Kern\TaxRomania\Declarations\Enums\DeclarationKind;
+use Kern\TaxRomania\Declarations\Enums\DeclarationStatus;
+use Kern\TaxRomania\Declarations\Enums\FormVersionStatus;
+use Kern\TaxRomania\Declarations\Exceptions\InvalidFormSchemaException;
+use Kern\TaxRomania\Declarations\Exceptions\InvalidFormVersionDateRangeException;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

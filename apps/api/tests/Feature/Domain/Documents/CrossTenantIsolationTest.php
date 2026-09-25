@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\CrossTenantIsolationTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Kern\Documents\Enums\DocumentType;
 use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * The mandatory cross-tenant isolation test (`docs/AGENTS.md` §21.4, `BLUEPRINT.md` §5.3) for the
  * `documents` table specifically — `Kern\Documents\Models\Document` is the first *real*
- * business model (not a throwaway fixture) to exercise `App\Domain\Subjects\Tenancy\
+ * business model (not a throwaway fixture) to exercise `Kern\TaxRomania\Subjects\Tenancy\
  * ScopedToTenant` end to end with an encrypted field, proving the mechanism
  * `docs/handoff/011-identity-tenancy.md` built holds for this module's own table.
  */

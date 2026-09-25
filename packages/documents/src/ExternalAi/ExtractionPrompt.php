@@ -204,7 +204,7 @@ final readonly class ExtractionPrompt
     /**
      * The categories a payment may be filed under — `config/reference/tax_categories.php`, both groups.
      *
-     * The same vocabulary `App\Domain\Wallet\Services\TaxCategoryCatalogue` validates against,
+     * The same vocabulary `Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue` validates against,
      * so the model cannot be offered a category the endpoint that records the transaction would
      * refuse. Read from config directly rather than through that service because `Documents` may
      * not depend on `Wallet` (`deptrac.php`); the file is the one source either way.

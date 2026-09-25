@@ -11,7 +11,7 @@ design questions have no existing answer in this codebase:
 1. **Encryption.** `BLUEPRINT.md` §4.2's envelope encryption is defined in terms of a per-`TaxSubject`
    DEK: every encrypted field's AAD is `subject_id | table | field | record_uuid`
    (`App\Support\Crypto\AssociatedData`), and the only `SubjectDekRepository` implementation in
-   this codebase (`App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository`) looks a
+   this codebase (`Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository`) looks a
    subject id up in `tax_subjects.id`/`users.id`, both native Postgres `uuid`-typed columns. A
    system-wide setting (one API key for the whole deployment, per the task's explicit decision)
    has no `TaxSubject`. Storing it in a `TaxSubject`- or `User`-scoped ciphertext would misuse the
@@ -20,7 +20,7 @@ design questions have no existing answer in this codebase:
    different kind of ciphertext indistinguishable, at the schema level, from a real tenant's.
 2. **Authorization.** Changing the AI provider decides where taxpayer documents are sent — an
    administrative, data-protection-relevant act. `BLUEPRINT.md` §5.3 defines roles
-   (OWNER/ADMIN/ACCOUNTANT/VIEWER, `App\Domain\Subjects\Enums\MembershipRole`) only against a
+   (OWNER/ADMIN/ACCOUNTANT/VIEWER, `Kern\TaxRomania\Subjects\Enums\MembershipRole`) only against a
    `subject_memberships` row, i.e. only ever *for a specific `TaxSubject`*. There is no concept
    anywhere in this codebase of a user being "an administrator" independent of any subject.
 
@@ -33,7 +33,7 @@ the `subject_id` segment of `AssociatedData` for every secret setting. This is n
 therefore never collide with a genuine `tax_subjects.id`/`users.id` — it is immediately
 recognisable, in a raw database dump or in code, as "not a tenant." This exact pattern already
 exists once in this codebase for an identical reason:
-`App\Domain\Audit\Services\AuditChainService::SYSTEM_CHAIN_KEY = 'system'` routes audit events with
+`Kern\TaxRomania\Audit\Services\AuditChainService::SYSTEM_CHAIN_KEY = 'system'` routes audit events with
 no subject to their own chain. ADR 0013 generalises the same idea to encryption.
 
 This scope has its **own** DEK, wrapped and persisted in a new `system_encryption_keys` table

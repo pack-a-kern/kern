@@ -9,7 +9,7 @@ use Kern\Platform\Tenancy\Tenancy;
 
 /**
  * `document_ai_consents` — one row per `TaxSubject`, keyed by that subject's own id (same shape
- * as `App\Domain\Subjects\Models\PfProfile`, `docs/handoff/011-identity-tenancy.md` decision #6).
+ * as `Kern\TaxRomania\Subjects\Models\PfProfile`, `docs/handoff/011-identity-tenancy.md` decision #6).
  * No encrypted column: consent timestamps carry no PII.
  *
  * Read and written only through `Kern\Documents\Consent\DocumentAiConsentGate` — never

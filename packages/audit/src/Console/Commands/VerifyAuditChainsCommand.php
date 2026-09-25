@@ -16,7 +16,7 @@ use Kern\Audit\Services\ChainVerifier;
  * difference that matters: the endpoint bounds itself to 25 chains so a page load stays fast, while
  * this command verifies *all* of them. Full verification is an operational task with a duration,
  * which is why it belongs on a queue and in the run ledger
- * (`App\Domain\Operations\Enums\OperationTask::AUDIT_VERIFY_CHAINS`) rather than in a request.
+ * (`Kern\TaxRomania\Operations\Enums\OperationTask::AUDIT_VERIFY_CHAINS`) rather than in a request.
  *
  * Exit code 1 on a broken chain is the whole contract: the run ledger records failure from the exit
  * code, so tamper evidence reaches the operations screen without this command needing to know that

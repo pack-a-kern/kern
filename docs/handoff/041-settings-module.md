@@ -157,7 +157,7 @@ No file under `apps/processing/**`, `resources/js/**`, or `docs/STATUS.md` was t
    recent failed **deterministically**, every run, even after the migration already had precision
    6 — which is what pointed at the query-builder's formatting rather than the schema. Fixed by
    formatting `CarbonImmutable::now('UTC')` explicitly with
-   `App\Domain\Audit\Support\AuditEventHasher::TIMESTAMP_FORMAT`'s exact pattern
+   `Kern\TaxRomania\Audit\Support\AuditEventHasher::TIMESTAMP_FORMAT`'s exact pattern
    (`'Y-m-d\TH:i:s.u\Z'`) into a string before it ever reaches the query builder — the same
    resolution that module already uses for the identical reason.
 
@@ -253,7 +253,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local
 ```
 
 **Whole suite, real Postgres, dedicated database (`docs/AGENTS.md` §7b — another agent was
-active in `app/Support/Crypto/**`/`app/Domain/Audit/**` at the time, per `docs/STATUS.md`), run
+active in `app/Support/Crypto/**`/`packages/tax-romania/src/Audit/**` at the time, per `docs/STATUS.md`), run
 twice:**
 ```
 $ docker exec anaf-postgres-1 psql -U kern -c 'CREATE DATABASE kern_settings041;'
@@ -292,7 +292,7 @@ task's own, already recorded as run — not a broken/missing migration file. Ret
 changes and it passed clean twice in a row (the two runs pasted above). Recorded per
 `docs/AGENTS.md` §2, consistent with the identical kind of transient-contention note in
 `docs/handoff/027-contract-reconciliation.md` — read as concurrent-agent load on the shared
-Postgres server (another agent was actively working in `app/Domain/Audit/**` at the time, per
+Postgres server (another agent was actively working in `packages/tax-romania/src/Audit/**` at the time, per
 `docs/STATUS.md`), not a defect in this task's code.
 
 Separately, and unrelated to the above: an earlier iteration of this task's own
@@ -423,7 +423,7 @@ Any future `ExternalDocumentAiProvider` implementation should read its credentia
   `SubjectDekRepository`, read in full and reused verbatim; the exact ordering traps
   (`HasUuidPrimaryKey`, `FillsSubjectForeignKeyFirst`) that informed the decision to *not* use
   `Casts\Encrypted` for the `settings` table.
-- `docs/handoff/006-audit-chain.md` and `App\Domain\Audit\Services\AuditChainService`/
+- `docs/handoff/006-audit-chain.md` and `Kern\TaxRomania\Audit\Services\AuditChainService`/
   `Support\AuditEventHasher` read directly — `SYSTEM_CHAIN_KEY`'s precedent for
   `SystemEncryptionScope::ID`, and `TIMESTAMP_FORMAT`'s precedent for fixing the timestamp-
   precision bug in "Key decisions" #4.
@@ -443,9 +443,9 @@ Any future `ExternalDocumentAiProvider` implementation should read its credentia
   task.
 - Source files read directly, not assumed: `apps/api/app/Support/Crypto/{EnvelopeCipher,
   AssociatedData}.php`, `app/Support/KeyManagement/{SubjectDekService,KeyManagementServiceProvider,
-  Contracts/*}.php`, `app/Domain/Subjects/Infrastructure/EloquentSubjectDekRepository.php` (and its
+  Contracts/*}.php`, `packages/tax-romania/src/Subjects/Infrastructure/EloquentSubjectDekRepository.php` (and its
   `tax_subjects`/`users` table assumption — the reason a third table was needed rather than a third
-  entry in that repository's own `TABLES` constant), `app/Domain/Subjects/Models/{TaxSubject,
+  entry in that repository's own `TABLES` constant), `packages/tax-romania/src/Subjects/Models/{TaxSubject,
   SubjectMembership}.php`, `packages/platform/src/Identity/Models/User.php`, `packages/documents/src/
   ExternalAi/**`, `packages/documents/src/DocumentsServiceProvider.php`, `packages/documents/src/
   Consent/DocumentAiConsentGate.php` (the `POST`/`DELETE` grant/revoke precedent this task's

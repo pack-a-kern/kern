@@ -21,7 +21,7 @@ use Webauthn\PublicKeyCredentialRequestOptions;
  * Keyed by an opaque identifier chosen by the caller, never by a client-supplied ceremony token.
  * Registration (`putCreationOptions`/`pullCreationOptions`) is always keyed by the authenticated
  * user's own id — that flow requires an existing session. Assertion/login
- * (`putRequestOptions`/`pullRequestOptions`) has no authenticated user yet, so `App\Domain\
+ * (`putRequestOptions`/`pullRequestOptions`) has no authenticated user yet, so `Kern\TaxRomania\
  * Identity\Support\Webauthn\PasskeyManager` keys it by the login email's blind index instead
  * (already a non-reversible HMAC, safe to use as a cache key, and the same value
  * `Kern\Platform\Identity\Models\User::scopeWhereEmail` already computes for lookup — no new secret

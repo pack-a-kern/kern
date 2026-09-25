@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RegisterPfaSubjectTest;
 
-use App\Domain\Subjects\Actions\RegisterPfaSubject;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
-use App\Domain\Subjects\Enums\FiscalIdentifierKind;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Enums\SubjectType;
-use App\Domain\Subjects\Exceptions\DuplicateRegistrationNumberException;
-use App\Domain\Subjects\Models\SubjectMembership;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\Services\ChainVerifier;
@@ -18,13 +11,20 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
+use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Enums\SubjectType;
+use Kern\TaxRomania\Subjects\Exceptions\DuplicateRegistrationNumberException;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * The PFA mirror of `tests/Feature/Domain/Subjects/RegisterPfSubjectTest.php` — Milestone 12's
  * extension proof (`docs/handoff/034-pfa-extension.md`, `BLUEPRINT.md` §38.B). Every assertion here
  * is the identical shape that file already proves for PF, run instead against
- * `App\Domain\Subjects\Actions\RegisterPfaSubject` — demonstrating the same guarantees
+ * `Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject` — demonstrating the same guarantees
  * (membership creation, a verifiable audit event, duplicate-identifier rejection) hold for a
  * second subject type with no shared-mechanism change.
  */

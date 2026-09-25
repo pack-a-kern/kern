@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\DropConfirmedByFormChecksMigrationTest;
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -29,7 +29,7 @@ it('takes the form check off an approved value and leaves everything else it res
         ]),
     ]);
 
-    $migration = require database_path('migrations/2026_09_24_100000_drop_confirmed_by_form_checks.php');
+    $migration = require packageRoot(FiscalParameter::class) . '/database/migrations/2026_09_24_100000_drop_confirmed_by_form_checks.php';
     assert($migration instanceof Migration && method_exists($migration, 'up'));
     $migration->up();
 

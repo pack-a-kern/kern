@@ -36,7 +36,7 @@ Three sources, one per question, each in the place that can answer it safely:
 
 | Question | Source | Mutable at runtime |
 |---|---|---|
-| *Which* tasks exist | `App\Domain\Operations\Enums\OperationTask` (closed PHP enum) | no |
+| *Which* tasks exist | `Kern\TaxRomania\Operations\Enums\OperationTask` (closed PHP enum) | no |
 | *When* they run | `config/operations.php`, env-overridable | no (deploy or container env) |
 | *Whether* they run | `scheduled_tasks.enabled` | **yes** |
 

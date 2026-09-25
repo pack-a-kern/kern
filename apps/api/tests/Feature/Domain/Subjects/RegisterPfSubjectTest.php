@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RegisterPfSubjectTest;
 
-use App\Domain\Subjects\Actions\RegisterPfSubject;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Enums\SubjectType;
-use App\Domain\Subjects\Exceptions\DuplicateCnpException;
-use App\Domain\Subjects\Models\SubjectMembership;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\Services\ChainVerifier;
@@ -17,6 +11,12 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Enums\SubjectType;
+use Kern\TaxRomania\Subjects\Exceptions\DuplicateCnpException;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {

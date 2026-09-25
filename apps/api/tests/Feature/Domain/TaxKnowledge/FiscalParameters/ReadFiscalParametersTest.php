@@ -4,17 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\ReadFiscalParametersTest;
 
-use App\Domain\FiscalParameters\Actions\ReadFiscalParameters;
-use App\Domain\FiscalParameters\Actions\StartFiscalYear;
-use App\Domain\FiscalParameters\FiscalParameterDecisionException;
-use App\Domain\FiscalParameters\Matching\LawMatch;
-use App\Domain\FiscalParameters\Matching\LawProvisions;
-use App\Domain\FiscalParameters\Matching\Provision;
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterRead;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
-use App\Domain\FiscalParameters\Reading\Reading;
-use App\Domain\FiscalParameters\Recording\CandidateRecorder;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
@@ -31,6 +20,17 @@ use Kern\Legislation\Models\SourceSection;
 use Kern\Legislation\Parsing\SectionText;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
 use Kern\Legislation\Services\BuildSectionHistory;
+use Kern\TaxRomania\FiscalParameters\Actions\ReadFiscalParameters;
+use Kern\TaxRomania\FiscalParameters\Actions\StartFiscalYear;
+use Kern\TaxRomania\FiscalParameters\FiscalParameterDecisionException;
+use Kern\TaxRomania\FiscalParameters\Matching\LawMatch;
+use Kern\TaxRomania\FiscalParameters\Matching\LawProvisions;
+use Kern\TaxRomania\FiscalParameters\Matching\Provision;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterRead;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
+use Kern\TaxRomania\FiscalParameters\Reading\Reading;
+use Kern\TaxRomania\FiscalParameters\Recording\CandidateRecorder;
 
 /**
  * The fiscal values read end to end: the minimum wage from its decisions, every other value from the

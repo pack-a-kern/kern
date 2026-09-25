@@ -14,7 +14,7 @@ use Kern\Platform\Identity\Services\RegistrationPolicy;
 /**
  * `POST /api/v1/auth/register` — creates the `User` account only (`BLUEPRINT.md` §5.1). Registering
  * a `TaxSubject` (the PF profile, CNP, etc.) is a separate, later step through
- * `App\Domain\Subjects\Actions\RegisterPfSubject` once the user is authenticated — this endpoint
+ * `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` once the user is authenticated — this endpoint
  * exists purely so a login can be exercised end-to-end without a human seeding a database row.
  *
  * Closed instances refuse here rather than only hiding the link: the endpoint is reachable with a

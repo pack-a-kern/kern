@@ -4,28 +4,28 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Rental\RentalContractAmendmentAccrualTest;
 
-use App\Domain\Rental\Actions\AmendRentalContract;
-use App\Domain\Rental\Actions\CreateRentalContract;
-use App\Domain\Rental\Actions\GenerateRentalAccruals;
-use App\Domain\Rental\Actions\GetRentalTermsInForce;
-use App\Domain\Rental\Actions\RegisterProperty;
-use App\Domain\Rental\DataTransferObjects\AmendRentalContractInput;
-use App\Domain\Rental\DataTransferObjects\CreateRentalContractInput;
-use App\Domain\Rental\DataTransferObjects\RegisterPropertyInput;
-use App\Domain\Rental\Enums\PropertyType;
-use App\Domain\Rental\Enums\RentalPaymentFrequency;
-use App\Domain\Rental\Enums\TenantType;
-use App\Domain\Rental\Events\RentalAccrualRecorded;
-use App\Domain\Rental\Exceptions\NoContractVersionInForceException;
-use App\Domain\Rental\Models\RentalAccrual;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Rental\Actions\AmendRentalContract;
+use Kern\TaxRomania\Rental\Actions\CreateRentalContract;
+use Kern\TaxRomania\Rental\Actions\GenerateRentalAccruals;
+use Kern\TaxRomania\Rental\Actions\GetRentalTermsInForce;
+use Kern\TaxRomania\Rental\Actions\RegisterProperty;
+use Kern\TaxRomania\Rental\DataTransferObjects\AmendRentalContractInput;
+use Kern\TaxRomania\Rental\DataTransferObjects\CreateRentalContractInput;
+use Kern\TaxRomania\Rental\DataTransferObjects\RegisterPropertyInput;
+use Kern\TaxRomania\Rental\Enums\PropertyType;
+use Kern\TaxRomania\Rental\Enums\RentalPaymentFrequency;
+use Kern\TaxRomania\Rental\Enums\TenantType;
+use Kern\TaxRomania\Rental\Events\RentalAccrualRecorded;
+use Kern\TaxRomania\Rental\Exceptions\NoContractVersionInForceException;
+use Kern\TaxRomania\Rental\Models\RentalAccrual;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * The hard requirement this milestone states explicitly: a contract amended mid-period must

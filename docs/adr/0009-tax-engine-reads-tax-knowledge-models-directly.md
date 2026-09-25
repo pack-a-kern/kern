@@ -2,9 +2,9 @@
 
 **Status:** superseded, 2026-09-08 — by
 [ADR 0010](0010-tax-engine-ports-and-adapters.md). The dependency this ADR accepted as a
-documented exception has been inverted: `App\Domain\TaxEngine` now defines
+documented exception has been inverted: `Kern\TaxRomania\TaxEngine` now defines
 `Contracts\{TaxRuleVersionProvider,FiscalParameterProvider}` ports expressed purely in its own
-DTOs/exceptions/enums, and `App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,
+DTOs/exceptions/enums, and `Kern\TaxRomania\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,
 EloquentFiscalParameterProvider}` implement them. `deptrac.php` no longer grants
 `TaxEngine -> TaxKnowledge` at all; it grants `TaxKnowledge -> TaxEngine` instead. This document is
 kept for the historical record of why the exception was originally accepted and what alternative
@@ -13,7 +13,7 @@ ADR 0010 carries out).
 
 ## Context
 
-`docs/AGENTS.md` §6 states a hard rule: "a module under `app/Domain/<Module>` never imports
+`docs/AGENTS.md` §6 states a hard rule: "a module under `packages/tax-romania/src/<Module>` never imports
 another module's Eloquent models directly. Cross-module traffic goes through DTOs, contracts/
 interfaces, application services, or domain events." `deptrac.php` enforces this at the layer
 level for every module pair declared so far (`Fx` → `TaxKnowledge` crosses only through
@@ -21,7 +21,7 @@ level for every module pair declared so far (`Fx` → `TaxKnowledge` crosses onl
 `Documents` → `Subjects`/`Fx` cross only through `ScopedToTaxSubject`/`TenantContext`/
 `FxRateQuery`).
 
-Milestone 5 (`App\Domain\TaxEngine`) needs to resolve, for a given rule/parameter code and date,
+Milestone 5 (`Kern\TaxRomania\TaxEngine`) needs to resolve, for a given rule/parameter code and date,
 the `tax_rule_versions`/`fiscal_parameter_versions` row in force — `docs/AGENTS.md` §9's
 `CANDIDATE`-vs-`APPROVED` gate depends on reading that row's real `status`. Those tables belong to
 `Kern\Legislation` (built in Milestone 3, `docs/handoff/018-legislation-ingestion.md`).
@@ -31,19 +31,19 @@ yet for `tax_rule_versions`/`fiscal_parameter_versions`** — those models' own 
 the Milestone 3 task, say outright "no `TaxRule` reads it yet (Milestone 5)", naming this module as
 their first real reader without anticipating what shape that reading would take.
 
-Milestone 5's task scope was restricted to `apps/api/app/Domain/TaxEngine/**` (plus three named
+Milestone 5's task scope was restricted to `apps/api/packages/tax-romania/src/TaxEngine/**` (plus three named
 migrations, tests, factories, and `deptrac.php` grants) — it could not add the missing service to
 `TaxKnowledge` without exceeding that scope.
 
 ## Decision
 
-`App\Domain\TaxEngine\Repositories\TaxRuleTemporalReader` and `FiscalParameterTemporalReader` read
+`Kern\TaxRomania\TaxEngine\Repositories\TaxRuleTemporalReader` and `FiscalParameterTemporalReader` read
 `Kern\Legislation\Models\{TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,
 FiscalParameterVersion}` directly, and are the **only** two classes in the codebase permitted to
 do so. `deptrac.php` grants `TaxEngine → TaxKnowledge` access at the layer level (deptrac does not
 sub-divide a layer by class, so this grant is broader than the two classes that actually use it —
 enforced by code review and this ADR, not by tooling, until a narrower deptrac mechanism exists).
-Every other class in `App\Domain\TaxEngine` only ever sees the DTOs these two readers return
+Every other class in `Kern\TaxRomania\TaxEngine` only ever sees the DTOs these two readers return
 (`ResolvedTaxRuleVersion`, `ResolvedFiscalParameter`) — the cross-module leak is confined to
 exactly these two files, not smeared across the module.
 
@@ -79,7 +79,7 @@ Consequences) is a mechanical move, not a redesign.
 
 - **Add a `TaxRuleTemporalQuery`/`FiscalParameterTemporalQuery` service to `TaxKnowledge` in this
   same task, mirroring `LegislationTemporalQuery`.** Rejected only because it was outside this
-  task's stated path scope (`apps/api/app/Domain/TaxEngine/**`), not because it is architecturally
+  task's stated path scope (`apps/api/packages/tax-romania/src/TaxEngine/**`), not because it is architecturally
   worse — it is very likely the *better* long-term shape, and is recorded as an open question in
   `docs/handoff/020-tax-engine.md` for whoever next touches `TaxKnowledge`. This ADR should be
   superseded (not merely left inconsistent) once that service exists and `TaxEngine`'s two readers

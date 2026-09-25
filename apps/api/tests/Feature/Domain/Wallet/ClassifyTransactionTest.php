@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Domain\Wallet\Models\TransactionSplit;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
+use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

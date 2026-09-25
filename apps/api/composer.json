@@ -28,7 +28,8 @@
         "kern/audit": "@dev",
         "kern/documents": "@dev",
         "kern/legislation": "@dev",
-        "kern/platform": "@dev"
+        "kern/platform": "@dev",
+        "kern/tax-romania": "@dev"
     },
     "require-dev": {
         "deptrac/deptrac": "^4.7.1",
@@ -46,7 +47,6 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
-            "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
     },

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\Declarations\ArtifactGeneration\PlaceholderArtifactGenerator;
+use Kern\TaxRomania\Declarations\ArtifactGeneration\PlaceholderArtifactGenerator;
 
 /**
  * `docs/AGENTS.md` §2: a placeholder must never read as real. This test proves the generator's

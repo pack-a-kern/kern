@@ -6,11 +6,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 
-class AppServiceProvider extends ServiceProvider
+final class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         $this->keepTestsOffSharedServices();
@@ -42,13 +39,5 @@ class AppServiceProvider extends ServiceProvider
             'queue.default' => 'sync',
             'broadcasting.default' => 'null',
         ]);
-    }
-
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot(): void
-    {
-        //
     }
 }

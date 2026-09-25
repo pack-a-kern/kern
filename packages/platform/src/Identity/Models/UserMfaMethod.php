@@ -16,7 +16,7 @@ use RuntimeException;
  * A user's enrolled MFA method (`user_mfa_methods` — see that migration's docblock). `secret_
  * ciphertext` is encrypted under **the owning `User`'s own DEK**, not a DEK of this row's own: the
  * TOTP secret belongs to the user, not to this join-row, so it shares `users.email_ciphertext`'s
- * encryption key exactly the way `App\Domain\Subjects\Models\PfProfile`'s fields share their
+ * encryption key exactly the way `Kern\TaxRomania\Subjects\Models\PfProfile`'s fields share their
  * owning `TaxSubject`'s DEK. `encryptionSubjectId()` therefore returns `user_id`, not `$this->id`
  * — the opposite of `Kern\Platform\Identity\Models\User`'s own self-referential
  * `encryptionSubjectId()`.

@@ -18,15 +18,15 @@ a separate, later task per this task's own brief. What exists here is the data t
 this scoping mechanism give that future task to build on.
 
 Entry points:
-- `App\Domain\Subjects\Tenancy\TenantContext::authorizeAndActivate(string $userId, string $subjectId): void`
+- `Kern\TaxRomania\Subjects\Tenancy\TenantContext::authorizeAndActivate(string $userId, string $subjectId): void`
   — the **only** sanctioned way to bind "which subject is this request acting on behalf of."
-- `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` — the trait any future model with a
+- `Kern\TaxRomania\Subjects\Tenancy\ScopedToTaxSubject` — the trait any future model with a
   `tax_subject_id` column uses to get automatic tenant-scoped reads and auto-tagged creates.
-- `App\Domain\Subjects\Actions\RegisterPfSubject` — the only place `SubjectType::PF` is ever
+- `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` — the only place `SubjectType::PF` is ever
   registered in this task's code; the reference implementation of "how to create a `TaxSubject`
   correctly" and "how to append an audit event from your module."
 - `Kern\Platform\Identity\Models\User::createWithEmail()` — the only correct way to create a `User`.
-- `App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository` — implements
+- `Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository` — implements
   `App\Support\KeyManagement\Contracts\SubjectDekRepository` against **both** `tax_subjects` and
   `users` (see "Key decisions" below for why both).
 
@@ -49,7 +49,7 @@ Migrations (`apps/api/database/migrations/`)
   `cnp_blind_index` globally unique — the actual DB-level enforcement of "a PF must not register
   twice under a different TaxSubject" (§4.1).
 - `2026_09_08_200004_create_security_events_table.php` — `security_events` per §6.1: a lightweight,
-  non-hash-chained operational log, distinct from `App\Domain\Audit`'s tamper-evident chain. Its
+  non-hash-chained operational log, distinct from `Kern\TaxRomania\Audit`'s tamper-evident chain. Its
   only writer in this task is `TenantContext` (denied cross-tenant access).
 - `2026_09_08_200005_add_identity_foreign_keys_to_audit_tables.php` — the FK constraints
   `docs/handoff/006-audit-chain.md` asked for, but with `restrictOnDelete()`, not the
@@ -62,7 +62,7 @@ Identity (`apps/api/packages/platform/src/Identity/`)
   self-referentially (its own id, like `TaxSubject`). `scopeWhereEmail()` for blind-index login
   lookup. `createWithEmail()` is the only correct constructor — see "Key decisions" #1.
 
-Subjects (`apps/api/app/Domain/Subjects/`)
+Subjects (`apps/api/packages/tax-romania/src/Subjects/`)
 - `Enums/SubjectType.php`, `Enums/SubjectStatus.php`, `Enums/MembershipRole.php`.
 - `Models/TaxSubject.php`, `Models/PfProfile.php`, `Models/SubjectMembership.php`,
   `Models/SecurityEvent.php`.
@@ -125,7 +125,7 @@ This is the part every later milestone depends on getting right.
 **1. Put `tax_subject_id` on your table**, and use the trait on your model:
 
 ```php
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
+use Kern\TaxRomania\Subjects\Tenancy\ScopedToTaxSubject;
 
 final class FinancialAccount extends Model
 {
@@ -144,7 +144,7 @@ it deliberately.
 this task builds none of those), bind the subject once, with authorization:**
 
 ```php
-use App\Domain\Subjects\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Tenancy\TenantContext;
 
 app(TenantContext::class)->authorizeAndActivate($currentUserId, $requestedSubjectId);
 ```
@@ -169,7 +169,7 @@ FinancialAccount::query()->get();                        // only this subject's 
 (duplicate-CNP detection, admin tooling):
 
 ```php
-FinancialAccount::withoutGlobalScope(\App\Domain\Subjects\Tenancy\TaxSubjectScope::class)->get();
+FinancialAccount::withoutGlobalScope(\Kern\TaxRomania\Subjects\Tenancy\TaxSubjectScope::class)->get();
 ```
 
 **One real trap to know about**: if your model *also* has an encrypted field (`Casts\Encrypted`),
@@ -194,7 +194,7 @@ docblock documents this interaction in detail.
    wrapped DEK... no row without an existing DEK was found" — the row genuinely didn't exist yet.
    The fix is the same two-write pattern in every case: insert a bare row first (no encrypted
    columns set), then assign the encrypted columns in a second `save()`, which is the write that
-   triggers first-use DEK creation. `App\Domain\Subjects\Actions\RegisterPfSubject` does this for
+   triggers first-use DEK creation. `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` does this for
    `TaxSubject`; `Kern\Platform\Identity\Models\User::createWithEmail()` does it for `User`, and is
    the **only** sanctioned way to create a `User` — documented prominently in that class's own
    docblock precisely so nobody rediscovers this failure mode by trial and error. `TaxSubjectFactory`
@@ -228,7 +228,7 @@ docblock documents this interaction in detail.
 
 4. **The `audit_events`/`audit_chain_heads` foreign keys use `restrictOnDelete()`, not
    `nullOnDelete()`** (which is what handoff 006's own snippet showed). This needed checking, not
-   assuming: `App\Domain\Audit\Support\AuditEventHasher::payload()` includes `subject_id`/
+   assuming: `Kern\TaxRomania\Audit\Support\AuditEventHasher::payload()` includes `subject_id`/
    `actor_id` in the exact fields `event_hash` is computed over (confirmed by reading the class,
    not assumed), and `audit_events` carries a `BEFORE UPDATE OR DELETE` trigger that raises on any
    mutation. A `SET NULL` foreign-key action *is* an `UPDATE` under the hood — so `nullOnDelete()`
@@ -285,7 +285,7 @@ docblock documents this interaction in detail.
    this task is `TenantContext` (in `Subjects`) — placing it there avoids an otherwise-unneeded
    `Subjects → Identity` Eloquent-model dependency. A later task adding login-failure security
    events from `Identity` writes into the same table via `DB::table('security_events')->insert(...)`
-   or a small DTO-based service call, never by importing `App\Domain\Subjects\Models\SecurityEvent`
+   or a small DTO-based service call, never by importing `Kern\TaxRomania\Subjects\Models\SecurityEvent`
    directly (`docs/AGENTS.md` §6).
 
 ## Dependencies
@@ -350,16 +350,16 @@ a foreign key this task added at handoff 006's own request.
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Subjects\Tenancy\TenantContext::authorizeAndActivate(string, string): void`,
+- `Kern\TaxRomania\Subjects\Tenancy\TenantContext::authorizeAndActivate(string, string): void`,
   `::currentSubjectId(): string`, `::currentRole(): MembershipRole`, `::hasActiveSubject(): bool`.
-- `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` — the trait, `App\Domain\Subjects\Tenancy\
+- `Kern\TaxRomania\Subjects\Tenancy\ScopedToTaxSubject` — the trait, `Kern\TaxRomania\Subjects\Tenancy\
   TaxSubjectScope` — the scope class other modules pass to `Model::withoutGlobalScope()`.
-- `App\Domain\Subjects\Tenancy\Exceptions\{NoTenantContextException,UnauthorizedSubjectAccessException}`.
-- `App\Domain\Subjects\Actions\RegisterPfSubject` + `DataTransferObjects\RegisterPfSubjectInput` —
+- `Kern\TaxRomania\Subjects\Tenancy\Exceptions\{NoTenantContextException,UnauthorizedSubjectAccessException}`.
+- `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` + `DataTransferObjects\RegisterPfSubjectInput` —
   callable from a future controller/command once auth exists.
-- `App\Domain\Subjects\Exceptions\DuplicateCnpException`.
+- `Kern\TaxRomania\Subjects\Exceptions\DuplicateCnpException`.
 - `Kern\Platform\Identity\Models\User::createWithEmail()`, `::scopeWhereEmail()`.
-- `App\Domain\Subjects\Models\{TaxSubject,PfProfile,SubjectMembership,SecurityEvent}` — Eloquent
+- `Kern\TaxRomania\Subjects\Models\{TaxSubject,PfProfile,SubjectMembership,SecurityEvent}` — Eloquent
   models, importable only from within `Subjects`/`Identity` per `deptrac.php`'s current rules;
   another module needing subject/membership data goes through `TenantContext` or a future
   application service, not a direct model import.
@@ -400,11 +400,11 @@ Confirmed directly: `vendor/bin/pest tests/Feature/Domain/Audit` against a real 
 now shows 10 failures, all the identical FK-violation shape, none of them present before this
 task's migration existed.
 
-This is `app/Domain/Audit/**` test code, outside this task's file scope
-(`packages/platform/src/Identity/**`/`app/Domain/Subjects/**` only) — not fixed here, per `docs/AGENTS.md` §10
+This is `packages/tax-romania/src/Audit/**` test code, outside this task's file scope
+(`packages/platform/src/Identity/**`/`packages/tax-romania/src/Subjects/**` only) — not fixed here, per `docs/AGENTS.md` §10
 ("record a bug found outside your scope, don't fix it silently in an unrelated change"). The fix
 is mechanical: those two test files need to create a real `TaxSubject`
-(`App\Domain\Subjects\Models\TaxSubject::factory()->create()`, which this task provides) before
+(`Kern\TaxRomania\Subjects\Models\TaxSubject::factory()->create()`, which this task provides) before
 calling `AuditChainService::record()` with its id, instead of a bare `Str::uuid()`. **I could not
 edit `docs/STATUS.md`'s "Known issues" table myself** — this task's instructions explicitly
 excluded that file — so whoever next touches `docs/STATUS.md` should copy this entry there, exactly
@@ -448,7 +448,7 @@ as handoff 006 asked for its own out-of-scope finding.
   Database/Eloquent/Factories/HasFactory.php` and `.../Attributes/UseFactory.php` (factory-name
   resolution, confirmed via an actual `Class ... not found` error before switching approach),
   `Model::performInsert()`/`insertAndSetId()` (confirmed the `$incrementing`/`lastInsertId()`
-  interaction via a real reproduction, not by inspection alone), `App\Domain\Audit\Support\
+  interaction via a real reproduction, not by inspection alone), `Kern\TaxRomania\Audit\Support\
   AuditEventHasher` (confirmed `subject_id`/`actor_id` are part of the hashed payload before
   choosing `restrictOnDelete()`).
 - All empirical claims in "Key decisions" were reproduced with a standalone PHP script against the

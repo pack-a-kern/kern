@@ -11,7 +11,7 @@ use Kern\Platform\Identity\Exceptions\EmailAlreadyRegisteredException;
 use Kern\Platform\Identity\Models\User;
 
 /**
- * Creates a new `User` — the account/identity row, not a `TaxSubject` (`App\Domain\Subjects\
+ * Creates a new `User` — the account/identity row, not a `TaxSubject` (`Kern\TaxRomania\Subjects\
  * Actions\RegisterPfSubject` is a separate, later step once the user picks a fiscal identity to
  * register, per `docs/handoff/011-identity-tenancy.md`).
  *
@@ -19,7 +19,7 @@ use Kern\Platform\Identity\Models\User;
  * caller registering passkey-only still calls this action with `password: null`, then immediately
  * follows with `BeginPasskeyRegistration`/`CompletePasskeyRegistration`.
  *
- * The duplicate-email pre-check races the same way `App\Domain\Subjects\Actions\
+ * The duplicate-email pre-check races the same way `Kern\TaxRomania\Subjects\Actions\
  * RegisterPfSubject`'s duplicate-CNP check does (documented there as a known, accepted gap) — a
  * genuine concurrent registration of the same email is still blocked, just by the raw
  * `users.email_blind_index` unique constraint rather than this friendly exception.

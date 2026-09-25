@@ -133,6 +133,26 @@ Modulele nu trebuie să importe direct modele Eloquent din alte module. Interac�
 - application services;
 - domain events.
 
+**Amendament — `docs/adr/0016-installable-packages-with-a-security-only-base.md`.** Modulele nu mai
+stau sub `app/Domain/`: sunt pachete Composer, iar granițele de mai sus sunt acum impuse de Composer,
+nu doar de deptrac — un modul care nu trebuie să scrie în jurnalul de audit nu poate, pentru că nu
+cere pachetul.
+
+```text
+packages/
+    audit/          lanțul de audit, append-only
+    platform/       criptare, chei, object store, identitate, setări, tenancy
+    documents/      încărcare, scanare, criptare la repaus, extragere
+    legislation/    surse oficiale, consolidări, istoricul unui text, căutare
+    tax-romania/    contribuabilul, parametrii fiscali, motorul de taxe, wallet, extrase, chirii, D212, SPV
+apps/api/           rutele către pagini, interfața, cablajul
+```
+
+Nimic din `packages/audit`, `packages/platform`, `packages/documents` sau `packages/legislation` nu
+știe ce este un contribuabil. Ce înseamnă „chiriaș” (`tenant`) pentru această instalare —
+`tax_subject_id` — stă în `config/tenancy.php` al aplicației, iar cine are drept de acces este un
+contract pe care aplicația îl răspunde.
+
 Python services sunt servicii separate deoarece au runtime și threat profile diferit.
 
 ## 2.2 PF-first, entity-agnostic

@@ -113,9 +113,9 @@ Entry points:
 1. **There is no HTTP endpoint to list, create, or fetch a user's `TaxSubject`(s).** Read
    `routes/api.php` in full: only `POST/GET /v1/subjects/{subject}/documents*` and
    `POST/DELETE /v1/subjects/{subject}/document-ai-consent` exist, all requiring a `{subject}` id
-   the caller already knows. `App\Domain\Subjects\Actions\RegisterPfSubject` exists as a domain
+   the caller already knows. `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` exists as a domain
    action but no controller calls it. Building that endpoint is `app/Http/**`/`routes/api.php` —
-   outside this task's file scope, and touching PHP under `app/Domain/**` was explicitly
+   outside this task's file scope, and touching PHP under `packages/tax-romania/src/**` was explicitly
    prohibited. **Workaround, not a fix**: `resources/js/lib/subjectStore.ts` lets a user who
    already knows their `tax_subject_id` (obtained out of band) enter it once; it's remembered in
    `localStorage` as an opaque ULID pointer, the same category of "which workspace" convenience any
@@ -257,7 +257,7 @@ integration risks — see "Open questions."
 
 ## Interfaces exposed to other modules
 
-Nothing under `app/Domain/**` or `app/Http/**` was touched or is exposed by this task — this is a
+Nothing under `packages/tax-romania/src/**` or `app/Http/**` was touched or is exposed by this task — this is a
 pure consumer of the existing HTTP/Reverb contracts documented in handoffs 017/022/027. The one
 thing a future backend task should treat as a contract this frontend now depends on:
 
@@ -271,7 +271,7 @@ thing a future backend task should treat as a contract this frontend now depends
 ## What is NOT done
 
 - **No subject registration/listing screen** — blocked on a backend endpoint that doesn't exist
-  (Key decision #1). The PF-registration flow (`App\Domain\Subjects\Actions\RegisterPfSubject`,
+  (Key decision #1). The PF-registration flow (`Kern\TaxRomania\Subjects\Actions\RegisterPfSubject`,
   including CNP entry) has no frontend at all.
 - **No working extraction-review submission** — blocked on two backend endpoints that don't exist
   (Key decision #2): reading `document_extractions`' proposed fields, and
@@ -290,7 +290,7 @@ thing a future backend task should treat as a contract this frontend now depends
   doesn't have one either).
 - **No accountant/delegate-access UI** — not asked for; `BLUEPRINT.md` §33 lists it as a future
   design constraint, not an MVP requirement.
-- Did not touch `app/Domain/**`, `app/Http/**`, `routes/api.php`, `routes/channels.php`,
+- Did not touch `packages/tax-romania/src/**`, `app/Http/**`, `routes/api.php`, `routes/channels.php`,
   `bootstrap/**`, `docs/STATUS.md`, or any other module's files — all explicitly out of this task's
   scope.
 

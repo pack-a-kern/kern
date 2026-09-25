@@ -8,7 +8,7 @@
 Two independent deliverables per the task brief, both scoped to `BLUEPRINT.md` §4.8 (audit tamper
 evidence) and §4.10/§23 (no PII in logs):
 
-1. **`App\Domain\Audit`** — a per-subject, append-only, hash-chained audit trail with a
+1. **`Kern\TaxRomania\Audit`** — a per-subject, append-only, hash-chained audit trail with a
    database-level (not just application-level) tamper barrier, plus a service that walks a chain
    and reports the exact sequence number where it breaks.
 2. **`App\Support\Logging\SensitiveDataProcessor`** — a Monolog processor, wired into every log
@@ -17,40 +17,40 @@ evidence) and §4.10/§23 (no PII in logs):
    nested arrays/objects — before a record reaches any handler.
 
 Entry points for other modules:
-- `App\Domain\Audit\Services\AuditChainService::record(AuditEventInput $input): AuditEventRecord`
-- `App\Domain\Audit\Services\ChainVerifier::verify(string $chainKey): ChainVerificationResult`
+- `Kern\TaxRomania\Audit\Services\AuditChainService::record(AuditEventInput $input): AuditEventRecord`
+- `Kern\TaxRomania\Audit\Services\ChainVerifier::verify(string $chainKey): ChainVerificationResult`
 - `config/logging.php` — every real channel now carries `'tap' => [RedactSensitiveData::class]`;
   nothing else needs to change for a new channel to inherit redaction (just add the same line).
 
 ## Files created / changed
 
 Domain/Audit
-- `app/Domain/Audit/Support/CanonicalJson.php` — deterministic, byte-stable JSON encoder. This is
+- `packages/tax-romania/src/Audit/Support/CanonicalJson.php` — deterministic, byte-stable JSON encoder. This is
   the single place the canonical-JSON rule is implemented; see **Canonical JSON rule** below.
-- `app/Domain/Audit/Support/AuditEventHasher.php` — the *one* place
+- `packages/tax-romania/src/Audit/Support/AuditEventHasher.php` — the *one* place
   `event_hash = SHA256(canonical_json(event_without_hash) || previous_hash)` is computed. Both the
   writer and the verifier call this so they can never independently drift apart.
-- `app/Domain/Audit/Services/AuditChainService.php` — the module's public entry point (see
+- `packages/tax-romania/src/Audit/Services/AuditChainService.php` — the module's public entry point (see
   **How to append an event** below). Owns chain-key derivation, row-locking, sequence assignment,
   and the insert.
-- `app/Domain/Audit/Services/ChainVerifier.php` — walks one chain in sequence order, recomputing
+- `packages/tax-romania/src/Audit/Services/ChainVerifier.php` — walks one chain in sequence order, recomputing
   each event's hash from its own stored columns, and reports the first sequence that fails.
-- `app/Domain/Audit/ChainVerificationFailureReason.php` — enum of the seven ways a chain can fail
+- `packages/tax-romania/src/Audit/ChainVerificationFailureReason.php` — enum of the seven ways a chain can fail
   verification (gap, duplicate sequence, wrong start, previous/event hash mismatch, head mismatch,
   chain-not-found-but-head-says-otherwise).
-- `app/Domain/Audit/DataTransferObjects/AuditEventInput.php` — what a caller passes to `record()`.
+- `packages/tax-romania/src/Audit/DataTransferObjects/AuditEventInput.php` — what a caller passes to `record()`.
   `occurredAt` is a mandatory constructor argument (`AuditEventInput::occurringNow(...)` for the
   common "right now" case) — no implicit clock inside the DTO itself, per `docs/AGENTS.md` §6.
-- `app/Domain/Audit/DataTransferObjects/AuditEventRecord.php` — what `record()` returns: exactly
+- `packages/tax-romania/src/Audit/DataTransferObjects/AuditEventRecord.php` — what `record()` returns: exactly
   the row that was written.
-- `app/Domain/Audit/DataTransferObjects/ChainVerificationResult.php` — what `verify()` returns:
+- `packages/tax-romania/src/Audit/DataTransferObjects/ChainVerificationResult.php` — what `verify()` returns:
   `ok`, `verifiedCount`, and on failure `brokenAtSequence` + `reason`.
-- `app/Domain/Audit/Models/AuditEvent.php` — read-oriented Eloquent model over `audit_events`.
+- `packages/tax-romania/src/Audit/Models/AuditEvent.php` — read-oriented Eloquent model over `audit_events`.
   Overrides `performUpdate()`/`performDeleteOnModel()` to throw `LogicException` as a second,
   application-layer line of defence (the real enforcement is the database trigger, see below);
   `$guarded = ['*']` additionally blocks mass-assignment (`->update([...])`) even earlier, with its
   own `MassAssignmentException`.
-- `app/Domain/Audit/Models/AuditChainHead.php` — Eloquent model over `audit_chain_heads` (the one
+- `packages/tax-romania/src/Audit/Models/AuditChainHead.php` — Eloquent model over `audit_chain_heads` (the one
   table in this module that is legitimately mutated on every append).
 
 Migrations
@@ -92,7 +92,7 @@ Tests (all real, all executed — see **How to verify**)
 - `tests/Feature/Domain/Audit/AuditChainConcurrencyTest.php` — **requires Postgres + ext-pcntl**,
   self-skips otherwise. See **Concurrency proof** below.
 
-## Canonical JSON rule (`App\Domain\Audit\Support\CanonicalJson`)
+## Canonical JSON rule (`Kern\TaxRomania\Audit\Support\CanonicalJson`)
 
 Given the same logical data, the encoding must always produce the same bytes, regardless of how
 the caller happened to build the array. The rules, all enforced in code (not just documented):
@@ -118,8 +118,8 @@ expected byte string for a realistic payload — not just self-consistency betwe
 ## How to append an event from another module
 
 ```php
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
+use Kern\TaxRomania\Audit\DataTransferObjects\AuditEventInput;
+use Kern\TaxRomania\Audit\Services\AuditChainService;
 
 final class SomeApplicationService
 {
@@ -159,7 +159,7 @@ file's SHA-256 per `BLUEPRINT.md` §4.9) and pass it directly.
 ## How to verify a chain
 
 ```php
-$result = app(App\Domain\Audit\Services\ChainVerifier::class)->verify($subjectId);
+$result = app(Kern\TaxRomania\Audit\Services\ChainVerifier::class)->verify($subjectId);
 // or AuditChainService::SYSTEM_CHAIN_KEY for the system chain
 
 if (! $result->ok) {
@@ -374,11 +374,11 @@ task's tests). Always target `--filter=Audit` (or the equivalent path) when runn
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Audit\Services\AuditChainService::record(AuditEventInput $input): AuditEventRecord`
-- `App\Domain\Audit\Services\AuditChainService::hashPayload(array $payload): string`
-- `App\Domain\Audit\Services\ChainVerifier::verify(string $chainKey): ChainVerificationResult`
-- `App\Domain\Audit\DataTransferObjects\AuditEventInput` (+ `::occurringNow()` named constructor)
-- `App\Domain\Audit\ChainVerificationFailureReason` enum
+- `Kern\TaxRomania\Audit\Services\AuditChainService::record(AuditEventInput $input): AuditEventRecord`
+- `Kern\TaxRomania\Audit\Services\AuditChainService::hashPayload(array $payload): string`
+- `Kern\TaxRomania\Audit\Services\ChainVerifier::verify(string $chainKey): ChainVerificationResult`
+- `Kern\TaxRomania\Audit\DataTransferObjects\AuditEventInput` (+ `::occurringNow()` named constructor)
+- `Kern\TaxRomania\Audit\ChainVerificationFailureReason` enum
 - `config/logging.php`'s `RedactSensitiveData::class` tap — add the same `'tap' => [...]` line to
   any new log channel to inherit redaction; nothing else is required.
 
@@ -410,7 +410,7 @@ task's tests). Always target `--filter=Audit` (or the equivalent path) when runn
 - **No non-UTC-session-timezone regression test** for `ChainVerifier`'s `occurred_at` re-normalisation
   (**Key decisions** #4) — the argument for correctness is in code/docblock only.
 - **`security_events` table** (named in `BLUEPRINT.md` §6.1 alongside `audit_events`) — not built;
-  out of this task's explicit scope (`app/Domain/Audit/**`, and this table wasn't named in the
+  out of this task's explicit scope (`packages/tax-romania/src/Audit/**`, and this table wasn't named in the
   brief).
 
 ## Open questions

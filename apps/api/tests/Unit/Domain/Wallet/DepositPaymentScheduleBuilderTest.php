@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\DepositPaymentScheduleBuilderTest;
 
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Exceptions\InvalidDateRangeException;
-use App\Domain\Wallet\Services\Interest\DepositPaymentScheduleBuilder;
 use DateTimeImmutable;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Exceptions\InvalidDateRangeException;
+use Kern\TaxRomania\Wallet\Services\Interest\DepositPaymentScheduleBuilder;
 
 it('produces a single period spanning the whole deposit life for AT_MATURITY', function (): void {
     $builder = new DepositPaymentScheduleBuilder();

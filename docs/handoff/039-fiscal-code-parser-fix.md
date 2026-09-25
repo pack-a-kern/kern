@@ -149,7 +149,7 @@ resolved or suffixed into uniqueness.
 
 Ran inside the already-running `anaf-app-1` container (PHP 8.5.10, real vendored `apps/api/vendor/`)
 against a dedicated database, per `docs/AGENTS.md` §7b (another agent's work was in flight on
-`apps/api/app/Support/Crypto/**`/`apps/api/app/Domain/Audit/**` per `docs/STATUS.md`, unrelated to
+`apps/api/app/Support/Crypto/**`/`apps/api/packages/tax-romania/src/Audit/**` per `docs/STATUS.md`, unrelated to
 this task but reason enough not to share a database):
 
 ```
@@ -325,7 +325,7 @@ enum exhaustively without a `default`, per a repo-wide grep — see "Sources con
 ## Open questions
 
 - Should `ambiguousCitationLabels` eventually become a persisted anomaly (mirroring
-  `App\Domain\Fx\Models\FxRateAnomaly`'s "anomaly, don't overwrite silently" pattern) rather than
+  `Kern\TaxRomania\Fx\Models\FxRateAnomaly`'s "anomaly, don't overwrite silently" pattern) rather than
   an in-memory DTO field a caller must remember to check? That decision touches `Services/**` and
   is explicitly out of this task's scope — flagged for whoever picks up "What is NOT done"'s first
   item.

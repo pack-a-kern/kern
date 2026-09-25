@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domain\Operations\DataTransferObjects\TaskArgument;
-use App\Domain\Operations\Enums\OperationTask;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Operations\DataTransferObjects\TaskArgument;
+use Kern\TaxRomania\Operations\Enums\OperationTask;
 
 it('names only commands this application actually registers', function (): void {
     // The enum is the allowlist. A case naming a command that does not exist would fail at run

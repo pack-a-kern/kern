@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\MembershipRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

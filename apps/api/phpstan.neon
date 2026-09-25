@@ -14,6 +14,7 @@ parameters:
         - ../../packages/audit/database/migrations
         - ../../packages/documents/database/migrations
         - ../../packages/legislation/database/migrations
+        - ../../packages/tax-romania/database/migrations
         - ../../packages/platform/database/migrations
     paths:
         # `../../packages/*` is `<repository>/packages` from the host and `/var/packages` from
@@ -23,6 +24,7 @@ parameters:
         - ../../packages/audit/src
         - ../../packages/documents/src
         - ../../packages/legislation/src
+        - ../../packages/tax-romania/src
         - ../../packages/platform/src
         - app
         - bootstrap/app.php

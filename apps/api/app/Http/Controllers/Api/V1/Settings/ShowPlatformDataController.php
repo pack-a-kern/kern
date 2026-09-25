@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Settings;
 
-use App\Domain\Operations\DataTransferObjects\FreshnessItem;
-use App\Domain\Operations\DataTransferObjects\SourceRegistryEntry;
-use App\Domain\Operations\Services\ProbeDataFreshness;
-use App\Domain\Operations\Services\ProbeSchedulerStatus;
-use App\Domain\Operations\Services\ReadSourceAllowlist;
 use Illuminate\Http\JsonResponse;
+use Kern\TaxRomania\Operations\DataTransferObjects\FreshnessItem;
+use Kern\TaxRomania\Operations\DataTransferObjects\SourceRegistryEntry;
+use Kern\TaxRomania\Operations\Services\ProbeDataFreshness;
+use Kern\TaxRomania\Operations\Services\ProbeSchedulerStatus;
+use Kern\TaxRomania\Operations\Services\ReadSourceAllowlist;
 
 /**
  * `GET /api/v1/settings/platform-data` — what this installation has ingested, and where from.

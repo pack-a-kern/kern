@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\DeclarationSnapshotBuilderTest;
 
-use App\Domain\Declarations\DataTransferObjects\AssessmentSnapshot;
-use App\Domain\Declarations\DataTransferObjects\GeneratedArtifact;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Declarations\Services\DeclarationSnapshotBuilder;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Declarations\DataTransferObjects\AssessmentSnapshot;
+use Kern\TaxRomania\Declarations\DataTransferObjects\GeneratedArtifact;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Declarations\Services\DeclarationSnapshotBuilder;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
  * `BLUEPRINT.md` §39 reproducibility, applied to `declarations.snapshot_hash`: the same inputs must
  * always hash identically, regardless of PHP array insertion order — the same discipline
- * `App\Domain\TaxEngine\Services\TaxAssessor::sorted()` already applies to `input_snapshot_hash`.
+ * `Kern\TaxRomania\TaxEngine\Services\TaxAssessor::sorted()` already applies to `input_snapshot_hash`.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

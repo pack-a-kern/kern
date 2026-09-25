@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\DepositInterestCalculatorTest;
 
-use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Services\DayCount\DayCountCalculator;
-use App\Domain\Wallet\Services\Interest\DepositInterestCalculator;
-use App\Domain\Wallet\Services\Interest\DepositPaymentScheduleBuilder;
-use App\Domain\Wallet\Services\Interest\DepositRateCoverageValidator;
 use DateTimeImmutable;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator;
+use Kern\TaxRomania\Wallet\Services\Interest\DepositInterestCalculator;
+use Kern\TaxRomania\Wallet\Services\Interest\DepositPaymentScheduleBuilder;
+use Kern\TaxRomania\Wallet\Services\Interest\DepositRateCoverageValidator;
 
 function calculator(): DepositInterestCalculator
 {

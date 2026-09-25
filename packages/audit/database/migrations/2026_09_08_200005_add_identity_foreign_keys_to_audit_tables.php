@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
  * `restrictOnDelete()` is therefore the only correct choice, and it is also the semantically right
  * one: `BLUEPRINT.md` §25 already describes account deletion as crypto-shredding (destroy the
  * wrapped DEK; the row and its ciphertext become permanently unrecoverable garbage) plus a status
- * change, not a raw `DELETE FROM tax_subjects`/`users` — see `App\Domain\Subjects\Models\
+ * change, not a raw `DELETE FROM tax_subjects`/`users` — see `Kern\TaxRomania\Subjects\Models\
  * TaxSubject`/`Kern\Platform\Identity\Models\User`'s `status` enums. An actual SQL-level row delete
  * of a `TaxSubject`/`User` that still has audit history is exactly the case this constraint should
  * block, not silently work around. `audit_chain_heads` gets the same treatment for consistency,

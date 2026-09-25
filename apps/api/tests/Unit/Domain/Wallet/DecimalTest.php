@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Wallet\DecimalTest;
 
-use App\Domain\Wallet\ValueObjects\Decimal;
-use App\Domain\Wallet\ValueObjects\Exceptions\InvalidDecimalException;
+use Kern\TaxRomania\Wallet\ValueObjects\Decimal;
+use Kern\TaxRomania\Wallet\ValueObjects\Exceptions\InvalidDecimalException;
 
 it('parses a valid non-negative decimal string', function (): void {
     expect(Decimal::fromString('12.50')->toString())->toBe('12.50')

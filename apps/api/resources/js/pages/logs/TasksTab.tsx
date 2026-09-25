@@ -36,7 +36,7 @@ import type { OperationTaskView, OperationsOverview, TaskRun } from '../../types
  *
  * ## What a task is, and what this screen therefore contains
  *
- * A *task* is one of six artisan commands named by `App\Domain\Operations\Enums\OperationTask`. It
+ * A *task* is one of six artisan commands named by `Kern\TaxRomania\Operations\Enums\OperationTask`. It
  * is not the same thing as a queue *job*, even though it travels on the queue: `RunOperationTask`
  * wraps it, runs it with a buffered output, and writes the outcome to `task_runs`. That is why a
  * failed import never appears among the failed jobs — and why the queue lives on its own screen

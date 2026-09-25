@@ -5,7 +5,7 @@
 
 ## What was built
 
-`App\Domain\Rental` (`BLUEPRINT.md` §6.5): properties (with co-ownership), rental contracts with a
+`Kern\TaxRomania\Rental` (`BLUEPRINT.md` §6.5): properties (with co-ownership), rental contracts with a
 temporal amendment model, generated per-period accruals, real payments, and a heuristic
 payment↔wallet-transaction matcher that only ever proposes a link, never confirms one. No tax rate,
 threshold, or fiscal figure is computed anywhere in this module (`docs/AGENTS.md` rule 3) — rental
@@ -14,23 +14,23 @@ for deposit interest.
 
 Entry points:
 
-- `App\Domain\Rental\Actions\RegisterProperty` — creates one `properties` row; validates
+- `Kern\TaxRomania\Rental\Actions\RegisterProperty` — creates one `properties` row; validates
   `ownership_percent_decimal` eagerly.
-- `App\Domain\Rental\Actions\CreateRentalContract` — opens a contract plus its first
+- `Kern\TaxRomania\Rental\Actions\CreateRentalContract` — opens a contract plus its first
   `rental_contract_versions` row (`valid_from = start_date`).
-- `App\Domain\Rental\Actions\AmendRentalContract` — closes the currently in-force version and
+- `Kern\TaxRomania\Rental\Actions\AmendRentalContract` — closes the currently in-force version and
   opens a new one from the amendment's effective date onward. **This is the load-bearing action
   for the temporal model** — read "The temporal amendment model" below before touching it.
-- `App\Domain\Rental\Actions\TerminateRentalContract` — closes the contract and its open version
+- `Kern\TaxRomania\Rental\Actions\TerminateRentalContract` — closes the contract and its open version
   at a given `end_date`.
-- `App\Domain\Rental\Actions\GetRentalTermsInForce` — "what were this contract's terms on date X",
+- `Kern\TaxRomania\Rental\Actions\GetRentalTermsInForce` — "what were this contract's terms on date X",
   exactly one version, never a blend.
-- `App\Domain\Rental\Actions\GenerateRentalAccruals` — (re)computes `rental_accruals` through a
-  given horizon, idempotently, dispatching `App\Domain\Rental\Events\RentalAccrualRecorded` per
+- `Kern\TaxRomania\Rental\Actions\GenerateRentalAccruals` — (re)computes `rental_accruals` through a
+  given horizon, idempotently, dispatching `Kern\TaxRomania\Rental\Events\RentalAccrualRecorded` per
   row after commit.
-- `App\Domain\Rental\Actions\RecordRentalPayment` — records a real payment, optionally against an
+- `Kern\TaxRomania\Rental\Actions\RecordRentalPayment` — records a real payment, optionally against an
   accrual (marking it `PAID` once fully covered).
-- `App\Domain\Rental\Actions\ProposeRentalPaymentTransactionMatch` /
+- `Kern\TaxRomania\Rental\Actions\ProposeRentalPaymentTransactionMatch` /
   `ConfirmRentalPaymentTransactionMatch` / `RejectRentalPaymentTransactionMatch` — the matching
   workflow; see "Matching" below for the exact signals.
 
@@ -44,7 +44,7 @@ in full in "Key decisions" below: (1) `rent_minor`/`payment_frequency`/`payment_
 `rental_contract_versions`, not on `rental_contracts`; (2) `rental_accruals` gains
 `rental_contract_version_id`.
 
-**`App\Domain\Rental`** (`apps/api/app/Domain/Rental/`):
+**`Kern\TaxRomania\Rental`** (`apps/api/packages/tax-romania/src/Rental/`):
 
 - `Enums/{PropertyType,TenantType,RentalContractStatus,RentalPaymentFrequency,AccrualStatus,
   TransactionMatchStatus}.php`.
@@ -54,7 +54,7 @@ in full in "Key decisions" below: (1) `rent_minor`/`payment_frequency`/`payment_
 - `Services/OwnershipShareCalculator.php` — the co-ownership BCMath share calculation.
 - `Services/RentalTermsInForceResolver.php` — "exactly one version in force on date X".
 - `Services/AccrualPeriodBuilder.php` — splits one version's life into `payment_frequency`-sized
-  periods (the `App\Domain\Wallet\Services\Interest\DepositPaymentScheduleBuilder` idiom,
+  periods (the `Kern\TaxRomania\Wallet\Services\Interest\DepositPaymentScheduleBuilder` idiom,
   reimplemented independently — see "Key decisions").
 - `Services/RentalDueDateCalculator.php` — `payment_day` → an actual due date, clamped into the
   period.
@@ -64,7 +64,7 @@ in full in "Key decisions" below: (1) `rent_minor`/`payment_frequency`/`payment_
 
 **Factories** — `apps/api/database/factories/PropertyFactory.php` only. No
 `RentalContract`/`RentalContractVersion` factory: both always need to be created together (a
-contract with no version is invalid), and `App\Domain\Rental\Actions\CreateRentalContract` is the
+contract with no version is invalid), and `Kern\TaxRomania\Rental\Actions\CreateRentalContract` is the
 one correct way to do that — a factory that fabricated a paired contract+version silently would
 duplicate that action's own validation, the same reasoning `docs/handoff/021-wallet.md` gives for
 `DepositFactory` shipping no `deposit_rate_periods`.
@@ -103,8 +103,8 @@ construction**, not by a database constraint or a full-table re-validation:
 - `TerminateRentalContract` closes the open version's `valid_to` to the same `end_date` it sets on
   the contract, and marks the contract `TERMINATED` (after which `AmendRentalContract` refuses).
 
-**Reading "the terms in force on date X"** (`App\Domain\Rental\Services\
-RentalTermsInForceResolver`, wrapped by `App\Domain\Rental\Actions\GetRentalTermsInForce`) walks
+**Reading "the terms in force on date X"** (`Kern\TaxRomania\Rental\Services\
+RentalTermsInForceResolver`, wrapped by `Kern\TaxRomania\Rental\Actions\GetRentalTermsInForce`) walks
 the ordered versions and returns the one where `valid_from <= date` and (`valid_to` is null or
 `valid_to > date`) — exactly one match or `NoContractVersionInForceException`, never a guess, never
 a blend. Every date comparison here and throughout this module uses the spaceship operator
@@ -115,9 +115,9 @@ has already bitten `Domain/Wallet` once (`docs/handoff/021-wallet.md` "Key decis
 comparison in this module was written with that already in mind, not discovered the same way.
 
 **Generating correct accruals on both sides of an amendment**
-(`App\Domain\Rental\Actions\GenerateRentalAccruals`) schedules **each version independently**:
+(`Kern\TaxRomania\Rental\Actions\GenerateRentalAccruals`) schedules **each version independently**:
 for a version's own `[valid_from, min(valid_to ?? $until, $until))`, it calls
-`App\Domain\Rental\Services\AccrualPeriodBuilder::build($version->payment_frequency, ...)`, which
+`Kern\TaxRomania\Rental\Services\AccrualPeriodBuilder::build($version->payment_frequency, ...)`, which
 splits that interval into `payment_frequency`-sized periods, clipping the final one to the
 version's own end. Because scheduling restarts from each version's own `valid_from`, a rent change
 always lands exactly on a period boundary — no single `rental_accruals` row is ever asked to
@@ -138,19 +138,19 @@ If a future task wants proration, `AccrualPeriodBuilder`'s period boundaries and
 ## Co-ownership — `properties.ownership_percent_decimal`
 
 `BLUEPRINT.md` §33 names co-ownership as a first-class design constraint. `Property` carries
-`ownership_percent_decimal`, a validated decimal string in `(0, 100]` (`App\Domain\Rental\Actions\
-RegisterProperty` validates the shape and range eagerly; `App\Domain\Rental\Services\
+`ownership_percent_decimal`, a validated decimal string in `(0, 100]` (`Kern\TaxRomania\Rental\Actions\
+RegisterProperty` validates the shape and range eagerly; `Kern\TaxRomania\Rental\Services\
 OwnershipShareCalculator` trusts it without re-validating). Every `rental_accruals.gross_minor`
 this module ever writes is **already the owning tax subject's share** —
 `OwnershipShareCalculator::shareOf($version->rent_minor, $property->ownership_percent_decimal)`,
 round-half-up to the nearest minor unit via the exact `bcadd($ratio, '0.5', 0)` idiom
-`App\Domain\Wallet\ValueObjects\Decimal::roundedTo()` already documents and uses in this codebase.
+`Kern\TaxRomania\Wallet\ValueObjects\Decimal::roundedTo()` already documents and uses in this codebase.
 Proven directly in `tests/Feature/Domain/Rental/CoOwnershipAccrualShareTest.php`: a 50%-owned
 property with a 2000.00 RON/mo contract produces accruals of exactly 1000.00 RON, never the full
 2000.00; a 33.33%-owned property with a 1000.00 RON/mo contract produces exactly 333.30 RON.
 
 ## Matching — the exact signals (documented once, in
-`App\Domain\Rental\Services\Matching\TransactionMatchCandidateFinder`)
+`Kern\TaxRomania\Rental\Services\Matching\TransactionMatchCandidateFinder`)
 
 A `financial_transactions` (`Domain/Wallet`) row is a candidate for a `rental_payments` row when
 **all** of:
@@ -166,7 +166,7 @@ A `financial_transactions` (`Domain/Wallet`) row is a candidate for a `rental_pa
 
 Among survivors, the smallest date distance wins; ties break on the transaction id's lexical order
 (determinism only, not a real signal). **This never produces more than `PROPOSED`.**
-`App\Domain\Rental\Actions\ProposeRentalPaymentTransactionMatch` writes `transaction_id` +
+`Kern\TaxRomania\Rental\Actions\ProposeRentalPaymentTransactionMatch` writes `transaction_id` +
 `transaction_match_status = PROPOSED` and stops there — `BLUEPRINT.md` §14.6's "never auto-confirm"
 principle, applied to a financial link exactly as it applies to a document extraction. Only
 `ConfirmRentalPaymentTransactionMatch` (a human decision) can reach `CONFIRMED`.
@@ -178,14 +178,14 @@ already-confirmed-elsewhere) are proven in
 `tests/Feature/Domain/Rental/RentalPaymentMatchingTest.php`.
 
 **The `financial_transactions` table is read via `Illuminate\Support\Facades\DB::table(...)`, never
-`App\Domain\Wallet\Models\FinancialTransaction`** — this is the reason `deptrac.php`'s new `Rental`
+`Kern\TaxRomania\Wallet\Models\FinancialTransaction`** — this is the reason `deptrac.php`'s new `Rental`
 layer needs no grant on `Wallet` at all. This is not a novel shortcut invented here: it is the
-identical sanctioned shape `App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository`
+identical sanctioned shape `Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository`
 already establishes in this codebase for a one-off cross-table read
 (`docs/handoff/011-identity-tenancy.md` "Key decisions" #2) — a genuine, documented interim
 measure, since `Domain/Wallet` exposes no DTO-returning application service for reading its own
 transactions and building one there was outside this task's path scope
-(`apps/api/app/Domain/Rental/**` only). Only plain, unencrypted columns are read (`id`,
+(`apps/api/packages/tax-romania/src/Rental/**` only). Only plain, unencrypted columns are read (`id`,
 `account_id`, `booked_at`, `amount_minor`, `currency_code`) — never `description_ciphertext`/
 `counterparty_ciphertext`, which this module has no key material to decrypt and does not need to.
 **If `Domain/Wallet` ever renames or restructures `financial_transactions`, this finder breaks
@@ -196,25 +196,25 @@ silently at runtime, not at compile time** — flagged as an open question below
 Every amount in this module — `rent_minor`, `deposit_minor`, `gross_minor`, `amount_minor` — is a
 plain PHP `int` of minor units, `bigInteger` at the database level, never a float
 (`docs/AGENTS.md` rule 6; `tests/Unit/Domain/Rental/MoneyNeverFloatTest.php` reflects over every
-class under `app/Domain/Rental` and asserts none declares a `float` type anywhere). **No `Money`
+class under `packages/tax-romania/src/Rental` and asserts none declares a `float` type anywhere). **No `Money`
 value object was introduced for this module** — a deliberate choice, not an oversight, checked
-against `docs/handoff/021-wallet.md`'s own decision before making it: `App\Domain\Wallet\
+against `docs/handoff/021-wallet.md`'s own decision before making it: `Kern\TaxRomania\Wallet\
 ValueObjects\Money` exists in that module but, confirmed by grepping the actual call sites, is used
 by **none** of `Domain/Wallet`'s own actions — `RecordFinancialTransaction`/`OpenDeposit` operate
 on plain `int` minor units directly. Since the one arithmetic operation this module needs
 (a percentage share) is a single pure BCMath calculation with no other operations to bundle
 alongside it, wrapping it in a `Money`/`Decimal` type would be exactly
 `docs/CODE-QUALITY.md` §2's "abstraction with a single, non-generic use that shouldn't exist" —
-`App\Domain\Rental\Services\OwnershipShareCalculator` is that one calculation, and nothing more
+`Kern\TaxRomania\Rental\Services\OwnershipShareCalculator` is that one calculation, and nothing more
 was built around it.
 
 ## Tax facts — the M5 contract
 
-`App\Domain\Rental\Events\RentalAccrualRecorded` is dispatched (`event(new self(...))`, plain
+`Kern\TaxRomania\Rental\Events\RentalAccrualRecorded` is dispatched (`event(new self(...))`, plain
 Laravel event dispatch, no queue) after `GenerateRentalAccruals`'s transaction commits — the
-identical contract shape `App\Domain\Wallet\Events\DepositInterestEventRecorded` already
+identical contract shape `Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded` already
 establishes for the same "financial event → tax fact" problem (`BLUEPRINT.md` §2.4). This module
-**never** imports `App\Domain\TaxEngine`'s Eloquent models (`docs/AGENTS.md` §6) and never
+**never** imports `Kern\TaxRomania\TaxEngine`'s Eloquent models (`docs/AGENTS.md` §6) and never
 constructs a `TaxFact` itself. The event carries: `rentalAccrualId`, `taxSubjectId`, `propertyId`,
 `rentalContractId`, `tenantType` (PF/PJ/UNKNOWN — fiscally relevant per §6.5, this module records
 it but decides nothing from it), `periodStart`/`periodEnd`/`dueDate`, `currencyCode`, `grossMinor`
@@ -253,11 +253,11 @@ depend on `Domain/Rental` and this task builds no `Event::listen()` wiring):
    against this column directly. `restrictOnDelete()` on its foreign key: an already-computed
    accrual must never survive its generating version being deleted out from under it.
 
-3. **`App\Domain\Rental\Services\AccrualPeriodBuilder` reimplements `App\Domain\Wallet\Services\
+3. **`Kern\TaxRomania\Rental\Services\AccrualPeriodBuilder` reimplements `Kern\TaxRomania\Wallet\Services\
    Interest\DepositPaymentScheduleBuilder`'s exact scheduling idiom independently, rather than
    importing it.** `docs/AGENTS.md` §6 forbids a module importing another module's classes outside
    the DTO/contract/event/application-service shapes `deptrac` enforces, and this task's path
-   scope is `app/Domain/Rental/**` only — moving the shared logic into a `Support`-level class was
+   scope is `packages/tax-romania/src/Rental/**` only — moving the shared logic into a `Support`-level class was
    out of scope and would have created a merge/ownership question over a file this task was never
    asked to own (the identical reasoning `docs/handoff/021-wallet.md` gives for why `Wallet`'s own
    `Money`/`Decimal` are not shared with `Domain/TaxEngine`'s).
@@ -304,12 +304,12 @@ documented pattern. `DB_PASSWORD` is the real `POSTGRES_PASSWORD` from the repo 
 
 ```text
 $ docker run --rm --user root -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c \
-    'vendor/bin/pint --test app/Domain/Rental <rental migrations/factory/tests> deptrac.php tests/Pest.php'
+    'vendor/bin/pint --test packages/tax-romania/src/Rental <rental migrations/factory/tests> deptrac.php tests/Pest.php'
   PASS .......................................................... 58 files
 
 $ docker run --rm --user root -e APP_KEY=base64:0000...= -v "$PWD/apps/api":/app -w /app \
     --entrypoint sh anaf-app -c \
-    'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Domain/Rental ...'
+    'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/tax-romania/src/Rental ...'
  [OK] No errors                                                    (level 9, no baseline)
 
 $ docker run --rm --network anaf_data_net --user root \
@@ -326,7 +326,7 @@ $ # whole-project suite, real Postgres, a real (non-placeholder) APP_KEY:
   # ran twice — identical both times, 0 failed. (With the placeholder all-zero APP_KEY used for
   # the scoped runs above, 43 pre-existing Identity/Documents/HomePage tests fail with
   # "Unsupported cipher or incorrect key length" — confirmed unrelated to this task: none of the
-  # 43 failing test names contain "Rental", and none touch app/Domain/Rental.)
+  # 43 failing test names contain "Rental", and none touch packages/tax-romania/src/Rental.)
 
 $ docker run --rm --user root -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c \
     'vendor/bin/deptrac analyse --config-file=deptrac.php'
@@ -345,16 +345,16 @@ task's own verification runs.
 
 ## Interfaces exposed to other modules
 
-- **`App\Domain\Rental\Events\RentalAccrualRecorded`** — the M5 contract; see "Tax facts" above
+- **`Kern\TaxRomania\Rental\Events\RentalAccrualRecorded`** — the M5 contract; see "Tax facts" above
   for the full field list and what a future listener must do with it.
-- Every Rental table is scoped to `tax_subject_id` via `App\Domain\Subjects\Tenancy\
+- Every Rental table is scoped to `tax_subject_id` via `Kern\TaxRomania\Subjects\Tenancy\
   ScopedToTaxSubject` — any future module reading rental data needs an active
-  `App\Domain\Subjects\Tenancy\TenantContext` bound to the same subject.
+  `Kern\TaxRomania\Subjects\Tenancy\TenantContext` bound to the same subject.
 - `rental_contracts.source_document_id`/`extraction_id` and `rental_contract_versions.
   source_document_id` are real foreign keys into `Domain/Documents`' `documents`/
   `document_extractions` tables (schema-level only, `nullOnDelete()`) — a future Documents-side
   extraction pipeline that proposes a rental contract from an uploaded lease can populate these
-  directly via `App\Domain\Rental\Actions\CreateRentalContract`'s `sourceDocumentId`/
+  directly via `Kern\TaxRomania\Rental\Actions\CreateRentalContract`'s `sourceDocumentId`/
   `extractionId` input fields; this task builds no such extraction mapping itself.
 - `rental_payments.transaction_id` is a real foreign key into `Domain/Wallet`'s
   `financial_transactions` table (schema-level only, `nullOnDelete()`).
@@ -377,9 +377,9 @@ task's own verification runs.
 - **No audit-chain integration for Rental CRUD** — matches `Domain/Wallet`'s own precedent
   (`docs/handoff/021-wallet.md`'s open question, still open, not decided unilaterally here either).
 - **Partial rent payments do not update a `rental_accruals` row's status beyond binary
-  `PENDING`/`PAID`** — see `App\Domain\Rental\Enums\AccrualStatus`'s own docblock for why a
+  `PENDING`/`PAID`** — see `Kern\TaxRomania\Rental\Enums\AccrualStatus`'s own docblock for why a
   `PARTIALLY_PAID` state was not added (not asked for, would be speculative scope).
-- Did not touch `app/Domain/{Wallet,Documents,TaxEngine,TaxKnowledge,Subjects,Identity,Audit,Fx}/**`
+- Did not touch `packages/tax-romania/src/{Wallet,Documents,TaxEngine,TaxKnowledge,Subjects,Identity,Audit,Fx}/**`
   or `app/Support/**` — other agents' concurrent scope. Did not touch `docs/STATUS.md` per this
   task's explicit instruction.
 
@@ -392,7 +392,7 @@ task's own verification runs.
   returning application service (e.g. `FinancialTransactionCandidateQuery`) that `Domain/Rental`
   calls instead — not built here, since it requires a change to `Domain/Wallet`, outside this
   task's path scope.
-- **Should `App\Domain\Rental\Actions\RecordRentalPayment` also attempt matching automatically**
+- **Should `Kern\TaxRomania\Rental\Actions\RecordRentalPayment` also attempt matching automatically**
   (call `ProposeRentalPaymentTransactionMatch` itself right after recording a payment), rather than
   leaving that as an explicit, separate caller step? Left separate deliberately — a payment
   recorded from a lease document extraction, a bank statement import, or a manual entry may all
@@ -441,11 +441,11 @@ task's own verification runs.
   verification recipe this handoff's own verification follows; also the standing lesson ("run the
   suite against Postgres before claiming done") that caught nothing new here but was followed in
   full regardless.
-- Read `App\Domain\Wallet\Models\{FinancialAccount,FinancialTransaction,Deposit,
-  DepositRatePeriod}`, `App\Domain\Wallet\Actions\{OpenDeposit,RecordFinancialTransaction,
-  GenerateDepositInterestSchedule}`, `App\Domain\Wallet\Services\Interest\{
+- Read `Kern\TaxRomania\Wallet\Models\{FinancialAccount,FinancialTransaction,Deposit,
+  DepositRatePeriod}`, `Kern\TaxRomania\Wallet\Actions\{OpenDeposit,RecordFinancialTransaction,
+  GenerateDepositInterestSchedule}`, `Kern\TaxRomania\Wallet\Services\Interest\{
   DepositRateCoverageValidator,DepositPaymentScheduleBuilder,DepositInterestCalculator}`,
-  `App\Domain\Wallet\ValueObjects\{Money,Decimal}`, `Kern\Documents\Models\{Document,
+  `Kern\TaxRomania\Wallet\ValueObjects\{Money,Decimal}`, `Kern\Documents\Models\{Document,
   DocumentExtraction}` directly (not assumed) before writing the equivalent Rental code.
 - `apps/api/pint.json`, `apps/api/deptrac.php`, `apps/api/phpstan.neon` — read directly before
   relying on their configured rules.

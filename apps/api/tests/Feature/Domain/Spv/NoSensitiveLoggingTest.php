@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\NoSensitiveLoggingTest;
 
-use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
-use App\Domain\Spv\Actions\SubmitSpvChallengeCode;
-use App\Domain\Spv\Actions\SubmitSpvCredentials;
-use App\Domain\Spv\DataTransferObjects\SubmitSpvChallengeCodeInput;
-use App\Domain\Spv\DataTransferObjects\SubmitSpvCredentialsInput;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\Models\SpvConnection;
-use App\Domain\Spv\ValueObjects\SensitiveString;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Spv\Actions\InitiateSpvAuthAttempt;
+use Kern\TaxRomania\Spv\Actions\SubmitSpvChallengeCode;
+use Kern\TaxRomania\Spv\Actions\SubmitSpvCredentials;
+use Kern\TaxRomania\Spv\DataTransferObjects\SubmitSpvChallengeCodeInput;
+use Kern\TaxRomania\Spv\DataTransferObjects\SubmitSpvCredentialsInput;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 const SECRET_PASSWORD = 'sup3r-secret-marker-password';
 const SECRET_CODE = '918273';

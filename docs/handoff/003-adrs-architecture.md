@@ -9,7 +9,7 @@ Seven ADRs, the architecture map, and a glossary — the documentation layer eve
 before touching code, per `docs/AGENTS.md` §4 and this task's own instruction that this work is
 load-bearing.
 
-- `docs/adr/0001-modular-monolith.md` — modules under `apps/api/app/Domain/<Module>/`; no
+- `docs/adr/0001-modular-monolith.md` — modules under `apps/api/packages/tax-romania/src/<Module>/`; no
   cross-module Eloquent imports, enforced by `deptrac` (not convention); Python is a separate
   deployable for threat/runtime-profile reasons, not scale.
 - `docs/adr/0002-envelope-encryption.md` — per-`TaxSubject` DEK wrapped by a KEK (OpenBao), plus
@@ -135,7 +135,7 @@ None — this is documentation, not code. What other agents get from this work:
 
 ## What is NOT done
 
-- No code was written or changed. `apps/api/app/Domain/` still does not exist — creating it is
+- No code was written or changed. `apps/api/packages/tax-romania/src/` still does not exist — creating it is
   Milestone 1 work (Identity/Subjects/security foundation per `docs/STATUS.md`), not this task.
 - `docs/STATUS.md` was **not** updated, per explicit instruction that the coordinator owns it
   during this parallel wave. Whoever merges this work should update the M0 row and, if useful,

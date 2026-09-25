@@ -308,7 +308,7 @@ export interface WalletOverview {
 /**
  * The enum cases the add-account form offers, in the order they appear.
  *
- * Mirrors `App\Domain\Wallet\Enums\AccountKind`; `WalletLabelCoverageTest` asserts every case has
+ * Mirrors `Kern\TaxRomania\Wallet\Enums\AccountKind`; `WalletLabelCoverageTest` asserts every case has
  * a label, and the server re-validates with `Rule::enum`, so a stale entry here is rejected rather
  * than stored.
  */
@@ -363,13 +363,13 @@ export function sourceName(account: { kind: string; displayName: string }, gener
  */
 export const CURRENCIES = ['RON', 'EUR', 'USD', 'GBP', 'CHF'] as const;
 
-/** Mirrors `App\Domain\Wallet\Enums\RateType`. */
+/** Mirrors `Kern\TaxRomania\Wallet\Enums\RateType`. */
 export const RATE_TYPES = ['FIXED', 'VARIABLE'] as const;
 
-/** Mirrors `App\Domain\Wallet\Enums\InterestMethod`. */
+/** Mirrors `Kern\TaxRomania\Wallet\Enums\InterestMethod`. */
 export const INTEREST_METHODS = ['SIMPLE', 'COMPOUND'] as const;
 
-/** Mirrors `App\Domain\Wallet\Enums\PaymentFrequency`. */
+/** Mirrors `Kern\TaxRomania\Wallet\Enums\PaymentFrequency`. */
 export const PAYMENT_FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'AT_MATURITY'] as const;
 
 /*

@@ -290,7 +290,7 @@ Migration reversibility, on real Postgres: `migrate` (301100→301102) → `migr
 Composer dependencies (`composer.json`/`composer.lock` untouched — confirmed unmodified).
 
 **A concurrent-agent issue found, not fixed, outside this task's scope**
-(`apps/api/app/Domain/Declarations/**`, explicitly another agent's territory per this task's
+(`apps/api/packages/tax-romania/src/Declarations/**`, explicitly another agent's territory per this task's
 brief): `database/migrations/2026_09_08_900002_create_declarations_table.php` declares its
 self-referencing `supersedes_declaration_id` foreign key **inline inside the same
 `Schema::create()` call**, which fails on real Postgres with `SQLSTATE[42830]: there is no unique

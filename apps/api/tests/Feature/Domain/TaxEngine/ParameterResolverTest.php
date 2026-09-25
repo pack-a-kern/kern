@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
-use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
-use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
-use App\Domain\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
-use App\Domain\TaxEngine\Services\ParameterResolver;
 use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
 use Kern\Legislation\Models\SourceSection;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
+use Kern\TaxRomania\TaxEngine\Services\ParameterResolver;
 
 /**
  * Constructed against the real `EloquentFiscalParameterProvider` adapter

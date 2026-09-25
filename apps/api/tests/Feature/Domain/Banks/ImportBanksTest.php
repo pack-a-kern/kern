@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Banks\ImportBanksTest;
 
-use App\Domain\Banks\Actions\ImportBanks;
-use App\Domain\Banks\Models\Bank;
-use App\Domain\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Kern\Legislation\Models\OfficialSource;
+use Kern\TaxRomania\Banks\Actions\ImportBanks;
+use Kern\TaxRomania\Banks\Models\Bank;
+use Kern\TaxRomania\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
 
 /**
  * The whole import against faked publishers: three pages, three files, one table.

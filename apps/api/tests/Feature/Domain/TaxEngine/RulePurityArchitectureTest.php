@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\TaxEngine\Contracts\TaxRuleContract;
 use FilesystemIterator;
+use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -13,14 +13,14 @@ use Tests\Support\TaxEngineRulePurity\RulePuritySourceScanner;
 /**
  * `docs/AGENTS.md` §11.2/ADR 0004 — "a rule that reaches for the database should fail the suite."
  * This test, not a code-review convention, is that enforcement: it discovers every class under
- * `app/Domain/TaxEngine` that implements `TaxRuleContract` — however many exist, including zero,
+ * `packages/tax-romania/src/TaxEngine` that implements `TaxRuleContract` — however many exist, including zero,
  * as of this milestone (`docs/AGENTS.md` rule 3 — no tax rule ships without an approved source, so
  * no concrete rule is shipped here; see `docs/handoff/020-tax-engine.md`) — and scans each one's
  * own source file. A future task that adds a real, concrete rule under
- * `app/Domain/TaxEngine/Rules/**` is checked by this exact test with no changes to it.
+ * `packages/tax-romania/src/TaxEngine/Rules/**` is checked by this exact test with no changes to it.
  */
-it('has zero purity violations in every TaxRuleContract implementation shipped under app/Domain/TaxEngine', function (): void {
-    $root = app_path('Domain/TaxEngine');
+it('has zero purity violations in every TaxRuleContract implementation shipped under packages/tax-romania/src/TaxEngine', function (): void {
+    $root = packageRoot(TaxRuleContract::class) . '/src/TaxEngine';
 
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
@@ -60,7 +60,7 @@ it('has zero purity violations in every TaxRuleContract implementation shipped u
 });
 
 it('would catch a violation in a shipped rule, proven against the test-only synthetic fixture', function (): void {
-    // Not under app/Domain/TaxEngine (the test above's scope) — this proves the scanner itself
+    // Not under packages/tax-romania/src/TaxEngine (the test above's scope) — this proves the scanner itself
     // catches a real violation shape, complementing tests/Unit/Domain/TaxEngine/
     // RulePuritySourceScannerTest.php with the exact scan path the architecture test above uses.
     $violations = (new RulePuritySourceScanner())->scanFile(

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\TaxEngine\DataTransferObjects\CalculationStep;
-use App\Domain\TaxEngine\DataTransferObjects\CalculationTrace;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationTrace;
 
 it('serialises to the exact shape BLUEPRINT.md §11.4 describes', function (): void {
     $trace = new CalculationTrace(

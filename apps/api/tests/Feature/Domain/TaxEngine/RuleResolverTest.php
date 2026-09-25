@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
-use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
-use App\Domain\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
-use App\Domain\TaxEngine\Services\RuleResolver;
 use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
 use Kern\Legislation\Models\TaxRule;
 use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
+use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
 
 /**
  * `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3 enforced at the assessment boundary — the task brief's

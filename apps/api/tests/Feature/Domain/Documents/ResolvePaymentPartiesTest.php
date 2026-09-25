@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\ResolvePaymentPartiesTest;
 
-use App\Domain\Subjects\Enums\FiscalIdentifierKind;
-use App\Domain\Subjects\Models\TaxSubject;
 use Kern\Documents\Payments\ResolvePaymentParties;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
@@ -32,7 +32,7 @@ beforeEach(function (): void {
  * Which side of this payment a taxpayer with these names is on.
  *
  * Resolved through the container so the name lookup is the real one —
- * `App\Domain\Subjects\Tenancy\SubjectNames`, bound by this application. The package itself only
+ * `Kern\TaxRomania\Subjects\Tenancy\SubjectNames`, bound by this application. The package itself only
  * knows that something can hand it a list of names for a tenant id.
  *
  * @param  array<array-key, mixed>  $payment

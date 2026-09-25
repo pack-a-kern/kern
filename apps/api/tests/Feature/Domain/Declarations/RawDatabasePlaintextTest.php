@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\RawDatabasePlaintextTest;
 
-use App\Domain\Declarations\Enums\SubmissionTransport;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\DeclarationSubmission;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Declarations\Enums\SubmissionTransport;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\DeclarationSubmission;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
  * `BLUEPRINT.md` §4.3 requires `declaration_submissions.external_reference_ciphertext`/

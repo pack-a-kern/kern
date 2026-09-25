@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\Rental\Services\OwnershipShareCalculator;
+use Kern\TaxRomania\Rental\Services\OwnershipShareCalculator;
 
 /**
  * `BLUEPRINT.md` §33's co-ownership constraint made concrete: every value here is hand-computed, not

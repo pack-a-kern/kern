@@ -111,7 +111,7 @@ export function subscribeToDocumentsChannel(subjectId: string, handlers: Documen
 
 /**
  * Subscribes to the private `tax-subjects.{subjectId}.imports` channel
- * (`App\Domain\StatementImport\Events\StatementImportChanged`, authorized in
+ * (`Kern\TaxRomania\StatementImport\Events\StatementImportChanged`, authorized in
  * `routes/channels.php`) and calls `onEvent` whenever an import moves — read, mapped, reviewed,
  * written — or its counterparty proposals arrive.
  *

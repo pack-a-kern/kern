@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
-use App\Domain\Operations\Enums\OperationTask;
-use App\Domain\Operations\Enums\TaskRunStatus;
-use App\Domain\Operations\Enums\TaskRunTrigger;
-use App\Domain\Operations\Jobs\RunOperationTask;
-use App\Domain\Operations\Models\TaskRun;
-use App\Domain\Operations\Services\OperationRunLock;
-use App\Domain\Operations\Services\ScheduledTaskRegistry;
-use App\Domain\Operations\Services\TaskRunRecorder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Schema;
+use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
+use Kern\TaxRomania\Operations\Enums\OperationTask;
+use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
+use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
+use Kern\TaxRomania\Operations\Models\TaskRun;
+use Kern\TaxRomania\Operations\Services\OperationRunLock;
+use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
+use Kern\TaxRomania\Operations\Services\TaskRunRecorder;
 
 it('registers a scheduled task only while it is enabled', function (): void {
     $registry = app(ScheduledTaskRegistry::class);

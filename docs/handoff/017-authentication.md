@@ -14,7 +14,7 @@ The full authentication layer `BLUEPRINT.md` §4.7 asks for, on top of `docs/han
 5. **Session management** — Redis-backed session cookie, rotated on login and on MFA-enrollment (privilege change), device/session listing, single and bulk revoke, logout.
 6. **Rate limiting** on every unauthenticated auth endpoint, keyed so one account's lockout never touches another's.
 7. **`Kern\Platform\Identity\Support\SpvMfaPolicy`** — the enforceable "MFA required before SPV" capability check Milestone 10 will call; SPV itself does not exist yet.
-8. Every event above is recorded on the audit chain (`App\Domain\Audit`, `docs/handoff/006-audit-chain.md`), with `security_events` rows for the failure-reason cases that table exists for.
+8. Every event above is recorded on the audit chain (`Kern\TaxRomania\Audit`, `docs/handoff/006-audit-chain.md`), with `security_events` rows for the failure-reason cases that table exists for.
 
 Entry points:
 - `Kern\Platform\Identity\Actions\{RegisterUser,AttemptPasswordLogin,CompleteMfaChallenge,EnrollTotp,ConfirmTotpEnrollment,GenerateRecoveryCodes,CompletePasskeyRegistration,CompletePasskeyLogin,RevokeSession,RevokeAllSessions}` — one class per use case, framework/session-free (see "Key decisions" #2).

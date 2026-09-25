@@ -7,7 +7,7 @@ import type { TaxCategory } from './wallet';
  * so everything below is one shape with the parts that are filled in at each stage.
  */
 
-/** `App\Domain\StatementImport\Enums\StatementImportStatus`. */
+/** `Kern\TaxRomania\StatementImport\Enums\StatementImportStatus`. */
 export type StatementImportStatus = 'READING' | 'MAPPING' | 'REVIEW' | 'IMPORTING' | 'IMPORTED' | 'FAILED';
 
 export interface StatementImport {
@@ -132,7 +132,7 @@ export interface StatementFormPreview {
     linesSkipped: number;
 }
 
-/** `App\Domain\StatementImport\Events\StatementImportChanged` — "something moved, ask again". */
+/** `Kern\TaxRomania\StatementImport\Events\StatementImportChanged` — "something moved, ask again". */
 export interface StatementImportEvent {
     importId: string;
     status: StatementImportStatus;

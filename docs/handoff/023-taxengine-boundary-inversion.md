@@ -6,8 +6,8 @@
 ## What was built
 
 Closed the one deliberate module-boundary exception recorded in
-`docs/adr/0009-tax-engine-reads-tax-knowledge-models-directly.md`: `App\Domain\TaxEngine\
-Repositories\{TaxRuleTemporalReader,FiscalParameterTemporalReader}` used to read `App\Domain\
+`docs/adr/0009-tax-engine-reads-tax-knowledge-models-directly.md`: `Kern\TaxRomania\TaxEngine\
+Repositories\{TaxRuleTemporalReader,FiscalParameterTemporalReader}` used to read `Kern\TaxRomania\
 TaxKnowledge\Models\{TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,FiscalParameterVersion}`
 Eloquent models directly, backed by a layer-wide `TaxEngine -> TaxKnowledge` grant in
 `deptrac.php`. `BLUEPRINT.md` §2.1 forbids a module importing another module's Eloquent models
@@ -23,35 +23,35 @@ constructor call-site updated, none had an expectation changed.
 
 ### The shape
 
-`App\Domain\TaxEngine` now defines two ports, named only in its own DTOs/exceptions/enums:
+`Kern\TaxRomania\TaxEngine` now defines two ports, named only in its own DTOs/exceptions/enums:
 
 ```php
-interface App\Domain\TaxEngine\Contracts\TaxRuleVersionProvider {
+interface Kern\TaxRomania\TaxEngine\Contracts\TaxRuleVersionProvider {
     public function versionInForceOn(string $ruleCode, DateTimeImmutable $date): ResolvedTaxRuleVersion;
 }
-interface App\Domain\TaxEngine\Contracts\FiscalParameterProvider {
+interface Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider {
     public function versionInForceOn(string $parameterCode, DateTimeImmutable $date): ResolvedFiscalParameter;
 }
 ```
 
-`App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
+`Kern\TaxRomania\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
 implement them, reading `TaxKnowledge`'s own Eloquent models (legitimate — a module reading its own
 models is not the violation `BLUEPRINT.md` §2.1 names) and mapping `TaxKnowledge`'s enums to
 `TaxEngine`'s at the boundary. `Kern\Legislation\TaxKnowledgeServiceProvider` binds both
 ports to these adapters — the one place the inversion is wired.
 
-`App\Domain\TaxEngine\Services\{RuleResolver,ParameterResolver}` now depend on the interfaces,
+`Kern\TaxRomania\TaxEngine\Services\{RuleResolver,ParameterResolver}` now depend on the interfaces,
 never the concrete adapter.
 
 ## Files created / changed
 
 **New — TaxEngine (ports + its own enums)**
-- `app/Domain/TaxEngine/Contracts/TaxRuleVersionProvider.php`
-- `app/Domain/TaxEngine/Contracts/FiscalParameterProvider.php`
-- `app/Domain/TaxEngine/Enums/RuleApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`,
+- `packages/tax-romania/src/TaxEngine/Contracts/TaxRuleVersionProvider.php`
+- `packages/tax-romania/src/TaxEngine/Contracts/FiscalParameterProvider.php`
+- `packages/tax-romania/src/TaxEngine/Enums/RuleApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`,
   identical case names/backing values to `TaxKnowledge`'s enum of the same name, deliberately a
   separate declaration (see "Key decisions" #1).
-- `app/Domain/TaxEngine/Enums/FiscalParameterValueType.php` — `MONEY|DECIMAL|INTEGER|DATE|JSON`,
+- `packages/tax-romania/src/TaxEngine/Enums/FiscalParameterValueType.php` — `MONEY|DECIMAL|INTEGER|DATE|JSON`,
   same relationship to `TaxKnowledge`'s enum.
 
 **New — TaxKnowledge (adapters)**
@@ -63,19 +63,19 @@ never the concrete adapter.
   `FiscalParameterTemporalReader`/`FiscalParameterProvider`, mapping both enums.
 
 **Deleted**
-- `app/Domain/TaxEngine/Repositories/TaxRuleTemporalReader.php`
-- `app/Domain/TaxEngine/Repositories/FiscalParameterTemporalReader.php`
+- `packages/tax-romania/src/TaxEngine/Repositories/TaxRuleTemporalReader.php`
+- `packages/tax-romania/src/TaxEngine/Repositories/FiscalParameterTemporalReader.php`
 
 **Modified**
-- `app/Domain/TaxEngine/DataTransferObjects/ResolvedTaxRuleVersion.php` — `$status` now typed to
-  `App\Domain\TaxEngine\Enums\RuleApprovalStatus`, not `TaxKnowledge`'s.
-- `app/Domain/TaxEngine/DataTransferObjects/ResolvedFiscalParameter.php` — `$valueType`/`$status`
+- `packages/tax-romania/src/TaxEngine/DataTransferObjects/ResolvedTaxRuleVersion.php` — `$status` now typed to
+  `Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus`, not `TaxKnowledge`'s.
+- `packages/tax-romania/src/TaxEngine/DataTransferObjects/ResolvedFiscalParameter.php` — `$valueType`/`$status`
   likewise switched to `TaxEngine`'s own enums.
-- `app/Domain/TaxEngine/Services/RuleResolver.php` — constructor now takes `TaxRuleVersionProvider`
+- `packages/tax-romania/src/TaxEngine/Services/RuleResolver.php` — constructor now takes `TaxRuleVersionProvider`
   (interface), not `TaxRuleTemporalReader` (concrete class); enum import switched.
-- `app/Domain/TaxEngine/Services/ParameterResolver.php` — same change for `FiscalParameterProvider`.
-- `app/Domain/TaxEngine/Contracts/TaxRuleContract.php`,
-  `app/Domain/TaxEngine/Attributes/TaxRule.php`,
+- `packages/tax-romania/src/TaxEngine/Services/ParameterResolver.php` — same change for `FiscalParameterProvider`.
+- `packages/tax-romania/src/TaxEngine/Contracts/TaxRuleContract.php`,
+  `packages/tax-romania/src/TaxEngine/Attributes/TaxRule.php`,
   `database/migrations/2026_09_08_302002_create_tax_assessment_lines_table.php` — docblock-only
   updates: stale references to the deleted reader classes replaced with references to the new
   ports/adapters.
@@ -123,7 +123,7 @@ never the concrete adapter.
    (`EngineEnum::from($tkEnum->value)`), which throws `ValueError` if the two ever drift out of
    sync — an acceptable, self-detecting cost recorded in ADR 0010's "Consequences".
 2. **The binding lives in `TaxKnowledgeServiceProvider`, not a new `TaxEngineServiceProvider`.**
-   `App\Domain\TaxEngine` has no service provider today (every class the container resolves has
+   `Kern\TaxRomania\TaxEngine` has no service provider today (every class the container resolves has
    only zero-arg or class-typed constructor dependencies it can already satisfy) — adding one
    solely to bind an interface whose only implementation lives in another module would itself
    require that new provider to import `TaxKnowledge`, defeating the inversion. Binding inside
@@ -143,7 +143,7 @@ never the concrete adapter.
    `env()` call — `Tests\Support\TaxEngineRulePurity\RulePuritySourceScanner` scans its raw text to
    prove it catches an environment read; the file is never `require`d or executed by anything
    except that scan and `RulePurityArchitectureTest`'s dynamic class discovery (which does
-   `require_once` every file under `app/Domain/TaxEngine`, not `tests/Fixtures/**`). A baseline
+   `require_once` every file under `packages/tax-romania/src/TaxEngine`, not `tests/Fixtures/**`). A baseline
    entry would suppress this specific error by fingerprint while leaving the door open for a
    genuine new violation elsewhere to slip in unnoticed; excluding the one deliberately-impure
    fixture file is the same treatment any other test suite gives a fixture with deliberately
@@ -170,7 +170,7 @@ $ docker run --rm --network anaf_data_net --user root \
   PASS .......................................................... 592 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    app/Domain/TaxEngine packages/legislation/src tests/Unit/Domain/TaxEngine \
+    packages/tax-romania/src/TaxEngine packages/legislation/src tests/Unit/Domain/TaxEngine \
     tests/Feature/Domain/TaxEngine tests/Feature/Domain/TaxKnowledge tests/Fixtures/TaxEngine \
     database/factories deptrac.php'
  [OK] No errors                                                    (level 9, no baseline)
@@ -190,9 +190,9 @@ $ ... -c 'vendor/bin/pest'   # whole project, run 2 — identical
 ```
 
 **Whole-project PHPStan** (`vendor/bin/phpstan analyse --memory-limit=1G`, no path filter) reports
-**6 errors, all in `app/Domain/Rental/**`** (a concurrently in-flight module — files there carry
+**6 errors, all in `packages/tax-romania/src/Rental/**`** (a concurrently in-flight module — files there carry
 today's date and are not part of this task's scope, per the task brief's boundary list). None are
-in `app/Domain/TaxEngine` or `packages/legislation/src` — the scoped run above, covering exactly
+in `packages/tax-romania/src/TaxEngine` or `packages/legislation/src` — the scoped run above, covering exactly
 this task's files plus their tests, is clean. Not fixed here; flagged for whoever owns
 `Domain/Rental` (`docs/AGENTS.md` §10 — recording rather than silently fixing an out-of-scope bug;
 `docs/STATUS.md` was explicitly out of this task's scope to edit, so it is recorded here instead).
@@ -204,15 +204,15 @@ situation as `docs/handoff/012-encrypted-object-store.md`, `docs/handoff/014-sou
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\TaxEngine\Contracts\{TaxRuleVersionProvider, FiscalParameterProvider};
-use App\Domain\TaxEngine\Enums\{RuleApprovalStatus, FiscalParameterValueType};
+use Kern\TaxRomania\TaxEngine\Contracts\{TaxRuleVersionProvider, FiscalParameterProvider};
+use Kern\TaxRomania\TaxEngine\Enums\{RuleApprovalStatus, FiscalParameterValueType};
 
 // Resolved automatically via the container — TaxKnowledgeServiceProvider binds both:
 $version = app(TaxRuleVersionProvider::class)->versionInForceOn('RO.PF.SOME_RULE', $date);
 $parameter = app(FiscalParameterProvider::class)->versionInForceOn('RO.PF.SOME_PARAM', $date);
 ```
 
-`App\Domain\TaxEngine\Services\{RuleResolver,ParameterResolver,TaxAssessor}`'s own public
+`Kern\TaxRomania\TaxEngine\Services\{RuleResolver,ParameterResolver,TaxAssessor}`'s own public
 interface is unchanged from `docs/handoff/020-tax-engine.md` — this task did not touch
 `TaxContext`, `TaxAssessor::assess()`, `TaxAssessmentRecorder`, `RuleInvoker`, `Money`,
 `FxConversionPolicy`, or any model. A future module needing to read `TaxKnowledge`'s
@@ -220,7 +220,7 @@ ruleset/parameter store should depend on these two ports, never on `TaxKnowledge
 
 ## What is NOT done
 
-- `App\Domain\Rental`'s 6 PHPStan errors — out of scope, flagged above, not this task's module.
+- `Kern\TaxRomania\Rental`'s 6 PHPStan errors — out of scope, flagged above, not this task's module.
 - No new unit test exploiting the fact that `RuleResolver`/`ParameterResolver` can now be tested
   with a hand-written `TaxRuleVersionProvider`/`FiscalParameterProvider` double instead of the real
   adapter — the existing feature tests already prove the real behaviour; adding a pure-unit
@@ -248,8 +248,8 @@ records the alternatives considered and rejected.
   `docs/handoff/021-wallet.md` — the real-Postgres verification recipe and its `--user root`
   rationale, reused verbatim.
 - `docs/handoff/022-document-pipeline.md` — named the pre-existing PHPStan error fixed here.
-- Existing code read directly before changing it: `App\Domain\TaxEngine\Repositories\
+- Existing code read directly before changing it: `Kern\TaxRomania\TaxEngine\Repositories\
   {TaxRuleTemporalReader,FiscalParameterTemporalReader}` (the classes replaced),
-  `App\Domain\TaxEngine\Services\{RuleResolver,ParameterResolver,TaxAssessor}`,
+  `Kern\TaxRomania\TaxEngine\Services\{RuleResolver,ParameterResolver,TaxAssessor}`,
   `Kern\Legislation\TaxKnowledgeServiceProvider`, `apps/api/deptrac.php`,
   `apps/api/phpstan.neon`, every test file this task touched.

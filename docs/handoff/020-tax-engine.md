@@ -5,7 +5,7 @@
 
 ## What was built
 
-`App\Domain\TaxEngine` — the deterministic, pure computation core `BLUEPRINT.md` §11 and ADR 0004
+`Kern\TaxRomania\TaxEngine` — the deterministic, pure computation core `BLUEPRINT.md` §11 and ADR 0004
 describe. This task builds **only the machinery**: `Money`, `TaxFact`, FX conversion policy, rule
 resolution with the `CANDIDATE`/`APPROVED` draft-vs-final gate, the assessment orchestrator, and
 `CalculationTrace`. **No tax rate, threshold, or ceiling is introduced anywhere in this codebase**
@@ -17,9 +17,9 @@ factories already established (`TaxRuleFactory`/`FiscalParameterFactory`).
 ### Entry points
 
 ```php
-use App\Domain\TaxEngine\TaxContext;
-use App\Domain\TaxEngine\Services\TaxAssessor;
-use App\Domain\TaxEngine\Repositories\TaxFactRepository;
+use Kern\TaxRomania\TaxEngine\TaxContext;
+use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
+use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
 
 $facts = (new TaxFactRepository())->snapshotsFor($taxSubjectId, $factIds);
 
@@ -34,7 +34,7 @@ $context = TaxContext::forSubject($taxSubjectId)
 $result = app(TaxAssessor::class)->assess($context); // TaxAssessmentResult
 
 // Persist only when you actually want a durable row:
-$assessment = app(\App\Domain\TaxEngine\Services\TaxAssessmentRecorder::class)->record($result);
+$assessment = app(\Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder::class)->record($result);
 ```
 
 `$result->lines[$i]->trace->toArray()` is the `CalculationTrace` — rule code, rule version,
@@ -43,7 +43,7 @@ persisted verbatim to `tax_assessment_lines.calculation_trace_json`.
 
 ## Files created
 
-**`App\Domain\TaxEngine`** (`apps/api/app/Domain/TaxEngine/`) — full tree in the previous tool
+**`Kern\TaxRomania\TaxEngine`** (`apps/api/packages/tax-romania/src/TaxEngine/`) — full tree in the previous tool
 output; summarised by responsibility:
 
 - `ValueObjects/Money.php` — integer minor units + explicit currency + explicit decimal-place
@@ -69,8 +69,8 @@ output; summarised by responsibility:
   RoundingMode, sourceCode = 'BNR'): FxConversionResult`. All four methods from `BLUEPRINT.md` §6.9
   (`SPOT`, `PREVIOUS_BANKING_DAY`, `MONTHLY_AVERAGE`, `ANNUAL_AVERAGE`) implemented; method is
   always an explicit caller-supplied argument, never a default this policy picks. Built entirely
-  on `App\Domain\Fx\Services\FxRateQuery` (see "Key decisions" #6 for why the average methods are
-  computed here rather than via `App\Domain\Fx\Services\FxPeriodAverageCalculator`).
+  on `Kern\TaxRomania\Fx\Services\FxRateQuery` (see "Key decisions" #6 for why the average methods are
+  computed here rather than via `Kern\TaxRomania\Fx\Services\FxPeriodAverageCalculator`).
 - `Services/TaxAssessor.php` — orchestrates `RuleResolver`→`ParameterResolver`→`RuleInvoker` per
   rule code in `TaxContext::$ruleCodes`, builds `TaxAssessmentResult` (lines, obligations grouped
   by `tax_code`, totals, a SHA-256 `inputSnapshotHash` over subject/year/as-of/ruleset/fact
@@ -98,7 +98,7 @@ output; summarised by responsibility:
 - `tests/Fixtures/TaxEngine/Rules/SyntheticPercentageOfBaseRule.php` — the one concrete
   `TaxRuleContract` implementation in this whole task, entirely parameter-driven, used by
   `TaxAssessorTest`/`RuleInvokerTest`/the purity scanner's own "does it correctly pass clean code"
-  proof. **Not shipped under `app/Domain/TaxEngine`** — see "Key decisions" #8.
+  proof. **Not shipped under `packages/tax-romania/src/TaxEngine`** — see "Key decisions" #8.
 - `tests/Fixtures/TaxEngine/Purity/*.php` — six deliberately-impure/clean fixtures proving the
   scanner actually works (`docs/AGENTS.md` §11.2 — "enforce with a test, not just a convention").
 - `tests/Fixtures/Official/ANAF/README.md` — deliberately empty; explains what a future task
@@ -141,7 +141,7 @@ handoffs):
      `docs/AGENTS.md` §2 forbids making silently.
    - `tax_assessment_lines` gains `calculation_trace_json` (see decision below).
 
-3. **`App\Domain\TaxEngine\Repositories\{TaxRuleTemporalReader,FiscalParameterTemporalReader}` are
+3. **`Kern\TaxRomania\TaxEngine\Repositories\{TaxRuleTemporalReader,FiscalParameterTemporalReader}` are
    the one deliberate exception, in this entire codebase, to "never import another module's
    Eloquent model directly."** `tax_rules`/`tax_rule_versions`/`tax_rule_sources`/
    `fiscal_parameters`/`fiscal_parameter_versions` are the shared, versioned ruleset/parameter
@@ -150,7 +150,7 @@ handoffs):
    TaxRule reads it yet (Milestone 5)", naming this module as their first reader. `TaxKnowledge`
    does not yet expose an application-service/DTO read surface for them the way it does for
    legal-text sections (`LegislationTemporalQuery`) — building one there is outside this task's
-   path scope (`apps/api/app/Domain/TaxEngine/**` only, per the task brief). Confined to exactly
+   path scope (`apps/api/packages/tax-romania/src/TaxEngine/**` only, per the task brief). Confined to exactly
    these two classes; every other class in this module only ever sees the DTOs they return
    (`ResolvedTaxRuleVersion`/`ResolvedFiscalParameter`). Recorded as `docs/adr/0009-tax-engine-
    reads-tax-knowledge-models-directly.md`; flagged as an open question below for whoever next
@@ -158,7 +158,7 @@ handoffs):
 
 4. **`TaxFactRepository` filters explicitly by a caller-supplied `tax_subject_id` via
    `withoutGlobalScope(TaxSubjectScope::class)`, rather than relying on
-   `App\Domain\Subjects\Tenancy\TenantContext` being bound.** Whoever calls
+   `Kern\TaxRomania\Subjects\Tenancy\TenantContext` being bound.** Whoever calls
    `TaxContext::forSubject($id)` has already authorized that subject id — an HTTP controller with
    a bound `TenantContext` (not built by this task), or a background recompute job with no HTTP
    request at all. The explicit `WHERE tax_subject_id = $id` is correct in both cases and never
@@ -175,8 +175,8 @@ handoffs):
 
 6. **`FxConversionPolicy::convertToRon()` computes `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE` itself, from
    repeated `FxRateQuery::rateWithProvenance()` calls, rather than calling
-   `App\Domain\Fx\Services\FxPeriodAverageCalculator`.** That calculator's public methods take
-   `App\Domain\Fx\Models\{FxSource,FxPeriodAverage}` Eloquent models as parameters/return values —
+   `Kern\TaxRomania\Fx\Services\FxPeriodAverageCalculator`.** That calculator's public methods take
+   `Kern\TaxRomania\Fx\Models\{FxSource,FxPeriodAverage}` Eloquent models as parameters/return values —
    there is no DTO-based read surface for a pre-calculated average, and extending `Fx` to add one
    is outside this task's path scope. The arithmetic replicates `BLUEPRINT.md` §7.4's published
    methodology exactly (monthly = mean of that month's daily rates; annual = mean of the year's 12
@@ -186,19 +186,19 @@ handoffs):
    cache — see "Open questions".
 
 7. **The purity scanner (`RulePuritySourceScanner`) is test-only code** (`tests/Support/`, not
-   `app/Domain/TaxEngine/`) **and is a lexical token scan, not a formal proof.** It uses PHP's own
+   `packages/tax-romania/src/TaxEngine/`) **and is a lexical token scan, not a formal proof.** It uses PHP's own
    tokenizer (so it never matches inside a string literal or comment) to flag: wall-clock reads
    (`now`, `date`, `time`, `Carbon`, `CarbonImmutable`, and the disguised form `new
    DateTime[Immutable]()` with **no** constructor argument — proven to *not* false-positive on
    `new DateTimeImmutable($explicitValue)`), randomness, environment reads, and DB/HTTP/cache
    facade usage. `RulePurityArchitectureTest` runs it against **every class currently implementing
-   `TaxRuleContract` under `app/Domain/TaxEngine`** (discovered dynamically via
+   `TaxRuleContract` under `packages/tax-romania/src/TaxEngine`** (discovered dynamically via
    `get_declared_classes()`/`is_a()`, not a fixed list) — zero today, by design (see decision #8),
    but the test is already wired so a future concrete rule is checked automatically with **no
    changes to this test**. Proven to actually catch violations against six deliberately-bad
    fixtures, and proven to *not* flag the one real fixture rule this task ships.
 
-8. **No concrete `TaxRuleContract` implementation ships under `app/Domain/TaxEngine`.** The task's
+8. **No concrete `TaxRuleContract` implementation ships under `packages/tax-romania/src/TaxEngine`.** The task's
    hard constraint ("you must not introduce a single tax rate, threshold or ceiling") combined
    with `docs/CODE-QUALITY.md` §2 ("no speculative features... single implementation added in
    case") means a generic, parameter-driven rule class would have exactly one real consumer (this
@@ -216,7 +216,7 @@ handoffs):
    deliverables ("proof: a CANDIDATE-parameter ruleset cannot produce a FINAL assessment" implies
    the converse must also be provably true), and the raw query builder never fires an Eloquent
    model event, so it is unaffected by that guard — simulating exactly what a future human-review
-   workflow this milestone does not build would eventually produce. **No `App\Domain\TaxEngine`
+   workflow this milestone does not build would eventually produce. **No `Kern\TaxRomania\TaxEngine`
    application code path ever does this itself** — only test setup does, and it is confined to
    `tests/Pest.php`, clearly documented as such.
 
@@ -232,7 +232,7 @@ bcmath installed) against the real, already-vendored `apps/api/vendor/`, plus a 
 `postgres:17-alpine` container on a shared Docker network, both torn down after verification.
 
 ```text
-$ vendor/bin/pint --test app/Domain/TaxEngine tests/Unit/Domain/TaxEngine \
+$ vendor/bin/pint --test packages/tax-romania/src/TaxEngine tests/Unit/Domain/TaxEngine \
     tests/Feature/Domain/TaxEngine tests/Fixtures/TaxEngine tests/Support/TaxEngineRulePurity \
     database/migrations/2026_09_08_302000_create_tax_facts_table.php \
     database/migrations/2026_09_08_302001_create_tax_assessments_table.php \
@@ -241,7 +241,7 @@ $ vendor/bin/pint --test app/Domain/TaxEngine tests/Unit/Domain/TaxEngine \
     tests/Pest.php deptrac.php
   PASS .......................................................... 82 files
 
-$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Domain/TaxEngine \
+$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/tax-romania/src/TaxEngine \
     tests/Unit/Domain/TaxEngine tests/Feature/Domain/TaxEngine tests/Fixtures/TaxEngine/Rules \
     tests/Support/TaxEngineRulePurity \
     database/factories/{TaxFact,TaxAssessment,TaxAssessmentLine}Factory.php
@@ -290,13 +290,13 @@ error; `tests/Feature/Domain/TaxEngine` (44 tests) re-run immediately after and 
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\TaxEngine\TaxContext;
-use App\Domain\TaxEngine\Services\{TaxAssessor, TaxAssessmentRecorder};
-use App\Domain\TaxEngine\Repositories\TaxFactRepository;
-use App\Domain\TaxEngine\ValueObjects\Money;
-use App\Domain\TaxEngine\Enums\{AssessmentStatus, FxConversionMethod, RoundingMode, TaxFactStatus};
-use App\Domain\TaxEngine\Contracts\TaxRuleContract;
-use App\Domain\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
+use Kern\TaxRomania\TaxEngine\TaxContext;
+use Kern\TaxRomania\TaxEngine\Services\{TaxAssessor, TaxAssessmentRecorder};
+use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
+use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
+use Kern\TaxRomania\TaxEngine\Enums\{AssessmentStatus, FxConversionMethod, RoundingMode, TaxFactStatus};
+use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
+use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 
 // A future rule implementation:
 #[TaxRuleAttribute(code: 'RO.PF.SOME_RULE', version: '2026.1')]
@@ -320,13 +320,13 @@ final class SomeRule2026 implements TaxRuleContract
   step (before `evaluate()` is called; never inside a rule itself).
 - **M4 plugs in exactly here**: once a `fiscal_parameter_versions`/`tax_rule_versions` row is
   `APPROVED` with a real `source_section_id`, and a real `TaxRuleContract` implementation exists
-  under a new `app/Domain/TaxEngine/Rules/` directory with its `implementation_class` wired in
+  under a new `packages/tax-romania/src/TaxEngine/Rules/` directory with its `implementation_class` wired in
   `tax_rule_versions.config_json`, nothing else in this module changes — `RuleResolver`/
   `RuleInvoker`/`TaxAssessor` already handle exactly that shape.
 
 ## What is NOT done
 
-- **No concrete Romanian tax rule.** By design — see "Key decisions" #8. `app/Domain/TaxEngine/Rules/`
+- **No concrete Romanian tax rule.** By design — see "Key decisions" #8. `packages/tax-romania/src/TaxEngine/Rules/`
   does not exist yet; the first real rule creates it.
 - **No calculation-trace object storage.** `tax_assessments.calculation_trace_object_path` is a
   real, nullable column per `BLUEPRINT.md` §6.7 but is never populated — the full trace is fully
@@ -337,7 +337,7 @@ final class SomeRule2026 implements TaxRuleContract
 - **No HTTP/API layer.** `BLUEPRINT.md` §31's `POST /api/v1/subjects/{subject}/tax-assessments`
   example is not built — this task's brief asked for the domain engine, not the controller/route
   layer; `TaxAssessor`/`TaxContext` are the exact seam a future controller calls into.
-  `App\Domain\Subjects\Tenancy\TenantContext` authorization is assumed to already have happened by
+  `Kern\TaxRomania\Subjects\Tenancy\TenantContext` authorization is assumed to already have happened by
   whatever constructs a `TaxContext` — this task builds no controller/route/middleware wiring.
 - **`Kern\Legislation` does not (yet) expose an application-service/DTO read surface for
   `tax_rule_versions`/`fiscal_parameter_versions` temporal resolution.** `TaxRuleTemporalReader`/
@@ -352,17 +352,17 @@ final class SomeRule2026 implements TaxRuleContract
 - **`tests/Fixtures/Official/ANAF/` has no golden-test fixtures** — deliberately empty with a
   README, per the task's explicit instruction not to invent one.
 - Did not touch `docs/STATUS.md` (explicit instruction) or any file under
-  `app/Domain/{Wallet,Documents,Fx,TaxKnowledge,Subjects,Identity,Audit}/**` or `app/Support/**`.
+  `packages/tax-romania/src/{Wallet,Documents,Fx,TaxKnowledge,Subjects,Identity,Audit}/**` or `app/Support/**`.
 
 ## Open questions
 
 - **Should `Kern\Legislation` grow a `TaxRuleTemporalQuery`/`FiscalParameterTemporalQuery`
-  application service**, so `App\Domain\TaxEngine\Repositories\{TaxRuleTemporalReader,
+  application service**, so `Kern\TaxRomania\TaxEngine\Repositories\{TaxRuleTemporalReader,
   FiscalParameterTemporalReader}` could depend on a DTO-returning service instead of reading
   `TaxKnowledge` Eloquent models directly? Not decided here — out of this task's path scope; see
   decision #3. The two reader classes are a small, isolated seam if a future task wants to migrate
   this.
-- **Should `App\Domain\Fx` expose a DTO-based read surface for pre-calculated
+- **Should `Kern\TaxRomania\Fx` expose a DTO-based read surface for pre-calculated
   `fx_period_averages`** (a `FxPeriodAverageQuery` mirroring `FxRateQuery`), so
   `FxConversionPolicy`'s `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE` could read `Fx`'s own cached averages
   instead of recomputing them from daily spot rates on every call? Both currently implement the
@@ -405,11 +405,11 @@ final class SomeRule2026 implements TaxRuleContract
   hard boundaries; §11.2's purity requirement is the reason `tests/Support/TaxEngineRulePurity/
   RulePuritySourceScanner.php` exists.
 - `docs/reference/verified-versions.md` — empty at the time of this task; nothing to reconcile.
-- Existing code read directly, not assumed: `App\Domain\Fx\ValueObjects\DecimalRate` (reused
-  verbatim, no second decimal type written), `App\Domain\Fx\Services\FxRateQuery`/
+- Existing code read directly, not assumed: `Kern\TaxRomania\Fx\ValueObjects\DecimalRate` (reused
+  verbatim, no second decimal type written), `Kern\TaxRomania\Fx\Services\FxRateQuery`/
   `FxPeriodAverageCalculator` (read in full before deciding decision #6),
   `Kern\Legislation\Services\LegislationTemporalQuery` (the exact temporal-resolution
-  contract this task's two readers mirror), `App\Domain\Subjects\Tenancy\{ScopedToTaxSubject,
+  contract this task's two readers mirror), `Kern\TaxRomania\Subjects\Tenancy\{ScopedToTaxSubject,
   TaxSubjectScope,TenantContext}` (reused unchanged), `App\Support\Crypto\{Casts\Encrypted,
   Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}` (reused unchanged for
   `TaxFact.metadata_ciphertext`).

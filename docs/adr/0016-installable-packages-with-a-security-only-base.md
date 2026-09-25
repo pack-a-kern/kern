@@ -7,7 +7,7 @@ enforced by Composer instead of by deptrac alone.
 
 ## Context
 
-`app/Domain` holds sixteen modules and deptrac reports zero violations — every cross-module reach
+`packages/tax-romania/src` holds sixteen modules and deptrac reports zero violations — every cross-module reach
 is already a DTO, a contract or an application service rather than a foreign Eloquent model. The
 boundaries hold. What they do not do is let anything *leave*.
 
@@ -41,10 +41,11 @@ Four packages, consumed by a thin application.
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `kern/platform` | `Support\{Crypto,KeyManagement,ObjectStore}`, `Audit`, `Identity`, `Settings`, `Operations`, and the generic tenancy scope | — |
+| `kern/audit` | the append-only hash-chained trail, its two read endpoints and its verifier | — |
+| `kern/platform` | `Crypto`, `KeyManagement`, `ObjectStore`, `Identity`, `Settings`, `Access`, `Logging`, the tenancy mechanism and the text matcher | audit |
 | `kern/documents` | upload, virus scan, encryption at rest, extraction | platform |
 | `kern/legislation` | official sources, parsing, consolidations, provision history, hybrid search | platform |
-| `kern/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV | platform, documents, legislation |
+| `kern/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV, the operations console | platform, documents, legislation |
 | `apps/api` | routes to pages, the user interface, wiring | all of the above |
 
 Four things decide the shape.
@@ -131,3 +132,42 @@ version of another package.
 
 **Nothing here is urgent.** Doing Stage 0 speculatively spends real time for a payoff that arrives
 with the second product. It is sequenced for when that product is real.
+
+## What was built, and where it differs from the above
+
+Stage 0 and Stage 1 are done, in five packages rather than four, and with two changes to the table.
+
+**`kern/audit` is its own package, and the platform depends on it.** It was the pilot because it has
+no outbound dependencies, and keeping it separate turned out to be the right shape rather than an
+accident of sequencing: every identity action and every settings change records an event, so the
+platform requires it. That direction is also why `kern/audit` spells out its own route mounting
+instead of using `Kern\Platform\Routing\PackageRoutes` — borrowing the helper would close the
+dependency into a cycle.
+
+**`Operations` went to `kern/tax-romania`, not to the base.** `OperationTask` enumerates
+`fx.import_daily`, `legislation.sync` and `deposit.post_interest`, and `ProbeDataFreshness` probes
+`ext_fx_rates` and the retrieval index. That is not a security spine; it is this product's console.
+Making it generic means a task registry and a probe registry contributed by packages, which is worth
+building when a second product asks for one and is speculative scaffolding until then.
+
+Three things the work added that this ADR only gestured at:
+
+- **`config('kern.routing')`** — where packages mount the routes they ship, and (as
+  `kern.routing.tenant`) the segment and middleware that name a tenant. `v1/subjects/{subject}` and
+  `tax-subject` live in the *application's* `config/kern.php`; `kern/documents` writes
+  `Route::get('documents', …)` and learns nothing.
+- **`Kern\Platform\Tenancy\Tenancy`** — the tenant column's name, for the query builders, array
+  keys and migrations that `ScopedToTenant` cannot cover implicitly. `Tenancy::addColumn()` is the
+  conditional foreign key promised above.
+- **`Tenancy\Contracts\TenantNames`** — the second thing after `TenantGate` that only an
+  application can answer: what a tenant is called, for recognising them on a document.
+
+Four endpoints stayed in `apps/api` because they compose two packages' facts, which is what an
+application is for: the user directory (platform identity + membership counts), platform-data
+(settings + BNR and legislation freshness), the AI-consent set, and turning a reviewed document into
+a wallet transaction. `routes/api.php` went from 486 lines to 52, and `app/` from 705 classes to six
+files.
+
+Migration ownership was decided by which package creates the table. The application kept exactly two:
+Laravel's `failed_jobs`, and the one migration that renames tables belonging to both `Fx` and
+`Legislation`.

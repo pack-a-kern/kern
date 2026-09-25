@@ -2,22 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
-use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Enums\TaxFactStatus;
-use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Domain\TaxEngine\Models\TaxFact;
-use App\Domain\TaxEngine\Repositories\TaxFactRepository;
-use App\Domain\TaxEngine\Services\ParameterResolver;
-use App\Domain\TaxEngine\Services\RuleInvoker;
-use App\Domain\TaxEngine\Services\RuleResolver;
-use App\Domain\TaxEngine\Services\TaxAssessmentRecorder;
-use App\Domain\TaxEngine\Services\TaxAssessor;
-use App\Domain\TaxEngine\TaxContext;
 use Kern\Legislation\Enums\FiscalParameterValueType;
 use Kern\Legislation\Models\SourceSection;
 use Kern\Legislation\Models\TaxRule;
@@ -26,12 +10,28 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Models\TaxFact;
+use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
+use Kern\TaxRomania\TaxEngine\Services\ParameterResolver;
+use Kern\TaxRomania\TaxEngine\Services\RuleInvoker;
+use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
+use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
+use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
+use Kern\TaxRomania\TaxEngine\TaxContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 
 /**
  * Milestone 12's central `BLUEPRINT.md` §38.B claim, made executable: a rule scoped to `PFA` runs
- * through `App\Domain\TaxEngine\Services\TaxAssessor` with **zero changes to any TaxEngine
+ * through `Kern\TaxRomania\TaxEngine\Services\TaxAssessor` with **zero changes to any TaxEngine
  * class** — `RuleResolver`, `ParameterResolver`, `RuleInvoker`, `TaxAssessor`,
  * `TaxAssessmentRecorder`, `TaxContext`, and `TaxFactRepository` are all byte-for-byte the same
  * classes `docs/handoff/020-tax-engine.md` shipped for PF. The only new things this test adds are
@@ -133,7 +133,7 @@ it('resolves and assesses a PFA-tagged synthetic rule end to end, through the un
     expect($assessment->tax_subject_id)->toBe($pfaSubject->id)
         ->and($assessment->status->value)->toBe('FINAL');
 
-    // TaxAssessment::query() is scoped by ScopedToTenant as defence in depth (App\Domain\
+    // TaxAssessment::query() is scoped by ScopedToTenant as defence in depth (Kern\TaxRomania\
     // TaxEngine\Repositories\TaxFactRepository already proved the explicit-filter path above) —
     // reading it back needs the same TenantContext activation any other module's caller would.
     app(TenantContext::class)->authorizeAndActivate($user->id, $pfaSubject->id);

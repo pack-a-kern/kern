@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domain\Fx\ValueObjects\DecimalRate;
-use App\Domain\TaxEngine\Enums\RoundingMode;
-use App\Domain\TaxEngine\Exceptions\CurrencyMismatchException;
-use App\Domain\TaxEngine\Exceptions\InvalidCurrencyCodeException;
-use App\Domain\TaxEngine\ValueObjects\Money;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
+use Kern\TaxRomania\TaxEngine\Enums\RoundingMode;
+use Kern\TaxRomania\TaxEngine\Exceptions\CurrencyMismatchException;
+use Kern\TaxRomania\TaxEngine\Exceptions\InvalidCurrencyCodeException;
+use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 
 /**
  * `docs/AGENTS.md` rule 6 / `BLUEPRINT.md` §11.3 — Money is integer minor units plus an explicit

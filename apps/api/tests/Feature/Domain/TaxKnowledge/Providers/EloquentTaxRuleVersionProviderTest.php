@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
-use App\Domain\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
-use App\Domain\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
-use App\Domain\TaxEngine\Exceptions\UnknownTaxRuleException;
 use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Models\TaxRule;
 use Kern\Legislation\Models\TaxRuleSource;
 use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
+use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
+use Kern\TaxRomania\TaxEngine\Exceptions\UnknownTaxRuleException;
 
 /**
  * Mirrors `tests/Feature/Domain/TaxKnowledge/LegislationTemporalQueryTest.php`'s shape for the
  * `tax_rule_versions` temporal lookup this module owns. Relocated from
  * `tests/Feature/Domain/TaxEngine/TaxRuleTemporalReaderTest.php` when the class it tests moved
- * from `App\Domain\TaxEngine\Repositories\TaxRuleTemporalReader` to this adapter
+ * from `Kern\TaxRomania\TaxEngine\Repositories\TaxRuleTemporalReader` to this adapter
  * (`docs/adr/0010-tax-engine-ports-and-adapters.md`) — same assertions, same behaviour, only the
  * class under test and its location changed.
  */

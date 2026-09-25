@@ -294,7 +294,7 @@ $ docker run --rm -e APP_KEY=... kern-php-test:local vendor/bin/phpstan analyse 
  ------ ----------------------------------------------------------------------
  [ERROR] Found 1 error
 ```
-That one error is pre-existing, in `App\Domain\TaxEngine`'s own test fixture — not touched by this
+That one error is pre-existing, in `Kern\TaxRomania\TaxEngine`'s own test fixture — not touched by this
 task, not in `packages/documents/src/**`. **Zero errors anywhere in this task's own files.**
 
 **Deptrac, whole project:**
@@ -413,7 +413,7 @@ MinIO in `docs/handoff/012-encrypted-object-store.md`; this task's own raw-bucke
 1. Whoever builds the Python `/v1/documents/extract-text` endpoint should treat
    `HttpTextExtractionGateway`'s docblock as a proposal, not a contract already agreed with the
    Python side — it was written by this task alone.
-2. Should `document_ai_consents` eventually move under `App\Domain\Subjects` instead of
+2. Should `document_ai_consents` eventually move under `Kern\TaxRomania\Subjects` instead of
    `Kern\Documents`? It is conceptually "a subject-level setting," but its only reader/writer
    is this module, and `docs/AGENTS.md` §10 says extend an existing pattern rather than pre-emptively
    relocate something with one current consumer. Left here; revisit if a second module needs it.

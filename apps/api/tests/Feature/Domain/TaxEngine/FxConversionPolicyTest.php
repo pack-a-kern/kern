@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Services\FxRateQuery;
-use App\Domain\TaxEngine\Enums\FxConversionMethod;
-use App\Domain\TaxEngine\Enums\RoundingMode;
-use App\Domain\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
-use App\Domain\TaxEngine\Exceptions\IncompleteFiscalYearAveragesException;
-use App\Domain\TaxEngine\Services\FxConversionPolicy;
-use App\Domain\TaxEngine\ValueObjects\Money;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Legislation\Models\OfficialSource;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Services\FxRateQuery;
+use Kern\TaxRomania\TaxEngine\Enums\FxConversionMethod;
+use Kern\TaxRomania\TaxEngine\Enums\RoundingMode;
+use Kern\TaxRomania\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
+use Kern\TaxRomania\TaxEngine\Exceptions\IncompleteFiscalYearAveragesException;
+use Kern\TaxRomania\TaxEngine\Services\FxConversionPolicy;
+use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 
 /**
  * `BLUEPRINT.md` §6.9/§7.5 — every conversion carries a mandatory, explicit method, and full
@@ -69,7 +69,7 @@ it('falls back to the previous banking day when the requested date has no rate',
     $result = makeFxConversionPolicy()->convertToRon($amount, FxConversionMethod::PREVIOUS_BANKING_DAY, new DateTimeImmutable('2026-06-14'), RoundingMode::HALF_UP);
 
     // FxRateQuery::rateWithProvenance() divides the published rate by its multiplier at a fixed
-    // 10-decimal-place working scale (App\Domain\Fx\Services\FxRateQuery::DIVISION_SCALE) — the
+    // 10-decimal-place working scale (Kern\TaxRomania\Fx\Services\FxRateQuery::DIVISION_SCALE) — the
     // trailing zeros are that division's precision, not a formatting artefact.
     expect($result->rateApplied->toString())->toBe('4.0000000000')
         ->and($result->resolvedFor->format('Y-m-d'))->toBe('2026-06-12');

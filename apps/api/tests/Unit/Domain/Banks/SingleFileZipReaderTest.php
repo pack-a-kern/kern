@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Banks\SingleFileZipReaderTest;
 
-use App\Domain\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
-use App\Domain\Banks\Parsing\SingleFileZipReader;
+use Kern\TaxRomania\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
+use Kern\TaxRomania\Banks\Parsing\SingleFileZipReader;
 
 /**
  * A one-entry ZIP built byte by byte, as GLEIF's archives are laid out: a local header, the deflated

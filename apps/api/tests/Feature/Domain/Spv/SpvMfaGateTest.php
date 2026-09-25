@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\SpvMfaGateTest;
 
-use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
-use App\Domain\Spv\Actions\RegisterSpvConnection;
-use App\Domain\Spv\Contracts\SpvBrowserSessionClient;
-use App\Domain\Spv\DataTransferObjects\PortalAuthResult;
-use App\Domain\Spv\DataTransferObjects\RegisterSpvConnectionInput;
-use App\Domain\Spv\DataTransferObjects\SpvBrowserSession;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\ValueObjects\SensitiveString;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\TaxRomania\Spv\Actions\InitiateSpvAuthAttempt;
+use Kern\TaxRomania\Spv\Actions\RegisterSpvConnection;
+use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
+use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
+use Kern\TaxRomania\Spv\DataTransferObjects\RegisterSpvConnectionInput;
+use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
 
 /**

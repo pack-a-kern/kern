@@ -10,7 +10,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 /**
  * Shared by every `Kern\Documents\Events\*` broadcast event: which private channel a
  * subject's document lifecycle events go out on (`routes/channels.php` authorizes it against an
- * active `SubjectMembership`, the same membership check `App\Domain\Subjects\Tenancy\
+ * active `SubjectMembership`, the same membership check `Kern\TaxRomania\Subjects\Tenancy\
  * TenantContext::authorizeAndActivate()` performs for HTTP requests). Extracting this rather than
  * repeating the channel-name string in four classes is removing duplication of a real invariant
  * (`docs/CODE-QUALITY.md` §1) — the channel name is a contract the PWA frontend also depends on.

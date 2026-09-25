@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RegisterPfSubjectControllerTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\PfProfile;
-use App\Domain\Subjects\Models\SubjectMembership;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\PfProfile;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
- * `POST /api/v1/subjects/pf` — the HTTP entry point onto `App\Domain\Subjects\Actions\
+ * `POST /api/v1/subjects/pf` — the HTTP entry point onto `Kern\TaxRomania\Subjects\Actions\
  * RegisterPfSubject`, which `docs/handoff/030-pwa-frontend.md`'s Key decision #1 found had no
  * controller at all.
  */

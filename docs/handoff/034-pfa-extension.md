@@ -18,14 +18,14 @@ Two deliverables, in the order the task asked for:
    references and explicitly left unfixed because they sit outside this task's declared scope.
 2. **The PFA vertical slice** — a new `pfa_profiles` table/model, a new `RegisterPfaSubject`
    action, and a proof (not a new production rule — none is permitted; see "Hard constraint
-   observed" below) that a PFA-tagged rule resolves and runs through `App\Domain\TaxEngine`
+   observed" below) that a PFA-tagged rule resolves and runs through `Kern\TaxRomania\TaxEngine`
    completely unmodified.
 
 ### Entry points
 
 ```php
-use App\Domain\Subjects\Actions\RegisterPfaSubject;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
 
 $subject = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
     registeringUserId: $userId,
@@ -38,10 +38,10 @@ $subject = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
     address: 'Str. Exemplu nr. 1', // optional
 ));
 
-// $subject->type === App\Domain\Subjects\Enums\SubjectType::PFA
+// $subject->type === Kern\TaxRomania\Subjects\Enums\SubjectType::PFA
 ```
 
-`App\Domain\Subjects\Models\PfaProfile::query()->find($subject->id)` reads the profile back
+`Kern\TaxRomania\Subjects\Models\PfaProfile::query()->find($subject->id)` reads the profile back
 (fields decrypt transparently via `App\Support\Crypto\Casts\Encrypted`, exactly like `PfProfile`).
 
 For the TaxEngine side, there is **no new entry point** — that is the finding. A PFA-tagged rule
@@ -58,7 +58,7 @@ Migration:
   the migration's own docblock for the schema decisions, especially why it does **not** reuse
   `tax_subjects.fiscal_identifier_*`).
 
-Subjects (`apps/api/app/Domain/Subjects/`):
+Subjects (`apps/api/packages/tax-romania/src/Subjects/`):
 - `Models/PfaProfile.php` — the `pfa_profiles` Eloquent model, structurally identical to
   `PfProfile` (`FillsSubjectForeignKeyFirst`, `EncryptsWithSubjectDek`, no `HasUuidPrimaryKey`).
 - `DataTransferObjects/RegisterPfaSubjectInput.php` — the PFA counterpart of
@@ -89,7 +89,7 @@ Tests (`apps/api/tests/`) — all real, all executed, see "How to verify":
   of the `BLUEPRINT.md` §38.B / §33 claim — one user holding an **active PF and an active PFA
   subject at the same time**, both independently authorizable via the unmodified `TenantContext`,
   both independently audit-chain-verifiable, and a PFA subject successfully using the unmodified
-  `App\Domain\Wallet\Actions\OpenFinancialAccount` action.
+  `Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount` action.
 - `Feature/Domain/TaxEngine/PfaRuleExtensionTest.php` — the central proof: a `tax_rules` row
   tagged `subject_type = 'PFA'`, backed by `Tests\Fixtures\TaxEngine\Rules\
   SyntheticPercentageOfBaseRule` (M5's own existing fixture, reused **unchanged** — see "Key
@@ -105,7 +105,7 @@ Documentation:
 verify"), no change to `apps/api/tests/Pest.php` (the existing `insertApprovedTaxRuleVersion`/
 `insertApprovedFiscalParameterVersion` helpers and `RefreshDatabase` wiring for
 `Feature/Domain/Subjects`/`Feature/Domain/TaxEngine` already covered everything this task needed),
-no change to any file under `App\Domain\{Identity,Wallet,Documents,Fx,Spv,Audit,Declarations,
+no change to any file under `Kern\TaxRomania\{Identity,Wallet,Documents,Fx,Spv,Audit,Declarations,
 TaxKnowledge}` or `App\Support\**`.
 
 ## Hard constraint observed
@@ -128,7 +128,7 @@ fiscal dataset) remains entirely unstarted and unblocked by anything in this tas
    forbids a real PFA rate/formula, and M5's own decision #8
    (`docs/handoff/020-tax-engine.md`) already established the precedent that a generic,
    parameter-driven rule with no real caller belongs in `tests/Fixtures/`, not
-   `app/Domain/TaxEngine`. Second, and more importantly for what this task is actually trying to
+   `packages/tax-romania/src/TaxEngine`. Second, and more importantly for what this task is actually trying to
    prove: reusing the identical class, unmodified, is a *stronger* demonstration than writing a
    second near-identical fixture class would have been — it shows the extension point is entirely
    **data** (a `tax_rules` row, a `tax_rule_versions` row, a `fiscal_parameters` row, all pointing
@@ -156,17 +156,17 @@ fiscal dataset) remains entirely unstarted and unblocked by anything in this tas
    CNP's shape (13 digits); a Romanian business registration number/CUI has no single verified
    shape this task could encode without risking an unverified assumption
    (`docs/AGENTS.md` §2). `Normalizer::text()` is already the established precedent for exactly
-   this situation — `App\Domain\Spv\Actions\RegisterSpvConnection`'s SPV username and
-   `App\Domain\Wallet\Actions\RecordFinancialTransaction`'s external id both use it for the same
+   this situation — `Kern\TaxRomania\Spv\Actions\RegisterSpvConnection`'s SPV username and
+   `Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction`'s external id both use it for the same
    reason. No new file under `App\Support\Crypto\**` was needed or added.
 4. **`pfa_profiles` mirrors `pf_profiles`' shape (self-referential primary key, no surrogate id,
    `FillsSubjectForeignKeyFirst`) rather than inventing a different extension-table pattern.**
    `docs/AGENTS.md` §10 ("prefer extending an existing pattern... write an ADR if you must
    introduce a competing one") — no ADR was written because no competing pattern was introduced.
 5. **No PFA HTTP endpoint, controller, or route was added.** The task's declared scope
-   (`apps/api/app/Domain/Subjects/**`, `apps/api/app/Domain/TaxEngine/**`, migrations, tests,
+   (`apps/api/packages/tax-romania/src/Subjects/**`, `apps/api/packages/tax-romania/src/TaxEngine/**`, migrations, tests,
    factories, `deptrac.php`, `apps/api/tests/Pest.php`) does not include `apps/api/app/Http/**`,
-   and `App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController` was left untouched.
+   and `Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController` was left untouched.
    `RegisterPfaSubject` is reachable exactly the way `RegisterPfSubject` was before its own
    controller existed — callable directly, with an HTTP wrapper left for a future task.
 6. **No `PfaTaxFactNormalizer` was built.** `BLUEPRINT.md` §32 names one as an expected PFA artifact,
@@ -252,18 +252,18 @@ No security vulnerability advisories found.
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Subjects\Actions\RegisterPfaSubject` + `DataTransferObjects\
+- `Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject` + `DataTransferObjects\
   RegisterPfaSubjectInput` — callable from a future controller/command, mirroring
   `RegisterPfSubject`'s own current state (no controller either).
-- `App\Domain\Subjects\Exceptions\DuplicateRegistrationNumberException`.
-- `App\Domain\Subjects\Models\PfaProfile` — importable only from within `Subjects` per
+- `Kern\TaxRomania\Subjects\Exceptions\DuplicateRegistrationNumberException`.
+- `Kern\TaxRomania\Subjects\Models\PfaProfile` — importable only from within `Subjects` per
   `deptrac.php`'s existing rules (unchanged); another module needing PFA profile data goes through
   `TenantContext`/`ListSubjectsForUser`/a future application service, never a direct model import.
-- `Database\Factories\TaxSubjectFactory::pfa()` — the sanctioned way a test gets a PFA
+- `Kern\TaxRomania\Database\Factories\TaxSubjectFactory::pfa()` — the sanctioned way a test gets a PFA
   `TaxSubject`.
 - **M4/M5 for PFA plugs in exactly where M5 already documented it plugs in for PF**: once a real,
   human-approved `tax_rule_versions`/`fiscal_parameter_versions` row exists with
-  `subject_type = 'PFA'` and a real source section, nothing in `App\Domain\TaxEngine` changes.
+  `subject_type = 'PFA'` and a real source section, nothing in `Kern\TaxRomania\TaxEngine` changes.
 
 ## What is NOT done
 

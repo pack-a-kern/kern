@@ -18,7 +18,7 @@ use Kern\Platform\Identity\Models\User;
  * `definition()` deliberately sets no encrypted column — a `User`'s own DEK
  * (`encryptionSubjectId()` returns its own id) can only be created once the row already exists in
  * the database, exactly as `Kern\Platform\Identity\Models\User::createWithEmail()`'s docblock
- * explains for the identical reason `Database\Factories\TaxSubjectFactory` gives. `configure()`'s
+ * explains for the identical reason `Kern\TaxRomania\Database\Factories\TaxSubjectFactory` gives. `configure()`'s
  * `afterCreating()` hook assigns a random unique email in a second `save()`, after the row exists.
  */
 final class UserFactory extends Factory

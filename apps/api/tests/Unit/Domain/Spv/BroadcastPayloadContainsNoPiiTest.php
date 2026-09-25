@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Spv\BroadcastPayloadContainsNoPiiTest;
 
-use App\Domain\Spv\Enums\SpvSyncRunStatus;
-use App\Domain\Spv\Events\SpvAuthChallengeRequired;
-use App\Domain\Spv\Events\SpvAuthenticated;
-use App\Domain\Spv\Events\SpvSyncCompleted;
-use App\Domain\Spv\Events\SpvSyncStarted;
+use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
+use Kern\TaxRomania\Spv\Events\SpvAuthChallengeRequired;
+use Kern\TaxRomania\Spv\Events\SpvAuthenticated;
+use Kern\TaxRomania\Spv\Events\SpvSyncCompleted;
+use Kern\TaxRomania\Spv\Events\SpvSyncStarted;
 use ReflectionClass;
 use ReflectionProperty;
 

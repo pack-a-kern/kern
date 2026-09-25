@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\CrossTenantIsolationTest;
 
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — a user authorized for one `TaxSubject` must never
- * reach another subject's `declarations` row. `App\Domain\Declarations\Models\
+ * reach another subject's `declarations` row. `Kern\TaxRomania\Declarations\Models\
  * DeclarationSubmission` is deliberately not exercised here: it carries no `tax_subject_id`
  * column at all (matching `BLUEPRINT.md` §6.10's own literal schema, and the identical precedent
- * `App\Domain\TaxEngine\Models\TaxAssessmentLine` already sets for a child row "reached only
+ * `Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine` already sets for a child row "reached only
  * through its owning parent, tenancy enforced one level up") — a direct, unauthenticated query
  * against that table is not a scenario `ScopedToTenant` can guard, by design; every sanctioned
  * read path (`$declaration->submissions()`) goes through an already-tenant-scoped `Declaration`

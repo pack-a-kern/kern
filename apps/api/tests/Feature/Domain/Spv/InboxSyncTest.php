@@ -4,27 +4,27 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\InboxSyncTest;
 
-use App\Domain\Spv\Actions\SyncSpvInbox;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Enums\SpvConnectionStatus;
-use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Spv\Enums\SpvSyncRunStatus;
-use App\Domain\Spv\Events\SpvSyncCompleted;
-use App\Domain\Spv\Events\SpvSyncStarted;
-use App\Domain\Spv\Models\SpvConnection;
-use App\Domain\Spv\Models\SpvMessage;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Kern\Audit\Models\AuditEvent;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Spv\Actions\SyncSpvInbox;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
+use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
+use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
+use Kern\TaxRomania\Spv\Events\SpvSyncCompleted;
+use Kern\TaxRomania\Spv\Events\SpvSyncStarted;
+use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvMessage;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
- * `docs/reference/anaf-spv-integration.md`'s two-transport inbox sync — `App\Domain\Spv\Actions\
+ * `docs/reference/anaf-spv-integration.md`'s two-transport inbox sync — `Kern\TaxRomania\Spv\Actions\
  * SyncSpvInbox` selects one by `SpvConnection::$auth_method` and never conflates the two.
  */
 beforeEach(function (): void {

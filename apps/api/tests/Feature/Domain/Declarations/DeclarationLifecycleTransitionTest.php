@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Declarations\DeclarationLifecycleTransitionTest;
 
-use App\Domain\Declarations\Enums\DeclarationStatus;
-use App\Domain\Declarations\Exceptions\InvalidDeclarationTransitionException;
-use App\Domain\Declarations\Models\Declaration;
-use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Declarations\Services\DeclarationLifecycle;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\TaxRomania\Declarations\Enums\DeclarationStatus;
+use Kern\TaxRomania\Declarations\Exceptions\InvalidDeclarationTransitionException;
+use Kern\TaxRomania\Declarations\Models\Declaration;
+use Kern\TaxRomania\Declarations\Models\FormVersion;
+use Kern\TaxRomania\Declarations\Services\DeclarationLifecycle;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use RuntimeException;
 
 /**
- * `App\Domain\Declarations\Enums\DeclarationStatus`'s own docblock is the specification this
+ * `Kern\TaxRomania\Declarations\Enums\DeclarationStatus`'s own docblock is the specification this
  * proves: every allowed transition succeeds, and — just as importantly — every transition NOT in
  * that matrix is rejected, never silently accepted or coerced.
  */

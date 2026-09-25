@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\RawDatabasePlaintextTest;
 
-use App\Domain\Spv\Actions\RegisterSpvConnection;
-use App\Domain\Spv\DataTransferObjects\RegisterSpvConnectionInput;
-use App\Domain\Spv\Enums\SpvAuthMethod;
-use App\Domain\Spv\Models\SpvMessage;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\TaxRomania\Spv\Actions\RegisterSpvConnection;
+use Kern\TaxRomania\Spv\DataTransferObjects\RegisterSpvConnectionInput;
+use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
+use Kern\TaxRomania\Spv\Models\SpvMessage;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `BLUEPRINT.md` §4.1/§4.2/§6.11 — no `spv_connections` column can ever hold a plaintext SPV

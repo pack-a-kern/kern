@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\MultiPartDocumentTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Kern\Documents\Actions\InitiateDocumentUpload;
@@ -28,6 +25,9 @@ use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
 use Tests\Fakes\FakeVirusScanner;
 use Tests\Fakes\InMemoryKeyManagementService;

@@ -6,7 +6,7 @@ ANAF's specification, by design)
 
 ## What was built
 
-`App\Domain\Declarations` (`BLUEPRINT.md` §6.10, §12) — the declaration lifecycle machinery
+`Kern\TaxRomania\Declarations` (`BLUEPRINT.md` §6.10, §12) — the declaration lifecycle machinery
 `docs/AGENTS.md` §1 rule 1 and `docs/reference/anaf-spv-integration.md` require this milestone to
 build *without* guessing at ANAF's unpublished D212 submission format or inventing any real form
 field/box number. This task builds: a versioned form registry, the
@@ -20,7 +20,7 @@ shipped implementation is an unmistakable placeholder, never a real filing artif
 ### Entry points
 
 ```php
-use App\Domain\Declarations\Actions\{
+use Kern\TaxRomania\Declarations\Actions\{
     RegisterFormDefinition, RegisterFormVersion, CreateDeclarationDraft,
     ValidateDeclaration, SubmitDeclaration, RecordDeclarationSubmissionResponse,
     CreateRectificativeDeclaration,
@@ -41,7 +41,7 @@ $declaration = app(CreateDeclarationDraft::class)(new CreateDeclarationDraftInpu
     taxSubjectId: $subject->id,
     formVersionId: $version->id,
     fiscalYear: 2026,
-    assessmentId: $assessment->id, // must be App\Domain\TaxEngine\Enums\AssessmentStatus::FINAL
+    assessmentId: $assessment->id, // must be Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus::FINAL
 ));
 
 app(ValidateDeclaration::class)($declaration); // -> VALID, freezes declarations.snapshot_json/hash
@@ -83,7 +83,7 @@ $rectificative = app(CreateRectificativeDeclaration::class)(new CreateRectificat
   `external_reference_ciphertext`/`response_ciphertext`, schema-level FK to `documents` for
   `receipt_document_id`.
 
-**`App\Domain\Declarations`** (`apps/api/app/Domain/Declarations/`) — by responsibility:
+**`Kern\TaxRomania\Declarations`** (`apps/api/packages/tax-romania/src/Declarations/`) — by responsibility:
 - `Enums/{FormVersionStatus,DeclarationKind,DeclarationStatus,SubmissionTransport}.php`.
 - `Models/{FormDefinition,FormVersion,Declaration,DeclarationSubmission}.php` — `Declaration`
   carries the model-level immutability guard (see "Immutability enforcement" below);
@@ -96,7 +96,7 @@ $rectificative = app(CreateRectificativeDeclaration::class)(new CreateRectificat
 - `ArtifactGeneration/PlaceholderArtifactGenerator.php` — the one, unmistakably-marked
   implementation this task ships.
 - `Repositories/TaxAssessmentSnapshotReader.php` — reads `tax_assessments` via the plain query
-  builder (never `App\Domain\TaxEngine\Models\TaxAssessment`).
+  builder (never `Kern\TaxRomania\TaxEngine\Models\TaxAssessment`).
 - `Services/{FormSchemaValidator,DeclarationValidator,DeclarationSnapshotBuilder,
   DeclarationLifecycle}.php`.
 - `Actions/{RegisterFormDefinition,RegisterFormVersion,CreateDeclarationDraft,ValidateDeclaration,
@@ -133,7 +133,7 @@ verify").
 
 Two independent layers, deliberately not one:
 
-1. **Action layer** — `App\Domain\Declarations\Services\DeclarationLifecycle::transition()` is the
+1. **Action layer** — `Kern\TaxRomania\Declarations\Services\DeclarationLifecycle::transition()` is the
    only way any action changes `declarations.status`; it enforces the exact matrix
    `DeclarationStatus`'s own docblock states and throws `InvalidDeclarationTransitionException` on
    anything else (`DeclarationLifecycleTransitionTest`, 9 assertions covering every legal move and
@@ -175,12 +175,12 @@ Two independent layers, deliberately not one:
    `VALID` declaration, and that the declaration is explicitly moved back to `DRAFT`, not left in
    `VALIDATING`.
 
-4. **`App\Domain\Declarations\Repositories\TaxAssessmentSnapshotReader` reads `tax_assessments` via
-   the plain query builder, never `App\Domain\TaxEngine\Models\TaxAssessment`.** This task's path
-   scope is `apps/api/app/Domain/Declarations/**` only — `docs/handoff/023-taxengine-boundary-
+4. **`Kern\TaxRomania\Declarations\Repositories\TaxAssessmentSnapshotReader` reads `tax_assessments` via
+   the plain query builder, never `Kern\TaxRomania\TaxEngine\Models\TaxAssessment`.** This task's path
+   scope is `apps/api/packages/tax-romania/src/Declarations/**` only — `docs/handoff/023-taxengine-boundary-
    inversion.md`'s ports-and-adapters fix (TaxEngine defines a port, the *other* module
    implements it) requires touching both modules, which is out of scope here. This is instead the
-   identical, already-sanctioned interim shape `App\Domain\Rental\Services\Matching\
+   identical, already-sanctioned interim shape `Kern\TaxRomania\Rental\Services\Matching\
    TransactionMatchCandidateFinder` establishes for reading `Domain/Wallet`'s
    `financial_transactions` table — confined to exactly this one class, and the reason `deptrac.php`
    needs no `Declarations -> TaxEngine` grant at all.
@@ -193,9 +193,9 @@ Two independent layers, deliberately not one:
    at a named box/field level — this codebase has never seen a real D212 form, and
    `docs/AGENTS.md` rule 1 forbids inventing one. `form_versions.schema_json` models the
    *structure* a real specification would eventually populate (ordered sections/fields,
-   `App\Domain\Declarations\Services\FormSchemaValidator` proves it is exercised, not dead code)
+   `Kern\TaxRomania\Declarations\Services\FormSchemaValidator` proves it is exercised, not dead code)
    but no fixture or factory in this codebase gives it real-looking content — every test uses
-   `SYNTHETIC_*` codes, the convention `App\Domain\TaxEngine`'s own tests established first.
+   `SYNTHETIC_*` codes, the convention `Kern\TaxRomania\TaxEngine`'s own tests established first.
 
 6. **The self-referencing `declarations.supersedes_declaration_id` FK is added via a second
    `Schema::table()` call, after `Schema::create()`, in the same migration file — a real defect
@@ -208,7 +208,7 @@ Two independent layers, deliberately not one:
    Caught by running migrations against real Postgres during this task's own verification, per
    §7b's explicit warning that sqlite would have hidden it.
 
-7. **`DeclarationSubmission::encryptionSubjectId()` has two paths, not one.** `App\Domain\
+7. **`DeclarationSubmission::encryptionSubjectId()` has two paths, not one.** `Kern\TaxRomania\
    Documents\Models\DocumentExtraction`'s precedent (an `encryptionSubjectIdOverride` property set
    only by a sanctioned static constructor) is not sufficient here: `RecordDeclarationSubmissionResponse`
    loads an existing `DeclarationSubmission` via `::query()->findOrFail()` — a normal Eloquent
@@ -236,7 +236,7 @@ Two independent layers, deliberately not one:
 
 9. **No `Money` value object for this module.** Every amount this module ever touches
    (`tax_assessments.totals_json`) is already `{minor_units: int, currency: string}` — produced
-   and owned by `App\Domain\TaxEngine`'s own `Money`. This module reads and re-serialises that
+   and owned by `Kern\TaxRomania\TaxEngine`'s own `Money`. This module reads and re-serialises that
    shape verbatim into `declarations.snapshot_json`; it never performs arithmetic on it, so
    wrapping it in a second `Money` type here would be exactly `docs/CODE-QUALITY.md` §2's
    "abstraction with no real use."
@@ -254,7 +254,7 @@ $ docker exec anaf-postgres-1 psql -U kern -d postgres -c 'CREATE DATABASE kern_
 CREATE DATABASE
 
 $ docker run --rm --network anaf_data_net --user root -v "$PWD/apps/api":/app -w /app \
-    --entrypoint sh anaf-app -c 'vendor/bin/pint --test app/Domain/Declarations \
+    --entrypoint sh anaf-app -c 'vendor/bin/pint --test packages/tax-romania/src/Declarations \
     tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations \
     database/factories/Form{Definition,Version}Factory.php \
     database/migrations/2026_09_08_9000{00,01,02,03}_*.php deptrac.php tests/Pest.php \
@@ -265,7 +265,7 @@ $ ... -c 'vendor/bin/pint --test'                     # whole project
   PASS .......................................................... 699 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    app/Domain/Declarations tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations \
+    packages/tax-romania/src/Declarations tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations \
     database/factories/Form{Definition,Version}Factory.php'
  [OK] No errors                                                    (level 9, no baseline)
 
@@ -320,16 +320,16 @@ the immutability guard (#8).
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\Declarations\Actions\{
+use Kern\TaxRomania\Declarations\Actions\{
     RegisterFormDefinition, RegisterFormVersion, CreateDeclarationDraft,
     ValidateDeclaration, SubmitDeclaration, RecordDeclarationSubmissionResponse,
     CreateRectificativeDeclaration,
 };
-use App\Domain\Declarations\Contracts\DeclarationArtifactGenerator;
-use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersionStatus, SubmissionTransport};
+use Kern\TaxRomania\Declarations\Contracts\DeclarationArtifactGenerator;
+use Kern\TaxRomania\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersionStatus, SubmissionTransport};
 ```
 
-- **`App\Domain\TaxEngine` is this module's one upstream dependency** — a `tax_assessments.id`
+- **`Kern\TaxRomania\TaxEngine` is this module's one upstream dependency** — a `tax_assessments.id`
   with `status = FINAL`. Nothing else about `TaxEngine`'s internals is assumed.
 - **M10 (SPV automation) plugs in at `SubmitDeclaration`/`RecordDeclarationSubmissionResponse`.**
   Once a real transport exists, it calls `SubmitDeclaration` with `transport:
@@ -339,7 +339,7 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
 - **Whoever obtains ANAF's real D212 specification replaces exactly one container binding**
   (`DeclarationArtifactGenerator -> PlaceholderArtifactGenerator` in
   `DeclarationsServiceProvider`) to swap in a real generator — no other class in this module
-  changes. `form_versions.schema_json`/`App\Domain\Declarations\Services\FormSchemaValidator` are
+  changes. `form_versions.schema_json`/`Kern\TaxRomania\Declarations\Services\FormSchemaValidator` are
   the seam for loading the real field structure once it exists.
 - **`declarations.snapshot_json`/`snapshot_hash`** are the `BLUEPRINT.md` §12.3 freeze — readable by a
   future explanation/audit UI without needing to re-run anything.
@@ -356,7 +356,7 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
   `tax_assessments.calculation_trace_object_path` precedent: wiring it would require extending
   `App\Support\ObjectStore\ObjectKey`/`DocumentObjectKind` (both hard-coded to the `documents`
   shape) or inventing a second, unencrypted ad hoc writer — out of this task's path scope
-  (`apps/api/app/Domain/Declarations/**` only) to decide unilaterally.
+  (`apps/api/packages/tax-romania/src/Declarations/**` only) to decide unilaterally.
 - **No substantive ANAF filing-rule validation** — duplicate-original detection, box-level
   completeness against a real schema, cross-field consistency, or any rule specific to D212 itself.
   `DeclarationValidator` checks only what this module can verify without a real specification
@@ -370,8 +370,8 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
 
 ## Open questions
 
-- **Should `App\Domain\TaxEngine` persist the raw `tax_facts` id list a `tax_assessments` row was
-  computed from**, not only `input_snapshot_hash`? Today, `App\Domain\Declarations\
+- **Should `Kern\TaxRomania\TaxEngine` persist the raw `tax_facts` id list a `tax_assessments` row was
+  computed from**, not only `input_snapshot_hash`? Today, `Kern\TaxRomania\Declarations\
   Repositories\TaxAssessmentSnapshotReader` (and therefore this whole module's §12.3 snapshot)
   cannot independently recover "which facts backed this assessment" — it treats the hash as the
   authoritative, already-reproducible reference. Adding a join table or JSON column to
@@ -418,11 +418,11 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
   quote.
 - `docs/handoff/016-postgres-suite-stabilisation.md`, `docs/handoff/021-wallet.md` — the
   `--user root` / dedicated-database verification recipe, reused verbatim.
-- Existing code read directly before writing anything: `App\Domain\TaxEngine\{Models\
-  TaxAssessment, Services\TaxAssessmentRecorder}`, `App\Domain\Rental\{Models\RentalContract,
+- Existing code read directly before writing anything: `Kern\TaxRomania\TaxEngine\{Models\
+  TaxAssessment, Services\TaxAssessmentRecorder}`, `Kern\TaxRomania\Rental\{Models\RentalContract,
   Actions\{AmendRentalContract,TerminateRentalContract}, Services\Matching\
   TransactionMatchCandidateFinder}`, `Kern\Documents\Models\DocumentExtraction`,
-  `App\Domain\Subjects\Tenancy\{ScopedToTaxSubject,TaxSubjectScope,TenantContext}`,
+  `Kern\TaxRomania\Subjects\Tenancy\{ScopedToTaxSubject,TaxSubjectScope,TenantContext}`,
   `App\Support\Crypto\{Casts\Encrypted,Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}`,
   `App\Support\ObjectStore\{ObjectKey,DocumentObjectKind,EncryptedObjectStore}`, `apps/api/
   deptrac.php`, `apps/api/tests/Pest.php`, `apps/api/bootstrap/providers.php`.

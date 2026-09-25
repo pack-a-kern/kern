@@ -5,7 +5,7 @@
 
 ## What was built
 
-`App\Domain\Spv` (`BLUEPRINT.md` §13, §6.11) plus an extension of `apps/spv-browser`'s session
+`Kern\TaxRomania\Spv` (`BLUEPRINT.md` §13, §6.11) plus an extension of `apps/spv-browser`'s session
 lifecycle (`docs/handoff/004-python-browser-services.md`). This is the highest-risk module in the
 product — it handles a taxpayer's ANAF credentials — and per `docs/reference/anaf-spv-integration.md`
 (verified 2026-09-08) **no ANAF SPV portal DOM, selector, field name, or error code has ever been
@@ -30,7 +30,7 @@ documents (`listaMesaje`, `descarcare`).
 3. `SubmitSpvCredentials` — the password crosses into the worker here, over one synchronous
    internal HTTP call (`SensitiveString::reveal()` is called exactly once, at the point the HTTP
    request body is built) — never queued, never logged, never written to any column. Worker
-   response drives `App\Domain\Spv\Services\ApplyPortalAuthResult`, which sets `spv_sessions.state`
+   response drives `Kern\TaxRomania\Spv\Services\ApplyPortalAuthResult`, which sets `spv_sessions.state`
    and — on `AWAITING_USER_CHALLENGE` — broadcasts `SpvAuthChallengeRequired` (session id and
    subject id only).
 4. `SubmitSpvChallengeCode` — enforces `config('spv.challenge_ttl_seconds')` **itself, before ever
@@ -42,12 +42,12 @@ documents (`listaMesaje`, `descarcare`).
 6. `RevokeSpvConnection` — the natural counterpart to connecting: disconnects SPV.
 
 Every one of the six actions above records exactly one audit event
-(`App\Domain\Audit\Services\AuditChainService::record()`), payload-hashed, never carrying a
+(`Kern\TaxRomania\Audit\Services\AuditChainService::record()`), payload-hashed, never carrying a
 credential or code.
 
 ### Two-transport inbox sync (`docs/reference/anaf-spv-integration.md`'s "real optimisation")
 
-`App\Domain\Spv\Contracts\SpvInboxSyncTransport` has two real implementations, picked by
+`Kern\TaxRomania\Spv\Contracts\SpvInboxSyncTransport` has two real implementations, picked by
 `SpvConnection::$auth_method` in `SyncSpvInbox` — never conflated:
 
 - `AnafCertificateApiTransport` — ANAF's **documented** `listaMesaje`/`descarcare` web service,
@@ -100,7 +100,7 @@ justified additions beyond `BLUEPRINT.md` §6.11's literal column list (`spv_mes
 external_id_ciphertext`, needed to ever call `descarcare` again; `spv_sessions.
 challenge_requested_at`, needed to measure the OTP TTL).
 
-**`App\Domain\Spv`** (`apps/api/app/Domain/Spv/`):
+**`Kern\TaxRomania\Spv`** (`apps/api/packages/tax-romania/src/Spv/`):
 - `Enums/{SpvAuthMethod,SpvCredentialPolicy,SpvConnectionStatus,SpvSessionState,SpvSyncRunStatus}.php`.
 - `ValueObjects/SensitiveString.php` — wraps a password/OTP code; `reveal()` is the only way out;
   `__toString()`/`__debugInfo()` both redact (proven against real `var_dump`/`print_r` output, not
@@ -228,7 +228,7 @@ the standard library.
    `external_id_ciphertext`/`external_id_blind_index` pair `financial_transactions` already
    establishes for the same "encrypted but still exact-lookup/reference-capable" shape.
 
-8. **No HTTP/API controller layer.** This task's path scope (`apps/api/app/Domain/Spv/**`) and
+8. **No HTTP/API controller layer.** This task's path scope (`apps/api/packages/tax-romania/src/Spv/**`) and
    `docs/AGENTS.md` §10 ("do not edit files another agent is actively working on") both point the
    same way: `app/Http/**` is another agent's concurrent work per this task's own brief. Every
    action here is a plain, container-resolvable class — the same boundary `docs/handoff/
@@ -327,12 +327,12 @@ the state-ordering machinery was actually exercised end to end, exactly the clas
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\Spv\Actions\{
+use Kern\TaxRomania\Spv\Actions\{
     RegisterSpvConnection, RevokeSpvConnection, InitiateSpvAuthAttempt,
     SubmitSpvCredentials, SubmitSpvChallengeCode, DestroySpvSession, SyncSpvInbox,
 };
-use App\Domain\Spv\Enums\{SpvAuthMethod, SpvConnectionStatus, SpvSessionState, SpvSyncRunStatus};
-use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP before it ever
+use Kern\TaxRomania\Spv\Enums\{SpvAuthMethod, SpvConnectionStatus, SpvSessionState, SpvSyncRunStatus};
+use Kern\TaxRomania\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP before it ever
                                                   // reaches this module
 ```
 
@@ -340,18 +340,18 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
   connection-establishing action calls `ensureStrongAuthentication()` before touching the database.
 - **A future HTTP/API layer** calls these actions directly (`app(RegisterSpvConnection::class)
   ($request->user(), $input)`) — no controller exists yet, matching Declarations' precedent.
-- **A future D212-submission transport** (`App\Domain\Declarations\Enums\SubmissionTransport::
+- **A future D212-submission transport** (`Kern\TaxRomania\Declarations\Enums\SubmissionTransport::
   SPV_BROWSER`/`ANAF_API`, `docs/handoff/028-d212-declarations.md`) plugs in once
   `.../actions/submit-d212` has a real portal adapter — untouched by this task, by design (out of
   scope: "No D212 submission flow beyond the interface").
 - **Broadcast channel** `tax-subjects.{subjectId}.spv` — `SpvAuthChallengeRequired`,
   `SpvAuthenticated`, `SpvSyncStarted`, `SpvSyncCompleted`. Status/progress/counts only, proven by
   `tests/Unit/Domain/Spv/BroadcastPayloadContainsNoPiiTest.php`.
-- **`App\Domain\Spv\Contracts\{SpvBrowserSessionClient,SpvInboxSyncTransport}`** — the seams a
+- **`Kern\TaxRomania\Spv\Contracts\{SpvBrowserSessionClient,SpvInboxSyncTransport}`** — the seams a
   future milestone with observed ANAF portal behaviour extends. Swapping in a real adapter means:
   (a) implement `apps/spv-browser`'s `PortalAuthenticator` with real Playwright navigation and pass
   it to `createApp()` in `server.ts` instead of `UnimplementedPortalAuthenticator`; (b) wire a real
-  `.../actions/sync` handler; neither requires touching `App\Domain\Spv`'s Laravel-side code at all
+  `.../actions/sync` handler; neither requires touching `Kern\TaxRomania\Spv`'s Laravel-side code at all
   — the wire contract (JSON shapes documented in `HttpSpvBrowserSessionClient`'s own docblock) is
   already the full, real, tested contract.
 
@@ -382,7 +382,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
   already recorded — no cached Chromium binaries in this sandbox). `docker/playwright/Dockerfile`
   installing Chromium is a Docker-image concern outside this task's path scope; nothing here
   changes browser launch behaviour, only the HTTP layer around the existing session lifecycle.
-- Did not touch `docs/STATUS.md` (explicit instruction), `app/Domain/Subjects/**`,
+- Did not touch `docs/STATUS.md` (explicit instruction), `packages/tax-romania/src/Subjects/**`,
   `packages/documents/src/**`, or `app/Http/**` (all explicitly another agent's concurrent work per
   this task's brief).
 
@@ -436,9 +436,9 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
   {TextExtractionGateway,HttpTextExtractionGateway}` (the HTTP-gateway pattern this module's
   `HttpSpvBrowserSessionClient` mirrors exactly), `Kern\Documents\Events\Concerns\
   BroadcastsOnDocumentsChannel` and `routes/channels.php` (the broadcast-channel pattern),
-  `App\Domain\Rental\{Models\*, Actions\CreateRentalContract}` (denormalised `tax_subject_id`,
+  `Kern\TaxRomania\Rental\{Models\*, Actions\CreateRentalContract}` (denormalised `tax_subject_id`,
   single-write-with-explicit-FK Eloquent conventions), `App\Support\Crypto\{Casts\Encrypted,
-  Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}`, `App\Domain\Subjects\Tenancy\
+  Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}`, `Kern\TaxRomania\Subjects\Tenancy\
   {ScopedToTaxSubject,TaxSubjectScope,TenantContext}`, `Kern\Platform\Identity\Support\SpvMfaPolicy`
   and `Models\{User,UserMfaMethod}`, `apps/processing/src/processing/internal_auth.py` (the
   internal-auth compromise this task's `internalAuth.ts` mirrors), `apps/spv-browser/src/

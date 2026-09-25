@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\SubjectDekLifecycleTest;
 
-use App\Domain\Subjects\Enums\SubjectStatus;
-use App\Domain\Subjects\Enums\SubjectType;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
+use Kern\TaxRomania\Subjects\Enums\SubjectType;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `Kern\Platform\KeyManagement\SubjectDekService`'s "generate on first use, never plaintext"
  * contract, proven against this module's own tables (`tax_subjects`/`users`) through
- * `App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository` — the concrete
+ * `Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository` — the concrete
  * implementation this task provides for `docs/handoff/005-crypto-core.md`'s
  * `SubjectDekRepository` contract.
  */

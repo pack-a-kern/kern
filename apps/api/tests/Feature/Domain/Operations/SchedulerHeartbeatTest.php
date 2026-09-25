@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Operations\Services\ProbeSchedulerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -10,6 +9,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Kern\TaxRomania\Operations\Services\ProbeSchedulerStatus;
 use Mockery;
 use RuntimeException;
 

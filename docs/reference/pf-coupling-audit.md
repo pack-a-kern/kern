@@ -12,11 +12,11 @@ own claim about itself.
 **`BLUEPRINT.md` §38.B held.** A second subject type (`SubjectType::PFA`) was added with:
 
 - one new table (`pfa_profiles`), one new model, one new DTO, one new action, one new exception —
-  all in `App\Domain\Subjects`;
-- **zero changes** to `Kern\Platform\Identity`, `App\Domain\Wallet`, `Kern\Documents`,
-  `App\Domain\Fx`, `App\Domain\Spv`, `App\Domain\Audit`, `App\Domain\Declarations`, or any file
+  all in `Kern\TaxRomania\Subjects`;
+- **zero changes** to `Kern\Platform\Identity`, `Kern\TaxRomania\Wallet`, `Kern\Documents`,
+  `Kern\TaxRomania\Fx`, `Kern\TaxRomania\Spv`, `Kern\TaxRomania\Audit`, `Kern\TaxRomania\Declarations`, or any file
   under `App\Support\**` (encryption, key management, blind indexing, logging);
-- **zero changes** to `App\Domain\TaxEngine` — `RuleResolver`, `ParameterResolver`, `RuleInvoker`,
+- **zero changes** to `Kern\TaxRomania\TaxEngine` — `RuleResolver`, `ParameterResolver`, `RuleInvoker`,
   `TaxAssessor`, `TaxAssessmentRecorder`, `TaxContext`, `TaxFactRepository` are byte-for-byte what
   Milestone 5 shipped; a PFA-tagged rule resolves and runs by adding *data* rows
   (`tax_rules`/`tax_rule_versions`/`fiscal_parameters`/`fiscal_parameter_versions`), not code;
@@ -65,7 +65,7 @@ pattern-based redaction pass has the same gap: `CNP_PATTERN` (`/\b[1-8]\d{12}\b/
 specific to CNP's 13-digit shape and would not catch a CUI or an ONRC-style registration number
 (`J40/1234/2020`) appearing in free text.
 
-**Why this matters for PFA specifically**: `App\Domain\Subjects\Actions\RegisterPfaSubject` never
+**Why this matters for PFA specifically**: `Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject` never
 logs `registrationNumber` (confirmed by reading the whole class — no `Log::`/`log()` call exists
 in it), so nothing is unsafe *today*. But the redaction list was clearly built with only PF's two
 sensitive identifiers in mind, and the next module that logs a PFA registration number, CAEN
@@ -106,7 +106,7 @@ resolving the underlying asymmetry this finding named as needing a deliberate ch
 
 **RESOLVED, 2026-09-08** (`docs/adr/0011-canonical-fiscal-identifier.md`,
 `docs/handoff/036-identifier-schema-fix.md`): the underlying risk is now closed at its root instead
-of avoided. `App\Domain\Subjects\Enums\FiscalIdentifierKind` (`CNP`, `CUI`) binds the identifier's
+of avoided. `Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind` (`CNP`, `CUI`) binds the identifier's
 *kind* into the value that gets hashed (`FiscalIdentifierKind::keyedValue()`), so a CNP and a
 business identifier that normalise to the same raw digits can never produce the same blind index —
 the collision risk this finding described is gone regardless of how unlikely it already was.
@@ -121,7 +121,7 @@ registration')`.
 
 ### 3. Pre-existing minor duplication: CNP's blind index is already stored twice for PF
 
-Independent of PFA, reading `RegisterPfSubject` closely (`app/Domain/Subjects/Actions/
+Independent of PFA, reading `RegisterPfSubject` closely (`packages/tax-romania/src/Subjects/Actions/
 RegisterPfSubject.php`, lines 68–76 at the time this finding was written) showed the same CNP
 blind index written to **both** `tax_subjects.fiscal_identifier_blind_index` and
 `pf_profiles.cnp_blind_index` — two unique constraints independently enforcing the same invariant.
@@ -150,7 +150,7 @@ directly instead of `PfProfile`. Verified by
 These are worth recording explicitly — `docs/AGENTS.md`'s own framing ("we checked and it was
 fine is evidence about the architecture") means a silent audit is not a complete one.
 
-- **`App\Domain\Wallet`** — `FinancialAccount`, `FinancialTransaction`, `Deposit`, and every other
+- **`Kern\TaxRomania\Wallet`** — `FinancialAccount`, `FinancialTransaction`, `Deposit`, and every other
   Wallet model use `ScopedToTaxSubject`/`tax_subject_id` only; grepped for `SubjectType`/`PfProfile`
   across the whole module — zero matches. `OpenFinancialAccount` (used unmodified in this task's
   own `PfaEncryptionAndCoexistenceTest.php`) takes a bare `taxSubjectId` string and never inspects
@@ -159,13 +159,13 @@ fine is evidence about the architecture") means a silent audit is not a complete
   code. `DocumentAiConsent`'s docblock mentions `PfProfile` once, only as a precedent citation for
   its own self-referential-primary-key pattern (identical reasoning, not a dependency) — read in
   full to confirm this is documentation, not an import.
-- **`App\Domain\Declarations`** — `Declaration`/`DeclarationSubmission` scope to `tax_subject_id`
+- **`Kern\TaxRomania\Declarations`** — `Declaration`/`DeclarationSubmission` scope to `tax_subject_id`
   only; "this declaration is a PF form" is entirely a **data** fact (which `form_definitions`/
   `form_versions` row a `Declaration` points at), never a code branch on subject type. D212 being
-  "the PF declaration unică" lives nowhere in `App\Domain\Declarations`' own code.
-- **`App\Domain\Spv`** — zero `SubjectType` matches. Notably, `AnafCertificateApiTransport`'s own
+  "the PF declaration unică" lives nowhere in `Kern\TaxRomania\Declarations`' own code.
+- **`Kern\TaxRomania\Spv`** — zero `SubjectType` matches. Notably, `AnafCertificateApiTransport`'s own
   docblock already documents ANAF's certificate-info response as carrying **both** `"cnp"` and
-  `"cui"` fields side by side (`app/Domain/Spv/Transport/AnafCertificateApiTransport.php:27`) —
+  `"cui"` fields side by side (`packages/tax-romania/src/Spv/Transport/AnafCertificateApiTransport.php:27`) —
   this module was already written expecting a natural-person-or-business certificate holder,
   independent of this task.
 - **`Kern\Legislation`** — `tax_rules.subject_type` (`database/migrations/
@@ -173,18 +173,18 @@ fine is evidence about the architecture") means a silent audit is not a complete
   (deliberately not a shared enum with `Subjects`, per that migration's own docblock) and already
   accepts an arbitrary value — `'PFA'` needed no schema change, confirmed by this task's own
   `PfaRuleExtensionTest.php` inserting exactly that value.
-- **`App\Domain\Rental`'s `TenantType::PF`** (`app/Domain/Rental/Enums/TenantType.php`) is a
+- **`Kern\TaxRomania\Rental`'s `TenantType::PF`** (`packages/tax-romania/src/Rental/Enums/TenantType.php`) is a
   different concept entirely — the counterparty's type in a lease (`PF|PJ|UNKNOWN`), describing
   the *tenant*, never the landlord `TaxSubject`. Confirmed it is not `Subjects\Enums\SubjectType`
   reused or aliased; the name collision is coincidental and blueprint-literal (§6.5), not a coupling
   bug.
-- **`App\Domain\Subjects\Queries\{ListSubjectsForUser,SubjectSummary}`** — read in full: entirely
+- **`Kern\TaxRomania\Subjects\Queries\{ListSubjectsForUser,SubjectSummary}`** — read in full: entirely
   generic over `SubjectType` already (the query returns whatever `TaxSubject::$type` is; the enum
   value round-trips through `SubjectSummary::toArray()` without a single branch on which case it
   is). No change was needed here for PFA to show up correctly in this read model.
-- **`App\Domain\TaxEngine`'s DTOs** (`TaxContext`, `TaxRuleInput`, `TaxFactSnapshot`,
+- **`Kern\TaxRomania\TaxEngine`'s DTOs** (`TaxContext`, `TaxRuleInput`, `TaxFactSnapshot`,
   `TaxRuleOutcome`) carry **no subject-type field at all** — confirmed by reading every DTO in
-  `app/Domain/TaxEngine/DataTransferObjects/`. This is a deliberate design already in place since
+  `packages/tax-romania/src/TaxEngine/DataTransferObjects/`. This is a deliberate design already in place since
   Milestone 5 (`docs/handoff/020-tax-engine.md` decision #1: the caller states which rule codes to
   assess; the engine never infers applicability from a category or a subject type). It means the
   engine was subject-type-agnostic *before* this task existed, not because of anything this task
@@ -200,10 +200,10 @@ fine is evidence about the architecture") means a silent audit is not a complete
 ## One caveat found during the audit: the "financial event → tax fact" normalizer does not exist yet, for any subject type
 
 `BLUEPRINT.md` §32 names `PfaTaxFactNormalizer` as an expected PFA-specific artifact. Investigating
-what a normalizer would need to plug into: `App\Domain\Wallet\Events\DepositInterestEventRecorded`
-and `App\Domain\Rental\Events\RentalAccrualRecorded` are both dispatched, both carry the docblock
+what a normalizer would need to plug into: `Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded`
+and `Kern\TaxRomania\Rental\Events\RentalAccrualRecorded` are both dispatched, both carry the docblock
 "a listener there... should create a `tax_facts` row... not built here" — but grepping the whole
-`app/` tree for a listener class or `TaxFact::create(`/`new TaxFact(` outside `App\Domain\TaxEngine`
+`app/` tree for a listener class or `TaxFact::create(`/`new TaxFact(` outside `Kern\TaxRomania\TaxEngine`
 itself and its own tests found **none**. No financial-event-to-`TaxFact` normalizer has been built
 for **PF either**, despite PF being complete through Milestone 8.
 
@@ -217,12 +217,12 @@ generic version should be straightforward — confirmed by reading both event cl
 
 ## Methodology
 
-- Every module's directory under `app/Domain/` was grepped for `SubjectType`, `PfProfile`, and the
+- Every module's directory under `packages/tax-romania/src/` was grepped for `SubjectType`, `PfProfile`, and the
   bare string `'PF'`/`"PF"`, then each match was opened and read for context (a docblock citation
   is not the same as a dependency).
 - `deptrac.php` was read in full before any code was written, to establish the pre-existing grant
   set as a baseline `deptrac analyse` before/after comparison could be measured against.
-- `App\Domain\TaxEngine`'s complete `DataTransferObjects/`, `Services/`, and `Contracts/`
+- `Kern\TaxRomania\TaxEngine`'s complete `DataTransferObjects/`, `Services/`, and `Contracts/`
   directories were read in full (not sampled) to establish that subject-type-agnosticism was a
   pre-existing property, not something this task retrofitted.
 - Every finding above was verified by reading the actual file at the cited path/line, not

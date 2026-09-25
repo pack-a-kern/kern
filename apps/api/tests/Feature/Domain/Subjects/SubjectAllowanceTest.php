@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Actions\RegisterPfSubject;
-use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
-use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
-use App\Domain\Subjects\Services\SubjectAllowance;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
+use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
+use Kern\TaxRomania\Subjects\Exceptions\SubjectLimitReachedException;
+use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**

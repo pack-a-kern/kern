@@ -8,12 +8,12 @@
 
 Three HTTP surfaces `docs/handoff/030-pwa-frontend.md`'s "Key decisions" #1/#2 and
 `docs/handoff/022-document-pipeline.md`'s "What is NOT done" documented as real, missing backend
-gaps — not UI polish. Nothing under `app/Domain/Spv/**` or `resources/js/**` was touched (both
+gaps — not UI polish. Nothing under `packages/tax-romania/src/Spv/**` or `resources/js/**` was touched (both
 explicitly out of this task's scope; another agent owns `Spv`).
 
 1. **Tax subjects for the signed-in user** — a real listing driven by `subject_memberships`
    (`docs/handoff/011-identity-tenancy.md`) and PF registration wired to the existing
-   `App\Domain\Subjects\Actions\RegisterPfSubject` action, which previously had no controller at
+   `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` action, which previously had no controller at
    all.
 2. **Extraction review** — reading a document's proposed `document_extractions` rows, accepting
    one exactly as proposed, or correcting it. `BLUEPRINT.md` §14.6's "nothing auto-confirms; a human
@@ -26,8 +26,8 @@ explicitly out of this task's scope; another agent owns `Spv`).
 
 Entry points:
 
-- `GET /api/v1/subjects` → `App\Http\Controllers\Api\V1\Subjects\ListSubjectsController`.
-- `POST /api/v1/subjects/pf` → `App\Http\Controllers\Api\V1\Subjects\RegisterPfSubjectController`.
+- `GET /api/v1/subjects` → `Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController`.
+- `POST /api/v1/subjects/pf` → `Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController`.
 - `GET /api/v1/subjects/{subject}/documents/{document}/extractions` →
   `Kern\Documents\Http\Controllers\ListDocumentExtractionsController`.
 - `POST .../extractions/{extraction}/accept` → `AcceptDocumentExtractionController`.
@@ -36,7 +36,7 @@ Entry points:
 
 ## Files created / changed
 
-**Subjects** (`apps/api/app/Domain/Subjects/`)
+**Subjects** (`apps/api/packages/tax-romania/src/Subjects/`)
 - `Queries/SubjectSummary.php` — new. Readonly DTO: `id`, `type`, `displayName` (already
   decrypted), `status`, `role`.
 - `Queries/ListSubjectsForUser.php` — new. Reads `SubjectMembership` (active only,
@@ -155,12 +155,12 @@ new `Queries`/`Review` namespaces stay inside those same two layers), and no dep
 8. **CNP/birth-date/etc. validation in `RegisterPfSubjectController` is shape-only** (a 13-digit
    pattern tolerant of spaces/dashes, `Y-m-d` date format) — never a fiscal or legal check
    (`BLUEPRINT.md` §2.3: no fiscal logic in controllers). The actual duplicate-CNP business rule
-   still lives entirely in `App\Domain\Subjects\Actions\RegisterPfSubject`, reused verbatim.
+   still lives entirely in `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject`, reused verbatim.
 
 ## How to verify
 
 Created a dedicated database per `docs/AGENTS.md` §7b (another agent was active in
-`app/Domain/Spv/**` at the time): `docker exec anaf-postgres-1 psql -U kern -c 'CREATE DATABASE
+`packages/tax-romania/src/Spv/**` at the time): `docker exec anaf-postgres-1 psql -U kern -c 'CREATE DATABASE
 kern_pwaapi;'`. All commands below run for real against the existing `kern-php-test:local` image
 (`docs/handoff/008-ci-pipeline.md`'s test image), output pasted verbatim.
 
@@ -178,7 +178,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html -e APP_KEY=base64:.
     kern-php-test:local php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
 [ERROR] Found 8 errors
 ```
-All 8 are in `app/Domain/Spv/**` (`ApplyPortalAuthResult.php`, `DestroySpvSession.php`,
+All 8 are in `packages/tax-romania/src/Spv/**` (`ApplyPortalAuthResult.php`, `DestroySpvSession.php`,
 `SubmitSpvChallengeCode.php`, `SyncSpvInbox.php`, `SpvInboxMessage.php`,
 `tests/Feature/Domain/Spv/RawDatabasePlaintextTest.php`) — a module explicitly out of this task's
 scope, owned by a concurrently active agent, pre-existing and unrelated to any file this task
@@ -304,9 +304,9 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   what was asked). Worth reconsidering if `POST /v1/subjects/pf` (duplicate-CNP probing) or
   `.../content` (repeated decrypt-and-stream) show abuse in practice.
 - **`docs/STATUS.md` was not updated** — explicitly excluded from this task's scope by the brief.
-  Whoever next edits it should add this handoff under M7 and note the two pre-existing `app/Domain/
+  Whoever next edits it should add this handoff under M7 and note the two pre-existing `packages/tax-romania/src/
   Spv/**` PHPStan findings recorded above if they are not already tracked there.
-- Did not touch `resources/js/**`, `app/Domain/Spv/**`, `database/migrations/**`, or
+- Did not touch `resources/js/**`, `packages/tax-romania/src/Spv/**`, `database/migrations/**`, or
   `docker/**` — all explicitly out of this task's scope.
 
 ## Open questions
@@ -349,7 +349,7 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   (human-in-the-loop review, no PII in broadcasts/logs, JSON envelope/cursor pagination,
   cross-tenant isolation tests).
 - `docs/AGENTS.md` §6 (module boundaries), §7b (dedicated-database testing — followed exactly,
-  `kern_pwaapi`), §10 (recording the pre-existing `app/Domain/Spv/**` PHPStan findings rather than
+  `kern_pwaapi`), §10 (recording the pre-existing `packages/tax-romania/src/Spv/**` PHPStan findings rather than
   fixing them).
 - `docs/CODE-QUALITY.md` — §1/§2 applied to Key decisions #3 (no invented schema) and the "no new
   rate limiter" call in "What is NOT done."
@@ -357,9 +357,9 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   `bootstrap/app.php`, `app/Http/Middleware/BindTaxSubjectContext.php`,
   `packages/documents/src/Models/{Document,DocumentExtraction,DocumentDerivative}.php`,
   `packages/documents/src/Jobs/{ScanQuarantinedDocument,ProcessScannedDocument}.php`,
-  `app/Domain/Subjects/{Actions/RegisterPfSubject,Models/*,Tenancy/*}.php`,
+  `packages/tax-romania/src/Subjects/{Actions/RegisterPfSubject,Models/*,Tenancy/*}.php`,
   `app/Support/ObjectStore/{EncryptedObjectStore,ObjectKey,DocumentObjectKind}.php`,
-  `app/Domain/Audit/{Services/AuditChainService,DataTransferObjects/AuditEventInput}.php`, and the
+  `packages/tax-romania/src/Audit/{Services/AuditChainService,DataTransferObjects/AuditEventInput}.php`, and the
   existing `tests/Feature/Domain/Documents/{ShowDocumentControllerTest,CrossTenantIsolationTest,
   DocumentExtractionAutoConfirmTest}.php` for established test conventions this task's own tests
   follow.

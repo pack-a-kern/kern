@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\SplitCassParametersMigrationTest;
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -21,7 +21,7 @@ it('moves each CASS value to the rule of the income it applies to, keeping its a
     $old = insertApprovedFiscalParameterVersion($cap->id, FiscalParameterVersion::factory()->create()->source_section_id, ['valid_from' => '2022-01-01', 'value_json' => json_encode(['value' => 12])]);
     $new = insertApprovedFiscalParameterVersion($cap->id, FiscalParameterVersion::factory()->create()->source_section_id, ['valid_from' => '2024-01-01', 'value_json' => json_encode(['value' => 60])]);
 
-    $migration = require database_path('migrations/2026_09_22_600000_split_cass_parameters_by_income.php');
+    $migration = require packageRoot(FiscalParameter::class) . '/database/migrations/2026_09_22_600000_split_cass_parameters_by_income.php';
     assert($migration instanceof Migration && method_exists($migration, 'up'));
     $migration->up();
 

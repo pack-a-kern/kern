@@ -2,21 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
-use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
-use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Domain\TaxEngine\Enums\TaxFactStatus;
-use App\Domain\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
-use App\Domain\TaxEngine\Models\TaxFact;
-use App\Domain\TaxEngine\Repositories\TaxFactRepository;
-use App\Domain\TaxEngine\Services\ParameterResolver;
-use App\Domain\TaxEngine\Services\RuleInvoker;
-use App\Domain\TaxEngine\Services\RuleResolver;
-use App\Domain\TaxEngine\Services\TaxAssessor;
-use App\Domain\TaxEngine\TaxContext;
 use Kern\Legislation\Enums\FiscalParameterValueType;
 use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Models\SourceSection;
@@ -25,6 +10,21 @@ use Kern\Legislation\Models\TaxRuleVersion;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
+use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
+use Kern\TaxRomania\TaxEngine\Models\TaxFact;
+use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
+use Kern\TaxRomania\TaxEngine\Services\ParameterResolver;
+use Kern\TaxRomania\TaxEngine\Services\RuleInvoker;
+use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
+use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
+use Kern\TaxRomania\TaxEngine\TaxContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 

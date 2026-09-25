@@ -9,7 +9,7 @@ declare(strict_types=1);
 |
 | What this installation calls its tenant. The mechanism — the global scope, the stamping on
 | insert, the refusal when nothing is bound — is `kern/platform`, and who may act for whom is
-| `App\Domain\Subjects\Tenancy\MembershipTenantGate`. Only the word is here.
+| `Kern\TaxRomania\Subjects\Tenancy\MembershipTenantGate`. Only the word is here.
 |
 | An application with no such concept binds no gate and puts the column on no table: identity,
 | encryption, the audit chain and documents all work as they are.

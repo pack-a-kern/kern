@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Domain\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
-use App\Domain\TaxEngine\Enums\FiscalParameterValueType;
-use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
-use App\Domain\TaxEngine\Exceptions\InvalidParameterValueShapeException;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
+use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\InvalidParameterValueShapeException;
 
 /**
  * @param array<string, mixed> $valueJson

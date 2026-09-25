@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Spv\SensitiveStringTest;
 
-use App\Domain\Spv\ValueObjects\SensitiveString;
+use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 
 /**
  * `BLUEPRINT.md` §13.2 steps 3/9 — an SPV password or challenge code must never leak through the

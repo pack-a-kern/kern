@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\DisplayCurrencyTest;
 
-use App\Domain\Fx\Exceptions\FxRateNotFoundException;
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Services\FxRateQuery;
-use App\Domain\Wallet\Services\Fx\DisplayCurrencyConverter;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Legislation\Models\OfficialSource;
+use Kern\TaxRomania\Fx\Exceptions\FxRateNotFoundException;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Services\FxRateQuery;
+use Kern\TaxRomania\Wallet\Services\Fx\DisplayCurrencyConverter;
 
 /**
  * Adding per-currency totals into one, for a dashboard.

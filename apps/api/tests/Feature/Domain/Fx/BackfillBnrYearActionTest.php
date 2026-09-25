@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Fx\BackfillBnrYearActionTest;
 
-use App\Domain\Fx\Actions\BackfillBnrYear;
-use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Models\FxRateAnomaly;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\TaxRomania\Fx\Actions\BackfillBnrYear;
+use Kern\TaxRomania\Fx\Exceptions\BnrEndpointNotConfiguredException;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Models\FxRateAnomaly;
 use RuntimeException;
 
 /**

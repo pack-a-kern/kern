@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR 0009 accepted a documented, narrowly-scoped exception: `App\Domain\TaxEngine\Repositories\
+ADR 0009 accepted a documented, narrowly-scoped exception: `Kern\TaxRomania\TaxEngine\Repositories\
 {TaxRuleTemporalReader,FiscalParameterTemporalReader}` read `Kern\Legislation\Models\
 {TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,FiscalParameterVersion}` Eloquent models
 directly, and `deptrac.php` granted `TaxEngine -> TaxKnowledge` at the layer level to allow it.
@@ -18,27 +18,27 @@ domain events. ADR 0009 itself named the two weaknesses of the exception it acce
   class from importing a `TaxKnowledge` model tomorrow. Only the ADR and
   `docs/handoff/020-tax-engine.md` named the two-file confinement; nothing enforced it but review.
 - The better long-term shape was already identified and explicitly deferred, only because adding
-  it was outside that task's path scope (`apps/api/app/Domain/TaxEngine/**` only): "Add a
+  it was outside that task's path scope (`apps/api/packages/tax-romania/src/TaxEngine/**` only): "Add a
   `TaxRuleTemporalQuery`/`FiscalParameterTemporalQuery` service to `TaxKnowledge`... mirroring
   `LegislationTemporalQuery`."
 
-This task's scope explicitly includes both `apps/api/app/Domain/TaxEngine/**` and
+This task's scope explicitly includes both `apps/api/packages/tax-romania/src/TaxEngine/**` and
 `apps/api/packages/legislation/src/**` (additive), so the reason ADR 0009 gave for not doing this
 the first time no longer applies. A cleaner option is available and is not blocked by scope: invert
 the dependency.
 
 ## Decision
 
-`App\Domain\TaxEngine` now defines two port interfaces, expressed **purely in its own DTOs,
+`Kern\TaxRomania\TaxEngine` now defines two port interfaces, expressed **purely in its own DTOs,
 exceptions, and enums** — never a TaxKnowledge type:
 
-- `App\Domain\TaxEngine\Contracts\TaxRuleVersionProvider::versionInForceOn(string $ruleCode,
+- `Kern\TaxRomania\TaxEngine\Contracts\TaxRuleVersionProvider::versionInForceOn(string $ruleCode,
   DateTimeImmutable $date): ResolvedTaxRuleVersion`
-- `App\Domain\TaxEngine\Contracts\FiscalParameterProvider::versionInForceOn(string $parameterCode,
+- `Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider::versionInForceOn(string $parameterCode,
   DateTimeImmutable $date): ResolvedFiscalParameter`
 
 Both `ResolvedTaxRuleVersion::$status` and `ResolvedFiscalParameter::$status`/`$valueType` are now
-typed to **new, TaxEngine-owned enums** — `App\Domain\TaxEngine\Enums\{RuleApprovalStatus,
+typed to **new, TaxEngine-owned enums** — `Kern\TaxRomania\TaxEngine\Enums\{RuleApprovalStatus,
 FiscalParameterValueType}` — rather than `Kern\Legislation\Enums\{RuleApprovalStatus,
 FiscalParameterValueType}`. This is deliberate, not an oversight: a port whose DTO still names a
 TaxKnowledge enum in its public signature would leak the boundary this ADR exists to close, just
@@ -47,7 +47,7 @@ string values by design (a stable domain concept, `docs/CODE-QUALITY.md` §1) �
 independent declarations of it, not a shared reuse, because a TaxEngine port must not import
 anything from TaxKnowledge.
 
-`App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
+`Kern\TaxRomania\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
 implement these ports. They are behaviourally identical to the two classes ADR 0009 named — same
 "exactly one matching version for a date, or a named exception, never a heuristic" contract, same
 exclusion of `REJECTED`/`SUPERSEDED` from the candidate set — but now live inside `TaxKnowledge`,
@@ -56,7 +56,7 @@ read its own Eloquent models (legitimate: a module reading its own models is not
 (`EngineRuleApprovalStatus::from($tkStatus->value)`), and throw TaxEngine's own exceptions.
 
 `Kern\Legislation\TaxKnowledgeServiceProvider` binds both ports to these adapters. This is
-the one place the inversion is wired: `TaxKnowledgeServiceProvider` imports `App\Domain\TaxEngine`
+the one place the inversion is wired: `TaxKnowledgeServiceProvider` imports `Kern\TaxRomania\TaxEngine`
 contracts, so **`TaxKnowledge` now depends on `TaxEngine`, not the other way around.**
 
 `deptrac.php` reflects this exactly:
@@ -68,7 +68,7 @@ Ruleset::forLayer($taxEngine)->accesses($support, $subjects, $fx),  // TaxKnowle
 
 `RuleResolver`/`ParameterResolver` now depend on the `TaxRuleVersionProvider`/
 `FiscalParameterProvider` interfaces, never the concrete adapter. Every other class in
-`App\Domain\TaxEngine` is unchanged — the module's own public interface
+`Kern\TaxRomania\TaxEngine` is unchanged — the module's own public interface
 (`TaxContext`/`TaxAssessor`/`TaxAssessmentRecorder`) has not moved.
 
 ## Consequences
@@ -80,7 +80,7 @@ Ruleset::forLayer($taxEngine)->accesses($support, $subjects, $fx),  // TaxKnowle
   `SUPERSEDED` excluded; `CANDIDATE`-vs-`FINAL` gate) are untouched — this is a pure structural
   move. Every existing test asserting those semantics still asserts them, unchanged, against the
   relocated/renamed class.
-- `App\Domain\TaxEngine` is now, in the literal sense `BLUEPRINT.md` §11.2 asks for, importable and
+- `Kern\TaxRomania\TaxEngine` is now, in the literal sense `BLUEPRINT.md` §11.2 asks for, importable and
   testable with zero knowledge of `TaxKnowledge`'s existence: a test double implementing
   `TaxRuleVersionProvider` is enough to exercise `RuleResolver`/`TaxAssessor` without a database at
   all (not exploited by this task — the existing feature tests keep using the real adapter, to

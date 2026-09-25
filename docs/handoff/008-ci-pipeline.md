@@ -38,7 +38,7 @@ Entry points:
   vulnerability-scan gate found in images built by other agents' Dockerfiles — not touched, per
   this task's scope and per the explicit instruction to record rather than fix). This handoff note.
 - Nothing under `apps/**`, `docker/**`, or `compose*.yaml` was modified. Three other agents'
-  in-flight work (`apps/api/app/Support/Crypto/**`, `apps/api/app/Domain/Audit/**`,
+  in-flight work (`apps/api/app/Support/Crypto/**`, `apps/api/packages/tax-romania/src/Audit/**`,
   `apps/processing/pyproject.toml`) landed live in the repo while this task was in progress and was
   read, never edited.
 
@@ -316,18 +316,18 @@ WRN leaks found: 1   RuleID: private-key   File: docs/README.md   # exit 1
 $ bash .github/scripts/fiscal-gates-placeholder.sh
 === Fiscal gates: PLACEHOLDER — not yet implemented (Milestone 4/5) ===
 No ruleset manifests (tax-rules/ro/**/*.yaml) and no TaxEngine implementation
-(apps/api/app/Domain/TaxEngine/**) exist yet — Milestone 4/5 not started.
+(apps/api/packages/tax-romania/src/TaxEngine/**) exist yet — Milestone 4/5 not started.
 This placeholder passes trivially. ...
 exit=0
 ```
 (Not separately re-tested here, but by construction: if either `tax-rules/**/*.yaml` or
-`apps/api/app/Domain/TaxEngine/**/*.php` existed, the two `find` commands would be non-empty and the
+`apps/api/packages/tax-romania/src/TaxEngine/**/*.php` existed, the two `find` commands would be non-empty and the
 script's `if` branch would `exit 1` with the explanatory message instead — read the script, it's
 short and linear.)
 
 ## Interfaces exposed to other modules
 
-- **`apps/api/deptrac.php`** — every new `app/Domain/<Module>` needs a layer added here in the same
+- **`apps/api/deptrac.php`** — every new `packages/tax-romania/src/<Module>` needs a layer added here in the same
   change (already documented in `docs/handoff/002-laravel-scaffold.md`); `php-quality`'s Deptrac
   step will otherwise silently not check it, per that config file's own comment.
 - **`apps/api/phpstan.neon`'s `parameters.paths`** — same story for PHPStan; `php-quality` runs
@@ -341,7 +341,7 @@ short and linear.)
   absolute-path fingerprint) and (b) a comment explaining why it is not a real secret.
 - **`.github/scripts/fiscal-gates-placeholder.sh`** — replace or extend this, not the workflow job
   that calls it, once Milestone 4 (ruleset manifests under `tax-rules/ro/<year>/`) or Milestone 5
-  (`apps/api/app/Domain/TaxEngine/**`) lands. The script already fails loudly if either appears
+  (`apps/api/packages/tax-romania/src/TaxEngine/**`) lands. The script already fails loudly if either appears
   without being upgraded first — see **What is NOT done**.
 - **Matrix job names in `containers`** (`php-runtime`, `python-runtime`, `edge`, `spv-browser`) map
   1:1 to the Dockerfiles under `docker/*/Dockerfile` and their `runtime` targets. Adding a fifth

@@ -8,12 +8,12 @@ use RuntimeException;
 
 /**
  * Enforces `docs/AGENTS.md` §11.2/ADR 0004's purity requirement on
- * `App\Domain\TaxEngine\Contracts\TaxRuleContract` implementations **with a test, not just a
+ * `Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract` implementations **with a test, not just a
  * convention** — a lexical source scan (via PHP's own tokenizer, so it never matches inside a
  * string literal or a comment) for wall-clock reads, randomness, environment reads, and
  * database/HTTP/cache access.
  *
- * Deliberately test-only code (`tests/Support/**`, not `app/Domain/TaxEngine/**`): its only
+ * Deliberately test-only code (`tests/Support/**`, not `packages/tax-romania/src/TaxEngine/**`): its only
  * consumer is this suite's own CI gate
  * (`tests/Feature/Domain/TaxEngine/RulePurityArchitectureTest.php`), so shipping it as production
  * code would be exactly the "abstraction with a single consumer" `docs/CODE-QUALITY.md` §2

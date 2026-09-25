@@ -30,12 +30,12 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * Application identity (`BLUEPRINT.md` §5.1) — **not** a `TaxSubject`. A `User` authenticates; what
  * it may access is entirely determined by its `SubjectMembership` rows
- * (`App\Domain\Subjects\Models\SubjectMembership`), never by anything on this model itself.
+ * (`Kern\TaxRomania\Subjects\Models\SubjectMembership`), never by anything on this model itself.
  *
  * This model carries its own per-record DEK (`encrypted_dek`/`dek_kek_version`), independent of
  * any `TaxSubject`'s — see the `users` migration's docblock and
  * `docs/handoff/011-identity-tenancy.md` "Key decisions" for why. `encryptionSubjectId()` returns
- * the user's own id, exactly like `App\Domain\Subjects\Models\TaxSubject` does for itself.
+ * the user's own id, exactly like `Kern\TaxRomania\Subjects\Models\TaxSubject` does for itself.
  *
  * No authentication flow (passkeys/TOTP/login/password verification) lives here — that is a
  * separate, later task. This model exists only as the data this project's identity tables are
@@ -43,9 +43,9 @@ use Spatie\Permission\Traits\HasRoles;
  *
  * **A `User` can never be created with `User::create(['email_ciphertext' => …])` in one call —
  * use {@see self::createWithEmail()}.** Exactly the same self-referential DEK constraint
- * `App\Domain\Subjects\Models\TaxSubject` documents applies here: `encryptionSubjectId()` returns
+ * `Kern\TaxRomania\Subjects\Models\TaxSubject` documents applies here: `encryptionSubjectId()` returns
  * this row's own id, so encrypting `email_ciphertext` needs this row to already exist in the
- * database (`App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository::find()` has nothing
+ * database (`Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository::find()` has nothing
  * to query otherwise) — but a single-statement `create()` tries to encrypt the attribute *during*
  * construction, before any `INSERT` has run. Found empirically (not by inspection) while writing
  * this task's own tests — see `docs/handoff/011-identity-tenancy.md` "Key decisions".
@@ -65,7 +65,7 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
     /**
      * Platform roles and permissions (`config/access.php`).
      *
-     * Distinct from `App\Domain\Subjects\Enums\MembershipRole`, which says what a user is
+     * Distinct from `Kern\TaxRomania\Subjects\Enums\MembershipRole`, which says what a user is
      * *to one tax subject*. A platform role says what they may do to the installation itself —
      * read the audit trail, change system settings — which has no tax subject to hang off.
      */

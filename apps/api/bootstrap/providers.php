@@ -2,20 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domain\Declarations\DeclarationsServiceProvider;
-use App\Domain\FiscalParameters\FiscalParametersServiceProvider;
-use App\Domain\Fx\FxServiceProvider;
-use App\Domain\Spv\SpvServiceProvider;
-use App\Domain\StatementImport\StatementImportServiceProvider;
-use App\Domain\Subjects\SubjectsServiceProvider;
 use App\Providers\AppServiceProvider;
 
+/*
+ * Every module's provider is discovered from its package now. What is left is this application's own
+ * wiring — see `kern/platform`, `kern/audit`, `kern/documents`, `kern/legislation` and
+ * `kern/tax-romania`, each of which registers itself.
+ */
 return [
     AppServiceProvider::class,
-    SubjectsServiceProvider::class,
-    FiscalParametersServiceProvider::class,
-    FxServiceProvider::class,
-    DeclarationsServiceProvider::class,
-    SpvServiceProvider::class,
-    StatementImportServiceProvider::class,
 ];

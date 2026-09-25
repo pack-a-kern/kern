@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Rental\CrossTenantIsolationTest;
 
-use App\Domain\Rental\Enums\PropertyType;
-use App\Domain\Rental\Enums\RentalPaymentFrequency;
-use App\Domain\Rental\Enums\TenantType;
-use App\Domain\Rental\Models\Property;
-use App\Domain\Rental\Models\RentalAccrual;
-use App\Domain\Rental\Models\RentalContract;
-use App\Domain\Rental\Models\RentalContractVersion;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Rental\Enums\PropertyType;
+use Kern\TaxRomania\Rental\Enums\RentalPaymentFrequency;
+use Kern\TaxRomania\Rental\Enums\TenantType;
+use Kern\TaxRomania\Rental\Models\Property;
+use Kern\TaxRomania\Rental\Models\RentalAccrual;
+use Kern\TaxRomania\Rental\Models\RentalContract;
+use Kern\TaxRomania\Rental\Models\RentalContractVersion;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3: a user authorized for one `TaxSubject` must never

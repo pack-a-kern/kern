@@ -12,7 +12,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
  * `tax_rules` — skeleton (`BLUEPRINT.md` §6.8). See that migration's docblock for why `subject_type`
- * is a plain string, not a shared enum with `App\Domain\Subjects`.
+ * is a plain string, not a shared enum with `Kern\TaxRomania\Subjects`.
  *
  * @property string $id
  * @property string $code

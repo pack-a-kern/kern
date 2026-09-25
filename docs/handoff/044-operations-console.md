@@ -20,7 +20,7 @@ split across three sources instead of living entirely in code or entirely in the
 | Official sources | `config/sources.php` (+ one query for "mirrored") | Read-only — see below |
 | Run history | `job_runs` | Scheduled and manual runs in one ledger |
 
-## New module: `app/Domain/Operations`
+## New module: `packages/tax-romania/src/Operations`
 
 ```
 Enums/         OperationTask, JobRunStatus, JobRunTrigger

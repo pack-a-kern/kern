@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Banks\EcbInstitutionListParserTest;
 
-use App\Domain\Banks\Parsing\EcbInstitutionListParser;
-use App\Domain\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
+use Kern\TaxRomania\Banks\Parsing\EcbInstitutionListParser;
+use Kern\TaxRomania\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
 
 const HEADER = "RIAD_CODE\tLEI\tCOUNTRY_OF_REGISTRATION\tNAME\tBOX\tADDRESS\tPOSTAL\tCITY\tCATEGORY\tHEAD_COUNTRY_OF_REGISTRATION\tHEAD_NAME\tHEAD_RIAD_CODE\tHEAD_LEI\tREPORT";
 

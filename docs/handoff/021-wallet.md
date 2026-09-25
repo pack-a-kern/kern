@@ -13,26 +13,26 @@ and transaction this task builds is `RecordSource::MANUAL` (`BLUEPRINT.md` §34)
 
 Entry points:
 
-- `App\Domain\Wallet\Actions\OpenFinancialAccount` — opens one `financial_accounts` row.
-- `App\Domain\Wallet\Actions\RecordAccountBalanceSnapshot` — records one `account_balance_snapshots` row.
-- `App\Domain\Wallet\Actions\RecordFinancialTransaction` — records one `financial_transactions` row
+- `Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount` — opens one `financial_accounts` row.
+- `Kern\TaxRomania\Wallet\Actions\RecordAccountBalanceSnapshot` — records one `account_balance_snapshots` row.
+- `Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction` — records one `financial_transactions` row
   plus optional `transaction_splits`, enforcing that split amounts sum to the transaction's own
   amount.
-- `App\Domain\Wallet\Actions\OpenDeposit` — opens one `deposits` row plus its `deposit_rate_periods`,
+- `Kern\TaxRomania\Wallet\Actions\OpenDeposit` — opens one `deposits` row plus its `deposit_rate_periods`,
   validating the principal, date range, and rate-period coverage eagerly.
-- `App\Domain\Wallet\Actions\GenerateDepositInterestSchedule` — (re)computes and persists a
+- `Kern\TaxRomania\Wallet\Actions\GenerateDepositInterestSchedule` — (re)computes and persists a
   deposit's full `deposit_interest_events` schedule; idempotent, never touches an already-paid
-  period, dispatches `App\Domain\Wallet\Events\DepositInterestEventRecorded` per row after commit.
-- `App\Domain\Wallet\Actions\RecordDepositInterestWithholding` — records the withholding actually
+  period, dispatches `Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded` per row after commit.
+- `Kern\TaxRomania\Wallet\Actions\RecordDepositInterestWithholding` — records the withholding actually
   applied to one interest event and recomputes its net amount.
-- `App\Domain\Wallet\Services\Interest\DepositInterestCalculator` — the pure (no HTTP, no Eloquent,
+- `Kern\TaxRomania\Wallet\Services\Interest\DepositInterestCalculator` — the pure (no HTTP, no Eloquent,
   no `now()`, no env, no randomness, no cache) day-count/rate engine, unit-tested against
   hand-computed values.
-- `App\Domain\Wallet\Services\DayCount\DayCountCalculator` — `ACTUAL_360`/`ACTUAL_365`/`THIRTY_360`,
+- `Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator` — `ACTUAL_360`/`ACTUAL_365`/`THIRTY_360`,
   pure.
-- `App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator` — attaches FX provenance to a
-  non-RON deposit's interest event via `App\Domain\Fx\Services\FxRateQuery`.
-- `App\Domain\Wallet\ValueObjects\Money` / `App\Domain\Wallet\ValueObjects\Decimal` — this
+- `Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator` — attaches FX provenance to a
+  non-RON deposit's interest event via `Kern\TaxRomania\Fx\Services\FxRateQuery`.
+- `Kern\TaxRomania\Wallet\ValueObjects\Money` / `Kern\TaxRomania\Wallet\ValueObjects\Decimal` — this
   module's own money/decimal primitives; see "Key decisions" below for why they are not shared
   with `Domain/TaxEngine`.
 
@@ -46,7 +46,7 @@ explains its schema decisions in detail (denormalised `tax_subject_id` on child 
 why `institution_id` became a plain `institution_name` string, why rate/decimal columns are
 `string` not `decimal`/`NUMERIC`) — read those before changing any of these tables.
 
-**`App\Domain\Wallet`** (`apps/api/app/Domain/Wallet/`) — see the file tree above; every class
+**`Kern\TaxRomania\Wallet`** (`apps/api/packages/tax-romania/src/Wallet/`) — see the file tree above; every class
 carries a docblock explaining its own reasoning. Highlights not obvious from names alone:
 
 - `Enums/RecordSource.php` — one enum shared by `financial_accounts.source`,
@@ -84,9 +84,9 @@ built-in `DateTimeImmutable`/`DateInterval`.
 ### The money-primitive decision — a second `Money`, deliberately, not a shared one
 
 `Domain/TaxEngine` was, at the time this task started, an empty, not-yet-built module being
-developed concurrently by another agent (it now has its own `App\Domain\TaxEngine\ValueObjects\Money`,
+developed concurrently by another agent (it now has its own `Kern\TaxRomania\TaxEngine\ValueObjects\Money`,
 visible in `deptrac.php`'s `TaxEngine` layer added after this task began). Three reasons this
-module built its own `App\Domain\Wallet\ValueObjects\Money` (integer minor units + ISO-4217-shaped
+module built its own `Kern\TaxRomania\Wallet\ValueObjects\Money` (integer minor units + ISO-4217-shaped
 currency code) instead of depending on that one, or moving one into a shared location:
 
 1. **`docs/AGENTS.md` §6 forbids a module importing another module's types outside the
@@ -119,8 +119,8 @@ run — not this task's to fix) represents money as a BCMath decimal string rath
 module's plain `int` minor units; the two are not drop-in compatible today, so unifying them is a
 real design decision for whoever owns that call, not a mechanical rename.
 
-The identical reasoning applies to `App\Domain\Wallet\ValueObjects\Decimal` versus
-`App\Domain\Fx\ValueObjects\DecimalRate` — see `Decimal`'s own docblock. The one place this module
+The identical reasoning applies to `Kern\TaxRomania\Wallet\ValueObjects\Decimal` versus
+`Kern\TaxRomania\Fx\ValueObjects\DecimalRate` — see `Decimal`'s own docblock. The one place this module
 *does* reach directly into `Domain/Fx` is `DepositInterestFxAnnotator`, which consumes
 `FxRateQuery::rateWithProvenance()`'s `DecimalRate` return value completely unmodified — that value
 genuinely originates in `Domain/Fx`, so using its own type for it is not duplication, it is the
@@ -137,7 +137,7 @@ BNR **spot rate on the day the interest is recognised** (`accrual_to`) purely as
 wallet bookkeeping conversion — recorded as `fx_method = 'SPOT_DAY_OF_ACCRUAL_END'` on the row
 specifically so nothing downstream mistakes it for an authoritative fiscal figure.
 
-**`Domain/TaxEngine`, when it consumes `App\Domain\Wallet\Events\DepositInterestEventRecorded`,
+**`Domain/TaxEngine`, when it consumes `Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded`,
 must not treat `ron_equivalent_minor` as the fiscal RON amount for a `TaxFact`.** It should
 independently convert `$event->grossInterestMinor` + `$event->currencyCode` + `$event->accrualTo`
 via its own `FxRateQuery` call, using whatever method the specific applicable tax rule requires.
@@ -159,7 +159,7 @@ capitalisation, and guessing would be exactly the kind of fabricated fiscal numb
 
 ### Day-count conventions
 
-Three conventions implemented in `App\Domain\Wallet\Services\DayCount\DayCountCalculator`:
+Three conventions implemented in `Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator`:
 `ACTUAL_360`, `ACTUAL_365` (fixed 365 denominator, never leap-adjusted), and `THIRTY_360` (the
 classic "30/360 US" / "Bond Basis" method: every month treated as 30 days, with the standard
 31-day end-of-month adjustment rule). These are standard, widely-documented financial-market
@@ -221,7 +221,7 @@ $ docker run --rm --network anaf_data_net --user root \
   PASS .......................................................... 537 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    app/Domain/Wallet database/migrations database/factories/FinancialAccountFactory.php \
+    packages/tax-romania/src/Wallet database/migrations database/factories/FinancialAccountFactory.php \
     database/factories/DepositFactory.php tests/Unit/Domain/Wallet tests/Feature/Domain/Wallet \
     deptrac.php tests/Pest.php'
  [OK] No errors                                                    (level 9, no baseline)
@@ -248,7 +248,7 @@ validate/audit.
 
 ## Interfaces exposed to other modules
 
-- **`App\Domain\Wallet\Events\DepositInterestEventRecorded`** — dispatched via Laravel's own event
+- **`Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded`** — dispatched via Laravel's own event
   dispatcher (`event(new self(...))`, plain PHP class, no queue) after
   `GenerateDepositInterestSchedule`'s DB transaction commits. **This is the contract Milestone 5
   (`Domain/TaxEngine`) consumes** to create a `PROPOSED` `TaxFact` from a deposit interest accrual
@@ -259,19 +259,19 @@ validate/audit.
   `fxRateDecimal`/`fxSourceCode` (**not** to be treated as the fiscal conversion — see "Key
   decisions" above). No listener exists yet — `Domain/TaxEngine` did not have a `TaxFact` model at
   the time this task was written; wiring `Event::listen()` is that module's job.
-- **`App\Domain\Wallet\ValueObjects\Money`** — a plain, standalone value object; not intended to be
+- **`Kern\TaxRomania\Wallet\ValueObjects\Money`** — a plain, standalone value object; not intended to be
   imported by other modules (each module builds its own per "Key decisions" above), but its shape
   (`fromMinorUnits(int, string)`, integer minor units, ISO-4217-shaped currency code, same-currency
   arithmetic) is stable if a future task wants to compare it against `Domain/TaxEngine`'s own.
-- Every Wallet table is scoped to `tax_subject_id` via `App\Domain\Subjects\Tenancy\
+- Every Wallet table is scoped to `tax_subject_id` via `Kern\TaxRomania\Subjects\Tenancy\
   ScopedToTaxSubject` — any future module reading wallet data (a dashboard, a rental module) needs
-  an active `App\Domain\Subjects\Tenancy\TenantContext` bound to the same subject, exactly as
+  an active `Kern\TaxRomania\Subjects\Tenancy\TenantContext` bound to the same subject, exactly as
   `docs/handoff/011-identity-tenancy.md` describes.
 
 ## What is NOT done
 
 - No HTTP/API layer (controllers, routes, OpenAPI) — this task built the domain layer only, per
-  the task's own scope list (`apps/api/app/Domain/Wallet/**`, migrations, tests, factories).
+  the task's own scope list (`apps/api/packages/tax-romania/src/Wallet/**`, migrations, tests, factories).
 - No UI/dashboard.
 - No bank-API sync, PSD2, or statement import parser (`BLUEPRINT.md` §34 explicit non-goal for this
   milestone) — `import_batch_id` and `RecordSource::{IMPORT,BANK_SYNC}` exist in the schema/enum
@@ -325,8 +325,8 @@ validate/audit.
   pattern and the real-Postgres verification command this handoff's own verification follows.
 - `docs/handoff/015-m1-integration-repairs.md` — the throwaway-container-against-live-Postgres
   verification recipe (`docker run --network anaf_data_net --user root ...`).
-- Read `App\Domain\Subjects\Models\{TaxSubject,PfProfile}`, `Kern\Platform\Identity\Models\
-  UserMfaMethod`, and `App\Domain\Subjects\Actions\RegisterPfSubject` directly (not assumed) to
+- Read `Kern\TaxRomania\Subjects\Models\{TaxSubject,PfProfile}`, `Kern\Platform\Identity\Models\
+  UserMfaMethod`, and `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` directly (not assumed) to
   confirm the `HasUuidPrimaryKey`/`FillsSubjectForeignKeyFirst`/`ScopedToTaxSubject` combination
   this task uses for `FinancialAccount`/`FinancialTransaction`/`Deposit` has real precedent.
 - `apps/api/pint.json`, `apps/api/deptrac.php`, `apps/api/phpstan.neon` — read directly before

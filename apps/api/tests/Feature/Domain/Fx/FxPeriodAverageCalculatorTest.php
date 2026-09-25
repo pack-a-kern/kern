@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Fx\FxPeriodAverageCalculatorTest;
 
-use App\Domain\Fx\Enums\PeriodType;
-use App\Domain\Fx\Enums\VerificationStatus;
-use App\Domain\Fx\Exceptions\IncompleteMonthlyAveragesException;
-use App\Domain\Fx\Exceptions\NoDailyRatesForPeriodException;
-use App\Domain\Fx\Models\FxPeriodAverage;
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Fx\Services\FxPeriodAverageCalculator;
-use App\Domain\Fx\ValueObjects\DecimalRate;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\TaxRomania\Fx\Enums\PeriodType;
+use Kern\TaxRomania\Fx\Enums\VerificationStatus;
+use Kern\TaxRomania\Fx\Exceptions\IncompleteMonthlyAveragesException;
+use Kern\TaxRomania\Fx\Exceptions\NoDailyRatesForPeriodException;
+use Kern\TaxRomania\Fx\Models\FxPeriodAverage;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Fx\Services\FxPeriodAverageCalculator;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

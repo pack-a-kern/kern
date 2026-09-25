@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\DuplicateTransactionsTest;
 
-use App\Domain\StatementImport\Enums\StatementImportStatus;
-use App\Domain\StatementImport\Models\StatementImport;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\RecordSource;
-use App\Domain\Wallet\Enums\TransactionClassificationStatus;
-use App\Domain\Wallet\Models\FinancialAccount;
-use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Domain\Wallet\Models\TransactionSplit;
 use Illuminate\Support\Facades\DB;
 use Kern\Documents\Enums\DocumentStatus;
 use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\TaxRomania\StatementImport\Enums\StatementImportStatus;
+use Kern\TaxRomania\StatementImport\Models\StatementImport;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
+use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

@@ -450,7 +450,7 @@ GET /manifest.webmanifest, /sw.js, /build/manifest.json → all still 200 (PWA l
   update it to match.
 - **No Lighthouse/real-browser installability or visual-regression audit** — see "Honestly not
   checked" above; same sandbox constraint every prior PWA-frontend handoff has recorded.
-- Did not touch `app/Domain/**`, the six pre-existing screens' *business logic* (only their
+- Did not touch `packages/tax-romania/src/**`, the six pre-existing screens' *business logic* (only their
   markup/styling/strings), `docs/STATUS.md`, or any file outside the scope named above and in
   "Routes."
 

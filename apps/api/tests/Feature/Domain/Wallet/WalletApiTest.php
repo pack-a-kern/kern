@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Models\DepositTerms;
-use App\Domain\Wallet\Models\FinancialAccount;
 use Carbon\CarbonImmutable;
-use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Database\Factories\BankFactory;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Models\DepositTerms;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

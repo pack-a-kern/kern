@@ -15,14 +15,14 @@ use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
  * is `APPROVED`, regardless of whether that came from `create()`, `fill()`, or direct attribute
  * assignment.
  *
- * Shared between {@see \App\Domain\FiscalParameters\Models\FiscalParameterVersion} and
+ * Shared between {@see \Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion} and
  * {@see \Kern\Legislation\Models\TaxRuleVersion} because the invariant is identical, stable
  * domain knowledge (`docs/CODE-QUALITY.md` §1), not incidental similarity.
  *
  * The one way a row becomes `APPROVED` is {@see savedAsApprovedByPerson()}, through the model's own
  * `approveByPerson()`: it names the person, and only the save it makes is let through. Its one
  * caller is
- * `App\Domain\FiscalParameters\Actions\ApproveFiscalParameterVersion`, reached only
+ * `Kern\TaxRomania\FiscalParameters\Actions\ApproveFiscalParameterVersion`, reached only
  * from an authenticated request holding `fiscal.parameters.approve` — never from a job, a command or
  * a model's output. The database refuses an `APPROVED` row that names no one.
  */

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Domain\Fx\ValueObjects\DecimalRate;
-use App\Domain\TaxEngine\DataTransferObjects\ResolvedParameterSet;
-use App\Domain\TaxEngine\DataTransferObjects\ResolvedTaxRuleVersion;
-use App\Domain\TaxEngine\DataTransferObjects\TaxRuleInput;
-use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
-use App\Domain\TaxEngine\Exceptions\InvalidRuleImplementationException;
-use App\Domain\TaxEngine\Exceptions\MissingRequiredParameterException;
-use App\Domain\TaxEngine\Services\RuleInvoker;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedParameterSet;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedTaxRuleVersion;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleInput;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\InvalidRuleImplementationException;
+use Kern\TaxRomania\TaxEngine\Exceptions\MissingRequiredParameterException;
+use Kern\TaxRomania\TaxEngine\Services\RuleInvoker;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 
 function makeResolvedTaxRuleVersionFixture(?string $implementationClass): ResolvedTaxRuleVersion
@@ -53,7 +53,7 @@ it('throws when implementation_class is missing', function (): void {
 });
 
 it('throws when implementation_class does not exist', function (): void {
-    $ruleVersion = makeResolvedTaxRuleVersionFixture('App\\Domain\\TaxEngine\\NoSuchClassAtAll');
+    $ruleVersion = makeResolvedTaxRuleVersionFixture('Kern\\TaxRomania\\TaxEngine\\NoSuchClassAtAll');
     $input = new TaxRuleInput(2026, new DateTimeImmutable(), [], new ResolvedParameterSet([]), $ruleVersion);
 
     expect(fn () => (new RuleInvoker())->invoke($ruleVersion, $input))

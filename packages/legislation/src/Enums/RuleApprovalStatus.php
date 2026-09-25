@@ -10,7 +10,7 @@ namespace Kern\Legislation\Enums;
  * (`docs/AGENTS.md` §9, `BLUEPRINT.md` §9.3) — is the same stable domain rule for both, not
  * incidental similarity (`docs/CODE-QUALITY.md` §1). Enforced in code by
  * {@see \Kern\Legislation\Concerns\ForbidsAgentApproval}, applied to both
- * {@see \App\Domain\FiscalParameters\Models\FiscalParameterVersion} and
+ * {@see \Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion} and
  * {@see \Kern\Legislation\Models\TaxRuleVersion}.
  */
 enum RuleApprovalStatus: string

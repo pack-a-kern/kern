@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "23ec443b15e555c651adc62c1a0fe9c8",
+    "content-hash": "8f268fb95458be345486c6711d312d20",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1702,6 +1702,60 @@
                 "proprietary"
             ],
             "description": "The security spine an application is built on: envelope encryption under per-tenant keys, blind indexes for exact lookup of encrypted values, an encrypted object store, tenant scoping, and a log processor that redacts what must never reach a log file.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "kern/tax-romania",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/tax-romania",
+                "reference": "498cdb4c5cafb418dd5fd2cfa76898222cdd9635"
+            },
+            "require": {
+                "ext-bcmath": "*",
+                "ext-intl": "*",
+                "illuminate/bus": "^13.0",
+                "illuminate/cache": "^13.0",
+                "illuminate/console": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/filesystem": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/queue": "^13.0",
+                "illuminate/routing": "^13.0",
+                "illuminate/support": "^13.0",
+                "illuminate/validation": "^13.0",
+                "kern/audit": "@dev",
+                "kern/documents": "@dev",
+                "kern/legislation": "@dev",
+                "kern/platform": "@dev",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "fakerphp/faker": "^1.23"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\TaxRomania\\TaxRomaniaServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\TaxRomania\\": "src/",
+                    "Kern\\TaxRomania\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Romanian tax for an individual: the taxpayer, the values the law sets, the deterministic engine that applies them, and the wallet, statements, rentals, exchange rates and declarations a return is built from.",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -13350,7 +13404,8 @@
         "kern/audit": 20,
         "kern/documents": 20,
         "kern/legislation": 20,
-        "kern/platform": 20
+        "kern/platform": 20,
+        "kern/tax-romania": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

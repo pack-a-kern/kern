@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Enums\RateType;
-use App\Domain\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
 
 /**
  * Every wallet enum the API can return must have a label in every locale.

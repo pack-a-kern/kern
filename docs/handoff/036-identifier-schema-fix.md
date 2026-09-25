@@ -20,7 +20,7 @@ Both are resolved by the same decision, recorded as **ADR 0011**
 (`docs/adr/0011-canonical-fiscal-identifier.md`): `tax_subjects.fiscal_identifier_ciphertext`/
 `fiscal_identifier_blind_index`/`fiscal_identifier_kind` (a new column) is now the single canonical
 location for **any** subject type's fiscal identifier. `pf_profiles`/`pfa_profiles` no longer store
-an identifier of their own. A new `App\Domain\Subjects\Enums\FiscalIdentifierKind` enum
+an identifier of their own. A new `Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind` enum
 (`CNP`/`CUI`) binds the identifier's kind into the value that gets hashed, so a CNP and a business
 identifier that normalise to the same raw digits can never collide under one blind index.
 
@@ -38,13 +38,13 @@ resolved it and how.
 ### Entry points
 
 ```php
-use App\Domain\Subjects\Enums\FiscalIdentifierKind;
+use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 
 $blindIndex = $blindIndexHasher->compute(FiscalIdentifierKind::CNP->keyedValue($cnp));
 $blindIndex = $blindIndexHasher->compute(FiscalIdentifierKind::CUI->keyedValue($registrationNumber));
 ```
 
-`App\Domain\Subjects\Actions\RegisterPfSubject`/`RegisterPfaSubject` both use this to compute and
+`Kern\TaxRomania\Subjects\Actions\RegisterPfSubject`/`RegisterPfaSubject` both use this to compute and
 store `tax_subjects.fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index`/
 `fiscal_identifier_kind`; duplicate detection for both is one query:
 `TaxSubject::query()->where('fiscal_identifier_blind_index', $index)->exists()`.
@@ -52,7 +52,7 @@ store `tax_subjects.fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index
 ## Files created / changed
 
 **New:**
-- `apps/api/app/Domain/Subjects/Enums/FiscalIdentifierKind.php` — `CNP`/`CUI`, `normalize()`,
+- `apps/api/packages/tax-romania/src/Subjects/Enums/FiscalIdentifierKind.php` — `CNP`/`CUI`, `normalize()`,
   `keyedValue()`. See its own docblock and ADR 0011 for why kind-in-hash was chosen over a
   composite `UNIQUE (kind, blind_index)` constraint.
 - `docs/adr/0011-canonical-fiscal-identifier.md` — the decision, including the §5.2-vs-§6.2
@@ -76,27 +76,27 @@ judged worth more than a migration history nobody has run):
   the identifier now lives on `tax_subjects`, tagged `FiscalIdentifierKind::CUI`.
 
 **Models:**
-- `apps/api/app/Domain/Subjects/Models/TaxSubject.php` — added `fiscal_identifier_kind` to
+- `apps/api/packages/tax-romania/src/Subjects/Models/TaxSubject.php` — added `fiscal_identifier_kind` to
   `$fillable`/`$casts` (cast to `FiscalIdentifierKind`), updated docblock.
-- `apps/api/app/Domain/Subjects/Models/PfProfile.php` — removed `cnp_ciphertext`/`cnp_blind_index`
+- `apps/api/packages/tax-romania/src/Subjects/Models/PfProfile.php` — removed `cnp_ciphertext`/`cnp_blind_index`
   from `$fillable`/`$casts`/property docblock.
-- `apps/api/app/Domain/Subjects/Models/PfaProfile.php` — removed
+- `apps/api/packages/tax-romania/src/Subjects/Models/PfaProfile.php` — removed
   `registration_number_ciphertext`/`registration_number_blind_index` from
   `$fillable`/`$casts`/property docblock.
 
 **Actions:**
-- `apps/api/app/Domain/Subjects/Actions/RegisterPfSubject.php` — blind index now computed via
+- `apps/api/packages/tax-romania/src/Subjects/Actions/RegisterPfSubject.php` — blind index now computed via
   `FiscalIdentifierKind::CNP->keyedValue($input->cnp)`; duplicate check now queries `TaxSubject`
   instead of `PfProfile`; sets `fiscal_identifier_kind`; `PfProfile::create()` no longer passes
   `cnp_ciphertext`/`cnp_blind_index`.
-- `apps/api/app/Domain/Subjects/Actions/RegisterPfaSubject.php` — blind index now computed via
+- `apps/api/packages/tax-romania/src/Subjects/Actions/RegisterPfaSubject.php` — blind index now computed via
   `FiscalIdentifierKind::CUI->keyedValue($input->registrationNumber)`; duplicate check now queries
   `TaxSubject` (previously queried `PfaProfile`); now populates
   `tax_subjects.fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index`/
   `fiscal_identifier_kind` in its second write, exactly mirroring `RegisterPfSubject`;
   `PfaProfile::create()` no longer passes `registration_number_ciphertext`/
   `registration_number_blind_index`.
-- `apps/api/app/Domain/Subjects/Exceptions/DuplicateCnpException.php`,
+- `apps/api/packages/tax-romania/src/Subjects/Exceptions/DuplicateCnpException.php`,
   `DuplicateRegistrationNumberException.php` — docblocks updated to describe the check against the
   canonical `tax_subjects` column instead of the removed profile-table columns.
 
@@ -133,7 +133,7 @@ verify":
   caveat).
 
 **Not touched** (confirmed by grep before finishing, not merely assumed): any file under
-`App\Domain\{Identity,Wallet,Documents,Fx,Spv,Audit,Declarations,TaxKnowledge,TaxEngine,Rental}`,
+`Kern\TaxRomania\{Identity,Wallet,Documents,Fx,Spv,Audit,Declarations,TaxKnowledge,TaxEngine,Rental}`,
 `App\Http\**`, `App\Support\Logging\**`, `App\Support\KeyManagement\**`,
 `App\Support\Crypto\Casts\**`/`Concerns\**`/`Contracts\**` (only `BlindIndex/**` was in scope, and
 even there only a new consuming enum was added — `BlindIndexHasher`/`Normalizer` themselves are
@@ -147,7 +147,7 @@ byte-for-byte unchanged, see "Key decisions" #1), `deptrac.php`, `docs/STATUS.md
    id), and `Spv` (SPV username) — none of which needed or asked for a "kind" concept. Changing
    `compute()`'s signature to take a kind parameter would have forced every existing call site to
    change for no benefit to those modules, well outside this task's declared scope
-   (`apps/api/app/Domain/Subjects/**`, `apps/api/app/Support/Crypto/BlindIndex/**` — the second
+   (`apps/api/packages/tax-romania/src/Subjects/**`, `apps/api/app/Support/Crypto/BlindIndex/**` — the second
    path was available to edit, not required to be edited). Instead,
    `FiscalIdentifierKind::keyedValue(string): string` produces the exact string
    `BlindIndexHasher::compute()` already accepts unchanged — `"CNP:" . Normalizer::cnp($raw)"` or
@@ -268,12 +268,12 @@ existing cross-tenant tests still pass (`CrossTenantIsolationTest`, unmodified, 
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Subjects\Enums\FiscalIdentifierKind::CNP`/`::CUI`, `->normalize()`, `->keyedValue()`
+- `Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind::CNP`/`::CUI`, `->normalize()`, `->keyedValue()`
   — any future II/IF/SRL profile action adds a new case here and populates the same three
   canonical `tax_subjects` columns; no other module change is implied.
-- `App\Domain\Subjects\Models\TaxSubject::$fiscal_identifier_kind` — new property, cast to
+- `Kern\TaxRomania\Subjects\Models\TaxSubject::$fiscal_identifier_kind` — new property, cast to
   `FiscalIdentifierKind`, nullable until a registration action populates it.
-- `Database\Factories\TaxSubjectFactory::withFiscalIdentifier(FiscalIdentifierKind, string)` — the
+- `Kern\TaxRomania\Database\Factories\TaxSubjectFactory::withFiscalIdentifier(FiscalIdentifierKind, string)` — the
   sanctioned way a test gets a `TaxSubject` with a populated, decryptable identifier of either
   kind (signature changed from the PF-only `withFiscalIdentifier(string $cnp)` — no other caller
   existed, confirmed by grep).
@@ -290,7 +290,7 @@ existing cross-tenant tests still pass (`CrossTenantIsolationTest`, unmodified, 
   scoped per-subject instead). That column no longer exists under that name — the conceptual point
   the comment makes is still correct (a global duplicate-detection index exists elsewhere in the
   schema; it is now `tax_subjects.fiscal_identifier_blind_index`), but the literal column name is
-  now stale. Not fixed here: `app/Domain/Wallet/**` and its migrations are outside this task's
+  now stale. Not fixed here: `packages/tax-romania/src/Wallet/**` and its migrations are outside this task's
   declared scope ("Do not touch other Domain modules"). Recorded here per `docs/AGENTS.md` §10.
 - No validation of `registrationNumber`'s shape was added (unchanged from
   `docs/handoff/034-pfa-extension.md`'s own explicit non-goal) — this task only changed where and
@@ -305,7 +305,7 @@ existing cross-tenant tests still pass (`CrossTenantIsolationTest`, unmodified, 
   this task's scope and no reliable way to date it from the file alone.
 - Should `database/migrations/2026_09_08_500000_create_financial_accounts_table.php`'s stale
   `pf_profiles.cnp_blind_index` reference be corrected to name the new canonical column? A small,
-  one-line documentation fix, but outside this task's declared module scope (`app/Domain/Wallet`).
+  one-line documentation fix, but outside this task's declared module scope (`packages/tax-romania/src/Wallet`).
 
 ## Sources consulted
 

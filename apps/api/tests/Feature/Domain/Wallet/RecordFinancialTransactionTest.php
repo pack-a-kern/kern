@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\RecordFinancialTransactionTest;
 
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\Actions\RecordFinancialTransaction;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
-use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\TransactionClassificationStatus;
-use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
-use App\Domain\Wallet\Models\FinancialAccount;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\TransactionSplitInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
+use Kern\TaxRomania\Wallet\Exceptions\TransactionSplitMismatchException;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

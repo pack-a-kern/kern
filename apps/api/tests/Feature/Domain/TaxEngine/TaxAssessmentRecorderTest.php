@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-use App\Domain\Fx\ValueObjects\DecimalRate;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\DataTransferObjects\CalculationStep;
-use App\Domain\TaxEngine\DataTransferObjects\CalculationTrace;
-use App\Domain\TaxEngine\DataTransferObjects\TaxAssessmentLineResult;
-use App\Domain\TaxEngine\DataTransferObjects\TaxAssessmentResult;
-use App\Domain\TaxEngine\DataTransferObjects\TaxObligation;
-use App\Domain\TaxEngine\Enums\AssessmentStatus;
-use App\Domain\TaxEngine\Models\TaxAssessment;
-use App\Domain\TaxEngine\Models\TaxAssessmentLine;
-use App\Domain\TaxEngine\Services\TaxAssessmentRecorder;
-use App\Domain\TaxEngine\ValueObjects\Money;
 use Kern\Legislation\Models\TaxRuleVersion;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationTrace;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxAssessmentLineResult;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxAssessmentResult;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxObligation;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
+use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
+use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {

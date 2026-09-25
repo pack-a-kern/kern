@@ -383,7 +383,7 @@ performed.
 - Per-subject DEK **rotation** (as opposed to KEK rotation) — the envelope's `keyVersion` field
   (decision #1) is designed to support it later, but no code generates a DEK version other than
   `1` today.
-- Did not touch `app/Domain/Audit/**`, `app/Support/Logging/**`, `.github/workflows/**`,
+- Did not touch `packages/tax-romania/src/Audit/**`, `app/Support/Logging/**`, `.github/workflows/**`,
   `apps/processing/**`, or any ADR — other agents' concurrent scope.
 
 ## Open questions

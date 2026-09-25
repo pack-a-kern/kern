@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Schema;
  * encrypting `email_ciphertext` requires this row to already exist, which a single-statement
  * `create()` cannot satisfy. `Kern\Platform\Identity\Models\User::createWithEmail()` is the only
  * sanctioned way to create a `User`, and enforces "always set" at the application level in the
- * same two-write shape `App\Domain\Subjects\Actions\RegisterPfSubject` uses for `TaxSubject`.
+ * same two-write shape `Kern\TaxRomania\Subjects\Actions\RegisterPfSubject` uses for `TaxSubject`.
  */
 return new class () extends Migration {
     public function up(): void
@@ -51,7 +51,7 @@ return new class () extends Migration {
             // Wrapped per-user DEK (Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey).
             // Nullable: populated on first encrypted-field write via
             // Kern\Platform\KeyManagement\SubjectDekService — never plaintext, never eagerly
-            // generated before it's needed. See App\Domain\Subjects\Infrastructure\
+            // generated before it's needed. See Kern\TaxRomania\Subjects\Infrastructure\
             // EloquentSubjectDekRepository for exactly how this column is read/written.
             $table->text('encrypted_dek')->nullable();
             $table->unsignedInteger('dek_kek_version')->nullable();

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\TaxEngine\Models\TaxFact;
-use App\Domain\TaxEngine\Repositories\TaxFactRepository;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Models\TaxFact;
+use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {

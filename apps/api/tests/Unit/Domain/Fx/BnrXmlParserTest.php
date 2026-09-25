@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Fx\BnrXmlParserTest;
 
-use App\Domain\Fx\DataTransferObjects\ParsedFxRate;
-use App\Domain\Fx\Parsing\BnrXmlParser;
-use App\Domain\Fx\Parsing\Exceptions\InvalidBnrXmlException;
+use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxRate;
+use Kern\TaxRomania\Fx\Parsing\BnrXmlParser;
+use Kern\TaxRomania\Fx\Parsing\Exceptions\InvalidBnrXmlException;
 use RuntimeException;
 
 function fixture(string $name): string

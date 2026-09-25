@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionsTest;
 
-use App\Domain\FiscalParameters\Models\FiscalParameter;
-use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
 use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
 use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Spatie\Permission\PermissionRegistrar;
 
 /**

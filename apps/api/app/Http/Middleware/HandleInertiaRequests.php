@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Domain\Subjects\Queries\ListSubjectsForUser;
-use App\Domain\Subjects\Queries\SubjectSummary;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\TaxRomania\Subjects\Queries\ListSubjectsForUser;
+use Kern\TaxRomania\Subjects\Queries\SubjectSummary;
 
 final class HandleInertiaRequests extends Middleware
 {

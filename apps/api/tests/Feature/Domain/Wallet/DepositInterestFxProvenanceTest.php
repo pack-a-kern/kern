@@ -4,26 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Wallet\DepositInterestFxProvenanceTest;
 
-use App\Domain\Fx\Models\FxRate;
-use App\Domain\Subjects\Enums\MembershipRole;
-use App\Domain\Subjects\Models\SubjectMembership;
-use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Wallet\Actions\GenerateDepositInterestSchedule;
-use App\Domain\Wallet\Actions\OpenFinancialAccount;
-use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
-use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
-use App\Domain\Wallet\Enums\AccountKind;
-use App\Domain\Wallet\Enums\DayCountConvention;
-use App\Domain\Wallet\Enums\InterestMethod;
-use App\Domain\Wallet\Enums\PaymentFrequency;
-use App\Domain\Wallet\Enums\RateType;
-use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Fx\Models\FxRate;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Actions\GenerateDepositInterestSchedule;
+use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
+use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
+use Kern\TaxRomania\Wallet\Enums\InterestMethod;
+use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
+use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator;
 
 /**
  * `BLUEPRINT.md` §7.5 / this milestone's stated definition of done: a foreign-currency deposit's

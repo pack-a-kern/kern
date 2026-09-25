@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kern\Documents\Database\Factories;
 
-use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Collection;
 use Kern\Documents\Enums\DocumentSource;
@@ -14,6 +13,7 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentPart;
 use Kern\Platform\ObjectStore\DocumentObjectKind;
 use Kern\Platform\ObjectStore\ObjectKey;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * @extends Factory<Document>

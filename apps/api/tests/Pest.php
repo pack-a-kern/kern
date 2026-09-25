@@ -203,11 +203,11 @@ function jsonStringList(\Illuminate\Testing\TestResponse $response, string $key)
 /**
  * `Kern\Legislation\Concerns\ForbidsAgentApproval` makes `status = APPROVED`
  * unreachable through Eloquent's `save()` on `TaxRuleVersion`/`FiscalParameterVersion` — by
- * design, per `docs/AGENTS.md` §9 ("no agent may set APPROVED"). `App\Domain\TaxEngine`'s own
+ * design, per `docs/AGENTS.md` §9 ("no agent may set APPROVED"). `Kern\TaxRomania\TaxEngine`'s own
  * tests still need to exercise the "an already-approved version backs a FINAL assessment" path,
  * so this helper inserts the row via the raw query builder — which never fires an Eloquent model
  * event and is therefore unaffected by that guard — simulating exactly what a future human-review
- * workflow this milestone does not build would eventually produce. No `App\Domain\TaxEngine` (or
+ * workflow this milestone does not build would eventually produce. No `Kern\TaxRomania\TaxEngine` (or
  * any other) application code path ever does this itself; only test setup does.
  *
  * @param array<string, mixed> $overrides
@@ -308,4 +308,34 @@ function cnpWithCheckDigit(string $first12): string
     $remainder = $sum % 11;
 
     return $first12 . ($remainder === 10 ? '1' : (string) $remainder);
+}
+
+/**
+ * The directory a package ships, found through any class inside it.
+ *
+ * Tests that scan source — "no float anywhere in Rental", "no impure rule in TaxEngine" — need a
+ * path, and a path written down is a test that silently scans nothing the next time the code moves.
+ * Walking up from the class's own file to its `composer.json` cannot be wrong about where it lives.
+ */
+function packageRoot(string $class): string
+{
+    $file = (new ReflectionClass($class))->getFileName();
+
+    if ($file === false) {
+        throw new RuntimeException("Cannot locate {$class}: no file.");
+    }
+
+    $directory = dirname($file);
+
+    while (! is_file($directory . '/composer.json')) {
+        $parent = dirname($directory);
+
+        if ($parent === $directory) {
+            throw new RuntimeException("Cannot locate the package holding {$class}.");
+        }
+
+        $directory = $parent;
+    }
+
+    return $directory;
 }

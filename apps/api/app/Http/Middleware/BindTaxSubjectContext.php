@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Domain\Subjects\Enums\SubjectStatus;
-use App\Domain\Subjects\Models\TaxSubject;
 use Closure;
 use Illuminate\Http\Request;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
