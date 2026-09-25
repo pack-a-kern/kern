@@ -6,6 +6,7 @@ namespace Kern\TaxRomania;
 
 use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Dependents\SectionDependents;
+use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
@@ -85,6 +86,8 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
+        $this->declareWhatMustNeverBeLogged();
+
         // Two tables here point at a paragraph of the law: the value read from it, and the citation a
         // tax rule rests on. Declared so `kern/legislation` refuses to delete a law either still needs,
         // without that package having to know either table exists.
@@ -112,5 +115,49 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 PostDepositInterestCommand::class,
             ]);
         }
+    }
+
+    /**
+     * The identifiers only this package can recognise, told to the log redactor.
+     *
+     * `kern/platform` strips passwords, tokens, `Authorization` headers, JWTs, IBANs and OTP codes on
+     * its own — shapes that mean the same thing in any application. A CNP is thirteen digits starting
+     * 1-8, a CUI is a company's Romanian fiscal code, and "cod de siguranță" is what ANAF calls a
+     * one-time code: none of that is knowable by a package that does not know what a taxpayer is.
+     *
+     * If this method is ever removed, `LogsNoRomanianIdentifierTest` in this package's own suite goes
+     * red. That is the whole reason the test lives here rather than in the application: a declaration
+     * nobody checks is a leak nobody notices.
+     */
+    private function declareWhatMustNeverBeLogged(): void
+    {
+        $redactions = $this->app->make(Redactions::class);
+
+        $redactions->keys(
+            'cnp',
+            'cui',
+            'cod_fiscal',
+            'nr_reg_com',
+            'nr_registru_comert',
+            'fiscal_identifier',
+            'cod_siguranta',
+        );
+
+        // A CNP: 13 digits whose first is 1-8, the sex-and-century marker.
+        $redactions->pattern('/\b[1-8]\d{12}\b/');
+
+        /*
+         * ANAF's own phrasing for a one-time code, keeping the label so a log still says what was
+         * asked for.
+         *
+         * `siguran[țt][ăa]` covers both spellings, and the second character class is the point: the
+         * word is "siguranță", and the pattern this replaces — carried in the platform, written
+         * `siguran[țt]a` — could only ever match "siguranta". It matched the correctly spelled word
+         * never, and nothing noticed because the only test for that pattern used the English "OTP".
+         */
+        $redactions->replacement(
+            '/\b(cod\s+de\s+siguran[țt][ăa])\s*[:=]?\s*\d{4,8}\b/iu',
+            '$1: [REDACTED]',
+        );
     }
 }

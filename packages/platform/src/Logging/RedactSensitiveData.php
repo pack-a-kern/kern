@@ -16,6 +16,10 @@ use Monolog\Logger as MonologLogger;
  * driver (`single`, `daily`, `stderr`, ...) via `LogManager::get()`. See
  * {@see SensitiveDataProcessor}'s own docblock for why processor *order* also matters here.
  *
+ * The processor is handed the container's one {@see Redactions}, so a package that declares an
+ * identifier of its own reaches every channel — including channels resolved before that package's
+ * provider booted, because the processor reads the registry per record rather than copying it.
+ *
  * `Illuminate\Log\Logger::pushProcessor()` only exists via `__call()` magic-proxying to the
  * wrapped Monolog logger, which static analysis cannot see through — so this goes via
  * `getLogger()` (typed `Psr\Log\LoggerInterface`) and narrows with `instanceof` instead of relying
@@ -29,7 +33,7 @@ final class RedactSensitiveData
         $underlying = $logger->getLogger();
 
         if ($underlying instanceof MonologLogger) {
-            $underlying->pushProcessor(new SensitiveDataProcessor());
+            $underlying->pushProcessor(new SensitiveDataProcessor(app(Redactions::class)));
         }
     }
 }

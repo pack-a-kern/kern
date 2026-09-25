@@ -211,6 +211,15 @@ public law through its own unencrypted store, the statement importer reads a *do
 real consumer was `kern/documents`. The platform keeps the cipher; the thing that streams a file
 through it, and the key type that can only name a document, went with the package that uses them.
 
+**The log redactor knew what a CNP was.** Its key list held `cnp`, `cui`, `cod_fiscal`, `nr_reg_com`
+and its patterns held the thirteen-digit CNP shape and ANAF's "cod de siguranță" — Romanian
+vocabulary, in the base, missed by the same sweep that fixed `tax_subject_id` and `ObjectKey`. The
+platform now carries only what means the same thing anywhere, and `Logging\Redactions` is where a
+package declares its own; `kern/tax-romania` does, in its provider, and that package's suite fails if
+the declaration is removed — which is the point, since a redaction nobody checks is a leak nobody
+notices. Writing the test found that the Romanian branch of the OTP pattern had never matched
+anything: it read `siguran[țt]a`, and the word is "siguranță".
+
 The proof this ADR asked for by name passes: `ReadsAndSearchesALawAloneTest` finds an act through the
 portal's web service, reads both of its consolidations, dates each until the day before the next,
 and answers "what did article 145 say on 15 June 2021" with the text that was in force then — in an

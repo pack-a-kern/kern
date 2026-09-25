@@ -30,7 +30,8 @@ use Stringable;
 use Throwable;
 
 /**
- * Redacts CNP, IBAN, passwords, tokens/API keys, `Authorization` headers, and OTP codes from
+ * Redacts passwords, tokens/API keys, `Authorization` headers, IBANs, OTP codes — and whatever
+ * else this installation declared through {@see Redactions} — from
  * every log record before it reaches a handler — `BLUEPRINT.md` §4.10 ("no plain PII logs") and §23
  * ("niciun PII" in structured logs), enforced in code rather than by author discipline alone.
  *
@@ -46,7 +47,7 @@ use Throwable;
  *   *entire* value replaced with `[REDACTED]`, recursively, regardless of the value's shape — an
  *   object or nested array under `password` is not selectively inspected, it is simply gone.
  * - **By pattern** ({@see self::redactPatterns()}): every string leaf value, and the log message
- *   itself, is scanned for CNP-shaped, IBAN-shaped, JWT-shaped, `Authorization:` header, and
+ *   itself, is scanned for IBAN-shaped, JWT-shaped, `Authorization:` header, declared-shape, and
  *   inline-OTP substrings, independent of what key (if any) it was found under. This is what
  *   catches a secret embedded in free text, e.g. an exception message.
  *
@@ -88,19 +89,17 @@ final class SensitiveDataProcessor implements ProcessorInterface
         // Tokens / API keys / auth headers.
         'token', 'accesstoken', 'refreshtoken', 'apikey', 'apitoken', 'bearertoken', 'authtoken',
         'authorization',
-        // Direct PII identifiers.
-        // `cui`/`nrregcom` were added when PFA subjects arrived (M12): a PFA's fiscal identifier is
-        // a CUI rather than a CNP, and `tax_subjects.fiscal_identifier_ciphertext` holds whichever
-        // applies — so redacting only `cnp` would have leaked the equivalent identifier for every
-        // non-PF subject type. See docs/reference/pf-coupling-audit.md finding 1.
-        'cnp', 'iban', 'cui', 'codfiscal', 'nrregcom', 'nrregistrucomert', 'fiscalidentifier',
-        // OTP / one-time codes.
-        'otp', 'otpcode', 'safetycode', 'codsiguranta', 'verificationcode', 'mfacode', 'totp',
-        'totpcode',
+        // A bank account is an international shape, and so is a one-time code.
+        'iban',
+        'otp', 'otpcode', 'safetycode', 'verificationcode', 'mfacode', 'totp', 'totpcode',
     ];
 
-    /** Romanian CNP: 13 digits, first digit 1-8 (sex/century marker). */
-    private const string CNP_PATTERN = '/\b[1-8]\d{12}\b/';
+    /*
+     * A person's or a company's own identifier is not here, and that is the point: a CNP is thirteen
+     * digits starting 1-8 and a CUI is a Romanian fiscal code, so both are declared by the package
+     * that knows what those are, through {@see Redactions}. This one carries only the shapes that
+     * mean the same thing in any application.
+     */
 
     /** IBAN: 2 letters + 2 check digits + up to 30 alphanumerics, optionally space-grouped. */
     private const string IBAN_PATTERN = '/\b[A-Za-z]{2}\d{2}(?:[ ]?[A-Za-z0-9]{4}){2,7}\b/';
@@ -118,8 +117,17 @@ final class SensitiveDataProcessor implements ProcessorInterface
      */
     private const string INLINE_KEY_VALUE_SECRET_PATTERN = '/\b(password|pwd|passwd|secret|token|api[_-]?key|client[_-]?secret)\s*[:=]\s*(\S+)/i';
 
-    /** `OTP: 123456` / `cod de siguranta: 123456` style inline codes in free text. */
-    private const string OTP_INLINE_PATTERN = '/\b(OTP|otp|cod\s+de\s+siguran[țt]a|verification\s+code)\s*[:=]?\s*\d{4,8}\b/iu';
+    /**
+     * `OTP: 123456` / `verification code 123456` style inline codes in free text.
+     *
+     * The Romanian phrasing ANAF uses — "cod de siguranță" — is declared by `kern/tax-romania`
+     * through {@see Redactions}, along with the identifiers only it can recognise.
+     */
+    private const string OTP_INLINE_PATTERN = '/\b(OTP|otp|verification\s+code)\s*[:=]?\s*\d{4,8}\b/iu';
+
+    public function __construct(private readonly Redactions $declared)
+    {
+    }
 
     public function __invoke(LogRecord $record): LogRecord
     {
@@ -225,7 +233,8 @@ final class SensitiveDataProcessor implements ProcessorInterface
     {
         $normalized = preg_replace('/[^a-z0-9]/', '', mb_strtolower($key)) ?? '';
 
-        return in_array($normalized, self::SENSITIVE_KEYS, true);
+        return in_array($normalized, self::SENSITIVE_KEYS, true)
+            || in_array($normalized, $this->declared->declaredKeys(), true);
     }
 
     private function redactPatterns(string $value): string
@@ -237,7 +246,6 @@ final class SensitiveDataProcessor implements ProcessorInterface
             static fn (array $matches): string => $matches[1] . '=' . self::REDACTED,
             $value,
         ) ?? $value;
-        $value = preg_replace(self::CNP_PATTERN, self::REDACTED, $value) ?? $value;
         $value = preg_replace(self::IBAN_PATTERN, self::REDACTED, $value) ?? $value;
         $value = preg_replace(self::JWT_PATTERN, self::REDACTED, $value) ?? $value;
         $value = preg_replace(self::AUTHORIZATION_HEADER_PATTERN, '$1: $2 ' . self::REDACTED, $value) ?? $value;
@@ -246,6 +254,16 @@ final class SensitiveDataProcessor implements ProcessorInterface
             static fn (array $matches): string => $matches[1] . ': ' . self::REDACTED,
             $value,
         ) ?? $value;
+
+        // Whatever this installation added: an identifier's own format, and the ones that keep part
+        // of the match so a log still says what was asked for.
+        foreach ($this->declared->declaredPatterns() as $pattern) {
+            $value = preg_replace($pattern, self::REDACTED, $value) ?? $value;
+        }
+
+        foreach ($this->declared->declaredReplacements() as $replacement) {
+            $value = preg_replace($replacement['pattern'], $replacement['replacement'], $value) ?? $value;
+        }
 
         return $value;
     }

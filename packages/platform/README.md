@@ -64,6 +64,26 @@ final class SeatGate implements Kern\Platform\Tenancy\Contracts\TenantGate
 There is deliberately no "just set the id" method. What a tenant is called is
 `config('tenancy.column')`; who may act for one is the gate. The package supplies neither.
 
+## What must never reach a log file
+
+A Monolog processor strips passwords, tokens, `Authorization` headers, JWTs, IBANs and OTP codes from
+every message and every context value, however deeply nested, before a line is written. It carries the
+shapes that mean the same thing in any application and asks `Logging\Redactions` for the rest:
+
+```php
+$redactions->keys('cnp', 'cui', 'cod_fiscal');       // values dropped by key name
+$redactions->pattern('/\b[1-8]\d{12}\b/');           // and by shape, anywhere in free text
+```
+
+Declared from a package's own provider, because a CNP is thirteen digits starting 1-8 and only the
+package that knows what a taxpayer is can say so. A registry rather than configuration for the reason
+two packages always find: a package's config file is merged one level deep, so the second one to
+register would replace the first's list instead of adding to it.
+
+The risk that shape carries is worth stating: a package that forgets to declare its identifiers leaks
+them silently. The answer is that the test belongs beside the words — `kern/tax-romania`'s own suite
+fails if its declaration is removed.
+
 ## What the application must bind
 
 | Contract | Because |

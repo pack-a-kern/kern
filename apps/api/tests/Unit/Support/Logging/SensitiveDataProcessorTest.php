@@ -2,9 +2,19 @@
 
 declare(strict_types=1);
 
+use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Logging\SensitiveDataProcessor;
 use Monolog\Level;
 use Monolog\LogRecord;
+
+/*
+ * The shapes `kern/platform` recognises on its own — a password, a token, an IBAN, a JWT, an
+ * `Authorization` header, an OTP. Built with an empty `Redactions`, which is the point: nothing here
+ * needs an application to have declared anything.
+ *
+ * A CNP and a CUI are not here. They are Romanian, so they are declared by `kern/tax-romania` and
+ * tested in that package's own suite — see `LogsNoRomanianIdentifierTest`.
+ */
 
 /**
  * @param array<array-key, mixed> $context
@@ -22,17 +32,9 @@ function sensitiveDataTestRecord(string $message, array $context = [], array $ex
     );
 }
 
-test('a CNP-shaped number in the message is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
-
-    $result = $processor(sensitiveDataTestRecord('subject cnp is 1900101221144'));
-
-    expect($result->message)->not->toContain('1900101221144')
-        ->and($result->message)->toContain('[REDACTED]');
-});
 
 test('an IBAN in the message is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('transfer to RO49AAAA1B31007593840000 failed'));
 
@@ -41,7 +43,7 @@ test('an IBAN in the message is redacted', function (): void {
 });
 
 test('a password value in context is fully redacted regardless of key casing', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('login attempt', ['Password' => 'Sup3rSecret!']));
 
@@ -49,7 +51,7 @@ test('a password value in context is fully redacted regardless of key casing', f
 });
 
 test('a token-shaped key is redacted under any common naming convention', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('api call', [
         'api_key' => 'abc123',
@@ -64,7 +66,7 @@ test('a token-shaped key is redacted under any common naming convention', functi
 });
 
 test('a JWT-shaped bearer token embedded in text is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
 
@@ -75,7 +77,7 @@ test('a JWT-shaped bearer token embedded in text is redacted', function (): void
 });
 
 test('an Authorization header appearing in free text is redacted but the scheme is kept', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('Authorization: Bearer abcdef.ghijkl.mnopqr'));
 
@@ -84,7 +86,7 @@ test('an Authorization header appearing in free text is redacted but the scheme 
 });
 
 test('an OTP code inline in free text is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('SPV login: OTP: 482913 accepted'));
 
@@ -93,7 +95,7 @@ test('an OTP code inline in free text is redacted', function (): void {
 });
 
 test('an OTP key in context is fully redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('spv challenge', ['otp_code' => '482913']));
 
@@ -101,7 +103,7 @@ test('an OTP key in context is fully redacted', function (): void {
 });
 
 test('sensitive data nested arbitrarily deep in arrays is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('nested', [
         'request' => [
@@ -110,7 +112,6 @@ test('sensitive data nested arbitrarily deep in arrays is redacted', function ()
             ],
             'body' => [
                 'user' => [
-                    'cnp' => '1900101221144',
                     'iban' => 'RO49AAAA1B31007593840000',
                 ],
             ],
@@ -119,31 +120,32 @@ test('sensitive data nested arbitrarily deep in arrays is redacted', function ()
 
     $encoded = json_encode($result->context);
 
-    expect($encoded)->not->toContain('1900101221144')
-        ->and($encoded)->not->toContain('RO49AAAA1B31007593840000')
+    expect($encoded)->not->toContain('RO49AAAA1B31007593840000')
         ->and($encoded)->not->toContain('some.jwt.value')
         ->and($encoded)->toContain('[REDACTED]');
 });
 
 test('sensitive data nested inside a plain object is redacted', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
+    // What this proves is the *nesting*, so both values are shapes the platform knows by itself —
+    // an identifier only `kern/tax-romania` can recognise is tested in that package's suite.
     $payload = new stdClass();
     $payload->password = 'Sup3rSecret!';
-    $payload->cnp = '1900101221144';
+    $payload->iban = 'RO49AAAA1B31007593840000';
 
     $result = $processor(sensitiveDataTestRecord('object payload', ['payload' => $payload]));
 
     $encoded = json_encode($result->context);
 
     expect($encoded)->not->toContain('Sup3rSecret!')
-        ->and($encoded)->not->toContain('1900101221144');
+        ->and($encoded)->not->toContain('RO49AAAA1B31007593840000');
 });
 
 test('a Throwable in context keeps its class and location but redacts its message', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
-    $exception = new RuntimeException('SPV login failed for cnp 1900101221144 password=Sup3rSecret!');
+    $exception = new RuntimeException('login failed for RO49AAAA1B31007593840000 password=Sup3rSecret!');
 
     $result = $processor(sensitiveDataTestRecord('spv error', ['exception' => $exception]));
 
@@ -152,13 +154,13 @@ test('a Throwable in context keeps its class and location but redacts its messag
     /** @var array{class: string, message: string, file: string, line: int} $exceptionContext */
     $exceptionContext = $result->context['exception'];
 
-    expect($encoded)->not->toContain('1900101221144')
+    expect($encoded)->not->toContain('RO49AAAA1B31007593840000')
         ->and($encoded)->not->toContain('Sup3rSecret!')
         ->and($exceptionContext['class'])->toBe(RuntimeException::class);
 });
 
 test('a circular object reference does not cause infinite recursion', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $node = new stdClass();
     $node->self = $node;
@@ -169,28 +171,9 @@ test('a circular object reference does not cause infinite recursion', function (
 });
 
 test('non-sensitive data passes through unchanged', function (): void {
-    $processor = new SensitiveDataProcessor();
+    $processor = new SensitiveDataProcessor(new Redactions());
 
     $result = $processor(sensitiveDataTestRecord('document processed', ['document_id' => 'doc-123', 'status' => 'READY']));
 
     expect($result->context)->toBe(['document_id' => 'doc-123', 'status' => 'READY']);
-});
-
-test('a business fiscal identifier is redacted for non-PF subjects', function (): void {
-    $processor = new SensitiveDataProcessor();
-
-    // A PFA's fiscal identifier is a CUI, not a CNP. Redacting only `cnp` would have leaked the
-    // equivalent identifier for every non-PF subject type once M12 introduced PFA.
-    // See docs/reference/pf-coupling-audit.md finding 1.
-    $result = $processor(sensitiveDataTestRecord('subject registered', [
-        'cui' => 'RO12345678',
-        'codFiscal' => '12345678',
-        'nrRegCom' => 'J40/1234/2020',
-        'fiscalIdentifier' => 'RO87654321',
-    ]));
-
-    expect($result->context['cui'])->toBe('[REDACTED]')
-        ->and($result->context['codFiscal'])->toBe('[REDACTED]')
-        ->and($result->context['nrRegCom'])->toBe('[REDACTED]')
-        ->and($result->context['fiscalIdentifier'])->toBe('[REDACTED]');
 });

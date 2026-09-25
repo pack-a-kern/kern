@@ -12,6 +12,7 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
 use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
+use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Settings\SettingsServiceProvider;
 use Kern\Platform\Tenancy\TenantContext;
 
@@ -56,6 +57,10 @@ final class PlatformServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(BlindIndexHasher::class);
+
+        // What must never reach a log file. The platform's own shapes are in the processor; this is
+        // where a package adds the identifiers only it can recognise.
+        $this->app->singleton(Redactions::class);
 
         // Scoped, never a process-lifetime singleton: its state is which tenant is active, and
         // state like that surviving into the next request or queue job is the whole catastrophe
