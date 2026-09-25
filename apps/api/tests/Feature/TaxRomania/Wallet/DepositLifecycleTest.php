@@ -21,6 +21,18 @@ use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Tests\TestCase;
 
+/*
+ * Postgres only: these assertions read a `date` column back, and Postgres renders it as `2027-03-25` where sqlite returns whatever was written to it.
+ *
+ * Skipped rather than rewritten, because the application is Postgres and should stay written for it —
+ * `make check-php-pg` is the lane that runs this. See `Tests\Feature\Audit\AuditChainServiceTest`
+ * for the same guard on the same grounds.
+ */
+beforeEach(function (): void {
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
+    }
+});
 /**
  * A term deposit from opening to closing, and what it writes on the accounts around it.
  *

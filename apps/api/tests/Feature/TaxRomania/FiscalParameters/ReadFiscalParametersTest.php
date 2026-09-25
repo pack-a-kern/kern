@@ -7,6 +7,7 @@ namespace Tests\Feature\TaxRomania\FiscalParameters\ReadFiscalParametersTest;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -32,6 +33,18 @@ use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\FiscalParameters\Reading\Reading;
 use Kern\TaxRomania\FiscalParameters\Recording\CandidateRecorder;
 
+/*
+ * Postgres only: CandidateRecorder orders candidates by `abs(valid_from - ?::date)`, and `?::date` is Postgres's cast.
+ *
+ * Skipped rather than rewritten, because the application is Postgres and should stay written for it —
+ * `make check-php-pg` is the lane that runs this. See `Tests\Feature\Audit\AuditChainServiceTest`
+ * for the same guard on the same grounds.
+ */
+beforeEach(function (): void {
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
+    }
+});
 /**
  * The fiscal values read end to end: the minimum wage from its decisions, every other value from the
  * law itself, each proposed as a candidate with the paragraph it was read in.

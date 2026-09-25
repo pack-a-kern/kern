@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Lets a source carry no name at all.
@@ -20,9 +22,14 @@ use Illuminate\Support\Facades\DB;
 return new class () extends Migration {
     public function up(): void
     {
-        if (DB::connection()->getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE financial_accounts ALTER COLUMN display_name_ciphertext DROP NOT NULL');
-        }
+        // Through the Blueprint, not `ALTER COLUMN ... DROP NOT NULL`, which only Postgres
+        // understands. It was guarded on Postgres before, which left the column still NOT NULL on
+        // sqlite — so the suite there could not save an account without a name, which is the very
+        // thing this migration exists to allow. Restating the column in full is what `change()`
+        // requires: `text`, as the table was created.
+        Schema::table('financial_accounts', function (Blueprint $table): void {
+            $table->text('display_name_ciphertext')->nullable()->change();
+        });
 
         DB::table('financial_accounts')
             ->where('display_name_ciphertext', '')
@@ -35,8 +42,8 @@ return new class () extends Migration {
             ->whereNull('display_name_ciphertext')
             ->update(['display_name_ciphertext' => '']);
 
-        if (DB::connection()->getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE financial_accounts ALTER COLUMN display_name_ciphertext SET NOT NULL');
-        }
+        Schema::table('financial_accounts', function (Blueprint $table): void {
+            $table->text('display_name_ciphertext')->nullable(false)->change();
+        });
     }
 };

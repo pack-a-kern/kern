@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\DB;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
+/*
+ * Postgres only: the migration under test finds its rows with `@>`, a JSONB containment operator, and so runs on Postgres only.
+ *
+ * Skipped rather than rewritten, because the application is Postgres and should stay written for it —
+ * `make check-php-pg` is the lane that runs this. See `Tests\Feature\Audit\AuditChainServiceTest`
+ * for the same guard on the same grounds.
+ */
+beforeEach(function (): void {
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
+    }
+});
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
 });

@@ -47,6 +47,12 @@ return new class () extends Migration {
 
             $table->char('counterparty_blind_index', 64)->nullable()->after('counterparty_ciphertext');
 
+            // The dedupe key names `institution`, so it goes first and by name. Postgres drops a
+            // constraint that depends on a column along with the column and says nothing about it;
+            // sqlite refuses the column drop instead. Saying it here also makes visible that this key
+            // stops existing — 2026_09_25_100001 is what puts it back, without `institution` in it.
+            $table->dropUnique('financial_transactions_dedupe_unique');
+
             $table->dropColumn('institution');
 
             // Scoped to the subject: the lookup is always "this taxpayer's answer for this

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\WalletReportsTest;
 
+use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Testing\InMemoryDekRepository;
@@ -17,6 +18,18 @@ use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Tests\TestCase;
 
+/*
+ * Postgres only: WalletReports groups by month with `to_char`, which is Postgres's date formatter.
+ *
+ * Skipped rather than rewritten, because the application is Postgres and should stay written for it —
+ * `make check-php-pg` is the lane that runs this. See `Tests\Feature\Audit\AuditChainServiceTest`
+ * for the same guard on the same grounds.
+ */
+beforeEach(function (): void {
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
+    }
+});
 /**
  * A year read three ways: by tag, by bank, by category.
  *

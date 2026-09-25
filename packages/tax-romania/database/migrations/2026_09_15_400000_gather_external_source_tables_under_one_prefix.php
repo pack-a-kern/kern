@@ -65,11 +65,15 @@ return new class () extends Migration {
         // The column itself is `kern/legislation`'s — its repository writes it on every fetch, so a
         // bare installation of that package needs it too. All that is left here is moving the
         // exchange-rate module's own priority onto the source it was describing.
-        DB::statement('UPDATE ext_official_sources o SET priority = f.priority FROM fx_sources f WHERE f.official_source_id = o.id');
+        // No alias on the table being updated, in this statement and the two mappings below:
+        // Postgres allows one, sqlite does not, and the suite's in-memory database is sqlite. It cost
+        // the whole suite — the migration threw, so every test that migrates from nothing failed.
+        // `UPDATE ... FROM` itself is understood by both.
+        DB::statement('UPDATE ext_official_sources SET priority = f.priority FROM fx_sources f WHERE f.official_source_id = ext_official_sources.id');
 
         foreach (self::FX_TABLES as $name => $index) {
             $this->repoint($name, $index, from: 'fx_source_id', to: 'official_source_id', references: 'ext_official_sources', mapping:
-                "UPDATE {$name} t SET official_source_id = f.official_source_id FROM fx_sources f WHERE f.id = t.fx_source_id");
+                "UPDATE {$name} SET official_source_id = f.official_source_id FROM fx_sources f WHERE f.id = {$name}.fx_source_id");
         }
 
         Schema::drop('fx_sources');
@@ -107,7 +111,7 @@ return new class () extends Migration {
 
         foreach (self::FX_TABLES as $name => $index) {
             $this->repoint($name, $index, from: 'official_source_id', to: 'fx_source_id', references: 'fx_sources', mapping:
-                "UPDATE {$name} t SET fx_source_id = f.id FROM fx_sources f WHERE f.official_source_id = t.official_source_id");
+                "UPDATE {$name} SET fx_source_id = f.id FROM fx_sources f WHERE f.official_source_id = {$name}.official_source_id");
         }
 
     }
@@ -132,7 +136,12 @@ return new class () extends Migration {
             $blueprint->dropColumn($from);
         });
 
-        DB::statement(sprintf('ALTER TABLE %s ALTER COLUMN %s SET NOT NULL', $table, $to));
+        // Through the Blueprint, not `ALTER COLUMN ... SET NOT NULL`, which is Postgres's spelling:
+        // sqlite has no such statement and rebuilds the table instead. Restating the column in full
+        // is what `change()` requires — anything left out of it would be dropped.
+        Schema::table($table, function (Blueprint $blueprint) use ($to): void {
+            $blueprint->uuid($to)->nullable(false)->change();
+        });
 
         Schema::table($table, function (Blueprint $blueprint) use ($index, $to, $references): void {
             $blueprint->foreign($to)->references('id')->on($references);

@@ -36,9 +36,19 @@ final class SchemaRename
      *
      * Constraints first: renaming a primary key or unique constraint also renames the index behind
      * it, so the index pass then finds only the plain indexes left.
+     *
+     * Postgres only, the way nine other migrations in this project are Postgres only: it reads
+     * `pg_constraint` and `pg_indexes`, which is the only place those names are written down, and
+     * `::regclass`, which sqlite cannot even tokenise. On sqlite the rename above has already moved
+     * the data, the names it leaves behind are stale, and nothing asks them anything — the suite that
+     * runs there tests behaviour, not the schema's vocabulary.
      */
     private static function ownedNames(string $table, string $oldPrefix, string $newPrefix): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         $like = str_replace('_', '\_', $oldPrefix) . '\_%';
 
         /** @var list<object{name: string}> $constraints */

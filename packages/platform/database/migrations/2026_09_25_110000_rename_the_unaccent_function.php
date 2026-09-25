@@ -30,6 +30,12 @@ return new class () extends Migration {
          * rather than with `CASCADE`, so that anything still depending on it says so instead of
          * being quietly taken with it.
          */
+        // Postgres only, like the migration that creates this function and the indexes built on it:
+        // sqlite has no functions to rename, so there is nothing here for it to do.
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement('DROP FUNCTION IF EXISTS kern_unaccent(text)');
         DB::statement('ALTER FUNCTION taxos_unaccent(text) RENAME TO kern_unaccent');
     }

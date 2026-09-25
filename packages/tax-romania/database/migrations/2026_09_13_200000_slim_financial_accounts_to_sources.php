@@ -64,11 +64,13 @@ return new class () extends Migration {
             $table->dropColumn(['iban_ciphertext', 'iban_blind_index', 'opened_at', 'closed_at']);
         });
 
-        // Postgres only: sqlite cannot alter a column's nullability in place, and the suite that
-        // runs there recreates the table from this file's `create` ancestor anyway.
-        if (DB::connection()->getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE financial_accounts ALTER COLUMN currency_code DROP NOT NULL');
-        }
+        // sqlite cannot alter a column in place, but the Blueprint can: it rebuilds the table. Doing
+        // this on Postgres only left the column still required on sqlite, so the suite there could not
+        // save a source without a currency — the very thing this migration allows. Restating the
+        // column in full is what `change()` requires.
+        Schema::table('financial_accounts', function (Blueprint $table): void {
+            $table->char('currency_code', 3)->nullable()->change();
+        });
 
         Schema::table('deposit_terms', function (Blueprint $table): void {
             $table->char('currency_code', 3)->nullable()->after('principal_minor');
@@ -82,8 +84,27 @@ return new class () extends Migration {
              WHERE financial_accounts.id = deposit_terms.account_id
         SQL);
 
-        Schema::table('financial_transactions', function (Blueprint $table): void {
-            $table->dropUnique('financial_transactions_account_id_external_id_blind_index_uniqu');
+        /*
+         * One index, two possible names. It was created as `unique(['account_id',
+         * 'external_id_blind_index'])`, and the name Laravel generates for that is 64 characters —
+         * one over Postgres's limit, so Postgres truncated it to `..._uniqu` while sqlite kept it
+         * whole. Naming one spelling drops it on one driver and throws on the other, which on sqlite
+         * failed this migration and with it every test in the suite, because each one migrates from
+         * nothing.
+         *
+         * Dropped through the Blueprint rather than with `DROP INDEX`: on Postgres a unique key is a
+         * *constraint*, and the index behind it cannot be dropped on its own.
+         */
+        $existing = collect([
+            'financial_transactions_account_id_external_id_blind_index_uniqu',
+            'financial_transactions_account_id_external_id_blind_index_unique',
+        ])->first(static fn (string $name): bool => Schema::hasIndex('financial_transactions', $name));
+
+        Schema::table('financial_transactions', function (Blueprint $table) use ($existing): void {
+            if ($existing !== null) {
+                $table->dropUnique($existing);
+            }
+
             $table->string('institution')->nullable()->after('import_batch_id');
             $table->unique(
                 ['account_id', 'institution', 'external_id_blind_index'],

@@ -20,6 +20,13 @@ return new class () extends Migration {
 
     public function up(): void
     {
+        // Postgres only: it finds the rows with `@>`, a JSONB containment operator sqlite cannot even
+        // tokenise. Nothing is lost by skipping it there — this migration exists to clean up evidence
+        // that real installations recorded, and a test database starts empty.
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::transaction(function (): void {
             $rows = DB::table('fiscal_parameter_versions')
                 ->whereRaw("evidence->'checks' @> ?", [json_encode([['kind' => self::KIND]])])
