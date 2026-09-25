@@ -38,7 +38,7 @@ import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
 import { subscribeToUserNotifications } from '../lib/echo';
 import { formatDateTime } from '../lib/format';
-import { useSharedAuth } from '../lib/sharedProps';
+import { useAppName, useSharedAuth } from '../lib/sharedProps';
 import { setActiveSubjectId } from '../lib/subjectStore';
 import type { ImportNotice } from '../types/notifications';
 import { Button } from './ui/button';
@@ -589,6 +589,7 @@ export default function AppShell({
 }): JSX.Element {
     const { t } = useTranslation();
     const { url } = usePage();
+    const appName = useAppName();
     const auth = useSharedAuth();
     const [collapsed, setCollapsed] = useState(readStoredCollapsed);
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -634,7 +635,7 @@ export default function AppShell({
                                 </div>
                                 <div className="min-w-0">
                                     <div className="truncate text-[13px] font-semibold tracking-[-.02em]">
-                                        {t((d) => d.shell.appName)}
+                                        {appName}
                                     </div>
                                     <div className="text-ink-400 truncate text-[10px]">
                                         {t((d) => d.shell.appTagline)}
@@ -682,7 +683,7 @@ export default function AppShell({
                             </SheetTrigger>
                             <SheetContent side="left" className="w-72 p-0">
                                 <SheetHeader className="h-[58px] justify-center border-b border-border">
-                                    <SheetTitle>{t((d) => d.shell.appName)}</SheetTitle>
+                                    <SheetTitle>{appName}</SheetTitle>
                                 </SheetHeader>
                                 <SidebarNav collapsed={false} currentUrl={url} />
                             </SheetContent>
@@ -692,7 +693,7 @@ export default function AppShell({
                         screen. */}
                         <div className="min-w-0 flex-1">
                             <h1 className="text-ink-950 truncate text-[16px] leading-5 font-semibold tracking-[-0.035em] sm:text-[18px] dark:text-white">
-                                {header?.title ?? title ?? t((d) => d.shell.appName)}
+                                {header?.title ?? title ?? appName}
                             </h1>
                             {(header?.description ?? description) !== undefined && (
                                 <p className="mt-0.5 hidden truncate text-[11px] leading-4 font-medium text-[#7C8592] sm:block dark:text-[#B5B9C0]">

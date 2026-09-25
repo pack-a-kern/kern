@@ -64,6 +64,7 @@ import type { AiProvider, ComponentHealth, Setting, SettingGroupPayload } from '
 // Produced by the Operations module's probes; read here because what this installation is
 // configured to trust, and whether those sources are still delivering, is a settings question.
 import type { PlatformData, SchedulerStatus } from '../../types/operations';
+import { useAppName } from '../../lib/sharedProps';
 
 /**
  * Drafts hold what the operator typed, in the unit shown on screen — never the stored unit.
@@ -105,6 +106,7 @@ const GROUP_ICONS: Record<string, JSX.Element> = {
  * from server configuration; the legend at the foot explains it once.
  */
 export default function AdminSettings(): JSX.Element {
+    const appName = useAppName();
     const { t } = useTranslation();
 
     const [groups, setGroups] = useState<SettingGroupPayload[] | null>(null);
@@ -341,7 +343,7 @@ export default function AdminSettings(): JSX.Element {
         <AppShell>
             <Page
                 title={t((d) => d.pages.adminSettings.title)}
-                lede={t((d) => d.pages.adminSettings.description)}
+                lede={t((d) => d.pages.adminSettings.description).replace('{appName}', appName)}
                 actions={
                     loadFailed ? (
                         <PanelButton

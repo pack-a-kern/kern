@@ -85,9 +85,18 @@ final class TotpVerifier
      */
     private function issuer(): string
     {
-        $issuer = config('identity.totp.issuer');
+        // No fallback: the name an authenticator app files this account under is the application's
+        // own, and a second spelling of it here is how the two come to disagree. `APP_NAME` is
+        // required — compose refuses to start without it — so an empty one is a broken deployment,
+        // said out loud here rather than papered over with a literal. A passkey or an authenticator
+        // entry created under the wrong name is not something the person can fix afterwards.
+        $issuer = config()->string('identity.totp.issuer');
 
-        return is_string($issuer) && $issuer !== '' ? $issuer : 'TaxOS România';
+        if ($issuer === '') {
+            throw new RuntimeException('identity.totp.issuer is empty — set APP_NAME.');
+        }
+
+        return $issuer;
     }
 
     private function periodSeconds(): int

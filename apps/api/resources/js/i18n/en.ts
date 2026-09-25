@@ -29,7 +29,6 @@ export const en = {
         adminAudit: 'Audit log',
     },
     shell: {
-        appName: 'TaxOS România',
         appTagline: 'Fiscal operating system',
         openMenu: 'Open menu',
         closeMenu: 'Close menu',
@@ -67,7 +66,7 @@ export const en = {
         paletteNames: {
             legacyV16V17: 'v16 / v17',
             balanced: 'Balanced',
-            blue: 'TaxOS Blue',
+            blue: 'Blue',
             slate: 'Slate',
             berry: 'Berry',
             cocoa: 'Cocoa',
@@ -136,7 +135,6 @@ export const en = {
         signIn: 'Sign in',
     },
     auth: {
-        appName: 'TaxOS România',
         signInTitle: 'Sign in',
         registerTitle: 'Create a new account',
         accountCreated: 'Account created. You can sign in now.',
@@ -181,7 +179,7 @@ export const en = {
         showPassword: 'Show password',
         hidePassword: 'Hide password',
         orSeparator: 'or',
-        legalNote: 'By signing in, you agree to the TaxOS security and privacy policies.',
+        legalNote: 'By signing in, you agree to the {appName} security and privacy policies.',
         asideBadge: 'Secure by design',
         asideTitle: 'Your fiscal workspace, protected with stronger authentication.',
         asideBody: 'Sign in once, then confirm access with your authenticator app when two-factor is enabled.',
@@ -191,7 +189,7 @@ export const en = {
         asideDeviceBody: 'Sign in with the device you already unlock.',
         asideAuditTitle: 'Audit trail',
         asideAuditBody: 'Security events stay traceable.',
-        footerCopyright: '© 2026 TaxOS România',
+        footerCopyright: '© 2026 {appName}',
     },
     dashboard: {
         title: 'Dashboard',
@@ -1656,7 +1654,7 @@ export const en = {
         },
         adminSettings: {
             title: 'System settings',
-            description: 'Platform-level configuration for this TaxOS România instance.',
+            description: 'Platform-level configuration for this {appName} instance.',
             blockedOn: 'The configuration API is being built right now, in another task.',
             source: {
                 database: 'saved here',

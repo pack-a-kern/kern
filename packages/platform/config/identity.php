@@ -33,7 +33,7 @@ return [
     */
 
     'totp' => [
-        'issuer' => env('APP_NAME', 'TaxOS România'),
+        'issuer' => env('APP_NAME'),
         'digits' => 6,
         'period_seconds' => 30,
         'clock_skew_periods' => 1,

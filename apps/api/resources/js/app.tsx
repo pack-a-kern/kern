@@ -3,10 +3,19 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { registerServiceWorker } from './lib/registerServiceWorker';
+import { appNameFrom } from './lib/sharedProps';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 
-const appName = import.meta.env.VITE_APP_NAME ?? 'TaxOS România';
+/*
+ * Filled in from the first page Inertia hands us, below, because the name belongs to the server —
+ * `VITE_APP_NAME` meant the tab title was decided when the assets were built, so renaming the
+ * application left the old name in every tab until someone rebuilt the frontend.
+ *
+ * Assigned in `setup()`, which runs before anything renders, and therefore before any `<Head>`
+ * asks for a title. The first load's title comes from Blade and never waits on this.
+ */
+let appName = '';
 
 registerServiceWorker();
 
@@ -23,6 +32,8 @@ void createInertiaApp({
         return page;
     },
     setup({ el, App, props }) {
+        appName = appNameFrom(props.initialPage.props);
+
         createRoot(el).render(
             <TooltipProvider>
                 <App {...props} />

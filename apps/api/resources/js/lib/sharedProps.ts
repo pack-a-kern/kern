@@ -1,6 +1,22 @@
 import { usePage } from '@inertiajs/react';
 
 /**
+ * The product's name, as `APP_NAME` spells it.
+ *
+ * Shared by `HandleInertiaRequests::share()` rather than kept in the dictionaries: a name is not
+ * translated, and a copy per language is a copy that goes stale. Read it here, never write it down.
+ */
+export function appNameFrom(props: unknown): string {
+    const value = (props as { appName?: unknown } | null | undefined)?.appName;
+
+    return typeof value === 'string' ? value : '';
+}
+
+export function useAppName(): string {
+    return appNameFrom(usePage().props);
+}
+
+/**
  * What every screen is handed by the page it arrived on.
  *
  * `HandleInertiaRequests::share()` puts the signed-in account and its taxpayers into the page

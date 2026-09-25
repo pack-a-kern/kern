@@ -29,7 +29,6 @@ export const ro = {
         adminAudit: 'Jurnal de audit',
     },
     shell: {
-        appName: 'TaxOS România',
         appTagline: 'Sistem de operare fiscal',
         openMenu: 'Deschide meniul',
         closeMenu: 'Închide meniul',
@@ -67,7 +66,7 @@ export const ro = {
         paletteNames: {
             legacyV16V17: 'v16 / v17',
             balanced: 'Echilibrat',
-            blue: 'Albastru TaxOS',
+            blue: 'Albastru',
             slate: 'Ardezie',
             berry: 'Zmeură',
             cocoa: 'Cacao',
@@ -136,7 +135,6 @@ export const ro = {
         signIn: 'Autentificare',
     },
     auth: {
-        appName: 'TaxOS România',
         signInTitle: 'Autentificare',
         registerTitle: 'Creați un cont nou',
         accountCreated: 'Cont creat. Vă puteți autentifica acum.',
@@ -182,7 +180,7 @@ export const ro = {
         showPassword: 'Arată parola',
         hidePassword: 'Ascunde parola',
         orSeparator: 'sau',
-        legalNote: 'Prin autentificare acceptați politicile TaxOS de securitate și confidențialitate.',
+        legalNote: 'Prin autentificare acceptați politicile de securitate și confidențialitate ale {appName}.',
         asideBadge: 'Securizat prin construcție',
         asideTitle: 'Spațiul dumneavoastră fiscal, protejat printr-o autentificare mai puternică.',
         asideBody:
@@ -193,7 +191,7 @@ export const ro = {
         asideDeviceBody: 'Vă autentificați cu dispozitivul pe care oricum îl deblocați.',
         asideAuditTitle: 'Urmă de audit',
         asideAuditBody: 'Evenimentele de securitate rămân trasabile.',
-        footerCopyright: '© 2026 TaxOS România',
+        footerCopyright: '© 2026 {appName}',
     },
     dashboard: {
         title: 'Panou',
@@ -1667,7 +1665,7 @@ export const ro = {
         },
         adminSettings: {
             title: 'Setări sistem',
-            description: 'Configurarea la nivel de platformă a instanței TaxOS România.',
+            description: 'Configurarea la nivel de platformă a instanței {appName}.',
             blockedOn: 'API-ul de configurare este în lucru chiar acum, într-o altă sarcină.',
             source: {
                 database: 'salvat aici',

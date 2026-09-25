@@ -20,7 +20,7 @@ return [
     */
 
     'relying_party' => [
-        'name' => env('APP_NAME', 'TaxOS România'),
+        'name' => env('APP_NAME'),
         'id' => env('WEBAUTHN_RP_ID', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
     ],
 

@@ -80,6 +80,7 @@ x-php-image: &php-image
   # column; with an empty Reverb secret it would publish events under a secret anyone can guess. A
   # deployment that is missing one of these must fail to start, not start and fail later.
   environment:
+    APP_NAME: ${APP_NAME:?set APP_NAME — see apps/api/.env.example}
     APP_KEY: ${APP_KEY:?set APP_KEY — see apps/api/.env.example}
     CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see apps/api/.env.example}
     REVERB_APP_ID: ${REVERB_APP_ID:?set REVERB_APP_ID — see apps/api/.env.example}

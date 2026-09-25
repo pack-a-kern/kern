@@ -53,6 +53,15 @@ final class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            /*
+             * The product's name, from `APP_NAME` and nowhere else.
+             *
+             * Shared rather than built into the assets: the frontend used to carry its own copy in
+             * `VITE_APP_NAME`, which meant renaming the application needed the frontend rebuilt, and
+             * a second copy sat in the `ro`/`en` dictionaries as though a name were translatable.
+             * From here it reaches the shell, the login screen and the tab title at runtime.
+             */
+            'appName' => config('app.name'),
             'auth' => $user === null ? null : [
                 /*
                  * Whether this session is somebody else's.

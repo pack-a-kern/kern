@@ -18,6 +18,7 @@ import { ApiError } from '../../lib/http';
 import { Button } from '@/components/ui/button';
 import { Field, PanelInput } from '@/components/panel';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAppName } from '../../lib/sharedProps';
 
 /**
  * The one unauthenticated screen that does something: password, then the second factor.
@@ -50,6 +51,7 @@ function goToDashboard(): void {
 }
 
 export default function Login(): JSX.Element {
+    const appName = useAppName();
     const { t } = useTranslation();
     // Shared by `HandleInertiaRequests`. Absent only if this page were rendered outside Inertia,
     // and "closed" is the safer reading of an unknown — the endpoint decides either way.
@@ -204,7 +206,7 @@ export default function Login(): JSX.Element {
                             </span>
                             <span>
                                 <span className="block text-[13px] font-semibold tracking-tight">
-                                    {t((d) => d.auth.appName)}
+                                    {appName}
                                 </span>
                                 <span className="text-muted-foreground block text-[10px]">
                                     {t((d) => d.shell.appTagline)}
@@ -491,13 +493,13 @@ export default function Login(): JSX.Element {
                             )}
 
                             <p className="text-muted-foreground mt-7 text-center text-[10px] leading-4">
-                                {t((d) => d.auth.legalNote)}
+                                {t((d) => d.auth.legalNote).replace('{appName}', appName)}
                             </p>
                         </section>
                     </div>
 
                     <footer className="border-border text-muted-foreground flex min-h-12 items-center justify-between gap-3 border-t px-5 text-[10px] sm:px-8">
-                        <span>{t((d) => d.auth.footerCopyright)}</span>
+                        <span>{t((d) => d.auth.footerCopyright).replace('{appName}', appName)}</span>
                     </footer>
                 </main>
 

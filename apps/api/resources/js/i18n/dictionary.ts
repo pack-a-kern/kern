@@ -38,7 +38,6 @@ export interface Dictionary {
         adminAudit: string;
     };
     shell: {
-        appName: string;
         appTagline: string;
         openMenu: string;
         closeMenu: string;
@@ -125,7 +124,6 @@ export interface Dictionary {
         signIn: string;
     };
     auth: {
-        appName: string;
         signInTitle: string;
         registerTitle: string;
         accountCreated: string;

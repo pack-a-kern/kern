@@ -12,12 +12,12 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta name="apple-mobile-web-app-title" content="TaxOS">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
         <link rel="manifest" href="/manifest.webmanifest">
         <link rel="icon" href="/icons/icon-192.png">
         <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
-        <title inertia>{{ config('app.name', 'TaxOS România') }}</title>
+        <title inertia>{{ config('app.name') }}</title>
 
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])
