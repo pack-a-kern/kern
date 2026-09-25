@@ -12,11 +12,11 @@ use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SecurityEvent;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

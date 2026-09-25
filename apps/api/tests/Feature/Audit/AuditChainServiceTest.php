@@ -12,8 +12,8 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * These tests exercise real Postgres features (row locking, a PL/pgSQL trigger) that sqlite

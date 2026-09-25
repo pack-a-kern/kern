@@ -16,6 +16,8 @@ use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Banks\Models\Bank;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\ParsedStatementFile;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementColumn;
@@ -39,8 +41,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use ReflectionProperty;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\TestCase;
 
 /**
@@ -61,7 +61,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     $this->app->instance(StatementParseGateway::class, new FakeParseGateway());

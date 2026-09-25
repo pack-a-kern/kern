@@ -12,9 +12,9 @@ use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Documents\ObjectStore\ObjectKey;
 use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * `BLUEPRINT.md` §4.1/§4.3/§4.6 — the raw-database and raw-bucket assertions `docs/handoff/
@@ -28,7 +28,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
 beforeEach(function (): void {
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     Storage::fake('quarantine');

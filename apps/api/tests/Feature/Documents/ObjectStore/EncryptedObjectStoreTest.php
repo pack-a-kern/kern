@@ -12,9 +12,9 @@ use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
 use Kern\Documents\ObjectStore\Exceptions\ObjectNotFoundException;
 use Kern\Documents\ObjectStore\ObjectKey;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * Exercises the full `EncryptedObjectStore` (real service-provider wiring, real Flysystem calls)
@@ -28,7 +28,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
 beforeEach(function (): void {
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     Storage::fake('s3');

@@ -8,6 +8,7 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
@@ -26,7 +27,6 @@ use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
 use Kern\TaxRomania\TaxEngine\TaxContext;
 use Kern\TaxRomania\TaxRules\TaxRule;
-use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 
 /**

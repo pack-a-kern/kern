@@ -6,11 +6,11 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Kern\TaxRomania\Subjects\Exceptions\SubjectLimitReachedException;
 use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * How many taxpayers one account may own.

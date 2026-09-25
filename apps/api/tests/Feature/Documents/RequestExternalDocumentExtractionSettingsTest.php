@@ -16,8 +16,8 @@ use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
 use Kern\Platform\Settings\Services\AiProviderSettingsService;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 
 /**
  * `docs/handoff/041-settings-module.md` requirement #4: `RequestExternalDocumentExtraction` takes
@@ -46,7 +46,7 @@ function sendableDocument(): Document
         throw new \RuntimeException('Unable to open a memory stream.');
     }
 
-    fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
+    fwrite($stream, \Kern\Documents\Testing\FileFixtures::minimalPdf());
     rewind($stream);
     app(\Kern\Documents\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
     fclose($stream);
@@ -59,7 +59,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

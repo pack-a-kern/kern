@@ -11,9 +11,9 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * Milestone 1's definition of done (`docs/handoff/002-laravel-scaffold.md`'s M1 DoD, `BLUEPRINT.md`

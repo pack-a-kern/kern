@@ -22,17 +22,17 @@ use Kern\Documents\ObjectStore\Exceptions\ObjectNotFoundException;
 use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Documents\Scanning\ScanOutcome;
 use Kern\Documents\Scanning\VirusScanner;
+use Kern\Documents\Testing\FileFixtures;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
 use Tests\Fakes\FakeVirusScanner;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
-use Tests\Fixtures\Documents\FileFixtures;
 
 /**
  * A document is an ordered list of files (`document_parts`).
@@ -43,7 +43,7 @@ use Tests\Fixtures\Documents\FileFixtures;
 beforeEach(function (): void {
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     Storage::fake('quarantine');

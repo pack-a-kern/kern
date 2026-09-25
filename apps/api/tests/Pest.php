@@ -10,8 +10,8 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Spatie\Permission\PermissionRegistrar;
-use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\TestCase;
 
 uses(TestCase::class)->in('Feature');
@@ -340,4 +340,18 @@ function packageRoot(string $class): string
     }
 
     return $directory;
+}
+
+/**
+ * A fixture file that belongs to a package, reached through the package.
+ *
+ * The captured BNR feed lives with `kern/tax-romania`, which parses it, and the archived
+ * consolidations live with `kern/legislation`. An application test may read them; the reverse — a
+ * package reaching into `apps/api/tests` — is what the split exists to prevent.
+ *
+ * @param class-string $class any class from the package that owns the fixture
+ */
+function fixtureFromPackage(string $class, string $path): string
+{
+    return packageRoot($class) . '/tests/Fixtures/' . ltrim($path, '/');
 }

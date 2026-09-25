@@ -7,12 +7,12 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — mandatory. Proves

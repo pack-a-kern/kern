@@ -23,12 +23,12 @@ use Kern\Documents\Scanning\ClamdVirusScanner;
 use Kern\Documents\Scanning\Exceptions\VirusScannerUnavailableException;
 use Kern\Documents\Scanning\ScanOutcome;
 use Kern\Documents\Scanning\VirusScanner;
+use Kern\Documents\Testing\FileFixtures;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
 use Tests\Fakes\FakeVirusScanner;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
-use Tests\Fixtures\Documents\FileFixtures;
 
 /**
  * `BLUEPRINT.md` §14.1/§14.2 ClamAV stage, and `docs/AGENTS.md` §21.4's mandatory test: an infected
@@ -43,7 +43,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     Storage::fake('quarantine');

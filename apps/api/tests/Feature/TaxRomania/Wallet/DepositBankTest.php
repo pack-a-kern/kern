@@ -7,12 +7,12 @@ namespace Tests\Feature\TaxRomania\Wallet\DepositBankTest;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Database\Factories\BankFactory;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * A deposit is at a bank, and the bank is its name: chosen from the imported list, never typed.
@@ -22,7 +22,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

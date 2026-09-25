@@ -119,6 +119,6 @@ composer install
 vendor/bin/pest
 ```
 
-Laravel with this package, the audit chain, and nothing else. `TenantIsNotATaxpayerTest` is the one to
-read: it runs the whole tenancy mechanism with the tenant called a workspace and the column
-`workspace_id`, configured and nothing more.
+`tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
+`tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
+the only way to find out whether it is actually installable.

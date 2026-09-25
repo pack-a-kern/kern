@@ -6,6 +6,8 @@ namespace Tests\Feature\TaxRomania\Wallet\WalletReportsTest;
 
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Database\Factories\BankFactory;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
@@ -13,8 +15,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\TestCase;
 
 /**
@@ -29,7 +29,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

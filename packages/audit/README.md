@@ -52,5 +52,6 @@ composer install
 vendor/bin/pest
 ```
 
-It boots Laravel with this package and nothing else — no users, no tenants — because that is the only
-way to find out whether it is installable. The first run found that it was not.
+`tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
+`tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
+the only way to find out whether it is actually installable.

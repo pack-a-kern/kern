@@ -16,9 +16,9 @@ use Kern\Documents\ExternalAi\NullDocumentAiProvider;
 use Kern\Documents\ExternalAi\RequestExternalDocumentExtraction;
 use Kern\Documents\Models\Document;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * ADR 0005's ordering, exercised directly at the action level (`docs/handoff/
@@ -51,7 +51,7 @@ function sendableDocument(): Document
         throw new \RuntimeException('Unable to open a memory stream.');
     }
 
-    fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
+    fwrite($stream, \Kern\Documents\Testing\FileFixtures::minimalPdf());
     rewind($stream);
     app(\Kern\Documents\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
     fclose($stream);
@@ -64,7 +64,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

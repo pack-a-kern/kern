@@ -13,6 +13,7 @@ use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
@@ -26,7 +27,6 @@ use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
 use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `BLUEPRINT.md` §38.B's actual claim — "PFA reuses Identity/Wallet/Documents/Fx/Spv/security

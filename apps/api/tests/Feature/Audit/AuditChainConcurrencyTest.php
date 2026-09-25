@@ -11,8 +11,8 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * Proves the claim in docs/handoff/006-audit-chain.md §2 that

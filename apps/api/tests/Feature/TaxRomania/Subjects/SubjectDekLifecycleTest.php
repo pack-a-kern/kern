@@ -10,11 +10,11 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Enums\SubjectType;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `Kern\Platform\KeyManagement\SubjectDekService`'s "generate on first use, never plaintext"

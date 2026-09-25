@@ -9,10 +9,10 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Database\Factories\TaxSubjectFactory;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `BLUEPRINT.md` §4.4 blind-index exact-match lookups, for the two fields this module owns:

@@ -52,6 +52,6 @@ composer install
 vendor/bin/pest
 ```
 
-`ReadsAndSearchesALawAloneTest` is the proof this package exists for: an act found through the portal's
-web service, both of its consolidations read and dated, and "what did article 145 say on 15 June 2021"
-answered with the text in force then — in an application with no tax code in it at all.
+`tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
+`tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
+the only way to find out whether it is actually installable.

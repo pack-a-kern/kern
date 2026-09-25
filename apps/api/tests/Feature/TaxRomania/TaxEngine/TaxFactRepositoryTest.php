@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
 use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {
     app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());

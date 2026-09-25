@@ -6,8 +6,8 @@ namespace Tests\Feature\Documents\ClamdVirusScannerLiveTest;
 
 use Kern\Documents\Scanning\ClamdVirusScanner;
 use Kern\Documents\Scanning\ScanOutcome;
+use Kern\Documents\Testing\FileFixtures;
 use RuntimeException;
-use Tests\Fixtures\Documents\FileFixtures;
 
 /**
  * `docs/AGENTS.md` §21.4 / `docs/handoff/022-document-pipeline.md`'s mandatory test: a real

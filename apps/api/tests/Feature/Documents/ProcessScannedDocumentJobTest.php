@@ -22,11 +22,11 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Documents\ObjectStore\ObjectKey;
+use Kern\Documents\Testing\FileFixtures;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
-use Tests\Fixtures\Documents\FileFixtures;
 
 /**
  * The reading stage, after the scan.
@@ -38,7 +38,7 @@ use Tests\Fixtures\Documents\FileFixtures;
 beforeEach(function (): void {
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     Storage::fake('s3');

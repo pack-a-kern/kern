@@ -11,6 +11,7 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
@@ -18,7 +19,6 @@ use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Enums\SubjectType;
 use Kern\TaxRomania\Subjects\Exceptions\DuplicateRegistrationNumberException;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * The PFA mirror of `tests/Feature/TaxRomania/Subjects/RegisterPfSubjectTest.php` — Milestone 12's

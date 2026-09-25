@@ -90,11 +90,12 @@ check-php-pg:
 
 ## Each package's own suite: Laravel booted with that package and nothing else.
 ##
-## Distinct from `check-php`, which runs the product's suite — 1293 tests against an application where
-## identity, tenancy and eleven tax modules all happen to be present. That suite cannot tell you
-## whether a package is *installable*, and every one of these found something that was not: unguarded
-## foreign keys to tables the package does not own, a table prefix left behind in the application, a
-## job reading a Horizon supervisor's timeout.
+## Distinct from `check-php`, which runs the application's suite — the feature and integration tests,
+## where packages meet. These are each package's own: the unit tests of its classes, plus the proofs
+## that it installs into an empty Laravel application at all. That second kind is what `check-php`
+## structurally cannot tell you, and every one of them found something: unguarded foreign keys to
+## tables the package does not own, a table prefix left behind in the application, a job reading a
+## Horizon supervisor's timeout.
 ##
 ## Each package installs its own dev dependencies (Testbench, Pest) — it must not borrow the
 ## application's vendor directory, or the isolation being tested would be fictional. Run

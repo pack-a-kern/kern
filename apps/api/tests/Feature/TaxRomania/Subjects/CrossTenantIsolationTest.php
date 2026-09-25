@@ -14,10 +14,10 @@ use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Feature\TaxRomania\Subjects\Fixtures\ScopedFixtureRecord;
 
 /**

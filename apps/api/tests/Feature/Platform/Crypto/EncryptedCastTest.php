@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Schema;
 use Kern\Platform\Crypto\EnvelopeCipher;
 use Kern\Platform\Crypto\Exceptions\EnvelopeException;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 use Tests\Feature\Platform\Crypto\Fixtures\EncryptedNoteA;
 use Tests\Feature\Platform\Crypto\Fixtures\EncryptedNoteB;
 
@@ -63,7 +63,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

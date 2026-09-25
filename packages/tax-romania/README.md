@@ -58,5 +58,6 @@ composer install
 vendor/bin/pest
 ```
 
-All five packages, no application: it migrates from nothing, registers a taxpayer whose CNP appears
-nowhere in the clear, and shows one taxpayer's records invisible to another.
+`tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
+`tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
+the only way to find out whether it is actually installable.

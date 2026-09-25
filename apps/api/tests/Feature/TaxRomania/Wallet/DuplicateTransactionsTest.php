@@ -10,6 +10,8 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\StatementImport\Enums\StatementImportStatus;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
@@ -21,8 +23,6 @@ use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * Lookalike transactions: gathered, merged, or kept — never refused at import.
@@ -36,7 +36,7 @@ beforeEach(function (): void {
 
     $this->app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 });
 

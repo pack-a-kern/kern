@@ -12,9 +12,9 @@ use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
 use Kern\Documents\ObjectStore\ObjectKey;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Testing\InMemoryDekRepository;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use RuntimeException;
-use Tests\Fakes\InMemoryKeyManagementService;
-use Tests\Fakes\InMemorySubjectDekRepository;
 
 /**
  * Proves `EncryptedObjectStore` against a real, running MinIO (docker/... —
@@ -50,7 +50,7 @@ function configureLiveDisk(Application $app): void
 {
     $app->instance(
         SubjectDekService::class,
-        new SubjectDekService(new InMemoryKeyManagementService(), new InMemorySubjectDekRepository()),
+        new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     $endpoint = getenv('OBJECTSTORE_TEST_ENDPOINT');

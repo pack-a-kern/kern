@@ -71,5 +71,6 @@ composer install
 vendor/bin/pest
 ```
 
-Laravel with this package, the platform and the audit chain — and a *workspace* for a tenant, so the
-suite fails if anything here starts assuming a taxpayer again.
+`tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
+`tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
+the only way to find out whether it is actually installable.

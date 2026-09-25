@@ -6,6 +6,7 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -19,7 +20,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 use Kern\TaxRomania\TaxRules\TaxRuleVersion;
-use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {
     app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());

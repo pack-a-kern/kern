@@ -35,7 +35,7 @@ beforeEach(function (): void {
 
 function dailyFixture(string $name): string
 {
-    $contents = file_get_contents(fixture('Fx/Bnr/' . $name));
+    $contents = file_get_contents(fixtureFromPackage(FxRate::class, 'Fx/Bnr/' . $name));
 
     if ($contents === false) {
         throw new RuntimeException("Missing test fixture: {$name}");

@@ -174,12 +174,18 @@ Laravel's `failed_jobs`, and the one migration that renames tables belonging to 
 
 ## Stage 2, and what installing each package alone found
 
-Every package has a Testbench suite that boots Laravel with that package, its dependencies, and
-nothing else: `make check-packages`. Each one installs its own dev dependencies rather than borrowing
-the application's `vendor/`, because a suite that shared it would prove nothing about isolation.
+Every package has its own suite: `make check-packages`. Each installs its own dev dependencies rather
+than borrowing the application's `vendor/`, because a suite that shared it would prove nothing about
+isolation. Two kinds of test live there. `tests/Unit` is the package's own classes tested as plain
+PHP — 55 files moved out of the application, since a test of `EnvelopeCipher` or of the BNR XML parser
+belongs beside the thing it tests. `tests/Integration` boots Laravel with that package and nothing
+else, which is the part the application's suite structurally cannot do.
 
-The product's own 1293 tests run against an application where identity, tenancy and eleven tax modules
-all happen to be present, so they could not have found any of this:
+The application keeps what is genuinely its own: the feature and integration tests where two packages
+meet — 61 touch two packages, 29 touch three, 3 touch four — and those are the seams an application
+exists to hold. 901 tests there, 412 across the five packages.
+
+The application's own suite could not have found any of this:
 
 - **`kern/audit` could not migrate alone.** The migration adding the identity foreign keys named
   `tax_subjects` and `users` unconditionally. Both keys are now added only where the table exists,
