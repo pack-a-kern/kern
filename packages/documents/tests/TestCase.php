@@ -26,6 +26,9 @@ use Orchestra\Testbench\TestCase as Testbench;
  * The object store writes to a local disk here rather than to MinIO. What is under test is that a
  * document's bytes are encrypted before they are handed to a disk, which is true of any Flysystem
  * adapter; that S3 in particular works is the application's integration test, and it has one.
+ *
+ * Under the skeleton application's own `storage/`, not `/tmp`: the suite runs inside a container as
+ * `appuser`, and a directory in a shared `/tmp` belongs to whoever created it first.
  */
 abstract class TestCase extends Testbench
 {
@@ -61,7 +64,7 @@ abstract class TestCase extends Testbench
         ));
         $app['config']->set('crypto.blind_index.current_version', 1);
 
-        $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => sys_get_temp_dir() . '/kern-objects']);
+        $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => $app->storagePath('kern-objects')]);
         $app['config']->set('objectstore.disk', 'objects');
         $app['config']->set('documents.quarantine_disk', 'objects');
 

@@ -52,7 +52,7 @@ abstract class TestCase extends Testbench
 
         $app['config']->set('filesystems.disks.sources', [
             'driver' => 'local',
-            'root' => sys_get_temp_dir() . '/kern-legislation-sources',
+            'root' => $app->storagePath('kern-sources'),
         ]);
         $app['config']->set('sources.storage.disk', 'sources');
         $app['config']->set('sources.storage.prefix', 'sources');

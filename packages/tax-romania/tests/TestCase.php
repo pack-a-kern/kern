@@ -66,7 +66,7 @@ abstract class TestCase extends Testbench
         ));
         $app['config']->set('crypto.blind_index.current_version', 1);
 
-        $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => sys_get_temp_dir() . '/kern-tax-objects']);
+        $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => $app->storagePath('kern-objects')]);
         $app['config']->set('objectstore.disk', 'objects');
         $app['config']->set('documents.quarantine_disk', 'objects');
         $app['config']->set('sources.storage.disk', 'objects');

@@ -100,20 +100,24 @@ check-php-pg:
 ## application's vendor directory, or the isolation being tested would be fictional. Run
 ## `make packages-install` once, and again when a package's composer.json changes.
 ##
-## As root inside the container: Testbench writes its skeleton application's caches into the package's
-## own vendor directory, which is bind-mounted from the host and not owned by the runtime user.
-##
 ## Points at `kern_pkg_test`, a database of its own, because these suites migrate from nothing.
 check-packages:
 	@for p in audit platform documents legislation tax-romania; do \
 		echo "── kern/$$p"; \
-		docker compose exec -T -u root $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
+		docker compose exec -T $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
 	done
 
 ## Install each package's dev dependencies, and create the database its suite migrates into.
 ##
 ## `--ignore-platform-req` because composer runs on the host, whose PHP is older than the 8.4 the
 ## packages require; the suites themselves run inside the container, on 8.5.
+##
+## The `chmod` is not incidental. Testbench boots a skeleton Laravel application that lives inside the
+## package's own vendor directory, and writes its compiled config and logs there. That directory is
+## created by composer on the host and bind-mounted into a container whose PHP runs as `appuser`
+## (uid 10001), so without this the suite stops on "bootstrap/cache must be writable". Widening two
+## cache directories is the fix; running the tests as root instead would work and would leave
+## root-owned files in your tree.
 packages-install:
 	docker compose exec -T postgres sh -lc 'psql -U $$POSTGRES_USER -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'kern_pkg_test'"'"'" | grep -q 1 || createdb -U $$POSTGRES_USER kern_pkg_test'
 	@for p in audit platform documents legislation tax-romania; do \
@@ -121,7 +125,16 @@ packages-install:
 		(cd packages/$$p && composer install --no-interaction \
 			--ignore-platform-req=php --ignore-platform-req=ext-sodium \
 			--ignore-platform-req=ext-intl --ignore-platform-req=ext-bcmath) || exit 1; \
+		chmod -R a+rwX packages/$$p/vendor/orchestra/testbench-core/laravel/bootstrap/cache \
+			packages/$$p/vendor/orchestra/testbench-core/laravel/storage; \
 	done
+
+## Remove what `packages-install` created — around 420 MB of per-package vendor directories.
+##
+## Safe: nothing but each package's own test suite uses them. The application resolves the packages
+## through its own `vendor/kern/*` symlinks, which are not these.
+packages-clean:
+	rm -rf packages/*/vendor
 
 ## Apply .env or compose changes to the running stack.
 ##
