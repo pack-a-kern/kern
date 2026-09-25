@@ -37,8 +37,8 @@ blocked item #3, ADR 0007).
 ## Files created / changed
 
 **Migrations** (`apps/api/database/migrations/2026_09_08_301100`–`301102`)
-- `301100_create_taxos_unaccent_function.php` — `CREATE EXTENSION IF NOT EXISTS vector/unaccent/
-  pg_trgm` (see "A latent CI gap this task fixed" below) and `taxos_unaccent(text) RETURNS text`,
+- `301100_create_kern_unaccent_function.php` — `CREATE EXTENSION IF NOT EXISTS vector/unaccent/
+  pg_trgm` (see "A latent CI gap this task fixed" below) and `kern_unaccent(text) RETURNS text`,
   an `IMMUTABLE` wrapper around contrib `unaccent()` (which is `STABLE`, confirmed by querying
   `pg_proc.provolatile` directly — not assumed). Read this migration's docblock in full: getting
   this one function right took three failed attempts against real Postgres, each with a different,
@@ -51,12 +51,12 @@ blocked item #3, ADR 0007).
   and its dictionary argument schema-qualified).
 - `301101_create_source_section_chunks_table.php` — `source_section_chunks`: portable columns via
   `Schema::create()`, then `embedding vector(64)` and a generated `tsvector` column
-  (`GENERATED ALWAYS AS (to_tsvector('romanian', taxos_unaccent(text))) STORED`) added via raw SQL,
+  (`GENERATED ALWAYS AS (to_tsvector('romanian', kern_unaccent(text))) STORED`) added via raw SQL,
   guarded to `pgsql` — the same shape `2026_09_08_100001_create_audit_events_table.php`'s trigger
   already established for "Postgres-only enhancement, portable base table." Indexes: GIN on the
   tsvector, HNSW (`vector_cosine_ops`) on the embedding.
 - `301102_add_citation_trigram_index_to_source_sections_table.php` — GIN trigram index on
-  `taxos_unaccent(lower(citation_label))` for fuzzy article lookup.
+  `kern_unaccent(lower(citation_label))` for fuzzy article lookup.
 
 **`App\Domain\TaxKnowledge\Retrieval\Embedding`** (the seam, mirroring
 `App\Domain\Documents\ExternalAi` exactly)
@@ -152,11 +152,11 @@ blocked item #3, ADR 0007).
    `ProcessScannedDocument` already uses for `ExternalDocumentAiProvider`). This is a different
    axis from the unknown-date rule: it is a known, accepted, visible product limitation ("no
    provider yet"), not a fact about any particular row's data.
-6. **`taxos_unaccent()` needed no custom Romanian-letter translation table.** Before assuming
+6. **`kern_unaccent()` needed no custom Romanian-letter translation table.** Before assuming
    contrib `unaccent`'s dictionary might not handle the legacy cedilla forms (ş U+015F, ţ U+0163)
    the same as the correct comma-below forms (ș U+0219, ț U+021B), this was checked directly
    against the real `pgvector/pgvector:pg18-trixie` image: both already fold to plain `s`/`t`.
-   `taxos_unaccent()` is a thin `IMMUTABLE` wrapper for index/generated-column compatibility only
+   `kern_unaccent()` is a thin `IMMUTABLE` wrapper for index/generated-column compatibility only
    — see migration `301100`'s docblock for the three real failures fixing that wrapper required.
 7. **A latent CI gap this task fixes as a side effect**: `.github/workflows/ci.yml`'s `postgres:`
    service starts `pgvector/pgvector:pg18-trixie` directly with no init-script mount, so
@@ -192,8 +192,8 @@ scored AS (
         dv.id AS document_version_id, sd.id AS source_document_id,
         sd.issuer, sd.document_type, sd.publication_date,
         os.code AS source_code, os.trust_tier,
-        ts_rank_cd(c.text_search, plainto_tsquery('romanian', taxos_unaccent(p.query_text)), 32) AS lexical_rank,
-        similarity(taxos_unaccent(lower(s.citation_label)), taxos_unaccent(lower(p.query_text))) AS citation_similarity,
+        ts_rank_cd(c.text_search, plainto_tsquery('romanian', kern_unaccent(p.query_text)), 32) AS lexical_rank,
+        similarity(kern_unaccent(lower(s.citation_label)), kern_unaccent(lower(p.query_text))) AS citation_similarity,
         CASE WHEN c.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
              THEN 1 - (c.embedding <=> p.query_embedding) ELSE NULL END AS semantic_similarity,
         CASE
@@ -253,8 +253,8 @@ already-vendored `apps/api/`, against a dedicated Postgres database
 (`docs/AGENTS.md` §7b — another agent was concurrently active):
 
 ```sh
-docker exec anaf-postgres-1 psql -U taxos -d postgres -c 'CREATE DATABASE taxos_rag;'
-docker exec anaf-postgres-1 psql -U taxos -d taxos_rag \
+docker exec anaf-postgres-1 psql -U kern -d postgres -c 'CREATE DATABASE kern_rag;'
+docker exec anaf-postgres-1 psql -U kern -d kern_rag \
   -c 'CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
 ```
 
@@ -268,12 +268,12 @@ $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G   # full r
 $ vendor/bin/deptrac analyse --config-file=deptrac.php
   Violations 0, Skipped violations 0, Uncovered 558, Allowed 265, Warnings 0, Errors 0
 
-# Real Postgres (taxos_rag), run 1:
-$ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=taxos_rag DB_USERNAME=taxos DB_PASSWORD=*** \
+# Real Postgres (kern_rag), run 1:
+$ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=kern_rag DB_USERNAME=kern DB_PASSWORD=*** \
     vendor/bin/pest tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge --no-coverage
   Tests: 1 skipped, 118 passed (328 assertions)
 
-# Real Postgres (taxos_rag), run 2 (leak check) — identical:
+# Real Postgres (kern_rag), run 2 (leak check) — identical:
   Tests: 1 skipped, 118 passed (328 assertions)
 
 # Whole tests/Unit tree (all domains, sqlite default — pure tests, no DB needed):

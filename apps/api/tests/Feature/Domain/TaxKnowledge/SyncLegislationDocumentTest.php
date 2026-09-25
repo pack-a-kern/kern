@@ -386,7 +386,7 @@ it('finds acts on the portal by title or by number, and says which are read alre
     governmentDecisionPortal();
 
     bootstrapIdentityCryptoForTests();
-    Artisan::call('taxos:access:sync');
+    Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
@@ -408,7 +408,7 @@ it('finds acts on the portal by title or by number, and says which are read alre
 
 it('searches the portal only for those who may read a law in', function (): void {
     bootstrapIdentityCryptoForTests();
-    Artisan::call('taxos:access:sync');
+    Artisan::call('kern:access:sync');
 
     $this->actingAs(User::factory()->create())->getJson('/api/v1/legislation/portal?title=codul%20fiscal')->assertForbidden();
 });
@@ -416,7 +416,7 @@ it('searches the portal only for those who may read a law in', function (): void
 it('imports the act chosen on the screen, through the task, to the end', function (): void {
     governmentDecisionPortal();
     bootstrapIdentityCryptoForTests();
-    Artisan::call('taxos:access:sync');
+    Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
@@ -432,7 +432,7 @@ it('imports the act chosen on the screen, through the task, to the end', functio
 it('filters a portal search to one type', function (): void {
     governmentDecisionPortal();
     bootstrapIdentityCryptoForTests();
-    Artisan::call('taxos:access:sync');
+    Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 

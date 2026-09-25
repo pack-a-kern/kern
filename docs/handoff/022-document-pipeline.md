@@ -136,7 +136,7 @@ this task's code ever writes; `REVIEWED`/`ACCEPTED`/`REJECTED` are reachable onl
 - `apps/api/config/documents.php` — quarantine disk, size/pixel limits, ClamAV connection,
   text-extraction base URL, upload rate limit.
 - `apps/api/config/filesystems.php` — added the `quarantine` disk (same MinIO endpoint/creds as
-  `s3`, a different bucket, `QUARANTINE_BUCKET` env, default `taxos-quarantine`).
+  `s3`, a different bucket, `QUARANTINE_BUCKET` env, default `kern-quarantine`).
 
 **Wiring** (outside the strict path list, minimal and additive — same justification pattern every
 prior handoff in this repo uses for this kind of change)
@@ -247,7 +247,7 @@ prior handoff in this repo uses for this kind of change)
 ## How to verify
 
 All commands actually run, against the real `docker/php/Dockerfile` `test` stage
-(`docker build -f docker/php/Dockerfile --target test -t taxos-php-test:local .`), following
+(`docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .`), following
 `docs/handoff/002-laravel-scaffold.md`'s host-PHP-mismatch precedent (host is 8.3; the image is
 8.5).
 
@@ -280,13 +280,13 @@ one-shot init step is the less-secure option; see the recommendation above).
 
 **Pint, whole project:**
 ```text
-$ docker run --rm taxos-php-test:local vendor/bin/pint --test
+$ docker run --rm kern-php-test:local vendor/bin/pint --test
   PASS .......................................................... 553 files
 ```
 
 **PHPStan level 9, no baseline, whole project:**
 ```text
-$ docker run --rm -e APP_KEY=... taxos-php-test:local vendor/bin/phpstan analyse --memory-limit=1G
+$ docker run --rm -e APP_KEY=... kern-php-test:local vendor/bin/phpstan analyse --memory-limit=1G
  ------ ---------------------------------------------------------------------- 
   Line   tests/Fixtures/TaxEngine/Purity/ImpureEnvironmentRule.php
  ------ ----------------------------------------------------------------------
@@ -299,21 +299,21 @@ task, not in `app/Domain/Documents/**`. **Zero errors anywhere in this task's ow
 
 **Deptrac, whole project:**
 ```text
-$ docker run --rm -e APP_KEY=... taxos-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
+$ docker run --rm -e APP_KEY=... kern-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
  Violations 0, Skipped violations 0, Uncovered 446, Allowed 227, Warnings 0, Errors 0
 ```
 
 **`composer validate`/`composer audit`** (no dependency changed — nothing to re-lock):
 ```text
-$ docker run --rm taxos-php-test:local composer validate --no-check-all
+$ docker run --rm kern-php-test:local composer validate --no-check-all
 ./composer.json is valid
-$ docker run --rm taxos-php-test:local composer audit
+$ docker run --rm kern-php-test:local composer audit
 No security vulnerability advisories found.
 ```
 
 **Whole suite, sqlite:**
 ```text
-$ docker run --rm -e APP_KEY=... taxos-php-test:local vendor/bin/pest
+$ docker run --rm -e APP_KEY=... kern-php-test:local vendor/bin/pest
 Tests: 301 warnings, 264 passed (1454 assertions)
 ```
 (The "warning" on nearly every test — `file_get_contents(/var/www/html/.env): Failed to open
@@ -326,8 +326,8 @@ investigated further — outside this task's scope and does not affect correctne
 ```text
 $ docker run --rm --network anaf_data_net \
     -e APP_KEY=... -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 \
-    -e DB_DATABASE=taxos -e DB_USERNAME=taxos -e DB_PASSWORD=... \
-    taxos-php-test:local vendor/bin/pest
+    -e DB_DATABASE=kern -e DB_USERNAME=kern -e DB_PASSWORD=... \
+    kern-php-test:local vendor/bin/pest
 Run 1: Tests: 301 warnings, 264 passed (1502 assertions)
 Run 2: Tests: 301 warnings, 264 passed (1502 assertions)   — identical, no state leak
 ```
@@ -393,9 +393,9 @@ MinIO in `docs/handoff/012-encrypted-object-store.md`; this task's own raw-bucke
   would then see that as `TextExtractionUnavailableException`-shaped failure and leave the document
   at `PROCESSING`, retried forever — a real gap `docs/handoff/019`'s open question already named,
   not newly introduced here).
-- **No bucket auto-provisioning for `taxos-quarantine`.** Created once, out of band, for this
-  task's own live verification (`mc mb --ignore-existing local/taxos-quarantine`) — same situation
-  `docs/handoff/012-encrypted-object-store.md` decision #7 already flagged for `taxos-documents`,
+- **No bucket auto-provisioning for `kern-quarantine`.** Created once, out of band, for this
+  task's own live verification (`mc mb --ignore-existing local/kern-quarantine`) — same situation
+  `docs/handoff/012-encrypted-object-store.md` decision #7 already flagged for `kern-documents`,
   now doubled. Whoever builds the provisioning step should do both buckets together.
 - **The `clamav` compose service capability defect** (see "How to verify" above) is a real,
   reproduced infra bug, not fixed here (`compose.yaml`/`docker/**` is out of this task's path

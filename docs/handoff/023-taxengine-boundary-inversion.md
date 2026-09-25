@@ -164,7 +164,7 @@ before a single test runs.
 ```text
 $ docker run --rm --network anaf_data_net --user root \
     -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 \
-    -e DB_DATABASE=taxos -e DB_USERNAME=taxos -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
+    -e DB_DATABASE=kern -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
     -e APP_KEY=base64:<random> \
     -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c 'vendor/bin/pint --test'
   PASS .......................................................... 592 files

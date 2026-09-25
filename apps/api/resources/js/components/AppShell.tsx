@@ -555,7 +555,7 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
     );
 }
 
-const SIDEBAR_COLLAPSED_KEY = 'taxos.sidebarCollapsed';
+const SIDEBAR_COLLAPSED_KEY = 'kern.sidebarCollapsed';
 
 function readStoredCollapsed(): boolean {
     try {

@@ -31,7 +31,7 @@ own isolated box, that talks to the others over a private network.
 | `redis` | An in-memory data store used for: the session store, the cache, the background job queues, and real-time broadcasting to `reverb`. |
 | `minio-init-perms` | Runs once at startup to fix file-ownership on the object storage volume, then exits. Not a long-running service. |
 | `minio` | Object storage (S3-compatible) — this is where uploaded documents actually live as files. |
-| `minio-init-buckets` | Runs once at startup to create the two storage "buckets" (`taxos-documents`, `taxos-quarantine` — like top-level folders) the app expects, then exits. |
+| `minio-init-buckets` | Runs once at startup to create the two storage "buckets" (`kern-documents`, `kern-quarantine` — like top-level folders) the app expects, then exits. |
 | `openbao` | The key-management service ("KMS") that holds the master key used to protect every taxpayer's personal encryption key. See section 4. **Runs in "dev mode" as configured — not production-safe. See section 7.** |
 | `openbao-init` | Runs once at startup to set up the encryption key inside `openbao`, then exits. |
 | `mailpit` | **DEV-ONLY.** A fake mail server with a web inbox, so outgoing emails can be previewed during development instead of actually being sent. Only exists in `compose.override.yaml`. |
@@ -195,7 +195,7 @@ shipped default may not be what you want.
 | Variable | Why it's safe to leave |
 |---|---|
 | `APP_NAME` | Cosmetic — shows up in notifications and the Horizon dashboard title. |
-| `POSTGRES_DB`, `POSTGRES_USER` | Fine at their shipped defaults (`taxos`) unless you have a naming reason to change them. |
+| `POSTGRES_DB`, `POSTGRES_USER` | Fine at their shipped defaults (`kern`) unless you have a naming reason to change them. |
 | `CRYPTO_BLIND_INDEX_CURRENT_VERSION` | Only changes when you're deliberately rotating the blind-index key — leave at `1` otherwise. |
 | `VITE_DEFAULT_PALETTE` | Just picks which colour theme greets a user before they choose one. |
 | `POSTGRES_DEV_PORT`, `REDIS_DEV_PORT`, `MINIO_DEV_API_PORT`, `MINIO_DEV_CONSOLE_PORT`, `MAILPIT_UI_PORT`, `VITE_DEV_PORT` | These only do anything when `compose.override.yaml` (dev-only, section 1) is loaded. In a production deployment running `compose.yaml` alone, they have no effect at all. |
@@ -291,7 +291,7 @@ clean checkout on the server.
    Fill in every "must change" variable from section 3, using the generation commands in section 4.
 
 2. **Put a TLS certificate in place.** `edge` expects a certificate and key at
-   `docker/nginx/certs/taxos.crt` and `docker/nginx/certs/taxos.key` (mounted read-only into the
+   `docker/nginx/certs/kern.crt` and `docker/nginx/certs/kern.key` (mounted read-only into the
    container). A self-signed pair is already committed for development; for a real deployment,
    replace it (see section 7 — this is one of the "needs a decision" items).
 
@@ -319,7 +319,7 @@ clean checkout on the server.
    ```
    This also runs the one-shot setup containers automatically, in the right order, because of the
    `depends_on` conditions in `compose.yaml`: `minio-init-perms` fixes storage ownership, then
-   `minio` starts, then `minio-init-buckets` creates the `taxos-documents` and `taxos-quarantine`
+   `minio` starts, then `minio-init-buckets` creates the `kern-documents` and `kern-quarantine`
    buckets, then `openbao-init` sets up the encryption master key, then `app`/`queue` start (they
    wait on Postgres, Redis, and the buckets being ready first).
 
@@ -335,12 +335,12 @@ clean checkout on the server.
    roles system (ADR 0014) — `SUPER_ADMIN`, `ADMIN`, `ACCOUNTANT`, `VIEWER` — not an environment
    variable. First, project the role/permission catalogue into the database:
    ```bash
-   docker compose exec app php artisan taxos:access:sync
+   docker compose exec app php artisan kern:access:sync
    ```
    Then grant yourself the top role (this is also how you'd recover if every admin account were
    ever locked out — it only needs shell access to the server, on purpose):
    ```bash
-   docker compose exec app php artisan taxos:access:grant you@example.com SUPER_ADMIN
+   docker compose exec app php artisan kern:access:grant you@example.com SUPER_ADMIN
    ```
 
 8. **Confirm the scheduler and queues are actually running** — see section 6 below.
@@ -393,7 +393,7 @@ files.
    outright: "OpenBao runs in dev mode... Fine for a demo, never for real taxpayer data." **This is
    the single highest-priority item before any real personal data goes into this system.**
 
-2. **The TLS certificate is self-signed.** `docker/nginx/certs/taxos.crt`/`.key` cover the current
+2. **The TLS certificate is self-signed.** `docker/nginx/certs/kern.crt`/`.key` cover the current
    public IP, a Tailscale IP, and `localhost` — browsers will show a security warning to every
    visitor. `docs/STATUS.md`'s deployment note says explicitly: point a real domain at the server and
    issue a certificate via Let's Encrypt. Related: HSTS (a setting that would force browsers to
@@ -404,7 +404,7 @@ files.
 3. **Object storage endpoint is hard-coded, not an environment variable.** `.env.example`'s own
    comment says production should "point `AWS_ENDPOINT` at a real S3-compatible provider instead" of
    MinIO — but in `compose.yaml`, `AWS_ENDPOINT` (`http://minio:9000`), `AWS_BUCKET`
-   (`taxos-documents`), `QUARANTINE_BUCKET` (`taxos-quarantine`), and `AWS_DEFAULT_REGION`
+   (`kern-documents`), `QUARANTINE_BUCKET` (`kern-quarantine`), and `AWS_DEFAULT_REGION`
    (`eu-central-1`) are all written directly into the file with no `${...}` variable behind them.
    Moving off self-hosted MinIO to a real S3-compatible provider means **editing `compose.yaml`
    itself**, not just `.env` — there's no environment variable to flip.

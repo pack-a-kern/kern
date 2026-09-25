@@ -27,7 +27,7 @@ set -eu
 
 : "${BAO_ADDR:?BAO_ADDR must be set}"
 : "${BAO_TOKEN:?BAO_TOKEN must be set}"
-TAXOS_KEK_NAME="${TAXOS_KEK_NAME:-tax-subject-kek}"
+KERN_KEK_NAME="${KERN_KEK_NAME:-tax-subject-kek}"
 
 echo "openbao-init: waiting for ${BAO_ADDR} to report healthy..."
 until bao status >/dev/null 2>&1; do
@@ -41,7 +41,7 @@ else
     bao secrets enable transit
 fi
 
-echo "openbao-init: ensuring KEK '${TAXOS_KEK_NAME}' exists (type=chacha20-poly1305)."
-bao write -f "transit/keys/${TAXOS_KEK_NAME}" type=chacha20-poly1305
+echo "openbao-init: ensuring KEK '${KERN_KEK_NAME}' exists (type=chacha20-poly1305)."
+bao write -f "transit/keys/${KERN_KEK_NAME}" type=chacha20-poly1305
 
 echo "openbao-init: done."

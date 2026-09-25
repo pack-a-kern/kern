@@ -13,7 +13,7 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
  * does when the bucket does not exist: `writeStream()`/`put()` return `false` rather than throwing,
  * because `config/filesystems.php` sets `'throw' => false` on both S3 disks.
  *
- * That silent `false` is what made a missing `taxos-quarantine` bucket surface as
+ * That silent `false` is what made a missing `kern-quarantine` bucket surface as
  * `EncryptedObjectStore`'s own "Failed writing object …" `RuntimeException` — the exact production
  * failure this fake reproduces, so the rollback it triggers can be tested without a broken MinIO.
  *
@@ -25,7 +25,7 @@ final class UnwritableDisk extends FilesystemAdapter
 {
     public function __construct()
     {
-        $adapter = new LocalFilesystemAdapter(sys_get_temp_dir() . '/taxos-unwritable-disk');
+        $adapter = new LocalFilesystemAdapter(sys_get_temp_dir() . '/kern-unwritable-disk');
 
         parent::__construct(new Flysystem($adapter), $adapter);
     }

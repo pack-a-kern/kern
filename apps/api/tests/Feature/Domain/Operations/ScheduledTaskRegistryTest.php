@@ -67,7 +67,7 @@ it('falls back to the code defaults rather than taking the scheduler down with t
 });
 
 it('records a run with the command exit code, not merely that nothing threw', function (): void {
-    // `taxos:access:sync` is the one task in the enum that is safe to execute here: it reaches no
+    // `kern:access:sync` is the one task in the enum that is safe to execute here: it reaches no
     // network and writes only to the permission tables this suite already rebuilds.
     $task = OperationTask::ACCESS_SYNC;
 

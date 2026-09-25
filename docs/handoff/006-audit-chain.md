@@ -311,7 +311,7 @@ inside a throwaway `docker build -f docker/php/Dockerfile --target test` image (
 `runtime` stage), matching `docs/handoff/002-laravel-scaffold.md`'s documented approach — built and
 discarded for this task, not a deliverable. A real Postgres (`pgvector/pgvector:pg18-trixie`, this
 project's pinned tag) is required for the trigger and concurrency tests; a plain
-`docker run -d --name <x> -e POSTGRES_USER=taxos -e POSTGRES_PASSWORD=taxos -e POSTGRES_DB=taxos
+`docker run -d --name <x> -e POSTGRES_USER=kern -e POSTGRES_PASSWORD=kern -e POSTGRES_DB=kern
 pgvector/pgvector:pg18-trixie` on a shared Docker network with the test image is sufficient — the
 full `compose.yaml` stack is not required for this module in isolation.
 

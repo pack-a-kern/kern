@@ -39,8 +39,8 @@ describe('useRememberedState', () => {
     });
 
     it('ignores a stored value of the wrong type or one the screen no longer offers', () => {
-        window.localStorage.setItem('taxos.view.logs.jobs.status', JSON.stringify('archived'));
-        window.localStorage.setItem('taxos.view.logs.audit.page', JSON.stringify('four'));
+        window.localStorage.setItem('kern.view.logs.jobs.status', JSON.stringify('archived'));
+        window.localStorage.setItem('kern.view.logs.audit.page', JSON.stringify('four'));
 
         const status = renderHook(() =>
             useRememberedState<string>('logs.jobs.status', 'all', {
@@ -63,7 +63,7 @@ describe('useRememberedState', () => {
             result.current[1]('audit');
         });
 
-        expect(window.localStorage.getItem('taxos.view.logs.tab')).toBeNull();
+        expect(window.localStorage.getItem('kern.view.logs.tab')).toBeNull();
     });
 });
 
@@ -87,7 +87,7 @@ describe('useRememberedPaging', () => {
     });
 
     it('refuses a remembered page size the pager does not offer', () => {
-        window.localStorage.setItem('taxos.view.logs.audit.pageSize', JSON.stringify(7));
+        window.localStorage.setItem('kern.view.logs.audit.pageSize', JSON.stringify(7));
 
         const { result } = renderHook(() => useRememberedPaging('logs.audit'));
 

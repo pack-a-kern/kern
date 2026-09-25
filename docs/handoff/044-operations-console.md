@@ -127,7 +127,7 @@ the real registered schedule entry and asserting that both writes happen.
 
 ## New command
 
-`taxos:audit:verify [--chain=]` — walks every audit chain and recomputes every hash, exiting 1 on
+`kern:audit:verify [--chain=]` — walks every audit chain and recomputes every hash, exiting 1 on
 the first failure. The API's summary endpoint bounds itself to 25 chains so a page load stays fast;
 this verifies all of them, which is why it belongs on a queue and in the run ledger.
 
@@ -136,7 +136,7 @@ this verifies all of them, which is why it belongs on a queue and in the run led
 ```
 make check                     # green
 docker compose exec app php artisan migrate
-docker compose exec app php artisan taxos:access:sync    # creates operations.view / operations.run
+docker compose exec app php artisan kern:access:sync    # creates operations.view / operations.run
 docker compose up -d --force-recreate app queue scheduler   # new env vars in compose.yaml
 ```
 
@@ -144,12 +144,12 @@ The recreate is for the new `OPERATIONS_*` variables in `compose.yaml`, not for 
 `docker/php/php.dev.ini` was added, development picks up edited PHP on the next request. Compose
 still only reads a container's environment when it creates it.
 
-`taxos:access:sync` is required — without it the new permissions exist in `config/access.php` but
+`kern:access:sync` is required — without it the new permissions exist in `config/access.php` but
 not in the database, and every operations route answers 403.
 
 ## What is deliberately not here
 
-- **`taxos:legislation:ingest`.** It takes a source code, a URL and a document type — an ingestion
+- **`kern:legislation:ingest`.** It takes a source code, a URL and a document type — an ingestion
   decision with a provenance consequence, not a button. `OperationTaskTest` asserts its absence.
 - **Retiming a job from the UI.** Timing stays in `config/operations.php` / env.
 - **KMS key version and rotation state.** Additive later; it changes no shape on this page.

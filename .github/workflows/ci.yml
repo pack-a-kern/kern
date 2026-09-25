@@ -164,13 +164,13 @@ jobs:
         # unaccent/pg_trgm extensions this project needs are present.
         image: pgvector/pgvector:pg18-trixie
         env:
-          POSTGRES_DB: taxos
-          POSTGRES_USER: taxos
-          POSTGRES_PASSWORD: taxos_ci
+          POSTGRES_DB: kern
+          POSTGRES_USER: kern
+          POSTGRES_PASSWORD: kern_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U taxos"
+          --health-cmd="pg_isready -U kern"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
@@ -193,9 +193,9 @@ jobs:
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_DATABASE: taxos
-      DB_USERNAME: taxos
-      DB_PASSWORD: taxos_ci
+      DB_DATABASE: kern
+      DB_USERNAME: kern
+      DB_PASSWORD: kern_ci
       REDIS_CLIENT: phpredis
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
@@ -436,7 +436,7 @@ jobs:
           context: .
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
-          tags: taxos/${{ matrix.name }}:ci
+          tags: kern/${{ matrix.name }}:ci
           push: false
           load: true
           cache-from: type=gha,scope=${{ matrix.name }}
@@ -445,7 +445,7 @@ jobs:
       - name: Generate SBOM (SPDX)
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
-          image: taxos/${{ matrix.name }}:ci
+          image: kern/${{ matrix.name }}:ci
           format: spdx-json
           output-file: sbom-${{ matrix.name }}.spdx.json
           upload-artifact: true
@@ -462,7 +462,7 @@ jobs:
       - name: Vulnerability scan (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: taxos/${{ matrix.name }}:ci
+          image-ref: kern/${{ matrix.name }}:ci
           scanners: vuln
           format: table
           severity: CRITICAL,HIGH

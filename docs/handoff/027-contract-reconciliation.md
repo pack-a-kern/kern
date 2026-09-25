@@ -175,39 +175,39 @@ All commands below were actually run; output is real, not asserted.
 
 **Build the test image** (`docker/php/Dockerfile --target test`, per `docs/handoff/008-ci-pipeline.md`):
 ```
-$ docker build -f docker/php/Dockerfile --target test -t taxos-php-test:local .
+$ docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
 ... (builds clean)
 ```
 
 **`composer validate` / `composer audit`** (no dependency changed):
 ```
-$ docker run --rm taxos-php-test:local composer validate --no-check-all
+$ docker run --rm kern-php-test:local composer validate --no-check-all
 ./composer.json is valid
-$ docker run --rm taxos-php-test:local composer audit
+$ docker run --rm kern-php-test:local composer audit
 No security vulnerability advisories found.
 ```
 
 **Pint:**
 ```
-$ docker run --rm taxos-php-test:local vendor/bin/pint --test
+$ docker run --rm kern-php-test:local vendor/bin/pint --test
 PASS ... 619 files
 ```
 
 **PHPStan, level 9, no baseline:**
 ```
-$ docker run --rm -e APP_KEY=base64:... taxos-php-test:local vendor/bin/phpstan analyse --memory-limit=1G
+$ docker run --rm -e APP_KEY=base64:... kern-php-test:local vendor/bin/phpstan analyse --memory-limit=1G
 [OK] No errors
 ```
 
 **Deptrac** (Documents module only touched; 0 violations, unchanged from before this task):
 ```
-$ docker run --rm taxos-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
+$ docker run --rm kern-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
 Violations 0, Skipped violations 0, Uncovered 508, Allowed 254, Warnings 0, Errors 0
 ```
 
 **Whole suite, sqlite:**
 ```
-$ docker run --rm -e APP_KEY=base64:... taxos-php-test:local vendor/bin/pest
+$ docker run --rm -e APP_KEY=base64:... kern-php-test:local vendor/bin/pest
 Tests: 336 warnings, 286 passed (1670 assertions)
 ```
 (The per-test "warning" is the pre-existing missing-`.env`-in-test-image artifact noted in
@@ -215,7 +215,7 @@ Tests: 336 warnings, 286 passed (1670 assertions)
 
 **Whole suite, real Postgres, run twice** (`docker compose up -d postgres redis` first;
 `docker run --rm --network anaf_data_net --user root -e DB_CONNECTION=pgsql -e DB_HOST=postgres
--e DB_PORT=5432 -e DB_DATABASE=taxos -e DB_USERNAME=taxos -e DB_PASSWORD=... taxos-php-test:local
+-e DB_PORT=5432 -e DB_DATABASE=kern -e DB_USERNAME=kern -e DB_PASSWORD=... kern-php-test:local
 vendor/bin/pest`, per `docs/handoff/015`/`016`):
 ```
 Run 1: Tests: 336 warnings, 286 passed (1718 assertions)
@@ -245,7 +245,7 @@ $ docker run --rm --network anaf_processing_net \
     -e APP_KEY=base64:... -e DOCUMENTS_TEXT_EXTRACTION_URL=http://python-api:8000 \
     -e INTERNAL_SERVICE_AUTH_TOKEN=<the real shared secret from .env> \
     -v <scratch>:/verify:ro \
-    taxos-php-test:local php /verify/verify_gateway.php /verify/pdf_fixtures/text.pdf
+    kern-php-test:local php /verify/verify_gateway.php /verify/pdf_fixtures/text.pdf
 
 === clean text-layer PDF ===
 OK: page_count=1 needs_ocr=false
@@ -342,7 +342,7 @@ session state and were left as they were.
 - `docs/handoff/016-postgres-suite-stabilisation.md`, `docs/handoff/015-m1-integration-repairs.md`
   — the real-Postgres verification commands and the "a green sqlite run is not evidence" lesson
   this task's own Postgres runs (and the honestly-recorded transient deadlock) follow.
-- `docs/handoff/008-ci-pipeline.md` — the `taxos-php-test:local` test-image build convention used
+- `docs/handoff/008-ci-pipeline.md` — the `kern-php-test:local` test-image build convention used
   for every quality-gate command in this task.
 - Source files read directly (not just their handoffs): `apps/api/app/Domain/Documents/FileSecurity/
   Exceptions/{FileSecurityException,FileTooLargeException}.php` and `FileSecurityValidator.php` (the

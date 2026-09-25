@@ -216,7 +216,7 @@ blank value in `apps/api/.env` — the real value lives in the repo root `.env`
 ```text
 $ docker run --rm --network anaf_data_net --user root \
     -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 \
-    -e DB_DATABASE=taxos -e DB_USERNAME=taxos -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
+    -e DB_DATABASE=kern -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
     -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c 'vendor/bin/pint --test'
   PASS .......................................................... 537 files
 

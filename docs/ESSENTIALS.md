@@ -47,7 +47,7 @@ Iterate with the **scoped** suite. Run the full suite **once**, at the end, agai
 twice**, to prove no state leaks. If another agent is active, create your own database:
 
 ```sh
-docker exec anaf-postgres-1 psql -U <user> -d postgres -c 'CREATE DATABASE taxos_<task>;'
+docker exec anaf-postgres-1 psql -U <user> -d postgres -c 'CREATE DATABASE kern_<task>;'
 ```
 
 Failures in a module you did not touch usually mean a shared database, not a real bug.

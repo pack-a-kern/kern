@@ -6,7 +6,7 @@ import { en } from './en';
 export type Locale = 'ro' | 'en';
 
 const DICTIONARIES: Record<Locale, Dictionary> = { ro, en };
-const STORAGE_KEY = 'taxos.locale';
+const STORAGE_KEY = 'kern.locale';
 const DEFAULT_LOCALE: Locale = 'ro';
 
 const listeners = new Set<() => void>();
@@ -70,7 +70,7 @@ export function getDictionary(): Dictionary {
  * before a third-party package"). `t()` takes a *selector*, not a string key — `ro.ts`/`en.ts`
  * both `satisfies Dictionary`, so a translation missing from either file is a `tsc` error, not a
  * blank string a user can actually see in production. The current choice is a non-sensitive UI
- * preference persisted in `localStorage['taxos.locale']` (`BLUEPRINT.md` §17).
+ * preference persisted in `localStorage['kern.locale']` (`BLUEPRINT.md` §17).
  */
 export function useTranslation(): {
     t: <T>(select: (dictionary: Dictionary) => T) => T;

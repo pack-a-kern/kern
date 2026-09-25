@@ -156,7 +156,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withoutOverlapping();
         }
 
-        // Legislation ingestion is deliberately NOT scheduled. `taxos:legislation:ingest` takes an
+        // Legislation ingestion is deliberately NOT scheduled. `kern:legislation:ingest` takes an
         // explicit {source} {url} pair; there is no manifest of "documents to periodically
         // re-check" in this codebase yet (Milestone 3 built the capability, not a watch list —
         // docs/handoff/018-legislation-ingestion.md "What is NOT done"), and inventing one to give

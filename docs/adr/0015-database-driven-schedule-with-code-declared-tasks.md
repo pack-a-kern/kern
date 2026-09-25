@@ -24,7 +24,7 @@ a one-line schedule change needs `docker compose up -d --force-recreate app`.
 
 **B. Everything in the database.** A `scheduled_tasks` table with a `command` column and a
 `cron_expression` column, both editable from the screen. This is what most "cron UI" packages do.
-It is also remote code execution behind an administration form — `taxos:fx:import-daily` and
+It is also remote code execution behind an administration form — `kern:fx:import-daily` and
 `migrate:fresh` are both strings, and nothing downstream can tell them apart — and a free-text cron
 field is the standard way a job stops running forever with no error raised anywhere.
 
@@ -65,7 +65,7 @@ stuck in `RUNNING` is itself the diagnostic.
   degrades to the code-declared defaults and reports the failure instead.
 - Retiming a job still requires an env change and a recreate. Accepted: a cron expression typed
   into a web form is not a capability worth the failure mode it introduces.
-- `taxos:legislation:ingest` is absent from the enum. It takes a source code, a URL and a document
+- `kern:legislation:ingest` is absent from the enum. It takes a source code, a URL and a document
   type — an ingestion decision with a provenance consequence (`BLUEPRINT.md` §7.1), not a button.
   `tests/Feature/Domain/Operations/OperationTaskTest.php` asserts its absence, so adding it later is
   a deliberate act with a failing test to answer for.

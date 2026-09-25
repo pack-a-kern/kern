@@ -94,7 +94,7 @@ RUN apt-get update \
         libfcgi-bin=2.4.5-0.1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-taxos.ini
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-kern.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 RUN groupadd --gid 10001 appuser \

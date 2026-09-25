@@ -20,7 +20,7 @@ use Throwable;
 final class SyncLegislationCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:legislation:sync
+    protected $signature = 'kern:legislation:sync
         {type? : The act type, e.g. LEGE, HOTARARE, ORDONANTA — diacritics optional}
         {number? : The act number, e.g. 227}
         {year? : The year of the act, e.g. 2015}

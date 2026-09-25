@@ -11,7 +11,7 @@ use Throwable;
 final class BackfillBanksCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:banks:backfill
+    protected $signature = 'kern:banks:backfill
         {--from= : First month to read, as YYYY-MM — the ECB archive goes back to 2017-01. Defaults to BANKS_BACKFILL_FROM.}';
 
     /** @var string */

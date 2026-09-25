@@ -19,7 +19,7 @@ use Throwable;
 final class BackfillBnrYearCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:fx:backfill
+    protected $signature = 'kern:fx:backfill
         {year : Fiscal year to backfill, e.g. 2025 — BNR archives are available for 2005-2026 (docs/reference/bnr-fx-endpoints.md)}
         {--dry-run : Validate the configured BNR yearly endpoint and allowlist without fetching or writing anything}';
 

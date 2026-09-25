@@ -18,7 +18,7 @@ import { DEFAULT_PALETTE, isPaletteName, paletteVariables, type PaletteName } fr
  * `localStorage` is the right home for it. It does not follow a person to another browser; the
  * deployment-wide starting point is `VITE_DEFAULT_PALETTE`.
  */
-const STORAGE_KEY = 'taxos.palette';
+const STORAGE_KEY = 'kern.palette';
 const listeners = new Set<() => void>();
 let current: PaletteName = readStoredPalette();
 

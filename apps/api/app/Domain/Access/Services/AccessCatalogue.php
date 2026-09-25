@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * Reads `config/access.php` — the declared set of platform roles and permissions.
  *
- * The database rows created by `taxos:access:sync` are a projection of this file, never the other
+ * The database rows created by `kern:access:sync` are a projection of this file, never the other
  * way round: a permission that exists only in the database is reported by the sync command as
  * undeclared rather than silently honoured, because an authorization set that can be edited
  * without review is not one you can reason about.

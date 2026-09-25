@@ -98,4 +98,4 @@ not change when a file moves; only the keys the code uses do.
    application's config reads that `apps/api/.env.example` does not list.
 
 Not done: a `security/` folder for `crypto`, `identity` and `access` (three small files gain nothing
-from a folder), and an umbrella `taxos/` folder (it only lengthens every key).
+from a folder), and an umbrella `kern/` folder (it only lengthens every key).

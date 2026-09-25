@@ -19,7 +19,7 @@ import type { DocumentStatus, DocumentType, RejectionReason } from '../types/doc
  *   knows about" (no list-documents endpoint exists yet).
  */
 
-const DB_NAME = 'taxos-pwa';
+const DB_NAME = 'kern-pwa';
 const DB_VERSION = 2;
 const CAPTURE_STORE = 'captureQueue';
 const DOCUMENTS_STORE = 'knownDocuments';

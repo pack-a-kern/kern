@@ -42,7 +42,7 @@ abstract class TestCase extends BaseTestCase
      * not depend on that resolution order: it asks the connection, after boot, what it is actually
      * pointed at, and refuses anything not on this list.
      */
-    private const array ALLOWED_DATABASES = [':memory:', 'taxos_test'];
+    private const array ALLOWED_DATABASES = [':memory:', 'kern_test'];
 
     /**
      * The guard has to run here, not in `setUp()`.
@@ -77,7 +77,7 @@ abstract class TestCase extends BaseTestCase
      * Deliberately a hard failure with no opt-out flag: an environment variable that disables this
      * would be set once, in a hurry, and then forgotten — which is the same failure mode it exists
      * to prevent. To run the Postgres-only suites, create the test database and point at it:
-     * `DB_CONNECTION=pgsql DB_DATABASE=taxos_test vendor/bin/pest`.
+     * `DB_CONNECTION=pgsql DB_DATABASE=kern_test vendor/bin/pest`.
      */
     private function refuseNonTestDatabase(): void
     {
@@ -90,7 +90,7 @@ abstract class TestCase extends BaseTestCase
         throw new RuntimeException(sprintf(
             'Refusing to run tests against database [%s]: the suite runs migrate:fresh and would '
             . 'drop every table. Allowed: %s. For the Postgres-only suites use '
-            . 'DB_CONNECTION=pgsql DB_DATABASE=taxos_test.',
+            . 'DB_CONNECTION=pgsql DB_DATABASE=kern_test.',
             $database,
             implode(', ', self::ALLOWED_DATABASES),
         ));

@@ -90,7 +90,7 @@ found 0 vulnerabilities
 that doesn't match reality") is exactly why this was done live, not just via `vitest`'s fetch mocks.
 Brought up the real stack (`docker compose`, images already built:
 `anaf-app`/`anaf-reverb`/`anaf-edge`/`anaf-queue`/`anaf-python-api`) against `postgres`/`redis`/
-`minio`/`clamav`/`openbao`, which were already running and already fully migrated (`taxos` database —
+`minio`/`clamav`/`openbao`, which were already running and already fully migrated (`kern` database —
 did **not** run `migrate:fresh` against it, per `docs/AGENTS.md` §7b; only new rows were inserted, all
 scoped to one freshly-registered test user/subject, so no other agent's data was read or touched).
 Registered a real user via `POST /api/v1/auth/register`, logged in via `POST /api/v1/auth/login`,
@@ -136,7 +136,7 @@ container, not a new code path. Everything downstream of that row's creation (li
 the 409 conflict, the audit-trail visibility) is the real HTTP → controller → domain → Postgres round
 trip, not a stub.
 
-Test data left behind in the shared `taxos` dev database: one user
+Test data left behind in the shared `kern` dev database: one user
 (`pwawiring-test@example.com`), one PF `TaxSubject` ("Ion Popescu", a placeholder name, not a real
 person), three documents, and their extractions. All net-new rows scoped to that one subject; nothing
 existing was modified. Not cleaned up — this is a dev database already carrying other agents' test
@@ -158,8 +158,8 @@ out of this task's scope to invoke by hand.
    transaction, so the self-referencing FK is added before the primary key it references exists.
    This blocked running `migrate:fresh` against a dedicated database for this task
    (`docs/AGENTS.md` §7b's recommended isolation) — worked around by testing against the already-
-   migrated shared `taxos` database instead (see "How to verify"), inserting only new rows. The
-   already-migrated `taxos` database's `source_sections` table has the correct final shape (checked
+   migrated shared `kern` database instead (see "How to verify"), inserting only new rows. The
+   already-migrated `kern` database's `source_sections` table has the correct final shape (checked
    directly: PK + both FKs present), so this is a *fresh-migration* reproducibility bug, not a
    corruption of existing data — but it means a fresh environment cannot be stood up today. Out of
    this task's file scope (`database/migrations/**` is not `resources/js/**`); not touched.
@@ -201,7 +201,7 @@ task's scope remains exactly as documented there and was not touched by this tas
 ## Open questions
 
 1. Should the `source_sections` migration ordering bug (found here) block the next agent who needs a
-   truly fresh database, or is the shared `taxos` database's already-correct schema an acceptable
+   truly fresh database, or is the shared `kern` database's already-correct schema an acceptable
    stopgap indefinitely? Needs someone with `database/migrations/**` in scope.
 2. Should `queue`/`scheduler` gain `processing_net` in `compose.yaml` permanently, or is there a
    deliberate reason (not documented anywhere I found) that only `app` was given it? Needs someone
@@ -227,7 +227,7 @@ task's scope remains exactly as documented there and was not touched by this tas
   observed (no auto-confirm at any endpoint tried; `UntrustedDocumentText` never rendered as trusted
   HTML — `fieldValueAsText()` only ever produces JSX text content; no sensitive data written to
   `localStorage` — confirmed by reading `subjectStore.ts`'s only two keys stored,
-  `taxos.activeSubjectId`, an opaque id).
+  `kern.activeSubjectId`, an opaque id).
 - Live, real command output this session — `npm ci`/`tsc`/`eslint`/`prettier`/`vitest`/`build`/
   `audit`, `docker compose up`, `curl` against the live app, `docker exec ... php artisan
   {migrate,tinker,queue:retry}` — all pasted verbatim above, none asserted without running.

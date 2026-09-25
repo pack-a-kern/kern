@@ -21,6 +21,6 @@ final class BankSourceNotConfiguredException extends RuntimeException
 
     public static function nothingImported(): self
     {
-        return new self('The bank list is empty: run taxos:banks:import first, so the backfill knows which banks are current.');
+        return new self('The bank list is empty: run kern:banks:import first, so the backfill knows which banks are current.');
     }
 }

@@ -16,15 +16,15 @@
 docker/nginx/certs/*.key
 
 # A stray sqlite database is created whenever DB_DATABASE names a file instead of a
-# Postgres database — `apps/api/taxos` appeared exactly that way during a test run.
+# Postgres database — `apps/api/kern` appeared exactly that way during a test run.
 # It is never the real database (that is Postgres, in a volume) and can hold real rows
 # if someone points a dev command at it, so it must never be committed.
 *.sqlite
 *.sqlite3
-/apps/api/taxos
+/apps/api/kern
 /apps/api/database/*.sqlite
 
-# Debugging screenshots pasted in while working. The design mockups (taxos-*.html) are
+# Debugging screenshots pasted in while working. The design mockups (kern-*.html) are
 # deliberately kept — they are the reference the UI is built against.
 *.PNG
 *.png
@@ -32,5 +32,5 @@ docker/nginx/certs/*.key
 !docs/**/*.png
 
 # Design mockups. Reference material, not part of the application.
-/taxos*.html
-/apps/api/taxos*.html
+/kern*.html
+/apps/api/kern*.html

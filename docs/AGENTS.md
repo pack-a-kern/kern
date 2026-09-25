@@ -217,8 +217,8 @@ produce failures that belong to nobody's code. If another agent is active (check
 `docs/STATUS.md` → *Files currently being worked on*), create your own database first:
 
 ```sh
-docker exec anaf-postgres-1 psql -U <user> -c 'CREATE DATABASE taxos_<yourtask>;'
-# then run with -e DB_DATABASE=taxos_<yourtask>
+docker exec anaf-postgres-1 psql -U <user> -c 'CREATE DATABASE kern_<yourtask>;'
+# then run with -e DB_DATABASE=kern_<yourtask>
 ```
 
 When you see failures in a module you did not touch, suspect this before you suspect the code —

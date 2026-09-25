@@ -17,7 +17,7 @@ answer "who can change the AI provider?" was to read a `.env` on a server.
 ## Decision
 
 `spatie/laravel-permission` (pinned `8.3.0`), with the catalogue declared in `config/access.php`
-and projected into the database by `taxos:access:sync`.
+and projected into the database by `kern:access:sync`.
 
 - **Permissions are code-defined.** A permission only means something when a route or policy checks
   it; one created at runtime is a label that protects nothing. Declaring them in a reviewed file
@@ -32,7 +32,7 @@ and projected into the database by `taxos:access:sync`.
   permission no code consults asserts a protection that does not exist.
 - **`SETTINGS_ADMIN_USER_IDS` is removed entirely**, along with `SettingsAdministrators` and the
   `settings-admin` middleware. Routes use Spatie's `permission:` middleware directly.
-- **Bootstrapping is a shell command**, `taxos:access:grant {email} {role}`. The first administrator
+- **Bootstrapping is a shell command**, `kern:access:grant {email} {role}`. The first administrator
   cannot be created through a UI that requires `users.manage`; requiring shell access is the same
   trust boundary as reaching the database.
 
@@ -42,7 +42,7 @@ and projected into the database by `taxos:access:sync`.
   configuration change nobody sees.
 - Lockout is possible in a way the allowlist made impossible, so it is guarded explicitly: you
   cannot remove your own last role, cannot demote the last `SUPER_ADMIN`, and cannot suspend
-  yourself. Recovery from a total loss is `taxos:access:grant` on the host.
+  yourself. Recovery from a total loss is `kern:access:grant` on the host.
 - `MembershipRole` is untouched and still enforced by nothing. Platform roles answer "what may you
   do to the installation"; per-subject roles will answer "what may you do to this taxpayer's data",
   and that is a separate piece of work.

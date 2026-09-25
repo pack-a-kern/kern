@@ -156,7 +156,7 @@ The mechanism (`resources/js/i18n/`):
   string key: `t((d) => d.nav.dashboard)`, not `t('nav.dashboard')`. This means there is no runtime
   string-path parsing at all, and every call site gets full autocomplete/type-checking on the exact
   shape of the dictionary — a typo in a key name is caught by `tsc`, not discovered at runtime.
-- Locale is a non-sensitive UI preference in `localStorage['taxos.locale']` (`BLUEPRINT.md` §17),
+- Locale is a non-sensitive UI preference in `localStorage['kern.locale']` (`BLUEPRINT.md` §17),
   default `'ro'`, following the exact pattern `resources/js/hooks/useTheme.ts` already established
   for the dark-mode preference.
 - `AppShell`'s `LanguageMenu` (topbar dropdown) covers every authenticated screen;
@@ -177,7 +177,7 @@ English translation added, not a shortened paraphrase.
 ## AppShell
 
 `resources/js/components/AppShell.tsx`. Desktop: a collapsible sidebar (`localStorage
-['taxos.sidebarCollapsed']`, non-sensitive UI state) holding every navigation destination, grouped
+['kern.sidebarCollapsed']`, non-sensitive UI state) holding every navigation destination, grouped
 into the main list, "Contul meu"/"My account", and (if `ADMIN_UI_ENABLED`) "Administrare"/
 "Administration". Collapsed state shows icons only, each wrapped in a `Tooltip` carrying the real
 label so the control stays discoverable/accessible even iconified. Phone: the identical navigation
@@ -250,7 +250,7 @@ There is no role/permission system in this codebase — Spatie's `laravel-permis
 adopted in a separate, concurrent task per `docs/STATUS.md`, but does not exist yet. The
 "Administrare" sidebar group and its five routes are gated behind a single named constant,
 `resources/js/lib/featureFlags.ts`'s `ADMIN_UI_ENABLED`, carrying an explicit
-`@todo(TAXOS-ROLES)` naming the real gate this must become
+`@todo(KERN-ROLES)` naming the real gate this must become
 (`usePage().props.auth.user.can('platform.admin')` or equivalent, once Spatie lands). It currently
 defaults to `true` **only** so the product owner's stated goal — see every planned screen, including
 the admin ones — is achievable in this review; it is not, and must never be treated as, real

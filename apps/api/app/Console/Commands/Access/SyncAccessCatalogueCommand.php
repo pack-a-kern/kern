@@ -19,11 +19,11 @@ use Spatie\Permission\PermissionRegistrar;
  * *reported*, never deleted. Revoking a permission changes who can do what, which is a decision
  * someone should make explicitly rather than inherit from an edit that happened to remove a line.
  *
- * Grants nothing to anybody: `taxos:access:grant` is how a user receives a role.
+ * Grants nothing to anybody: `kern:access:grant` is how a user receives a role.
  */
 final class SyncAccessCatalogueCommand extends Command
 {
-    protected $signature = 'taxos:access:sync {--dry-run : Report what would change without writing}';
+    protected $signature = 'kern:access:sync {--dry-run : Report what would change without writing}';
 
     protected $description = 'Create the roles and permissions declared in config/access.php (BLUEPRINT.md §5.3).';
 

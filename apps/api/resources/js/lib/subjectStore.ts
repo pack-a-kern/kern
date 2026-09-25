@@ -15,7 +15,7 @@
  * because `localStorage` can throw in a locked-down/private-browsing context; losing this
  * convenience must never crash the app.
  */
-const STORAGE_KEY = 'taxos.activeSubjectId';
+const STORAGE_KEY = 'kern.activeSubjectId';
 
 export function getActiveSubjectId(): string | null {
     try {

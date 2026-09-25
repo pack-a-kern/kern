@@ -250,7 +250,7 @@ stabilisation.md`/`docs/handoff/023-taxengine-boundary-inversion.md` document. D
 after verification completed.
 
 ```text
-$ docker exec anaf-postgres-1 psql -U taxos -d postgres -c 'CREATE DATABASE taxos_d212;'
+$ docker exec anaf-postgres-1 psql -U kern -d postgres -c 'CREATE DATABASE kern_d212;'
 CREATE DATABASE
 
 $ docker run --rm --network anaf_data_net --user root -v "$PWD/apps/api":/app -w /app \
@@ -279,8 +279,8 @@ $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G'  
                             docs/handoff/023-taxengine-boundary-inversion.md gives an out-of-scope
                             Domain/Rental error it found the same way).
 
-$ ... -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=taxos_d212 \
-      -e DB_USERNAME=taxos -e DB_PASSWORD=<POSTGRES_PASSWORD> -e APP_KEY=base64:<random> \
+$ ... -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=kern_d212 \
+      -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD> -e APP_KEY=base64:<random> \
       -c 'php artisan migrate --force'
   ... 2026_09_08_900000_create_form_definitions_table ............ DONE
   ... 2026_09_08_900001_create_form_versions_table ................ DONE
@@ -308,7 +308,7 @@ $ docker run --rm -v "$PWD/apps/api":/app -w /app composer:2 sh -c \
 ./composer.json is valid
 No security vulnerability advisories found.
 
-$ docker exec anaf-postgres-1 psql -U taxos -d postgres -c 'DROP DATABASE taxos_d212;'
+$ docker exec anaf-postgres-1 psql -U kern -d postgres -c 'DROP DATABASE kern_d212;'
 DROP DATABASE
 ```
 

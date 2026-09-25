@@ -11,9 +11,9 @@
 --
 -- Extensions are per-database in Postgres, so they must be created again here rather than
 -- inherited from the development database.
-CREATE DATABASE taxos_test OWNER taxos;
+CREATE DATABASE kern_test OWNER kern;
 
-\connect taxos_test
+\connect kern_test
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS unaccent;

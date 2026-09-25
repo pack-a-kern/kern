@@ -42,7 +42,7 @@ return [
             'trust_tier' => 'B',
             'base_url' => 'https://www.anaf.ro',
             'allowed_hosts' => ['anaf.ro', 'www.anaf.ro', 'static.anaf.ro'],
-            'user_agent' => 'TaxOS-RO-SourceCrawler/1.0 (+https://taxos.ro; contact: compliance@taxos.ro)',
+            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
             'enabled' => true,
             'priority' => 1,
         ],
@@ -51,7 +51,7 @@ return [
             'trust_tier' => 'C',
             'base_url' => 'https://mfinante.gov.ro',
             'allowed_hosts' => ['mfinante.gov.ro'],
-            'user_agent' => 'TaxOS-RO-SourceCrawler/1.0 (+https://taxos.ro; contact: compliance@taxos.ro)',
+            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
             'enabled' => true,
             'priority' => 1,
         ],
@@ -72,7 +72,7 @@ return [
             // 2026-09-15, the daily feed timed out with the default and answered in 0.16s with these.
             // Other sources accept the default, so they declare none.
             'tls_curves' => env('BNR_TLS_CURVES', 'X25519:P-256:P-384'),
-            'user_agent' => 'TaxOS-RO-SourceCrawler/1.0 (+https://taxos.ro; contact: compliance@taxos.ro)',
+            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -102,7 +102,7 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.ecb.europa.eu',
             'allowed_hosts' => ['www.ecb.europa.eu'],
-            'user_agent' => 'TaxOS-RO-SourceCrawler/1.0 (+https://taxos.ro; contact: compliance@taxos.ro)',
+            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -129,7 +129,7 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.gleif.org',
             'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org'],
-            'user_agent' => 'TaxOS-RO-SourceCrawler/1.0 (+https://taxos.ro; contact: compliance@taxos.ro)',
+            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [

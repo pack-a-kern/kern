@@ -28,7 +28,7 @@ final class IndexCounterpartiesCommand extends Command
     /** Chunked so a large table is not held in memory, and a failure halfway leaves the rest to do. */
     private const int CHUNK = 200;
 
-    protected $signature = 'taxos:wallet:index-counterparties';
+    protected $signature = 'kern:wallet:index-counterparties';
 
     protected $description = 'Backfill the counterparty blind index on transactions recorded before it existed.';
 

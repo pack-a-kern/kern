@@ -22,8 +22,8 @@
  */
 
 const CACHE_VERSION = 'v1';
-const SHELL_CACHE = `taxos-shell-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `taxos-runtime-${CACHE_VERSION}`;
+const SHELL_CACHE = `kern-shell-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `kern-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {

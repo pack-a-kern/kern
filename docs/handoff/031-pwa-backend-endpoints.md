@@ -160,22 +160,22 @@ new `Queries`/`Review` namespaces stay inside those same two layers), and no dep
 ## How to verify
 
 Created a dedicated database per `docs/AGENTS.md` §7b (another agent was active in
-`app/Domain/Spv/**` at the time): `docker exec anaf-postgres-1 psql -U taxos -c 'CREATE DATABASE
-taxos_pwaapi;'`. All commands below run for real against the existing `taxos-php-test:local` image
+`app/Domain/Spv/**` at the time): `docker exec anaf-postgres-1 psql -U kern -c 'CREATE DATABASE
+kern_pwaapi;'`. All commands below run for real against the existing `kern-php-test:local` image
 (`docs/handoff/008-ci-pipeline.md`'s test image), output pasted verbatim.
 
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local composer validate --no-check-all
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local composer validate --no-check-all
 ./composer.json is valid
 
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local composer audit
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local composer audit
 No security vulnerability advisories found.
 
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local vendor/bin/pint --test
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local vendor/bin/pint --test
   PASS .......................................................... 763 files
 
 $ docker run --rm -v apps/api:/var/www/html -w /var/www/html -e APP_KEY=base64:... \
-    taxos-php-test:local php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
+    kern-php-test:local php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
 [ERROR] Found 8 errors
 ```
 All 8 are in `app/Domain/Spv/**` (`ApplyPortalAuthResult.php`, `DestroySpvSession.php`,
@@ -187,13 +187,13 @@ touched. **Zero errors in every file this task created or changed.** Recorded he
 touched.
 
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
  Violations 0, Skipped violations 0, Uncovered 638, Allowed 317, Warnings 0, Errors 0
 
 $ docker run --rm --network anaf_data_net --user root \
     -e APP_KEY=base64:... -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 \
-    -e DB_DATABASE=taxos_pwaapi -e DB_USERNAME=taxos -e DB_PASSWORD=... \
-    -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local vendor/bin/pest
+    -e DB_DATABASE=kern_pwaapi -e DB_USERNAME=kern -e DB_PASSWORD=... \
+    -v apps/api:/var/www/html -w /var/www/html kern-php-test:local vendor/bin/pest
 Run 1: Tests: 3 warnings, 10 skipped, 700 passed (2002 assertions)
 Run 2: Tests: 3 warnings, 10 skipped, 700 passed (2002 assertions)   — identical, no state leak
 ```
@@ -349,7 +349,7 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   (human-in-the-loop review, no PII in broadcasts/logs, JSON envelope/cursor pagination,
   cross-tenant isolation tests).
 - `docs/AGENTS.md` §6 (module boundaries), §7b (dedicated-database testing — followed exactly,
-  `taxos_pwaapi`), §10 (recording the pre-existing `app/Domain/Spv/**` PHPStan findings rather than
+  `kern_pwaapi`), §10 (recording the pre-existing `app/Domain/Spv/**` PHPStan findings rather than
   fixing them).
 - `docs/CODE-QUALITY.md` — §1/§2 applied to Key decisions #3 (no invented schema) and the "no new
   rate limiter" call in "What is NOT done."

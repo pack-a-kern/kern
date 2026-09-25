@@ -19,7 +19,7 @@ Entry points:
 ## Files created / changed
 
 Backend
-- `composer.json` — project renamed `taxos/api`; tight `^` constraints on verified minors per
+- `composer.json` — project renamed `kern/api`; tight `^` constraints on verified minors per
   `docs/DEPENDENCY-POLICY.md` (never `*`, never unbounded `>=`); `config.platform.php` pinned to
   `8.5.10` and `config.platform-check: false` (see **Key decisions**).
 - `pint.json` — PSR-12 preset + `declare_strict_types`, `strict_param`, `strict_comparison`, import

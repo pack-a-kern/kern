@@ -171,7 +171,7 @@ Entry points:
    own `AWS_*`/`config('filesystems.disks.s3')`.** This was a real bug caught during this task's
    own verification, not a hypothetical: `apps/api/.env` (created by a concurrent agent for local
    `php artisan serve` development) legitimately sets `AWS_ENDPOINT=http://127.0.0.1:9000` and
-   `AWS_BUCKET=taxos-documents`. A skip-check keyed on those env vars read "available" in a
+   `AWS_BUCKET=kern-documents`. A skip-check keyed on those env vars read "available" in a
    throwaway test container with no route to `127.0.0.1:9000` and no credentials, and the test
    then failed loudly (`writeStream()` returning `false`) instead of skipping cleanly. This is
    exactly the reason `docs/handoff/005-crypto-core.md`'s `OpenBaoLiveIntegrationTest` uses
@@ -180,10 +180,10 @@ Entry points:
    broke. `configureLiveDisk()` in the live test overrides `config('filesystems.disks.s3')`
    wholesale from `OBJECTSTORE_TEST_ENDPOINT`/`_BUCKET`/`_KEY`/`_SECRET`/`_REGION`.
 
-7. **No new bucket-provisioning code.** `taxos-documents` did not exist on MinIO when this task
+7. **No new bucket-provisioning code.** `kern-documents` did not exist on MinIO when this task
    began (`docs/handoff/001-docker-topology.md` "What is NOT done" flagged this explicitly). It
    was created once, out of band, for this task's own live verification
-   (`mc mb --ignore-existing local/taxos-documents`) — not via a committed script, since
+   (`mc mb --ignore-existing local/kern-documents`) — not via a committed script, since
    provisioning it permanently is infra/`docker/**` scope this task was told to stay out of.
    **Whoever builds Milestone 7 needs a real, idempotent bucket-provisioning step** (following the
    `minio-init-perms`/`openbao-init` pattern) before this module is useful outside tests.
@@ -223,7 +223,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
   Violations 0, Skipped violations 0, Uncovered 76, Allowed 31, Warnings 0, Errors 0
 ```
 
-**Live MinIO proof** (bucket created once via `mc mb --ignore-existing local/taxos-documents`
+**Live MinIO proof** (bucket created once via `mc mb --ignore-existing local/kern-documents`
 against the real `docker compose up -d minio` service; run attached to `anaf_data_net` with
 dedicated test credentials — see decision #6 for why these are not the app's own `AWS_*` vars):
 
@@ -231,7 +231,7 @@ dedicated test credentials — see decision #6 for why these are not the app's o
 $ docker run --rm --network anaf_data_net \
     -e APP_KEY=base64:<...> \
     -e OBJECTSTORE_TEST_KEY=<MINIO_ROOT_USER> -e OBJECTSTORE_TEST_SECRET=<MINIO_ROOT_PASSWORD> \
-    -e OBJECTSTORE_TEST_REGION=eu-central-1 -e OBJECTSTORE_TEST_BUCKET=taxos-documents \
+    -e OBJECTSTORE_TEST_REGION=eu-central-1 -e OBJECTSTORE_TEST_BUCKET=kern-documents \
     -e OBJECTSTORE_TEST_ENDPOINT=http://minio:9000 \
     <php-8.5-cli image> vendor/bin/pest tests/Feature/Support/ObjectStore/EncryptedObjectStoreLiveMinioTest.php
 
@@ -243,7 +243,7 @@ $ docker run --rm --network anaf_data_net \
   Tests: 4 passed (5 assertions)
 ```
 
-Confirmed the bucket is left clean after this run (`mc ls --recursive local/taxos-documents`
+Confirmed the bucket is left clean after this run (`mc ls --recursive local/kern-documents`
 → empty) — every test deletes what it created, even on failure (`try`/`finally`).
 
 Confirmed the live test **skips** cleanly (does not attempt a connection) when

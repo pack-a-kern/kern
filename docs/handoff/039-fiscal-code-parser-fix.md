@@ -138,7 +138,7 @@ resolved or suffixed into uniqueness.
    children in order, then next sibling), so "first occurrence kept" here means the same row is
    kept there.
 5. **`ambiguousCitationLabels` is not yet surfaced past `ParsedLegislationDocument`.** Wiring it
-   into `LegislationParsingResult`/the `taxos:legislation:ingest` CLI output (so a human reviewer
+   into `LegislationParsingResult`/the `kern:legislation:ingest` CLI output (so a human reviewer
    actually sees it without reading code) is real, valuable follow-up work, explicitly out of this
    task's scope (`Services/**`, `DataTransferObjects/**` outside `Parsing/`, and the CLI command
    were not in the stated scope). Flagged under "What is NOT done".
@@ -153,7 +153,7 @@ against a dedicated database, per `docs/AGENTS.md` §7b (another agent's work wa
 this task but reason enough not to share a database):
 
 ```
-$ docker exec anaf-postgres-1 psql -U taxos -d taxos -c "CREATE DATABASE taxos_fiscalcodeparser;"
+$ docker exec anaf-postgres-1 psql -U kern -d kern -c "CREATE DATABASE kern_fiscalcodeparser;"
 CREATE DATABASE
 ```
 
@@ -181,7 +181,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 
 **Pest, real Postgres, TaxKnowledge module, run twice (leak check):**
 ```
-$ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=taxos_fiscalcodeparser DB_USERNAME=taxos \
+$ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=kern_fiscalcodeparser DB_USERNAME=kern \
     DB_PASSWORD=<redacted> vendor/bin/pest tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge
   Tests: 1 skipped, 126 passed (343 assertions)     [run 1]
   Tests: 1 skipped, 126 passed (343 assertions)     [run 2, identical]
@@ -253,10 +253,10 @@ not a defect, not this task's concern.
 
 This test run wrote one real object to the shared MinIO instance, at the path shown above
 (content-addressed, harmless, reusable — it is literally the real public Codul fiscal HTML, not
-sensitive), and created two rows in the throwaway `taxos_fiscalcodeparser` database, which was
+sensitive), and created two rows in the throwaway `kern_fiscalcodeparser` database, which was
 dropped afterward:
 ```
-$ docker exec anaf-postgres-1 psql -U taxos -d taxos -c "DROP DATABASE taxos_fiscalcodeparser;"
+$ docker exec anaf-postgres-1 psql -U kern -d kern -c "DROP DATABASE kern_fiscalcodeparser;"
 DROP DATABASE
 ```
 
@@ -300,7 +300,7 @@ enum exhaustively without a `default`, per a repo-wide grep — see "Sources con
 ## What is NOT done
 
 - **`ambiguousCitationLabels` is not surfaced past the parser's own return value.**
-  `LegislationSectionPersister`, `LegislationParsingResult`, and the `taxos:legislation:ingest` CLI
+  `LegislationSectionPersister`, `LegislationParsingResult`, and the `kern:legislation:ingest` CLI
   command are all unmodified (out of this task's stated scope) — a human re-parsing the real
   document today gets the correct, deduplicated `source_sections` rows, but the 4 flagged labels
   are only visible by calling the parser directly and reading that field, not from the CLI's own

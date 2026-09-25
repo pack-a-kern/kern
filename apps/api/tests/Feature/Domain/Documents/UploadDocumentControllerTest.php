@@ -181,7 +181,7 @@ it('leaves no document row behind when the bytes cannot be stored', function ():
     [$user, $subject] = memberAndSubject();
 
     // A disk that accepts nothing — a missing bucket, a full volume, MinIO down. This reproduces
-    // exactly the failure a missing `taxos-quarantine` bucket produced: `EncryptedObjectStore`
+    // exactly the failure a missing `kern-quarantine` bucket produced: `EncryptedObjectStore`
     // raises "Failed writing object … to the object store disk."
     //
     // Before the row and the bytes were committed together, that left a `documents` row with

@@ -21,7 +21,7 @@ beforeEach(function (): void {
             'trust_tier' => 'D',
             'base_url' => 'https://src-fixture.test',
             'allowed_hosts' => ['src-fixture.test'],
-            'user_agent' => 'TaxOS-Test-Fetcher/1.0',
+            'user_agent' => 'Kern-Test-Fetcher/1.0',
             'enabled' => true,
             'priority' => 1,
         ],

@@ -73,8 +73,8 @@ x-php-image: &php-image
     DB_CONNECTION: pgsql
     DB_HOST: postgres
     DB_PORT: 5432
-    DB_DATABASE: ${POSTGRES_DB:-taxos}
-    DB_USERNAME: ${POSTGRES_USER:-taxos}
+    DB_DATABASE: ${POSTGRES_DB:-kern}
+    DB_USERNAME: ${POSTGRES_USER:-kern}
     DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
     SESSION_DRIVER: redis
     CACHE_STORE: redis
@@ -125,11 +125,11 @@ x-php-image: &php-image
     AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
     AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
     AWS_DEFAULT_REGION: eu-central-1
-    AWS_BUCKET: taxos-documents
+    AWS_BUCKET: kern-documents
     # The physically separate bucket unscanned uploads land in
     # (App\Domain\Documents\Quarantine\QuarantineObjectStore). Named here beside AWS_BUCKET so
     # one place declares both, and `minio-init-buckets` below creates exactly these two.
-    QUARANTINE_BUCKET: taxos-quarantine
+    QUARANTINE_BUCKET: kern-quarantine
     AWS_ENDPOINT: http://minio:9000
     AWS_USE_PATH_STYLE_ENDPOINT: "true"
     MAIL_MAILER: ${MAIL_MAILER:-log}
@@ -570,8 +570,8 @@ services:
     networks:
       - data_net
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-taxos}
-      POSTGRES_USER: ${POSTGRES_USER:-taxos}
+      POSTGRES_DB: ${POSTGRES_DB:-kern}
+      POSTGRES_USER: ${POSTGRES_USER:-kern}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
     volumes:
       # Postgres 18's own image changed convention: mount the parent
@@ -626,13 +626,13 @@ services:
     # `environment:` block the app uses means both sides resolve the same value from the same
     # place; `docker/redis/entrypoint.sh` also refuses to start on an unset or placeholder value,
     # so a misconfiguration fails loudly at boot instead of at the first request.
-    command: ["/usr/local/bin/taxos-redis-entrypoint.sh"]
+    command: ["/usr/local/bin/kern-redis-entrypoint.sh"]
     networks:
       - app_net
       - data_net
     volumes:
       - redis_data:/data
-      - ./docker/redis/entrypoint.sh:/usr/local/bin/taxos-redis-entrypoint.sh:ro
+      - ./docker/redis/entrypoint.sh:/usr/local/bin/kern-redis-entrypoint.sh:ro
     read_only: true
     tmpfs:
       - /tmp:mode=1777
@@ -721,8 +721,8 @@ services:
   minio-init-buckets:
     # One-shot: creates the buckets the application expects, then exits.
     #
-    # Nothing else in this repository ever created them. `taxos-documents` had been made by hand at
-    # some point and `taxos-quarantine` never had, so every upload failed at its first write with
+    # Nothing else in this repository ever created them. `kern-documents` had been made by hand at
+    # some point and `kern-quarantine` never had, so every upload failed at its first write with
     # "Failed writing object … to the object store disk" — a 500 with no hint that a bucket was
     # missing, because `config/filesystems.php` sets `'throw' => false` and the S3 driver answers a
     # nonexistent bucket with a silent `false`. A `docker compose down -v` would have reproduced it
@@ -748,8 +748,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
-      AWS_BUCKET: taxos-documents
-      QUARANTINE_BUCKET: taxos-quarantine
+      AWS_BUCKET: kern-documents
+      QUARANTINE_BUCKET: kern-quarantine
       # `mc` writes an alias config on first use and defaults to `$HOME/.mc`, which this image's
       # non-root user cannot create — it fails with "Unable to save new mc config". Pointed at the
       # tmpfs below, which also means the credentials never touch a layer or a volume.

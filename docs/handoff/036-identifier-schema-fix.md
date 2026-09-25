@@ -182,31 +182,31 @@ byte-for-byte unchanged, see "Key decisions" #1), `deptrac.php`, `docs/STATUS.md
 
 ## How to verify
 
-Own database per `docs/AGENTS.md` §7b (`taxos_ident`, created before starting — no other agent's
+Own database per `docs/AGENTS.md` §7b (`kern_ident`, created before starting — no other agent's
 "Files currently being worked on" entry in `docs/STATUS.md` overlapped this task's scope, but a
 dedicated database was used anyway per that section's own recommendation):
 
 ```sh
-docker exec anaf-postgres-1 psql -U taxos -d taxos -c "CREATE DATABASE taxos_ident OWNER taxos;"
-docker exec anaf-postgres-1 psql -U taxos -d taxos_ident -c \
+docker exec anaf-postgres-1 psql -U kern -d kern -c "CREATE DATABASE kern_ident OWNER kern;"
+docker exec anaf-postgres-1 psql -U kern -d kern_ident -c \
   "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 ```
 
-**Baseline, confirmed before any change** (`taxos-php-test:local`, the prebuilt PHP 8.5-cli image
+**Baseline, confirmed before any change** (`kern-php-test:local`, the prebuilt PHP 8.5-cli image
 already present from prior tasks):
 
 ```text
-$ vendor/bin/pest        # against taxos_ident, freshly migrated
+$ vendor/bin/pest        # against kern_ident, freshly migrated
 Tests:    3 warnings, 10 skipped, 741 passed (2238 assertions)
 ```
 
 Matches the task brief's stated baseline exactly.
 
-**Migrations — both required scenarios**, against the live `taxos-php-test:local` image on
+**Migrations — both required scenarios**, against the live `kern-php-test:local` image on
 `anaf_data_net`:
 
 ```text
-$ php artisan migrate:fresh --force        # a used database (taxos_ident, already migrated once)
+$ php artisan migrate:fresh --force        # a used database (kern_ident, already migrated once)
   ... 60 migrations, including the three edited in this task ... DONE
 
 $ php artisan migrate:rollback --step=3 --force && php artisan migrate --force
@@ -214,7 +214,7 @@ $ php artisan migrate:rollback --step=3 --force && php artisan migrate --force
   2026_09_09_100002/100003_* ... DONE                     (rollback)
   2026_09_09_100002/100003_*, 2026_09_09_200000_* ... DONE  (re-migrate)
 
-$ # a genuinely fresh database (taxos_ident_fresh, created and dropped for this check only)
+$ # a genuinely fresh database (kern_ident_fresh, created and dropped for this check only)
 $ php artisan migrate --force
   ... all 60 migrations ... DONE
 ```
@@ -222,7 +222,7 @@ $ php artisan migrate --force
 Both scenarios the task asked for — `migrate` on a genuinely fresh database, `migrate:fresh` on a
 used one — succeed.
 
-**Quality gates, after the change** (`taxos-php-test:local`):
+**Quality gates, after the change** (`kern-php-test:local`):
 
 ```text
 $ vendor/bin/pint --test
@@ -239,7 +239,7 @@ $ composer validate --strict && composer audit
 No security vulnerability advisories found.
 ```
 
-**Full suite, run twice against `taxos_ident`** (real output, both runs):
+**Full suite, run twice against `kern_ident`** (real output, both runs):
 
 ```text
 $ vendor/bin/pest   # run 1

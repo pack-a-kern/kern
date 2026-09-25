@@ -1,11 +1,11 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "taxos/api",
+    "name": "kern/api",
     "type": "project",
     "description": "TaxOS Rom\u00e2nia \u2014 Laravel 13 application (modular monolith: Identity, Subjects, Wallet, Ledger, Documents, TaxKnowledge, TaxEngine, Declarations, Spv, Notifications, Audit).",
     "keywords": [
         "laravel",
-        "taxos"
+        "kern"
     ],
     "license": "proprietary",
     "require": {

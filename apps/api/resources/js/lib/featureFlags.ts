@@ -8,7 +8,7 @@
  * every `/admin/**` page is still a client-only placeholder with no privileged data or action
  * behind it (`docs/handoff/040-ui-foundation.md` "Admin navigation").
  *
- * @todo(TAXOS-ROLES) Replace this constant with a real check — e.g. `usePage().props.auth.user.can('platform.admin')`
+ * @todo(KERN-ROLES) Replace this constant with a real check — e.g. `usePage().props.auth.user.can('platform.admin')`
  * fed by Spatie's `HasRoles`/`HasPermissions` once that package lands — and delete this file.
  * Until then this defaults to `true` only so every item in the navigation is reachable for this
  * UI-foundation review; it must not ship as `true` once real users with real roles exist.

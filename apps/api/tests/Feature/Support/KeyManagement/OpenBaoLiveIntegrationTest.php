@@ -14,7 +14,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
  * PHP test image. See docs/handoff/005-crypto-core.md "How to verify" for the exact commands
  * that were used to run this for real against `docker compose`'s `openbao` service.
  *
- * Uses a dedicated key name (`OPENBAO_TEST_KEK_NAME`, default `taxos-crypto-core-test-kek`) —
+ * Uses a dedicated key name (`OPENBAO_TEST_KEK_NAME`, default `kern-crypto-core-test-kek`) —
  * never the real `tax-subject-kek` — so this test's `rotateKek()` call cannot affect the key
  * anything else in the stack depends on.
  */
@@ -34,7 +34,7 @@ function liveService(): OpenBaoTransitKeyManagementService
         is_string($address) ? $address : '',
         is_string($token) ? $token : '',
         'transit',
-        is_string($keyName) && $keyName !== '' ? $keyName : 'taxos-crypto-core-test-kek',
+        is_string($keyName) && $keyName !== '' ? $keyName : 'kern-crypto-core-test-kek',
         5,
     );
 }

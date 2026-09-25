@@ -313,8 +313,8 @@ $ docker run --rm --user root -e APP_KEY=base64:0000...= -v "$PWD/apps/api":/app
  [OK] No errors                                                    (level 9, no baseline)
 
 $ docker run --rm --network anaf_data_net --user root \
-    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 -e DB_DATABASE=taxos \
-    -e DB_USERNAME=taxos -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
+    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 -e DB_DATABASE=kern \
+    -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
     -e APP_KEY=base64:0000...= -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c \
     'vendor/bin/pest tests/Unit/Domain/Rental tests/Feature/Domain/Rental'
   Tests:    33 passed (141 assertions)

@@ -6,7 +6,7 @@ declare(strict_types=1);
 //
 // Kept in config, not in a seeder or a migration, so the set of permissions is reviewable in one
 // place and changing it is a code review. The database rows are a projection of this file:
-// `taxos:access:sync` creates what is missing, and reports anything in the database that this file
+// `kern:access:sync` creates what is missing, and reports anything in the database that this file
 // no longer declares (it never deletes — revoking a permission is a decision, not a side effect of
 // an edit).
 //

@@ -22,7 +22,7 @@ use Throwable;
 final class ImportBnrDailyRatesCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:fx:import-daily
+    protected $signature = 'kern:fx:import-daily
         {--dry-run : Validate the configured BNR endpoint and allowlist without fetching or writing anything}';
 
     /** @var string */

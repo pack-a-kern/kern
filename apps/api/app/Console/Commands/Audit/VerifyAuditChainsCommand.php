@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
 final class VerifyAuditChainsCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:audit:verify
+    protected $signature = 'kern:audit:verify
         {--chain= : Verify only this chain key (default: every chain)}';
 
     /** @var string */

@@ -245,7 +245,7 @@ regardless) and ran everything against the project's own `anaf-app`/`anaf-postgr
 Dropped the database after verification completed.
 
 ```text
-$ docker exec anaf-postgres-1 psql -U taxos -d postgres -c 'CREATE DATABASE taxos_spv;'
+$ docker exec anaf-postgres-1 psql -U kern -d postgres -c 'CREATE DATABASE kern_spv;'
 CREATE DATABASE
 
 $ docker run --rm -v "$PWD/apps/api":/app -w /app --user root --entrypoint sh anaf-app -c \
@@ -261,8 +261,8 @@ $ docker run --rm -v "$PWD/apps/api":/app -w /app --user root --entrypoint sh an
   Violations 0, Skipped violations 0, Uncovered 631, Allowed 317, Warnings 0, Errors 0
 
 $ docker run --rm --network anaf_data_net -v "$PWD/apps/api":/app -w /app --user root \
-    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=taxos_spv \
-    -e DB_USERNAME=taxos -e DB_PASSWORD=<POSTGRES_PASSWORD> -e APP_KEY=base64:<random> \
+    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=kern_spv \
+    -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD> -e APP_KEY=base64:<random> \
     --entrypoint sh anaf-app -c 'php artisan migrate --force'
   ... 2026_09_09_100000_create_spv_connections_table .............. DONE
   ... 2026_09_09_100001_create_spv_sessions_table ................... DONE
@@ -286,7 +286,7 @@ $ composer validate --strict && docker run --rm -v "$PWD":/app -w /app composer:
 ./composer.json is valid
 No security vulnerability advisories found.
 
-$ docker exec anaf-postgres-1 psql -U taxos -d postgres -c 'DROP DATABASE taxos_spv;'
+$ docker exec anaf-postgres-1 psql -U kern -d postgres -c 'DROP DATABASE kern_spv;'
 DROP DATABASE
 ```
 

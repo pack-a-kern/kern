@@ -12,7 +12,7 @@ use App\Domain\Operations\DataTransferObjects\TaskArgument;
  *
  * This enum is the allowlist, and it is an enum on purpose. The alternative — a table or a config
  * array holding the artisan command to execute — is remote code execution behind an administration
- * form: `taxos:fx:import-daily` and `migrate:fresh` are both strings, and nothing downstream can
+ * form: `kern:fx:import-daily` and `migrate:fresh` are both strings, and nothing downstream can
  * tell them apart. Adding a runnable task is therefore a code change and a code review, exactly
  * like adding a route.
  *
@@ -76,15 +76,15 @@ enum OperationTask: string
     public function command(): string
     {
         return match ($this) {
-            self::FX_IMPORT_DAILY => 'taxos:fx:import-daily',
-            self::FX_BACKFILL_YEAR => 'taxos:fx:backfill',
-            self::LEGISLATION_REINDEX => 'taxos:legislation:reindex',
-            self::LEGISLATION_INGEST, self::LEGISLATION_SYNC => 'taxos:legislation:sync',
-            self::AUDIT_VERIFY_CHAINS => 'taxos:audit:verify',
-            self::ACCESS_SYNC => 'taxos:access:sync',
-            self::DEPOSIT_POST_INTEREST => 'taxos:wallet:post-deposit-interest',
-            self::BANKS_IMPORT => 'taxos:banks:import',
-            self::BANKS_BACKFILL => 'taxos:banks:backfill',
+            self::FX_IMPORT_DAILY => 'kern:fx:import-daily',
+            self::FX_BACKFILL_YEAR => 'kern:fx:backfill',
+            self::LEGISLATION_REINDEX => 'kern:legislation:reindex',
+            self::LEGISLATION_INGEST, self::LEGISLATION_SYNC => 'kern:legislation:sync',
+            self::AUDIT_VERIFY_CHAINS => 'kern:audit:verify',
+            self::ACCESS_SYNC => 'kern:access:sync',
+            self::DEPOSIT_POST_INTEREST => 'kern:wallet:post-deposit-interest',
+            self::BANKS_IMPORT => 'kern:banks:import',
+            self::BANKS_BACKFILL => 'kern:banks:backfill',
         };
     }
 
@@ -110,7 +110,7 @@ enum OperationTask: string
     {
         return match ($this) {
             self::FX_BACKFILL_YEAR => [TaskArgument::year('year')],
-            // Mirrors `taxos:legislation:sync`'s own signature.
+            // Mirrors `kern:legislation:sync`'s own signature.
             self::LEGISLATION_INGEST => [
                 TaskArgument::documentType('act_type', 'type'),
                 TaskArgument::integer('act_number', 'number', 1, 99_999),

@@ -101,7 +101,7 @@ final readonly class ProbeDataFreshness
     /**
      * The retrieval chunk index. Chunks that exist but carry no embedding are `warn`, not `bad`:
      * lexical search still works, and no embedding provider is configured yet in this installation
-     * (`taxos:legislation:reindex --embed` is documented as a no-op until one is).
+     * (`kern:legislation:reindex --embed` is documented as a no-op until one is).
      */
     private function retrievalIndex(): FreshnessItem
     {

@@ -72,7 +72,7 @@ item stays correct if the locale changes before it retries), and
 
 ### 6. Layout
 
-Adopted the tighter proportions from the user's own mock (`taxos-settings-interactive-v2.html`)
+Adopted the tighter proportions from the user's own mock (`kern-settings-interactive-v2.html`)
 — 15px card padding, 13px inputs, 12px labels, 10.5px badges — **without tabs**,
 which they explicitly rejected. Cards flow in CSS multi-columns rather than a
 row-aligned grid: these cards differ a lot in height, and a grid aligns rows,

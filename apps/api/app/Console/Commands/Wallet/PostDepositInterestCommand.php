@@ -25,7 +25,7 @@ use Illuminate\Console\Command;
  */
 final class PostDepositInterestCommand extends Command
 {
-    protected $signature = 'taxos:wallet:post-deposit-interest';
+    protected $signature = 'kern:wallet:post-deposit-interest';
 
     protected $description = 'Post accrued deposit interest and close matured deposits.';
 

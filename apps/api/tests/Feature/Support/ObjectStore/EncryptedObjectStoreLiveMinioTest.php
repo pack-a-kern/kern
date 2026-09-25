@@ -23,7 +23,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
  * Skipped unless `OBJECTSTORE_TEST_ENDPOINT` and `OBJECTSTORE_TEST_BUCKET` are both set —
  * deliberately a **separate** env-var namespace from the app's own `AWS_*`/
  * `config('filesystems.disks.s3')`, not a reuse of it. `apps/api/.env` legitimately carries dev
- * `AWS_ENDPOINT=http://127.0.0.1:9000`/`AWS_BUCKET=taxos-documents` for `php artisan serve`-style
+ * `AWS_ENDPOINT=http://127.0.0.1:9000`/`AWS_BUCKET=kern-documents` for `php artisan serve`-style
  * local development; a skip-check keyed on those would read "available" in any shell that sources
  * that `.env`, including a throwaway container with no route to `127.0.0.1:9000` and no
  * credentials — which fails loudly instead of skipping cleanly. `OPENBAO_TEST_ADDR`/

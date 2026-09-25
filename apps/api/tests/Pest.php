@@ -275,7 +275,7 @@ function insertApprovedFiscalParameterVersion(string $fiscalParameterId, string 
  */
 function settingsAdminUser(): User
 {
-    Artisan::call('taxos:access:sync');
+    Artisan::call('kern:access:sync');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $user = User::factory()->create();

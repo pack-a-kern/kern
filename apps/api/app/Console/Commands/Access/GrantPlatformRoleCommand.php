@@ -21,7 +21,7 @@ use Illuminate\Console\Command;
  */
 final class GrantPlatformRoleCommand extends Command
 {
-    protected $signature = 'taxos:access:grant {email : The user\'s email address}
+    protected $signature = 'kern:access:grant {email : The user\'s email address}
                             {role : A role from config/access.php}
                             {--revoke : Remove the role instead of granting it}';
 

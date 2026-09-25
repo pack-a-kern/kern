@@ -160,7 +160,7 @@ OK
 
 **`vector`/`unaccent`/`pg_trgm`/`romanian` on the real Postgres image:**
 ```
-$ docker compose exec -T postgres psql -U taxos -d taxos -c \
+$ docker compose exec -T postgres psql -U kern -d kern -c \
     "SELECT extname FROM pg_extension; SELECT cfgname FROM pg_ts_config WHERE cfgname='romanian';"
  extname
 ----------
@@ -199,11 +199,11 @@ type    chacha20-poly1305
 
 **PHP runtime image, built and boot-tested against the real `apps/api`:**
 ```
-$ docker build -f docker/php/Dockerfile --target runtime -t taxos/php-runtime:test .
+$ docker build -f docker/php/Dockerfile --target runtime -t kern/php-runtime:test .
    ... (builds clean)
-$ docker run --rm taxos/php-runtime:test php artisan --version
+$ docker run --rm kern/php-runtime:test php artisan --version
 Laravel Framework 13.30.1
-$ docker run --rm taxos/php-runtime:test php -m | grep -Ei 'pdo_pgsql|redis|bcmath|intl|pcntl|sodium'
+$ docker run --rm kern/php-runtime:test php -m | grep -Ei 'pdo_pgsql|redis|bcmath|intl|pcntl|sodium'
 bcmath
 intl
 pcntl
@@ -216,7 +216,7 @@ Also verified with `--read-only --tmpfs /tmp`, running as `appuser` (uid 10001),
 
 **Edge image, self-contained health check, and the DNS-at-request-time fix:**
 ```
-$ docker run -d --read-only --tmpfs ... -p 18888:8080 taxos/edge:test
+$ docker run -d --read-only --tmpfs ... -p 18888:8080 kern/edge:test
 $ curl http://localhost:18888/healthz
 ok
 $ curl -o /dev/null -w '%{http_code}\n' http://localhost:18888/index.php
@@ -226,8 +226,8 @@ $ curl -o /dev/null -w '%{http_code}\n' http://localhost:18888/index.php
 
 **Python image, built and run against the real `apps/processing`:**
 ```
-$ docker build -f docker/python/Dockerfile -t taxos/python:test .
-$ docker run --read-only --tmpfs /tmp -p 18000:8000 taxos/python:test \
+$ docker build -f docker/python/Dockerfile -t kern/python:test .
+$ docker run --read-only --tmpfs /tmp -p 18000:8000 kern/python:test \
     uvicorn processing.main:app --host 0.0.0.0 --port 8000
 $ curl http://localhost:18000/health
 {"status":"ok","service":"processing"}
@@ -235,17 +235,17 @@ $ curl http://localhost:18000/health
 
 **`make test`/`make lint` machinery, run against real dev-dependency images:**
 ```
-$ docker build -f docker/php/Dockerfile --target test -t taxos/php-test:test .
-$ docker run --rm taxos/php-test:test vendor/bin/pint --test
+$ docker build -f docker/php/Dockerfile --target test -t kern/php-test:test .
+$ docker run --rm kern/php-test:test vendor/bin/pint --test
   PASS ... 27 files
-$ docker run --rm taxos/php-test:test vendor/bin/phpstan analyse
+$ docker run --rm kern/php-test:test vendor/bin/phpstan analyse
  [OK] No errors
-$ docker build -f docker/python/Dockerfile --target test -t taxos/python-test:test .
-$ docker run --rm taxos/python-test:test pytest
+$ docker build -f docker/python/Dockerfile --target test -t kern/python-test:test .
+$ docker run --rm kern/python-test:test pytest
 21 passed in 1.24s
-$ docker run --rm taxos/python-test:test ruff check src tests
+$ docker run --rm kern/python-test:test ruff check src tests
 All checks passed!
-$ docker run --rm taxos/python-test:test pyright
+$ docker run --rm kern/python-test:test pyright
 0 errors, 0 warnings, 0 informations
 ```
 
@@ -291,15 +291,15 @@ no matches.
   **must** pass `--no-sandbox` — the container has `cap_drop: [ALL]` with no `SYS_ADMIN`, so
   Chromium's own internal sandbox cannot initialize otherwise.
 - **OpenBao KMS contract:** transit engine at `transit/`, key name `tax-subject-kek`
-  (overridable via `TAXOS_KEK_NAME` in `docker/openbao/init.sh`), type `chacha20-poly1305`.
+  (overridable via `KERN_KEK_NAME` in `docker/openbao/init.sh`), type `chacha20-poly1305`.
   Whoever implements envelope encryption (Milestone 1) talks to `http://openbao:8200` with a
   scoped token — the dev root token in `.env.example` is not that token and must never be used
   outside a developer's own machine.
-- **Object storage contract:** bucket `taxos-documents` (referenced in env, not yet created — no
+- **Object storage contract:** bucket `kern-documents` (referenced in env, not yet created — no
   agent has run `mc mb` or equivalent; whoever builds the Documents module needs to create it,
   e.g. via a small init step following the `minio-init-perms`/`openbao-init` pattern already
   established here).
-- **Postgres:** database `taxos`, extensions `vector`/`unaccent`/`pg_trgm` already present,
+- **Postgres:** database `kern`, extensions `vector`/`unaccent`/`pg_trgm` already present,
   `romanian` text-search config confirmed built in. Migrations run via
   `docker compose exec app php artisan migrate` once `app` is actually started.
 
@@ -331,7 +331,7 @@ no matches.
   step runs once, upstream of `docker build`.
 - **No TLS anywhere.** `edge` serves plain HTTP on 8080/host-80 only. Out of scope for this
   topology task but will need a real ADR before anything public-facing ships.
-- **No object storage bucket created yet** (`taxos-documents`) — see "Interfaces" above.
+- **No object storage bucket created yet** (`kern-documents`) — see "Interfaces" above.
 - **Production digest pinning is documented, not applied.** `compose.yaml` has a commented example
   showing the `image@sha256:…` form (§3.4) with a real, verified digest, but the file itself still
   uses tags — digest-pinning the whole file is a deploy-pipeline decision for whoever builds that,

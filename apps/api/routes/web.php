@@ -104,7 +104,7 @@ Route::middleware('auth')->group(function (): void {
 
     /*
      * Admin routes carry no server-side authorization yet — there is no role system to enforce
-     * with (`resources/js/lib/featureFlags.ts`'s `@todo(TAXOS-ROLES)`). They are reachable by any
+     * with (`resources/js/lib/featureFlags.ts`'s `@todo(KERN-ROLES)`). They are reachable by any
      * authenticated user today, same as every other route in this file, and render nothing but the
      * same client-only `PlaceholderPage`. Gating these for real is explicitly out of this task's
      * scope — see the handoff's "Admin navigation" section.

@@ -189,21 +189,21 @@ aquasecurity/trivy-action tag-obj=a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 -> co
 **PHP quality gates** (host PHP is 8.3; ran inside the real `docker/php/Dockerfile` `test` stage,
 built fresh — same as `docs/handoff/002-laravel-scaffold.md`'s approach):
 ```
-$ docker build -f docker/php/Dockerfile --target test -t taxos-php-test:ci .   # builds clean
+$ docker build -f docker/php/Dockerfile --target test -t kern-php-test:ci .   # builds clean
 
-$ docker run --rm taxos-php-test:ci composer validate --strict
+$ docker run --rm kern-php-test:ci composer validate --strict
 ./composer.json is valid
 
-$ docker run --rm taxos-php-test:ci composer audit
+$ docker run --rm kern-php-test:ci composer audit
 No security vulnerability advisories found.
 
-$ docker run --rm taxos-php-test:ci vendor/bin/pint --test
+$ docker run --rm kern-php-test:ci vendor/bin/pint --test
 PASS ... 27 files
 
-$ docker run --rm -e APP_KEY=base64:... taxos-php-test:ci vendor/bin/phpstan analyse --memory-limit=512M
+$ docker run --rm -e APP_KEY=base64:... kern-php-test:ci vendor/bin/phpstan analyse --memory-limit=512M
 [OK] No errors
 
-$ docker run --rm taxos-php-test:ci vendor/bin/deptrac analyse --config-file=deptrac.php
+$ docker run --rm kern-php-test:ci vendor/bin/deptrac analyse --config-file=deptrac.php
 Violations 0, Skipped violations 0, Uncovered 0, Warnings 0, Errors 0
 ```
 
@@ -211,18 +211,18 @@ Violations 0, Skipped violations 0, Uncovered 0, Warnings 0, Errors 0
 same images/tags the workflow's `services:` block uses):
 ```
 $ docker network create anaf-ci-test
-$ docker run -d --name anaf-ci-pg --network anaf-ci-test -e POSTGRES_DB=taxos \
-    -e POSTGRES_USER=taxos -e POSTGRES_PASSWORD=taxos pgvector/pgvector:pg18-trixie
+$ docker run -d --name anaf-ci-pg --network anaf-ci-test -e POSTGRES_DB=kern \
+    -e POSTGRES_USER=kern -e POSTGRES_PASSWORD=kern pgvector/pgvector:pg18-trixie
 $ docker run -d --name anaf-ci-redis --network anaf-ci-test redis:8-trixie
 
 # First attempt, no .env file present, valid APP_KEY:
 $ docker run --rm --network anaf-ci-test -e APP_KEY=base64:8nv5Q... -e APP_ENV=testing \
-    -e DB_CONNECTION=pgsql -e DB_HOST=anaf-ci-pg ... taxos-php-test:ci \
+    -e DB_CONNECTION=pgsql -e DB_HOST=anaf-ci-pg ... kern-php-test:ci \
     sh -lc 'php artisan migrate --force && vendor/bin/pest'
 Tests: 2 warnings (9 assertions)   # file_get_contents(/var/www/html/.env): No such file or directory
 
 # Same invocation, with `touch .env` added (see Key decisions #8):
-$ docker run --rm --network anaf-ci-test ... taxos-php-test:ci sh -lc 'touch .env && vendor/bin/pest'
+$ docker run --rm --network anaf-ci-test ... kern-php-test:ci sh -lc 'touch .env && vendor/bin/pest'
 Tests: 2 passed (9 assertions)
 ```
 
@@ -260,11 +260,11 @@ $ uv run pip-audit               # No known vulnerabilities found
 **Container builds** (all four images this workflow's `containers` matrix builds, from the real
 Dockerfiles, unmodified):
 ```
-$ docker build -f docker/php/Dockerfile --target runtime -t taxos-php-runtime:ci .      # OK
-$ docker build -f docker/python/Dockerfile --target runtime -t taxos-python-runtime:ci . # OK
+$ docker build -f docker/php/Dockerfile --target runtime -t kern-php-runtime:ci .      # OK
+$ docker build -f docker/python/Dockerfile --target runtime -t kern-python-runtime:ci . # OK
 $ npm run build   # (in apps/api — produces public/build/, which the edge image bakes in)
-$ docker build -f docker/nginx/Dockerfile -t taxos-edge:ci .                              # OK
-$ docker build -f docker/playwright/Dockerfile -t taxos-spv-browser:ci .                  # OK
+$ docker build -f docker/nginx/Dockerfile -t kern-edge:ci .                              # OK
+$ docker build -f docker/playwright/Dockerfile -t kern-spv-browser:ci .                  # OK
 ```
 (`docker/playwright/Dockerfile` was recorded as unbuildable in `docs/handoff/001-docker-topology.md`
 because `apps/spv-browser` didn't exist yet at that point in the session. It exists now, from
@@ -275,7 +275,7 @@ successful build of it.)
 uses internally):
 ```
 $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:v1.51.1 \
-    docker:taxos-php-runtime:ci -o spdx-json > sbom.json    # (repeated for all 4 images)
+    docker:kern-php-runtime:ci -o spdx-json > sbom.json    # (repeated for all 4 images)
 exit=0 for all four; each produced a non-empty SPDX JSON document.
 ```
 
@@ -285,10 +285,10 @@ action@v0.36.0` wraps):
 $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.74.0 image \
     --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --format table <image>
 
-taxos-php-runtime:ci      exit=0   (clean)
-taxos-python-runtime:ci   exit=1   Total: 2 (HIGH: 2) — msgpack 1.1.2, GHSA-6v7p-g79w-8964
-taxos-edge:ci             exit=1   Total: 1 (HIGH: 1) — libde265-0, CVE-2026-33164
-taxos-spv-browser:ci      exit=1   Total: 4 (HIGH: 4) — brace-expansion 5.0.7, CVE-2026-14257 (+3 more instances of the same finding)
+kern-php-runtime:ci      exit=0   (clean)
+kern-python-runtime:ci   exit=1   Total: 2 (HIGH: 2) — msgpack 1.1.2, GHSA-6v7p-g79w-8964
+kern-edge:ci             exit=1   Total: 1 (HIGH: 1) — libde265-0, CVE-2026-33164
+kern-spv-browser:ci      exit=1   Total: 4 (HIGH: 4) — brace-expansion 5.0.7, CVE-2026-14257 (+3 more instances of the same finding)
 ```
 These three findings are recorded in `docs/STATUS.md` Known issues #1–#3, not fixed here (outside
 this task's file scope — see **Key decisions** #5).

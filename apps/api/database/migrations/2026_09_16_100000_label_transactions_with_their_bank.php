@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
  * month, without decrypting a single row to find it.
  *
  * Nullable, because a transaction may legitimately name nobody, and backfilled for existing rows by
- * `taxos:wallet:index-counterparties`.
+ * `kern:wallet:index-counterparties`.
  */
 return new class () extends Migration {
     public function up(): void

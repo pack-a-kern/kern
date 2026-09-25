@@ -205,14 +205,14 @@ No file under `apps/processing/**`, `resources/js/**`, or `docs/STATUS.md` was t
 ## How to verify
 
 Baseline stated by the task: **722 passed on sqlite, 0 failed**. All commands below were run for
-real inside `taxos-php-test:local` (`docs/handoff/008-ci-pipeline.md`'s test image); output pasted
+real inside `kern-php-test:local` (`docs/handoff/008-ci-pipeline.md`'s test image); output pasted
 verbatim, not asserted.
 
 **`composer validate` / `composer audit`** (no dependency was added or changed):
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local composer validate --no-check-all
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local composer validate --no-check-all
 ./composer.json is valid
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local composer audit
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local composer audit
 No security vulnerability advisories found.
 ```
 
@@ -220,14 +220,14 @@ No security vulnerability advisories found.
 generated `bootstrap/cache/*` — see "What is NOT done" — both created by other concurrent agent
 activity, present before and unrelated to this task):
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     vendor/bin/pint --test app database routes tests config bootstrap/app.php bootstrap/providers.php
   PASS ......................................................... 812 files
 ```
 
 **PHPStan, level 9, no baseline** — zero errors in every file this task touched:
 ```
-$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     php -d memory_limit=1G vendor/bin/phpstan analyse app/Domain/Settings \
     app/Http/Controllers/Api/V1/Settings app/Http/Middleware/EnsureSettingsAdmin.php \
     app/Domain/Documents/ExternalAi tests/Feature/Domain/Settings tests/Unit/Domain/Settings \
@@ -240,14 +240,14 @@ touched (`app/Console/Commands/Fx/BackfillBnrYearCommand.php`,
 `app/Console/Commands/Legislation/ReindexLegislationCommand.php`) — recorded per
 `docs/AGENTS.md` §10, not fixed silently:
 ```
-$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
  [ERROR] Found 2 errors   (both pre-existing, both outside this task's files)
 ```
 
 **Deptrac:**
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     vendor/bin/deptrac analyse --config-file=deptrac.php
  Violations 0, Skipped violations 0, Uncovered 653, Allowed 344, Warnings 0, Errors 0
 ```
@@ -256,11 +256,11 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:loca
 active in `app/Support/Crypto/**`/`app/Domain/Audit/**` at the time, per `docs/STATUS.md`), run
 twice:**
 ```
-$ docker exec anaf-postgres-1 psql -U taxos -c 'CREATE DATABASE taxos_settings041;'
+$ docker exec anaf-postgres-1 psql -U kern -c 'CREATE DATABASE kern_settings041;'
 $ docker run --rm --network anaf_data_net --user root -e APP_KEY=... \
-    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 -e DB_DATABASE=taxos_settings041 \
-    -e DB_USERNAME=taxos -e DB_PASSWORD=... -v apps/api:/var/www/html -w /var/www/html \
-    taxos-php-test:local vendor/bin/pest
+    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 -e DB_DATABASE=kern_settings041 \
+    -e DB_USERNAME=kern -e DB_PASSWORD=... -v apps/api:/var/www/html -w /var/www/html \
+    kern-php-test:local vendor/bin/pest
 Run 1: Tests: 3 warnings, 10 skipped, 785 passed (2383 assertions)
 Run 2: Tests: 3 warnings, 10 skipped, 785 passed (2383 assertions)   — identical, no state leak
 ```
@@ -270,7 +270,7 @@ with no `OPENBAO_TEST_*`/`OBJECTSTORE_TEST_*` env vars set.
 
 **Whole suite, sqlite (the task's stated baseline: 722 passed, 0 failed), run twice:**
 ```
-$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     vendor/bin/pest
 Run 1: Tests: 3 warnings, 40 skipped, 755 passed (2259 assertions)
 Run 2: Tests: 3 warnings, 40 skipped, 755 passed (2259 assertions)   — identical, no state leak
@@ -303,7 +303,7 @@ in this section already reflect the fix (0 risky in every run shown).
 
 **The AAD/DEK isolation guarantee, unit-tested against the real `EnvelopeCipher`:**
 ```
-$ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:local \
+$ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     vendor/bin/pest tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php
   PASS  Tests\Unit\Domain\Settings\SystemEncryptionScopeIsolationTest
     ✓ it is not a UUID, so it can never collide with a real tax_subject_id or user id
@@ -317,7 +317,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html taxos-php-test:loca
 **The no-restart hot-swap proof:**
 ```
 $ docker run --rm --network anaf_data_net --user root -e APP_KEY=... [... same Postgres env ...] \
-    taxos-php-test:local vendor/bin/pest tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php
+    kern-php-test:local vendor/bin/pest tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php
   PASS  ... it refuses to call the provider while ai.enabled is false, the default
   PASS  ... it picks up a settings change on the very next call, with no restart, no re-resolution needed
   PASS  ... it falls back to the env-configured provider only until a setting is explicitly saved
@@ -414,7 +414,7 @@ Any future `ExternalDocumentAiProvider` implementation should read its credentia
   secret handling), §5.3 (roles are per-`TaxSubject`), §18 (JSON envelope conventions), §21.4
   (security tests).
 - `docs/AGENTS.md` §6 (module boundaries), §7b (dedicated-database testing, followed exactly —
-  `taxos_settings041`), §8 (AAD binding, no PII in logs), §10 (recording out-of-scope findings).
+  `kern_settings041`), §8 (AAD binding, no PII in logs), §10 (recording out-of-scope findings).
 - `docs/adr/0007-provider-agnostic-ai.md` — the OpenAI-compatible wire protocol this task's
   `test-connection` endpoint speaks, and confirmation that `apps/processing`'s own client already
   supports explicit `base_url`/`api_key` construction (no Python-side change needed for a *future*

@@ -36,7 +36,7 @@ import { getActiveSubjectId } from '../lib/subjectStore';
 
 type Remembered = string | number | boolean;
 
-const PREFIX = 'taxos.view';
+const PREFIX = 'kern.view';
 
 export interface RememberOptions<T extends Remembered> {
     /** Keep a separate value for each taxpayer — for screens showing one taxpayer's data. */

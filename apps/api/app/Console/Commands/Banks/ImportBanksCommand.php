@@ -11,7 +11,7 @@ use Throwable;
 final class ImportBanksCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:banks:import';
+    protected $signature = 'kern:banks:import';
 
     /** @var string */
     protected $description = 'Refresh the bank list from the ECB list of institutions, with BICs from GLEIF.';

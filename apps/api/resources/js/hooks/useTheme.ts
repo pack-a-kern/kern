@@ -11,10 +11,10 @@ type ResolvedTheme = 'light' | 'dark';
  * flash against (Inertia hands the SPA an already-rendered Blade shell with no theme opinion), and
  * `docs/DEPENDENCY-POLICY.md` §4 orders "the standard library" and "an existing dependency" above
  * "a well-maintained third-party package." This hook is the one thing in the app that reads/writes
- * `localStorage['taxos.theme']` and toggles the `.dark` class `app.css`'s `@custom-variant dark`
+ * `localStorage['kern.theme']` and toggles the `.dark` class `app.css`'s `@custom-variant dark`
  * selector matches — a non-sensitive UI preference, not fiscal data (`BLUEPRINT.md` §17).
  */
-const STORAGE_KEY = 'taxos.theme';
+const STORAGE_KEY = 'kern.theme';
 const listeners = new Set<() => void>();
 let preference: ThemePreference = readStoredPreference();
 

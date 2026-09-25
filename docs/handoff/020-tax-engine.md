@@ -257,7 +257,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
   Violations 0, Skipped violations 0, Uncovered 446, Allowed 227, Warnings 0, Errors 0
 
 # Real Postgres, this module's own suite, run 1:
-$ DB_CONNECTION=pgsql DB_HOST=<pg> DB_DATABASE=taxos_test DB_USERNAME=taxos DB_PASSWORD=taxos \
+$ DB_CONNECTION=pgsql DB_HOST=<pg> DB_DATABASE=kern_test DB_USERNAME=kern DB_PASSWORD=kern \
     vendor/bin/pest tests/Unit/Domain/TaxEngine tests/Feature/Domain/TaxEngine
   Tests: 79 passed (163 assertions)
 

@@ -40,7 +40,7 @@ use Throwable;
 final class ReindexLegislationCommand extends Command
 {
     /** @var string */
-    protected $signature = 'taxos:legislation:reindex
+    protected $signature = 'kern:legislation:reindex
         {--document-version= : Reindex only this ext_source_document_versions id (default: every LEGISLATIE-sourced version)}
         {--embed : Also queue embedding the new chunks — identical texts reuse the vector they already have}
         {--dry-run : Report what would be reindexed without writing anything}';

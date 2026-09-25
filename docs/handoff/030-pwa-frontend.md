@@ -261,7 +261,7 @@ Nothing under `app/Domain/**` or `app/Http/**` was touched or is exposed by this
 pure consumer of the existing HTTP/Reverb contracts documented in handoffs 017/022/027. The one
 thing a future backend task should treat as a contract this frontend now depends on:
 
-- `resources/js/lib/subjectStore.ts`'s `localStorage` key `taxos.activeSubjectId` — whoever builds
+- `resources/js/lib/subjectStore.ts`'s `localStorage` key `kern.activeSubjectId` — whoever builds
   the real "list/register tax subjects" endpoint should have the dashboard call it and drop this
   workaround, not add a second mechanism next to it.
 - `resources/js/types/documents.ts`'s `DocumentLifecycleEvent`/`parseDocumentLifecycleEvent` is the

@@ -32,19 +32,19 @@ shell:
 ## stages) — never the slim runtime images, which carry no dev tooling.
 test:
 	docker compose build --pull=false app python-api
-	docker build -f docker/php/Dockerfile --target test -t taxos-php-test:local .
-	docker run --rm -e APP_KEY=$${APP_KEY:-base64:0000000000000000000000000000000000000000=} taxos-php-test:local vendor/bin/pest
-	docker build -f docker/python/Dockerfile --target test -t taxos-python-test:local .
-	docker run --rm taxos-python-test:local pytest
+	docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
+	docker run --rm -e APP_KEY=$${APP_KEY:-base64:0000000000000000000000000000000000000000=} kern-php-test:local vendor/bin/pest
+	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
+	docker run --rm kern-python-test:local pytest
 
 ## Run the PHP (Pint + PHPStan) and Python (ruff + pyright) linters.
 lint:
-	docker build -f docker/php/Dockerfile --target test -t taxos-php-test:local .
-	docker run --rm taxos-php-test:local vendor/bin/pint --test
-	docker run --rm -e APP_KEY=base64:0000000000000000000000000000000000000000= taxos-php-test:local vendor/bin/phpstan analyse
-	docker build -f docker/python/Dockerfile --target test -t taxos-python-test:local .
-	docker run --rm taxos-python-test:local ruff check src tests
-	docker run --rm taxos-python-test:local pyright
+	docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
+	docker run --rm kern-php-test:local vendor/bin/pint --test
+	docker run --rm -e APP_KEY=base64:0000000000000000000000000000000000000000= kern-php-test:local vendor/bin/phpstan analyse
+	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
+	docker run --rm kern-python-test:local ruff check src tests
+	docker run --rm kern-python-test:local pyright
 
 ## Everything that must pass before a change is done, run against the ALREADY RUNNING stack.
 ##
@@ -77,10 +77,10 @@ check-php:
 
 ## The suites sqlite cannot run: the audit chain's `SELECT … FOR UPDATE`, `ilike`, `count(*) FILTER`.
 ##
-## Points at `taxos_test`, never the development database. `Tests\TestCase` refuses anything else —
-## the suite runs `migrate:fresh`, and a run against `taxos` destroys every row in it.
+## Points at `kern_test`, never the development database. `Tests\TestCase` refuses anything else —
+## the suite runs `migrate:fresh`, and a run against `kern` destroys every row in it.
 check-php-pg:
-	docker compose exec -T $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=pgsql DB_DATABASE=taxos_test vendor/bin/pest'
+	docker compose exec -T $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=pgsql DB_DATABASE=kern_test vendor/bin/pest'
 
 ## Apply .env or compose changes to the running stack.
 ##

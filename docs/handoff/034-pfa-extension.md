@@ -185,8 +185,8 @@ Verified against a dedicated Postgres database (`docs/AGENTS.md` §7b — anothe
 in `apps/api/resources/js/**`, so a separate database avoided any shared-state collision):
 
 ```sh
-docker exec anaf-postgres-1 psql -U taxos -d taxos -c "CREATE DATABASE taxos_pfa OWNER taxos;"
-docker exec anaf-postgres-1 psql -U taxos -d taxos_pfa -c \
+docker exec anaf-postgres-1 psql -U kern -d kern -c "CREATE DATABASE kern_pfa OWNER kern;"
+docker exec anaf-postgres-1 psql -U kern -d kern_pfa -c \
   "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 ```
 
@@ -194,12 +194,12 @@ Migrations, applied and reversibility-checked against the live `anaf-app-1` cont
 `apps/api`, PHP 8.5, DB env overridden per-command):
 
 ```text
-$ docker exec -e DB_DATABASE=taxos_pfa anaf-app-1 php artisan migrate:fresh --force
+$ docker exec -e DB_DATABASE=kern_pfa anaf-app-1 php artisan migrate:fresh --force
   ... 60 migrations, including 2026_09_09_200000_create_pfa_profiles_table ... DONE
 
-$ docker exec -e DB_DATABASE=taxos_pfa anaf-app-1 php artisan migrate:rollback --step=1 --force
+$ docker exec -e DB_DATABASE=kern_pfa anaf-app-1 php artisan migrate:rollback --step=1 --force
   2026_09_09_200000_create_pfa_profiles_table ... DONE
-$ docker exec -e DB_DATABASE=taxos_pfa anaf-app-1 php artisan migrate --force
+$ docker exec -e DB_DATABASE=kern_pfa anaf-app-1 php artisan migrate --force
   2026_09_09_200000_create_pfa_profiles_table ... DONE
 ```
 
@@ -208,29 +208,29 @@ $ docker exec -e DB_DATABASE=taxos_pfa anaf-app-1 php artisan migrate --force
 `PasswordLoginTest`, `MfaTest`, `PasskeyTest`, `SessionManagementTest`,
 `UploadDocumentControllerTest`, `DocumentAiConsentControllerTest`, `DocumentExtractionReview
 ControllerTest` — zero of them in a file this task touched) when run via `docker exec`. Reproduced
-in isolation against the **default** `taxos` database too, confirming it is an artifact of running
+in isolation against the **default** `kern` database too, confirming it is an artifact of running
 the suite against the live, long-running php-fpm container rather than anything this task changed.
 Every prior handoff's own "How to verify" used a dedicated, throwaway CLI container instead
 (`docs/handoff/011-identity-tenancy.md`, `docs/handoff/020-tax-engine.md`) for exactly this class
-of problem; a matching prebuilt image (`taxos-php-test:local`, PHP 8.5-cli with every extension
+of problem; a matching prebuilt image (`kern-php-test:local`, PHP 8.5-cli with every extension
 `composer.json` requires) already existed from that prior work and was reused here:
 
 ```text
 $ docker run --rm --network anaf_data_net -v apps/api:/var/www/html -w /var/www/html \
-    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=taxos_pfa -e DB_USERNAME=taxos \
-    -e DB_PASSWORD=<redacted> taxos-php-test:local vendor/bin/pint --test
+    -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=kern_pfa -e DB_USERNAME=kern \
+    -e DB_PASSWORD=<redacted> kern-php-test:local vendor/bin/pint --test
   PASS ......................................................... 779 files
 
-$ docker run ... taxos-php-test:local php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
+$ docker run ... kern-php-test:local php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G
  [OK] No errors                                                            (level 9, no baseline, 776 files)
 
-$ docker run ... taxos-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
+$ docker run ... kern-php-test:local vendor/bin/deptrac analyse --config-file=deptrac.php
   Violations 0, Skipped violations 0, Uncovered 633, Allowed 327, Warnings 0, Errors 0
 
-$ docker run ... taxos-php-test:local vendor/bin/pest    # run 1
+$ docker run ... kern-php-test:local vendor/bin/pest    # run 1
   Tests: 3 warnings, 10 skipped, 740 passed (2234 assertions)
 
-$ docker run ... taxos-php-test:local vendor/bin/pest    # run 2, identical database, leak check
+$ docker run ... kern-php-test:local vendor/bin/pest    # run 2, identical database, leak check
   Tests: 3 warnings, 10 skipped, 740 passed (2234 assertions)
 ```
 

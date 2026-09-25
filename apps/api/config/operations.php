@@ -103,7 +103,7 @@ return [
 
     ],
 
-    // Bounds for the one task that takes an argument (`taxos:fx:backfill {year}`). BNR's yearly
+    // Bounds for the one task that takes an argument (`kern:fx:backfill {year}`). BNR's yearly
     // archives start in 2005 (docs/reference/bnr-fx-endpoints.md); the upper bound is the current
     // year, resolved at request time rather than pinned here.
     'fx_backfill' => [

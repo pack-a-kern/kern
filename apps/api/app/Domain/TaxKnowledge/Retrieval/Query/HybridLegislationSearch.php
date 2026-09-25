@@ -111,8 +111,8 @@ final readonly class HybridLegislationSearch
                     sd.publication_date,
                     os.code AS source_code,
                     os.trust_tier,
-                    ts_rank_cd(c.text_search, plainto_tsquery('romanian', taxos_unaccent(p.query_text)), 32) AS lexical_rank,
-                    similarity(taxos_unaccent(lower(s.citation_label)), taxos_unaccent(lower(p.query_text))) AS citation_similarity,
+                    ts_rank_cd(c.text_search, plainto_tsquery('romanian', kern_unaccent(p.query_text)), 32) AS lexical_rank,
+                    similarity(kern_unaccent(lower(s.citation_label)), kern_unaccent(lower(p.query_text))) AS citation_similarity,
                     CASE
                         WHEN c.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
                         THEN 1 - (c.embedding <=> p.query_embedding)

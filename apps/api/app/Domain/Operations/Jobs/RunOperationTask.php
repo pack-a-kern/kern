@@ -21,7 +21,7 @@ use Throwable;
  * Executes one {@see OperationTask} on a queue worker and writes the outcome to the run ledger.
  *
  * On a worker rather than in the request because every task here takes minutes: an HTTP handler
- * that ran `taxos:fx:backfill 2019` inline would hold a php-fpm child for the duration and time
+ * that ran `kern:fx:backfill 2019` inline would hold a php-fpm child for the duration and time
  * out at the edge long before the work finished, leaving the operator with a 504 and no idea
  * whether the import completed.
  *
@@ -70,7 +70,7 @@ final class RunOperationTask implements ShouldQueue
      *
      * Every value is handed over as text, as a terminal would: a command reads its input as the
      * strings it gets from one, and an integer here — the form's act number, `2346` — failed
-     * `taxos:legislation:sync`'s own check that a number is digits, so no act could be read from
+     * `kern:legislation:sync`'s own check that a number is digits, so no act could be read from
      * the screen at all.
      *
      * @return array<string, string>

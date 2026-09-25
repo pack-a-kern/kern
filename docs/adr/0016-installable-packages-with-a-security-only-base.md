@@ -41,20 +41,20 @@ Four packages, consumed by a thin application.
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `taxos/platform` | `Support\{Crypto,KeyManagement,ObjectStore}`, `Audit`, `Identity`, `Settings`, `Operations`, and the generic tenancy scope | — |
-| `taxos/documents` | upload, virus scan, encryption at rest, extraction | platform |
-| `taxos/legislation` | official sources, parsing, consolidations, provision history, hybrid search | platform |
-| `taxos/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV | platform, documents, legislation |
+| `kern/platform` | `Support\{Crypto,KeyManagement,ObjectStore}`, `Audit`, `Identity`, `Settings`, `Operations`, and the generic tenancy scope | — |
+| `kern/documents` | upload, virus scan, encryption at rest, extraction | platform |
+| `kern/legislation` | official sources, parsing, consolidations, provision history, hybrid search | platform |
+| `kern/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV | platform, documents, legislation |
 | `apps/api` | routes to pages, the user interface, wiring | all of the above |
 
 Four things decide the shape.
 
 **The base carries no product vocabulary.** Encryption, key management, the audit chain, identity
-and settings are the same for any application. Nothing in `taxos/platform` knows what a taxpayer is.
+and settings are the same for any application. Nothing in `kern/platform` knows what a taxpayer is.
 
 **Tenancy is a mechanism in the base, named by configuration.** `config/tenancy.php` carries the
 model, table and column, defaulting to `TaxSubject`, `tax_subjects` and `tax_subject_id` so this
-product behaves exactly as it does now. `taxos/tax-romania` sets the model when it installs. An
+product behaves exactly as it does now. `kern/tax-romania` sets the model when it installs. An
 application with no such concept leaves it null: no scope is applied, no middleware binds anything,
 and identity, audit, crypto and documents all work unscoped.
 
@@ -71,13 +71,13 @@ Inertia pages, `AppShell` and its navigation stay in the application, so replaci
 replaces application code and leaves every package untouched.
 
 `Documents` is its own package rather than part of the base because encrypted file handling is
-independently useful, and it arrives anyway for anyone installing tax — `taxos/tax-romania` requires
+independently useful, and it arrives anyway for anyone installing tax — `kern/tax-romania` requires
 it, the way a Laravel application acquires `illuminate/*`.
 
 `TaxKnowledge` splits. Its legislation half reaches only `Audit` and `Settings`; everything tax-bound
 is in `FiscalParameters/*` and the two `Providers/Eloquent*Provider` classes that satisfy
-`TaxEngine`'s contracts. The first half becomes `taxos/legislation`; the second goes to
-`taxos/tax-romania`.
+`TaxEngine`'s contracts. The first half becomes `kern/legislation`; the second goes to
+`kern/tax-romania`.
 
 The Romanian modules are **one** package, not eight. `TaxEngine`, `Declarations`, `Fx`, `Banks`,
 `Rental` and `Spv` have exactly one consumer between them, and `StatementImport` depends on seven
@@ -101,7 +101,7 @@ tenancy, identity and settings, then documents, legislation, and the remainder. 
 folder rename plus a namespace change, because the provider already loads its own files.
 
 **Stage 2 — prove the isolation.** Each package gets its own Testbench suite. The proof that matters
-is installing `taxos/legislation` into an empty Laravel application and ingesting and searching a law
+is installing `kern/legislation` into an empty Laravel application and ingesting and searching a law
 with no tax code present.
 
 **Stage 3 — publish, if wanted.** Private Packagist or plain git repositories with version

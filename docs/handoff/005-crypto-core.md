@@ -249,7 +249,7 @@ type    chacha20-poly1305
 $ docker run --rm --network anaf_app_net \
     -e OPENBAO_TEST_ADDR=http://openbao:8200 \
     -e OPENBAO_TEST_TOKEN=<the OPENBAO_DEV_ROOT_TOKEN from .env> \
-    -e OPENBAO_TEST_KEK_NAME=taxos-crypto-core-test-kek-v2 \
+    -e OPENBAO_TEST_KEK_NAME=kern-crypto-core-test-kek-v2 \
     -e APP_KEY=base64:VApg/GsNVsAh2pMcDj/bBX/UvAFnrMANzk9EHgs5fRI= \
     -v <repo>/apps/api:/var/www/html -w /var/www/html <php-8.5-cli image> \
     vendor/bin/pest tests/Feature/Support/KeyManagement/OpenBaoLiveIntegrationTest.php
@@ -264,7 +264,7 @@ This live run is what caught the empty-array/JSON-object bug in decision #8 — 
 failed with a real HTTP 400 from OpenBao that no fake would have produced.
 
 Test-only transit keys created during this verification
-(`taxos-crypto-core-test-kek*`, `tax-subject-kek`) live only in OpenBao's in-memory dev-mode
+(`kern-crypto-core-test-kek*`, `tax-subject-kek`) live only in OpenBao's in-memory dev-mode
 storage and are wiped on the next `openbao` container restart — no manual cleanup was needed or
 performed.
 
