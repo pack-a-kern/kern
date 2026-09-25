@@ -20,7 +20,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 
@@ -31,7 +31,7 @@ const SECRET_CODE = '918273';
  * `docs/AGENTS.md` §1 rule 12 / `BLUEPRINT.md` §13.2 steps 3/9 — captures the **real** log sink
  * (a dedicated `single` channel writing to its own file) across the full credential + challenge
  * flow, including a worker failure, and asserts the plaintext password/code never appear in it.
- * `App\Domain\Audit\Services\AuditChainService::hashPayload()` already guarantees the audit trail
+ * `Kern\Audit\Services\AuditChainService::hashPayload()` already guarantees the audit trail
  * itself carries only structural outcomes (`tests/Feature/Domain/Spv/CredentialFlowTest.php`
  * checks that directly); this test is the equivalent guarantee for the log stream.
  */
@@ -68,7 +68,7 @@ it('never writes the submitted password or challenge code to the log, across suc
         'permissions_json' => [],
         'valid_from' => now('UTC'),
     ]);
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

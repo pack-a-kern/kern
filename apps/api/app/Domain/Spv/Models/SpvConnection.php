@@ -7,11 +7,11 @@ namespace App\Domain\Spv\Models;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
 use App\Domain\Spv\Enums\SpvCredentialPolicy;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -33,7 +33,7 @@ final class SpvConnection extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'spv_connections';
 

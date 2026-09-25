@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\Fixtures;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Stand-in for a future real business table (Wallet's `financial_accounts`, Ledger's
- * `financial_transactions`, …) that adopts `App\Domain\Subjects\Tenancy\ScopedToTaxSubject`.
+ * `financial_transactions`, …) that adopts `App\Support\Tenancy\ScopedToTenant`.
  * Exists only under `tests/` — see `App\Support\Crypto\Casts\Encrypted`'s own
  * `EncryptedNoteA`/`EncryptedNoteB` fixtures for the identical precedent (a real reusable
  * mechanism, proven against a throwaway table, since no real consumer exists yet at this
@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\Model;
 final class ScopedFixtureRecord extends Model
 {
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     public $table = 'scoped_fixture_records';
 

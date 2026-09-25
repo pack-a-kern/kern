@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\StatementImport\StatementImportTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Banks\Models\Bank;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Enums\DocumentSource;
@@ -27,16 +26,17 @@ use App\Domain\StatementImport\Services\ClassifyCounterparties;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Support\KeyManagement\SubjectDekService;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Kern\Audit\Models\AuditEvent;
 use ReflectionProperty;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
@@ -179,8 +179,8 @@ function startImport(TestCase $case, User $user, string $subjectId, string $acco
 
     // The scan is what the job waits for; in a test the document is promoted directly, which is the
     // state the job would find a moment later in real life.
-    $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($importId);
-    Document::withoutGlobalScope(TaxSubjectScope::class)
+    $import = StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($importId);
+    Document::withoutGlobalScope(TenantScope::class)
         ->whereKey($import->document_id)
         ->update(['status' => DocumentStatus::READY->value]);
 
@@ -238,7 +238,7 @@ it('takes the reference from the next place when the first repeats the counterpa
         ])
         ->assertOk();
 
-    $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+    $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
         ->where('import_id', $import->id)
         ->orderBy('row_number')
         ->get();
@@ -260,7 +260,7 @@ it('stores the statement as a document that is never sent to a model', function 
     [$user, $subjectId, $accountId] = importer();
 
     $import = startImport($this, $user, $subjectId, $accountId);
-    $document = Document::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->document_id);
+    $document = Document::withoutGlobalScope(TenantScope::class)->findOrFail($import->document_id);
 
     // `IMPORT` is what stops `ProcessScannedDocument` asking a model to re-read a file whose rows
     // are about to be read locally.
@@ -290,11 +290,11 @@ it('builds rows from the mapping, and imports the ticked ones', function (): voi
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")
         ->assertStatus(202);
 
-    $transactions = FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->get();
+    $transactions = FinancialTransaction::withoutGlobalScope(TenantScope::class)->get();
 
     expect($transactions)->toHaveCount(3)
         ->and($transactions->every(static fn (FinancialTransaction $transaction): bool => $transaction->source === RecordSource::IMPORT))->toBeTrue()
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+        ->and(StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id)->status)
         ->toBe(StatementImportStatus::IMPORTED);
 });
 
@@ -305,7 +305,7 @@ it('adds nothing when the same statement is imported twice', function (): void {
     $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$first->id}/mapping", mappingBody())->assertOk();
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$first->id}/commit")->assertStatus(202);
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3);
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->count())->toBe(3);
 
     // A second export covering the same days: a different file, the same movements.
     $second = startImport($this, $user, $subjectId, $accountId, 'extras-reexport.csv');
@@ -321,7 +321,7 @@ it('adds nothing when the same statement is imported twice', function (): void {
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}/commit")->assertStatus(202);
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3);
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->count())->toBe(3);
 });
 
 it('takes the transactions, the rows and the file with it when an import is deleted', function (): void {
@@ -331,9 +331,9 @@ it('takes the transactions, the rows and the file with it when an import is dele
     $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")->assertStatus(202);
 
-    $documentId = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->document_id;
+    $documentId = StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id)->document_id;
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(3)
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->count())->toBe(3)
         ->and($documentId)->not->toBeNull();
 
     $this->actingAs($user)
@@ -341,9 +341,9 @@ it('takes the transactions, the rows and the file with it when an import is dele
         ->assertNoContent();
 
     // One act: the ledger, the import and the statement file.
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0)
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)->exists())->toBeFalse()
-        ->and(Document::withoutGlobalScope(TaxSubjectScope::class)->whereKey($documentId)->exists())->toBeFalse();
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->count())->toBe(0)
+        ->and(StatementImport::withoutGlobalScope(TenantScope::class)->whereKey($import->id)->exists())->toBeFalse()
+        ->and(Document::withoutGlobalScope(TenantScope::class)->whereKey($documentId)->exists())->toBeFalse();
 });
 
 /**
@@ -495,9 +495,9 @@ it('shows what a form would make of the first lines, without staging anything', 
         ->and($response->json('transactions.0.text'))->toBe('PLATA CARD KAUFLAND');
 
     // Nothing was staged and nothing moved: previewing is reading.
-    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+    expect(StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count())
         ->toBe(0)
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+        ->and(StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id)->status)
         ->toBe(StatementImportStatus::MAPPING);
 });
 
@@ -540,7 +540,7 @@ it('refuses a mapping when neither the file nor the account says the currency', 
         ->assertStatus(422)
         ->assertJsonPath('reason', 'CURRENCY_REQUIRED');
 
-    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+    expect(StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count())
         ->toBe(0);
 
     // Answering it on the form is enough — and it is the only place it can be answered.
@@ -588,13 +588,13 @@ it('deletes an import that reached the end having written nothing', function ():
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")
         ->assertStatus(202);
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->count())->toBe(0);
 
     $this->actingAs($user)
         ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
         ->assertNoContent();
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($import->id))->toBeNull();
+    expect(StatementImport::withoutGlobalScope(TenantScope::class)->find($import->id))->toBeNull();
 });
 
 it('deletes an import whether or not it became transactions, and refuses only one being written', function (): void {
@@ -606,8 +606,8 @@ it('deletes an import whether or not it became transactions, and refuses only on
         ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
         ->assertNoContent();
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($import->id))->toBeNull()
-        ->and(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())
+    expect(StatementImport::withoutGlobalScope(TenantScope::class)->find($import->id))->toBeNull()
+        ->and(StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count())
         ->toBe(0);
 
     $second = startImport($this, $user, $subjectId, $accountId, 'extras-mai.csv');
@@ -624,13 +624,13 @@ it('deletes an import whether or not it became transactions, and refuses only on
         ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$second->id}")
         ->assertNoContent();
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($second->id))->toBeNull()
-        ->and(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $second->id)->count())
+    expect(StatementImport::withoutGlobalScope(TenantScope::class)->find($second->id))->toBeNull()
+        ->and(FinancialTransaction::withoutGlobalScope(TenantScope::class)->where('import_id', $second->id)->count())
         ->toBe(0);
 
     // Only a write in flight refuses: deleting underneath it would corrupt the write itself.
     $third = startImport($this, $user, $subjectId, $accountId, 'extras-iunie.csv');
-    StatementImport::withoutGlobalScope(TaxSubjectScope::class)
+    StatementImport::withoutGlobalScope(TenantScope::class)
         ->whereKey($third->id)
         ->update(['status' => StatementImportStatus::IMPORTING->value]);
 
@@ -639,7 +639,7 @@ it('deletes an import whether or not it became transactions, and refuses only on
         ->assertStatus(409)
         ->assertJsonPath('reason', 'IMPORT_HOLDS_TRANSACTIONS');
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($third->id))->not->toBeNull();
+    expect(StatementImport::withoutGlobalScope(TenantScope::class)->find($third->id))->not->toBeNull();
 });
 
 it('serves the page of rows that was asked for', function (): void {
@@ -677,7 +677,7 @@ it('keeps a counterparty in one batch, at whatever size is configured', function
         ->assertOk();
 
     /** @var list<StatementImportRow> $rows */
-    $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+    $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
         ->where('import_id', $import->id)
         ->orderBy('row_number')
         ->get()
@@ -769,12 +769,12 @@ it('marks an import failed when the reader stays unreachable', function (): void
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId, 'extras-cititor-oprit.csv');
 
-    StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)
+    StatementImport::withoutGlobalScope(TenantScope::class)->whereKey($import->id)
         ->update(['status' => StatementImportStatus::READING->value]);
 
     (new ReadStatementFile($import->id))->failed(StatementParseUnavailableException::requestFailed(new RuntimeException('down')));
 
-    $failed = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id);
+    $failed = StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id);
 
     expect($failed->status)->toBe(StatementImportStatus::FAILED)
         ->and($failed->failure_reason)->toBe('READER_UNAVAILABLE');
@@ -792,13 +792,13 @@ it('marks a write that stopped part-way failed, and lets it be undone', function
         ->assertStatus(202);
 
     // As if the queue gave up while writing: the rows written so far are in the ledger.
-    StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)
+    StatementImport::withoutGlobalScope(TenantScope::class)->whereKey($import->id)
         ->update(['status' => StatementImportStatus::IMPORTING->value]);
-    $written = FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count();
+    $written = FinancialTransaction::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count();
 
     (new WriteStatementRows($import->id, $user->id))->failed(new RuntimeException('killed'));
 
-    $failed = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id);
+    $failed = StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id);
 
     expect($written)->toBeGreaterThan(0)
         ->and($failed->status)->toBe(StatementImportStatus::FAILED)
@@ -811,8 +811,8 @@ it('marks a write that stopped part-way failed, and lets it be undone', function
         ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
         ->assertNoContent();
 
-    expect(FinancialTransaction::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->count())->toBe(0)
-        ->and(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->whereKey($import->id)->exists())->toBeFalse();
+    expect(FinancialTransaction::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count())->toBe(0)
+        ->and(StatementImport::withoutGlobalScope(TenantScope::class)->whereKey($import->id)->exists())->toBeFalse();
 });
 
 it('asks the model again about unanswered rows without rebuilding them', function (): void {
@@ -823,7 +823,7 @@ it('asks the model again about unanswered rows without rebuilding them', functio
         ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
         ->assertOk();
 
-    $rowIds = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->pluck('id')->all();
+    $rowIds = StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->pluck('id')->all();
 
     Queue::fake();
 
@@ -838,7 +838,7 @@ it('asks the model again about unanswered rows without rebuilding them', functio
     $shown = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")->assertOk();
 
     // The same rows, not a new set — a person's edits on them survive — and a round is pending.
-    expect(StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)->where('import_id', $import->id)->pluck('id')->all())
+    expect(StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->pluck('id')->all())
         ->toBe($rowIds)
         ->and($shown->json('preview.classification.expected'))->toBeNull();
 });
@@ -855,7 +855,7 @@ it('reads the file again and asks for the columns again, without a new upload', 
 
     Queue::assertPushed(ReadStatementFile::class);
 
-    expect(StatementImport::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($import->id)->status)
+    expect(StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id)->status)
         ->toBe(StatementImportStatus::READING);
 });
 

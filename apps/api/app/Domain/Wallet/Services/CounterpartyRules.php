@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services;
 
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Models\CounterpartyRule;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -104,7 +104,7 @@ final readonly class CounterpartyRules
             return;
         }
 
-        $subjectId = $this->tenant->currentSubjectId();
+        $subjectId = $this->tenant->currentTenantId();
 
         DB::transaction(function () use ($index, $direction, $categoryCode, $countryCode, $tagIds, $source, $subjectId): void {
             $existing = $this->find($index, $direction);

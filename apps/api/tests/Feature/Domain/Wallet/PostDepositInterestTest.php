@@ -6,8 +6,6 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\Actions\PostMaturedDepositInterest;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
@@ -21,6 +19,8 @@ use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialTransaction;
+use App\Support\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 
@@ -46,7 +46,7 @@ function maturedDeposit(): string
 
     // Opening the deposit needs a bound context: its display name is encrypted under the subject's
     // own key. Posting the interest deliberately does not — see below.
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 
@@ -71,7 +71,7 @@ function maturedDeposit(): string
     // Unbound again on the way out. The nightly task runs from the scheduler with no request and
     // no subject behind it, so every test below exercises that path rather than a convenient one —
     // which is also why the assertions read through `unscoped()` rather than a bound context.
-    app()->instance(TenantContext::class, new TenantContext());
+    app()->instance(TenantContext::class, app(TenantContext::class));
 
     /** @var string $accountId */
     $accountId = $account->getKey();
@@ -87,7 +87,7 @@ function maturedDeposit(): string
  */
 function unscoped(string $model): \Illuminate\Database\Eloquent\Builder
 {
-    return $model::query()->withoutGlobalScope(TaxSubjectScope::class);
+    return $model::query()->withoutGlobalScope(TenantScope::class);
 }
 
 it('posts only the periods that have actually closed, never a forecast', function (): void {

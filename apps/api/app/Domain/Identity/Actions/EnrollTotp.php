@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\DataTransferObjects\TotpEnrollment;
 use App\Domain\Identity\Enums\MfaMethodType;
 use App\Domain\Identity\Exceptions\TotpAlreadyEnrolledException;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserMfaMethod;
 use App\Domain\Identity\Support\Totp\TotpVerifier;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Starts (or restarts) TOTP enrollment: generates a fresh secret, stores it **unconfirmed**

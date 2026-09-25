@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Jobs;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\DataTransferObjects\ConvertedStatement;
@@ -23,13 +21,15 @@ use App\Domain\StatementImport\Services\NotifyImportOwner;
 use App\Domain\StatementImport\Services\StatementConverter;
 use App\Domain\StatementImport\Services\StatementFileContents;
 use App\Domain\StatementImport\Services\SuggestColumnMapping;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 use Throwable;
 
 /**
@@ -100,7 +100,7 @@ final class ReadStatementFile implements ShouldQueue
     ): void {
         // Without the tenant scope: a queue worker acts for no one, and the import's own row carries
         // the subject every read below is bounded by.
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         // Deleted while this waited: nothing to read, and failing would leave a failed job behind
         // for an import the person already abandoned.
@@ -110,7 +110,7 @@ final class ReadStatementFile implements ShouldQueue
 
         $document = $import->document_id === null
             ? null
-            : Document::withoutGlobalScope(TaxSubjectScope::class)->with('parts')->find($import->document_id);
+            : Document::withoutGlobalScope(TenantScope::class)->with('parts')->find($import->document_id);
 
         if ($document === null) {
             $this->fail($import, 'FILE_MISSING');
@@ -282,7 +282,7 @@ final class ReadStatementFile implements ShouldQueue
      */
     public function failed(?Throwable $exception): void
     {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         if ($import === null || $import->status !== StatementImportStatus::READING) {
             return;

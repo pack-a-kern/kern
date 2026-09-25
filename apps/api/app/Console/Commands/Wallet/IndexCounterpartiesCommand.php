@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands\Wallet;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\CounterpartyRules;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Console\Command;
 
 /**
@@ -37,7 +37,7 @@ final class IndexCounterpartiesCommand extends Command
         $indexed = 0;
 
         FinancialTransaction::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->whereNull('counterparty_blind_index')
             ->whereNotNull('counterparty_ciphertext')
             ->orderBy('id')

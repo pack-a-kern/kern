@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Spv\Contracts\SpvBrowserSessionClient;
 use App\Domain\Spv\DataTransferObjects\SubmitSpvChallengeCodeInput;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
@@ -18,6 +16,8 @@ use App\Domain\Spv\Models\SpvConnection;
 use App\Domain\Spv\Models\SpvSession;
 use App\Domain\Spv\Services\ApplyPortalAuthResult;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §13.2 steps 6-9: the safety code the user was challenged for. Requires the session

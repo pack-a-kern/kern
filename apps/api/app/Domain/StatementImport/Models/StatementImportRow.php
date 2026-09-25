@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Models;
 
 use App\Domain\StatementImport\Enums\RowProposalSource;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -44,7 +44,7 @@ final class StatementImportRow extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'statement_import_rows';
 

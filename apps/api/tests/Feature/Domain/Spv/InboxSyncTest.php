@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\InboxSyncTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Identity\Models\User;
 use App\Domain\Spv\Actions\SyncSpvInbox;
 use App\Domain\Spv\Enums\SpvAuthMethod;
@@ -18,10 +17,11 @@ use App\Domain\Spv\Models\SpvMessage;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Kern\Audit\Models\AuditEvent;
 
 /**
  * `docs/reference/anaf-spv-integration.md`'s two-transport inbox sync — `App\Domain\Spv\Actions\
@@ -47,7 +47,7 @@ function activateSpvSubject(TaxSubject $subject): void
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

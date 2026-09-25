@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * as `RESTRICT` for this purpose) — **not** `nullOnDelete()`/`cascadeOnDelete()`, and this needed
  * checking, not assuming:
  *
- * `App\Domain\Audit\Support\AuditEventHasher::payload()` includes `subject_id` and `actor_id` in
+ * `Kern\Audit\Support\AuditEventHasher::payload()` includes `subject_id` and `actor_id` in
  * the exact field set that `event_hash` is computed over (read directly before writing this
  * migration, not assumed). `audit_events` also carries a `BEFORE UPDATE OR DELETE` trigger that
  * raises on *any* mutation (`docs/handoff/006-audit-chain.md` "Append-only enforcement"). A

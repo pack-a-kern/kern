@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\RevokeSpvConnectionTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Identity\Models\User;
 use App\Domain\Spv\Actions\RevokeSpvConnection;
 use App\Domain\Spv\Enums\SpvAuthMethod;
@@ -14,8 +13,9 @@ use App\Domain\Spv\Models\SpvConnection;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Audit\Models\AuditEvent;
 
 /** The natural counterpart to connecting SPV — a user must be able to disconnect it. */
 beforeEach(function (): void {
@@ -33,7 +33,7 @@ it('revokes a connection and records an audit event', function (): void {
         'permissions_json' => [],
         'valid_from' => now('UTC'),
     ]);
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($actor->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

@@ -20,6 +20,17 @@ use Illuminate\Support\Facades\DB;
 return new class () extends Migration {
     public function up(): void
     {
+        /*
+         * A function outlives the tables that used it.
+         *
+         * `migrate:fresh` drops every table — and with them every index built on this function —
+         * but functions are not tables and stay where they are. So a second run of the suite finds
+         * both names already present: the old one recreated a few migrations ago, the new one left
+         * behind by the run before. The leftover is dropped rather than renamed around, and plainly
+         * rather than with `CASCADE`, so that anything still depending on it says so instead of
+         * being quietly taken with it.
+         */
+        DB::statement('DROP FUNCTION IF EXISTS kern_unaccent(text)');
         DB::statement('ALTER FUNCTION taxos_unaccent(text) RENAME TO kern_unaccent');
     }
 

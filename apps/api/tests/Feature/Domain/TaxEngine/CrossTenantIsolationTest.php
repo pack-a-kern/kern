@@ -6,18 +6,18 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\TaxEngine\Models\TaxAssessment;
 use App\Domain\TaxEngine\Models\TaxFact;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
+use App\Support\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3 — mandatory. Proves
  * `App\Domain\TaxEngine\Models\TaxFact`/`TaxAssessment` are correctly wired to
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` as defence in depth, on top of
+ * `App\Support\Tenancy\ScopedToTenant` as defence in depth, on top of
  * `App\Domain\TaxEngine\Repositories\TaxFactRepository`'s own explicit `tax_subject_id` filter
  * (that repository's own tests prove the explicit-filter path; this test proves the underlying
  * model-level guard a less careful caller would still hit).
@@ -49,7 +49,7 @@ function ownerAndSubjectForTaxEngine(): array
 
 function activateAsForTaxEngine(User $user, TaxSubject $subject): void
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

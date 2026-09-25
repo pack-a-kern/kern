@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Audit;
 
-use App\Domain\Audit\Queries\AuditEventQuery;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Audit\Queries\AuditEventQuery;
 
 /**
  * `GET /api/v1/audit/events` — a page of the append-only audit trail, newest first.

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Support\Tenancy\TenantScope;
 
 /**
  * Gives a taxpayer the one source they should never have to create.
@@ -33,7 +33,7 @@ final readonly class EnsureGeneralSource
         // The subject id is supplied by the caller that just created it, so the scope would only
         // re-apply a filter that is already there.
         $existing = FinancialAccount::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->where('tax_subject_id', $taxSubjectId)
             ->where('kind', AccountKind::GENERAL->value)
             ->first();

@@ -16,7 +16,7 @@ use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 
@@ -43,7 +43,7 @@ function activatedCoOwnershipSubject(): TaxSubject
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

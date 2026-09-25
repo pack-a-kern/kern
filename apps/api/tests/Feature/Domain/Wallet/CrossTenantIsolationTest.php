@@ -8,7 +8,6 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
@@ -21,13 +20,14 @@ use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §5.3: a user authorized for one `TaxSubject` must never
  * reach another subject's row, through any of the seven tables this module owns — every one uses
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject`, so this test exercises that mechanism directly
+ * `App\Support\Tenancy\ScopedToTenant`, so this test exercises that mechanism directly
  * against each model rather than trusting that "it uses the same trait" is enough on its own.
  */
 beforeEach(function (): void {
@@ -56,7 +56,7 @@ function ownerAndSubject(): array
 
 function activateAs(User $user, TaxSubject $subject): void
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

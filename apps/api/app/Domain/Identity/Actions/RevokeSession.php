@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Exceptions\SessionNotFoundException;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserSession;
 use App\Domain\Identity\Support\SessionRegistrar;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Revokes one of a user's own sessions (`BLUEPRINT.md` §4.7's "explicit revoke" device-management

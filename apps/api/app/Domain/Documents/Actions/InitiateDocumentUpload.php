@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\DataTransferObjects\IncomingFile;
 use App\Domain\Documents\DataTransferObjects\ValidatedUpload;
 use App\Domain\Documents\Enums\DocumentSource;
@@ -22,6 +20,8 @@ use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 use RuntimeException;
 use Throwable;
 

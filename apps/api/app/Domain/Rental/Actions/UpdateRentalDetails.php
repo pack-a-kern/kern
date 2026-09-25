@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Rental\DataTransferObjects\UpdateRentalDetailsInput;
 use App\Domain\Rental\Enums\RentalAuditEvent;
 use App\Domain\Rental\Models\RentalContract;
 use App\Domain\Rental\Services\RentalAccrualHorizon;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Corrects what a rental is described as: the property, its share, and the tenant.

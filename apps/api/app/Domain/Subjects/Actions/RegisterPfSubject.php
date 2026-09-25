@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Enums\MembershipRole;
@@ -19,6 +17,8 @@ use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Services\SubjectAllowance;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Registers a new PF `TaxSubject`: checks for a duplicate CNP across the whole system
@@ -61,7 +61,7 @@ use Illuminate\Support\Facades\DB;
  * table is inherent to what "duplicate CNP across the whole system" means, not a bypass of
  * anything (`docs/adr/0002-envelope-encryption.md`: this is one of the two use cases the global
  * blind-index key exists for). `TaxSubject` does not use `App\Domain\Subjects\Tenancy\
- * ScopedToTaxSubject`, so no escape hatch is even needed here.
+ * ScopedToTenant`, so no escape hatch is even needed here.
  */
 final readonly class RegisterPfSubject
 {

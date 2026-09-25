@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Jobs;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\AiExtractionOutcome;
 use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
@@ -23,15 +21,17 @@ use App\Domain\Documents\Extraction\TextExtractionGateway;
 use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\ObjectStore\DocumentObjectKind;
 use App\Support\ObjectStore\EncryptedObjectStore;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §14.1: native text extraction, the OCR-needed decision, then the (consent-gated,
@@ -135,7 +135,7 @@ final class ProcessScannedDocument implements ShouldQueue
         RequestExternalDocumentExtraction $requestExternalExtraction,
         AuditChainService $audit,
     ): void {
-        $document = Document::withoutGlobalScope(TaxSubjectScope::class)->with('parts')->find($this->documentId);
+        $document = Document::withoutGlobalScope(TenantScope::class)->with('parts')->find($this->documentId);
 
         // Deleted while this waited in the queue: there is nothing left to read, and failing would
         // only leave a failed job behind for a document the person already threw away.
@@ -221,7 +221,7 @@ final class ProcessScannedDocument implements ShouldQueue
             // A reading takes minutes, and a document deleted during it makes saving the reading
             // fail on its foreign key. That one case ends quietly, like the check at the top; any
             // other database failure is a real fault and still fails the job.
-            if (Document::withoutGlobalScope(TaxSubjectScope::class)->whereKey($document->id)->exists()) {
+            if (Document::withoutGlobalScope(TenantScope::class)->whereKey($document->id)->exists()) {
                 throw $exception;
             }
 

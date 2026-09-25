@@ -10,8 +10,8 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\TaxEngine\Models\TaxAssessment;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 
 /**
@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Artisan;
  * column at all (matching `BLUEPRINT.md` §6.10's own literal schema, and the identical precedent
  * `App\Domain\TaxEngine\Models\TaxAssessmentLine` already sets for a child row "reached only
  * through its owning parent, tenancy enforced one level up") — a direct, unauthenticated query
- * against that table is not a scenario `ScopedToTaxSubject` can guard, by design; every sanctioned
+ * against that table is not a scenario `ScopedToTenant` can guard, by design; every sanctioned
  * read path (`$declaration->submissions()`) goes through an already-tenant-scoped `Declaration`
  * first.
  */
@@ -51,7 +51,7 @@ function declarationsOwnerAndSubject(): array
 
 function activateDeclarationsSubject(User $user, TaxSubject $subject): void
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

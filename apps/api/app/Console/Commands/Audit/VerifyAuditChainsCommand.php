@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands\Audit;
 
-use App\Domain\Audit\Services\ChainVerifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\Services\ChainVerifier;
 
 /**
  * Re-verifies every audit hash chain (`BLUEPRINT.md` §4.8) — walking each chain and recomputing

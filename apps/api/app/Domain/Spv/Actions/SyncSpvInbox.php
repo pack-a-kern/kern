@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Spv\DataTransferObjects\SpvInboxMessage;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvSyncRunStatus;
@@ -19,6 +17,8 @@ use App\Domain\Spv\Transport\AnafCertificateApiTransport;
 use App\Domain\Spv\Transport\BrowserPortalInboxSyncTransport;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * The transport-agnostic entry point `docs/reference/anaf-spv-integration.md`'s "real

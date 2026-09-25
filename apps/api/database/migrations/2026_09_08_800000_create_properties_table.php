@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * `properties` (`BLUEPRINT.md` §6.5, Milestone 8). Scoped to `tax_subject_id` per
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` (`docs/handoff/011-identity-tenancy.md`).
+ * `App\Support\Tenancy\ScopedToTenant` (`docs/handoff/011-identity-tenancy.md`).
  *
  * `address_ciphertext`/`cadastral_ref_ciphertext` encrypted per §4.3 — see
  * `App\Domain\Rental\Models\Property`'s docblock for why the cadastral reference is included even

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Spv\Models;
 
 use App\Domain\Spv\Enums\SpvSessionState;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class SpvSession extends Model
 {
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'spv_sessions';
 

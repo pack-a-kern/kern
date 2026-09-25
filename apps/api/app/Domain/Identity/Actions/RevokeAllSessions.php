@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Support\SessionRegistrar;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §4.7's "explicit revoke all sessions." `$exceptSessionId` lets the caller's own

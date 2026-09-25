@@ -17,13 +17,13 @@ use App\Domain\Spv\Models\SpvSyncRun;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 
 /**
  * `docs/AGENTS.md` §21.4 / `BLUEPRINT.md` §26 M10 DoD ("one tax subject cannot access another
  * browser state") — every table this module owns uses `App\Domain\Subjects\Tenancy\
- * ScopedToTaxSubject`, the same test shape `tests/Feature/Domain/Rental/CrossTenantIsolationTest.php`
+ * ScopedToTenant`, the same test shape `tests/Feature/Domain/Rental/CrossTenantIsolationTest.php`
  * establishes first.
  */
 beforeEach(function (): void {
@@ -51,7 +51,7 @@ function spvOwnerAndSubject(): TaxSubject
 
 function activateSpvSubject(User $user, TaxSubject $subject): void
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

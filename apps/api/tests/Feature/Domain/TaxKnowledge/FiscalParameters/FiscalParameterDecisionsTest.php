@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionsTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Identity\Models\User;
 use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
 use App\Domain\TaxKnowledge\Exceptions\AgentApprovalNotPermittedException;
@@ -12,6 +11,7 @@ use App\Domain\TaxKnowledge\Models\FiscalParameter;
 use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
 use App\Domain\TaxKnowledge\Models\SourceSection;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Audit\Models\AuditEvent;
 use Spatie\Permission\PermissionRegistrar;
 
 /**

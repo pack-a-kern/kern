@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Subjects\DataTransferObjects\UpdatePfSubjectInput;
 use App\Domain\Subjects\Models\PfProfile;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Correcting a taxpayer's details.

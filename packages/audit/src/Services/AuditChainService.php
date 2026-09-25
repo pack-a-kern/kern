@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\Services;
+namespace Kern\Audit\Services;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\DataTransferObjects\AuditEventRecord;
-use App\Domain\Audit\Support\AuditEventHasher;
-use App\Domain\Audit\Support\CanonicalJson;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\DataTransferObjects\AuditEventRecord;
+use Kern\Audit\Support\AuditEventHasher;
+use Kern\Audit\Support\CanonicalJson;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
@@ -22,7 +22,7 @@ use RuntimeException;
  * This is the module's public entry point for other bounded contexts — per `docs/AGENTS.md` §6, a
  * module never imports another module's Eloquent models, but "an application service" is one of
  * the explicitly sanctioned shapes for cross-module traffic, so callers depend on this class
- * directly rather than on `App\Domain\Audit\Models\AuditEvent`. There is deliberately no separate
+ * directly rather than on `Kern\Audit\Models\AuditEvent`. There is deliberately no separate
  * `AuditEventRecorder` interface: with exactly one implementation and no test needing a fake
  * (Pest exercises this class itself against a real Postgres connection), an interface would be
  * the "pointless abstraction" `docs/CODE-QUALITY.md` §1 warns against. Add one, bound in a new
@@ -42,8 +42,8 @@ use RuntimeException;
  * ## Canonical payload for `event_hash`
  *
  * The exact field shape hashed, and the formula itself, live in
- * {@see \App\Domain\Audit\Support\AuditEventHasher} — shared verbatim with
- * {@see \App\Domain\Audit\Services\ChainVerifier} so writing and verifying can never drift apart.
+ * {@see \Kern\Audit\Support\AuditEventHasher} — shared verbatim with
+ * {@see \Kern\Audit\Services\ChainVerifier} so writing and verifying can never drift apart.
  *
  * `signature_key_version` and `event_hash` itself are deliberately excluded from that payload:
  * `event_hash` cannot hash itself, and `signature_key_version` is populated later, out of band, by

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Rental\Models;
 
 use App\Domain\Rental\Enums\RentalPaymentFrequency;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use RuntimeException;
@@ -43,7 +43,7 @@ final class RentalContractVersion extends Model implements EncryptsWithSubjectDe
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /** @var list<string> */
     protected $fillable = [

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Enums\MembershipRole;
@@ -19,12 +17,14 @@ use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\Subjects\Services\SubjectAllowance;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Registers a new PFA `TaxSubject` — the extension proof `docs/handoff/034-pfa-extension.md`
  * (Milestone 12, `BLUEPRINT.md` §38.B) exists to demonstrate: this class is a file added without
  * modifying `App\Domain\Subjects\Actions\RegisterPfSubject`, `SubjectMembership`, `TenantContext`,
- * `ScopedToTaxSubject`, or anything under `Domain/Audit`, `Domain/Identity`, `App\Support\Crypto`,
+ * `ScopedToTenant`, or anything under `Domain/Audit`, `Domain/Identity`, `App\Support\Crypto`,
  * or `App\Support\KeyManagement`.
  *
  * Deliberately structured identically to `RegisterPfSubject` — same two-write `TaxSubject`

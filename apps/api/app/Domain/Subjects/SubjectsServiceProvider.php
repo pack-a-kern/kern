@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Domain\Subjects;
 
 use App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Domain\Subjects\Tenancy\MembershipTenantGate;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\SubjectDekRepository;
+use App\Support\Tenancy\Contracts\TenantGate;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -45,6 +47,9 @@ final class SubjectsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SubjectDekRepository::class, EloquentSubjectDekRepository::class);
+        // What "may act for this taxpayer" means is this application's answer, given to the
+        // platform's tenant context rather than known by it.
+        $this->app->bind(TenantGate::class, MembershipTenantGate::class);
         $this->app->scoped(TenantContext::class);
 
         $this->app->singleton(BlindIndexKeyProvider::class, static function (Application $app): BlindIndexKeyProvider {

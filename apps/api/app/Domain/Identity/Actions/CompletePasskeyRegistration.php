@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserPasskey;
 use App\Domain\Identity\Support\Webauthn\PasskeyManager;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Finishes a passkey-registration ceremony (`App\Domain\Identity\Support\Webauthn\PasskeyManager::

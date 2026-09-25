@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Enums\MfaMethodType;
 use App\Domain\Identity\Exceptions\TotpNotEnrolledException;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Support\RecoveryCodes\RecoveryCodeGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Invalidates every existing recovery code for a user and issues a fresh set — the "I used most of

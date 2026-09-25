@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\Queries;
+namespace Kern\Audit\Queries;
 
 use Illuminate\Contracts\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;

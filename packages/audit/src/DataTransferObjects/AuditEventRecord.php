@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\DataTransferObjects;
+namespace Kern\Audit\DataTransferObjects;
 
 use DateTimeImmutable;
 

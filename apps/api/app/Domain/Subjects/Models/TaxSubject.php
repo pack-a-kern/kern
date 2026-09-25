@@ -19,7 +19,7 @@ use RuntimeException;
 /**
  * `tax_subjects` (`BLUEPRINT.md` §5.2) — the tenant boundary. Every other business table this project
  * ever builds scopes its rows to one `tax_subject_id`; see
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` for the reusable mechanism other modules use.
+ * `App\Support\Tenancy\ScopedToTenant` for the reusable mechanism other modules use.
  *
  * `fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index`/`fiscal_identifier_kind` are the
  * single canonical location for **any** subject type's fiscal identifier (ADR 0011,

@@ -12,8 +12,8 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Documents\Queries\ResolveTransactionImportState;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +44,7 @@ use Illuminate\Validation\Rule;
  * protects against a stolen database, a leaked backup, an operator reading rows; it was never meant
  * to hide a person's own filenames from them, and a list of documents identified only by a UUID and
  * a MIME type is unusable. Every row is tenant-scoped
- * (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject`), so the only reader is a user with an active
+ * (`App\Support\Tenancy\ScopedToTenant`), so the only reader is a user with an active
  * membership on this subject.
  *
  * There is deliberately **no filename search**. The column is encrypted with a random nonce, so it
@@ -122,7 +122,7 @@ final class ListDocumentsController extends Controller
         }
 
         if (isset($validated['stage']) && is_string($validated['stage'])) {
-            $this->applyStage($query, DocumentStage::from($validated['stage']), $tenant->currentSubjectId());
+            $this->applyStage($query, DocumentStage::from($validated['stage']), $tenant->currentTenantId());
         }
 
         if ($request->boolean('needs_review')) {
@@ -136,7 +136,7 @@ final class ListDocumentsController extends Controller
             // It spans two stages now: a reading waiting to be accepted, and one accepted but not
             // yet imported. Both are outstanding, which is all this flag ever claimed to mean — the
             // stages are the finer question, and they are what the screen drives.
-            $subjectId = $tenant->currentSubjectId();
+            $subjectId = $tenant->currentTenantId();
 
             $query->where('status', DocumentStatus::READY->value)
                 ->whereNotIn('id', self::documentsThatProducedRecords($subjectId));
@@ -164,7 +164,7 @@ final class ListDocumentsController extends Controller
         /** @var list<Document> $documents */
         $documents = $paginator->items();
         $imports = $importState->forMany(
-            $tenant->currentSubjectId(),
+            $tenant->currentTenantId(),
             $documents,
         );
         $proposedNames = self::proposedNames($documents);

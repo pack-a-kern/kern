@@ -2,10 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Audit\ChainVerificationFailureReason;
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
@@ -13,6 +9,10 @@ use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Kern\Audit\ChainVerificationFailureReason;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
+use Kern\Audit\Services\ChainVerifier;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -149,7 +149,7 @@ test('the Eloquent model refuses mass-assignment entirely, before mutation is ev
     $subjectId = auditSubjectId();
     $event = $service->record(auditInput($subjectId));
 
-    $model = \App\Domain\Audit\Models\AuditEvent::query()->findOrFail($event->id);
+    $model = \Kern\Audit\Models\AuditEvent::query()->findOrFail($event->id);
 
     // $guarded = ['*'] rejects this before performUpdate() (the override below) is ever reached
     // — an even earlier line of defence for the common ->update([...]) call shape.
@@ -162,7 +162,7 @@ test('the Eloquent model refuses a direct property save() as a second line of de
     $subjectId = auditSubjectId();
     $event = $service->record(auditInput($subjectId));
 
-    $model = \App\Domain\Audit\Models\AuditEvent::query()->findOrFail($event->id);
+    $model = \Kern\Audit\Models\AuditEvent::query()->findOrFail($event->id);
     $model->event_type = 'Tampered';
 
     // Direct property assignment bypasses the mass-assignment guard entirely, so this exercises
@@ -175,7 +175,7 @@ test('the Eloquent model refuses delete()', function (): void {
     $subjectId = auditSubjectId();
     $event = $service->record(auditInput($subjectId));
 
-    $model = \App\Domain\Audit\Models\AuditEvent::query()->findOrFail($event->id);
+    $model = \Kern\Audit\Models\AuditEvent::query()->findOrFail($event->id);
 
     expect(fn () => $model->delete())->toThrow(LogicException::class, 'append-only');
 });

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentDerivative;
 use App\Domain\Documents\Models\DocumentPart;
@@ -14,6 +12,8 @@ use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
 use App\Support\ObjectStore\ObjectKey;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 use Throwable;
 
 /**

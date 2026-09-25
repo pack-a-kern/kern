@@ -15,8 +15,8 @@ use App\Domain\Rental\Enums\PropertyType;
 use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Rental\Exceptions\InvalidOwnershipPercentException;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -88,7 +88,7 @@ final class OpenRentalController extends Controller
 
         try {
             $contract = $open(new OpenRentalInput(
-                taxSubjectId: $tenant->currentSubjectId(),
+                taxSubjectId: $tenant->currentTenantId(),
                 propertyType: PropertyType::from(self::str($validated, 'property_type')),
                 address: self::str($validated, 'address'),
                 ownershipPercentDecimal: self::str($validated, 'ownership_percent'),

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\ExternalAi;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
 use App\Domain\Documents\Enums\DocumentStatus;
@@ -23,6 +21,8 @@ use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
 use App\Domain\Settings\Services\AiProviderCatalogue;
 use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use App\Support\ObjectStore\EncryptedObjectStore;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * ADR 0005's consent-gated external send, end to end: the gate, the actual call, and the audit

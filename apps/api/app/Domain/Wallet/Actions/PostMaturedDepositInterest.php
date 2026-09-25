@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\WalletAudit;
+use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -69,7 +69,7 @@ final readonly class PostMaturedDepositInterest
         // last made a request. Scoping it would silently find nothing.
         /** @var list<DepositInterestEvent> $due */
         $due = DepositInterestEvent::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->whereNull('transaction_id')
             ->whereDate('accrual_to', '<=', $today->toDateString())
             ->orderBy('accrual_to')
@@ -80,7 +80,7 @@ final readonly class PostMaturedDepositInterest
 
         foreach ($due as $event) {
             DB::transaction(function () use ($event): void {
-                $deposit = FinancialAccount::query()->withoutGlobalScope(TaxSubjectScope::class)->find($event->account_id);
+                $deposit = FinancialAccount::query()->withoutGlobalScope(TenantScope::class)->find($event->account_id);
 
                 $transaction = $this->movements->write(
                     subjectId: $event->tax_subject_id,

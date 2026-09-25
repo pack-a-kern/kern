@@ -7,8 +7,8 @@ namespace App\Domain\Declarations\Models;
 use App\Domain\Declarations\Enums\DeclarationKind;
 use App\Domain\Declarations\Enums\DeclarationStatus;
 use App\Domain\Declarations\Exceptions\DeclarationIsImmutableException;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * `declarations` (`BLUEPRINT.md` §6.10, §12.3) — see that migration's docblock. Carries no
  * ciphertext of its own: `snapshot_json` is ids, hashes, and RON minor-unit totals already public
- * within the tenant boundary `ScopedToTaxSubject` enforces, not raw PII.
+ * within the tenant boundary `ScopedToTenant` enforces, not raw PII.
  *
  * **Immutability enforcement (`docs/AGENTS.md` rule 18) lives here, in code, not only in the
  * action layer**: once a row has been persisted with `locked_at` set (`SUBMITTED`), any further
@@ -43,7 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 final class Declaration extends Model
 {
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     public const ?string UPDATED_AT = null;
 

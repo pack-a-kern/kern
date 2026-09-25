@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Jobs;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\RejectionReason;
 use App\Domain\Documents\Events\DocumentScanned;
@@ -15,14 +13,16 @@ use App\Domain\Documents\Models\DocumentScan;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ScanOutcome;
 use App\Domain\Documents\Scanning\VirusScanner;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\ObjectStore\EncryptedObjectStore;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §14.1 ClamAV stage, for one file of a document.
@@ -40,9 +40,9 @@ use Illuminate\Support\Facades\DB;
  * This is `docs/AGENTS.md` §21.4's "unreachable scanner blocks" requirement, satisfied structurally
  * rather than by an explicit check.
  *
- * Resolves models via `withoutGlobalScope(TaxSubjectScope::class)` — this job is the system's own
+ * Resolves models via `withoutGlobalScope(TenantScope::class)` — this job is the system's own
  * trusted pipeline acting on a specific, already-known part, not a user request; there is no
- * per-job authenticated user to bind `App\Domain\Subjects\Tenancy\TenantContext` against.
+ * per-job authenticated user to bind `App\Support\Tenancy\TenantContext` against.
  */
 final class ScanQuarantinedPart implements ShouldQueue
 {
@@ -67,7 +67,7 @@ final class ScanQuarantinedPart implements ShouldQueue
         $part = DocumentPart::query()->find($this->documentPartId);
         $document = $part === null
             ? null
-            : Document::withoutGlobalScope(TaxSubjectScope::class)->find($part->document_id);
+            : Document::withoutGlobalScope(TenantScope::class)->find($part->document_id);
 
         if ($part === null || $document === null) {
             return;

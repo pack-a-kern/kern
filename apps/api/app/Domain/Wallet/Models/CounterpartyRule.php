@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\ProposalSource;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -28,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 final class CounterpartyRule extends Model
 {
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'counterparty_rules';
 

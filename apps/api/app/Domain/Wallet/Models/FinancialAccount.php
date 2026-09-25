@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -19,11 +19,11 @@ use RuntimeException;
 /**
  * `financial_accounts` (`BLUEPRINT.md` §6.3). See that migration's docblock for schema decisions.
  *
- * Uses both `FillsSubjectForeignKeyFirst` and `ScopedToTaxSubject` — per `ScopedToTaxSubject`'s
+ * Uses both `FillsSubjectForeignKeyFirst` and `ScopedToTenant` — per `ScopedToTenant`'s
  * own docblock warning, a model with encrypted fields cannot rely on that trait's auto-fill-on-
  * create for `tax_subject_id` (the encrypted cast reads it during `fill()`, before the `creating`
  * event fires), so every caller (`App\Domain\Wallet\Actions\OpenFinancialAccount`, factories)
- * must pass `tax_subject_id` explicitly at construction time. `ScopedToTaxSubject` still supplies
+ * must pass `tax_subject_id` explicitly at construction time. `ScopedToTenant` still supplies
  * this model's read/update/delete scoping, which is the property that actually matters for
  * cross-tenant isolation.
  *
@@ -39,7 +39,7 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /** @var list<string> */
     protected $fillable = [

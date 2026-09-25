@@ -6,9 +6,9 @@ use App\Domain\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
-use App\Domain\Subjects\Tenancy\Exceptions\UnauthorizedSubjectAccessException;
 use App\Http\Middleware\BindTaxSubjectContext;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -173,13 +173,11 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        // App\Http\Middleware\BindTaxSubjectContext (and any future module's own tenant-binding
-        // step) throws this the moment a user has no active membership for `{subject}` — a
-        // cross-tenant access attempt, not a server fault. Rendered centrally here rather than
-        // caught per-controller so every module's HTTP layer gets the same 403 for free, without
-        // Documents (or any other) module needing to import a Subjects exception into its own
-        // controllers just to catch it (docs/AGENTS.md §6).
-        $exceptions->render(fn (UnauthorizedSubjectAccessException $exception): JsonResponse => response()->json(
+        // The tenant binding throws this the moment a user holds no role for `{subject}` — a
+        // cross-tenant access attempt, not a server fault. Rendered centrally so every module's
+        // HTTP layer gets the same 403 without importing the exception into its own controllers
+        // to catch it (docs/AGENTS.md §6).
+        $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
             403,
         ));

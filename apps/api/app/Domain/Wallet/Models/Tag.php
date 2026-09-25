@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -29,7 +29,7 @@ final class Tag extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'tags';
 

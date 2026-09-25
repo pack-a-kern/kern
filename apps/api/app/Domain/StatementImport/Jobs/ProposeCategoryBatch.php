@@ -11,8 +11,8 @@ use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\ClassifyCounterparties;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -78,7 +78,7 @@ final class ProposeCategoryBatch implements ShouldQueue
         $tenant->authorizeAndActivate($this->actorId, $import->tax_subject_id);
 
         /** @var list<StatementImportRow> $rows */
-        $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
             ->where('import_id', $import->id)
             ->whereKey($this->rowIds)
             // Answered by a person while this waited in the queue: theirs stands.
@@ -119,7 +119,7 @@ final class ProposeCategoryBatch implements ShouldQueue
     /** The import this batch belongs to, while it is still the run this batch was made for. */
     private function import(): ?StatementImport
     {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         if ($import === null || $import->status !== StatementImportStatus::REVIEW) {
             return null;

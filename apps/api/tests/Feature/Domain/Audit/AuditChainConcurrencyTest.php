@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
@@ -12,11 +9,14 @@ use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
+use Kern\Audit\Services\ChainVerifier;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
  * Proves the claim in docs/handoff/006-audit-chain.md §2 that
- * `App\Domain\Audit\Services\AuditChainService` is race-safe: multiple genuinely concurrent
+ * `Kern\Audit\Services\AuditChainService` is race-safe: multiple genuinely concurrent
  * processes — not just concurrent coroutines inside one PHP process/connection — appending to the
  * *same* chain must never produce a sequence gap, a duplicate sequence, or a hash-chain break.
  *

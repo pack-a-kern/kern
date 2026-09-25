@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\Support;
+namespace Kern\Audit\Support;
 
 use DateTimeInterface;
 
 /**
  * The single place `event_hash = SHA256(canonical_json(event_without_hash) || previous_hash)`
  * (`BLUEPRINT.md` §4.8) is implemented. Both the writer
- * ({@see \App\Domain\Audit\Services\AuditChainService}) and the verifier
- * ({@see \App\Domain\Audit\Services\ChainVerifier}) call this — if the two ever computed the hash
+ * ({@see \Kern\Audit\Services\AuditChainService}) and the verifier
+ * ({@see \Kern\Audit\Services\ChainVerifier}) call this — if the two ever computed the hash
  * slightly differently, verification would fail on every event that was ever correctly written,
  * which is exactly the kind of duplicated "stable domain knowledge" `docs/CODE-QUALITY.md` §1
  * says must not exist in two places.

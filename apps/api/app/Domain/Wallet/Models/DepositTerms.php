@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -47,7 +47,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class DepositTerms extends Model
 {
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /** The account's id, assigned by the caller — never generated here. */
     protected $primaryKey = 'account_id';

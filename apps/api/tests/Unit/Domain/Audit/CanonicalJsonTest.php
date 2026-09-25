@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\Audit\Support\CanonicalJson;
+use Kern\Audit\Support\CanonicalJson;
 
 test('key order in the input array never affects the encoded bytes', function (): void {
     $insertedOneWay = [

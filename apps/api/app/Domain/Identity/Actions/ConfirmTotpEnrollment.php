@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Enums\MfaMethodType;
 use App\Domain\Identity\Exceptions\InvalidMfaCodeException;
 use App\Domain\Identity\Exceptions\TotpNotEnrolledException;
@@ -15,6 +13,8 @@ use App\Domain\Identity\Support\RecoveryCodes\RecoveryCodeGenerator;
 use App\Domain\Identity\Support\Totp\TotpVerifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Proves possession of the secret `App\Domain\Identity\Actions\EnrollTotp` generated, activates

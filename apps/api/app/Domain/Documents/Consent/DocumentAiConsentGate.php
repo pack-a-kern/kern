@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Consent;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
 use App\Domain\Documents\Models\DocumentAiConsent;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * ADR 0005's "per-subject consent, recorded, not assumed from a global setting" — the single

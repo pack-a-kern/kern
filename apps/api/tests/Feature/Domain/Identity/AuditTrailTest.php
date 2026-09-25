@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\AuditTrailTest;
 
-use App\Domain\Audit\Services\AuditChainService;
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Domain\Identity\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Kern\Audit\Services\AuditChainService;
+use Kern\Audit\Services\ChainVerifier;
 use OTPHP\TOTP;
 
 /**
  * `BLUEPRINT.md` §4.8 (audit tamper evidence) — every authentication event this module records lands
- * on the hash-chained, verifiable audit trail (`App\Domain\Audit`), on the "system" chain
+ * on the hash-chained, verifiable audit trail (`Kern\Audit`), on the "system" chain
  * (`AuditChainService::SYSTEM_CHAIN_KEY`) since a login is not scoped to any one `TaxSubject`.
  * `security_events` (a separate, non-chained operational log, `docs/handoff/011-*`'s "Key
  * decisions" #9) is checked alongside it for the failure-reason cases it's meant for.

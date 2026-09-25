@@ -10,9 +10,9 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\Exceptions\NoTenantContextException;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Support\KeyManagement\SubjectDekService;
+use App\Support\Tenancy\Exceptions\NoTenantContextException;
+use App\Support\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 
@@ -20,7 +20,7 @@ use Tests\Fakes\InMemorySubjectDekRepository;
  * The mandatory cross-tenant isolation test (`docs/AGENTS.md` §21.4, `BLUEPRINT.md` §5.3) for the
  * `documents` table specifically — `App\Domain\Documents\Models\Document` is the first *real*
  * business model (not a throwaway fixture) to exercise `App\Domain\Subjects\Tenancy\
- * ScopedToTaxSubject` end to end with an encrypted field, proving the mechanism
+ * ScopedToTenant` end to end with an encrypted field, proving the mechanism
  * `docs/handoff/011-identity-tenancy.md` built holds for this module's own table.
  */
 beforeEach(function (): void {
@@ -51,7 +51,7 @@ function ownerAndSubject(): array
 
 function activateAs(User $user, TaxSubject $subject): void
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }
@@ -123,7 +123,7 @@ it('auto-tags a newly created document with the active subject', function (): vo
 });
 
 it('refuses to run any scoped query at all when no tenant context is bound', function (): void {
-    app()->instance(TenantContext::class, new TenantContext());
+    app()->instance(TenantContext::class, app(TenantContext::class));
 
     expect(fn () => Document::query()->get())->toThrow(NoTenantContextException::class);
 });

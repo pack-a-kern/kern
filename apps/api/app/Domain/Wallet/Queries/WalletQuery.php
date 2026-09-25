@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Queries;
 
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Enums\RecordSource;
@@ -16,6 +15,7 @@ use App\Domain\Wallet\Models\TransactionSplit;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\Fx\DisplayCurrencyConverter;
 use App\Domain\Wallet\Services\TagDirectory;
+use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -23,7 +23,7 @@ use RuntimeException;
 /**
  * The read side of the wallet: what `/dashboard`, `/wallet/accounts` and `/wallet/transactions` show.
  *
- * Every query here relies on `ScopedToTaxSubject`'s global scope for tenancy — there is no
+ * Every query here relies on `ScopedToTenant`'s global scope for tenancy — there is no
  * `where('tax_subject_id', …)` in this class, and there must not be one. Repeating the filter by
  * hand is how a query eventually gets written without it; the scope applies to every model read
  * whether the author remembered or not (`docs/handoff/011-identity-tenancy.md`).
@@ -709,7 +709,7 @@ final readonly class WalletQuery
     private function displayCurrency(): string
     {
         $configured = DB::table('tax_subjects')
-            ->where('id', $this->tenant->currentSubjectId())
+            ->where('id', $this->tenant->currentTenantId())
             ->value('display_currency');
 
         return is_string($configured) && $configured !== '' ? strtoupper($configured) : 'RON';

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Settings\Services;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Settings\DataTransferObjects\AiProviderPublicView;
 use App\Domain\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
 use App\Domain\Settings\Enums\SettingKey;
 use App\Domain\Settings\Repositories\SettingsRepository;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * The application service behind the `/api/v1/settings/ai` HTTP surface: reads the current

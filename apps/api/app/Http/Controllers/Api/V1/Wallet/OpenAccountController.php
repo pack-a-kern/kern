@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Banks\Queries\BankDirectory;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use App\Domain\Wallet\DataTransferObjects\DepositTermsInput;
@@ -17,6 +16,7 @@ use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Http\Controllers\Controller;
 use App\Rules\StreamSource;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,7 +104,7 @@ final class OpenAccountController extends Controller
         $kind = AccountKind::from((string) $validated['kind']);
 
         $account = $open(new OpenFinancialAccountInput(
-            taxSubjectId: $tenant->currentSubjectId(),
+            taxSubjectId: $tenant->currentTenantId(),
             kind: $kind,
             displayName: $kind === AccountKind::TERM_DEPOSIT
                 ? (string) $banks->find(self::str($validated, 'bank_id'))?->name

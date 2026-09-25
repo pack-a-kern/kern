@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -35,7 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class RentalAccrual extends Model
 {
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /** @var list<string> */
     protected $fillable = [

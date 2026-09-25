@@ -64,7 +64,7 @@ beforeEach(function (): void {
 });
 
 /**
- * `settings.updated_by` and `App\Domain\Audit\Models\AuditEvent::actor_id` are native Postgres
+ * `settings.updated_by` and `Kern\Audit\Models\AuditEvent::actor_id` are native Postgres
  * `uuid` columns with real foreign keys to `users.id` — every actor id stand-in below must be a
  * real, persisted `User` row, per `docs/AGENTS.md` §7b's exact warned-about trap.
  */

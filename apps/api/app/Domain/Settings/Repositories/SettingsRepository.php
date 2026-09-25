@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 final readonly class SettingsRepository
 {
     /**
-     * Matches `App\Domain\Audit\Support\AuditEventHasher::TIMESTAMP_FORMAT` exactly, and for the
+     * Matches `Kern\Audit\Support\AuditEventHasher::TIMESTAMP_FORMAT` exactly, and for the
      * identical reason: Laravel's query-builder bindings format a bound `DateTimeInterface`
      * through `Illuminate\Database\Grammar::getDateFormat()`, which is `'Y-m-d H:i:s'` — **no
      * microseconds** — regardless of the column's own precision. Passing a `CarbonImmutable`

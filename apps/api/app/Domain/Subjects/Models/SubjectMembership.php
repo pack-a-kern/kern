@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * `subject_memberships` (`BLUEPRINT.md` §5.3) — the single source of truth for "which `User`s may
- * access which `TaxSubject`s, and with what role". `App\Domain\Subjects\Tenancy\TenantContext`
+ * access which `TaxSubject`s, and with what role". `App\Support\Tenancy\TenantContext`
  * is the only sanctioned way another module resolves this; nothing else in this codebase should
  * query this table directly to make an authorization decision.
  *

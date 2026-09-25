@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\PfaEncryptionAndCoexistenceTest;
 
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfaSubject;
 use App\Domain\Subjects\Actions\RegisterPfSubject;
@@ -15,7 +14,6 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\PfaProfile;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\Enums\AccountKind;
@@ -23,9 +21,11 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Kern\Audit\Services\ChainVerifier;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**
@@ -37,7 +37,7 @@ use Tests\Fakes\InMemoryKeyManagementService;
  *    (`tests/Feature/Domain/Subjects/RawDatabasePlaintextTest.php`) holds for `pfa_profiles`
  *    exactly as it does for `pf_profiles`, with zero change to `App\Support\Crypto\**`.
  * 2. A single `User` holding both a PF and a PFA `TaxSubject` (`BLUEPRINT.md` §33's literal example)
- *    works with the existing `TenantContext`/`ScopedToTaxSubject` mechanism and an unmodified
+ *    works with the existing `TenantContext`/`ScopedToTenant` mechanism and an unmodified
  *    `App\Domain\Wallet` action, with no PFA-aware branch anywhere in either.
  */
 beforeEach(function (): void {
@@ -178,10 +178,10 @@ it('lets one user hold an active PF subject and an active PFA subject at the sam
     // one at a time, exactly as it does for two PF subjects.
     $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $pf->id);
-    expect($context->currentSubjectId())->toBe($pf->id);
+    expect($context->currentTenantId())->toBe($pf->id);
 
     $context->authorizeAndActivate($user->id, $pfa->id);
-    expect($context->currentSubjectId())->toBe($pfa->id);
+    expect($context->currentTenantId())->toBe($pfa->id);
 });
 
 it('opens a Wallet financial account for a PFA subject through the unmodified Wallet action', function (): void {
@@ -204,7 +204,7 @@ it('opens a Wallet financial account for a PFA subject through the unmodified Wa
 
     expect($account->tax_subject_id)->toBe($pfa->id);
 
-    // FinancialAccount::query() is scoped by ScopedToTaxSubject (App\Domain\Wallet, unmodified
+    // FinancialAccount::query() is scoped by ScopedToTenant (App\Domain\Wallet, unmodified
     // by this task) — reading it back needs the same TenantContext activation any other module's
     // caller would already have performed.
     app(TenantContext::class)->authorizeAndActivate($user->id, $pfa->id);

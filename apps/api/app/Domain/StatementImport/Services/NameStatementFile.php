@@ -10,7 +10,7 @@ use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\Models\Document;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Support\Str;
 
 /**
@@ -42,13 +42,13 @@ final readonly class NameStatementFile
     {
         $document = $import->document_id === null
             ? null
-            : Document::withoutGlobalScope(TaxSubjectScope::class)->find($import->document_id);
+            : Document::withoutGlobalScope(TenantScope::class)->find($import->document_id);
 
         if (! $document instanceof Document || $document->display_name_ciphertext !== null) {
             return;
         }
 
-        $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
             ->where('import_id', $import->id)
             ->whereNotNull('booked_at');
 
@@ -78,7 +78,7 @@ final readonly class NameStatementFile
      */
     private function taken(Document $document, string $name): bool
     {
-        return Document::withoutGlobalScope(TaxSubjectScope::class)
+        return Document::withoutGlobalScope(TenantScope::class)
             ->where('tax_subject_id', $document->tax_subject_id)
             ->where('source', DocumentSource::IMPORT)
             ->whereKeyNot($document->id)

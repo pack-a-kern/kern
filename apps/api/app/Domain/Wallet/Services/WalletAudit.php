@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Every change to a wallet record, in the subject's append-only hash chain (`BLUEPRINT.md` §4.8).

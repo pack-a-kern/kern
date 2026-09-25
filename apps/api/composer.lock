@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "63a89c9c5c1ebab4dc66d4cfc62437c5",
+    "content-hash": "40ecec1c72e882bba75727d9224019d3",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1509,6 +1509,41 @@
                 "source": "https://github.com/inertiajs/inertia-laravel/tree/v3.3.3"
             },
             "time": "2026-09-04T13:56:39+00:00"
+        },
+        {
+            "name": "kern/audit",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/audit",
+                "reference": "1bb766b45d0d8e87b555f98a4cbd939cb8e47715"
+            },
+            "require": {
+                "illuminate/database": "^13.0",
+                "illuminate/support": "^13.0",
+                "php": "^8.4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Audit\\AuditServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Audit\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "An append-only, hash-chained audit log: every entry carries the hash of the one before it, so a removed or edited row is visible as a break in the chain.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "laravel/framework",
@@ -13149,7 +13184,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "kern/audit": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

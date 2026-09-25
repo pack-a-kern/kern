@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Review;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\ExtractionStatus;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Review\Exceptions\ExtractionAlreadyReviewedException;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §14.6 — the human "accept this proposal exactly as given" transition. Requires the

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Operations;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Operations\DataTransferObjects\TaskArgument;
 use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Enums\TaskRunTrigger;
@@ -16,6 +14,8 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `POST /api/v1/operations/tasks/{task}/run` — start one background operation now.

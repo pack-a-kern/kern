@@ -22,10 +22,10 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Support\KeyManagement\SubjectDekService;
 use App\Support\ObjectStore\EncryptedObjectStore;
 use App\Support\ObjectStore\Exceptions\ObjectNotFoundException;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -80,7 +80,7 @@ function ownerAndActiveSubject(): array
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

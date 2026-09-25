@@ -6,11 +6,11 @@ namespace App\Domain\Rental\Models;
 
 use App\Domain\Rental\Enums\RentalContractStatus;
 use App\Domain\Rental\Enums\TenantType;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,7 +45,7 @@ final class RentalContract extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /**
      * Laravel's documented "default attribute values" mechanism. `status` is fillable, so

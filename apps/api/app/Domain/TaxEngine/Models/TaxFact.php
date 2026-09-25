@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxEngine\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\TaxEngine\Enums\TaxFactStatus;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\TaxFactFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,16 +20,16 @@ use RuntimeException;
  * `tax_facts` (`BLUEPRINT.md` §6.7) — see that migration's docblock for the §10.3 date columns and
  * the `fx_conversion_json` deviation from the literal `fx_rate_id`.
  *
- * Uses `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` (`docs/AGENTS.md` §8 — every business
+ * Uses `App\Support\Tenancy\ScopedToTenant` (`docs/AGENTS.md` §8 — every business
  * query scoped to `tax_subject_id`) as defence in depth, even though
  * `App\Domain\TaxEngine\Repositories\TaxFactRepository` (this module's own sanctioned read path)
  * always filters by an explicitly-supplied subject id itself rather than relying on
- * `App\Domain\Subjects\Tenancy\TenantContext` being bound — see that repository's docblock for
+ * `App\Support\Tenancy\TenantContext` being bound — see that repository's docblock for
  * why a background assessment job cannot assume an HTTP-request-scoped `TenantContext` exists.
  *
  * Composes `HasUuidPrimaryKey` (own primary key) with `FillsSubjectForeignKeyFirst`
  * (`tax_subject_id` must be set before `metadata_ciphertext`'s `Casts\Encrypted` cast runs during
- * `fill()`) — the exact combination `App\Domain\Subjects\Tenancy\ScopedToTaxSubject`'s own
+ * `fill()`) — the exact combination `App\Support\Tenancy\ScopedToTenant`'s own
  * docblock describes for "a model with both an encrypted field and this trait".
  *
  * @property string $id
@@ -66,7 +66,7 @@ final class TaxFact extends Model implements EncryptsWithSubjectDek
     use HasFactory;
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     /** @var list<string> */
     protected $fillable = [

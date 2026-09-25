@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,9 +17,9 @@ use Illuminate\Http\Request;
  * A display preference and nothing more: it changes how a dashboard adds figures up, never how a
  * tax figure is computed (`BLUEPRINT.md` §7.4 leaves that to each rule, with its own provenance).
  *
- * `TaxSubject` is the tenancy root, so it carries no `TaxSubjectScope` of its own and no query
+ * `TaxSubject` is the tenancy root, so it carries no `TenantScope` of its own and no query
  * against it can be "scoped" the way every business table is. The guard is therefore the bound
- * `TenantContext`: the id written to comes from `currentSubjectId()`, which is what
+ * `TenantContext`: the id written to comes from `currentTenantId()`, which is what
  * `authorizeAndActivate()` produced after checking the membership — not the `{subject}` path
  * segment, which is merely the string the middleware was asked to check.
  *
@@ -42,7 +42,7 @@ final class UpdateDisplayCurrencyController extends Controller
             'display_currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
         ]);
 
-        $model = TaxSubject::query()->findOrFail($tenant->currentSubjectId());
+        $model = TaxSubject::query()->findOrFail($tenant->currentTenantId());
         $model->display_currency = (string) $validated['display_currency'];
         $model->save();
 

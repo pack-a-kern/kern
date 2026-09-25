@@ -12,8 +12,8 @@ use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\ClassifyCounterparties;
 use App\Domain\StatementImport\Services\StatementAiClient;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -70,7 +70,7 @@ final class ProposeRowCategories implements ShouldQueue
         StatementAiClient $ai,
         TenantContext $tenant,
     ): void {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         // Only while the rows are still being decided: an import already written is not a place to
         // put proposals, and one that failed has no rows.
@@ -114,7 +114,7 @@ final class ProposeRowCategories implements ShouldQueue
         }
 
         /** @var list<StatementImportRow> $rows */
-        $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
             ->where('import_id', $import->id)
             // Rows a remembered answer already covers are left alone: a person's own earlier decision
             // outranks anything a model would say now, and costs no call.
@@ -142,7 +142,7 @@ final class ProposeRowCategories implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         if ($import === null || $import->status !== StatementImportStatus::REVIEW) {
             return;

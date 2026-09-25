@@ -8,12 +8,12 @@ use App\Domain\StatementImport\Enums\MappingSource;
 use App\Domain\StatementImport\Enums\StatementFormat;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +51,7 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     protected $table = 'statement_imports';
 
@@ -247,7 +247,7 @@ final class StatementImport extends Model implements EncryptsWithSubjectDek
     private function changePreview(callable $change): void
     {
         DB::transaction(function () use ($change): void {
-            $fresh = self::withoutGlobalScope(TaxSubjectScope::class)->lockForUpdate()->findOrFail($this->id);
+            $fresh = self::withoutGlobalScope(TenantScope::class)->lockForUpdate()->findOrFail($this->id);
             $decoded = json_decode(is_string($fresh->preview_ciphertext) ? $fresh->preview_ciphertext : '', true);
 
             /** @var array<string, mixed> $current */

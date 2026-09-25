@@ -12,7 +12,7 @@ namespace App\Domain\Settings\Support;
  * 1's spirit applied here: do not invent a fake subject id). `self::ID` is a short, non-UUID
  * literal, so it can never collide with a genuine UUIDv7 subject/user id and is immediately
  * recognisable in a raw database dump as "not a tenant" — mirroring the identical pattern
- * `App\Domain\Audit\Services\AuditChainService::SYSTEM_CHAIN_KEY` already establishes in this
+ * `Kern\Audit\Services\AuditChainService::SYSTEM_CHAIN_KEY` already establishes in this
  * codebase for the audit chain, for the same reason.
  *
  * This scope is backed by its **own** DEK (`system_encryption_keys` table,

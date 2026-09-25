@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Audit;
 
-use App\Domain\Audit\Queries\AuditEventQuery;
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\Queries\AuditEventQuery;
+use Kern\Audit\Services\ChainVerifier;
 
 /**
  * `GET /api/v1/audit/summary` — counts, the distinct event types (so the filter offers only what

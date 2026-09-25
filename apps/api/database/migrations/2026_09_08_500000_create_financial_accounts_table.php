@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * `financial_accounts` (`BLUEPRINT.md` §6.3) — Milestone 6, manual accounts only (§34: no bank-API
  * sync, no PSD2). Scoped to `tax_subject_id` per `docs/AGENTS.md` §8/§6 — see
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject`, the reusable mechanism
+ * `App\Support\Tenancy\ScopedToTenant`, the reusable mechanism
  * `docs/handoff/011-identity-tenancy.md` built for exactly this module to adopt.
  *
  * `institution_id` in the blueprint's literal schema is rendered here as a plain

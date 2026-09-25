@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Support\SpvMfaPolicy;
 use App\Domain\Spv\DataTransferObjects\RegisterSpvConnectionInput;
@@ -15,6 +13,8 @@ use App\Domain\Spv\Enums\SpvCredentialPolicy;
 use App\Domain\Spv\Models\SpvConnection;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §13.2 step 1 ("Connect SPV") and §4.7 ("MFA obligatoriu pentru conturi care

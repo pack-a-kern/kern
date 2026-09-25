@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Queries;
 
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Enums\AccountKind;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\TagDirectory;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -210,13 +210,13 @@ final readonly class WalletReports
     private function base(string $from, string $to): \Illuminate\Database\Query\Builder
     {
         return DB::table('financial_transactions')
-            ->where('financial_transactions.tax_subject_id', $this->tenant->currentSubjectId())
+            ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
             ->whereDate('booked_at', '>=', $from)
             ->whereDate('booked_at', '<=', $to)
             ->whereNotIn(
                 'account_id',
                 DB::table('financial_accounts')
-                    ->where('tax_subject_id', $this->tenant->currentSubjectId())
+                    ->where('tax_subject_id', $this->tenant->currentTenantId())
                     ->where('kind', AccountKind::CASH->value)
                     ->select('id'),
             )

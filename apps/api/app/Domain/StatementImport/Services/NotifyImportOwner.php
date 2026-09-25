@@ -10,7 +10,7 @@ use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Notifications\StatementImportNotice;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
+use App\Support\Tenancy\TenantScope;
 
 /**
  * Tells the person who started an import that it has moved on without them.
@@ -33,7 +33,7 @@ final readonly class NotifyImportOwner
         }
 
         $suggested = $kind === ImportNoticeKind::READY_FOR_REVIEW
-            ? StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+            ? StatementImportRow::withoutGlobalScope(TenantScope::class)
                 ->where('import_id', $import->id)
                 ->where('proposal_source', RowProposalSource::AI)
                 ->count()

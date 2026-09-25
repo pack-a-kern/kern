@@ -10,11 +10,11 @@ use App\Domain\Documents\Enums\DocumentSource;
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Enums\RejectionReason;
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Support\Crypto\Casts\Encrypted;
 use App\Support\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
 use App\Support\Crypto\Contracts\EncryptsWithSubjectDek;
+use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,7 +25,7 @@ use RuntimeException;
 
 /**
  * `documents` (`BLUEPRINT.md` §6.6) — one row per uploaded document, tenant-scoped to the owning
- * `TaxSubject` (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject`).
+ * `TaxSubject` (`App\Support\Tenancy\ScopedToTenant`).
  *
  * A document is an *ordered list of files*, not a file: the object keys, MIME types, sizes and
  * per-file hashes live on {@see DocumentPart}. What stays here is what describes the document as a
@@ -63,7 +63,7 @@ final class Document extends Model implements EncryptsWithSubjectDek
     use HasFactory;
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
     use SoftDeletes;
 
     /** @var list<string> */

@@ -8,12 +8,12 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\Actions\RecordFinancialTransaction;
 use App\Domain\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\Enums\AccountKind;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +30,7 @@ beforeEach(function (): void {
 
 /**
  * Creates a subject, an owning user/membership, and activates `TenantContext` for it — every
- * wallet model's `creating` hook (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject`) needs an
+ * wallet model's `creating` hook (`App\Support\Tenancy\ScopedToTenant`) needs an
  * authorized subject bound before a row can be created.
  */
 function activatedSubject(): TaxSubject
@@ -46,7 +46,7 @@ function activatedSubject(): TaxSubject
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

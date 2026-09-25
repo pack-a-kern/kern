@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "kern/api",
     "type": "project",
-    "description": "TaxOS Rom\u00e2nia \u2014 Laravel 13 application (modular monolith: Identity, Subjects, Wallet, Ledger, Documents, TaxKnowledge, TaxEngine, Declarations, Spv, Notifications, Audit).",
+    "description": "TaxOS România — Laravel 13 application (modular monolith: Identity, Subjects, Wallet, Ledger, Documents, TaxKnowledge, TaxEngine, Declarations, Spv, Notifications, Audit).",
     "keywords": [
         "laravel",
         "kern"
@@ -24,7 +24,8 @@
         "league/flysystem-aws-s3-v3": "^3.35.3",
         "spatie/laravel-permission": "8.3.0",
         "spomky-labs/otphp": "^11.5.0",
-        "web-auth/webauthn-lib": "^5.3.8"
+        "web-auth/webauthn-lib": "^5.3.8",
+        "kern/audit": "@dev"
     },
     "require-dev": {
         "deptrac/deptrac": "^4.7.1",
@@ -107,5 +108,14 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxEngine\Models;
 
-use App\Domain\Subjects\Tenancy\ScopedToTaxSubject;
 use App\Domain\TaxEngine\Enums\AssessmentStatus;
 use App\Support\Crypto\Concerns\HasUuidPrimaryKey;
+use App\Support\Tenancy\ScopedToTenant;
 use Database\Factories\TaxAssessmentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,7 +41,7 @@ final class TaxAssessment extends Model
     /** @use HasFactory<TaxAssessmentFactory> */
     use HasFactory;
     use HasUuidPrimaryKey;
-    use ScopedToTaxSubject;
+    use ScopedToTenant;
 
     public const ?string UPDATED_AT = null;
 

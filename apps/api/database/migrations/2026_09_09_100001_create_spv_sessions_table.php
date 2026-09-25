@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * `tax_subject_id` is denormalised from `spv_connections.tax_subject_id`, matching every other
  * child table in this codebase (`docs/handoff/025-rental-module.md`'s `rental_accruals`
- * precedent) — needed for `App\Domain\Subjects\Tenancy\ScopedToTaxSubject` without an extra join.
+ * precedent) — needed for `App\Support\Tenancy\ScopedToTenant` without an extra join.
  *
  * No `updated_at`: every transition writes one of the explicit timestamp/state columns below
  * through `App\Domain\Spv\Actions\*`, never an auto-touched "something changed" marker

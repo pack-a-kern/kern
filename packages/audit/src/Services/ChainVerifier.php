@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\Services;
+namespace Kern\Audit\Services;
 
-use App\Domain\Audit\ChainVerificationFailureReason;
-use App\Domain\Audit\DataTransferObjects\ChainVerificationResult;
-use App\Domain\Audit\Support\AuditEventHasher;
+use Kern\Audit\ChainVerificationFailureReason;
+use Kern\Audit\DataTransferObjects\ChainVerificationResult;
+use Kern\Audit\Support\AuditEventHasher;
 use DateTimeImmutable;
 use DateTimeZone;
 
@@ -27,7 +27,7 @@ use Illuminate\Database\ConnectionResolverInterface;
  * 3. recomputing `AuditEventHasher::hash()` from the row's own stored columns reproduces its
  *    stored `event_hash` exactly — i.e. no column of that row has changed since it was written.
  *
- * Finally, the {@see \App\Domain\Audit\Models\AuditChainHead} row for the chain must agree with
+ * Finally, the {@see \Kern\Audit\Models\AuditChainHead} row for the chain must agree with
  * the last verified event (same `last_sequence`, same `last_event_hash`) — this catches a corrupted
  * or manually edited head pointer even when every event row itself is intact.
  *

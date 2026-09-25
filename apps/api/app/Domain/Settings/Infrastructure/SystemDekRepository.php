@@ -24,7 +24,7 @@ use RuntimeException;
  * only the repository it is given differs).
  *
  * `save()` is create-only via `insertOrIgnore`, the same race-safety shape
- * `App\Domain\Audit\Services\AuditChainService::lockOrCreateHead()` uses for its own
+ * `Kern\Audit\Services\AuditChainService::lockOrCreateHead()` uses for its own
  * insert-if-absent row: `SubjectDekService::plaintextDekFor()` calls this exactly once, the first
  * time `find()` returns `null`.
  */

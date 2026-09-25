@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\TaxKnowledge\FiscalParameters\Jobs\ReadFiscalYear;
 use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `POST /api/v1/fiscal-parameters/years` — read one year's law, for every value it states.

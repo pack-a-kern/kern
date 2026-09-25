@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Rental\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Rental\Enums\RentalAuditEvent;
 use App\Domain\Rental\Models\Property;
 use App\Domain\Rental\Models\RentalAccrual;
 use App\Domain\Rental\Models\RentalContract;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Deletes a rental — a contract entered by mistake — and its property when nothing else is let on it.

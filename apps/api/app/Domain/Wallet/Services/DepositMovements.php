@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Models\TransactionSplit;
+use App\Support\Tenancy\TenantScope;
 
 /**
  * Every transaction a deposit produces, written the same way.
@@ -45,7 +45,7 @@ final readonly class DepositMovements
     {
         $existing = $terms->funding_transaction_id === null
             ? null
-            : FinancialTransaction::query()->withoutGlobalScope(TaxSubjectScope::class)->find($terms->funding_transaction_id);
+            : FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->find($terms->funding_transaction_id);
 
         if ($terms->funding_account_id === null) {
             $this->remove($terms->funding_transaction_id);
@@ -83,7 +83,7 @@ final readonly class DepositMovements
 
         // The split partitions the transaction, so it has to follow the amount.
         TransactionSplit::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->where('transaction_id', self::id($existing))
             ->update(['amount_minor' => -$terms->principal_minor]);
     }
@@ -97,7 +97,7 @@ final readonly class DepositMovements
         string $description,
         string $category,
     ): FinancialTransaction {
-        $transaction = FinancialTransaction::query()->withoutGlobalScope(TaxSubjectScope::class)->create([
+        $transaction = FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->create([
             'tax_subject_id' => $subjectId,
             'account_id' => $accountId,
             'booked_at' => $bookedAt,
@@ -109,7 +109,7 @@ final readonly class DepositMovements
             'source' => RecordSource::SYSTEM,
         ]);
 
-        TransactionSplit::query()->withoutGlobalScope(TaxSubjectScope::class)->create([
+        TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->create([
             'tax_subject_id' => $subjectId,
             'transaction_id' => self::id($transaction),
             'amount_minor' => $amountMinor,
@@ -126,8 +126,8 @@ final readonly class DepositMovements
             return;
         }
 
-        TransactionSplit::query()->withoutGlobalScope(TaxSubjectScope::class)->where('transaction_id', $transactionId)->delete();
-        FinancialTransaction::query()->withoutGlobalScope(TaxSubjectScope::class)->whereKey($transactionId)->delete();
+        TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->where('transaction_id', $transactionId)->delete();
+        FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->whereKey($transactionId)->delete();
     }
 
     public static function nameOf(?FinancialAccount $deposit): string

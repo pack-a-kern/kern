@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit;
+namespace Kern\Audit;
 
 /**
- * Why {@see \App\Domain\Audit\Services\ChainVerifier} stopped trusting a chain, reported against
+ * Why {@see \Kern\Audit\Services\ChainVerifier} stopped trusting a chain, reported against
  * the exact `sequence` where it happened (`docs/AGENTS.md` §6: enums for finite domain states).
  */
 enum ChainVerificationFailureReason: string

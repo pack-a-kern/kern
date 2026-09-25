@@ -112,6 +112,10 @@ services:
       MAIL_PORT: 1025
     volumes:
       - ./apps/api:/var/www/html
+      # The local packages, where composer's symlink from vendor/kern/* points once the
+      # application root is /var/www/html. Path repositories are how a package is developed in the
+      # same tree as the application that uses it; a published one arrives in vendor/ like any other.
+      - ./packages:/var/packages
       - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
     read_only: false
     ports:
@@ -123,6 +127,10 @@ services:
       APP_DEBUG: ${APP_DEBUG:-true}
     volumes:
       - ./apps/api:/var/www/html
+      # The local packages, where composer's symlink from vendor/kern/* points once the
+      # application root is /var/www/html. Path repositories are how a package is developed in the
+      # same tree as the application that uses it; a published one arrives in vendor/ like any other.
+      - ./packages:/var/packages
       - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
     read_only: false
 
@@ -132,6 +140,10 @@ services:
       APP_DEBUG: ${APP_DEBUG:-true}
     volumes:
       - ./apps/api:/var/www/html
+      # The local packages, where composer's symlink from vendor/kern/* points once the
+      # application root is /var/www/html. Path repositories are how a package is developed in the
+      # same tree as the application that uses it; a published one arrives in vendor/ like any other.
+      - ./packages:/var/packages
       - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
     read_only: false
 
@@ -141,6 +153,10 @@ services:
       APP_DEBUG: ${APP_DEBUG:-true}
     volumes:
       - ./apps/api:/var/www/html
+      # The local packages, where composer's symlink from vendor/kern/* points once the
+      # application root is /var/www/html. Path repositories are how a package is developed in the
+      # same tree as the application that uses it; a published one arrives in vendor/ like any other.
+      - ./packages:/var/packages
       - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
     read_only: false
 

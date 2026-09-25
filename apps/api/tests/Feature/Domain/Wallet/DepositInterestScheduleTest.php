@@ -8,7 +8,6 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\GenerateDepositInterestSchedule;
 use App\Domain\Wallet\Actions\OpenFinancialAccount;
 use App\Domain\Wallet\Actions\RecordDepositInterestWithholding;
@@ -24,6 +23,7 @@ use App\Domain\Wallet\Events\DepositInterestEventRecorded;
 use App\Domain\Wallet\Exceptions\InvalidWithholdingAmountException;
 use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialAccount;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -46,7 +46,7 @@ function activatedSubject(): TaxSubject
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 

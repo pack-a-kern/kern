@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\CredentialFlowTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Identity\Enums\MfaMethodType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserMfaMethod;
@@ -28,12 +27,13 @@ use App\Domain\Spv\ValueObjects\SensitiveString;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Kern\Audit\Models\AuditEvent;
 
 /**
  * `BLUEPRINT.md` §13.2 steps 1-11, exercised end to end against `apps/spv-browser`'s real (documented
@@ -73,7 +73,7 @@ function spvConnectionFor(TaxSubject $subject): SpvConnection
 
 /**
  * `App\Domain\Spv\Actions\*` read `spv_connections`/`spv_sessions` through
- * `App\Domain\Subjects\Tenancy\ScopedToTaxSubject`, exactly like every other business module —
+ * `App\Support\Tenancy\ScopedToTenant`, exactly like every other business module —
  * an authorized membership must be activated before any of them can query, the same
  * `docs/handoff/011-identity-tenancy.md` mechanism `tests/Feature/Domain/Rental/
  * CrossTenantIsolationTest.php` sets up for itself.
@@ -88,7 +88,7 @@ function activateSpvSubject(User $user, TaxSubject $subject): void
         'valid_from' => now('UTC'),
     ]);
 
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 }

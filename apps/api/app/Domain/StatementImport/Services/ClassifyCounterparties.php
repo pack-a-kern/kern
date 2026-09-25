@@ -7,10 +7,10 @@ namespace App\Domain\StatementImport\Services;
 use App\Domain\StatementImport\DataTransferObjects\AiAnswer;
 use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Models\StatementImportRow;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\MoneyDirection;
 use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
@@ -279,7 +279,7 @@ final readonly class ClassifyCounterparties
             }
 
             /** @var list<StatementImportRow> $rows */
-            $rows = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+            $rows = StatementImportRow::withoutGlobalScope(TenantScope::class)
                 ->whereKey($group['row_ids'])
                 ->whereNull('category_code')
                 ->get()

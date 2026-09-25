@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Actions;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Models\DepositTerms;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\DepositMovements;
 use App\Domain\Wallet\Services\WalletAudit;
+use App\Support\Tenancy\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -57,7 +57,7 @@ final readonly class CloseMaturedDeposits
         // Across every subject: this runs from the scheduler, where no `TenantContext` exists.
         /** @var list<DepositTerms> $due */
         $due = DepositTerms::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->whereNull('closed_at')
             ->whereDate('maturity_at', '<=', $today->toDateString())
             ->orderBy('maturity_at')
@@ -89,14 +89,14 @@ final readonly class CloseMaturedDeposits
      */
     private function settle(DepositTerms $terms): int
     {
-        $deposit = FinancialAccount::query()->withoutGlobalScope(TaxSubjectScope::class)->find($terms->account_id);
+        $deposit = FinancialAccount::query()->withoutGlobalScope(TenantScope::class)->find($terms->account_id);
         $name = DepositMovements::nameOf($deposit);
         $maturity = $terms->maturity_at->toDateString();
 
         // Everything posted to the deposit is interest: its principal is declared on its terms, not
         // recorded against it, so the deposit account's own rows are exactly what it earned.
         $interest = (int) FinancialTransaction::query()
-            ->withoutGlobalScope(TaxSubjectScope::class)
+            ->withoutGlobalScope(TenantScope::class)
             ->where('account_id', $terms->account_id)
             ->sum('amount_minor');
 

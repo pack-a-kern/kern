@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Jobs;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\StatementImportStatus;
 use App\Domain\StatementImport\Events\StatementImportChanged;
@@ -13,8 +11,6 @@ use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Services\NameStatementFile;
 use App\Domain\StatementImport\Services\NotifyImportOwner;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\RecordImportedTransactions;
 use App\Domain\Wallet\DataTransferObjects\ImportedTransactionInput;
 use App\Domain\Wallet\Enums\MoneyDirection;
@@ -22,12 +18,16 @@ use App\Domain\Wallet\Enums\ProposalSource;
 use App\Domain\Wallet\Enums\WalletAuditEvent;
 use App\Domain\Wallet\Services\CounterpartyRules;
 use App\Domain\Wallet\Services\TagDirectory;
+use App\Support\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 use Throwable;
 
 /**
@@ -73,7 +73,7 @@ final class WriteStatementRows implements ShouldQueue
         NotifyImportOwner $notify,
         NameStatementFile $name,
     ): void {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         if ($import === null || $import->status !== StatementImportStatus::IMPORTING) {
             return;
@@ -216,13 +216,13 @@ final class WriteStatementRows implements ShouldQueue
      */
     public function failed(?Throwable $exception): void
     {
-        $import = StatementImport::withoutGlobalScope(TaxSubjectScope::class)->find($this->importId);
+        $import = StatementImport::withoutGlobalScope(TenantScope::class)->find($this->importId);
 
         if ($import === null || $import->status !== StatementImportStatus::IMPORTING) {
             return;
         }
 
-        $import->imported_count = StatementImportRow::withoutGlobalScope(TaxSubjectScope::class)
+        $import->imported_count = StatementImportRow::withoutGlobalScope(TenantScope::class)
             ->where('import_id', $import->id)
             ->whereNotNull('transaction_id')
             ->count();

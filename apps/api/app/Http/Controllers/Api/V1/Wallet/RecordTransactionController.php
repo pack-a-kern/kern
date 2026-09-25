@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Wallet;
 
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Actions\RecordFinancialTransaction;
 use App\Domain\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use App\Domain\Wallet\DataTransferObjects\TransactionSplitInput;
@@ -15,6 +14,7 @@ use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -92,7 +92,7 @@ final class RecordTransactionController extends Controller
 
         try {
             $transaction = $record(new RecordFinancialTransactionInput(
-                taxSubjectId: $tenant->currentSubjectId(),
+                taxSubjectId: $tenant->currentTenantId(),
                 accountId: (string) $validated['account_id'],
                 bookedAt: (string) $validated['booked_at'],
                 amountMinor: (int) $validated['amount_minor'],

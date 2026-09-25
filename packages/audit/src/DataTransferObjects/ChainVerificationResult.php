@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Audit\DataTransferObjects;
+namespace Kern\Audit\DataTransferObjects;
 
-use App\Domain\Audit\ChainVerificationFailureReason;
+use Kern\Audit\ChainVerificationFailureReason;
 
 /**
  * The outcome of walking one chain end to end with
- * {@see \App\Domain\Audit\Services\ChainVerifier::verify()}.
+ * {@see \Kern\Audit\Services\ChainVerifier::verify()}.
  *
  * `brokenAtSequence` is the one number a human or an incident responder actually needs: not "the
  * chain is broken", but the exact sequence number after which the chain can no longer be trusted.

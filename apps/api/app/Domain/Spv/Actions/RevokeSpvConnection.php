@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
 use App\Domain\Spv\Models\SpvConnection;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /** The natural counterpart to `RegisterSpvConnection` — a user must be able to disconnect SPV. */
 final readonly class RevokeSpvConnection

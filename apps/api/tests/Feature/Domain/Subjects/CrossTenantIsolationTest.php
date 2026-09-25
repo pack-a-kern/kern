@@ -8,12 +8,12 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\Exceptions\NoTenantContextException;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
+use App\Support\Tenancy\Exceptions\NoTenantContextException;
+use App\Support\Tenancy\TenantContext;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +25,7 @@ use Tests\Feature\Domain\Subjects\Fixtures\ScopedFixtureRecord;
  * "Test automat obligatoriu pentru cross-tenant isolation"): a user authorized for one
  * `TaxSubject` must not be able to read, list, update, or delete any row belonging to a
  * different `TaxSubject`, through the one mechanism every future business module is meant to
- * use (`App\Domain\Subjects\Tenancy\ScopedToTaxSubject` + `TenantContext`) — see
+ * use (`App\Support\Tenancy\ScopedToTenant` + `TenantContext`) — see
  * `Fixtures\ScopedFixtureRecord`.
  */
 beforeEach(function (): void {
@@ -71,7 +71,7 @@ function ownerAndSubject(): array
 
 function activateAs(User $user, TaxSubject $subject): TenantContext
 {
-    $context = new TenantContext();
+    $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $subject->id);
     app()->instance(TenantContext::class, $context);
 
@@ -148,7 +148,7 @@ it('auto-tags a newly created row with the active subject, ignoring nothing the 
 });
 
 it('refuses to run any scoped query at all when no tenant context is bound', function (): void {
-    app()->instance(TenantContext::class, new TenantContext());
+    app()->instance(TenantContext::class, app(TenantContext::class));
 
     expect(fn () => ScopedFixtureRecord::query()->get())->toThrow(NoTenantContextException::class);
 });
@@ -163,7 +163,7 @@ it('allows an explicit, named escape hatch for genuinely cross-tenant system que
     activateAs($userB, $subjectB);
     ScopedFixtureRecord::create(['label' => 'subject B']);
 
-    $everything = ScopedFixtureRecord::withoutGlobalScope(TaxSubjectScope::class)
+    $everything = ScopedFixtureRecord::withoutGlobalScope(TenantScope::class)
         ->pluck('label')
         ->all();
 

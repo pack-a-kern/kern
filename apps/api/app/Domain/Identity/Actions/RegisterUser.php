@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Identity\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Identity\Exceptions\EmailAlreadyRegisteredException;
 use App\Domain\Identity\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Creates a new `User` — the account/identity row, not a `TaxSubject` (`App\Domain\Subjects\

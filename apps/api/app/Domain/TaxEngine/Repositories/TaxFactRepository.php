@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxEngine\Repositories;
 
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\TaxEngine\DataTransferObjects\TaxFactSnapshot;
 use App\Domain\TaxEngine\Models\TaxFact;
 use App\Domain\TaxEngine\ValueObjects\Money;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Support\Collection;
 
 /**
@@ -15,13 +15,13 @@ use Illuminate\Support\Collection;
  * `tax_facts` rows — never the `TaxFact` Eloquent model itself past this class
  * (`docs/AGENTS.md` §11.2/§6).
  *
- * Filters explicitly by `$taxSubjectId` (via `withoutGlobalScope(TaxSubjectScope::class)`) rather
- * than relying on `App\Domain\Subjects\Tenancy\TenantContext` being bound: whoever calls
+ * Filters explicitly by `$taxSubjectId` (via `withoutGlobalScope(TenantScope::class)`) rather
+ * than relying on `App\Support\Tenancy\TenantContext` being bound: whoever calls
  * `TaxContext::forSubject($id)` already knows and has authorized that subject id (an HTTP
  * controller with a bound `TenantContext`, or a background recompute job with no HTTP request at
  * all) — this repository does not assume which. The explicit `WHERE tax_subject_id = $id` is
  * correct in both cases and does not throw `NoTenantContextException` in the job case. See
- * `App\Domain\TaxEngine\Models\TaxFact`'s own docblock — `ScopedToTaxSubject` still guards any
+ * `App\Domain\TaxEngine\Models\TaxFact`'s own docblock — `ScopedToTenant` still guards any
  * *other*, less careful caller that queries `TaxFact` directly.
  */
 final readonly class TaxFactRepository
@@ -34,7 +34,7 @@ final readonly class TaxFactRepository
     public function snapshotsFor(string $taxSubjectId, array $factIds): array
     {
         /** @var Collection<int, TaxFact> $facts */
-        $facts = TaxFact::withoutGlobalScope(TaxSubjectScope::class)
+        $facts = TaxFact::withoutGlobalScope(TenantScope::class)
             ->where('tax_subject_id', $taxSubjectId)
             ->whereIn('id', $factIds)
             ->get();

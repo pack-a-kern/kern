@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `tests/Pest.php` deliberately leaves `Feature/Domain/Audit` outside RefreshDatabase, because

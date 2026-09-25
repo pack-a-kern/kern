@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * What every decision on a fiscal value shares: who made it, recorded in the audit chain — the chain

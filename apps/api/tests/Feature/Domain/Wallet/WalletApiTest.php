@@ -47,7 +47,7 @@ it('refuses wallet reads for a subject the user has no membership on', function 
     [$user] = walletSubject();
     $other = TaxSubject::factory()->create();
 
-    // Cross-tenant access is the property every Wallet model's `ScopedToTaxSubject` exists to
+    // Cross-tenant access is the property every Wallet model's `ScopedToTenant` exists to
     // guarantee; asserted at the HTTP boundary because that is where an attacker would try it.
     $this->actingAs($user)
         ->getJson("/api/v1/subjects/{$other->getKey()}/wallet/accounts")

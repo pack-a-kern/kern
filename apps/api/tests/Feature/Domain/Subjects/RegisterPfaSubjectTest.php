@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RegisterPfaSubjectTest;
 
-use App\Domain\Audit\Services\ChainVerifier;
 use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfaSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
@@ -18,6 +17,7 @@ use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Audit\Services\ChainVerifier;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 /**

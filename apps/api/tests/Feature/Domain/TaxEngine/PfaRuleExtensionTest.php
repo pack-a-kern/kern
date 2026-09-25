@@ -6,7 +6,6 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\TaxEngine\Enums\TaxFactStatus;
 use App\Domain\TaxEngine\Models\TaxAssessment;
 use App\Domain\TaxEngine\Models\TaxFact;
@@ -26,6 +25,7 @@ use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
+use App\Support\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 
@@ -133,7 +133,7 @@ it('resolves and assesses a PFA-tagged synthetic rule end to end, through the un
     expect($assessment->tax_subject_id)->toBe($pfaSubject->id)
         ->and($assessment->status->value)->toBe('FINAL');
 
-    // TaxAssessment::query() is scoped by ScopedToTaxSubject as defence in depth (App\Domain\
+    // TaxAssessment::query() is scoped by ScopedToTenant as defence in depth (App\Domain\
     // TaxEngine\Repositories\TaxFactRepository already proved the explicit-filter path above) —
     // reading it back needs the same TenantContext activation any other module's caller would.
     app(TenantContext::class)->authorizeAndActivate($user->id, $pfaSubject->id);
@@ -170,7 +170,7 @@ it('never mixes a PF subject\'s tax facts into a PFA subject\'s assessment, or v
     expect($repository->snapshotsFor($pfSubject->id, [$pfFact->id]))->toHaveCount(1)
         ->and($repository->snapshotsFor($pfaSubject->id, [$pfaFact->id]))->toHaveCount(1);
 
-    // ScopedToTaxSubject's model-level guard (defence in depth) denies the same cross-read once a
+    // ScopedToTenant's model-level guard (defence in depth) denies the same cross-read once a
     // TenantContext is bound to one of the two subjects.
     $context = app(TenantContext::class);
     $context->authorizeAndActivate($user->id, $pfaSubject->id);

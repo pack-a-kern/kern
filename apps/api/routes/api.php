@@ -191,7 +191,7 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
 
 /*
  * `docs/handoff/022-document-pipeline.md` — Milestone 7. `tax-subject` binds
- * `App\Domain\Subjects\Tenancy\TenantContext` from `{subject}` (docs/handoff/011-identity-
+ * `App\Support\Tenancy\TenantContext` from `{subject}` (docs/handoff/011-identity-
  * tenancy.md step 2) before any controller runs; every business query below is tenant-scoped
  * automatically from that point on.
  */
@@ -237,7 +237,7 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * HTTP layer, so a record created from the screen is the same shape as one a future import
      * produces.
      *
-     * Inside the `{subject}` group deliberately: every Wallet model is `ScopedToTaxSubject`, so
+     * Inside the `{subject}` group deliberately: every Wallet model is `ScopedToTenant`, so
      * these rows only exist relative to one subject and the `tax-subject` middleware binds it
      * before any query runs.
      */

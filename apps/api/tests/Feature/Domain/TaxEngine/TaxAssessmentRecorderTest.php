@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Domain\Fx\ValueObjects\DecimalRate;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Domain\TaxEngine\DataTransferObjects\CalculationStep;
 use App\Domain\TaxEngine\DataTransferObjects\CalculationTrace;
 use App\Domain\TaxEngine\DataTransferObjects\TaxAssessmentLineResult;
@@ -19,6 +18,7 @@ use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use App\Support\KeyManagement\Contracts\KeyManagementService;
+use App\Support\Tenancy\TenantScope;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {
@@ -65,10 +65,10 @@ it('persists a computed assessment result as tax_assessments + tax_assessment_li
 
     $assessment = (new TaxAssessmentRecorder())->record($result);
 
-    expect(TaxAssessment::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(1)
+    expect(TaxAssessment::withoutGlobalScope(TenantScope::class)->count())->toBe(1)
         ->and(TaxAssessmentLine::query()->count())->toBe(1);
 
-    $persistedAssessment = TaxAssessment::withoutGlobalScope(TaxSubjectScope::class)->findOrFail($assessment->id);
+    $persistedAssessment = TaxAssessment::withoutGlobalScope(TenantScope::class)->findOrFail($assessment->id);
     $totals = $persistedAssessment->totals_json;
     assert(is_array($totals['SYNTHETIC_TAX']));
 

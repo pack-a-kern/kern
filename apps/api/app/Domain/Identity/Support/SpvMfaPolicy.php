@@ -31,7 +31,7 @@ use App\Domain\Identity\Models\User;
  * Before creating an `SpvConnection` for a `User` (`BLUEPRINT.md` §6.11), that module's registration
  * action calls `app(SpvMfaPolicy::class)->ensureStrongAuthentication($user)` — a thrown
  * `MfaNotEnrolledException` is caught by that module's controller and surfaced as "enroll MFA
- * first," exactly the same shape `App\Domain\Subjects\Tenancy\TenantContext::
+ * first," exactly the same shape `App\Support\Tenancy\TenantContext::
  * authorizeAndActivate()` already uses for its own "throw, let the HTTP layer translate" contract.
  */
 final class SpvMfaPolicy

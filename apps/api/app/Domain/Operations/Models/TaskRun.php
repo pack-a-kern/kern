@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * at all.
  *
  * Not scoped to a tax subject, and correctly so: every task here is installation-wide (an FX
- * import, a legislation reindex, a catalogue sync). There is no `ScopedToTaxSubject` to apply.
+ * import, a legislation reindex, a catalogue sync). There is no `ScopedToTenant` to apply.
  *
  * `task_key` is cast to {@see OperationTask} only where a run's task is still declared. A run of a
  * task that has since been removed from the enum stays readable — {@see self::taskOrNull()} — so

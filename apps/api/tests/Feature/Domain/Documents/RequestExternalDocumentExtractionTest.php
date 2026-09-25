@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Documents\RequestExternalDocumentExtractionTest;
 
-use App\Domain\Audit\Models\AuditEvent;
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
 use App\Domain\Documents\Consent\Exceptions\AiConsentRequiredException;
 use App\Domain\Documents\Enums\DocumentType;
@@ -16,6 +15,7 @@ use App\Domain\Documents\ExternalAi\NullDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction;
 use App\Domain\Documents\Models\Document;
 use App\Support\KeyManagement\SubjectDekService;
+use Kern\Audit\Models\AuditEvent;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;

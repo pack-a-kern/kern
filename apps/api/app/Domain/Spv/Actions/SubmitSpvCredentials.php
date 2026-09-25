@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Spv\Contracts\SpvBrowserSessionClient;
 use App\Domain\Spv\DataTransferObjects\SubmitSpvCredentialsInput;
 use App\Domain\Spv\Enums\SpvSessionState;
@@ -15,6 +13,8 @@ use App\Domain\Spv\Exceptions\SpvWorkerUnavailableException;
 use App\Domain\Spv\Models\SpvConnection;
 use App\Domain\Spv\Models\SpvSession;
 use App\Domain\Spv\Services\ApplyPortalAuthResult;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §13.2 step 3: credentials cross into `apps/spv-browser` here, over a single

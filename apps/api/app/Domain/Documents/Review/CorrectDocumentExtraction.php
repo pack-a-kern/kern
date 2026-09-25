@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Documents\Review;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Documents\Enums\ExtractionStatus;
 use App\Domain\Documents\Enums\ExtractorType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Review\Exceptions\ExtractionAlreadyReviewedException;
 use Illuminate\Database\ConnectionResolverInterface;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * `BLUEPRINT.md` §14.6 — the human "this proposal is wrong, here is the correct value" transition.

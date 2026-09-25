@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
  * `security_events` (`BLUEPRINT.md` §6.1). Placed in `Subjects`, not `Identity`, even though the
  * blueprint's schema section lists it in the same group as `users`/`audit_events`: this
  * project's own `docs/ARCHITECTURE.md` module map does not assign `security_events` to either
- * module, and its only writer in this task is `App\Domain\Subjects\Tenancy\TenantContext`
+ * module, and its only writer in this task is `App\Support\Tenancy\TenantContext`
  * (denied cross-tenant access) — keeping it here avoids an otherwise-unneeded `Subjects → Identity`
  * Eloquent-model dependency for a table with no logic tying it to `Identity` specifically. A
  * later task adding login/session security events is free to write into this same table from

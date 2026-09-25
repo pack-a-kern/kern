@@ -1,0 +1,27 @@
+{
+    "name": "kern/audit",
+    "description": "An append-only, hash-chained audit log: every entry carries the hash of the one before it, so a removed or edited row is visible as a break in the chain.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "illuminate/database": "^13.0",
+        "illuminate/support": "^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kern\\Audit\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kern\\Audit\\AuditServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

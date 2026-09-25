@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Wallet\Services;
 
-use App\Domain\Subjects\Tenancy\TenantContext;
 use App\Domain\Wallet\Models\Tag;
 use App\Support\Crypto\BlindIndex\BlindIndexHasher;
 use App\Support\Crypto\BlindIndex\Normalizer;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -158,7 +158,7 @@ final readonly class TagDirectory
                 ['counterparty_rule_tags', 'rule_id'],
             ] as [$table, $ownerKey]) {
                 $rows = DB::table($table)
-                    ->where('tax_subject_id', $this->tenant->currentSubjectId())
+                    ->where('tax_subject_id', $this->tenant->currentTenantId())
                     ->where('tag_id', $from->id)
                     ->pluck($ownerKey);
 
@@ -166,7 +166,7 @@ final readonly class TagDirectory
                     DB::table($table)->insertOrIgnore([
                         $ownerKey => $ownerId,
                         'tag_id' => $into->id,
-                        'tax_subject_id' => $this->tenant->currentSubjectId(),
+                        'tax_subject_id' => $this->tenant->currentTenantId(),
                     ]);
                 }
             }
@@ -188,7 +188,7 @@ final readonly class TagDirectory
         // `tax_subject_id` explicitly, before the encrypted attribute: the cast reads it for the key
         // and the additional data, and the trait's auto-fill happens too late for that.
         $tag = new Tag([
-            'tax_subject_id' => $this->tenant->currentSubjectId(),
+            'tax_subject_id' => $this->tenant->currentTenantId(),
             'name_ciphertext' => $normalisedName,
             'name_blind_index' => $index,
         ]);

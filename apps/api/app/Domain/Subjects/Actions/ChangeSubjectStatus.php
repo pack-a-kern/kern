@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Subjects\Actions;
 
-use App\Domain\Audit\DataTransferObjects\AuditEventInput;
-use App\Domain\Audit\Services\AuditChainService;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Models\TaxSubject;
+use Kern\Audit\DataTransferObjects\AuditEventInput;
+use Kern\Audit\Services\AuditChainService;
 
 /**
  * Suspending, closing, or bringing a taxpayer back.

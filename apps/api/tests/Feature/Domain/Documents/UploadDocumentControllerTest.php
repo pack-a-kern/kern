@@ -13,9 +13,9 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Domain\Subjects\Tenancy\TaxSubjectScope;
 use App\Support\KeyManagement\SubjectDekService;
 use App\Support\ObjectStore\EncryptedObjectStore;
+use App\Support\Tenancy\TenantScope;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -172,9 +172,9 @@ it('refuses an upload for a subject the authenticated user has no membership for
     $response->assertStatus(403);
     // No TenantContext was ever bound during that rejected request (authorization failed before
     // it could be) — an unscoped, explicit system-level count is the correct way to check "no
-    // document exists anywhere," matching App\Domain\Subjects\Tenancy\ScopedToTaxSubject's own
+    // document exists anywhere," matching App\Support\Tenancy\ScopedToTenant's own
     // documented escape hatch for genuinely cross-tenant checks.
-    expect(Document::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+    expect(Document::withoutGlobalScope(TenantScope::class)->count())->toBe(0);
 });
 
 it('leaves no document row behind when the bytes cannot be stored', function (): void {
@@ -200,7 +200,7 @@ it('leaves no document row behind when the bytes cannot be stored', function ():
         ])
         ->assertStatus(500);
 
-    expect(Document::withoutGlobalScope(TaxSubjectScope::class)->count())->toBe(0);
+    expect(Document::withoutGlobalScope(TenantScope::class)->count())->toBe(0);
 
     // And nothing downstream was told about a document that does not exist.
     Bus::assertNotDispatched(ScanQuarantinedPart::class);

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * signature_key_version`) with one addition: `chain_key`. §4.8 does not name it, but implies one
  * chain per subject — this task's brief (`docs/handoff/006-audit-chain.md`) requires "per-subject
  * chains, not one global chain, so writes parallelise", which needs an explicit scoping key. See
- * `App\Domain\Audit\Services\AuditChainService` for exactly how it is derived.
+ * `Kern\Audit\Services\AuditChainService` for exactly how it is derived.
  *
  * `subject_id`/`actor_id` carry no foreign key: the Identity/Subjects modules' tables do not exist
  * yet at this milestone (this task's scope note). Add the constraints in a follow-up migration
@@ -49,7 +49,7 @@ return new class () extends Migration {
             $table->string('resource_type');
             $table->string('resource_id')->nullable();
 
-            // Precision 6 (microseconds) is mandatory, not cosmetic: App\Domain\Audit\Support\
+            // Precision 6 (microseconds) is mandatory, not cosmetic: Kern\Audit\Support\
             // AuditEventHasher formats occurred_at with microsecond precision as part of the
             // hashed payload. Blueprint::timestampTz() defaults to precision 0 (whole seconds) —
             // leaving that default would silently truncate the stored value below what was
@@ -61,7 +61,7 @@ return new class () extends Migration {
             $table->char('event_hash', 64);
 
             // Populated later, out of band, by the (not yet built) periodic Merkle-checkpoint
-            // job — see App\Domain\Audit\Services\AuditChainService's docblock. Never written by
+            // job — see Kern\Audit\Services\AuditChainService's docblock. Never written by
             // AuditChainService::record() itself, and (being append-only) never written after
             // insert either; a real checkpoint job writes it as an INSERT-time value on rows it
             // creates for a batch, not a retroactive UPDATE to this table.
