@@ -7,10 +7,10 @@ namespace Tests\Feature\Domain\Banks\BackfillBanksTest;
 use App\Domain\Banks\Actions\BackfillBanks;
 use App\Domain\Banks\Exceptions\BankSourceNotConfiguredException;
 use App\Domain\Banks\Models\Bank;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
 
 /**
  * Closed banks, read back from the ECB's archive.

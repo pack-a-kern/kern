@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\Retrieval\EmbedIndexedChunksTest;
 
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingPurpose;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
-use App\Domain\TaxKnowledge\Retrieval\Models\IndexedChunk;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingPurpose;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingVector;
+use Kern\Legislation\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
+use Kern\Legislation\Retrieval\Indexing\EmbedIndexedChunks;
+use Kern\Legislation\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
+use Kern\Legislation\Retrieval\Models\IndexedChunk;
 use RuntimeException;
 use Tests\Fakes\DeterministicHashEmbeddingProvider;
 

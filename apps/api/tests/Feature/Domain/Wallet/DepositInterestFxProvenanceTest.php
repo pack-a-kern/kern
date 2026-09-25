@@ -19,9 +19,9 @@ use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
-use Database\Factories\OfficialSourceFactory;
-use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Database\Factories\OfficialSourceFactory;
+use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 

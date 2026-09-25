@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\Retrieval\HybridLegislationSearchTest;
 
-use App\Domain\TaxKnowledge\Enums\TrustTier;
-use App\Domain\TaxKnowledge\Models\OfficialSource;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\EmbedIndexedChunks;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
-use App\Domain\TaxKnowledge\Retrieval\Query\HybridLegislationSearch;
-use App\Domain\TaxKnowledge\Retrieval\Query\HybridSearchQuery;
-use App\Domain\TaxKnowledge\Retrieval\Query\RetrievalResult;
-use App\Domain\TaxKnowledge\Retrieval\Query\TemporalConfidence;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\Enums\TrustTier;
+use Kern\Legislation\Models\OfficialSource;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
+use Kern\Legislation\Retrieval\Indexing\EmbedIndexedChunks;
+use Kern\Legislation\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
+use Kern\Legislation\Retrieval\Query\HybridLegislationSearch;
+use Kern\Legislation\Retrieval\Query\HybridSearchQuery;
+use Kern\Legislation\Retrieval\Query\RetrievalResult;
+use Kern\Legislation\Retrieval\Query\TemporalConfidence;
 use RuntimeException;
 use Tests\Fakes\DeterministicHashEmbeddingProvider;
 

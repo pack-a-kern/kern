@@ -6,7 +6,7 @@
 ## What was built
 
 The official source registry (`BLUEPRINT.md` §8.2) and the BNR exchange-rate importer (§7), as two
-new bounded contexts: `App\Domain\TaxKnowledge` (source registry, allowlisted fetching, immutable
+new bounded contexts: `Kern\Legislation` (source registry, allowlisted fetching, immutable
 raw storage, document/version bookkeeping) and `App\Domain\Fx` (FX sources, rates, anomalies,
 period averages, the BNR-specific pipeline).
 
@@ -19,11 +19,11 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
 
 ### Entry points
 
-- `App\Domain\TaxKnowledge\Services\SourceIngestionService::ingest($sourceCode, $url, $documentType, $externalIdentifier = null, $expectXml = false): IngestedSourceDocument`
+- `Kern\Legislation\Services\SourceIngestionService::ingest($sourceCode, $url, $documentType, $externalIdentifier = null, $expectXml = false): IngestedSourceDocument`
   — fetch through the allowlist, sanity-check, store raw bytes immutably, record a
   `source_documents`/`source_document_versions` row (only if content actually changed). The single
   entry point other modules (and `Domain/Fx`) use — never touch
-  `App\Domain\TaxKnowledge\Models\*` directly from outside this module.
+  `Kern\Legislation\Models\*` directly from outside this module.
 - `App\Domain\Fx\Actions\ImportBnrDailyRates` (`__invoke(): FxImportSummary`) and
   `App\Domain\Fx\Actions\BackfillBnrYear` (`__invoke(int $year): FxImportSummary`) — the two named
   jobs from `BLUEPRINT.md` §7.2/§7.3. Thin `ShouldQueue` wrappers exist at
@@ -45,7 +45,7 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
   tolerance. This file, not the `official_sources` table, is authoritative — see that migration's
   docblock.
 
-**`App\Domain\TaxKnowledge`** (`apps/api/app/Domain/TaxKnowledge/`)
+**`Kern\Legislation`** (`apps/api/packages/legislation/src/`)
 - `Enums/TrustTier.php` — A/B/C/D (§8.1).
 - `DataTransferObjects/SourceDefinition.php`, `IngestedSourceDocument.php`,
   `SourceDocumentVersionDetails.php` — the module's cross-boundary DTOs (never an Eloquent model
@@ -126,7 +126,7 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
    PDF) belongs to no `TaxSubject` — it is public, not PII. Forcing it through that API would mean
    either inventing a fake subject id to satisfy a type contract built narrower than that on
    purpose, or changing `app/Support/ObjectStore/**`, which is outside this task's scope. Built
-   `App\Domain\TaxKnowledge\Storage\RawSourceObjectStore` instead: unencrypted (deliberately — the
+   `Kern\Legislation\Storage\RawSourceObjectStore` instead: unencrypted (deliberately — the
    content is public), content-addressed (`sources/{code}/{sha256}`) on the *same* Flysystem disk,
    so "immutable, never overwritten" is a property of the key scheme, not a separately-enforced
    rule. Flagged as an open question below for whoever owns `Support/ObjectStore` about whether to
@@ -204,13 +204,13 @@ libpq-dev libzip-dev`, `docker-php-ext-install intl pdo_pgsql pcntl bcmath`) aga
 already-vendored `apps/api/vendor/`. All commands below were actually run; output is real.
 
 ```text
-$ vendor/bin/pint --test app/Domain/TaxKnowledge app/Domain/Fx tests/Unit/Domain/Fx \
+$ vendor/bin/pint --test packages/legislation/src app/Domain/Fx tests/Unit/Domain/Fx \
     tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
     database/migrations database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
     config/sources.php bootstrap/providers.php deptrac.php
   PASS .......................................................... 86 files
 
-$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Domain/TaxKnowledge \
+$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src \
     app/Domain/Fx tests/Unit/Domain/Fx tests/Unit/Domain/TaxKnowledge \
     tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
     database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
@@ -265,7 +265,7 @@ $withProvenance = app(FxRateQuery::class)->rateWithProvenance('EUR', new DateTim
 
 - `FxRateQuery::rate()`/`rateWithProvenance()` throw `App\Domain\Fx\Exceptions\FxRateNotFoundException`
   on an exact miss — never interpolates or falls back to an adjacent day.
-- `App\Domain\TaxKnowledge\Services\SourceIngestionService::ingest()` is the only sanctioned way
+- `Kern\Legislation\Services\SourceIngestionService::ingest()` is the only sanctioned way
   any future module (Milestone 3's legislation ingestion) fetches+stores an official source
   document — never construct `RawSourceObjectStore`/`AllowlistedHttpFetcher` directly from outside
   `Domain/TaxKnowledge`.

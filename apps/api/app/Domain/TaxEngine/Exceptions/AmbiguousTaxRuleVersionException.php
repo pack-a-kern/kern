@@ -11,7 +11,7 @@ use RuntimeException;
  * More than one `tax_rule_versions` row for the same `tax_rule_id` claims a range covering the
  * requested date — a data-integrity defect (overlapping `valid_from`/`valid_until`), never
  * something resolved by picking one (mirrors
- * `App\Domain\TaxKnowledge\Exceptions\AmbiguousEffectiveVersionException`).
+ * `Kern\Legislation\Exceptions\AmbiguousEffectiveVersionException`).
  */
 final class AmbiguousTaxRuleVersionException extends RuntimeException
 {

@@ -6,7 +6,7 @@
 ## Context
 
 ADR 0009 accepted a documented, narrowly-scoped exception: `App\Domain\TaxEngine\Repositories\
-{TaxRuleTemporalReader,FiscalParameterTemporalReader}` read `App\Domain\TaxKnowledge\Models\
+{TaxRuleTemporalReader,FiscalParameterTemporalReader}` read `Kern\Legislation\Models\
 {TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,FiscalParameterVersion}` Eloquent models
 directly, and `deptrac.php` granted `TaxEngine -> TaxKnowledge` at the layer level to allow it.
 
@@ -23,7 +23,7 @@ domain events. ADR 0009 itself named the two weaknesses of the exception it acce
   `LegislationTemporalQuery`."
 
 This task's scope explicitly includes both `apps/api/app/Domain/TaxEngine/**` and
-`apps/api/app/Domain/TaxKnowledge/**` (additive), so the reason ADR 0009 gave for not doing this
+`apps/api/packages/legislation/src/**` (additive), so the reason ADR 0009 gave for not doing this
 the first time no longer applies. A cleaner option is available and is not blocked by scope: invert
 the dependency.
 
@@ -39,7 +39,7 @@ exceptions, and enums** — never a TaxKnowledge type:
 
 Both `ResolvedTaxRuleVersion::$status` and `ResolvedFiscalParameter::$status`/`$valueType` are now
 typed to **new, TaxEngine-owned enums** — `App\Domain\TaxEngine\Enums\{RuleApprovalStatus,
-FiscalParameterValueType}` — rather than `App\Domain\TaxKnowledge\Enums\{RuleApprovalStatus,
+FiscalParameterValueType}` — rather than `Kern\Legislation\Enums\{RuleApprovalStatus,
 FiscalParameterValueType}`. This is deliberate, not an oversight: a port whose DTO still names a
 TaxKnowledge enum in its public signature would leak the boundary this ADR exists to close, just
 through an enum instead of a model. The two enum pairs are identical in case names and backing
@@ -47,7 +47,7 @@ string values by design (a stable domain concept, `docs/CODE-QUALITY.md` §1) �
 independent declarations of it, not a shared reuse, because a TaxEngine port must not import
 anything from TaxKnowledge.
 
-`App\Domain\TaxKnowledge\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
+`App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
 implement these ports. They are behaviourally identical to the two classes ADR 0009 named — same
 "exactly one matching version for a date, or a named exception, never a heuristic" contract, same
 exclusion of `REJECTED`/`SUPERSEDED` from the candidate set — but now live inside `TaxKnowledge`,
@@ -55,7 +55,7 @@ read its own Eloquent models (legitimate: a module reading its own models is not
 `BLUEPRINT.md` §2.1 names), map its enums to TaxEngine's at the boundary
 (`EngineRuleApprovalStatus::from($tkStatus->value)`), and throw TaxEngine's own exceptions.
 
-`App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider` binds both ports to these adapters. This is
+`Kern\Legislation\TaxKnowledgeServiceProvider` binds both ports to these adapters. This is
 the one place the inversion is wired: `TaxKnowledgeServiceProvider` imports `App\Domain\TaxEngine`
 contracts, so **`TaxKnowledge` now depends on `TaxEngine`, not the other way around.**
 

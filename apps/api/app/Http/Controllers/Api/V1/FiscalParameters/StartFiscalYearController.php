@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
-use App\Domain\TaxKnowledge\FiscalParameters\Jobs\ReadFiscalYear;
+use App\Domain\FiscalParameters\Jobs\ReadFiscalYear;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

@@ -10,10 +10,10 @@ use App\Domain\Banks\DataTransferObjects\EcbInstitution;
 use App\Domain\Banks\Exceptions\BankSourceNotConfiguredException;
 use App\Domain\Banks\Models\Bank;
 use App\Domain\Banks\Services\BankSources;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
 
 /**
  * Adds the banks that closed or merged before the first import, from the ECB's archived lists.

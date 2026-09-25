@@ -14,7 +14,7 @@ use App\Domain\TaxEngine\Models\TaxAssessment;
 use App\Domain\TaxEngine\Models\TaxAssessmentLine;
 use App\Domain\TaxEngine\Services\TaxAssessmentRecorder;
 use App\Domain\TaxEngine\ValueObjects\Money;
-use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
+use Kern\Legislation\Models\TaxRuleVersion;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
 use App\Domain\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
 use App\Domain\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
 use App\Domain\TaxEngine\Exceptions\UnknownTaxRuleException;
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Models\TaxRule;
-use App\Domain\TaxKnowledge\Models\TaxRuleSource;
-use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
-use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
+use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Legislation\Models\TaxRule;
+use Kern\Legislation\Models\TaxRuleSource;
+use Kern\Legislation\Models\TaxRuleVersion;
 
 /**
  * Mirrors `tests/Feature/Domain/TaxKnowledge/LegislationTemporalQueryTest.php`'s shape for the

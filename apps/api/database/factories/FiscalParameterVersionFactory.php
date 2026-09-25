@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Legislation\Database\Factories\SourceSectionFactory;
+use Kern\Legislation\Enums\RuleApprovalStatus;
 
 /**
  * @extends Factory<FiscalParameterVersion>

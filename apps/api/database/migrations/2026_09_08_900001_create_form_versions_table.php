@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Schema;
  * codebase populates it with anything resembling a real D212 field** — every fixture/test uses
  * `SYNTHETIC_*` codes, the same convention `App\Domain\TaxEngine`'s own tests established.
  *
- * `instructions_document_version_id` references `App\Domain\TaxKnowledge`'s
+ * `instructions_document_version_id` references `Kern\Legislation`'s
  * `source_document_versions` table **conceptually only — no DB-level foreign key is declared**.
  * Every other cross-module schema reference in this codebase (e.g.
  * `rental_contracts.source_document_id` -> `documents`) is a real FK because the referenced

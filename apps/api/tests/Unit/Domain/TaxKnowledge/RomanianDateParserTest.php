@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domain\TaxKnowledge\Parsing\RomanianDateParser;
+use Kern\Legislation\Parsing\RomanianDateParser;
 
 it('parses a Romanian "D month YYYY" date embedded in a longer string', function (): void {
     $date = RomanianDateParser::parse('MONITORUL OFICIAL nr. 498 din 19 iulie 2010');

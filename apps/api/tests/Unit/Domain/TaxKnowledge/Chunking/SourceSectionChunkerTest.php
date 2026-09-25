@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\Chunking\SourceSectionChunkerTest;
 
-use App\Domain\TaxKnowledge\Chunking\ChunkableSection;
-use App\Domain\TaxKnowledge\Chunking\SourceSectionChunker;
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Enums\TrustTier;
 use DateTimeImmutable;
+use Kern\Legislation\Chunking\ChunkableSection;
+use Kern\Legislation\Chunking\SourceSectionChunker;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Enums\TrustTier;
 
 function section(string $text): ChunkableSection
 {

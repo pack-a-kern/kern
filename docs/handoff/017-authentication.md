@@ -156,7 +156,7 @@ $ docker run ... anaf-app -c 'vendor/bin/pest tests/Feature/Domain/Identity'
   Tests:    42 passed (233 assertions)
 ```
 
-**A concurrent agent's `App\Domain\TaxKnowledge` migration (`2026_09_08_301001_create_source_sections_table.php`, a self-referential `parent_id` foreign key added inside its own `Schema::create` block) was broken for part of this session** — `migrate`/`migrate:fresh` failed before reaching this task's own migrations at all, blocking every verification run. Not this task's file scope; not fixed here. Worked around for interim verification by running against a scratch copy of `apps/api` with the six broken/dependent TaxKnowledge migration files temporarily removed (never touched the shared repository) — that copy's own suite: `312 passed, 38 failed` (all 38 in `TaxKnowledge`/`Fx`, the exact, expected consequence of removing their tables from a copy, not a regression), `42 passed` for `Feature/Domain/Identity` both times. The other agent fixed it later in the same session; **the final numbers above (350 passed, 0 failed, run twice) are against the real, current, shared repository**, not the scratch workaround.
+**A concurrent agent's `Kern\Legislation` migration (`2026_09_08_301001_create_source_sections_table.php`, a self-referential `parent_id` foreign key added inside its own `Schema::create` block) was broken for part of this session** — `migrate`/`migrate:fresh` failed before reaching this task's own migrations at all, blocking every verification run. Not this task's file scope; not fixed here. Worked around for interim verification by running against a scratch copy of `apps/api` with the six broken/dependent TaxKnowledge migration files temporarily removed (never touched the shared repository) — that copy's own suite: `312 passed, 38 failed` (all 38 in `TaxKnowledge`/`Fx`, the exact, expected consequence of removing their tables from a copy, not a regression), `42 passed` for `Feature/Domain/Identity` both times. The other agent fixed it later in the same session; **the final numbers above (350 passed, 0 failed, run twice) are against the real, current, shared repository**, not the scratch workaround.
 
 ## Interfaces exposed to other modules
 
@@ -175,7 +175,7 @@ $ docker run ... anaf-app -c 'vendor/bin/pest tests/Feature/Domain/Identity'
 - **No `laravel/passkeys` or any Laravel-specific WebAuthn wrapper** — deliberate, decision #1; this module's own `Support/Webauthn/*` is the integration layer.
 - **No rate limiting on `GET /sessions` or the authenticated MFA/session endpoints** beyond the ones named in `config/identity.php` — an authenticated user hammering their own account's read endpoints is a much smaller concern than the unauthenticated ones this task did rate-limit; not built.
 - **No frontend** — this is API-only, matching every other M1 deliverable; `docs/STATUS.md` already records no frontend exists yet.
-- Did not touch `apps/api/app/Domain/TaxKnowledge/**`, `apps/processing/**`, or `docs/STATUS.md` (explicitly out of scope for this task).
+- Did not touch `apps/api/packages/legislation/src/**`, `apps/processing/**`, or `docs/STATUS.md` (explicitly out of scope for this task).
 
 ## Known issue found outside this task's scope (not fixed here, and since resolved by another agent)
 

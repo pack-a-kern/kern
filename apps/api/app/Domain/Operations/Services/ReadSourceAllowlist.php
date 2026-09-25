@@ -17,10 +17,10 @@ use Throwable;
  * twice over:
  *
  *  1. **`ext_official_sources` is a mirror, not the source of truth.**
- *     `App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository::resolve()` upserts
+ *     `Kern\Legislation\Repositories\OfficialSourceRepository::resolve()` upserts
  *     `trust_tier`/`base_url`/`enabled` from the current config on *every* call, so a value written
  *     to that table survives only until the next fetch resolves the source.
- *  2. **Nothing reads that column.** `App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher`
+ *  2. **Nothing reads that column.** `Kern\Legislation\Fetching\AllowlistedHttpFetcher`
  *     checks the config-derived `SourceDefinition`, never the row.
  *
  * A switch on that column would therefore have appeared to disable a source while every import kept
@@ -31,7 +31,7 @@ use Throwable;
  * Reading the table is still worth one query, for `mirrored`: it distinguishes "declared but never
  * fetched" from "in use", which is exactly the difference an operator sees after a restore.
  *
- * Config is read directly rather than through `App\Domain\TaxKnowledge\Config\
+ * Config is read directly rather than through `Kern\Legislation\Config\
  * OfficialSourceRegistry`: a config file is data, not another module's code, and this module has no
  * business importing that module's fetching logic to render a table.
  */

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\LegislatieJustRoHtmlParserTest;
 
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Parsing\Exceptions\UnparsableLegislationDocumentException;
-use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Parsing\Exceptions\UnparsableLegislationDocumentException;
+use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
 
 /**
  * Pure unit tests — no database, no HTTP. The fixture below is a SYNTHETIC FIXTURE: its
@@ -152,7 +152,7 @@ it('returns no sections and no publication date for a document with no recognise
  * Formatting (parser 1.2.0): what the text keeps of the page.
  */
 
-function parsedAlineat(string $body): \App\Domain\TaxKnowledge\Parsing\ParsedSection
+function parsedAlineat(string $body): \Kern\Legislation\Parsing\ParsedSection
 {
     $html = <<<HTML
         <html><body>

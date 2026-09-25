@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\LegislatieJustRoLiveFetchTest;
 
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
-use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
+use Kern\Legislation\Services\SourceIngestionService;
 
 /**
  * A REAL fetch against the real `legislatie.just.ro`, through the actual, unmodified Milestone 2

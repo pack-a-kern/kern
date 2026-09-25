@@ -18,7 +18,7 @@ use Kern\Platform\Tenancy\ScopedToTenant;
  * PII directly (`totals_json` is `{tax_code: amount}`, not linked to any identifiable third
  * party) — `BLUEPRINT.md` §4.3's mandatory-encryption list does not name assessment totals, matching
  * the precedent every other non-listed financial amount in this codebase already sets
- * (`App\Domain\Fx\Models\FxRate`, `App\Domain\TaxKnowledge\Models\FiscalParameterVersion`).
+ * (`App\Domain\Fx\Models\FxRate`, `App\Domain\FiscalParameters\Models\FiscalParameterVersion`).
  *
  * No `updated_at` — an assessment row is never mutated after creation
  * (`docs/handoff/020-tax-engine.md`: a changed input produces a new assessment row, never an

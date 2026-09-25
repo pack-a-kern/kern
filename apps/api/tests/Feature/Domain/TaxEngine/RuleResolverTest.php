@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
 use App\Domain\TaxEngine\Enums\AssessmentStatus;
 use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
 use App\Domain\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
 use App\Domain\TaxEngine\Services\RuleResolver;
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
-use App\Domain\TaxKnowledge\Models\TaxRule;
-use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
-use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
+use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
+use Kern\Legislation\Models\TaxRule;
+use Kern\Legislation\Models\TaxRuleVersion;
 
 /**
  * `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3 enforced at the assessment boundary — the task brief's

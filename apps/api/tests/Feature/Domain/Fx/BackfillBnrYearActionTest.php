@@ -8,10 +8,10 @@ use App\Domain\Fx\Actions\BackfillBnrYear;
 use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Models\FxRateAnomaly;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Models\SourceDocumentVersion;
 use RuntimeException;
 
 /**

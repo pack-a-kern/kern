@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
+use App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -15,12 +18,9 @@ use App\Domain\TaxEngine\Services\RuleResolver;
 use App\Domain\TaxEngine\Services\TaxAssessmentRecorder;
 use App\Domain\TaxEngine\Services\TaxAssessor;
 use App\Domain\TaxEngine\TaxContext;
-use App\Domain\TaxKnowledge\Enums\FiscalParameterValueType;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Models\TaxRule;
-use App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider;
-use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
+use Kern\Legislation\Enums\FiscalParameterValueType;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Models\TaxRule;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;

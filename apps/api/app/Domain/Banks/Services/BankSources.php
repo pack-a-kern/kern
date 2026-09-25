@@ -12,9 +12,9 @@ use App\Domain\Banks\Parsing\BicLeiMappingParser;
 use App\Domain\Banks\Parsing\EcbInstitutionListParser;
 use App\Domain\Banks\Parsing\LegalFormListParser;
 use App\Domain\Banks\Parsing\SourceDownloadLinks;
-use App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher;
-use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
+use Kern\Legislation\Services\SourceIngestionService;
 
 /**
  * The files a bank list is built from, downloaded, stored as evidence and parsed.

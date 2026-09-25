@@ -11,7 +11,7 @@ resolution with the `CANDIDATE`/`APPROVED` draft-vs-final gate, the assessment o
 `CalculationTrace`. **No tax rate, threshold, or ceiling is introduced anywhere in this codebase**
 (`docs/AGENTS.md` rule 3) — M4 (the approved historical dataset) is still blocked on human review,
 exactly as the brief states. Every numeric example in every test is clearly synthetic
-(`RO.TEST.*` codes, `SYNTHETIC_*` labels), matching the convention `App\Domain\TaxKnowledge`'s own
+(`RO.TEST.*` codes, `SYNTHETIC_*` labels), matching the convention `Kern\Legislation`'s own
 factories already established (`TaxRuleFactory`/`FiscalParameterFactory`).
 
 ### Entry points
@@ -54,8 +54,8 @@ output; summarised by responsibility:
   (`2026_09_08_302000..302002`) — `BLUEPRINT.md` §6.7, with documented, justified deviations (see
   each migration's own docblock and "Key decisions" #2 below).
 - `Repositories/{TaxRuleTemporalReader,FiscalParameterTemporalReader}.php` — the *only* two
-  classes in this module that read `App\Domain\TaxKnowledge` Eloquent models directly (see "Key
-  decisions" #3). Mirror `App\Domain\TaxKnowledge\Services\LegislationTemporalQuery`'s exact
+  classes in this module that read `Kern\Legislation` Eloquent models directly (see "Key
+  decisions" #3). Mirror `Kern\Legislation\Services\LegislationTemporalQuery`'s exact
   contract: exactly one matching version for a date, or a named exception — never a heuristic.
   `REJECTED`/`SUPERSEDED` versions are excluded from the candidate set entirely.
 - `Repositories/TaxFactRepository.php` — `TaxFact` row → `TaxFactSnapshot` DTO, explicitly scoped
@@ -145,7 +145,7 @@ handoffs):
    the one deliberate exception, in this entire codebase, to "never import another module's
    Eloquent model directly."** `tax_rules`/`tax_rule_versions`/`tax_rule_sources`/
    `fiscal_parameters`/`fiscal_parameter_versions` are the shared, versioned ruleset/parameter
-   store this whole engine exists to read — `App\Domain\TaxKnowledge\Models\{TaxRule,
+   store this whole engine exists to read — `Kern\Legislation\Models\{TaxRule,
    FiscalParameter}`'s own docblocks, written by the M3 task that built them, say outright "no
    TaxRule reads it yet (Milestone 5)", naming this module as their first reader. `TaxKnowledge`
    does not yet expose an application-service/DTO read surface for them the way it does for
@@ -210,7 +210,7 @@ handoffs):
 
 9. **`insertApprovedTaxRuleVersion()`/`insertApprovedFiscalParameterVersion()` (in `tests/Pest.php`)
    insert an `APPROVED` row via the raw query builder, bypassing Eloquent entirely.**
-   `App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval` makes `status = APPROVED` unreachable
+   `Kern\Legislation\Concerns\ForbidsAgentApproval` makes `status = APPROVED` unreachable
    through any Eloquent `save()` call — by design, per `docs/AGENTS.md` §9. Testing the "an
    already-approved version backs a FINAL assessment" happy path is one of this task's explicit
    deliverables ("proof: a CANDIDATE-parameter ruleset cannot produce a FINAL assessment" implies
@@ -339,7 +339,7 @@ final class SomeRule2026 implements TaxRuleContract
   layer; `TaxAssessor`/`TaxContext` are the exact seam a future controller calls into.
   `App\Domain\Subjects\Tenancy\TenantContext` authorization is assumed to already have happened by
   whatever constructs a `TaxContext` — this task builds no controller/route/middleware wiring.
-- **`App\Domain\TaxKnowledge` does not (yet) expose an application-service/DTO read surface for
+- **`Kern\Legislation` does not (yet) expose an application-service/DTO read surface for
   `tax_rule_versions`/`fiscal_parameter_versions` temporal resolution.** `TaxRuleTemporalReader`/
   `FiscalParameterTemporalReader` read those Eloquent models directly as a documented, deliberate
   exception (decision #3) — a future task could move this logic into `TaxKnowledge` itself (e.g. a
@@ -356,7 +356,7 @@ final class SomeRule2026 implements TaxRuleContract
 
 ## Open questions
 
-- **Should `App\Domain\TaxKnowledge` grow a `TaxRuleTemporalQuery`/`FiscalParameterTemporalQuery`
+- **Should `Kern\Legislation` grow a `TaxRuleTemporalQuery`/`FiscalParameterTemporalQuery`
   application service**, so `App\Domain\TaxEngine\Repositories\{TaxRuleTemporalReader,
   FiscalParameterTemporalReader}` could depend on a DTO-returning service instead of reading
   `TaxKnowledge` Eloquent models directly? Not decided here — out of this task's path scope; see
@@ -408,7 +408,7 @@ final class SomeRule2026 implements TaxRuleContract
 - Existing code read directly, not assumed: `App\Domain\Fx\ValueObjects\DecimalRate` (reused
   verbatim, no second decimal type written), `App\Domain\Fx\Services\FxRateQuery`/
   `FxPeriodAverageCalculator` (read in full before deciding decision #6),
-  `App\Domain\TaxKnowledge\Services\LegislationTemporalQuery` (the exact temporal-resolution
+  `Kern\Legislation\Services\LegislationTemporalQuery` (the exact temporal-resolution
   contract this task's two readers mirror), `App\Domain\Subjects\Tenancy\{ScopedToTaxSubject,
   TaxSubjectScope,TenantContext}` (reused unchanged), `App\Support\Crypto\{Casts\Encrypted,
   Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}` (reused unchanged for

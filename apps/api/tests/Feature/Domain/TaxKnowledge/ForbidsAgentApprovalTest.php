@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\ForbidsAgentApprovalTest;
 
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Exceptions\AgentApprovalNotPermittedException;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Models\TaxRuleVersion;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
+use Kern\Legislation\Models\TaxRuleVersion;
 
 /**
  * `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3: "No agent may set APPROVED." Proves the rule is
- * enforced in code (`App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval`), not only by review —
+ * enforced in code (`Kern\Legislation\Concerns\ForbidsAgentApproval`), not only by review —
  * this task's explicit, testable requirement.
  */
 beforeEach(function (): void {

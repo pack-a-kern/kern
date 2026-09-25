@@ -115,7 +115,7 @@ introduced.** `PfaRuleExtensionTest.php`'s only numbers are a synthetic `0.05` r
 already-established `RO.TEST.*` naming convention (M5's own precedent), inserted via the same
 `insertApprovedTaxRuleVersion`/`insertApprovedFiscalParameterVersion` test-only helpers M5 built
 specifically so a test can simulate an `APPROVED` ruleset without any agent ever setting that
-status through application code (`App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval` still
+status through application code (`Kern\Legislation\Concerns\ForbidsAgentApproval` still
 makes `status = APPROVED` unreachable via Eloquent). M4 (the real, human-reviewed Romanian PFA
 fiscal dataset) remains entirely unstarted and unblocked by anything in this task.
 

@@ -168,7 +168,7 @@ fine is evidence about the architecture") means a silent audit is not a complete
   `"cui"` fields side by side (`app/Domain/Spv/Transport/AnafCertificateApiTransport.php:27`) —
   this module was already written expecting a natural-person-or-business certificate holder,
   independent of this task.
-- **`App\Domain\TaxKnowledge`** — `tax_rules.subject_type` (`database/migrations/
+- **`Kern\Legislation`** — `tax_rules.subject_type` (`database/migrations/
   2026_09_08_301004_create_tax_rules_table.php`) already exists as a plain, nullable string
   (deliberately not a shared enum with `Subjects`, per that migration's own docblock) and already
   accepts an arbitrary value — `'PFA'` needed no schema change, confirmed by this task's own

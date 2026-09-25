@@ -16,8 +16,8 @@ use DateTimeImmutable;
  * DTOs, exceptions, and scalars — never a TaxKnowledge type — so this module never needs to know
  * (or import) how or where the ruleset is actually stored.
  *
- * `App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider` is, today, the only
- * implementation — bound in `App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider`. See
+ * `App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider` is, today, the only
+ * implementation — bound in `Kern\Legislation\TaxKnowledgeServiceProvider`. See
  * `docs/adr/0010-tax-engine-ports-and-adapters.md`: TaxKnowledge depends on this interface
  * (dependency inversion), TaxEngine depends on nothing from TaxKnowledge.
  *

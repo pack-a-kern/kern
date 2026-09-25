@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\ParseLegislationDocumentVersionTest;
 
-use App\Domain\TaxKnowledge\Actions\ParseLegislationDocumentVersion;
-use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Actions\ParseLegislationDocumentVersion;
+use Kern\Legislation\Enums\SourceDocumentVersionStatus;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Services\SourceIngestionService;
 
 /**
  * Wiring tests for the end-to-end fetch -> parse -> persist path, reusing the Milestone 2

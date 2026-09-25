@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingPurpose;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingPurpose;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingVector;
 
 /**
  * The test-only stand-in for `docs/handoff/029-hybrid-retrieval.md`'s embedding seam — never
- * bound in application code (`App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider` binds
- * `App\Domain\TaxKnowledge\Retrieval\Embedding\UnconfiguredEmbeddingProvider` by default), never
+ * bound in application code (`Kern\Legislation\TaxKnowledgeServiceProvider` binds
+ * `Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider` by default), never
  * makes a network call, and is fully deterministic: the same text always produces the same
  * vector, and two texts sharing words produce vectors with a genuinely higher cosine similarity
  * than two texts sharing none — a real (if crude) hashed bag-of-words embedding, not a random

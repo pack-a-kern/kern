@@ -20,10 +20,10 @@ use Illuminate\Support\Facades\Schema;
  * the only correct reading. A fiscal parameter value with no source citation cannot exist as a
  * row, not merely "should not" by convention.
  *
- * `status` (`App\Domain\TaxKnowledge\Enums\RuleApprovalStatus`) defaults to `CANDIDATE`.
+ * `status` (`Kern\Legislation\Enums\RuleApprovalStatus`) defaults to `CANDIDATE`.
  * **No application code path in this module can ever set `APPROVED`** —
- * `App\Domain\TaxKnowledge\Models\FiscalParameterVersion` uses the
- * `App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval` trait, which throws on `save()` if the
+ * `App\Domain\FiscalParameters\Models\FiscalParameterVersion` uses the
+ * `Kern\Legislation\Concerns\ForbidsAgentApproval` trait, which throws on `save()` if the
  * in-memory `status` is `APPROVED`, enforcing `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3 in code, not
  * only by review. No DB-level `CHECK` constraint blocks the value itself (Laravel's schema builder
  * has inconsistent cross-driver `CHECK` support — same trade-off `docs/handoff/014-source-registry-bnr.md`

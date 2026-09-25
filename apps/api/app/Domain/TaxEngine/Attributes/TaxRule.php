@@ -11,7 +11,7 @@ use Attribute;
  * carries: `#[TaxRule(code: 'RO.PF.CASS.INVESTMENTS', version: '2026.1')]`. `code`/`version` are
  * descriptive labels on the class only; the authoritative, enforced version record is the
  * `tax_rule_versions` row resolved via `App\Domain\TaxEngine\Contracts\TaxRuleVersionProvider`
- * (`App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider` — see
+ * (`App\Domain\FiscalParameters\Providers\EloquentTaxRuleVersionProvider` — see
  * `docs/adr/0010-tax-engine-ports-and-adapters.md`) — this attribute does not replace that row
  * and nothing in this module trusts it over the
  * database. Its purpose is exactly what §20 asks for: a class carrying its own identity legibly,

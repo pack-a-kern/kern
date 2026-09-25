@@ -10,8 +10,8 @@ use App\Domain\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
 use App\Domain\TaxEngine\Exceptions\IncompleteFiscalYearAveragesException;
 use App\Domain\TaxEngine\Services\FxConversionPolicy;
 use App\Domain\TaxEngine\ValueObjects\Money;
-use App\Domain\TaxKnowledge\Models\OfficialSource;
-use Database\Factories\SourceDocumentVersionFactory;
+use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\Legislation\Models\OfficialSource;
 
 /**
  * `BLUEPRINT.md` §6.9/§7.5 — every conversion carries a mandatory, explicit method, and full

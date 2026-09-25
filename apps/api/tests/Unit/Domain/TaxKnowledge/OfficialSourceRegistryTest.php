@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\OfficialSourceRegistryTest;
 
-use App\Domain\TaxKnowledge\Config\OfficialSourceRegistry;
-use App\Domain\TaxKnowledge\Enums\TrustTier;
-use App\Domain\TaxKnowledge\Exceptions\UnknownSourceException;
 use Illuminate\Config\Repository;
+use Kern\Legislation\Config\OfficialSourceRegistry;
+use Kern\Legislation\Enums\TrustTier;
+use Kern\Legislation\Exceptions\UnknownSourceException;
 use RuntimeException;
 
 /**

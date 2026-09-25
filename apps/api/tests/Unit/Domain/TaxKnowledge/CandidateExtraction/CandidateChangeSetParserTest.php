@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\CandidateExtraction\CandidateChangeSetParserTest;
 
-use App\Domain\TaxKnowledge\CandidateExtraction\CandidateChangeSetParser;
-use App\Domain\TaxKnowledge\CandidateExtraction\Exceptions\InvalidCandidateChangeSetException;
+use Kern\Legislation\CandidateExtraction\CandidateChangeSetParser;
+use Kern\Legislation\CandidateExtraction\Exceptions\InvalidCandidateChangeSetException;
 
 /**
  * Pure unit tests of `BLUEPRINT.md` §9.2's contract — no database, no LLM, no network. The document
  * ids / section ids below are synthetic UUID-shaped strings, not references to real rows;
- * existence checking is {@see \App\Domain\TaxKnowledge\CandidateExtraction\CandidateCitationVerifier}'s
+ * existence checking is {@see \Kern\Legislation\CandidateExtraction\CandidateCitationVerifier}'s
  * job (tested separately, against a real database).
  *
  * The precise `@return` shape (rather than a loose `array<string, mixed>`) is deliberate: it lets

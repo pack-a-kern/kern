@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
-use App\Domain\TaxKnowledge\FiscalParameters\Actions\ApproveFiscalParameterVersion;
-use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
+use App\Domain\FiscalParameters\Actions\ApproveFiscalParameterVersion;
+use App\Domain\FiscalParameters\FiscalParameterDecisionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\Services\AuditChainService;

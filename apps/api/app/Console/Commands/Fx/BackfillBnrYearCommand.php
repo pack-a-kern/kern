@@ -6,9 +6,9 @@ namespace App\Console\Commands\Fx;
 
 use App\Domain\Fx\Actions\BackfillBnrYear;
 use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
-use App\Domain\TaxKnowledge\Config\OfficialSourceRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Legislation\Config\OfficialSourceRegistry;
 use Throwable;
 
 /**

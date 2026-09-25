@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\SectionTextTest;
 
-use App\Domain\TaxKnowledge\Parsing\SectionText;
+use Kern\Legislation\Parsing\SectionText;
 
 /**
  * When two versions of a provision say the same thing.

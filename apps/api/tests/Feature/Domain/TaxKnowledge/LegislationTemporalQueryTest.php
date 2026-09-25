@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\LegislationTemporalQueryTest;
 
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Exceptions\AmbiguousEffectiveVersionException;
-use App\Domain\TaxKnowledge\Exceptions\NoEffectiveVersionFoundException;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Exceptions\AmbiguousEffectiveVersionException;
+use Kern\Legislation\Exceptions\NoEffectiveVersionFoundException;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Services\LegislationTemporalQuery;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

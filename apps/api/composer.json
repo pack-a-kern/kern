@@ -27,6 +27,7 @@
         "web-auth/webauthn-lib": "^5.3.8",
         "kern/audit": "@dev",
         "kern/documents": "@dev",
+        "kern/legislation": "@dev",
         "kern/platform": "@dev"
     },
     "require-dev": {

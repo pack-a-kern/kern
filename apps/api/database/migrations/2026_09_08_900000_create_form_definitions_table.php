@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * A definition never carries fiscal content itself; every versioned detail (order, schema,
  * instructions, applicability, validators, generator — §12.2) lives on `form_versions`. This
  * table is global, not tenant-scoped: a form definition is not owned by any one `TaxSubject`,
- * exactly like `App\Domain\TaxKnowledge`'s `tax_rules`/`fiscal_parameters` registries.
+ * exactly like `Kern\Legislation`'s `tax_rules`/`fiscal_parameters` registries.
  *
  * `code` is UNIQUE — this task never seeds a real "D212" row (`docs/AGENTS.md` §2: no fabricated
  * ANAF content), but the constraint holds for whichever task does.

@@ -15,9 +15,9 @@ use DateTimeImmutable;
  * for why this port exists, same "exactly one match or an exception" contract, same exclusion of
  * `REJECTED`/`SUPERSEDED` from the candidate set.
  *
- * `App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider` is, today, the only
+ * `App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider` is, today, the only
  * implementation — bound alongside {@see TaxRuleVersionProvider} in
- * `App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider`. See
+ * `Kern\Legislation\TaxKnowledgeServiceProvider`. See
  * `docs/adr/0010-tax-engine-ports-and-adapters.md`.
  */
 interface FiscalParameterProvider

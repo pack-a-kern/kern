@@ -8,7 +8,7 @@
 The retrieval half of Milestone 11 — hybrid lexical + semantic + temporal/tier search over the
 `source_sections` chunks Milestone 3 already produces (`docs/handoff/018-legislation-ingestion.md`),
 per `BLUEPRINT.md` §15.2–§15.4 and `docs/adr/0006-pgvector-over-qdrant.md`. Extends
-`App\Domain\TaxKnowledge` — retrieval belongs with the corpus, not a new module.
+`Kern\Legislation` — retrieval belongs with the corpus, not a new module.
 
 Five pieces:
 
@@ -58,7 +58,7 @@ blocked item #3, ADR 0007).
 - `301102_add_citation_trigram_index_to_source_sections_table.php` — GIN trigram index on
   `kern_unaccent(lower(citation_label))` for fuzzy article lookup.
 
-**`App\Domain\TaxKnowledge\Retrieval\Embedding`** (the seam, mirroring
+**`Kern\Legislation\Retrieval\Embedding`** (the seam, mirroring
 `Kern\Documents\ExternalAi` exactly)
 - `EmbeddingProvider.php` — interface: `embed(list<string> $texts): list<EmbeddingVector>`,
   `modelIdentifier(): string`.
@@ -68,15 +68,15 @@ blocked item #3, ADR 0007).
   `EmbeddingProviderNotConfiguredException` on every call. Never calls a network.
 - `Exceptions/EmbeddingProviderNotConfiguredException.php`.
 
-**`App\Domain\TaxKnowledge\Retrieval\Models`**
+**`Kern\Legislation\Retrieval\Models`**
 - `IndexedChunk.php` — Eloquent model for `source_section_chunks` (`$table` explicitly set — the
   default `indexed_chunks` inference is wrong for this table name, caught by actually running the
   tests, not assumed). Deliberately named differently from
-  `App\Domain\TaxKnowledge\Chunking\SourceSectionChunk` (a pure, transient DTO) to avoid confusing
+  `Kern\Legislation\Chunking\SourceSectionChunk` (a pure, transient DTO) to avoid confusing
   the two. `embedding` is not in `$fillable`/casts — nothing in PHP ever reads a vector back as
   floats; all vector arithmetic happens in SQL (§15.5).
 
-**`App\Domain\TaxKnowledge\Retrieval\Indexing`**
+**`Kern\Legislation\Retrieval\Indexing`**
 - `IndexSourceSectionForRetrieval.php` — one section in, chunk rows out (text/hash/metadata only,
   no embedding). Delete-and-replace on re-index, matching `LegislationSectionPersister`'s own
   precedent. Uses M3's existing `SourceSectionChunkAssembler` unchanged.
@@ -85,7 +85,7 @@ blocked item #3, ADR 0007).
   via the raw query builder (`EmbeddingVector::toPgvectorLiteral()` — Eloquent has no `vector`
   cast). Throws if the provider is unconfigured or violates its own contract (wrong vector count).
 
-**`App\Domain\TaxKnowledge\Retrieval\Query`**
+**`Kern\Legislation\Retrieval\Query`**
 - `TemporalConfidence.php` — enum: `CONFIRMED` | `DATE_UNKNOWN` (see "The unknown-date rule").
 - `HybridSearchQuery.php` — input DTO. `$asOf` is **required**, never defaulted to "today" —
   matching `LegislationTemporalQuery::versionInForceOn()`'s own precedent of never assuming a
@@ -99,7 +99,7 @@ blocked item #3, ADR 0007).
   AS (...) SELECT ... FROM scored WHERE ...`), a query-embedding attempt that degrades to
   lexical/fuzzy-only on `EmbeddingProviderNotConfiguredException`, ranking, and result hydration.
 
-**`App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider.php`** (modified) — binds
+**`Kern\Legislation\TaxKnowledgeServiceProvider.php`** (modified) — binds
 `EmbeddingProvider::class` to `UnconfiguredEmbeddingProvider::class` as a singleton.
 
 **Factory**: `database/factories/IndexedChunkFactory.php`.
@@ -226,7 +226,7 @@ buckets what already came back.
 
 ## What plugging in a real embedding provider requires
 
-1. Implement `App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider` — per ADR 0007, an
+1. Implement `Kern\Legislation\Retrieval\Embedding\EmbeddingProvider` — per ADR 0007, an
    OpenAI-compatible-protocol HTTP adapter, config-driven (`AI_PROVIDER`/`AI_BASE_URL`/
    `AI_MODEL`/`AI_API_KEY`), calling the provider's `/embeddings` endpoint. Not built here — no
    provider decision exists yet to build it against (`docs/STATUS.md` blocked item #3).
@@ -307,9 +307,9 @@ prefix range, none depending on `declarations`) rather than a full unscoped `mig
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\TaxKnowledge\Retrieval\Indexing\{IndexSourceSectionForRetrieval, EmbedIndexedChunks};
-use App\Domain\TaxKnowledge\Retrieval\Query\{HybridLegislationSearch, HybridSearchQuery};
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider; // implement this once a provider is chosen
+use Kern\Legislation\Retrieval\Indexing\{IndexSourceSectionForRetrieval, EmbedIndexedChunks};
+use Kern\Legislation\Retrieval\Query\{HybridLegislationSearch, HybridSearchQuery};
+use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider; // implement this once a provider is chosen
 
 // Index one section's chunks (text/metadata only — no provider needed):
 $chunkCount = app(IndexSourceSectionForRetrieval::class)($sectionId);

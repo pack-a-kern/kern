@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\AllowlistedHttpFetcherTest;
 
-use App\Domain\TaxKnowledge\Exceptions\SourceDisabledException;
-use App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\FetchSizeExceededException;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\HostNotAllowedException;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\TooManyRedirectsException;
-use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedStatusException;
 use Illuminate\Support\Facades\Http;
+use Kern\Legislation\Exceptions\SourceDisabledException;
+use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
+use Kern\Legislation\Fetching\Exceptions\FetchSizeExceededException;
+use Kern\Legislation\Fetching\Exceptions\HostNotAllowedException;
+use Kern\Legislation\Fetching\Exceptions\TooManyRedirectsException;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
 use PHPUnit\Framework\Assert;
 
 /**

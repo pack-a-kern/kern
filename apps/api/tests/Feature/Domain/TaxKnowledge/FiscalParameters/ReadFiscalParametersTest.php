@@ -4,33 +4,33 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\ReadFiscalParametersTest;
 
-use App\Domain\TaxKnowledge\Enums\OutlineLevel;
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\FiscalParameters\Actions\ReadFiscalParameters;
-use App\Domain\TaxKnowledge\FiscalParameters\Actions\StartFiscalYear;
-use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
-use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawMatch;
-use App\Domain\TaxKnowledge\FiscalParameters\Matching\LawProvisions;
-use App\Domain\TaxKnowledge\FiscalParameters\Matching\Provision;
-use App\Domain\TaxKnowledge\FiscalParameters\Reading\Reading;
-use App\Domain\TaxKnowledge\FiscalParameters\Recording\CandidateRecorder;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\FiscalParameterRead;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceOutlineNode;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Parsing\SectionText;
-use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Domain\TaxKnowledge\Services\BuildSectionHistory;
+use App\Domain\FiscalParameters\Actions\ReadFiscalParameters;
+use App\Domain\FiscalParameters\Actions\StartFiscalYear;
+use App\Domain\FiscalParameters\FiscalParameterDecisionException;
+use App\Domain\FiscalParameters\Matching\LawMatch;
+use App\Domain\FiscalParameters\Matching\LawProvisions;
+use App\Domain\FiscalParameters\Matching\Provision;
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameterRead;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
+use App\Domain\FiscalParameters\Reading\Reading;
+use App\Domain\FiscalParameters\Recording\CandidateRecorder;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Kern\Legislation\Enums\OutlineLevel;
+use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceOutlineNode;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Parsing\SectionText;
+use Kern\Legislation\Repositories\OfficialSourceRepository;
+use Kern\Legislation\Services\BuildSectionHistory;
 
 /**
  * The fiscal values read end to end: the minimum wage from its decisions, every other value from the

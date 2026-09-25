@@ -10,7 +10,7 @@ declare(strict_types=1);
 | The values a tax is computed from — a rate, the minimum wage, a threshold counted in minimum wages
 | — and what is asked of the law for each. Nothing here is a value: every one is read from an
 | official text, saved as a candidate with the paragraph it was read from, and counts only once a
-| person has approved it (`App\Domain\TaxKnowledge\FiscalParameters`).
+| person has approved it (`App\Domain\FiscalParameters`).
 |
 | Two texts say what a value is:
 |
@@ -58,7 +58,7 @@ return [
      *
      * `subject` is who owes it: a PERSON through their own declaration, a COMPANY, or BOTH.
      * `law.question` is what is asked of the law, in Romanian, as the law puts it; `law.answer` is
-     * the shape of the answer ({@see App\Domain\TaxKnowledge\FiscalParameters\ParameterAnswer}),
+     * the shape of the answer ({@see App\Domain\FiscalParameters\ParameterAnswer}),
      * which is also what the answer is checked against. A question names the income it is about,
      * because the law sets a different base for each.
      */

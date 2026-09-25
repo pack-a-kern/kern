@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
+use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
 use App\Domain\TaxEngine\Enums\AssessmentStatus;
 use App\Domain\TaxEngine\Enums\RuleApprovalStatus;
 use App\Domain\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
 use App\Domain\TaxEngine\Services\ParameterResolver;
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider;
+use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
+use Kern\Legislation\Models\SourceSection;
 
 /**
  * Constructed against the real `EloquentFiscalParameterProvider` adapter

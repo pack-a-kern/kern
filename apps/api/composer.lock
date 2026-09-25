@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "63c9ca838df3b186c45f577e724526c6",
+    "content-hash": "23ec443b15e555c651adc62c1a0fe9c8",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1595,6 +1595,56 @@
                 "proprietary"
             ],
             "description": "A document a tenant owns: uploaded in parts, quarantined, virus-scanned, encrypted at rest, read for its text and - with recorded consent - for its figures.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "kern/legislation",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/legislation",
+                "reference": "6b184ddd7bb0703b9bab762b009e2258dacae543"
+            },
+            "require": {
+                "ext-dom": "*",
+                "illuminate/bus": "^13.0",
+                "illuminate/console": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/filesystem": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/queue": "^13.0",
+                "illuminate/routing": "^13.0",
+                "illuminate/support": "^13.0",
+                "illuminate/validation": "^13.0",
+                "kern/audit": "@dev",
+                "kern/platform": "@dev",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "fakerphp/faker": "^1.23"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Legislation\\LegislationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Legislation\\": "src/",
+                    "Kern\\Legislation\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Read a law from its official source: every consolidation fetched, dated and parsed, with provision history and hybrid lexical-plus-semantic search over the result.",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -13299,6 +13349,7 @@
     "stability-flags": {
         "kern/audit": 20,
         "kern/documents": 20,
+        "kern/legislation": 20,
         "kern/platform": 20
     },
     "prefer-stable": true,

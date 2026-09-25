@@ -10,10 +10,10 @@ use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Models\FxRateAnomaly;
 use App\Domain\Fx\Services\FxRateImporter;
 use App\Domain\Fx\ValueObjects\DecimalRate;
-use Database\Factories\OfficialSourceFactory;
-use Database\Factories\SourceDocumentVersionFactory;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Database\Factories\OfficialSourceFactory;
+use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

@@ -12,12 +12,12 @@ use App\Domain\TaxEngine\ValueObjects\Money;
 use DateTimeImmutable;
 
 /**
- * One `fiscal_parameter_versions` row (`App\Domain\TaxKnowledge`), resolved for a specific date
+ * One `fiscal_parameter_versions` row (`Kern\Legislation`), resolved for a specific date
  * and handed to a rule as a plain value — the output of `App\Domain\TaxEngine\Contracts\
  * FiscalParameterProvider::versionInForceOn()`. This DTO never names a TaxKnowledge type
  * (`docs/adr/0010-tax-engine-ports-and-adapters.md`): `$valueType`/`$status` are TaxEngine's own
  * enums, not TaxKnowledge's — the implementing adapter
- * (`App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider`) maps between the two.
+ * (`App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider`) maps between the two.
  * `status` is carried through so `App\Domain\TaxEngine\Services\ParameterResolver` can enforce
  * `docs/AGENTS.md` §9's `CANDIDATE`-vs-`FINAL` gate; a rule itself never inspects `status`.
  */

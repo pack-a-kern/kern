@@ -13,10 +13,10 @@ use Illuminate\Support\Facades\Schema;
  * `App\Domain\TaxEngine\Services\FxConversionPolicy`), so unlike `tax_facts` this table carries no
  * `currency_code` column.
  *
- * `legal_rule_version_id` is a real foreign key into `tax_rule_versions` (`App\Domain\TaxKnowledge`
+ * `legal_rule_version_id` is a real foreign key into `tax_rule_versions` (`Kern\Legislation`
  * — a cross-module database reference, not a cross-module *Eloquent model import*; see
  * `docs/adr/0010-tax-engine-ports-and-adapters.md` for how this module resolves that row without
- * ever importing a `TaxKnowledge` Eloquent model itself — `App\Domain\TaxKnowledge\Providers\
+ * ever importing a `TaxKnowledge` Eloquent model itself — `App\Domain\FiscalParameters\Providers\
  * EloquentTaxRuleVersionProvider` does that on TaxEngine's behalf, behind the
  * `TaxRuleVersionProvider` port). This is exactly `BLUEPRINT.md` §30's chain made queryable:
  * `tax_assessment_lines` →

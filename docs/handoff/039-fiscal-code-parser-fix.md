@@ -5,7 +5,7 @@
 
 ## What was built
 
-Fixed the three measured defects in `App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser`
+Fixed the three measured defects in `Kern\Legislation\Parsing\LegislatieJustRoHtmlParser`
 documented in `docs/reference/fiscal-code-parse-defects.md`, which blocked ingesting the real
 Codul fiscal (Legea 227/2015, `legislatie.just.ro/Public/DetaliiDocument/171282`, 7.6 MB) — the
 root cause of Milestone 4 being blocked. All three were genuine parser bugs, confirmed by reading
@@ -45,10 +45,10 @@ resolved or suffixed into uniqueness.
 
 ## Files created / changed
 
-- `app/Domain/TaxKnowledge/Enums/SectionType.php` — added `ANEXA` case, with a docblock
+- `packages/legislation/src/Enums/SectionType.php` — added `ANEXA` case, with a docblock
   explaining why (unlike `Titlu`/`Capitol`/`Secțiune`, an annex genuinely carries its own citable
   `ALINEAT`/`LITERA`/`PUNCT` content).
-- `app/Domain/TaxKnowledge/Parsing/LegislatieJustRoHtmlParser.php` — the fix, in full:
+- `packages/legislation/src/Parsing/LegislatieJustRoHtmlParser.php` — the fix, in full:
   - `CONTAINER_CLASSES` gains `'S_ANX' => SectionType::ANEXA`.
   - New `TITLE_WRAPPER_CLASSES` constant + `ancestorWrapperContext()` — walks a container's
     ancestors collecting real `S_TTL`/`S_CAP`/`S_SEC` `_TTL` label text (verbatim, never invented)
@@ -70,12 +70,12 @@ resolved or suffixed into uniqueness.
     not modified by this task).
   - Class docblock rewritten to reflect all of the above; the previous "S_PCT unverified" note is
     now "confirmed — 631 real occurrences".
-- `app/Domain/TaxKnowledge/Parsing/OrphanContinuationGroup.php` (**new**) — small, deliberately
+- `packages/legislation/src/Parsing/OrphanContinuationGroup.php` (**new**) — small, deliberately
   mutable internal working DTO for `groupOrphanContinuations()` only (never returned from
   `parse()`); a real `readonly` `ParsedSection` can't have a child list appended after
   construction, and grouping needs to accumulate continuation elements before the final immutable
   tree is built.
-- `app/Domain/TaxKnowledge/Parsing/ParsedLegislationDocument.php` — added
+- `packages/legislation/src/Parsing/ParsedLegislationDocument.php` — added
   `array $ambiguousCitationLabels = []`, documented in full (why it exists, the two real evidenced
   cases, what a caller must do with it).
 - `tests/Fixtures/TaxKnowledge/Legislatie/codul-fiscal-extract-2026-09-08.html` (**new**) — a
@@ -131,7 +131,7 @@ resolved or suffixed into uniqueness.
    independent enumerations sharing one alineat with no distinguishing number in the source. None
    of the three can be disambiguated without either fabricating a number the source doesn't carry
    or free-text-parsing Romanian prose to infer intent — both forbidden by `docs/AGENTS.md` §2. The
-   scope for this task (`apps/api/app/Domain/TaxKnowledge/Parsing/**` only, not `Services/**` or
+   scope for this task (`apps/api/packages/legislation/src/Parsing/**` only, not `Services/**` or
    `DataTransferObjects/**` outside `Parsing/`) meant the "don't persist twice" logic had to live in
    the parser itself, not in `LegislationSectionPersister` (unmodified) — `pruneAmbiguousCitations()`
    runs a pre-order walk that exactly matches the persister's own insertion order (parent, then
@@ -159,7 +159,7 @@ CREATE DATABASE
 
 **Pint:**
 ```
-$ vendor/bin/pint --test app/Domain/TaxKnowledge/Parsing app/Domain/TaxKnowledge/Enums/SectionType.php \
+$ vendor/bin/pint --test packages/legislation/src/Parsing packages/legislation/src/Enums/SectionType.php \
     tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserTest.php \
     tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php
   PASS ........................................................... 7 files
@@ -167,7 +167,7 @@ $ vendor/bin/pint --test app/Domain/TaxKnowledge/Parsing app/Domain/TaxKnowledge
 
 **PHPStan (level 9, no baseline):**
 ```
-$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Domain/TaxKnowledge/Parsing \
+$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src/Parsing \
     tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php \
     tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserTest.php
  [OK] No errors
@@ -281,7 +281,7 @@ trust a count — real text, verified against the extracts above and the origina
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
+use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
 
 $result = (new LegislatieJustRoHtmlParser())->parse($html);
 // $result->topLevelSections   — now includes ANEXA top-level sections alongside ARTICOL
@@ -292,7 +292,7 @@ $result = (new LegislatieJustRoHtmlParser())->parse($html);
 LegislatieJustRoHtmlParser::VERSION; // '1.1.0' — bumped, record this on any re-parse.
 ```
 
-`App\Domain\TaxKnowledge\Enums\SectionType::ANEXA` is a new public enum case; anything that
+`Kern\Legislation\Enums\SectionType::ANEXA` is a new public enum case; anything that
 `match`es exhaustively over `SectionType` outside this task's scope needs to add a branch (checked:
 nothing under `apps/api/app/**` outside `Domain/TaxKnowledge/Parsing/**` currently `match`es this
 enum exhaustively without a `default`, per a repo-wide grep — see "Sources consulted").
@@ -320,7 +320,7 @@ enum exhaustively without a `default`, per a repo-wide grep — see "Sources con
   future document surfaces a colliding node *with* children, that behaviour (drop the whole
   subtree) is still the safe, honest default, but worth a second look before extending further.
 - Did not touch `docs/STATUS.md` (explicit instruction), any file outside
-  `apps/api/app/Domain/TaxKnowledge/Parsing/**`, or `resources/js/**`.
+  `apps/api/packages/legislation/src/Parsing/**`, or `resources/js/**`.
 
 ## Open questions
 

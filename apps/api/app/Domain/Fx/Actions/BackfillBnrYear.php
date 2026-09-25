@@ -8,9 +8,9 @@ use App\Domain\Fx\DataTransferObjects\FxImportSummary;
 use App\Domain\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use App\Domain\Fx\Parsing\BnrXmlParser;
 use App\Domain\Fx\Services\FxRateImporter;
-use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Legislation\Repositories\OfficialSourceRepository;
+use Kern\Legislation\Services\SourceIngestionService;
 
 /**
  * `BLUEPRINT.md` §7.3 `BackfillBnrYear(year)` — same pipeline as

@@ -201,7 +201,7 @@ function jsonStringList(\Illuminate\Testing\TestResponse $response, string $key)
 }
 
 /**
- * `App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval` makes `status = APPROVED`
+ * `Kern\Legislation\Concerns\ForbidsAgentApproval` makes `status = APPROVED`
  * unreachable through Eloquent's `save()` on `TaxRuleVersion`/`FiscalParameterVersion` — by
  * design, per `docs/AGENTS.md` §9 ("no agent may set APPROVED"). `App\Domain\TaxEngine`'s own
  * tests still need to exercise the "an already-approved version backs a FINAL assessment" path,

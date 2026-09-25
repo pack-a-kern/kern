@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\NoteReaderTest;
 
-use App\Domain\TaxKnowledge\Services\NoteReader;
+use Kern\Legislation\Services\NoteReader;
 
 /**
  * Every note here is verbatim from the portal: the 2026-08-08 consolidation of the Codul fiscal.

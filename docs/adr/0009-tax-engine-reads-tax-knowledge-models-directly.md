@@ -4,7 +4,7 @@
 [ADR 0010](0010-tax-engine-ports-and-adapters.md). The dependency this ADR accepted as a
 documented exception has been inverted: `App\Domain\TaxEngine` now defines
 `Contracts\{TaxRuleVersionProvider,FiscalParameterProvider}` ports expressed purely in its own
-DTOs/exceptions/enums, and `App\Domain\TaxKnowledge\Providers\{EloquentTaxRuleVersionProvider,
+DTOs/exceptions/enums, and `App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,
 EloquentFiscalParameterProvider}` implement them. `deptrac.php` no longer grants
 `TaxEngine -> TaxKnowledge` at all; it grants `TaxKnowledge -> TaxEngine` instead. This document is
 kept for the historical record of why the exception was originally accepted and what alternative
@@ -24,9 +24,9 @@ level for every module pair declared so far (`Fx` → `TaxKnowledge` crosses onl
 Milestone 5 (`App\Domain\TaxEngine`) needs to resolve, for a given rule/parameter code and date,
 the `tax_rule_versions`/`fiscal_parameter_versions` row in force — `docs/AGENTS.md` §9's
 `CANDIDATE`-vs-`APPROVED` gate depends on reading that row's real `status`. Those tables belong to
-`App\Domain\TaxKnowledge` (built in Milestone 3, `docs/handoff/018-legislation-ingestion.md`).
+`Kern\Legislation` (built in Milestone 3, `docs/handoff/018-legislation-ingestion.md`).
 `TaxKnowledge` exposes a temporal-query application service for legal-text sections
-(`App\Domain\TaxKnowledge\Services\LegislationTemporalQuery`) but **no equivalent service exists
+(`Kern\Legislation\Services\LegislationTemporalQuery`) but **no equivalent service exists
 yet for `tax_rule_versions`/`fiscal_parameter_versions`** — those models' own docblocks, written by
 the Milestone 3 task, say outright "no `TaxRule` reads it yet (Milestone 5)", naming this module as
 their first real reader without anticipating what shape that reading would take.
@@ -38,7 +38,7 @@ migrations, tests, factories, and `deptrac.php` grants) — it could not add the
 ## Decision
 
 `App\Domain\TaxEngine\Repositories\TaxRuleTemporalReader` and `FiscalParameterTemporalReader` read
-`App\Domain\TaxKnowledge\Models\{TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,
+`Kern\Legislation\Models\{TaxRule,TaxRuleVersion,TaxRuleSource,FiscalParameter,
 FiscalParameterVersion}` directly, and are the **only** two classes in the codebase permitted to
 do so. `deptrac.php` grants `TaxEngine → TaxKnowledge` access at the layer level (deptrac does not
 sub-divide a layer by class, so this grant is broader than the two classes that actually use it —
@@ -95,4 +95,4 @@ Consequences) is a mechanical move, not a redesign.
   exception exists to serve).
 - `docs/handoff/018-legislation-ingestion.md`, `docs/handoff/020-tax-engine.md` ("Key decisions"
   #3, "Open questions").
-- `App\Domain\TaxKnowledge\Services\LegislationTemporalQuery` — the contract mirrored.
+- `Kern\Legislation\Services\LegislationTemporalQuery` — the contract mirrored.

@@ -1,7 +1,7 @@
 import type { LawTable } from '../types/legislation';
 
 /**
- * How a provision's stored text reads, mirroring `App\Domain\TaxKnowledge\Parsing\SectionText`.
+ * How a provision's stored text reads, mirroring `Kern\Legislation\Parsing\SectionText`.
  *
  * The text is lines; a line `[[table:N]]` stands where its Nth table was, and a line opening
  * "(la 01-01-2025, …" is the portal's note on when and by what the provision was last changed —

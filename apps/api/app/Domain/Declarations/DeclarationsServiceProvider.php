@@ -17,7 +17,7 @@ use Illuminate\Support\ServiceProvider;
  * module needs to change.
  *
  * `bind()`, not `singleton()`: the generator is stateless and cheap to construct, matching
- * `App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider`'s identical reasoning for its own
+ * `Kern\Legislation\TaxKnowledgeServiceProvider`'s identical reasoning for its own
  * adapter bindings (`docs/handoff/023-taxengine-boundary-inversion.md`).
  */
 final class DeclarationsServiceProvider extends ServiceProvider

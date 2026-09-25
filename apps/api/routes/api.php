@@ -8,14 +8,6 @@ use App\Http\Controllers\Api\V1\FiscalParameters\ApproveFiscalParameterVersionCo
 use App\Http\Controllers\Api\V1\FiscalParameters\RejectFiscalParameterVersionController;
 use App\Http\Controllers\Api\V1\FiscalParameters\ShowFiscalParameterBoardController;
 use App\Http\Controllers\Api\V1\FiscalParameters\StartFiscalYearController;
-use App\Http\Controllers\Api\V1\Legislation\DeleteLawController;
-use App\Http\Controllers\Api\V1\Legislation\ListLawsController;
-use App\Http\Controllers\Api\V1\Legislation\SearchLegislationController;
-use App\Http\Controllers\Api\V1\Legislation\SearchPortalController;
-use App\Http\Controllers\Api\V1\Legislation\ShowLawController;
-use App\Http\Controllers\Api\V1\Legislation\ShowLawOutlineController;
-use App\Http\Controllers\Api\V1\Legislation\ShowLawTextController;
-use App\Http\Controllers\Api\V1\Legislation\ShowProvisionHistoryController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RetryFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RunOperationTaskController;
@@ -186,19 +178,6 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
         ->where('transaction', '[0-9a-f-]{36}');
 });
 
-/*
- * Legislation search (`/legislation`) — hybrid lexical + semantic retrieval over ingested sources
- * (`BLUEPRINT.md` §15.2).
- *
- * `auth:web` and nothing more: this is public law, not tenant data, so there is no `{subject}` to
- * bind and no per-subject permission to check. It is behind authentication at all because each call
- * runs an embedding model, and an unauthenticated endpoint that does that is a free way to burn the
- * server's CPU.
- */
-Route::get('v1/legislation/search', SearchLegislationController::class)->middleware('auth:web');
-
-// The laws read, each with its consolidations, its text on a date and a provision's history — the
-// same public law, behind the same authentication and for the same reason.
 // The values a tax is computed from, as read from the official texts: seen by those who may view
 // them, decided — approved, rejected, a new year proposed — by those who may approve them. Reading
 // them is the `fiscal.parameters.read` task, run through the operations routes.
@@ -210,23 +189,6 @@ Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function ()
         Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('years', StartFiscalYearController::class);
     });
-});
-
-// Finding an act on the portal to read it: a search that reaches out to legislatie.just.ro, so for
-// the same people who may start reading one.
-Route::get('v1/legislation/portal', SearchPortalController::class)->middleware(['auth:web', 'permission:operations.run']);
-
-Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function (): void {
-    Route::get('/', ListLawsController::class);
-    Route::get('{law}', ShowLawController::class)->whereUuid('law');
-    Route::get('{law}/text', ShowLawTextController::class)->whereUuid('law');
-    Route::get('{law}/outline', ShowLawOutlineController::class)->whereUuid('law');
-    Route::get('{law}/history', ShowProvisionHistoryController::class)->whereUuid('law');
-
-    // Removing a law read in from the portal — one added to try, or the wrong act — is changing what
-    // this installation holds, so it belongs to the same people who may start a reading. A law any
-    // fiscal value rests on is refused rather than cascaded: see `DeleteLaw`.
-    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware('permission:operations.run');
 });
 
 /*
@@ -263,7 +225,7 @@ Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): voi
         Route::delete('failed-jobs/{uuid}', ForgetFailedJobController::class);
 
         // No route writes the official-source allowlist, deliberately. It is declared in
-        // `config/sources.php`, and `App\Domain\TaxKnowledge\Repositories\
+        // `config/sources.php`, and `Kern\Legislation\Repositories\
         // OfficialSourceRepository::resolve()` upserts `ext_official_sources` from that config on every
         // fetch — so a value written here would survive only until the next import, while
         // `AllowlistedHttpFetcher` never consulted the row in the first place. The screen renders

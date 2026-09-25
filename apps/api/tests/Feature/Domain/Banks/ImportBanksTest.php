@@ -7,10 +7,10 @@ namespace Tests\Feature\Domain\Banks\ImportBanksTest;
 use App\Domain\Banks\Actions\ImportBanks;
 use App\Domain\Banks\Models\Bank;
 use App\Domain\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
-use App\Domain\TaxKnowledge\Models\OfficialSource;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Models\OfficialSource;
 
 /**
  * The whole import against faked publishers: three pages, three files, one table.

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\LegislatieJustRoHtmlParserFiscalCodeExtractTest;
 
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser;
-use App\Domain\TaxKnowledge\Parsing\ParsedSection;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
+use Kern\Legislation\Parsing\ParsedSection;
 use RuntimeException;
 
 /**

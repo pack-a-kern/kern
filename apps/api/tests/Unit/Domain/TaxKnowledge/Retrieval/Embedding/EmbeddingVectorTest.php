@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVectorTest;
 
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingVector;
 use InvalidArgumentException;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingVector;
 
 it('rejects an empty vector', function (): void {
     new EmbeddingVector([]);

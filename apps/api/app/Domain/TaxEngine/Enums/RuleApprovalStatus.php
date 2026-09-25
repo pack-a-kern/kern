@@ -11,11 +11,11 @@ namespace App\Domain\TaxEngine\Enums;
  * {@see \App\Domain\TaxEngine\Services\RuleResolver} / {@see \App\Domain\TaxEngine\Services\ParameterResolver}
  * can enforce `docs/AGENTS.md` §9's draft-vs-final gate.
  *
- * Deliberately a second enum, not a reuse of `App\Domain\TaxKnowledge\Enums\RuleApprovalStatus` —
+ * Deliberately a second enum, not a reuse of `Kern\Legislation\Enums\RuleApprovalStatus` —
  * see `docs/adr/0010-tax-engine-ports-and-adapters.md`. A TaxEngine port
  * ({@see \App\Domain\TaxEngine\Contracts\TaxRuleVersionProvider}, {@see \App\Domain\TaxEngine\Contracts\FiscalParameterProvider})
  * must never name a TaxKnowledge type in its signature, or the module boundary that ADR restores
- * leaks straight back in through an enum instead of a model. `App\Domain\TaxKnowledge\Providers\
+ * leaks straight back in through an enum instead of a model. `App\Domain\FiscalParameters\Providers\
  * EloquentTaxRuleVersionProvider`/`EloquentFiscalParameterProvider` map TaxKnowledge's enum to
  * this one at the adapter boundary (`self::from($tkStatus->value)`) — the case names and backing
  * values are, and must remain, identical between the two enums.

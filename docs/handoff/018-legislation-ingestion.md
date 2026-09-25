@@ -5,7 +5,7 @@
 
 ## What was built
 
-Milestone 3's legislation/ANAF document ingestion, extending `App\Domain\TaxKnowledge` (M2's
+Milestone 3's legislation/ANAF document ingestion, extending `Kern\Legislation` (M2's
 source registry, allowlisted fetcher, and immutable raw storage — reused as-is, no second fetcher
 built). Five pieces, matching the task brief's five numbered requirements:
 
@@ -16,30 +16,30 @@ built). Five pieces, matching the task brief's five numbered requirements:
    new version automatically records which prior version (if any) of the *same* `source_document`
    it replaces — a plain lineage fact, not an effective-date inference.
 
-2. **Structural parsing** — `App\Domain\TaxKnowledge\Parsing\LegislatieJustRoHtmlParser`, a real
+2. **Structural parsing** — `Kern\Legislation\Parsing\LegislatieJustRoHtmlParser`, a real
    HTML structural parser built against **genuinely observed** `legislatie.just.ro` markup (two
    live fetches made during this task — the Romanian Constitution and a Decree — see "Sources
    consulted"), not guessed. Produces `ARTICOL`/`ALINEAT`/`LITERA`/`PUNCT` sections
-   (`App\Domain\TaxKnowledge\Enums\SectionType`) with correct parent/child nesting, citation
+   (`Kern\Legislation\Enums\SectionType`) with correct parent/child nesting, citation
    labels (`"Art. 27 alin. (1) lit. a)"`), ordinals, and per-section text excluding editorial
    notes (`S_NTA`) and collapsed-view UI placeholders (`S_LIT_SHORT`). Verified against the real
    Constitution: 614 sections, zero duplicate citation labels, zero empty leaf text.
-   `App\Domain\TaxKnowledge\Services\LegislationSectionPersister` turns a parsed tree into
+   `Kern\Legislation\Services\LegislationSectionPersister` turns a parsed tree into
    `source_sections` rows.
 
-3. **The temporal model (the hard part)** — `App\Domain\TaxKnowledge\Services\LegislationTemporalQuery`.
+3. **The temporal model (the hard part)** — `Kern\Legislation\Services\LegislationTemporalQuery`.
    See "The temporal model" section below — this is the part every later milestone depends on.
 
-4. **Chunking** — `App\Domain\TaxKnowledge\Chunking\SourceSectionChunker` (pure) +
+4. **Chunking** — `Kern\Legislation\Chunking\SourceSectionChunker` (pure) +
    `SourceSectionChunkAssembler` (DB-backed metadata assembly). Chunking only — no embeddings, no
    Qdrant, no vector index (Milestone 11's job, explicitly out of scope here).
 
 5. **`fiscal_parameters`/`tax_rules` skeleton** — tables and Eloquent models only, per `BLUEPRINT.md`
-   §6.8. `status` defaults to `CANDIDATE` and `App\Domain\TaxKnowledge\Concerns\ForbidsAgentApproval`
+   §6.8. `status` defaults to `CANDIDATE` and `Kern\Legislation\Concerns\ForbidsAgentApproval`
    makes `APPROVED` **unreachable from application code**, not just discouraged by convention —
    tested (`tests/Feature/Domain/TaxKnowledge/ForbidsAgentApprovalTest.php`).
 
-6. **AI candidate-extraction contract** — `App\Domain\TaxKnowledge\CandidateExtraction\CandidateChangeSetParser`
+6. **AI candidate-extraction contract** — `Kern\Legislation\CandidateExtraction\CandidateChangeSetParser`
    (strict JSON→DTO validation matching `BLUEPRINT.md` §9.2's exact shape) and
    `CandidateCitationVerifier` (DB-backed: does the cited `document_version_id`/`section_id`
    actually exist). No LLM call anywhere; no provider plumbing (ADR 0007, `apps/processing`'s job,
@@ -59,13 +59,13 @@ guessing (`docs/AGENTS.md` §2 forbids exactly this).
 effective date. `LegislationSectionPersister::persist()` accepts `$effectiveFrom`/`$effectiveUntil`
 as **caller-supplied, optional parameters that default to `null`** — it never inspects parsed text
 to guess them. The resulting `source_document_versions.status`
-(`App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus`) is computed purely from whether
+(`Kern\Legislation\Enums\SourceDocumentVersionStatus`) is computed purely from whether
 `$effectiveFrom` ended up non-null: `PARSED` if so, `REQUIRES_REVIEW` otherwise. **Every version
 ingested from `legislatie.just.ro` by this milestone ends up `REQUIRES_REVIEW`, honestly, every
 single time** — this is not a bug to fix later; it is the correct state until a human (or a
 future, stronger signal this task didn't find) supplies the real date.
 
-**The query side — `App\Domain\TaxKnowledge\Services\LegislationTemporalQuery`** — is what answers
+**The query side — `Kern\Legislation\Services\LegislationTemporalQuery`** — is what answers
 "what was in force on date X" once dates *are* known:
 
 - `versionInForceOn(sourceDocumentId, date)`: exactly one `source_document_versions` row whose
@@ -118,7 +118,7 @@ version from the mere existence of a newer one. That remains a human decision.
   exactly `docs/AGENTS.md` rule 3 ("never introduce a tax rate/threshold without a
   `source_section_id`") enforced at the schema level, not just by convention.
 
-**`App\Domain\TaxKnowledge\Enums`**
+**`Kern\Legislation\Enums`**
 - `SectionType.php` — `ARTICOL|ALINEAT|LITERA|PUNCT`.
 - `SourceDocumentVersionStatus.php` — `PENDING|PARSED|REQUIRES_REVIEW`.
 - `RuleApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`, shared by both `_versions`
@@ -126,7 +126,7 @@ version from the mere existence of a newer one. That remains a human decision.
 - `SourceRelation.php` — `PRIMARY|AMENDMENT|GUIDANCE|EXAMPLE`.
 - `FiscalParameterValueType.php` — `MONEY|DECIMAL|INTEGER|DATE|JSON`.
 
-**`App\Domain\TaxKnowledge\Concerns`**
+**`Kern\Legislation\Concerns`**
 - `ForbidsAgentApproval.php` — trait; registers an Eloquent `saving` guard on any model with a
   `RuleApprovalStatus`-cast `status` attribute, throwing
   `Exceptions\AgentApprovalNotPermittedException` if it is ever `APPROVED`. Applied to
@@ -134,7 +134,7 @@ version from the mere existence of a newer one. That remains a human decision.
   code, full stop** — there is no escape hatch because no human-review workflow exists yet to need
   one.
 
-**`App\Domain\TaxKnowledge\Parsing`**
+**`Kern\Legislation\Parsing`**
 - `LegislatieJustRoHtmlParser.php` — the structural parser; `VERSION` constant `'1.0.0'`. Read its
   docblock in full — it documents exactly which class names were verified live vs. extrapolated
   (`S_PCT`/`PUNCT` was never observed and is a naming-convention guess flagged as such).
@@ -143,7 +143,7 @@ version from the mere existence of a newer one. That remains a human decision.
   fiscal fact) for the publication line only.
 - `Exceptions/UnparsableLegislationDocumentException.php`.
 
-**`App\Domain\TaxKnowledge\Services`**
+**`Kern\Legislation\Services`**
 - `LegislationSectionPersister.php` — parsed tree → `source_sections` rows; re-parsing an already-
   parsed version **replaces** its section set (transactional) rather than duplicating — this is a
   derived/recomputable index of immutable raw bytes, not a second write to the raw source itself
@@ -154,13 +154,13 @@ version from the mere existence of a newer one. That remains a human decision.
   `createVersionRow()` now looks up the previous latest version for the same `source_document`
   and records it as `supersedes_version_id`.
 
-**`App\Domain\TaxKnowledge\Actions`**
+**`Kern\Legislation\Actions`**
 - `ParseLegislationDocumentVersion.php` — re-parses an already-ingested version by id (reads bytes
   back from `RawSourceObjectStore`).
 - `IngestAndParseLegislationDocument.php` — the common end-to-end path: M2's
   `SourceIngestionService::ingest()` then the action above. Never sets an effective date.
 
-**`App\Domain\TaxKnowledge\Chunking`**
+**`Kern\Legislation\Chunking`**
 - `ChunkableSection.php`, `SourceSectionChunk.php` — DTOs. Carry every `BLUEPRINT.md` §15.3 metadata
   field this module can honestly populate (`source_tier`, `issuer`, `document_type`,
   `document_version_id`, `section_id`, `effective_from`/`until`, `publication_date`, `page`).
@@ -175,7 +175,7 @@ version from the mere existence of a newer one. That remains a human decision.
 - `SourceSectionChunkAssembler.php` — DB-backed: loads a section's full ancestry and delegates to
   the chunker above.
 
-**`App\Domain\TaxKnowledge\CandidateExtraction`**
+**`Kern\Legislation\CandidateExtraction`**
 - `DataTransferObjects/{Citation,CandidateChange,CandidateChangeSet}.php`.
 - `CandidateChangeSetParser.php` — `fromJson()`/`fromArray()`: strict validation of `BLUEPRINT.md`
   §9.2's exact shape. Rejects malformed JSON, a non-object top level, any missing/wrong-typed
@@ -253,12 +253,12 @@ container against the real, already-vendored `apps/api/vendor/`, plus a real `po
 container on a shared Docker network (both torn down after verification).
 
 ```text
-$ vendor/bin/pint --test app/Domain/TaxKnowledge tests/Unit/Domain/TaxKnowledge \
+$ vendor/bin/pint --test packages/legislation/src tests/Unit/Domain/TaxKnowledge \
     tests/Feature/Domain/TaxKnowledge database/migrations \
     database/factories/{SourceSection,FiscalParameter,FiscalParameterVersion,TaxRule,TaxRuleVersion,TaxRuleSource}Factory.php
   PASS .......................................................... 111 files
 
-$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Domain/TaxKnowledge \
+$ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src \
     tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge \
     database/factories/{SourceSection,FiscalParameter,FiscalParameterVersion,TaxRule,TaxRuleVersion,TaxRuleSource}Factory.php
  [OK] No errors                                                                 (level 9, no baseline)
@@ -303,10 +303,10 @@ to edit that file — flagged here for whoever owns `Domain/Identity` next.
 ## Interfaces exposed to other modules
 
 ```php
-use App\Domain\TaxKnowledge\Actions\IngestAndParseLegislationDocument;
-use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
-use App\Domain\TaxKnowledge\Chunking\SourceSectionChunkAssembler;
-use App\Domain\TaxKnowledge\CandidateExtraction\{CandidateChangeSetParser, CandidateCitationVerifier};
+use Kern\Legislation\Actions\IngestAndParseLegislationDocument;
+use Kern\Legislation\Services\LegislationTemporalQuery;
+use Kern\Legislation\Chunking\SourceSectionChunkAssembler;
+use Kern\Legislation\CandidateExtraction\{CandidateChangeSetParser, CandidateCitationVerifier};
 
 // Fetch + parse in one call (never sets an effective date):
 $result = app(IngestAndParseLegislationDocument::class)('LEGISLATIE', $url, 'LEGE');

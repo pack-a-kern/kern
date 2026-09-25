@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\Chunking\SourceSectionChunkAssemblerTest;
 
-use App\Domain\TaxKnowledge\Chunking\SourceSectionChunkAssembler;
-use App\Domain\TaxKnowledge\Enums\TrustTier;
-use App\Domain\TaxKnowledge\Models\OfficialSource;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Chunking\SourceSectionChunkAssembler;
+use Kern\Legislation\Enums\TrustTier;
+use Kern\Legislation\Models\OfficialSource;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

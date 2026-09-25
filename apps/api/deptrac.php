@@ -34,8 +34,8 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('app/Domain/Subjects/.*'),
     );
 
-    $taxKnowledge = Layer::withName('TaxKnowledge')->collectors(
-        DirectoryConfig::create('app/Domain/TaxKnowledge/.*'),
+    $fiscalParameters = Layer::withName('FiscalParameters')->collectors(
+        DirectoryConfig::create('app/Domain/FiscalParameters/.*'),
     );
 
     $fx = Layer::withName('Fx')->collectors(
@@ -77,56 +77,41 @@ return static function (DeptracConfig $config): void {
     $config
         ->paths('app', 'database', 'routes')
         ->excludeFiles('#.*/tests/.*#')
-        ->layers($subjects, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $rental, $declarations, $spv, $operations, $statementImport)
+        ->layers($subjects, $fiscalParameters, $fx, $banks, $wallet, $taxEngine, $rental, $declarations, $spv, $operations, $statementImport)
         ->rulesets(
             // Subjects -> Audit: App\Domain\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
             // "application service" cross-module traffic shape) to record TaxSubjectRegistered.
             Ruleset::forLayer($subjects),
-            // TaxKnowledge -> TaxEngine: App\Domain\TaxKnowledge\Providers\
+            // FiscalParameters -> TaxEngine: App\Domain\FiscalParameters\Providers\
             // {EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider} implement
             // App\Domain\TaxEngine\Contracts\{TaxRuleVersionProvider,FiscalParameterProvider} —
             // ports TaxEngine defines, expressed purely in TaxEngine's own DTOs/exceptions/enums,
             // that this module implements against its own Eloquent models
-            // (docs/adr/0010-tax-engine-ports-and-adapters.md, superseding ADR 0009). This is the
-            // sanctioned "contracts/interfaces + DTOs" cross-module shape docs/AGENTS.md §6
-            // requires, just with the dependency direction inverted from ADR 0009: TaxKnowledge
-            // depends on TaxEngine's abstractions, never the reverse, so no
-            // TaxEngine -> TaxKnowledge grant exists below.
+            // (docs/adr/0010-tax-engine-ports-and-adapters.md, superseding ADR 0009). The
+            // dependency direction is inverted from ADR 0009: FiscalParameters depends on
+            // TaxEngine's abstractions, never the reverse, so no TaxEngine grant exists below.
             //
-            // TaxKnowledge -> Documents: exactly one contract, Kern\Documents\Extraction\
-            // TextExtractionGateway (and its result DTOs and exceptions), which
-            // App\Domain\TaxKnowledge\FiscalParameters\Forms\FormStructureSource calls to take the text
-            // of ANAF's D212 structure files — the same PDF service documents use, rather than a
-            // second client for it. TaxKnowledge never touches a document, and Documents never
-            // imports anything from here.
-            //
-            // TaxKnowledge -> Audit: App\Domain\TaxKnowledge\Actions\DeleteLaw records the removal
-            // of a law through AuditChainService, the same way every other module records what it
-            // destroys. The chain is the only place a deleted law still exists.
-            //
-            // TaxKnowledge -> Settings: the law is read by a model, and which provider and
-            // credentials to use is a system setting (Kern\Platform\Settings\Services\
-            // {AiProviderCatalogue,ResolveAiProviderCredentials}) rather than a second copy of the
-            // provider configuration living here.
-            Ruleset::forLayer($taxKnowledge)->accesses($taxEngine),
-            // Fx -> TaxKnowledge: App\Domain\Fx\Actions\{ImportBnrDailyRates,BackfillBnrYear} call
-            // App\Domain\TaxKnowledge\Services\SourceIngestionService (fetch/store/version the raw
-            // BNR XML) and App\Domain\Fx\Services\FxRateQuery and the BNR actions call
-            // App\Domain\TaxKnowledge\Repositories\{OfficialSourceRepository,
-            // SourceDocumentVersionRepository} — both are the sanctioned "application service" /
-            // DTO cross-module shape (docs/AGENTS.md §6); Fx never imports a TaxKnowledge model.
-            Ruleset::forLayer($fx)->accesses($taxKnowledge),
-            // Banks -> TaxKnowledge: App\Domain\Banks\Actions\ImportBanks downloads through
-            // App\Domain\TaxKnowledge\Fetching\AllowlistedHttpFetcher and stores each file through
-            // App\Domain\TaxKnowledge\Services\SourceIngestionService — the same application-service
-            // crossing Fx makes for BNR's files. Banks never imports a TaxKnowledge model. Wallet does
-            // not access Banks: a deposit stores only `bank_id`, and the controllers that turn a bank
-            // into a name use App\Domain\Banks\Queries\BankDirectory from the HTTP layer.
-            Ruleset::forLayer($banks)->accesses($taxKnowledge),
-            // Wallet -> Subjects: every Wallet model uses App\Domain\Subjects\Tenancy\
-            // ScopedToTaxSubject (a trait, not an Eloquent model import) and
-            // App\Domain\Subjects\Tenancy\TenantContext (a scoped service) — exactly the reusable
+            // Everything else this module reaches is a package, and therefore not a layer:
+            // `kern/legislation` for the laws a value is read out of and the provisions it is
+            // anchored to, `kern/documents` for the one text-extraction contract that takes the text
+            // of ANAF's D212 structure files, `kern/platform` for which model reads them, and
+            // `kern/audit` for recording every approval. Composer states those, not deptrac.
+            Ruleset::forLayer($fiscalParameters)->accesses($taxEngine),
+            // Fx reaches no layer. It fetches and stores BNR's XML through `kern/legislation` —
+            // `SourceIngestionService` and the two source repositories, an official source being an
+            // official source whether it publishes a law or an exchange rate — which is a package
+            // requirement now rather than a grant.
+            Ruleset::forLayer($fx),
+            // Banks likewise: it downloads the ECB's and GLEIF's lists through
+            // `kern/legislation`'s allowlisted fetcher and stores them the same way Fx stores BNR's
+            // files. Wallet does not access Banks: a deposit stores only `bank_id`, and the
+            // controllers that turn one into a name use App\Domain\Banks\Queries\BankDirectory
+            // from the HTTP layer.
+            Ruleset::forLayer($banks),
+            // Wallet -> Subjects: every Wallet model uses Kern\Platform\Tenancy\
+            // ScopedToTenant (a trait, not an Eloquent model import) and
+            // Kern\Platform\Tenancy\TenantContext (a scoped service) — exactly the reusable
             // mechanism docs/handoff/011-identity-tenancy.md built for every future business
             // module to adopt. Wallet -> Fx: App\Domain\Wallet\Services\Fx\
             // DepositInterestFxAnnotator calls App\Domain\Fx\Services\FxRateQuery, the sanctioned
@@ -141,28 +126,27 @@ return static function (DeptracConfig $config): void {
             // Eloquent model, only the service that owns the chain's invariants.
             Ruleset::forLayer($wallet)->accesses($subjects, $fx),
             // TaxEngine -> Subjects: App\Domain\TaxEngine\Models\{TaxFact,TaxAssessment} use
-            // App\Domain\Subjects\Tenancy\ScopedToTaxSubject (a trait, not a model import) and
+            // Kern\Platform\Tenancy\ScopedToTenant (a trait, not a model import) and
             // App\Domain\TaxEngine\Repositories\TaxFactRepository references
-            // App\Domain\Subjects\Tenancy\TaxSubjectScope — the same reusable tenancy mechanism
+            // Kern\Platform\Tenancy\TenantScope — the same reusable tenancy mechanism
             // Wallet already adopts above.
             //
             // TaxEngine -> Fx: App\Domain\TaxEngine\Services\FxConversionPolicy calls
             // App\Domain\Fx\Services\FxRateQuery — the sanctioned application-service crossing
             // (docs/handoff/014-source-registry-bnr.md), never an Fx Eloquent model.
             //
-            // TaxEngine no longer accesses TaxKnowledge at all. It previously read
-            // App\Domain\TaxKnowledge\Models\{TaxRule,TaxRuleVersion,TaxRuleSource,
-            // FiscalParameter,FiscalParameterVersion} directly (docs/adr/0009-tax-engine-reads-
-            // tax-knowledge-models-directly.md) as a documented exception; that exception is now
-            // superseded (docs/adr/0010-tax-engine-ports-and-adapters.md). TaxEngine defines
+            // TaxEngine reads no rule or parameter model at all. It previously read them directly
+            // (docs/adr/0009-tax-engine-reads-tax-knowledge-models-directly.md) as a documented
+            // exception; that exception is superseded
+            // (docs/adr/0010-tax-engine-ports-and-adapters.md). TaxEngine defines
             // App\Domain\TaxEngine\Contracts\{TaxRuleVersionProvider,FiscalParameterProvider} —
-            // ports named only in its own DTOs/exceptions/enums — and TaxKnowledge implements
-            // them (see the TaxKnowledge -> TaxEngine grant above). The dependency direction is
-            // inverted, not merely hidden: this layer's ruleset below carries no TaxKnowledge
-            // grant, and deptrac enforces that, not just code review.
+            // ports named only in its own DTOs/exceptions/enums — and FiscalParameters implements
+            // them (see the grant above). The dependency direction is inverted, not merely hidden:
+            // this layer's ruleset below carries no FiscalParameters grant, and deptrac enforces
+            // that, not just code review.
             Ruleset::forLayer($taxEngine)->accesses($subjects, $fx),
-            // Rental -> Subjects: every Rental model uses App\Domain\Subjects\Tenancy\
-            // ScopedToTaxSubject/TaxSubjectScope, the same reusable tenancy mechanism every other
+            // Rental -> Subjects: every Rental model uses Kern\Platform\Tenancy\
+            // ScopedToTenant/TenantScope, the same reusable tenancy mechanism every other
             // business module above adopts (docs/handoff/011-identity-tenancy.md).
             // Rental -> Audit: opening, changing, ending and deleting a rental each record an entry
             // through Kern\Audit\Services\AuditChainService — the same sanctioned
@@ -174,7 +158,7 @@ return static function (DeptracConfig $config): void {
             // App\Domain\Rental\Events\RentalAccrualRecorded, a plain event class.
             Ruleset::forLayer($rental)->accesses($subjects),
             // Declarations -> Subjects: App\Domain\Declarations\Models\Declaration uses
-            // App\Domain\Subjects\Tenancy\ScopedToTaxSubject, the same reusable tenancy mechanism
+            // Kern\Platform\Tenancy\ScopedToTenant, the same reusable tenancy mechanism
             // every other business module above adopts (docs/handoff/011-identity-tenancy.md).
             // Declarations never accesses TaxEngine or Documents: App\Domain\Declarations\
             // Repositories\TaxAssessmentSnapshotReader reads Domain/TaxEngine's `tax_assessments`
@@ -192,7 +176,7 @@ return static function (DeptracConfig $config): void {
             // docs/handoff/017-authentication.md built for exactly this milestone. Spv -> Audit:
             // every Spv action records an AuditChainService::record() event, the same sanctioned
             // application-service crossing every other module above uses. Spv -> Subjects: every
-            // Spv model uses App\Domain\Subjects\Tenancy\ScopedToTaxSubject (a trait, not a model
+            // Spv model uses Kern\Platform\Tenancy\ScopedToTenant (a trait, not a model
             // import), the same reusable tenancy mechanism every other business module adopts.
             // `spv_messages.document_id -> documents` is a real foreign key at the migration/
             // schema level only, the same precedent `rental_contracts.source_document_id ->

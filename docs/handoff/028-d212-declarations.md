@@ -365,7 +365,7 @@ use App\Domain\Declarations\Enums\{DeclarationKind, DeclarationStatus, FormVersi
 - **No HTTP/API layer or controller** — this task builds the domain actions only, the same
   boundary `docs/handoff/020-tax-engine.md` drew for `TaxEngine` itself.
 - **No SPV transport** — M10's job. `SubmissionTransport`/`SubmitDeclaration` are the seam.
-- Did not touch `docs/STATUS.md` (explicit instruction), `app/Domain/TaxKnowledge/**`, or
+- Did not touch `docs/STATUS.md` (explicit instruction), `packages/legislation/src/**`, or
   `apps/api/resources/**` (both explicitly another agent's concurrent work per this task's brief).
 
 ## Open questions

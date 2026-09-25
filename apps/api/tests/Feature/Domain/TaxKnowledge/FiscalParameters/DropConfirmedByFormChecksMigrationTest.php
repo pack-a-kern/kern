@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\DropConfirmedByFormChecksMigrationTest;
 
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;

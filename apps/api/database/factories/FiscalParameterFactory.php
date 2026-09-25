@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Domain\TaxKnowledge\Enums\FiscalParameterValueType;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameter;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Legislation\Enums\FiscalParameterValueType;
 
 /**
  * @extends Factory<FiscalParameter>

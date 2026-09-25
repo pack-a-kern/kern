@@ -12,9 +12,9 @@ use App\Domain\Fx\Models\FxPeriodAverage;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Services\FxPeriodAverageCalculator;
 use App\Domain\Fx\ValueObjects\DecimalRate;
-use Database\Factories\OfficialSourceFactory;
-use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Database\Factories\OfficialSourceFactory;
+use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -25,7 +25,7 @@ function calculator(): FxPeriodAverageCalculator
     return new FxPeriodAverageCalculator(roundingScale: 6, verificationTolerance: '0.0001');
 }
 
-function seedDailyRate(\App\Domain\TaxKnowledge\Models\OfficialSource $source, string $versionId, string $date, string $currency, int $multiplier, string $value): void
+function seedDailyRate(\Kern\Legislation\Models\OfficialSource $source, string $versionId, string $date, string $currency, int $multiplier, string $value): void
 {
     FxRate::query()->create([
         'official_source_id' => $source->id,

@@ -55,7 +55,7 @@ use Illuminate\Support\Facades\DB;
  * Used by: `2026_09_08_301101_create_source_section_chunks_table.php` (generated `text_search`
  * column) and `2026_09_08_301102_add_citation_trigram_index_to_source_sections_table.php`
  * (trigram index on `citation_label`), and by every query
- * `App\Domain\TaxKnowledge\Retrieval\Query\HybridLegislationSearch` issues.
+ * `Kern\Legislation\Retrieval\Query\HybridLegislationSearch` issues.
  */
 return new class () extends Migration {
     public function up(): void

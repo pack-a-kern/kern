@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\CandidateExtraction\CandidateCitationVerifierTest;
 
-use App\Domain\TaxKnowledge\CandidateExtraction\CandidateChangeSetParser;
-use App\Domain\TaxKnowledge\CandidateExtraction\CandidateCitationVerifier;
-use App\Domain\TaxKnowledge\CandidateExtraction\Exceptions\UnknownSourceReferenceException;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\CandidateExtraction\CandidateChangeSetParser;
+use Kern\Legislation\CandidateExtraction\CandidateCitationVerifier;
+use Kern\Legislation\CandidateExtraction\Exceptions\UnknownSourceReferenceException;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

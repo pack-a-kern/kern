@@ -84,15 +84,6 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
     use Notifiable;
 
     /**
-     * Named rather than resolved by convention: Laravel's default resolver looks for
-     * `Database\Factories\UserFactory` in the *application*, and this model is in a package.
-     */
-    protected static function newFactory(): UserFactory
-    {
-        return UserFactory::new();
-    }
-
-    /**
      * `Illuminate\Auth\Authenticatable::getAuthPassword()` reads this attribute instead of its
      * default `password` — this table's column is `password_hash` (`BLUEPRINT.md` §5.1). Overrides
      * the trait's `getAuthPasswordName()` method rather than its `$authPasswordName` property:

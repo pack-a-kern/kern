@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Domain\TaxEngine\Models\TaxAssessmentLine;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Legislation\Database\Factories\TaxRuleVersionFactory;
 
 /**
  * @extends Factory<TaxAssessmentLine>

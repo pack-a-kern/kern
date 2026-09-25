@@ -13,6 +13,7 @@ parameters:
         - database/migrations
         - ../../packages/audit/database/migrations
         - ../../packages/documents/database/migrations
+        - ../../packages/legislation/database/migrations
         - ../../packages/platform/database/migrations
     paths:
         # `../../packages/*` is `<repository>/packages` from the host and `/var/packages` from
@@ -21,6 +22,7 @@ parameters:
         # static analysis is a package that breaks the application it was extracted from.
         - ../../packages/audit/src
         - ../../packages/documents/src
+        - ../../packages/legislation/src
         - ../../packages/platform/src
         - app
         - bootstrap/app.php

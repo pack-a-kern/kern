@@ -53,6 +53,6 @@ type errors and state leakage. Run your suite against the real engine before cla
 CI does, and it will find what you skipped.
 
 ## What is NOT done
-- PHPStan currently reports 20 errors, all in `app/Domain/Fx/**` and `app/Domain/TaxKnowledge/**`
+- PHPStan currently reports 20 errors, all in `app/Domain/Fx/**` and `packages/legislation/src/**`
   (handoff 014's in-flight work). Not touched — that agent owns those files.
 - Authentication (passkeys, TOTP, recovery codes, session lifecycle) is still outstanding for M1.

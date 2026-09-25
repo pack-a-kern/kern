@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\LegislationSectionPersisterTest;
 
-use App\Domain\TaxKnowledge\Enums\SectionType;
-use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
-use App\Domain\TaxKnowledge\Exceptions\UnknownSourceDocumentVersionException;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Parsing\ParsedLegislationDocument;
-use App\Domain\TaxKnowledge\Parsing\ParsedSection;
-use App\Domain\TaxKnowledge\Services\LegislationSectionPersister;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Enums\SectionType;
+use Kern\Legislation\Enums\SourceDocumentVersionStatus;
+use Kern\Legislation\Exceptions\UnknownSourceDocumentVersionException;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Parsing\ParsedLegislationDocument;
+use Kern\Legislation\Parsing\ParsedSection;
+use Kern\Legislation\Services\LegislationSectionPersister;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

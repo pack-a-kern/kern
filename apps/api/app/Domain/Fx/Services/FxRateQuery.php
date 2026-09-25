@@ -8,10 +8,10 @@ use App\Domain\Fx\DataTransferObjects\FxRateWithProvenance;
 use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\ValueObjects\DecimalRate;
-use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Domain\TaxKnowledge\Repositories\SourceDocumentVersionRepository;
 use DateTimeImmutable;
 use DateTimeZone;
+use Kern\Legislation\Repositories\OfficialSourceRepository;
+use Kern\Legislation\Repositories\SourceDocumentVersionRepository;
 
 /**
  * The sanctioned way any other module (a future `TaxEngine`, `Wallet`, ...) asks "what was the

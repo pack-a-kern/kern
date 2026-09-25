@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionsTest;
 
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Exceptions\AgentApprovalNotPermittedException;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
+use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Identity\Models\User;
 use Spatie\Permission\PermissionRegistrar;
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\SourceIngestionServiceTest;
 
-use App\Domain\TaxKnowledge\Fetching\Exceptions\UnexpectedContentTypeException;
-use App\Domain\TaxKnowledge\Models\OfficialSource;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Services\SourceIngestionService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedContentTypeException;
+use Kern\Legislation\Models\OfficialSource;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Services\SourceIngestionService;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

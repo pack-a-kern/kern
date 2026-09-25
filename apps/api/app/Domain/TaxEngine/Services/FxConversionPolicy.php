@@ -28,7 +28,7 @@ use RuntimeException;
  *
  * Built entirely on `App\Domain\Fx\Services\FxRateQuery` (the sanctioned application-service
  * crossing into `App\Domain\Fx`, mirroring `App\Domain\Fx`'s own crossing into
- * `App\Domain\TaxKnowledge` — never an `Fx` Eloquent model). `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE`
+ * `Kern\Legislation` — never an `Fx` Eloquent model). `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE`
  * are computed here from repeated spot lookups rather than by calling
  * `App\Domain\Fx\Services\FxPeriodAverageCalculator`, because that calculator's public methods
  * take `App\Domain\Fx\Models\FxPeriodAverage` Eloquent models as parameters/return

@@ -34,10 +34,10 @@ interface App\Domain\TaxEngine\Contracts\FiscalParameterProvider {
 }
 ```
 
-`App\Domain\TaxKnowledge\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
+`App\Domain\FiscalParameters\Providers\{EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider}`
 implement them, reading `TaxKnowledge`'s own Eloquent models (legitimate — a module reading its own
 models is not the violation `BLUEPRINT.md` §2.1 names) and mapping `TaxKnowledge`'s enums to
-`TaxEngine`'s at the boundary. `App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider` binds both
+`TaxEngine`'s at the boundary. `Kern\Legislation\TaxKnowledgeServiceProvider` binds both
 ports to these adapters — the one place the inversion is wired.
 
 `App\Domain\TaxEngine\Services\{RuleResolver,ParameterResolver}` now depend on the interfaces,
@@ -55,11 +55,11 @@ never the concrete adapter.
   same relationship to `TaxKnowledge`'s enum.
 
 **New — TaxKnowledge (adapters)**
-- `app/Domain/TaxKnowledge/Providers/EloquentTaxRuleVersionProvider.php` — same logic as the
+- `packages/legislation/src/Providers/EloquentTaxRuleVersionProvider.php` — same logic as the
   deleted `TaxRuleTemporalReader`, now implementing `TaxRuleVersionProvider`, mapping
   `TaxKnowledge\Enums\RuleApprovalStatus` → `TaxEngine\Enums\RuleApprovalStatus` via
   `::from($value)`.
-- `app/Domain/TaxKnowledge/Providers/EloquentFiscalParameterProvider.php` — same for
+- `packages/legislation/src/Providers/EloquentFiscalParameterProvider.php` — same for
   `FiscalParameterTemporalReader`/`FiscalParameterProvider`, mapping both enums.
 
 **Deleted**
@@ -79,7 +79,7 @@ never the concrete adapter.
   `database/migrations/2026_09_08_302002_create_tax_assessment_lines_table.php` — docblock-only
   updates: stale references to the deleted reader classes replaced with references to the new
   ports/adapters.
-- `app/Domain/TaxKnowledge/TaxKnowledgeServiceProvider.php` — binds
+- `packages/legislation/src/TaxKnowledgeServiceProvider.php` — binds
   `TaxRuleVersionProvider -> EloquentTaxRuleVersionProvider` and
   `FiscalParameterProvider -> EloquentFiscalParameterProvider` (both `bind()`, matching the
   adapters' stateless, cheap-to-construct lifecycle — same reasoning already documented there for
@@ -170,7 +170,7 @@ $ docker run --rm --network anaf_data_net --user root \
   PASS .......................................................... 592 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    app/Domain/TaxEngine app/Domain/TaxKnowledge tests/Unit/Domain/TaxEngine \
+    app/Domain/TaxEngine packages/legislation/src tests/Unit/Domain/TaxEngine \
     tests/Feature/Domain/TaxEngine tests/Feature/Domain/TaxKnowledge tests/Fixtures/TaxEngine \
     database/factories deptrac.php'
  [OK] No errors                                                    (level 9, no baseline)
@@ -192,7 +192,7 @@ $ ... -c 'vendor/bin/pest'   # whole project, run 2 — identical
 **Whole-project PHPStan** (`vendor/bin/phpstan analyse --memory-limit=1G`, no path filter) reports
 **6 errors, all in `app/Domain/Rental/**`** (a concurrently in-flight module — files there carry
 today's date and are not part of this task's scope, per the task brief's boundary list). None are
-in `app/Domain/TaxEngine` or `app/Domain/TaxKnowledge` — the scoped run above, covering exactly
+in `app/Domain/TaxEngine` or `packages/legislation/src` — the scoped run above, covering exactly
 this task's files plus their tests, is clean. Not fixed here; flagged for whoever owns
 `Domain/Rental` (`docs/AGENTS.md` §10 — recording rather than silently fixing an out-of-scope bug;
 `docs/STATUS.md` was explicitly out of this task's scope to edit, so it is recorded here instead).
@@ -251,5 +251,5 @@ records the alternatives considered and rejected.
 - Existing code read directly before changing it: `App\Domain\TaxEngine\Repositories\
   {TaxRuleTemporalReader,FiscalParameterTemporalReader}` (the classes replaced),
   `App\Domain\TaxEngine\Services\{RuleResolver,ParameterResolver,TaxAssessor}`,
-  `App\Domain\TaxKnowledge\TaxKnowledgeServiceProvider`, `apps/api/deptrac.php`,
+  `Kern\Legislation\TaxKnowledgeServiceProvider`, `apps/api/deptrac.php`,
   `apps/api/phpstan.neon`, every test file this task touched.

@@ -7,10 +7,10 @@ namespace Tests\Feature\Domain\Fx\FxRateQueryTest;
 use App\Domain\Fx\Exceptions\FxRateNotFoundException;
 use App\Domain\Fx\Models\FxRate;
 use App\Domain\Fx\Services\FxRateQuery;
-use Database\Factories\OfficialSourceFactory;
-use Database\Factories\SourceDocumentVersionFactory;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Database\Factories\OfficialSourceFactory;
+use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

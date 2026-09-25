@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\Retrieval\IndexDocumentVersionForRetrievalTest;
 
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
-use App\Domain\TaxKnowledge\Retrieval\Models\IndexedChunk;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Retrieval\Indexing\IndexDocumentVersionForRetrieval;
+use Kern\Legislation\Retrieval\Models\IndexedChunk;
 
 /**
  * pgvector-backed retrieval: `ext_source_section_chunks.embedding` is a `vector` column that only

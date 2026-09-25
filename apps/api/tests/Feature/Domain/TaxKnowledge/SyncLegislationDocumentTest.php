@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\SyncLegislationDocumentTest;
 
-use App\Domain\TaxKnowledge\Actions\SyncLegislationDocument;
-use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
-use App\Domain\TaxKnowledge\Legislatie\Exceptions\PortalAnswerException;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\SectionHistory;
-use App\Domain\TaxKnowledge\Models\SourceDocument;
-use App\Domain\TaxKnowledge\Models\SourceDocumentVersion;
-use App\Domain\TaxKnowledge\Models\SourceSection;
-use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Domain\TaxKnowledge\Retrieval\Embedding\EmbeddingProvider;
-use App\Domain\TaxKnowledge\Services\LegislationTemporalQuery;
+use App\Domain\FiscalParameters\Models\FiscalParameter;
 use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Legislation\Actions\SyncLegislationDocument;
+use Kern\Legislation\Enums\SourceDocumentVersionStatus;
+use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
+use Kern\Legislation\Models\SectionHistory;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Repositories\OfficialSourceRepository;
+use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
+use Kern\Legislation\Services\LegislationTemporalQuery;
 use Kern\Platform\Identity\Models\User;
 
 /**
@@ -319,9 +319,9 @@ it('drops a version an interrupted read left behind', function (): void {
     // What a job killed between downloading a page and marking it read leaves: a version with no
     // consolidation, no dates, and its own sections.
     $orphan = SourceDocumentVersion::factory()->create(['source_document_id' => $law->id, 'consolidation_ref' => null]);
-    \App\Domain\TaxKnowledge\Models\SourceSection::factory()->create(['document_version_id' => $orphan->id]);
+    \Kern\Legislation\Models\SourceSection::factory()->create(['document_version_id' => $orphan->id]);
 
-    \App\Domain\TaxKnowledge\Jobs\FinishLegislationSync::dispatchSync($law->id);
+    \Kern\Legislation\Jobs\FinishLegislationSync::dispatchSync($law->id);
 
     expect(SourceDocumentVersion::query()->whereKey($orphan->id)->exists())->toBeFalse()
         ->and(SourceDocumentVersion::query()->where('source_document_id', $law->id)->count())->toBe(3);

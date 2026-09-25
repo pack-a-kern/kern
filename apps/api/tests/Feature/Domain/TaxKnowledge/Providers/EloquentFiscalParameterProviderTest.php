@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Domain\FiscalParameters\Models\FiscalParameter;
+use App\Domain\FiscalParameters\Models\FiscalParameterVersion;
+use App\Domain\FiscalParameters\Providers\EloquentFiscalParameterProvider;
 use App\Domain\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
 use App\Domain\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
 use App\Domain\TaxEngine\Exceptions\UnknownFiscalParameterException;
-use App\Domain\TaxKnowledge\Enums\RuleApprovalStatus;
-use App\Domain\TaxKnowledge\Models\FiscalParameter;
-use App\Domain\TaxKnowledge\Models\FiscalParameterVersion;
-use App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider;
+use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Platform\Identity\Models\User;
 
 /**
