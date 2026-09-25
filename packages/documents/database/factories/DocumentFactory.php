@@ -11,8 +11,8 @@ use Kern\Documents\Enums\DocumentStatus;
 use Kern\Documents\Enums\DocumentType;
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentPart;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
-use Kern\Platform\ObjectStore\ObjectKey;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
+use Kern\Documents\ObjectStore\ObjectKey;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**

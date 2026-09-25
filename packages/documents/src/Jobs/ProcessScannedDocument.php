@@ -28,8 +28,8 @@ use Kern\Documents\Extraction\PdfPageCounter;
 use Kern\Documents\Extraction\TextExtractionGateway;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Documents\Models\Document;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Tenancy\TenantScope;
 

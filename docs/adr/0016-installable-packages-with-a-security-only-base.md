@@ -42,8 +42,8 @@ Four packages, consumed by a thin application.
 | Package | Holds | Depends on |
 |---|---|---|
 | `kern/audit` | the append-only hash-chained trail, its two read endpoints and its verifier | — |
-| `kern/platform` | `Crypto`, `KeyManagement`, `ObjectStore`, `Identity`, `Settings`, `Access`, `Logging`, the tenancy mechanism and the text matcher | audit |
-| `kern/documents` | upload, virus scan, encryption at rest, extraction | platform |
+| `kern/platform` | `Crypto`, `KeyManagement`, `Identity`, `Settings`, `Access`, `Approval`, `Logging`, the tenancy mechanism and the text matcher | audit |
+| `kern/documents` | upload, virus scan, the encrypted object store, extraction | platform |
 | `kern/legislation` | official sources, parsing, consolidations, provision history, hybrid search | platform |
 | `kern/tax-romania` | taxpayer, fiscal parameters, tax engine, wallet, statement import, banks, FX, rentals, declarations, SPV, the operations console | platform, documents, legislation |
 | `apps/api` | routes to pages, the user interface, wiring | all of the above |
@@ -203,6 +203,13 @@ all happen to be present, so they could not have found any of this:
   `TaxRuleSource` were in it, read by nothing there. They are `kern/tax-romania`'s. What both packages
   genuinely share — "only a person may approve a version", `ForbidsAgentApproval` and the status enum —
   is the platform's, because it is a governance rule and not a tax one.
+
+One correction to the above: the encrypted object store moved to `kern/documents` after all. The
+first attempt was reverted on the belief that taking it out would leave the base unable to encrypt a
+file — checking who used it showed that the base encrypts no files at all. `kern/legislation` stores
+public law through its own unencrypted store, the statement importer reads a *document*, and the only
+real consumer was `kern/documents`. The platform keeps the cipher; the thing that streams a file
+through it, and the key type that can only name a document, went with the package that uses them.
 
 The proof this ADR asked for by name passes: `ReadsAndSearchesALawAloneTest` finds an act through the
 portal's web service, reads both of its consolidations, dates each until the day before the next,

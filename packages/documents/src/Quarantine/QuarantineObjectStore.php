@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Kern\Documents\Quarantine;
 
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
-use Kern\Platform\ObjectStore\ObjectKey;
-use Kern\Platform\ObjectStore\ValueObjects\ObjectManifest;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\ObjectKey;
+use Kern\Documents\ObjectStore\ValueObjects\ObjectManifest;
 
 /**
  * Quarantine as a property of the design, not a status column someone can forget to check
- * (`BLUEPRINT.md` §14.1/§14.2). This class composes `Kern\Platform\ObjectStore\EncryptedObjectStore`
+ * (`BLUEPRINT.md` §14.1/§14.2). This class composes `Kern\Documents\ObjectStore\EncryptedObjectStore`
  * pointed at a **physically separate Flysystem disk** (`config('documents.quarantine_disk')` —
  * a distinct MinIO bucket in every real environment) from the one the rest of the application
  * reads documents from (`config('objectstore.disk')`).

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore\Exceptions;
+namespace Kern\Documents\ObjectStore\Exceptions;
 
 use InvalidArgumentException;
 

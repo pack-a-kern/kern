@@ -6,17 +6,17 @@ namespace Kern\Documents\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
 
 /**
  * `document_derivatives` (`BLUEPRINT.md` §6.6) — points at a binary/text artefact stored in the
  * encrypted object store; this row itself carries no PII (a table/column name, a SHA-256, an
- * `Kern\Platform\ObjectStore\ObjectKey` value built only from UUIDs and a closed enum — see that
+ * `Kern\Documents\ObjectStore\ObjectKey` value built only from UUIDs and a closed enum — see that
  * class's own docblock), so it needs no encrypted column and no `EncryptsWithSubjectDek`
  * implementation.
  *
- * `kind` reuses `Kern\Platform\ObjectStore\DocumentObjectKind` directly rather than a second,
+ * `kind` reuses `Kern\Documents\ObjectStore\DocumentObjectKind` directly rather than a second,
  * duplicate enum (`docs/CODE-QUALITY.md` §1) — only the derivative-shaped cases
  * (`THUMBNAIL|PDF_NORMALIZED|OCR|EXTRACTED_TEXT|STRUCTURED_JSON`) are ever written here by this
  * task's code; `ORIGINAL`/`PREVIEW` name a document's own primary content, never a derivative row.

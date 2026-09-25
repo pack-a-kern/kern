@@ -6,10 +6,10 @@ namespace Kern\TaxRomania\StatementImport\Services;
 
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentDerivative;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
-use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
-use Kern\Platform\ObjectStore\ObjectKey;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\Exceptions\ObjectNotFoundException;
+use Kern\Documents\ObjectStore\ObjectKey;
 use RuntimeException;
 
 /**

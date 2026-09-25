@@ -20,6 +20,21 @@ POST documents          → quarantined, encrypted, one part per file
 Nothing is sent anywhere by default: with no provider configured, the null provider throws, the job
 catches it, and the document stays readable exactly as it was.
 
+## It owns the encrypted object store
+
+`ObjectStore\EncryptedObjectStore` streams a file through the platform's cipher, chunk by chunk, under
+the tenant's own key, and `ObjectKey` is the only way to name one:
+
+```php
+ObjectKey::forDocument($tenantId, $documentId, DocumentObjectKind::THUMBNAIL);
+// → subjects/019a…/documents/019b…/thumbnail.enc
+```
+
+Two identifiers and a value from a closed list — so a stored path can never carry a person's name or
+a CNP, and that is a property of the type rather than a rule every caller has to remember. Both were
+in `kern/platform` until it turned out nothing else there stored a file: legislation writes public law
+through its own unencrypted store, and the statement importer reads a document.
+
 ## What it never decides
 
 **What a tenant is called.** `ResolvePaymentParties` answers "is this printed party the tenant, and

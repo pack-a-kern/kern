@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore;
+namespace Kern\Documents\ObjectStore;
 
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;

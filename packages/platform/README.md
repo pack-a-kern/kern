@@ -4,8 +4,9 @@ The security spine an application is built on. Nothing here knows what the appli
 
 Four things, each of which is unpleasant to retrofit and therefore belongs underneath everything
 else: envelope encryption under a per-tenant key, blind indexes so an encrypted column can still be
-looked up exactly, a streaming encrypted object store, and a tenant scope that makes "every query is
-scoped" the default meaning of `Model::query()` rather than something each author remembers.
+looked up exactly, a tenant scope that makes "every query is scoped" the default meaning of
+`Model::query()` rather than something each author remembers, and the rule that only a person may
+approve a version of anything.
 
 ## Encrypting a column
 
@@ -70,9 +71,9 @@ There is deliberately no "just set the id" method. What a tenant is called is
 | `Tenancy\Contracts\TenantGate` | Only the application knows what permission means. |
 | `KeyManagement\Contracts\SubjectDekRepository` | Only the application knows where a tenant's wrapped key is kept. |
 
-Everything else — the KMS driver from `config/crypto.php`, the blind-index hasher, the object store,
-the tenant context as a scoped instance — is registered by `PlatformServiceProvider`, and
-`encryption_key_records` travels with the package.
+Everything else — the KMS driver from `config/crypto.php`, the blind-index hasher, the tenant context
+as a scoped instance — is registered by `PlatformServiceProvider`, and `encryption_key_records`
+travels with the package.
 
 ## Installing
 
@@ -83,18 +84,13 @@ the tenant context as a scoped instance — is registered by `PlatformServicePro
 Then name your tenant's column in `config/tenancy.php` and point `config/crypto.php` at a KMS.
 Publishing the shipped defaults is optional: `php artisan vendor:publish --tag=kern-platform-config`.
 
-## Known wart
+## What it deliberately does not have
 
-`ObjectStore\ObjectKey` spells out `subjects/{id}/documents/{id}/{kind}.enc`, and its last segment
-comes from `DocumentObjectKind` — an enum of thumbnails and OCR output. That is document vocabulary in
-the base, and it is here on purpose rather than by accident: the whole store is typed on `ObjectKey`,
-and the closed enum is what makes "an object key cannot contain a name or an identifier" true by
-construction instead of by convention. Moving the key to `kern/documents` would take the store with it,
-and then nothing else could encrypt a file at rest.
-
-Generalising it means a key built from a tenant, a list of identifiers and a name the *caller*
-guarantees is closed — which is a weaker guarantee than the one it has now. Worth doing when a second
-kind of stored object exists; not worth weakening the property before then.
+**A file store.** It has the cipher — `EnvelopeCipher`, and the associated data that binds a
+ciphertext to the row it belongs to — but streaming a *file* through that cipher is
+`kern/documents`, along with the key type that says a stored object can only ever be a document's.
+It lived here until somebody asked what the base actually encrypted with it, and the answer was
+nothing.
 
 ## Running its own suite
 

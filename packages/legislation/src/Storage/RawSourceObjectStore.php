@@ -10,11 +10,11 @@ use Kern\Legislation\Storage\Exceptions\RawObjectNotFoundException;
 /**
  * Immutable, content-addressed raw storage for official source documents (`BLUEPRINT.md` §9.1 "never
  * overwrite a raw official source" / §4.9 document integrity), independent of
- * `Kern\Platform\ObjectStore\EncryptedObjectStore`.
+ * `Kern\Documents\ObjectStore\EncryptedObjectStore`.
  *
  * **Why not the encrypted object store from `docs/handoff/012-encrypted-object-store.md`:** that
  * module's `ObjectKey::forDocument()` is constructed only from a tenant id, a
- * `document_id`, and a closed {@see \Kern\Platform\ObjectStore\DocumentObjectKind} enum, and its
+ * `document_id`, and a closed {@see \Kern\Documents\ObjectStore\DocumentObjectKind} enum, and its
  * `EncryptedObjectStore::put()`/`get()` unwrap a *per-subject* DEK
  * (`Kern\Platform\KeyManagement\SubjectDekService::plaintextDekFor($subjectId)`) for every
  * operation. An official source document (BNR's daily FX feed, an ANAF instruction PDF) belongs to
@@ -22,7 +22,7 @@ use Kern\Legislation\Storage\Exceptions\RawObjectNotFoundException;
  * urcă plaintext" governs subject documents; §8/§9 governs official sources with no such
  * requirement). Forcing a source document through that API would mean inventing a fake subject id
  * to satisfy a type contract that was deliberately built narrower than that, or changing
- * `Kern\Platform\ObjectStore` — out of this task's scope
+ * `Kern\Documents\ObjectStore` — out of this task's scope
  * (`docs/handoff/014-source-registry-bnr.md` §"Scope"). This class is the intentionally smaller
  * alternative: no encryption (the content is public), no per-subject anything, same underlying
  * Flysystem disk (so operationally it is still "the object store", just a different logical

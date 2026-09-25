@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support\ObjectStore\ObjectManifestTest;
 
-use Kern\Platform\ObjectStore\Exceptions\ObjectIntegrityException;
-use Kern\Platform\ObjectStore\ValueObjects\ObjectManifest;
+use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
+use Kern\Documents\ObjectStore\ValueObjects\ObjectManifest;
 
 it('round-trips through JSON', function (): void {
     $manifest = new ObjectManifest(

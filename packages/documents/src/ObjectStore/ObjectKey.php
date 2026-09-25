@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore;
+namespace Kern\Documents\ObjectStore;
 
 use Illuminate\Support\Str;
-use Kern\Platform\ObjectStore\Exceptions\InvalidObjectKeyException;
+use Kern\Documents\ObjectStore\Exceptions\InvalidObjectKeyException;
 
 /**
  * `subjects/{subject_id}/documents/{document_id}/{kind}.enc` — BLUEPRINT.md §4.6.

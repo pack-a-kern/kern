@@ -18,10 +18,10 @@ use Kern\Documents\Events\DocumentScanned;
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentPart;
 use Kern\Documents\Models\DocumentScan;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Documents\Scanning\ScanOutcome;
 use Kern\Documents\Scanning\VirusScanner;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\Tenancy\TenantScope;
 
 /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore;
+namespace Kern\Documents\ObjectStore;
 
 use Kern\Platform\Crypto\AssociatedData;
 

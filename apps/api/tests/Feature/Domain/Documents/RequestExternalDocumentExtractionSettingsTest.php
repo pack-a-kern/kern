@@ -48,7 +48,7 @@ function sendableDocument(): Document
 
     fwrite($stream, \Tests\Fixtures\Documents\FileFixtures::minimalPdf());
     rewind($stream);
-    app(\Kern\Platform\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
+    app(\Kern\Documents\ObjectStore\EncryptedObjectStore::class)->put($part->objectKey(), $stream);
     fclose($stream);
 
     return $document->fresh(['parts']) ?? $document;

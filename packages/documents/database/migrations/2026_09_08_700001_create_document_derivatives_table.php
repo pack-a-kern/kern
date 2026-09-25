@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * `document_derivatives` (`BLUEPRINT.md` §6.6) — a binary/text artefact produced *from* a document
  * (its extracted text, a normalized PDF, a thumbnail, ...), stored in the encrypted object store
- * under its own `Kern\Platform\ObjectStore\ObjectKey`. `kind` reuses
- * `Kern\Platform\ObjectStore\DocumentObjectKind` verbatim (cast via `Enums\DocumentDerivativeKind`
+ * under its own `Kern\Documents\ObjectStore\ObjectKey`. `kind` reuses
+ * `Kern\Documents\ObjectStore\DocumentObjectKind` verbatim (cast via `Enums\DocumentDerivativeKind`
  * is deliberately *not* a second enum — `docs/CODE-QUALITY.md` §1 forbids duplicating stable
  * domain knowledge, and the object-store module already owns the closed set of derivative kinds
  * an object key may name). Only `THUMBNAIL|PDF_NORMALIZED|OCR|EXTRACTED_TEXT|STRUCTURED_JSON` are

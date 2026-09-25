@@ -1516,7 +1516,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/audit",
-                "reference": "bfe4566165c211f42e5aea6fe82c9302128f077e"
+                "reference": "0295b0879667892b6b50496d2c7eb346a8b4031f"
             },
             "require": {
                 "illuminate/console": "^13.0",
@@ -1529,6 +1529,10 @@
                 "php": "^8.4",
                 "ramsey/uuid": "^4.7"
             },
+            "require-dev": {
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
+            },
             "type": "library",
             "extra": {
                 "laravel": {
@@ -1540,6 +1544,11 @@
             "autoload": {
                 "psr-4": {
                     "Kern\\Audit\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Audit\\Tests\\": "tests/"
                 }
             },
             "license": [
@@ -1557,7 +1566,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/documents",
-                "reference": "13595d3916b1744fb4670c0bbb375d9e4e018842"
+                "reference": "6802b780d6a5dac6718cdc02450c7be481fc86bf"
             },
             "require": {
                 "illuminate/bus": "^13.0",
@@ -1575,7 +1584,9 @@
                 "php": "^8.4"
             },
             "require-dev": {
-                "fakerphp/faker": "^1.23"
+                "fakerphp/faker": "^1.23",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
             },
             "type": "library",
             "extra": {
@@ -1589,6 +1600,11 @@
                 "psr-4": {
                     "Kern\\Documents\\": "src/",
                     "Kern\\Documents\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Documents\\Tests\\": "tests/"
                 }
             },
             "license": [
@@ -1606,7 +1622,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/legislation",
-                "reference": "6b184ddd7bb0703b9bab762b009e2258dacae543"
+                "reference": "b53188b766aab3e99c0bc38a618a33970c7026cd"
             },
             "require": {
                 "ext-dom": "*",
@@ -1625,7 +1641,9 @@
                 "php": "^8.4"
             },
             "require-dev": {
-                "fakerphp/faker": "^1.23"
+                "fakerphp/faker": "^1.23",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
             },
             "type": "library",
             "extra": {
@@ -1639,6 +1657,11 @@
                 "psr-4": {
                     "Kern\\Legislation\\": "src/",
                     "Kern\\Legislation\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Legislation\\Tests\\": "tests/"
                 }
             },
             "license": [
@@ -1656,7 +1679,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform",
-                "reference": "b1fb07429990d61c0b84009b821790ac36a76d66"
+                "reference": "dd6a272a149c2d953da86660d3eed9c974259a6f"
             },
             "require": {
                 "ext-intl": "*",
@@ -1667,7 +1690,6 @@
                 "illuminate/console": "^13.0",
                 "illuminate/contracts": "^13.0",
                 "illuminate/database": "^13.0",
-                "illuminate/filesystem": "^13.0",
                 "illuminate/http": "^13.0",
                 "illuminate/log": "^13.0",
                 "illuminate/notifications": "^13.0",
@@ -1682,7 +1704,9 @@
                 "web-auth/webauthn-lib": "^5.3"
             },
             "require-dev": {
-                "fakerphp/faker": "^1.23"
+                "fakerphp/faker": "^1.23",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
             },
             "type": "library",
             "extra": {
@@ -1696,6 +1720,11 @@
                 "psr-4": {
                     "Kern\\Platform\\": "src/",
                     "Kern\\Platform\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Platform\\Tests\\": "tests/"
                 }
             },
             "license": [
@@ -1713,7 +1742,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/tax-romania",
-                "reference": "498cdb4c5cafb418dd5fd2cfa76898222cdd9635"
+                "reference": "c9d4bb6b89deaa57277da357c3739ab137dec99e"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -1736,7 +1765,9 @@
                 "php": "^8.4"
             },
             "require-dev": {
-                "fakerphp/faker": "^1.23"
+                "fakerphp/faker": "^1.23",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
             },
             "type": "library",
             "extra": {
@@ -1750,6 +1781,11 @@
                 "psr-4": {
                     "Kern\\TaxRomania\\": "src/",
                     "Kern\\TaxRomania\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\TaxRomania\\Tests\\": "tests/"
                 }
             },
             "license": [

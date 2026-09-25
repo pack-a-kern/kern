@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore;
+namespace Kern\Documents\ObjectStore;
 
+use Kern\Documents\ObjectStore\ValueObjects\ObjectManifest;
 use Kern\Platform\Crypto\EnvelopeCipher;
-use Kern\Platform\ObjectStore\ValueObjects\ObjectManifest;
 use RuntimeException;
 
 /**

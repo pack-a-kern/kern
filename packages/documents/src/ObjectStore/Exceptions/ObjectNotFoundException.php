@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore\Exceptions;
+namespace Kern\Documents\ObjectStore\Exceptions;
 
 use RuntimeException;
 
 /**
  * The object key itself is safe to include in the message (it is a structural identifier — two
- * UUIDs/ULIDs and a fixed kind name — never PII, per `Kern\Platform\ObjectStore\ObjectKey`).
+ * UUIDs/ULIDs and a fixed kind name — never PII, per `Kern\Documents\ObjectStore\ObjectKey`).
  */
 final class ObjectNotFoundException extends RuntimeException
 {

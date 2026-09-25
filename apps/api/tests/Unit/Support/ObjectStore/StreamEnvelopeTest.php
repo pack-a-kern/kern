@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Support\ObjectStore\StreamEnvelopeTest;
 
 use Illuminate\Support\Str;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
-use Kern\Platform\ObjectStore\Exceptions\ObjectIntegrityException;
-use Kern\Platform\ObjectStore\ObjectKey;
-use Kern\Platform\ObjectStore\StreamEnvelopeReader;
-use Kern\Platform\ObjectStore\StreamEnvelopeWriter;
-use Kern\Platform\ObjectStore\ValueObjects\ObjectManifest;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
+use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
+use Kern\Documents\ObjectStore\ObjectKey;
+use Kern\Documents\ObjectStore\StreamEnvelopeReader;
+use Kern\Documents\ObjectStore\StreamEnvelopeWriter;
+use Kern\Documents\ObjectStore\ValueObjects\ObjectManifest;
 use RuntimeException;
 
 /**

@@ -7,8 +7,8 @@ namespace Kern\Documents\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Kern\Documents\Enums\DocumentStatus;
 use Kern\Documents\Models\Document;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
-use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\Exceptions\ObjectNotFoundException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 

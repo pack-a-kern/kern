@@ -12,7 +12,7 @@ namespace Kern\Documents\FileSecurity;
  *
  * The sanitized name is what `documents.original_filename_ciphertext` stores — never the raw,
  * caller-supplied string. It is display metadata only; it is never used to build a storage path
- * (`Kern\Platform\ObjectStore\ObjectKey` is built only from UUIDs and a closed enum) and a stored
+ * (`Kern\Documents\ObjectStore\ObjectKey` is built only from UUIDs and a closed enum) and a stored
  * document is only ever served with a fixed, safe `Content-Disposition`, never executed.
  */
 final class FilenameSanitizer

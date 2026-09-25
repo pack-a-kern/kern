@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore\ValueObjects;
+namespace Kern\Documents\ObjectStore\ValueObjects;
 
 use JsonException;
-use Kern\Platform\ObjectStore\Exceptions\ObjectIntegrityException;
+use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
 
 /**
  * The integrity record for one stored object (BLUEPRINT.md §4.9): the SHA-256 of the original
  * plaintext, computed before encryption, plus the framing facts ({@see $chunkSize}/
  * {@see $chunkCount}) the reader needs to detect truncation, reordering, or duplication of
  * chunks. Stored encrypted alongside the content object — see
- * `Kern\Platform\ObjectStore\ObjectStoreAssociatedData::forManifest()` — never trusted from an
+ * `Kern\Documents\ObjectStore\ObjectStoreAssociatedData::forManifest()` — never trusted from an
  * unauthenticated source.
  */
 final readonly class ObjectManifest

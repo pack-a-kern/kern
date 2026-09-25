@@ -19,7 +19,7 @@ use Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;

@@ -6,12 +6,12 @@ namespace Tests\Feature\Support\ObjectStore\EncryptedObjectStoreTest;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Kern\Documents\ObjectStore\DocumentObjectKind;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\Exceptions\ObjectIntegrityException;
+use Kern\Documents\ObjectStore\Exceptions\ObjectNotFoundException;
+use Kern\Documents\ObjectStore\ObjectKey;
 use Kern\Platform\KeyManagement\SubjectDekService;
-use Kern\Platform\ObjectStore\DocumentObjectKind;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
-use Kern\Platform\ObjectStore\Exceptions\ObjectIntegrityException;
-use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
-use Kern\Platform\ObjectStore\ObjectKey;
 use RuntimeException;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;

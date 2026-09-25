@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\Platform\ObjectStore;
+namespace Kern\Documents\ObjectStore;
 
 /**
  * The closed set of document-derivative kinds an object key may name (BLUEPRINT.md §6.6

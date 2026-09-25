@@ -21,11 +21,12 @@ use Kern\Documents\Extraction\PdfPageCounter;
 use Kern\Documents\Extraction\TextExtractionGateway;
 use Kern\Documents\FileSecurity\FilenameSanitizer;
 use Kern\Documents\FileSecurity\FileSecurityValidator;
+use Kern\Documents\ObjectStore\EncryptedObjectStore;
+use Kern\Documents\ObjectStore\ObjectStoreServiceProvider;
 use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Documents\Scanning\ClamdVirusScanner;
 use Kern\Documents\Scanning\VirusScanner;
 use Kern\Platform\KeyManagement\SubjectDekService;
-use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 use Kern\Platform\Tenancy\TenantContext;
@@ -43,7 +44,13 @@ final class DocumentsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/documents.php', 'documents');
+        $this->mergeConfigFrom(__DIR__ . '/../config/objectstore.php', 'objectstore');
         $this->mergeConfigFrom(__DIR__ . '/../config/ai/documents.php', 'ai.documents');
+
+        // The encrypted object store is this package's: `ObjectKey` can only name a document's file,
+        // and nothing outside here stores one. It was in `kern/platform` until somebody asked what
+        // the base actually encrypted with it — the answer was nothing.
+        $this->app->register(ObjectStoreServiceProvider::class);
 
         $this->app->singleton(FilenameSanitizer::class);
 
@@ -107,7 +114,7 @@ final class DocumentsServiceProvider extends ServiceProvider
         });
         $this->app->singleton(DocumentAiConsentGate::class);
 
-        // Transient, like Kern\Platform\ObjectStore\ObjectStoreServiceProvider's own
+        // Transient, like Kern\Documents\ObjectStore\ObjectStoreServiceProvider's own
         // EncryptedObjectStore binding: SubjectDekService is scoped per-request, so this must be
         // resolved fresh rather than pinned by a singleton (see that provider's docblock).
         $this->app->bind(QuarantineObjectStore::class, static function (Application $app): QuarantineObjectStore {
@@ -130,6 +137,7 @@ final class DocumentsServiceProvider extends ServiceProvider
 
         $this->publishes([
             __DIR__ . '/../config/documents.php' => config_path('documents.php'),
+            __DIR__ . '/../config/objectstore.php' => config_path('objectstore.php'),
             __DIR__ . '/../config/ai/documents.php' => config_path('ai/documents.php'),
         ], 'kern-documents-config');
 
