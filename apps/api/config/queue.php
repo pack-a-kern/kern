@@ -64,7 +64,10 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('HORIZON_LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800) + 60,
+            // A minute past what one of those jobs is allowed to take (the same env var
+            // `legislation.job_timeout_seconds` reads), so a released job is never retried while it
+            // is still running.
+            'retry_after' => (int) env('LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800) + 60,
             'block_for' => null,
             'after_commit' => false,
         ],

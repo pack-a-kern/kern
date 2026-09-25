@@ -48,3 +48,13 @@ application, with everything it needs already public here.
 
 Migrations, routes, config and the rate limiter arrive with it. Bind `TenantNames`, point
 `documents.quarantine_disk` and `objectstore.disk` at real disks, and give it a clamd to talk to.
+
+## Running its own suite
+
+```
+composer install
+vendor/bin/pest
+```
+
+Laravel with this package, the platform and the audit chain — and a *workspace* for a tenant, so the
+suite fails if anything here starts assuming a taxpayer again.

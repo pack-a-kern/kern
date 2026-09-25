@@ -7,9 +7,9 @@ namespace Kern\TaxRomania\FiscalParameters\Models;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Kern\Legislation\Enums\FiscalParameterValueType;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\TaxRomania\Database\Factories\FiscalParameterFactory;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 
 /**
  * `fiscal_parameters` (`BLUEPRINT.md` §6.8) — one row per value a tax is computed from, made the

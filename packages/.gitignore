@@ -1,0 +1,7 @@
+# Each package installs its own dev dependencies to run its own Testbench suite — the whole point of
+# that suite is to boot Laravel with this package and nothing else, so it cannot borrow the
+# application's vendor directory (see docs/adr/0016, Stage 2).
+*/vendor/
+*/composer.lock
+*/.phpunit.cache/
+*/.phpunit.result.cache

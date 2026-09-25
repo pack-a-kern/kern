@@ -201,7 +201,7 @@ function jsonStringList(\Illuminate\Testing\TestResponse $response, string $key)
 }
 
 /**
- * `Kern\Legislation\Concerns\ForbidsAgentApproval` makes `status = APPROVED`
+ * `Kern\Platform\Approval\ForbidsAgentApproval` makes `status = APPROVED`
  * unreachable through Eloquent's `save()` on `TaxRuleVersion`/`FiscalParameterVersion` — by
  * design, per `docs/AGENTS.md` §9 ("no agent may set APPROVED"). `Kern\TaxRomania\TaxEngine`'s own
  * tests still need to exercise the "an already-approved version backs a FINAL assessment" path,
@@ -317,6 +317,7 @@ function cnpWithCheckDigit(string $first12): string
  * path, and a path written down is a test that silently scans nothing the next time the code moves.
  * Walking up from the class's own file to its `composer.json` cannot be wrong about where it lives.
  */
+/** @param class-string $class */
 function packageRoot(string $class): string
 {
     $file = (new ReflectionClass($class))->getFileName();

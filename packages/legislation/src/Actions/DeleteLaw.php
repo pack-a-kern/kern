@@ -7,6 +7,7 @@ namespace Kern\Legislation\Actions;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Models\SourceSection;
@@ -40,8 +41,10 @@ use Kern\Legislation\Models\SourceSection;
  */
 final readonly class DeleteLaw
 {
-    public function __construct(private AuditChainService $audit)
-    {
+    public function __construct(
+        private AuditChainService $audit,
+        private SectionDependents $dependents,
+    ) {
     }
 
     /**
@@ -54,10 +57,10 @@ final readonly class DeleteLaw
     {
         $sections = SourceSection::query()
             ->whereIn('document_version_id', SourceDocumentVersion::query()->where('source_document_id', $law->id)->select('id'))
-            ->select('id');
+            ->select('id')
+            ->toBase();
 
-        return DB::table('fiscal_parameter_versions')->whereIn('source_section_id', $sections)->count()
-            + DB::table('tax_rule_sources')->whereIn('source_section_id', $sections)->count();
+        return $this->dependents->countFor($sections);
     }
 
     /** @return array{versions: int, sections: int} what was removed */

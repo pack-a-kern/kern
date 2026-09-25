@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Models;
+namespace Kern\TaxRomania\TaxRules;
 
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Kern\Legislation\Concerns\ForbidsAgentApproval;
-use Kern\Legislation\Database\Factories\TaxRuleVersionFactory;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
+use Kern\Platform\Approval\ForbidsAgentApproval;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\TaxRomania\Database\Factories\TaxRuleVersionFactory;
 
 /**
  * `tax_rule_versions` — skeleton (`BLUEPRINT.md` §6.8). Source backing lives in
@@ -23,7 +23,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property \Illuminate\Support\Carbon|null $valid_until
  * @property string|null $implementation_class
  * @property array<string, mixed> $config_json
- * @property RuleApprovalStatus $status
+ * @property ApprovalStatus $status
  * @property string|null $source_hash
  * @property \Illuminate\Support\Carbon|null $approved_at
  */
@@ -53,7 +53,7 @@ final class TaxRuleVersion extends Model
         'valid_from' => 'date:Y-m-d',
         'valid_until' => 'date:Y-m-d',
         'config_json' => 'array',
-        'status' => RuleApprovalStatus::class,
+        'status' => ApprovalStatus::class,
         'approved_at' => 'datetime',
     ];
 }

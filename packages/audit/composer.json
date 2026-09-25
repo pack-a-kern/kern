@@ -14,9 +14,18 @@
         "illuminate/validation": "^13.0",
         "ramsey/uuid": "^4.7"
     },
+    "require-dev": {
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.1"
+    },
     "autoload": {
         "psr-4": {
             "Kern\\Audit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kern\\Audit\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -27,7 +36,10 @@
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "minimum-stability": "stable"
 }

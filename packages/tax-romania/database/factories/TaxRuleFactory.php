@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Database\Factories;
+namespace Kern\TaxRomania\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Kern\Legislation\Models\TaxRule;
+use Kern\TaxRomania\TaxRules\TaxRule;
 
 /**
  * @extends Factory<TaxRule>

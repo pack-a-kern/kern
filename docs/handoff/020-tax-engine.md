@@ -210,7 +210,7 @@ handoffs):
 
 9. **`insertApprovedTaxRuleVersion()`/`insertApprovedFiscalParameterVersion()` (in `tests/Pest.php`)
    insert an `APPROVED` row via the raw query builder, bypassing Eloquent entirely.**
-   `Kern\Legislation\Concerns\ForbidsAgentApproval` makes `status = APPROVED` unreachable
+   `Kern\Platform\Approval\ForbidsAgentApproval` makes `status = APPROVED` unreachable
    through any Eloquent `save()` call — by design, per `docs/AGENTS.md` §9. Testing the "an
    already-approved version backs a FINAL assessment" happy path is one of this task's explicit
    deliverables ("proof: a CANDIDATE-parameter ruleset cannot produce a FINAL assessment" implies

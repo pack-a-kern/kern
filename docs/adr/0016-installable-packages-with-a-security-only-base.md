@@ -171,3 +171,42 @@ files.
 Migration ownership was decided by which package creates the table. The application kept exactly two:
 Laravel's `failed_jobs`, and the one migration that renames tables belonging to both `Fx` and
 `Legislation`.
+
+## Stage 2, and what installing each package alone found
+
+Every package has a Testbench suite that boots Laravel with that package, its dependencies, and
+nothing else: `make check-packages`. Each one installs its own dev dependencies rather than borrowing
+the application's `vendor/`, because a suite that shared it would prove nothing about isolation.
+
+The product's own 1293 tests run against an application where identity, tenancy and eleven tax modules
+all happen to be present, so they could not have found any of this:
+
+- **`kern/audit` could not migrate alone.** The migration adding the identity foreign keys named
+  `tax_subjects` and `users` unconditionally. Both keys are now added only where the table exists,
+  which is the same rule `Tenancy::addColumn()` follows; where they exist, as here, nothing changed.
+- **`kern/legislation` could not migrate alone.** Its tables are created as `source_documents` and
+  renamed to `ext_source_documents` — by a migration in the *application*, which also folded
+  `fx_sources` into the official source. Every later legislation migration named the prefixed tables,
+  and nothing had created them. The legislation half of that rename is now the package's
+  (`2026_09_15_399000`), idempotent so the installation that already ran the old one is unaffected, and
+  `ext_official_sources.priority` came with it — the repository that upserts a source writes it, so a
+  bare install could not fetch anything without it.
+- **`kern/legislation` needed a queue dashboard configured.** Its three jobs took their timeout from
+  `horizon.defaults.supervisor-legislation.timeout`. The number is the package's now, and Horizon's
+  supervisor and the queue's `retry_after` read the same environment variable — the only way two config
+  files can agree, since Laravel loads them alphabetically and neither can read the other.
+- **`kern/tax-romania` could not migrate alone**, for the same reason as legislation: the fx tables'
+  `ext_` prefix and the `fx_sources` fold were in the application. That migration belongs to this
+  package — it needs both `fx_sources` and `official_sources`, and this is the package that has both.
+  `apps/api/database/migrations` now holds one file, Laravel's `failed_jobs`.
+- **`kern/legislation` still held the product's vocabulary.** `TaxRule`, `TaxRuleVersion` and
+  `TaxRuleSource` were in it, read by nothing there. They are `kern/tax-romania`'s. What both packages
+  genuinely share — "only a person may approve a version", `ForbidsAgentApproval` and the status enum —
+  is the platform's, because it is a governance rule and not a tax one.
+
+The proof this ADR asked for by name passes: `ReadsAndSearchesALawAloneTest` finds an act through the
+portal's web service, reads both of its consolidations, dates each until the day before the next,
+and answers "what did article 145 say on 15 June 2021" with the text that was in force then — in an
+application with no `tax_subjects`, no fiscal parameter and no tax engine. `kern/platform`'s
+`TenantIsNotATaxpayerTest` does the same for tenancy, with the tenant called a workspace and the column
+`workspace_id`, configured and nothing else.

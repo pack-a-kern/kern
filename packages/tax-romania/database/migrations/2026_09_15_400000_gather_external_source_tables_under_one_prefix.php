@@ -6,16 +6,21 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Kern\Platform\Database\SchemaRename;
 
 /**
- * Gives every table of data fetched from outside one prefix, `ext_`, and folds `fx_sources` into
- * `official_sources`.
+ * Folds `fx_sources` into the official source itself, and gives the exchange-rate tables the same
+ * `ext_` prefix the legislation ones take.
  *
- * ## Why the prefix
+ * ## Why this one is here
  *
- * These tables hold what official publishers say — BNR's rates, the law's text, the ECB's banks —
- * and nothing a taxpayer typed. Reading `ext_fx_rates` beside `deposit_terms` tells a person which
- * side of that line a table is on without opening it.
+ * It needs two packages at once: `fx_sources` is this one's and `official_sources` is
+ * `kern/legislation`'s, and folding one into the other can only be done by something that has both.
+ * This package requires that one, so this is that something — it sat in the application until an
+ * installation of this package on its own found `ext_fx_rates` missing, because the renaming had been
+ * left behind. The legislation half of it lives in
+ * `kern/legislation`'s `2026_09_15_399000_prefix_the_legislation_tables`, which is why the source
+ * tables are already named `ext_official_sources` by the time this runs.
  *
  * ## Why `fx_sources` goes
  *
@@ -34,11 +39,6 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     /** Old name => new name. */
     private const array RENAMES = [
-        'official_sources' => 'ext_official_sources',
-        'source_documents' => 'ext_source_documents',
-        'source_document_versions' => 'ext_source_document_versions',
-        'source_sections' => 'ext_source_sections',
-        'source_section_chunks' => 'ext_source_section_chunks',
         'fx_rates' => 'ext_fx_rates',
         'fx_period_averages' => 'ext_fx_period_averages',
         'fx_rate_anomalies' => 'ext_fx_rate_anomalies',
@@ -62,36 +62,33 @@ return new class () extends Migration {
 
     public function up(): void
     {
-        Schema::table('official_sources', function (Blueprint $table): void {
-            $table->unsignedSmallInteger('priority')->default(1);
-        });
-
-        DB::statement('UPDATE official_sources o SET priority = f.priority FROM fx_sources f WHERE f.official_source_id = o.id');
+        // The column itself is `kern/legislation`'s — its repository writes it on every fetch, so a
+        // bare installation of that package needs it too. All that is left here is moving the
+        // exchange-rate module's own priority onto the source it was describing.
+        DB::statement('UPDATE ext_official_sources o SET priority = f.priority FROM fx_sources f WHERE f.official_source_id = o.id');
 
         foreach (self::FX_TABLES as $name => $index) {
-            $this->repoint($name, $index, from: 'fx_source_id', to: 'official_source_id', references: 'official_sources', mapping:
+            $this->repoint($name, $index, from: 'fx_source_id', to: 'official_source_id', references: 'ext_official_sources', mapping:
                 "UPDATE {$name} t SET official_source_id = f.official_source_id FROM fx_sources f WHERE f.id = t.fx_source_id");
         }
 
         Schema::drop('fx_sources');
 
         foreach (self::RENAMES as $from => $to) {
-            Schema::rename($from, $to);
-            $this->renameOwnedNames($to, $from, $to);
+            SchemaRename::table($from, $to);
         }
     }
 
     public function down(): void
     {
         foreach (array_reverse(self::RENAMES, true) as $from => $to) {
-            Schema::rename($to, $from);
-            $this->renameOwnedNames($from, $to, $from);
+            SchemaRename::table($to, $from);
         }
 
         Schema::create('fx_sources', function (Blueprint $table): void {
             $table->uuid('id')->primary();
 
-            $table->foreignUuid('official_source_id')->constrained('official_sources');
+            $table->foreignUuid('official_source_id')->constrained('ext_official_sources');
             $table->string('code')->unique();
             $table->unsignedSmallInteger('priority')->default(1);
 
@@ -102,7 +99,7 @@ return new class () extends Migration {
         DB::statement(<<<'SQL'
             INSERT INTO fx_sources (id, official_source_id, code, priority, created_at, updated_at)
             SELECT gen_random_uuid(), o.id, o.code, o.priority, now(), now()
-            FROM official_sources o
+            FROM ext_official_sources o
             WHERE EXISTS (SELECT 1 FROM fx_rates r WHERE r.official_source_id = o.id)
                OR EXISTS (SELECT 1 FROM fx_period_averages a WHERE a.official_source_id = o.id)
                OR EXISTS (SELECT 1 FROM fx_rate_anomalies n WHERE n.official_source_id = o.id)
@@ -113,9 +110,6 @@ return new class () extends Migration {
                 "UPDATE {$name} t SET fx_source_id = f.id FROM fx_sources f WHERE f.official_source_id = t.official_source_id");
         }
 
-        Schema::table('official_sources', function (Blueprint $table): void {
-            $table->dropColumn('priority');
-        });
     }
 
     /**
@@ -145,36 +139,5 @@ return new class () extends Migration {
             $columns = [$to, ...$index['columns']];
             $index['unique'] ? $blueprint->unique($columns, $index['name']) : $blueprint->index($columns, $index['name']);
         });
-    }
-
-    /**
-     * Renames the constraints and indexes on `$table` whose names begin with `$oldPrefix`.
-     *
-     * Constraints first: renaming a primary key or unique constraint also renames the index behind
-     * it, so the index pass then finds only the plain indexes left.
-     */
-    private function renameOwnedNames(string $table, string $oldPrefix, string $newPrefix): void
-    {
-        $like = str_replace('_', '\_', $oldPrefix) . '\_%';
-
-        $constraints = DB::select('SELECT conname AS name FROM pg_constraint WHERE conrelid = ?::regclass AND conname LIKE ?', [$table, $like]);
-
-        foreach ($constraints as $constraint) {
-            DB::statement(sprintf(
-                'ALTER TABLE "%s" RENAME CONSTRAINT "%s" TO "%s"',
-                $table,
-                $constraint->name,
-                $newPrefix . substr($constraint->name, strlen($oldPrefix)),
-            ));
-        }
-
-        $indexes = DB::select(
-            'SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ? AND indexname LIKE ?',
-            [$table, $like],
-        );
-
-        foreach ($indexes as $index) {
-            DB::statement(sprintf('ALTER INDEX "%s" RENAME TO "%s"', $index->name, $newPrefix . substr($index->name, strlen($oldPrefix))));
-        }
     }
 };

@@ -44,3 +44,13 @@ to what, by whom, and in what order, and the thing itself stays where it was.
 ```
 
 The migrations travel with the package. Nothing to publish, nothing to remember.
+
+## Running its own suite
+
+```
+composer install
+vendor/bin/pest
+```
+
+It boots Laravel with this package and nothing else — no users, no tenants — because that is the only
+way to find out whether it is installable. The first run found that it was not.

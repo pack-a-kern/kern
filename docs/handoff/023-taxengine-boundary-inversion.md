@@ -48,7 +48,7 @@ never the concrete adapter.
 **New — TaxEngine (ports + its own enums)**
 - `packages/tax-romania/src/TaxEngine/Contracts/TaxRuleVersionProvider.php`
 - `packages/tax-romania/src/TaxEngine/Contracts/FiscalParameterProvider.php`
-- `packages/tax-romania/src/TaxEngine/Enums/RuleApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`,
+- `packages/tax-romania/src/TaxEngine/Enums/ApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`,
   identical case names/backing values to `TaxKnowledge`'s enum of the same name, deliberately a
   separate declaration (see "Key decisions" #1).
 - `packages/tax-romania/src/TaxEngine/Enums/FiscalParameterValueType.php` — `MONEY|DECIMAL|INTEGER|DATE|JSON`,
@@ -57,7 +57,7 @@ never the concrete adapter.
 **New — TaxKnowledge (adapters)**
 - `packages/legislation/src/Providers/EloquentTaxRuleVersionProvider.php` — same logic as the
   deleted `TaxRuleTemporalReader`, now implementing `TaxRuleVersionProvider`, mapping
-  `TaxKnowledge\Enums\RuleApprovalStatus` → `TaxEngine\Enums\RuleApprovalStatus` via
+  `TaxKnowledge\Enums\ApprovalStatus` → `TaxEngine\Enums\ApprovalStatus` via
   `::from($value)`.
 - `packages/legislation/src/Providers/EloquentFiscalParameterProvider.php` — same for
   `FiscalParameterTemporalReader`/`FiscalParameterProvider`, mapping both enums.
@@ -68,7 +68,7 @@ never the concrete adapter.
 
 **Modified**
 - `packages/tax-romania/src/TaxEngine/DataTransferObjects/ResolvedTaxRuleVersion.php` — `$status` now typed to
-  `Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus`, not `TaxKnowledge`'s.
+  `Kern\TaxRomania\TaxEngine\Enums\ApprovalStatus`, not `TaxKnowledge`'s.
 - `packages/tax-romania/src/TaxEngine/DataTransferObjects/ResolvedFiscalParameter.php` — `$valueType`/`$status`
   likewise switched to `TaxEngine`'s own enums.
 - `packages/tax-romania/src/TaxEngine/Services/RuleResolver.php` — constructor now takes `TaxRuleVersionProvider`
@@ -101,8 +101,8 @@ never the concrete adapter.
 - Modified — mechanical constructor/import updates only, no assertion changed:
   `tests/Feature/Domain/TaxEngine/RuleResolverTest.php`,
   `tests/Feature/Domain/TaxEngine/ParameterResolverTest.php` (both now construct the real
-  `Eloquent*Provider` adapter and import `TaxEngine`'s own `RuleApprovalStatus` for the DTO
-  assertion, aliasing `TaxKnowledge`'s as `TaxKnowledgeRuleApprovalStatus` for the model-factory
+  `Eloquent*Provider` adapter and import `TaxEngine`'s own `ApprovalStatus` for the DTO
+  assertion, aliasing `TaxKnowledge`'s as `TaxKnowledgeApprovalStatus` for the model-factory
   calls that still legitimately need it),
   `tests/Feature/Domain/TaxEngine/TaxAssessorTest.php` (`makeTaxAssessor()` now wires the two
   adapters instead of the two deleted readers),
@@ -113,7 +113,7 @@ never the concrete adapter.
 
 ## Key decisions
 
-1. **Two new, TaxEngine-owned enums (`RuleApprovalStatus`, `FiscalParameterValueType`) duplicate
+1. **Two new, TaxEngine-owned enums (`ApprovalStatus`, `FiscalParameterValueType`) duplicate
    `TaxKnowledge`'s enums of the same name, case-for-case.** This is deliberate, not an oversight
    the task brief anticipated explicitly ("expressed purely in terms of TaxEngine's own DTOs...
    and scalars/dates. No Eloquent, no TaxKnowledge types in the signatures"). A port whose DTO
@@ -205,7 +205,7 @@ situation as `docs/handoff/012-encrypted-object-store.md`, `docs/handoff/014-sou
 
 ```php
 use Kern\TaxRomania\TaxEngine\Contracts\{TaxRuleVersionProvider, FiscalParameterProvider};
-use Kern\TaxRomania\TaxEngine\Enums\{RuleApprovalStatus, FiscalParameterValueType};
+use Kern\TaxRomania\TaxEngine\Enums\{ApprovalStatus, FiscalParameterValueType};
 
 // Resolved automatically via the container — TaxKnowledgeServiceProvider binds both:
 $version = app(TaxRuleVersionProvider::class)->versionInForceOn('RO.PF.SOME_RULE', $date);

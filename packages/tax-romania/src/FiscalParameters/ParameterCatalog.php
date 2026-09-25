@@ -6,7 +6,7 @@ namespace Kern\TaxRomania\FiscalParameters;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use InvalidArgumentException;
-use Kern\Legislation\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 
 /**
  * The values looked for — `config/fiscal_parameters.php` — read once and checked, so the readers,

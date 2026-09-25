@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Models\TaxRuleVersion;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
@@ -19,6 +18,7 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 use Tests\Fakes\InMemoryKeyManagementService;
 
 beforeEach(function (): void {

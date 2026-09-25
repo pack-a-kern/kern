@@ -7,8 +7,8 @@ namespace Kern\TaxRomania\FiscalParameters\Models;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Kern\Legislation\Concerns\ForbidsAgentApproval;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
+use Kern\Platform\Approval\ForbidsAgentApproval;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\TaxRomania\Database\Factories\FiscalParameterVersionFactory;
 
@@ -24,7 +24,7 @@ use Kern\TaxRomania\Database\Factories\FiscalParameterVersionFactory;
  * @property \Illuminate\Support\Carbon|null $valid_until
  * @property array<string, mixed> $value_json
  * @property string $source_section_id
- * @property RuleApprovalStatus $status
+ * @property ApprovalStatus $status
  * @property string|null $approved_by
  * @property \Illuminate\Support\Carbon|null $approved_at
  * @property array{readings?: list<array<string, mixed>>, matches?: list<array{section_id: string, citation: string, document_version_id: string, says: list<int>}>, checks?: list<array<string, mixed>>}|null $evidence
@@ -56,7 +56,7 @@ final class FiscalParameterVersion extends Model
         'valid_from' => 'date:Y-m-d',
         'valid_until' => 'date:Y-m-d',
         'value_json' => 'array',
-        'status' => RuleApprovalStatus::class,
+        'status' => ApprovalStatus::class,
         'approved_at' => 'datetime',
         'evidence' => 'array',
     ];

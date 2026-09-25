@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  * models only, per this task's brief — nothing populates them yet (that is Milestone 4's job,
  * building the 2020-2026 dataset), and no `TaxRule` implementation reads them yet (Milestone 5).
  *
- * `value_type` is `Kern\Legislation\Enums\FiscalParameterValueType`
+ * `value_type` is `Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType`
  * (`MONEY|DECIMAL|INTEGER|DATE|JSON`, `BLUEPRINT.md` §6.8 verbatim) — declares how
  * `fiscal_parameter_versions.value_json` must be interpreted, so a consumer never has to guess.
  */

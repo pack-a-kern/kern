@@ -19,6 +19,18 @@ return [
 
     'queue' => env('LEGISLATION_QUEUE', 'legislation'),
 
+    /*
+     * How long one consolidation may take.
+     *
+     * Here, not in the application's Horizon supervisor, although the supervisor must agree with it —
+     * a worker killed at 1800 seconds running a job that thinks it has an hour loses the work and
+     * reports nothing. The jobs used to read the supervisor's own timeout, which meant reading a law
+     * required a queue dashboard to be configured; installing this package on its own is what found
+     * that. Both now read the same environment variable, which is the only way two config files can
+     * agree — Laravel loads them alphabetically, so neither can read the other.
+     */
+    'job_timeout_seconds' => (int) env('LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800),
+
     'sync' => [
         /*
          * The pauses before a consolidation is tried again when the portal did not answer, in

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania;
 
 use Illuminate\Support\ServiceProvider;
+use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
@@ -83,6 +84,13 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        // Two tables here point at a paragraph of the law: the value read from it, and the citation a
+        // tax rule rests on. Declared so `kern/legislation` refuses to delete a law either still needs,
+        // without that package having to know either table exists.
+        $dependents = $this->app->make(SectionDependents::class);
+        $dependents->declare('fiscal_parameter_versions', 'source_section_id');
+        $dependents->declare('tax_rule_sources', 'source_section_id');
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
 

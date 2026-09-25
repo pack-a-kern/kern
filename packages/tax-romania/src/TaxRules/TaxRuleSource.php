@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Models;
+namespace Kern\TaxRomania\TaxRules;
 
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Kern\Legislation\Database\Factories\TaxRuleSourceFactory;
 use Kern\Legislation\Enums\SourceRelation;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\TaxRomania\Database\Factories\TaxRuleSourceFactory;
 
 /**
  * `tax_rule_sources` — skeleton (`BLUEPRINT.md` §6.8). See that migration's docblock for the added

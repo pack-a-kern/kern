@@ -83,8 +83,26 @@ the tenant context as a scoped instance — is registered by `PlatformServicePro
 Then name your tenant's column in `config/tenancy.php` and point `config/crypto.php` at a KMS.
 Publishing the shipped defaults is optional: `php artisan vendor:publish --tag=kern-platform-config`.
 
-## Known seam
+## Known wart
 
-`ObjectStore\ObjectKey` and `DocumentObjectKind` still spell out `subjects/…/documents/…` paths.
-They are document vocabulary, and they move to `kern/documents` when that package is extracted; what
-stays here is the streaming cipher that reads and writes those objects.
+`ObjectStore\ObjectKey` spells out `subjects/{id}/documents/{id}/{kind}.enc`, and its last segment
+comes from `DocumentObjectKind` — an enum of thumbnails and OCR output. That is document vocabulary in
+the base, and it is here on purpose rather than by accident: the whole store is typed on `ObjectKey`,
+and the closed enum is what makes "an object key cannot contain a name or an identifier" true by
+construction instead of by convention. Moving the key to `kern/documents` would take the store with it,
+and then nothing else could encrypt a file at rest.
+
+Generalising it means a key built from a tenant, a list of identifiers and a name the *caller*
+guarantees is closed — which is a weaker guarantee than the one it has now. Worth doing when a second
+kind of stored object exists; not worth weakening the property before then.
+
+## Running its own suite
+
+```
+composer install
+vendor/bin/pest
+```
+
+Laravel with this package, the audit chain, and nothing else. `TenantIsNotATaxpayerTest` is the one to
+read: it runs the whole tenancy mechanism with the tenant called a workspace and the column
+`workspace_id`, configured and nothing more.

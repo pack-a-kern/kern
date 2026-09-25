@@ -6,7 +6,7 @@ namespace Kern\TaxRomania\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Kern\Legislation\Database\Factories\SourceSectionFactory;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
 /**
@@ -27,7 +27,7 @@ final class FiscalParameterVersionFactory extends Factory
             'valid_until' => null,
             'value_json' => ['amount_minor' => 100000, 'currency' => 'RON'],
             'source_section_id' => SourceSectionFactory::new(),
-            'status' => RuleApprovalStatus::CANDIDATE,
+            'status' => ApprovalStatus::CANDIDATE,
             'approved_by' => null,
             'approved_at' => null,
         ];

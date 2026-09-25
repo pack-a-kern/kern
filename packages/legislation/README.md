@@ -44,3 +44,14 @@ than failing halfway through a backfill.
 php artisan kern:legislation:sync        # look for new consolidations of every law already read
 php artisan kern:legislation:reindex     # rebuild sections and chunks from the stored bytes
 ```
+
+## Running its own suite
+
+```
+composer install
+vendor/bin/pest
+```
+
+`ReadsAndSearchesALawAloneTest` is the proof this package exists for: an act found through the portal's
+web service, both of its consolidations read and dated, and "what did article 145 say on 15 June 2021"
+answered with the text in force then — in an application with no tax code in it at all.

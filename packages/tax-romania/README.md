@@ -50,3 +50,13 @@ React with something else a change to one directory.
 
 **PFA or SRL.** A `pfa_profiles` table exists and nothing reads it. Self-employment and companies are
 a different set of rules, and pretending otherwise in a type would be worse than not having them.
+
+## Running its own suite
+
+```
+composer install
+vendor/bin/pest
+```
+
+All five packages, no application: it migrates from nothing, registers a taxpayer whose CNP appears
+nowhere in the clear, and shows one taxpayer's records invisible to another.

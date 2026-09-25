@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
-use Kern\Legislation\Models\TaxRule;
-use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\Platform\Approval\ApprovalStatus as StoredApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\CandidateNotAllowedInFinalAssessmentException;
 use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
+use Kern\TaxRomania\TaxRules\TaxRule;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 
 /**
  * `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3 enforced at the assessment boundary — the task brief's
@@ -23,7 +23,7 @@ it('allows a CANDIDATE version to back a DRAFT assessment', function (): void {
     TaxRuleVersion::factory()->create([
         'tax_rule_id' => $rule->id,
         'valid_from' => '2026-01-01',
-        'status' => TaxKnowledgeRuleApprovalStatus::CANDIDATE,
+        'status' => StoredApprovalStatus::CANDIDATE,
     ]);
 
     $resolved = (new RuleResolver(new EloquentTaxRuleVersionProvider()))
@@ -37,7 +37,7 @@ it('refuses a CANDIDATE version for a FINAL assessment', function (): void {
     TaxRuleVersion::factory()->create([
         'tax_rule_id' => $rule->id,
         'valid_from' => '2026-01-01',
-        'status' => TaxKnowledgeRuleApprovalStatus::CANDIDATE,
+        'status' => StoredApprovalStatus::CANDIDATE,
     ]);
 
     expect(fn () => (new RuleResolver(new EloquentTaxRuleVersionProvider()))

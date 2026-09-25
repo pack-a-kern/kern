@@ -50,7 +50,7 @@ lint:
 ##
 ## Distinct from `make test`/`make lint`, which build dedicated test images from scratch — correct
 ## for CI, far too slow to run after every edit. This is what to use while working.
-check: check-js check-php
+check: check-js check-php check-packages
 
 ## Frontend: types, lint, unit tests, production build.
 ##
@@ -87,6 +87,41 @@ check-php:
 ## the suite runs `migrate:fresh`, and a run against `kern` destroys every row in it.
 check-php-pg:
 	docker compose exec -T $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=pgsql DB_DATABASE=kern_test vendor/bin/pest'
+
+## Each package's own suite: Laravel booted with that package and nothing else.
+##
+## Distinct from `check-php`, which runs the product's suite — 1293 tests against an application where
+## identity, tenancy and eleven tax modules all happen to be present. That suite cannot tell you
+## whether a package is *installable*, and every one of these found something that was not: unguarded
+## foreign keys to tables the package does not own, a table prefix left behind in the application, a
+## job reading a Horizon supervisor's timeout.
+##
+## Each package installs its own dev dependencies (Testbench, Pest) — it must not borrow the
+## application's vendor directory, or the isolation being tested would be fictional. Run
+## `make packages-install` once, and again when a package's composer.json changes.
+##
+## As root inside the container: Testbench writes its skeleton application's caches into the package's
+## own vendor directory, which is bind-mounted from the host and not owned by the runtime user.
+##
+## Points at `kern_pkg_test`, a database of its own, because these suites migrate from nothing.
+check-packages:
+	@for p in audit platform documents legislation tax-romania; do \
+		echo "── kern/$$p"; \
+		docker compose exec -T -u root $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
+	done
+
+## Install each package's dev dependencies, and create the database its suite migrates into.
+##
+## `--ignore-platform-req` because composer runs on the host, whose PHP is older than the 8.4 the
+## packages require; the suites themselves run inside the container, on 8.5.
+packages-install:
+	docker compose exec -T postgres sh -lc 'psql -U $$POSTGRES_USER -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'kern_pkg_test'"'"'" | grep -q 1 || createdb -U $$POSTGRES_USER kern_pkg_test'
+	@for p in audit platform documents legislation tax-romania; do \
+		echo "── kern/$$p"; \
+		(cd packages/$$p && composer install --no-interaction \
+			--ignore-platform-req=php --ignore-platform-req=ext-sodium \
+			--ignore-platform-req=ext-intl --ignore-platform-req=ext-bcmath) || exit 1; \
+	done
 
 ## Apply .env or compose changes to the running stack.
 ##

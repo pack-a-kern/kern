@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Kern\Legislation\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 
 /**

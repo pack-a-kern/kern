@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -24,7 +24,7 @@ it('resolves the parameter version in force on a given date', function (): void 
         'valid_from' => '2026-01-01',
         'valid_until' => '2026-12-31',
         'value_json' => ['value' => '0.10'],
-        'status' => RuleApprovalStatus::CANDIDATE,
+        'status' => ApprovalStatus::CANDIDATE,
     ]);
 
     $resolved = (new EloquentFiscalParameterProvider())->versionInForceOn('RO.TEST.RESOLVE_PARAM', new DateTimeImmutable('2026-06-15'));

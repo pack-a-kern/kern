@@ -11,7 +11,7 @@ namespace Kern\TaxRomania\TaxEngine\Enums;
  * {@see \Kern\TaxRomania\TaxEngine\Services\RuleResolver} / {@see \Kern\TaxRomania\TaxEngine\Services\ParameterResolver}
  * can enforce `docs/AGENTS.md` §9's draft-vs-final gate.
  *
- * Deliberately a second enum, not a reuse of `Kern\Legislation\Enums\RuleApprovalStatus` —
+ * Deliberately a second enum, not a reuse of `Kern\Platform\Approval\ApprovalStatus` —
  * see `docs/adr/0010-tax-engine-ports-and-adapters.md`. A TaxEngine port
  * ({@see \Kern\TaxRomania\TaxEngine\Contracts\TaxRuleVersionProvider}, {@see \Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider})
  * must never name a TaxKnowledge type in its signature, or the module boundary that ADR restores

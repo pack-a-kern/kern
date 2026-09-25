@@ -248,7 +248,11 @@ return [
             'maxJobs' => 0,
             'memory' => 512,
             'tries' => 1,
-            'timeout' => (int) env('HORIZON_LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800),
+            // The same variable `legislation.job_timeout_seconds` reads. A config file cannot read
+            // another's — Laravel loads them alphabetically, and this one comes first — so the
+            // agreement is the env var, not a reference. Raising it in one place raises all three: the
+            // package's jobs, this worker, and the queue's `retry_after`.
+            'timeout' => (int) env('LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800),
             'nice' => 0,
         ],
 

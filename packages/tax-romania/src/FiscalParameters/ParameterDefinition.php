@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\FiscalParameters;
 
-use Kern\Legislation\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 
 /** One value looked for, as `config/fiscal_parameters.php` describes it. */
 final readonly class ParameterDefinition

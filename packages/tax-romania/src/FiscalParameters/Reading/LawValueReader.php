@@ -7,8 +7,8 @@ namespace Kern\TaxRomania\FiscalParameters\Reading;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Parsing\SectionText;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Matching\LawMatch;
 use Kern\TaxRomania\FiscalParameters\Matching\LawProvisions;
 use Kern\TaxRomania\FiscalParameters\Matching\Provision;
@@ -327,7 +327,7 @@ final readonly class LawValueReader
             ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', $definition->code)->select('id'))
             ->get(['valid_from', 'value_json', 'status', 'source_section_id']) as $version) {
             $held[$version->valid_from->format('Y-m-d')] = [
-                'decided' => in_array($version->status, [RuleApprovalStatus::APPROVED, RuleApprovalStatus::REJECTED], true),
+                'decided' => in_array($version->status, [ApprovalStatus::APPROVED, ApprovalStatus::REJECTED], true),
                 'section_id' => $version->source_section_id,
                 'values' => $definition->lawValues($version->value_json),
             ];

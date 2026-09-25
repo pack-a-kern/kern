@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Kern\Legislation\Enums\OutlineLevel;
-use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Enums\SectionType;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -20,6 +19,7 @@ use Kern\Legislation\Models\SourceSection;
 use Kern\Legislation\Parsing\SectionText;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
 use Kern\Legislation\Services\BuildSectionHistory;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Actions\ReadFiscalParameters;
 use Kern\TaxRomania\FiscalParameters\Actions\StartFiscalYear;
 use Kern\TaxRomania\FiscalParameters\FiscalParameterDecisionException;
@@ -267,7 +267,7 @@ it('reads every value from the law of its year, and proposes it on the paragraph
         'citation' => 'Art. 64 alin. (1)',
     ])
         // Every value is only proposed; none counts yet.
-        ->and(FiscalParameterVersion::query()->where('status', '<>', RuleApprovalStatus::CANDIDATE->value)->count())->toBe(0);
+        ->and(FiscalParameterVersion::query()->where('status', '<>', ApprovalStatus::CANDIDATE->value)->count())->toBe(0);
 });
 
 it('records nothing from an answer the law does not hold', function (): void {
@@ -324,7 +324,7 @@ it('asks nothing again for a year already read, and never proposes a rejected va
     $rejected = FiscalParameterVersion::query()
         ->whereIn('fiscal_parameter_id', FiscalParameter::query()->where('code', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->select('id'))
         ->where('valid_from', '2023-01-01')->sole();
-    $rejected->forceFill(['status' => RuleApprovalStatus::REJECTED->value])->save();
+    $rejected->forceFill(['status' => ApprovalStatus::REJECTED->value])->save();
     readers(read2023());
 
     expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class);
@@ -336,7 +336,7 @@ it('asks nothing again for a year already read, and never proposes a rejected va
         'cota de impozit pe venit',
     ));
     expect(FiscalParameterVersion::query()->pluck('id')->sort()->values()->all())->toBe($first)
-        ->and($rejected->fresh()?->status)->toBe(RuleApprovalStatus::REJECTED);
+        ->and($rejected->fresh()?->status)->toBe(ApprovalStatus::REJECTED);
 });
 
 it('reads the decisions without asking the law', function (): void {

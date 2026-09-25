@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Models;
+namespace Kern\TaxRomania\TaxRules;
 
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Kern\Legislation\Database\Factories\TaxRuleFactory;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\TaxRomania\Database\Factories\TaxRuleFactory;
 
 /**
  * `tax_rules` — skeleton (`BLUEPRINT.md` §6.8). See that migration's docblock for why `subject_type`

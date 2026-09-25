@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\FiscalParameterValueType;
-use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Models\SourceSection;
-use Kern\Legislation\Models\TaxRule;
-use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
@@ -25,6 +23,8 @@ use Kern\TaxRomania\TaxEngine\Services\RuleInvoker;
 use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
 use Kern\TaxRomania\TaxEngine\TaxContext;
+use Kern\TaxRomania\TaxRules\TaxRule;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 
@@ -51,7 +51,7 @@ function makeTaxAssessor(): TaxAssessor
 /**
  * @return array{0: TaxSubject, 1: string}
  */
-function seedSyntheticAssessmentFixture(RuleApprovalStatus $status): array
+function seedSyntheticAssessmentFixture(ApprovalStatus $status): array
 {
     $subject = TaxSubject::factory()->create();
 
@@ -65,7 +65,7 @@ function seedSyntheticAssessmentFixture(RuleApprovalStatus $status): array
         'value_type' => FiscalParameterValueType::DECIMAL,
     ]);
 
-    if ($status === RuleApprovalStatus::APPROVED) {
+    if ($status === ApprovalStatus::APPROVED) {
         insertApprovedTaxRuleVersion($rule->id, [
             'valid_from' => '2026-01-01',
             'implementation_class' => SyntheticPercentageOfBaseRule::class,
@@ -98,7 +98,7 @@ function seedSyntheticAssessmentFixture(RuleApprovalStatus $status): array
 }
 
 it('assesses a synthetic percentage-of-base rule end to end and produces a trace that re-derives the result', function (): void {
-    [$subject] = seedSyntheticAssessmentFixture(RuleApprovalStatus::CANDIDATE);
+    [$subject] = seedSyntheticAssessmentFixture(ApprovalStatus::CANDIDATE);
 
     $fact = TaxFact::factory()->create([
         'tax_subject_id' => $subject->id,
@@ -135,7 +135,7 @@ it('assesses a synthetic percentage-of-base rule end to end and produces a trace
 });
 
 it('produces an identical result from an identical context — reproducibility', function (): void {
-    [$subject] = seedSyntheticAssessmentFixture(RuleApprovalStatus::CANDIDATE);
+    [$subject] = seedSyntheticAssessmentFixture(ApprovalStatus::CANDIDATE);
 
     $fact = TaxFact::factory()->create(['tax_subject_id' => $subject->id, 'ron_amount_minor' => 250000]);
 
@@ -156,7 +156,7 @@ it('produces an identical result from an identical context — reproducibility',
 });
 
 it('sums multiple facts into one taxable base', function (): void {
-    [$subject] = seedSyntheticAssessmentFixture(RuleApprovalStatus::CANDIDATE);
+    [$subject] = seedSyntheticAssessmentFixture(ApprovalStatus::CANDIDATE);
 
     $factA = TaxFact::factory()->create(['tax_subject_id' => $subject->id, 'ron_amount_minor' => 100000]);
     $factB = TaxFact::factory()->create(['tax_subject_id' => $subject->id, 'ron_amount_minor' => 50000]);
@@ -175,7 +175,7 @@ it('sums multiple facts into one taxable base', function (): void {
 });
 
 it('cannot produce a FINAL assessment from a CANDIDATE ruleset', function (): void {
-    [$subject] = seedSyntheticAssessmentFixture(RuleApprovalStatus::CANDIDATE);
+    [$subject] = seedSyntheticAssessmentFixture(ApprovalStatus::CANDIDATE);
 
     $context = TaxContext::forSubject($subject->id)
         ->fiscalYear(2026)
@@ -190,7 +190,7 @@ it('cannot produce a FINAL assessment from a CANDIDATE ruleset', function (): vo
 });
 
 it('produces a FINAL assessment from an APPROVED ruleset', function (): void {
-    [$subject] = seedSyntheticAssessmentFixture(RuleApprovalStatus::APPROVED);
+    [$subject] = seedSyntheticAssessmentFixture(ApprovalStatus::APPROVED);
 
     $fact = TaxFact::factory()->create(['tax_subject_id' => $subject->id, 'ron_amount_minor' => 100000]);
 

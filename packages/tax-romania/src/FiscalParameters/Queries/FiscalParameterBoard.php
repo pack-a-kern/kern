@@ -7,10 +7,10 @@ namespace Kern\TaxRomania\FiscalParameters\Queries;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Str;
-use Kern\Legislation\Enums\RuleApprovalStatus;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Models\SourceSection;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterRead;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -62,7 +62,7 @@ final readonly class FiscalParameterBoard
         $parameters = FiscalParameter::query()->get()->keyBy('code');
         $versions = FiscalParameterVersion::query()
             ->whereIn('fiscal_parameter_id', $parameters->pluck('id'))
-            ->where('status', '<>', RuleApprovalStatus::SUPERSEDED->value)
+            ->where('status', '<>', ApprovalStatus::SUPERSEDED->value)
             ->orderBy('valid_from')
             ->get()
             ->groupBy('fiscal_parameter_id');

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\RuleApprovalStatus as TaxKnowledgeRuleApprovalStatus;
 use Kern\Legislation\Models\SourceSection;
+use Kern\Platform\Approval\ApprovalStatus as StoredApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
@@ -22,7 +22,7 @@ it('allows a CANDIDATE parameter version in a DRAFT assessment', function (): vo
     FiscalParameterVersion::factory()->create([
         'fiscal_parameter_id' => $parameter->id,
         'valid_from' => '2026-01-01',
-        'status' => TaxKnowledgeRuleApprovalStatus::CANDIDATE,
+        'status' => StoredApprovalStatus::CANDIDATE,
     ]);
 
     $resolved = (new ParameterResolver(new EloquentFiscalParameterProvider()))
@@ -36,7 +36,7 @@ it('refuses a CANDIDATE parameter version in a FINAL assessment', function (): v
     FiscalParameterVersion::factory()->create([
         'fiscal_parameter_id' => $parameter->id,
         'valid_from' => '2026-01-01',
-        'status' => TaxKnowledgeRuleApprovalStatus::CANDIDATE,
+        'status' => StoredApprovalStatus::CANDIDATE,
     ]);
 
     expect(fn () => (new ParameterResolver(new EloquentFiscalParameterProvider()))

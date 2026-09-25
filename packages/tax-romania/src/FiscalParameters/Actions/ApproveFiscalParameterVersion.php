@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\FiscalParameters\Actions;
 
 use Illuminate\Support\Facades\DB;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\FiscalParameterDecisionException;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
@@ -17,7 +17,7 @@ use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
  * (`EloquentFiscalParameterProvider` refuses two).
  *
  * The one place a fiscal value becomes `APPROVED`; see
- * {@see \Kern\Legislation\Concerns\ForbidsAgentApproval}.
+ * {@see \Kern\Platform\Approval\ForbidsAgentApproval}.
  */
 final readonly class ApproveFiscalParameterVersion
 {
@@ -26,7 +26,7 @@ final readonly class ApproveFiscalParameterVersion
         return DB::transaction(static function () use ($versionId, $sectionId, $userId): FiscalParameterVersion {
             $version = FiscalParameterVersion::query()->lockForUpdate()->findOrFail($versionId);
 
-            if ($version->status !== RuleApprovalStatus::CANDIDATE) {
+            if ($version->status !== ApprovalStatus::CANDIDATE) {
                 throw FiscalParameterDecisionException::notACandidate($versionId);
             }
 
@@ -39,14 +39,14 @@ final readonly class ApproveFiscalParameterVersion
             FiscalParameterVersion::query()
                 ->where('fiscal_parameter_id', $version->fiscal_parameter_id)
                 ->whereKeyNot($version->id)
-                ->whereIn('status', [RuleApprovalStatus::CANDIDATE->value, RuleApprovalStatus::APPROVED->value])
+                ->whereIn('status', [ApprovalStatus::CANDIDATE->value, ApprovalStatus::APPROVED->value])
                 ->where(static function ($query) use ($version): void {
                     $query->whereNull('valid_until')->orWhere('valid_until', '>=', $version->valid_from->format('Y-m-d'));
                 })
                 ->when($version->valid_until !== null, static function ($query) use ($version): void {
                     $query->where('valid_from', '<=', $version->valid_until?->format('Y-m-d'));
                 })
-                ->update(['status' => RuleApprovalStatus::SUPERSEDED->value]);
+                ->update(['status' => ApprovalStatus::SUPERSEDED->value]);
 
             $version->source_section_id = $sectionId;
             $version->approveByPerson($userId);

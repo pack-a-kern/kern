@@ -6,13 +6,13 @@ namespace Kern\TaxRomania\FiscalParameters\Providers;
 
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
 use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType as EngineFiscalParameterValueType;
-use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus as EngineRuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus as EngineApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
 use Kern\TaxRomania\TaxEngine\Exceptions\UnknownFiscalParameterException;
@@ -40,7 +40,7 @@ final readonly class EloquentFiscalParameterProvider implements FiscalParameterP
         /** @var Collection<int, FiscalParameterVersion> $candidates */
         $candidates = FiscalParameterVersion::query()
             ->where('fiscal_parameter_id', $parameter->id)
-            ->whereIn('status', [RuleApprovalStatus::CANDIDATE->value, RuleApprovalStatus::APPROVED->value])
+            ->whereIn('status', [ApprovalStatus::CANDIDATE->value, ApprovalStatus::APPROVED->value])
             ->where('valid_from', '<=', $dateString)
             ->where(function ($query) use ($dateString): void {
                 $query->whereNull('valid_until')->orWhere('valid_until', '>=', $dateString);
@@ -53,7 +53,7 @@ final readonly class EloquentFiscalParameterProvider implements FiscalParameterP
 
         // A value a person approved stands over one only proposed for the same day: reading the
         // sources again proposes candidates beside approved values, and must not make them ambiguous.
-        $approved = $candidates->filter(static fn (FiscalParameterVersion $version): bool => $version->status === RuleApprovalStatus::APPROVED);
+        $approved = $candidates->filter(static fn (FiscalParameterVersion $version): bool => $version->status === ApprovalStatus::APPROVED);
         $candidates = $approved->isEmpty() ? $candidates : $approved;
 
         if ($candidates->count() > 1) {
@@ -74,7 +74,7 @@ final readonly class EloquentFiscalParameterProvider implements FiscalParameterP
             validFrom: $version->valid_from->toDateTimeImmutable(),
             validUntil: $version->valid_until?->toDateTimeImmutable(),
             sourceSectionId: $version->source_section_id,
-            status: EngineRuleApprovalStatus::from($version->status->value),
+            status: EngineApprovalStatus::from($version->status->value),
         );
     }
 }

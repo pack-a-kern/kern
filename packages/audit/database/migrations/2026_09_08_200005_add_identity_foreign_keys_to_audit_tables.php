@@ -40,25 +40,56 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::table('audit_events', function (Blueprint $table): void {
-            $table->foreign('subject_id')->references('id')->on('tax_subjects')->restrictOnDelete();
-            $table->foreign('actor_id')->references('id')->on('users')->restrictOnDelete();
+        /*
+         * Each key is added only where the table it points at exists.
+         *
+         * This package has no opinion about who a subject or an actor is — `chain_key` is a string
+         * and `actor_id` a uuid — and it is required by applications that have neither table. Where
+         * they are there, as they are here, the constraints are exactly as before; where they are
+         * not, the columns stay unconstrained and the chain still verifies, which is the property
+         * that matters. Found by installing this package on its own, which is what Stage 2 of
+         * `docs/adr/0016` is for.
+         */
+        $tenants = config()->get('tenancy.table');
+
+        Schema::table('audit_events', function (Blueprint $table) use ($tenants): void {
+            if (is_string($tenants) && $tenants !== '' && Schema::hasTable($tenants)) {
+                $table->foreign('subject_id')->references('id')->on($tenants)->restrictOnDelete();
+            }
+
+            if (Schema::hasTable('users')) {
+                $table->foreign('actor_id')->references('id')->on('users')->restrictOnDelete();
+            }
         });
 
-        Schema::table('audit_chain_heads', function (Blueprint $table): void {
-            $table->foreign('subject_id')->references('id')->on('tax_subjects')->restrictOnDelete();
-        });
+        if (is_string($tenants) && $tenants !== '' && Schema::hasTable($tenants)) {
+            Schema::table('audit_chain_heads', function (Blueprint $table) use ($tenants): void {
+                $table->foreign('subject_id')->references('id')->on($tenants)->restrictOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('audit_chain_heads', function (Blueprint $table): void {
-            $table->dropForeign(['subject_id']);
-        });
+        // `dropForeignIdIfExists` has no counterpart for a plain column, so each drop is guarded the
+        // same way `up()` guarded the add: a key that was never created cannot be dropped.
+        $tenants = config()->get('tenancy.table');
+        $hasTenants = is_string($tenants) && $tenants !== '' && Schema::hasTable($tenants);
 
-        Schema::table('audit_events', function (Blueprint $table): void {
-            $table->dropForeign(['subject_id']);
-            $table->dropForeign(['actor_id']);
+        if ($hasTenants) {
+            Schema::table('audit_chain_heads', function (Blueprint $table): void {
+                $table->dropForeign(['subject_id']);
+            });
+        }
+
+        Schema::table('audit_events', function (Blueprint $table) use ($hasTenants): void {
+            if ($hasTenants) {
+                $table->dropForeign(['subject_id']);
+            }
+
+            if (Schema::hasTable('users')) {
+                $table->dropForeign(['actor_id']);
+            }
         });
     }
 };

@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\FiscalParameterValueType;
 use Kern\Legislation\Models\SourceSection;
-use Kern\Legislation\Models\TaxRule;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
@@ -26,6 +25,7 @@ use Kern\TaxRomania\TaxEngine\Services\RuleResolver;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
 use Kern\TaxRomania\TaxEngine\TaxContext;
+use Kern\TaxRomania\TaxRules\TaxRule;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
 

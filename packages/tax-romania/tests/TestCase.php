@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kern\TaxRomania\Tests;
+
+use Kern\Audit\AuditServiceProvider;
+use Kern\Documents\DocumentsServiceProvider;
+use Kern\Legislation\LegislationServiceProvider;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\PlatformServiceProvider;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
+use Kern\TaxRomania\TaxRomaniaServiceProvider;
+use Orchestra\Testbench\TestCase as Testbench;
+
+/**
+ * The whole product installed into an empty Laravel application: five packages and no application.
+ *
+ * Two things it does *not* need, unlike the suites of the packages it depends on: a `TenantGate` and a
+ * `TenantNames`. This package is where a tenant is a taxpayer, so it answers both itself — a
+ * non-revoked `subject_memberships` row, and the two encrypted columns a taxpayer's name lives in.
+ * That is the shape the whole split was for: the base asks, the product answers, and an application
+ * chooses which product to install.
+ *
+ * It still needs a KMS, because ADR 0002 refuses a fake production driver and there is no OpenBao in
+ * a test run. `SubjectDekRepository` is not faked here: the real one reads `tax_subjects`, which this
+ * package creates.
+ */
+abstract class TestCase extends Testbench
+{
+    /** @return list<class-string> */
+    protected function getPackageProviders($app): array
+    {
+        return [
+            AuditServiceProvider::class,
+            PlatformServiceProvider::class,
+            DocumentsServiceProvider::class,
+            LegislationServiceProvider::class,
+            TaxRomaniaServiceProvider::class,
+        ];
+    }
+
+    protected function defineEnvironment($app): void
+    {
+        $app['config']->set('database.default', 'pgsql');
+        $app['config']->set('database.connections.pgsql', [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', 'postgres'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('KERN_PACKAGE_TEST_DATABASE', 'kern_pkg_test'),
+            'username' => env('DB_USERNAME', 'kern'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ]);
+
+        // A taxpayer, which is what this package installs the tenant as.
+        $app['config']->set('tenancy.column', 'tax_subject_id');
+        $app['config']->set('tenancy.table', 'tax_subjects');
+
+        $app['config']->set('crypto.blind_index.keys', json_encode(
+            ['1' => base64_encode(str_repeat("\x33", 32))],
+            JSON_THROW_ON_ERROR,
+        ));
+        $app['config']->set('crypto.blind_index.current_version', 1);
+
+        $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => sys_get_temp_dir() . '/kern-tax-objects']);
+        $app['config']->set('objectstore.disk', 'objects');
+        $app['config']->set('documents.quarantine_disk', 'objects');
+        $app['config']->set('sources.storage.disk', 'objects');
+        $app['config']->set('ai.embeddings.enabled', false);
+        $app['config']->set('queue.default', 'sync');
+
+        $app->instance(KeyManagementService::class, new InMemoryKeyManagementService());
+    }
+}

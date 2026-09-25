@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Enums;
+namespace Kern\TaxRomania\FiscalParameters\Enums;
 
 /** `fiscal_parameters.value_type` (`BLUEPRINT.md` §6.8) — how `value_json` must be interpreted. */
 enum FiscalParameterValueType: string

@@ -30,7 +30,7 @@ final class EmbedLegislationChunks implements ShouldQueue
 
     public function __construct()
     {
-        $this->timeout = config()->integer('horizon.defaults.supervisor-legislation.timeout');
+        $this->timeout = config()->integer('legislation.job_timeout_seconds');
         $this->onQueue(config()->string('legislation.queue'));
     }
 

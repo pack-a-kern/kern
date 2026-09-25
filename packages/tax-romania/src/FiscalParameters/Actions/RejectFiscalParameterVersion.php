@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\FiscalParameters\Actions;
 
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\FiscalParameterDecisionException;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 
@@ -15,11 +15,11 @@ final readonly class RejectFiscalParameterVersion
     {
         $version = FiscalParameterVersion::query()->findOrFail($versionId);
 
-        if ($version->status !== RuleApprovalStatus::CANDIDATE) {
+        if ($version->status !== ApprovalStatus::CANDIDATE) {
             throw FiscalParameterDecisionException::notACandidate($versionId);
         }
 
-        $version->forceFill(['status' => RuleApprovalStatus::REJECTED->value])->save();
+        $version->forceFill(['status' => ApprovalStatus::REJECTED->value])->save();
 
         return $version;
     }

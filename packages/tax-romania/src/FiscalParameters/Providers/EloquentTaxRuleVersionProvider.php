@@ -6,16 +6,16 @@ namespace Kern\TaxRomania\FiscalParameters\Providers;
 
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
-use Kern\Legislation\Enums\RuleApprovalStatus;
-use Kern\Legislation\Models\TaxRule;
-use Kern\Legislation\Models\TaxRuleSource;
-use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleVersionProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedTaxRuleVersion;
-use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus as EngineRuleApprovalStatus;
+use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus as EngineApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
 use Kern\TaxRomania\TaxEngine\Exceptions\UnknownTaxRuleException;
+use Kern\TaxRomania\TaxRules\TaxRule;
+use Kern\TaxRomania\TaxRules\TaxRuleSource;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 
 /**
  * The `Kern\TaxRomania\TaxEngine\Contracts\TaxRuleVersionProvider` adapter. This class, not
@@ -52,7 +52,7 @@ final readonly class EloquentTaxRuleVersionProvider implements TaxRuleVersionPro
         /** @var Collection<int, TaxRuleVersion> $candidates */
         $candidates = TaxRuleVersion::query()
             ->where('tax_rule_id', $rule->id)
-            ->whereIn('status', [RuleApprovalStatus::CANDIDATE->value, RuleApprovalStatus::APPROVED->value])
+            ->whereIn('status', [ApprovalStatus::CANDIDATE->value, ApprovalStatus::APPROVED->value])
             ->where('valid_from', '<=', $dateString)
             ->where(function ($query) use ($dateString): void {
                 $query->whereNull('valid_until')->orWhere('valid_until', '>=', $dateString);
@@ -88,7 +88,7 @@ final readonly class EloquentTaxRuleVersionProvider implements TaxRuleVersionPro
             validUntil: $version->valid_until?->toDateTimeImmutable(),
             implementationClass: $version->implementation_class,
             configJson: $version->config_json,
-            status: EngineRuleApprovalStatus::from($version->status->value),
+            status: EngineApprovalStatus::from($version->status->value),
             sourceSectionIds: $sourceSectionIds,
         );
     }

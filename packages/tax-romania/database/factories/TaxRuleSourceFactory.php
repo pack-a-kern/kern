@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Database\Factories;
+namespace Kern\TaxRomania\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Kern\Legislation\Database\Factories\SourceSectionFactory;
 use Kern\Legislation\Enums\SourceRelation;
-use Kern\Legislation\Models\TaxRuleSource;
+use Kern\TaxRomania\TaxRules\TaxRuleSource;
 
 /**
  * @extends Factory<TaxRuleSource>

@@ -2,21 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Concerns;
-
-use Kern\Legislation\Enums\RuleApprovalStatus;
-use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
+namespace Kern\Platform\Approval;
 
 /**
  * Enforces `docs/AGENTS.md` §9 / `BLUEPRINT.md` §9.3 — "No agent may set `APPROVED`" — **in code**,
  * not only by review, on any model whose `status` attribute is cast to
- * {@see RuleApprovalStatus}. Registers a `saving` listener (Eloquent auto-discovers
+ * {@see ApprovalStatus}. Registers a `saving` listener (Eloquent auto-discovers
  * `boot{TraitName}()` for every trait a model uses) that refuses to persist a row whose `status`
  * is `APPROVED`, regardless of whether that came from `create()`, `fill()`, or direct attribute
  * assignment.
  *
  * Shared between {@see \Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion} and
- * {@see \Kern\Legislation\Models\TaxRuleVersion} because the invariant is identical, stable
+ * {@see \Kern\TaxRomania\TaxRules\TaxRuleVersion} because the invariant is identical, stable
  * domain knowledge (`docs/CODE-QUALITY.md` §1), not incidental similarity.
  *
  * The one way a row becomes `APPROVED` is {@see savedAsApprovedByPerson()}, through the model's own
@@ -34,9 +31,9 @@ trait ForbidsAgentApproval
     protected static function bootForbidsAgentApproval(): void
     {
         static::saving(function (self $model): void {
-            /** @var RuleApprovalStatus|string|null $status */
+            /** @var ApprovalStatus|string|null $status */
             $status = $model->getAttribute('status');
-            $approved = $status === RuleApprovalStatus::APPROVED || $status === RuleApprovalStatus::APPROVED->value;
+            $approved = $status === ApprovalStatus::APPROVED || $status === ApprovalStatus::APPROVED->value;
 
             if ($approved && (self::$approvingByPerson === null || self::$approvingByPerson !== $model->getKey())) {
                 throw AgentApprovalNotPermittedException::forModel(static::class);
@@ -56,7 +53,7 @@ trait ForbidsAgentApproval
         self::$approvingByPerson = is_string($key) ? $key : null;
 
         try {
-            $this->forceFill(['status' => RuleApprovalStatus::APPROVED->value, ...$decidedBy])->save();
+            $this->forceFill(['status' => ApprovalStatus::APPROVED->value, ...$decidedBy])->save();
         } finally {
             self::$approvingByPerson = null;
         }

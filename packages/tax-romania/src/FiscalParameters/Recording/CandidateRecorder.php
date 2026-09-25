@@ -6,7 +6,7 @@ namespace Kern\TaxRomania\FiscalParameters\Recording;
 
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use Kern\Legislation\Enums\RuleApprovalStatus;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Matching\LawMatch;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -100,7 +100,7 @@ final readonly class CandidateRecorder
 
             if ($replacing !== []) {
                 FiscalParameterVersion::query()
-                    ->where('status', RuleApprovalStatus::CANDIDATE->value)
+                    ->where('status', ApprovalStatus::CANDIDATE->value)
                     ->whereIn('fiscal_parameter_id', FiscalParameter::query()->whereIn('code', $replacing)->select('id'))
                     ->whereNotIn('id', $kept)
                     ->delete();
@@ -115,7 +115,7 @@ final readonly class CandidateRecorder
     {
         $citation = FiscalParameterVersion::query()
             ->join('ext_source_sections', 'ext_source_sections.id', '=', 'fiscal_parameter_versions.source_section_id')
-            ->where('fiscal_parameter_versions.status', RuleApprovalStatus::APPROVED->value)
+            ->where('fiscal_parameter_versions.status', ApprovalStatus::APPROVED->value)
             ->whereIn('fiscal_parameter_versions.fiscal_parameter_id', FiscalParameter::query()->where('code', $reading->parameterCode)->select('id'))
             ->orderByRaw('abs(fiscal_parameter_versions.valid_from - ?::date)', [$reading->validFrom->format('Y-m-d')])
             ->value('ext_source_sections.citation_label');
@@ -143,7 +143,7 @@ final readonly class CandidateRecorder
             ->filter(static fn (FiscalParameterVersion $version): bool => $version->value_json === $reading->value
                 && $version->valid_until?->format('Y-m-d') === $reading->validUntil?->format('Y-m-d'));
 
-        $decided = $same->filter(static fn (FiscalParameterVersion $version): bool => in_array($version->status, [RuleApprovalStatus::APPROVED, RuleApprovalStatus::REJECTED], true));
+        $decided = $same->filter(static fn (FiscalParameterVersion $version): bool => in_array($version->status, [ApprovalStatus::APPROVED, ApprovalStatus::REJECTED], true));
 
         if ($decided->isNotEmpty()) {
             // What a person decided stays decided: only what it was read from and checked against
@@ -154,13 +154,13 @@ final readonly class CandidateRecorder
         }
 
         /** @var FiscalParameterVersion $version */
-        $version = $same->first(static fn (FiscalParameterVersion $version): bool => $version->status === RuleApprovalStatus::CANDIDATE)
+        $version = $same->first(static fn (FiscalParameterVersion $version): bool => $version->status === ApprovalStatus::CANDIDATE)
             ?? new FiscalParameterVersion([
                 'fiscal_parameter_id' => $parameter->id,
                 'valid_from' => $reading->validFrom->format('Y-m-d'),
                 'valid_until' => $reading->validUntil?->format('Y-m-d'),
                 'value_json' => $reading->value,
-                'status' => RuleApprovalStatus::CANDIDATE->value,
+                'status' => ApprovalStatus::CANDIDATE->value,
             ]);
 
         $version->fill(['source_section_id' => $source, 'evidence' => $evidence])->save();

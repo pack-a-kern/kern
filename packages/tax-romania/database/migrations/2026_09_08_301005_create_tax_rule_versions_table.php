@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\Schema;
  * here — matching `BLUEPRINT.md` §6.8's own schema, which gives `tax_rule_versions` no
  * `source_section_id` column.
  *
- * `status` (`Kern\Legislation\Enums\RuleApprovalStatus`) defaults to `CANDIDATE` and is
+ * `status` (`Kern\Platform\Approval\ApprovalStatus`) defaults to `CANDIDATE` and is
  * guarded identically to `fiscal_parameter_versions.status` — see that migration's docblock and
- * `Kern\Legislation\Concerns\ForbidsAgentApproval`.
+ * `Kern\Platform\Approval\ForbidsAgentApproval`.
  */
 return new class () extends Migration {
     public function up(): void

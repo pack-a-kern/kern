@@ -6,9 +6,9 @@ namespace Tests\Feature\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDeci
 
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
-use Kern\Legislation\Enums\RuleApprovalStatus;
-use Kern\Legislation\Exceptions\AgentApprovalNotPermittedException;
 use Kern\Legislation\Models\SourceSection;
+use Kern\Platform\Approval\AgentApprovalNotPermittedException;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -83,7 +83,7 @@ it('approves a value on a paragraph found to say it, in the name of the person, 
 
     $approved = $version->fresh();
 
-    expect($approved?->status)->toBe(RuleApprovalStatus::APPROVED)
+    expect($approved?->status)->toBe(ApprovalStatus::APPROVED)
         ->and($approved?->approved_by)->toBe($admin->id)
         ->and($approved?->source_section_id)->toBe($other)
         ->and(AuditEvent::query()->where('event_type', 'FISCAL_PARAMETER_APPROVED')->where('actor_id', $admin->id)->exists())->toBeTrue();
@@ -102,8 +102,8 @@ it('sets aside what else held for the period, so a day has one value', function 
         ->postJson("/api/v1/fiscal-parameters/versions/{$second->id}/approve", ['section_id' => $second->source_section_id])
         ->assertOk();
 
-    expect($first->fresh()?->status)->toBe(RuleApprovalStatus::SUPERSEDED)
-        ->and($second->fresh()?->status)->toBe(RuleApprovalStatus::APPROVED);
+    expect($first->fresh()?->status)->toBe(ApprovalStatus::SUPERSEDED)
+        ->and($second->fresh()?->status)->toBe(ApprovalStatus::APPROVED);
 });
 
 it('rejects a value, and records who did', function (): void {
@@ -112,14 +112,14 @@ it('rejects a value, and records who did', function (): void {
 
     $this->actingAs($admin)->postJson("/api/v1/fiscal-parameters/versions/{$version->id}/reject")->assertOk();
 
-    expect($version->fresh()?->status)->toBe(RuleApprovalStatus::REJECTED)
+    expect($version->fresh()?->status)->toBe(ApprovalStatus::REJECTED)
         ->and(AuditEvent::query()->where('event_type', 'FISCAL_PARAMETER_REJECTED')->where('actor_id', $admin->id)->exists())->toBeTrue();
 });
 
 it('never lets a value be saved approved any other way', function (): void {
     $version = proposed();
 
-    $version->status = RuleApprovalStatus::APPROVED;
+    $version->status = ApprovalStatus::APPROVED;
 
     expect(fn () => $version->save())->toThrow(AgentApprovalNotPermittedException::class);
 

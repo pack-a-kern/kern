@@ -35,7 +35,7 @@ built). Five pieces, matching the task brief's five numbered requirements:
    Qdrant, no vector index (Milestone 11's job, explicitly out of scope here).
 
 5. **`fiscal_parameters`/`tax_rules` skeleton** — tables and Eloquent models only, per `BLUEPRINT.md`
-   §6.8. `status` defaults to `CANDIDATE` and `Kern\Legislation\Concerns\ForbidsAgentApproval`
+   §6.8. `status` defaults to `CANDIDATE` and `Kern\Platform\Approval\ForbidsAgentApproval`
    makes `APPROVED` **unreachable from application code**, not just discouraged by convention —
    tested (`tests/Feature/Domain/TaxKnowledge/ForbidsAgentApprovalTest.php`).
 
@@ -121,14 +121,14 @@ version from the mere existence of a newer one. That remains a human decision.
 **`Kern\Legislation\Enums`**
 - `SectionType.php` — `ARTICOL|ALINEAT|LITERA|PUNCT`.
 - `SourceDocumentVersionStatus.php` — `PENDING|PARSED|REQUIRES_REVIEW`.
-- `RuleApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`, shared by both `_versions`
+- `ApprovalStatus.php` — `CANDIDATE|APPROVED|SUPERSEDED|REJECTED`, shared by both `_versions`
   tables (stable duplicated domain knowledge, per `docs/CODE-QUALITY.md` §1 — not incidental).
 - `SourceRelation.php` — `PRIMARY|AMENDMENT|GUIDANCE|EXAMPLE`.
 - `FiscalParameterValueType.php` — `MONEY|DECIMAL|INTEGER|DATE|JSON`.
 
 **`Kern\Legislation\Concerns`**
 - `ForbidsAgentApproval.php` — trait; registers an Eloquent `saving` guard on any model with a
-  `RuleApprovalStatus`-cast `status` attribute, throwing
+  `ApprovalStatus`-cast `status` attribute, throwing
   `Exceptions\AgentApprovalNotPermittedException` if it is ever `APPROVED`. Applied to
   `FiscalParameterVersion` and `TaxRuleVersion`. **`APPROVED` is unreachable from this module's
   code, full stop** — there is no escape hatch because no human-review workflow exists yet to need

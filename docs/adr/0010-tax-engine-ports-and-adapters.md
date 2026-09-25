@@ -38,8 +38,8 @@ exceptions, and enums** — never a TaxKnowledge type:
   DateTimeImmutable $date): ResolvedFiscalParameter`
 
 Both `ResolvedTaxRuleVersion::$status` and `ResolvedFiscalParameter::$status`/`$valueType` are now
-typed to **new, TaxEngine-owned enums** — `Kern\TaxRomania\TaxEngine\Enums\{RuleApprovalStatus,
-FiscalParameterValueType}` — rather than `Kern\Legislation\Enums\{RuleApprovalStatus,
+typed to **new, TaxEngine-owned enums** — `Kern\TaxRomania\TaxEngine\Enums\{ApprovalStatus,
+FiscalParameterValueType}` — rather than `Kern\Legislation\Enums\{ApprovalStatus,
 FiscalParameterValueType}`. This is deliberate, not an oversight: a port whose DTO still names a
 TaxKnowledge enum in its public signature would leak the boundary this ADR exists to close, just
 through an enum instead of a model. The two enum pairs are identical in case names and backing
@@ -53,7 +53,7 @@ implement these ports. They are behaviourally identical to the two classes ADR 0
 exclusion of `REJECTED`/`SUPERSEDED` from the candidate set — but now live inside `TaxKnowledge`,
 read its own Eloquent models (legitimate: a module reading its own models is not the violation
 `BLUEPRINT.md` §2.1 names), map its enums to TaxEngine's at the boundary
-(`EngineRuleApprovalStatus::from($tkStatus->value)`), and throw TaxEngine's own exceptions.
+(`EngineApprovalStatus::from($tkStatus->value)`), and throw TaxEngine's own exceptions.
 
 `Kern\Legislation\TaxKnowledgeServiceProvider` binds both ports to these adapters. This is
 the one place the inversion is wired: `TaxKnowledgeServiceProvider` imports `Kern\TaxRomania\TaxEngine`
@@ -92,7 +92,7 @@ Ruleset::forLayer($taxEngine)->accesses($support, $subjects, $fx),  // TaxKnowle
 
 **Bad:**
 - Two structurally-identical enum pairs now exist (`TaxEngine`'s and `TaxKnowledge`'s
-  `RuleApprovalStatus`; `TaxEngine`'s and `TaxKnowledge`'s `FiscalParameterValueType`), and the two
+  `ApprovalStatus`; `TaxEngine`'s and `TaxKnowledge`'s `FiscalParameterValueType`), and the two
   adapters are the only code that must keep them in sync (`::from($other->value)` throws
   `ValueError` at the adapter boundary if a case is ever added to one enum and not the other —
   this is treated as an acceptable, self-detecting cost of the boundary, not silently risky).

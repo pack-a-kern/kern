@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Kern\Legislation\Enums\RuleApprovalStatus;
-use Kern\Legislation\Models\TaxRule;
-use Kern\Legislation\Models\TaxRuleSource;
-use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentTaxRuleVersionProvider;
 use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
 use Kern\TaxRomania\TaxEngine\Exceptions\UnknownTaxRuleException;
+use Kern\TaxRomania\TaxRules\TaxRule;
+use Kern\TaxRomania\TaxRules\TaxRuleSource;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 
 /**
  * Mirrors `tests/Feature/Domain/TaxKnowledge/LegislationTemporalQueryTest.php`'s shape for the
@@ -25,7 +25,7 @@ it('resolves the version in force on a given date', function (): void {
         'tax_rule_id' => $rule->id,
         'valid_from' => '2026-01-01',
         'valid_until' => '2026-12-31',
-        'status' => RuleApprovalStatus::CANDIDATE,
+        'status' => ApprovalStatus::CANDIDATE,
     ]);
     TaxRuleSource::factory()->create(['rule_version_id' => $version->id]);
 
@@ -78,7 +78,7 @@ it('never resolves a REJECTED or SUPERSEDED version', function (): void {
         'tax_rule_id' => $rule->id,
         'valid_from' => '2026-01-01',
         'valid_until' => '2026-12-31',
-        'status' => RuleApprovalStatus::REJECTED,
+        'status' => ApprovalStatus::REJECTED,
     ]);
 
     expect(fn () => (new EloquentTaxRuleVersionProvider())->versionInForceOn('RO.TEST.REJECTED', new DateTimeImmutable('2026-06-15')))

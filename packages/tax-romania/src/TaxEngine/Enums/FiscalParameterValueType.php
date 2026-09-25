@@ -9,7 +9,7 @@ namespace Kern\TaxRomania\TaxEngine\Enums;
  * {@see \Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter}'s `valueJson` must be
  * interpreted (`asMoney()`/`asDecimalRate()`/`asInteger()`/`asDate()`/`asJson()`).
  *
- * Deliberately a second enum, not a reuse of `Kern\Legislation\Enums\FiscalParameterValueType`
+ * Deliberately a second enum, not a reuse of `Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType`
  * — see `docs/adr/0010-tax-engine-ports-and-adapters.md`. `Kern\TaxRomania\FiscalParameters\Providers\
  * EloquentFiscalParameterProvider` maps TaxKnowledge's enum to this one at the adapter boundary
  * (`self::from($tkValueType->value)`) — the case names and backing values are, and must remain,

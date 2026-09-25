@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kern\Legislation\Database\Factories;
+namespace Kern\TaxRomania\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Kern\Legislation\Enums\RuleApprovalStatus;
-use Kern\Legislation\Models\TaxRuleVersion;
+use Kern\Platform\Approval\ApprovalStatus;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 
 /**
  * @extends Factory<TaxRuleVersion>
@@ -27,7 +27,7 @@ final class TaxRuleVersionFactory extends Factory
             'valid_until' => null,
             'implementation_class' => null,
             'config_json' => [],
-            'status' => RuleApprovalStatus::CANDIDATE,
+            'status' => ApprovalStatus::CANDIDATE,
             'source_hash' => null,
             'approved_at' => null,
         ];

@@ -20,12 +20,19 @@
         "kern/platform": "@dev"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.23"
+        "fakerphp/faker": "^1.23",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.1"
     },
     "autoload": {
         "psr-4": {
             "Kern\\Legislation\\": "src/",
             "Kern\\Legislation\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kern\\Legislation\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -36,7 +43,19 @@
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
 }
