@@ -157,8 +157,8 @@ prior handoff in this repo uses for this kind of change)
   `TaxSubject`/`User`) — see `Document`'s own docblock for why.
 
 **Tests** — 73 tests, all real, all executed (see "How to verify"):
-- `tests/Unit/Domain/Documents/{MagicByteSnifferTest,FilenameSanitizerTest,FileSecurityValidatorTest,BroadcastPayloadContainsNoPiiTest,ClamdVirusScannerUnavailableTest}.php`
-- `tests/Feature/Domain/Documents/{ScanQuarantinedDocumentJobTest,ProcessScannedDocumentJobTest,UploadDocumentControllerTest,ShowDocumentControllerTest,DocumentAiConsentControllerTest,CrossTenantIsolationTest,RawStoragePlaintextTest,DocumentExtractionAutoConfirmTest,RequestExternalDocumentExtractionTest,ClamdVirusScannerLiveTest}.php`
+- `tests/Unit/Documents/{MagicByteSnifferTest,FilenameSanitizerTest,FileSecurityValidatorTest,BroadcastPayloadContainsNoPiiTest,ClamdVirusScannerUnavailableTest}.php`
+- `tests/Feature/Documents/{ScanQuarantinedDocumentJobTest,ProcessScannedDocumentJobTest,UploadDocumentControllerTest,ShowDocumentControllerTest,DocumentAiConsentControllerTest,CrossTenantIsolationTest,RawStoragePlaintextTest,DocumentExtractionAutoConfirmTest,RequestExternalDocumentExtractionTest,ClamdVirusScannerLiveTest}.php`
 - `tests/Fixtures/Documents/FileFixtures.php` — real, `getimagesize()`-parseable PDF/PNG/JPEG
   fixtures with genuine dimensions (verified directly, not assumed from the format spec — see "Key
   decisions" #5) and the literal EICAR test string.

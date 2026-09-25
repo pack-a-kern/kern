@@ -174,7 +174,7 @@ the standard library.
    whether it also governs `print_r()` (which normally shows private properties verbatim, marked
    `[value:ClassName:private]`) was not something to guess given how much this class's entire job
    is preventing exactly that leak. Ran a 5-line PHP 8.3 script directly: both `print_r()` and
-   `var_dump()` honour `__debugInfo()` identically. `tests/Unit/Domain/Spv/SensitiveStringTest.php`
+   `var_dump()` honour `__debugInfo()` identically. `tests/Unit/TaxRomania/Spv/SensitiveStringTest.php`
    encodes this as a real regression test.
 
 2. **`apps/spv-browser`'s own test suite caught a real design bug during this task's own
@@ -272,7 +272,7 @@ $ docker run --rm --network anaf_data_net -v "$PWD/apps/api":/app -w /app --user
 $ ... -c 'php artisan migrate:rollback --step=4 --force && php artisan migrate --force'
   # all four down() then up() again, clean both directions
 
-$ ... -c 'vendor/bin/pest tests/Feature/Domain/Spv tests/Unit/Domain/Spv'   # run 1
+$ ... -c 'vendor/bin/pest tests/Feature/TaxRomania/Spv tests/Unit/TaxRomania/Spv'   # run 1
   Tests:    29 passed (150 assertions)
 $ ... # run 2 — identical
   Tests:    29 passed (150 assertions)
@@ -346,7 +346,7 @@ use Kern\TaxRomania\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP
   scope: "No D212 submission flow beyond the interface").
 - **Broadcast channel** `tax-subjects.{subjectId}.spv` — `SpvAuthChallengeRequired`,
   `SpvAuthenticated`, `SpvSyncStarted`, `SpvSyncCompleted`. Status/progress/counts only, proven by
-  `tests/Unit/Domain/Spv/BroadcastPayloadContainsNoPiiTest.php`.
+  `tests/Unit/TaxRomania/Spv/BroadcastPayloadContainsNoPiiTest.php`.
 - **`Kern\TaxRomania\Spv\Contracts\{SpvBrowserSessionClient,SpvInboxSyncTransport}`** — the seams a
   future milestone with observed ANAF portal behaviour extends. Swapping in a real adapter means:
   (a) implement `apps/spv-browser`'s `PortalAuthenticator` with real Playwright navigation and pass

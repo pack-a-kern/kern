@@ -103,10 +103,10 @@ idempotency, anomaly detection, monthly/annual averaging — is built and tested
 `FxSourceFactory` (`apps/api/database/factories/`).
 
 **Tests**
-- `tests/Unit/Domain/Fx/{DecimalRateTest,BnrXmlParserTest}.php` — pure, no DB/HTTP.
-- `tests/Unit/Domain/TaxKnowledge/OfficialSourceRegistryTest.php` — pure.
-- `tests/Feature/Domain/TaxKnowledge/{AllowlistedHttpFetcherTest,SourceIngestionServiceTest}.php`.
-- `tests/Feature/Domain/Fx/{FxRateImporterTest,FxPeriodAverageCalculatorTest,FxRateQueryTest,ImportBnrDailyRatesActionTest,BackfillBnrYearActionTest}.php`.
+- `tests/Unit/TaxRomania/Fx/{DecimalRateTest,BnrXmlParserTest}.php` — pure, no DB/HTTP.
+- `tests/Unit/Legislation/OfficialSourceRegistryTest.php` — pure.
+- `tests/Feature/Legislation/{AllowlistedHttpFetcherTest,SourceIngestionServiceTest}.php`.
+- `tests/Feature/TaxRomania/Fx/{FxRateImporterTest,FxPeriodAverageCalculatorTest,FxRateQueryTest,ImportBnrDailyRatesActionTest,BackfillBnrYearActionTest}.php`.
 - `tests/Fixtures/Fx/Bnr/*.xml` — five fixtures, every one headed
   `SYNTHETIC FIXTURE — NOT CAPTURED FROM BNR` in an XML comment (see "What is fixture-verified
   only").
@@ -204,21 +204,21 @@ libpq-dev libzip-dev`, `docker-php-ext-install intl pdo_pgsql pcntl bcmath`) aga
 already-vendored `apps/api/vendor/`. All commands below were actually run; output is real.
 
 ```text
-$ vendor/bin/pint --test packages/legislation/src packages/tax-romania/src/Fx tests/Unit/Domain/Fx \
-    tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
+$ vendor/bin/pint --test packages/legislation/src packages/tax-romania/src/Fx tests/Unit/TaxRomania/Fx \
+    tests/Unit/Legislation tests/Feature/Legislation tests/Feature/TaxRomania/Fx \
     database/migrations database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
     config/sources.php bootstrap/providers.php deptrac.php
   PASS .......................................................... 86 files
 
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src \
-    packages/tax-romania/src/Fx tests/Unit/Domain/Fx tests/Unit/Domain/TaxKnowledge \
-    tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx \
+    packages/tax-romania/src/Fx tests/Unit/TaxRomania/Fx tests/Unit/Legislation \
+    tests/Feature/Legislation tests/Feature/TaxRomania/Fx \
     database/factories/{OfficialSource,SourceDocument,SourceDocumentVersion,FxSource}Factory.php \
     config/sources.php bootstrap/providers.php
  [OK] No errors                                                                 (level 9, no baseline)
 
-$ vendor/bin/pest tests/Unit/Domain/Fx tests/Unit/Domain/TaxKnowledge \
-    tests/Feature/Domain/TaxKnowledge tests/Feature/Domain/Fx
+$ vendor/bin/pest tests/Unit/TaxRomania/Fx tests/Unit/Legislation \
+    tests/Feature/Legislation tests/Feature/TaxRomania/Fx
   Tests:    76 passed (180 assertions)
 
 $ vendor/bin/deptrac analyse --config-file=deptrac.php

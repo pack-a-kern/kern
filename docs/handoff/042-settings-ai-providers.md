@@ -130,7 +130,7 @@ Qdrant and PaddleOCR rows are absent because ADR 0006 and ADR 0005 mean we do no
 
 ## Guard added
 
-`tests/Feature/Domain/Settings/SettingLabelCoverageTest.php` asserts from PHP that
+`tests/Feature/Platform/Settings/SettingLabelCoverageTest.php` asserts from PHP that
 every `SettingKey` has a label in `ro.ts` **and** `en.ts`, and that no label names
 a key that no longer exists. This is the only place the two halves meet: `tsc`
 proves the two dictionaries agree with each other, but nothing proved they agree

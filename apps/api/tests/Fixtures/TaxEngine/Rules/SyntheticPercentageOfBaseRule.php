@@ -23,7 +23,7 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * Demonstrates the generic "percentage of the summed RON gross base" shape end to end —
  * `Kern\TaxRomania\TaxEngine\Services\TaxAssessor`'s own tests use this as their
  * `tax_rule_versions.implementation_class` — and is itself proven pure by
- * `tests/Feature/Domain/TaxEngine/RulePurityArchitectureTest.php`.
+ * `tests/Feature/TaxRomania/TaxEngine/RulePurityArchitectureTest.php`.
  */
 #[TaxRuleAttribute(code: 'RO.TEST.SYNTHETIC_PERCENTAGE_OF_BASE', version: '0.0.1')]
 final class SyntheticPercentageOfBaseRule implements TaxRuleContract

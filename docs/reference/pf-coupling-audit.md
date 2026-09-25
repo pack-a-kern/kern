@@ -114,7 +114,7 @@ the collision risk this finding described is gone regardless of how unlikely it 
 `RegisterPfSubject` does, tagged `FiscalIdentifierKind::CUI`; the column is genuinely shared, and
 the asymmetry this finding flagged no longer exists. `pfa_profiles.registration_number_ciphertext`/
 `registration_number_blind_index` were removed (see Finding 3's resolution, which this task applied
-symmetrically to PFA). Verified by `tests/Feature/Domain/Subjects/BlindIndexLookupTest.php`'s
+symmetrically to PFA). Verified by `tests/Feature/TaxRomania/Subjects/BlindIndexLookupTest.php`'s
 cross-kind non-collision tests and `RegisterPfaSubjectTest.php`'s
 `it('populates the canonical fiscal_identifier column on tax_subjects, tagged CUI, for a PFA
 registration')`.
@@ -139,7 +139,7 @@ depended on ("CNP is encrypted here and nowhere else") is now true. `pf_profiles
 `tax_subjects.fiscal_identifier_ciphertext`/`fiscal_identifier_blind_index`, tagged
 `FiscalIdentifierKind::CNP`. `RegisterPfSubject`'s duplicate-CNP check now queries `TaxSubject`
 directly instead of `PfProfile`. Verified by
-`tests/Feature/Domain/Subjects/RawDatabasePlaintextTest.php`'s schema assertion that
+`tests/Feature/TaxRomania/Subjects/RawDatabasePlaintextTest.php`'s schema assertion that
 `pf_profiles.cnp_ciphertext`/`cnp_blind_index` do not exist, and by the full `RegisterPfSubjectTest`/
 `BlindIndexLookupTest` suites continuing to pass unmodified in their duplicate-detection behaviour.
 

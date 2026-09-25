@@ -75,13 +75,13 @@ Entry points:
   `disabledBySettings()`, distinct from the pre-existing `noProviderBound()`.
 
 **Tests**
-- `tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php` — the AAD/DEK isolation
+- `tests/Unit/Platform/Settings/SystemEncryptionScopeIsolationTest.php` — the AAD/DEK isolation
   proof, both directions, against the real `EnvelopeCipher` (no fakes, no DB).
-- `tests/Feature/Domain/Settings/{SettingsRepositoryTest,AiProviderSettingsServiceTest,
+- `tests/Feature/Platform/Settings/{SettingsRepositoryTest,AiProviderSettingsServiceTest,
   AiSettingsHttpTest}.php`.
-- `tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php` — the
+- `tests/Feature/Documents/RequestExternalDocumentExtractionSettingsTest.php` — the
   no-restart hot-swap proof.
-- `tests/Feature/Domain/Documents/{RequestExternalDocumentExtractionTest,
+- `tests/Feature/Documents/{RequestExternalDocumentExtractionTest,
   ProcessScannedDocumentJobTest}.php` — updated `beforeEach` to force `ai.enabled=true` via the
   env-fallback config path, since `ai.enabled` now defaults to `false` and would otherwise change
   what these pre-existing files were testing (see "Key decisions" #2).
@@ -173,7 +173,7 @@ No file under `apps/processing/**`, `resources/js/**`, or `docs/STATUS.md` was t
    guarantee (a system-scoped ciphertext cannot decrypt as subject-scoped, or vice versa) comes
    from **two independent layers**: a different DEK entirely, and a different AAD leading segment
    — proven both ways, plus an AAD-only isolation case with a *shared* key, in
-   `tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php`.
+   `tests/Unit/Platform/Settings/SystemEncryptionScopeIsolationTest.php`.
 
 7. **`api_key` is the only field `PUT /api/v1/settings/ai` treats as "may be omitted to mean
    unchanged."** `enabled`/`provider`/`base_url`/`model` are always echoed back by `GET`/`PUT`, so
@@ -230,9 +230,9 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local
 $ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
     php -d memory_limit=1G vendor/bin/phpstan analyse packages/platform/src/Settings \
     packages/platform/src/Http/Controllers/Settings app/Http/Middleware/EnsureSettingsAdmin.php \
-    packages/documents/src/ExternalAi tests/Feature/Domain/Settings tests/Unit/Domain/Settings \
-    tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php \
-    tests/Feature/Domain/Documents/RequestExternalDocumentExtractionTest.php --memory-limit=1G
+    packages/documents/src/ExternalAi tests/Feature/Platform/Settings tests/Unit/Platform/Settings \
+    tests/Feature/Documents/RequestExternalDocumentExtractionSettingsTest.php \
+    tests/Feature/Documents/RequestExternalDocumentExtractionTest.php --memory-limit=1G
  [OK] No errors
 ```
 Whole-repo run (unscoped) shows exactly 2 pre-existing errors, both in files this task never
@@ -304,7 +304,7 @@ in this section already reflect the fix (0 risky in every run shown).
 **The AAD/DEK isolation guarantee, unit-tested against the real `EnvelopeCipher`:**
 ```
 $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
-    vendor/bin/pest tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php
+    vendor/bin/pest tests/Unit/Platform/Settings/SystemEncryptionScopeIsolationTest.php
   PASS  Tests\Unit\Domain\Settings\SystemEncryptionScopeIsolationTest
     ✓ it is not a UUID, so it can never collide with a real tax_subject_id or user id
     ✓ it cannot decrypt a system-scoped ciphertext using a subject-scoped key and AAD
@@ -317,7 +317,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local
 **The no-restart hot-swap proof:**
 ```
 $ docker run --rm --network anaf_data_net --user root -e APP_KEY=... [... same Postgres env ...] \
-    kern-php-test:local vendor/bin/pest tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php
+    kern-php-test:local vendor/bin/pest tests/Feature/Documents/RequestExternalDocumentExtractionSettingsTest.php
   PASS  ... it refuses to call the provider while ai.enabled is false, the default
   PASS  ... it picks up a settings change on the very next call, with no restart, no re-resolution needed
   PASS  ... it falls back to the env-configured provider only until a setting is explicitly saved

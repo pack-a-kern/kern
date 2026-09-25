@@ -105,7 +105,7 @@ judged worth more than a migration history nobody has run):
   `withFiscalIdentifier(string $cnp)` became `withFiscalIdentifier(FiscalIdentifierKind $kind,
   string $rawValue)`. No other caller existed (confirmed by grep before changing the signature).
 
-**Tests** (`apps/api/tests/Feature/Domain/Subjects/`), all real, all executed — see "How to
+**Tests** (`apps/api/tests/Feature/TaxRomania/Subjects/`), all real, all executed — see "How to
 verify":
 - `RawDatabasePlaintextTest.php` — removed the now-nonexistent `pf_profiles.cnp_ciphertext`
   assertion; added a schema assertion that `pf_profiles.cnp_ciphertext`/`cnp_blind_index` do not

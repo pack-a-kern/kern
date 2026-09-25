@@ -68,7 +68,7 @@ Dependencies (`apps/api/composer.json`/`composer.lock`)
 Tests
 - `apps/api/tests/Fakes/FakeWebauthnAuthenticator.php` — a **real** ECDSA P-256 key pair producing genuinely valid, signed WebAuthn attestation/assertion responses (hand-built CBOR via `spomky-labs/cbor-php`, `openssl_sign`) — `AuthenticatorAttestationResponseValidator`/`AuthenticatorAssertionResponseValidator` run for real against its output in `PasskeyTest.php`, nothing is mocked.
 - `apps/api/tests/Pest.php` — added `Feature/Domain/Identity` to the `RefreshDatabase` list, plus three shared test helpers: `bootstrapIdentityCryptoForTests()` (fakes `KeyManagementService`/`BlindIndexHasher`, same pattern `BlindIndexLookupTest.php` established), `carryCookiesFrom()` and `jsonString()`/`jsonStringList()` — see "Key decisions" #6, this is genuinely load-bearing, not boilerplate.
-- `apps/api/tests/Feature/Domain/Identity/{RegistrationTest,PasswordLoginTest,MfaTest,SessionManagementTest,PasskeyTest,SpvMfaPolicyTest,AuditTrailTest}.php`, `Support/Totp/TotpVerifierTest.php` — 42 tests, all real, all executed (see "How to verify").
+- `apps/api/tests/Feature/Platform/Identity/{RegistrationTest,PasswordLoginTest,MfaTest,SessionManagementTest,PasskeyTest,SpvMfaPolicyTest,AuditTrailTest}.php`, `Support/Totp/TotpVerifierTest.php` — 42 tests, all real, all executed (see "How to verify").
 
 ## Key decisions
 
@@ -152,7 +152,7 @@ $ docker run ... anaf-app -c 'vendor/bin/pest'   # run 2, identical DB state bef
 This task's own 42 tests, isolated:
 
 ```text
-$ docker run ... anaf-app -c 'vendor/bin/pest tests/Feature/Domain/Identity'
+$ docker run ... anaf-app -c 'vendor/bin/pest tests/Feature/Platform/Identity'
   Tests:    42 passed (233 assertions)
 ```
 

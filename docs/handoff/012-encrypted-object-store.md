@@ -77,21 +77,21 @@ Entry points:
 - `apps/api/tests/Fakes/InMemorySubjectDekRepository.php` — create-only in-memory
   `SubjectDekRepository`, matching the contract `docs/handoff/005-crypto-core.md` documented for
   the Identity/Subjects agent to implement. This file did not exist on disk when this task began
-  despite `tests/Feature/Support/Crypto/EncryptedCastTest.php` already importing it — writing it
+  despite `tests/Feature/Platform/Crypto/EncryptedCastTest.php` already importing it — writing it
   satisfied both that pre-existing test and this module's own tests. (By the time this task
   finished, a concurrent Subjects-module agent had also landed a real
   `EloquentSubjectDekRepository` — this fake remains the correct choice for this module's own
   tests, which must not depend on a real `tax_subjects` table or Postgres.)
 
 **Tests** — see "How to verify" for the full list and real output.
-- `apps/api/tests/Unit/Support/ObjectStore/ObjectKeyTest.php`
-- `apps/api/tests/Unit/Support/ObjectStore/ObjectManifestTest.php`
-- `apps/api/tests/Unit/Support/ObjectStore/StreamEnvelopeTest.php` — the chunking/AAD/tamper/
+- `apps/api/tests/Unit/Documents/ObjectStore/ObjectKeyTest.php`
+- `apps/api/tests/Unit/Documents/ObjectStore/ObjectManifestTest.php`
+- `apps/api/tests/Unit/Documents/ObjectStore/StreamEnvelopeTest.php` — the chunking/AAD/tamper/
   streaming-memory proofs, entirely without a Laravel container or MinIO.
-- `apps/api/tests/Feature/Support/ObjectStore/EncryptedObjectStoreTest.php` — the same guarantees
+- `apps/api/tests/Feature/Documents/ObjectStore/EncryptedObjectStoreTest.php` — the same guarantees
   through the real `EncryptedObjectStore`/service-provider wiring, against `Storage::fake('s3')`.
   Runs on every `vendor/bin/pest` invocation.
-- `apps/api/tests/Feature/Support/ObjectStore/EncryptedObjectStoreLiveMinioTest.php` — the same
+- `apps/api/tests/Feature/Documents/ObjectStore/EncryptedObjectStoreLiveMinioTest.php` — the same
   round trip and, critically, the raw-bucket marker assertion, against a **real** MinIO. Skipped
   unless `OBJECTSTORE_TEST_ENDPOINT`/`OBJECTSTORE_TEST_BUCKET` are set (see "Key decisions" #6).
 
@@ -204,19 +204,19 @@ module itself), running against the real, already-vendored `apps/api/vendor/`.
 All commands below were actually run; output is real.
 
 ```text
-$ vendor/bin/pint --test app/Support/ObjectStore tests/Unit/Support/ObjectStore \
-    tests/Feature/Support/ObjectStore tests/Fakes/InMemorySubjectDekRepository.php config/objectstore.php
+$ vendor/bin/pint --test app/Support/ObjectStore tests/Unit/Documents/ObjectStore \
+    tests/Feature/Documents/ObjectStore tests/Fakes/InMemorySubjectDekRepository.php config/objectstore.php
   PASS .......................................................... 18 files
 
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G app/Support/ObjectStore \
-    tests/Unit/Support/ObjectStore tests/Feature/Support/ObjectStore \
+    tests/Unit/Documents/ObjectStore tests/Feature/Documents/ObjectStore \
     tests/Fakes/InMemorySubjectDekRepository.php config/objectstore.php
  [OK] No errors                                                                 (level 9)
 
-$ vendor/bin/pest tests/Unit/Support/ObjectStore
+$ vendor/bin/pest tests/Unit/Documents/ObjectStore
   Tests:    27 passed (42 assertions)
 
-$ vendor/bin/pest tests/Feature/Support/ObjectStore/EncryptedObjectStoreTest.php
+$ vendor/bin/pest tests/Feature/Documents/ObjectStore/EncryptedObjectStoreTest.php
   Tests:    11 passed (15 assertions)
 
 $ vendor/bin/deptrac analyse --config-file=deptrac.php
@@ -233,7 +233,7 @@ $ docker run --rm --network anaf_data_net \
     -e OBJECTSTORE_TEST_KEY=<MINIO_ROOT_USER> -e OBJECTSTORE_TEST_SECRET=<MINIO_ROOT_PASSWORD> \
     -e OBJECTSTORE_TEST_REGION=eu-central-1 -e OBJECTSTORE_TEST_BUCKET=kern-documents \
     -e OBJECTSTORE_TEST_ENDPOINT=http://minio:9000 \
-    <php-8.5-cli image> vendor/bin/pest tests/Feature/Support/ObjectStore/EncryptedObjectStoreLiveMinioTest.php
+    <php-8.5-cli image> vendor/bin/pest tests/Feature/Documents/ObjectStore/EncryptedObjectStoreLiveMinioTest.php
 
   PASS  Tests\Feature\Support\ObjectStore\EncryptedObjectStoreLiveMinioTest
     ✓ it round-trips a small document through a real MinIO bucket, byte-identical    0.19s
@@ -252,7 +252,7 @@ are present in the same environment — this is the specific regression decision
 
 **Whole-suite run** (`vendor/bin/pest --exclude-group=slow`, real `APP_KEY`): 132 passed, 19
 skipped (my env-gated live tests plus others'), 19 failed — **all 19 failures are in
-`tests/Feature/Domain/Subjects/**`**, a concurrent agent's in-progress work (`Class
+`tests/Feature/TaxRomania/Subjects/**`**, a concurrent agent's in-progress work (`Class
 "Database\Factories\Domain\Identity\Models\UserFactory" not found`, a DEK-lifecycle assertion
 mismatch), entirely unrelated to and unaffected by this module. Not fixed here — outside this
 task's scope, and `docs/AGENTS.md` §10 says record rather than silently fix; **this task was

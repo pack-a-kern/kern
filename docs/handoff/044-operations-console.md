@@ -122,7 +122,7 @@ practical false alarm — sessions live in Redis too, so nobody can be signed in
 while it is down — and the alternative, treating an unreadable heartbeat as healthy, is the failure
 mode this module exists to eliminate.
 
-`tests/Feature/Domain/Operations/SchedulerHeartbeatTest.php` covers all of it, including running
+`tests/Feature/TaxRomania/Operations/SchedulerHeartbeatTest.php` covers all of it, including running
 the real registered schedule entry and asserting that both writes happen.
 
 ## New command

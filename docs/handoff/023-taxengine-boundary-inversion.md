@@ -94,20 +94,20 @@ never the concrete adapter.
   upheld rather than excepted.
 
 **Tests**
-- New (relocated, same assertions): `tests/Feature/Domain/TaxKnowledge/Providers/
+- New (relocated, same assertions): `tests/Feature/TaxRomania/FiscalParameters/Providers/
   EloquentTaxRuleVersionProviderTest.php`, `EloquentFiscalParameterProviderTest.php` — replace
-  `tests/Feature/Domain/TaxEngine/{TaxRuleTemporalReaderTest,FiscalParameterTemporalReaderTest}.php`
+  `tests/Feature/TaxRomania/TaxEngine/{TaxRuleTemporalReaderTest,FiscalParameterTemporalReaderTest}.php`
   (deleted), same `it()` blocks, only the class under test and its `use` import changed.
 - Modified — mechanical constructor/import updates only, no assertion changed:
-  `tests/Feature/Domain/TaxEngine/RuleResolverTest.php`,
-  `tests/Feature/Domain/TaxEngine/ParameterResolverTest.php` (both now construct the real
+  `tests/Feature/TaxRomania/TaxEngine/RuleResolverTest.php`,
+  `tests/Feature/TaxRomania/TaxEngine/ParameterResolverTest.php` (both now construct the real
   `Eloquent*Provider` adapter and import `TaxEngine`'s own `ApprovalStatus` for the DTO
   assertion, aliasing `TaxKnowledge`'s as `TaxKnowledgeApprovalStatus` for the model-factory
   calls that still legitimately need it),
-  `tests/Feature/Domain/TaxEngine/TaxAssessorTest.php` (`makeTaxAssessor()` now wires the two
+  `tests/Feature/TaxRomania/TaxEngine/TaxAssessorTest.php` (`makeTaxAssessor()` now wires the two
   adapters instead of the two deleted readers),
-  `tests/Feature/Domain/TaxEngine/RuleInvokerTest.php`,
-  `tests/Unit/Domain/TaxEngine/ResolvedFiscalParameterTest.php` (both switched fully to
+  `tests/Feature/TaxRomania/TaxEngine/RuleInvokerTest.php`,
+  `tests/Unit/TaxRomania/TaxEngine/ResolvedFiscalParameterTest.php` (both switched fully to
   `TaxEngine`'s own enums — they construct the DTO directly and never touch a `TaxKnowledge`
   model, so no alias was needed).
 
@@ -170,12 +170,12 @@ $ docker run --rm --network anaf_data_net --user root \
   PASS .......................................................... 592 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    packages/tax-romania/src/TaxEngine packages/legislation/src tests/Unit/Domain/TaxEngine \
-    tests/Feature/Domain/TaxEngine tests/Feature/Domain/TaxKnowledge tests/Fixtures/TaxEngine \
+    packages/tax-romania/src/TaxEngine packages/legislation/src tests/Unit/TaxRomania/TaxEngine \
+    tests/Feature/TaxRomania/TaxEngine tests/Feature/Legislation tests/Fixtures/TaxEngine \
     database/factories deptrac.php'
  [OK] No errors                                                    (level 9, no baseline)
 
-$ ... -c 'vendor/bin/pest tests/Unit/Domain/TaxEngine tests/Feature/Domain/TaxEngine tests/Feature/Domain/TaxKnowledge'
+$ ... -c 'vendor/bin/pest tests/Unit/TaxRomania/TaxEngine tests/Feature/TaxRomania/TaxEngine tests/Feature/Legislation'
   Tests:    1 skipped, 125 passed (272 assertions)
 $ # run 2 (leak check) — identical
   Tests:    1 skipped, 125 passed (272 assertions)

@@ -46,7 +46,7 @@ $subject = app(RegisterPfaSubject::class)(new RegisterPfaSubjectInput(
 
 For the TaxEngine side, there is **no new entry point** — that is the finding. A PFA-tagged rule
 is assessed through the exact same `TaxContext`/`TaxAssessor` API `docs/handoff/020-tax-engine.md`
-already documents; see `tests/Feature/Domain/TaxEngine/PfaRuleExtensionTest.php` for the full
+already documents; see `tests/Feature/TaxRomania/TaxEngine/PfaRuleExtensionTest.php` for the full
 worked example.
 
 ## Files created / changed

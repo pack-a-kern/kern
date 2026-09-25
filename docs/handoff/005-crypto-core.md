@@ -141,7 +141,7 @@ Entry points:
    (default attribute name `tax_subject_id`, override `subjectForeignKeyName()` if different)
    before delegating the rest of the array to `parent::fill()`, making assignment order
    irrelevant. **Every model that reads its subject id from a plain attribute (not injected some
-   other way) must use this trait too.** `tests/Feature/Support/Crypto/EncryptedCastTest.php`'s
+   other way) must use this trait too.** `tests/Feature/Platform/Crypto/EncryptedCastTest.php`'s
    "lets fields be assigned in any order" test exists specifically to pin this down as a
    regression test, not folklore.
 
@@ -228,7 +228,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
   Violations 0, Skipped violations 0, Uncovered 40, Allowed 0, Warnings 0, Errors 0
 ```
 
-The 14 skipped: 12 belong to the Audit module's tests (`tests/Feature/Domain/Audit/**`, require a
+The 14 skipped: 12 belong to the Audit module's tests (`tests/Feature/Audit/**`, require a
 real Postgres connection — not this module's concern) and 2 are this module's own
 `OpenBaoLiveIntegrationTest` (skipped unless `OPENBAO_TEST_ADDR`/`OPENBAO_TEST_TOKEN` are set,
 since CI/`make test` don't start OpenBao alongside the PHP test image). "Uncovered 40" in deptrac
@@ -252,7 +252,7 @@ $ docker run --rm --network anaf_app_net \
     -e OPENBAO_TEST_KEK_NAME=kern-crypto-core-test-kek-v2 \
     -e APP_KEY=base64:VApg/GsNVsAh2pMcDj/bBX/UvAFnrMANzk9EHgs5fRI= \
     -v <repo>/apps/api:/var/www/html -w /var/www/html <php-8.5-cli image> \
-    vendor/bin/pest tests/Feature/Support/KeyManagement/OpenBaoLiveIntegrationTest.php
+    vendor/bin/pest tests/Feature/Platform/KeyManagement/OpenBaoLiveIntegrationTest.php
 
   PASS  Tests\Feature\Support\KeyManagement\OpenBaoLiveIntegrationTest
     ✓ it wraps and unwraps a real DEK through a live OpenBao transit engine

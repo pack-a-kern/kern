@@ -23,7 +23,7 @@ Namespace: `https://www.bnr.ro/xsd`, schema `https://curs.bnr.ro/xsd/nbrfxrates.
 Real data confirms five currencies are quoted **per 100 units**, carrying `multiplier="100"`:
 **HUF, IDR, ISK, JPY, KRW**. EUR and the rest are per single unit. Treating a multiplier-100 rate
 as per-unit scales a conversion by 100 silently. M2's importer stores rate and multiplier verbatim
-and divides at read time; `tests/Unit/Domain/Fx/BnrRealFeedParsingTest.php` pins this against the
+and divides at read time; `tests/Unit/TaxRomania/Fx/BnrRealFeedParsingTest.php` pins this against the
 genuinely captured fixture `tests/Fixtures/Fx/Bnr/captured-daily-2026-09-07.xml`.
 
 `config/sources.php` now defaults to these URLs, still overridable via `BNR_DAILY_XML_URL` /

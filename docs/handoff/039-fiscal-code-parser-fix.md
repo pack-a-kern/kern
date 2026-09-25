@@ -86,7 +86,7 @@ resolved or suffixed into uniqueness.
   measured defect; the file's own leading HTML comment documents exactly what is verbatim vs.
   reconstructed-shell (and the two spots using an explicitly-labelled `SYNTHETIC placeholder text`
   string for a trimmed-away real paragraph). Source URL and retrieval date are in that comment.
-- `tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php` (**new**) —
+- `tests/Unit/Legislation/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php` (**new**) —
   9 pure unit tests (no DB/HTTP) against the fixture above: exact section counts, zero duplicate
   labels, the exact 4 reported ambiguous labels, Art. 3's no-alineat letters, Art. 40^3's
   reattached orphan group, Art. 316's nested `PUNCT`-in-`LITERA`, the per-`Titlu` annex label, and
@@ -160,16 +160,16 @@ CREATE DATABASE
 **Pint:**
 ```
 $ vendor/bin/pint --test packages/legislation/src/Parsing packages/legislation/src/Enums/SectionType.php \
-    tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserTest.php \
-    tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php
+    tests/Unit/Legislation/LegislatieJustRoHtmlParserTest.php \
+    tests/Unit/Legislation/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php
   PASS ........................................................... 7 files
 ```
 
 **PHPStan (level 9, no baseline):**
 ```
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src/Parsing \
-    tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php \
-    tests/Unit/Domain/TaxKnowledge/LegislatieJustRoHtmlParserTest.php
+    tests/Unit/Legislation/LegislatieJustRoHtmlParserFiscalCodeExtractTest.php \
+    tests/Unit/Legislation/LegislatieJustRoHtmlParserTest.php
  [OK] No errors
 ```
 
@@ -182,7 +182,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 **Pest, real Postgres, TaxKnowledge module, run twice (leak check):**
 ```
 $ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=kern_fiscalcodeparser DB_USERNAME=kern \
-    DB_PASSWORD=<redacted> vendor/bin/pest tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge
+    DB_PASSWORD=<redacted> vendor/bin/pest tests/Unit/Legislation tests/Feature/Legislation
   Tests: 1 skipped, 126 passed (343 assertions)     [run 1]
   Tests: 1 skipped, 126 passed (343 assertions)     [run 2, identical]
 ```

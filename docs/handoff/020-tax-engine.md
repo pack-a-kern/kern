@@ -232,8 +232,8 @@ bcmath installed) against the real, already-vendored `apps/api/vendor/`, plus a 
 `postgres:17-alpine` container on a shared Docker network, both torn down after verification.
 
 ```text
-$ vendor/bin/pint --test packages/tax-romania/src/TaxEngine tests/Unit/Domain/TaxEngine \
-    tests/Feature/Domain/TaxEngine tests/Fixtures/TaxEngine tests/Support/TaxEngineRulePurity \
+$ vendor/bin/pint --test packages/tax-romania/src/TaxEngine tests/Unit/TaxRomania/TaxEngine \
+    tests/Feature/TaxRomania/TaxEngine tests/Fixtures/TaxEngine tests/Support/TaxEngineRulePurity \
     database/migrations/2026_09_08_302000_create_tax_facts_table.php \
     database/migrations/2026_09_08_302001_create_tax_assessments_table.php \
     database/migrations/2026_09_08_302002_create_tax_assessment_lines_table.php \
@@ -242,7 +242,7 @@ $ vendor/bin/pint --test packages/tax-romania/src/TaxEngine tests/Unit/Domain/Ta
   PASS .......................................................... 82 files
 
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/tax-romania/src/TaxEngine \
-    tests/Unit/Domain/TaxEngine tests/Feature/Domain/TaxEngine tests/Fixtures/TaxEngine/Rules \
+    tests/Unit/TaxRomania/TaxEngine tests/Feature/TaxRomania/TaxEngine tests/Fixtures/TaxEngine/Rules \
     tests/Support/TaxEngineRulePurity \
     database/factories/{TaxFact,TaxAssessment,TaxAssessmentLine}Factory.php
  [OK] No errors                                                                 (level 9, no baseline)
@@ -258,7 +258,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 
 # Real Postgres, this module's own suite, run 1:
 $ DB_CONNECTION=pgsql DB_HOST=<pg> DB_DATABASE=kern_test DB_USERNAME=kern DB_PASSWORD=kern \
-    vendor/bin/pest tests/Unit/Domain/TaxEngine tests/Feature/Domain/TaxEngine
+    vendor/bin/pest tests/Unit/TaxRomania/TaxEngine tests/Feature/TaxRomania/TaxEngine
   Tests: 79 passed (163 assertions)
 
 # Real Postgres, run 2 (leak check) — identical:
@@ -285,7 +285,7 @@ concurrently-changing repository was rolling back *other* agents' more-recently-
 in the same batch, not mine): each of the three migrations' `down()` then `up()` methods invoked
 directly, in dependency order (lines → assessments → facts, then reversed), against the real
 Postgres database already holding the full concurrent schema. All six calls completed without
-error; `tests/Feature/Domain/TaxEngine` (44 tests) re-run immediately after and passed identically.
+error; `tests/Feature/TaxRomania/TaxEngine` (44 tests) re-run immediately after and passed identically.
 
 ## Interfaces exposed to other modules
 

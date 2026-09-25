@@ -95,7 +95,7 @@ Factories (`apps/api/database/factories/`)
   plus a `withFiscalIdentifier()` state. No `PfProfile`/`SubjectMembership` factories — see "Key
   decisions" #5.
 
-Tests (`apps/api/tests/Feature/Domain/Subjects/`) — all real, all executed, see "How to verify":
+Tests (`apps/api/tests/Feature/TaxRomania/Subjects/`) — all real, all executed, see "How to verify":
 - `RawDatabasePlaintextTest.php` — Milestone 1's definition of done: creates a `User` and a full PF
   `TaxSubject`+`PfProfile` with known email/CNP/name/address, queries the **raw** columns, asserts
   none of the plaintexts (or their base64-decoded bytes) appear anywhere, including in the DEK
@@ -260,7 +260,7 @@ docblock documents this interaction in detail.
    `$primaryKey = 'tax_subject_id'` / `$incrementing = false` / `$keyType = 'string'` set directly.
 
 7. **Registration order matters for a UUID-primary-keyed model with no encrypted fields, too** —
-   found while debugging `tests/Feature/Domain/Subjects/Fixtures/ScopedFixtureRecord.php`
+   found while debugging `tests/Feature/TaxRomania/Subjects/Fixtures/ScopedFixtureRecord.php`
    (initially hand-rolled a `creating` hook assigning `Str::uuid7()` without also setting
    `$incrementing = false`/`$keyType = 'string'`). Eloquent's default `performInsert()` treats any
    model as auto-incrementing unless told otherwise, and — even though the manually-assigned UUID
@@ -338,7 +338,7 @@ $ php artisan migrate --force
 $ php artisan migrate:rollback --step=6 --force && php artisan migrate --force
   # rolls back cleanly and re-applies cleanly
 
-$ DB_CONNECTION=pgsql ... vendor/bin/pest tests/Feature/Domain/Subjects
+$ DB_CONNECTION=pgsql ... vendor/bin/pest tests/Feature/TaxRomania/Subjects
   Tests:    26 passed (113 assertions)
   # every test in this task's own suite, including the two Postgres-only partial-unique-index
   # tests that correctly self-skip under sqlite
@@ -390,13 +390,13 @@ a foreign key this task added at handoff 006's own request.
 
 **Adding the `audit_events`/`audit_chain_heads` → `tax_subjects` foreign keys (this task's own
 migration, done at `docs/handoff/006-audit-chain.md`'s explicit request) breaks two pre-existing
-Postgres-only Audit tests**: `tests/Feature/Domain/Audit/AuditChainServiceTest.php` and
-`tests/Feature/Domain/Audit/AuditChainConcurrencyTest.php` both call `AuditChainService::record()`
+Postgres-only Audit tests**: `tests/Feature/Audit/AuditChainServiceTest.php` and
+`tests/Feature/Audit/AuditChainConcurrencyTest.php` both call `AuditChainService::record()`
 with synthetic `Str::uuid()` subject ids that were never backed by a real `tax_subjects` row —
 which was correct and unavoidable when handoff 006 was written (`tax_subjects` didn't exist yet),
 but now violates the new `restrictOnDelete()` foreign key with `SQLSTATE[23503]: Foreign key
 violation` on every insert into `audit_chain_heads`/`audit_events` with a non-existent subject id.
-Confirmed directly: `vendor/bin/pest tests/Feature/Domain/Audit` against a real Postgres connection
+Confirmed directly: `vendor/bin/pest tests/Feature/Audit` against a real Postgres connection
 now shows 10 failures, all the identical FK-violation shape, none of them present before this
 task's migration existed.
 

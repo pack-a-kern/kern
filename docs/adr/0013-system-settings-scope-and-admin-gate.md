@@ -51,7 +51,7 @@ required by the task brief:
   sealing a tenant's field), *and* the AAD's leading segment differs (`'system'` vs. a real UUID),
   which `sodium_crypto_aead_xchacha20poly1305_ietf_decrypt` authenticates and rejects on mismatch
   even in the hypothetical case the same key were ever reused. Proven both ways round in
-  `tests/Unit/Domain/Settings/SystemEncryptionScopeIsolationTest.php` against the real
+  `tests/Unit/Platform/Settings/SystemEncryptionScopeIsolationTest.php` against the real
   `EnvelopeCipher`, not a stand-in.
 - No change was needed to `App\Support\Crypto\EnvelopeCipher`, `AssociatedData`, or
   `App\Support\KeyManagement\SubjectDekService` — all three already accept a plain `string` for

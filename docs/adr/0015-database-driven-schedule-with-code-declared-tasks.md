@@ -67,7 +67,7 @@ stuck in `RUNNING` is itself the diagnostic.
   into a web form is not a capability worth the failure mode it introduces.
 - `kern:legislation:ingest` is absent from the enum. It takes a source code, a URL and a document
   type — an ingestion decision with a provenance consequence (`BLUEPRINT.md` §7.1), not a button.
-  `tests/Feature/Domain/Operations/OperationTaskTest.php` asserts its absence, so adding it later is
+  `tests/Feature/TaxRomania/Operations/OperationTaskTest.php` asserts its absence, so adding it later is
   a deliberate act with a failing test to answer for.
 - The official-source allowlist is rendered read-only. It is declared in `config/sources.php` and
   re-mirrored onto `official_sources` at every fetch, and `AllowlistedHttpFetcher` checks the config

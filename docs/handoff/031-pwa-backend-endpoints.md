@@ -70,7 +70,7 @@ Entry points:
   a subject is chosen and registration creates one), and four new routes inside the existing
   `Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])` group.
 
-**Tests** (`apps/api/tests/Feature/Domain/`)
+**Tests** (`apps/api/tests/Feature/`)
 - `Subjects/ListSubjectsControllerTest.php`, `Subjects/RegisterPfSubjectControllerTest.php`.
 - `Documents/DocumentExtractionReviewControllerTest.php`, `Documents/ShowDocumentContentControllerTest.php`.
 
@@ -180,7 +180,7 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html -e APP_KEY=base64:.
 ```
 All 8 are in `packages/tax-romania/src/Spv/**` (`ApplyPortalAuthResult.php`, `DestroySpvSession.php`,
 `SubmitSpvChallengeCode.php`, `SyncSpvInbox.php`, `SpvInboxMessage.php`,
-`tests/Feature/Domain/Spv/RawDatabasePlaintextTest.php`) — a module explicitly out of this task's
+`tests/Feature/TaxRomania/Spv/RawDatabasePlaintextTest.php`) — a module explicitly out of this task's
 scope, owned by a concurrently active agent, pre-existing and unrelated to any file this task
 touched. **Zero errors in every file this task created or changed.** Recorded here per
 `docs/AGENTS.md` §10 (record a bug found outside your own scope, don't fix it silently) rather than
@@ -360,7 +360,7 @@ Streams the decrypted original bytes with `Content-Type: <document mime_type>` a
   `packages/tax-romania/src/Subjects/{Actions/RegisterPfSubject,Models/*,Tenancy/*}.php`,
   `app/Support/ObjectStore/{EncryptedObjectStore,ObjectKey,DocumentObjectKind}.php`,
   `packages/tax-romania/src/Audit/{Services/AuditChainService,DataTransferObjects/AuditEventInput}.php`, and the
-  existing `tests/Feature/Domain/Documents/{ShowDocumentControllerTest,CrossTenantIsolationTest,
+  existing `tests/Feature/Documents/{ShowDocumentControllerTest,CrossTenantIsolationTest,
   DocumentExtractionAutoConfirmTest}.php` for established test conventions this task's own tests
   follow.
 - Laravel/Symfony framework source read directly: `Illuminate\Pagination\{CursorPaginator,

@@ -24,30 +24,31 @@ uses(TestCase::class)->in('Feature');
  * rows persist and the next test collides with `UniqueConstraintViolationException`. RefreshDatabase
  * wraps each test in a transaction that is rolled back afterwards, which fixes that.
  *
- * It is scoped, NOT applied to all of Feature/, because `Feature/Domain/Audit` forks OS processes
+ * It is scoped, NOT applied to all of Feature/, because `Feature/Audit` forks OS processes
  * (`AuditChainConcurrencyTest`) that connect independently and must see *committed* rows — a
  * suite-wide transaction would make those children see an empty table and would silently destroy
  * the strongest concurrency guarantee in the codebase. See docs/handoff/015-m1-integration-repairs.md.
  */
-uses(RefreshDatabase::class)->in('Feature/Domain/Banks');
-uses(RefreshDatabase::class)->in('Feature/Domain/Fx');
-uses(RefreshDatabase::class)->in('Feature/Domain/TaxKnowledge');
-uses(RefreshDatabase::class)->in('Feature/Domain/Subjects');
-uses(RefreshDatabase::class)->in('Feature/Domain/Identity');
-uses(RefreshDatabase::class)->in('Feature/Domain/TaxEngine');
-uses(RefreshDatabase::class)->in('Feature/Domain/Wallet');
-uses(RefreshDatabase::class)->in('Feature/Domain/Documents');
-uses(RefreshDatabase::class)->in('Feature/Domain/Rental');
-uses(RefreshDatabase::class)->in('Feature/Domain/Declarations');
-uses(RefreshDatabase::class)->in('Feature/Domain/Spv');
-uses(RefreshDatabase::class)->in('Feature/Domain/Settings');
-uses(RefreshDatabase::class)->in('Feature/Domain/Operations');
-uses(RefreshDatabase::class)->in('Feature/Domain/StatementImport');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Banks');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Fx');
+uses(RefreshDatabase::class)->in('Feature/Legislation');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/FiscalParameters');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Subjects');
+uses(RefreshDatabase::class)->in('Feature/Platform/Identity');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/TaxEngine');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Wallet');
+uses(RefreshDatabase::class)->in('Feature/Documents');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Rental');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Declarations');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Spv');
+uses(RefreshDatabase::class)->in('Feature/Platform/Settings');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/Operations');
+uses(RefreshDatabase::class)->in('Feature/TaxRomania/StatementImport');
 
 /**
  * Puts the database back after the one suite that is allowed to commit.
  *
- * `Feature/Domain/Audit` is excluded from RefreshDatabase above, for a reason that is not
+ * `Feature/Audit` is excluded from RefreshDatabase above, for a reason that is not
  * negotiable: `AuditChainConcurrencyTest` forks OS processes which open their own connections and
  * must therefore see *committed* rows. What that costs is that its writes survive the suite — and
  * they are not a handful of audit rows. Measured: 16 users, 11 tax subjects and 90 events left
@@ -74,12 +75,12 @@ uses()->afterEach(function (): void {
     }
 
     DB::statement('TRUNCATE users, tax_subjects, audit_events, audit_chain_heads RESTART IDENTITY CASCADE');
-})->in('Feature/Domain/Audit');
+})->in('Feature/Audit');
 
 /**
  * Swaps the real OpenBao-backed `KeyManagementService` and the config-driven `BlindIndexHasher`
  * for fakes with a random in-process key, exactly the pattern
- * `tests/Feature/Domain/Subjects/BlindIndexLookupTest.php` established first. Every `Feature/
+ * `tests/Feature/TaxRomania/Subjects/BlindIndexLookupTest.php` established first. Every `Feature/
  * Domain/Identity` test needs this: `Kern\Platform\Identity\Models\User::createWithEmail()` and
  * `Kern\Platform\Identity\Models\UserMfaMethod`'s encrypted TOTP secret both go through
  * `Kern\Platform\Crypto\Casts\Encrypted`, which resolves a real `KeyManagementService` — no live

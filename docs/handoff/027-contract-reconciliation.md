@@ -107,19 +107,19 @@ pipeline. `DocumentStatus`'s docblock now documents the new `PROCESSING -> REJEC
   app/queue-default/scheduler/reverb) and to `python-api`'s own `environment:` block, both
   `${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}`.
 - `.env.example` — documents the new `INTERNAL_SERVICE_AUTH_TOKEN` variable.
-- `apps/api/tests/Feature/Domain/Documents/ProcessScannedDocumentJobTest.php` — response fixtures
+- `apps/api/tests/Feature/Documents/ProcessScannedDocumentJobTest.php` — response fixtures
   rewritten to the real shape; new tests for the auth header being sent, auth-not-configured,
   401-rejected, each of the eight documented rejection codes (data provider), and an unrecognised
   error code falling back to "unavailable."
-- `apps/api/tests/Feature/Domain/Documents/HttpTextExtractionGatewayTest.php` — new. Exercises
+- `apps/api/tests/Feature/Documents/HttpTextExtractionGatewayTest.php` — new. Exercises
   `HttpTextExtractionGateway` directly: real per-page `quality_score`/structural-text parsing, three
   distinct malformed-shape rejections (bare-string `text`, wrong `kind`, old top-level
   `quality_score`), the bearer token being sent, and fail-closed-with-no-request behaviour.
-- `apps/api/tests/Unit/Domain/Documents/UntrustedDocumentTextTest.php` — new. Redaction, `reveal()`,
+- `apps/api/tests/Unit/Documents/UntrustedDocumentTextTest.php` — new. Redaction, `reveal()`,
   "is not a string," `join()`, `equals()`.
-- `apps/api/tests/Unit/Domain/Documents/BroadcastPayloadContainsNoPiiTest.php` — added a case for
+- `apps/api/tests/Unit/Documents/BroadcastPayloadContainsNoPiiTest.php` — added a case for
   `DocumentTextExtractionRejected` (status/reason/progress only, never document content).
-- `apps/api/tests/Feature/Domain/Documents/RequestExternalDocumentExtractionTest.php` — updated to
+- `apps/api/tests/Feature/Documents/RequestExternalDocumentExtractionTest.php` — updated to
   construct `UntrustedDocumentText::wrap(...)` instead of a bare string, matching the new signature.
 
 No file under `apps/processing/**` was touched. No file in `packages/tax-romania/src/{TaxEngine,TaxKnowledge,

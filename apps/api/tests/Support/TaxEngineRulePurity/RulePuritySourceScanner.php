@@ -15,7 +15,7 @@ use RuntimeException;
  *
  * Deliberately test-only code (`tests/Support/**`, not `packages/tax-romania/src/TaxEngine/**`): its only
  * consumer is this suite's own CI gate
- * (`tests/Feature/Domain/TaxEngine/RulePurityArchitectureTest.php`), so shipping it as production
+ * (`tests/Feature/TaxRomania/TaxEngine/RulePurityArchitectureTest.php`), so shipping it as production
  * code would be exactly the "abstraction with a single consumer" `docs/CODE-QUALITY.md` §2
  * forbids.
  *

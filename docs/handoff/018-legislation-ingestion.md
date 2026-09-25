@@ -37,7 +37,7 @@ built). Five pieces, matching the task brief's five numbered requirements:
 5. **`fiscal_parameters`/`tax_rules` skeleton** — tables and Eloquent models only, per `BLUEPRINT.md`
    §6.8. `status` defaults to `CANDIDATE` and `Kern\Platform\Approval\ForbidsAgentApproval`
    makes `APPROVED` **unreachable from application code**, not just discouraged by convention —
-   tested (`tests/Feature/Domain/TaxKnowledge/ForbidsAgentApprovalTest.php`).
+   tested (`tests/Feature/TaxRomania/FiscalParameters/ForbidsAgentApprovalTest.php`).
 
 6. **AI candidate-extraction contract** — `Kern\Legislation\CandidateExtraction\CandidateChangeSetParser`
    (strict JSON→DTO validation matching `BLUEPRINT.md` §9.2's exact shape) and
@@ -79,7 +79,7 @@ future, stronger signal this task didn't find) supplies the real date.
   sections by *their own* `effective_from`/`effective_until` (nullable — see below) intersected
   with the date, depth-first ordered.
 
-**Proven, not asserted** — `tests/Feature/Domain/TaxKnowledge/LegislationTemporalQueryTest.php`,
+**Proven, not asserted** — `tests/Feature/Legislation/LegislationTemporalQueryTest.php`,
 test `"returns the 2023 text for a 2023 date and NEVER the 2026 text"`: two versions of the same
 `source_document`, effective `2023-01-01..2025-12-31` and `2026-01-01..∞`, with **different**
 synthetic section text each. Querying `2023-06-15` returns only the 2023 text and the assertion
@@ -253,13 +253,13 @@ container against the real, already-vendored `apps/api/vendor/`, plus a real `po
 container on a shared Docker network (both torn down after verification).
 
 ```text
-$ vendor/bin/pint --test packages/legislation/src tests/Unit/Domain/TaxKnowledge \
-    tests/Feature/Domain/TaxKnowledge database/migrations \
+$ vendor/bin/pint --test packages/legislation/src tests/Unit/Legislation \
+    tests/Feature/Legislation database/migrations \
     database/factories/{SourceSection,FiscalParameter,FiscalParameterVersion,TaxRule,TaxRuleVersion,TaxRuleSource}Factory.php
   PASS .......................................................... 111 files
 
 $ php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G packages/legislation/src \
-    tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge \
+    tests/Unit/Legislation tests/Feature/Legislation \
     database/factories/{SourceSection,FiscalParameter,FiscalParameterVersion,TaxRule,TaxRuleVersion,TaxRuleSource}Factory.php
  [OK] No errors                                                                 (level 9, no baseline)
 
@@ -268,15 +268,15 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 
 # Real Postgres, run 1:
 $ DB_CONNECTION=pgsql DB_HOST=<pg> DB_DATABASE=kern_test DB_USERNAME=kern DB_PASSWORD=kern \
-    vendor/bin/pest tests/Unit tests/Feature/Domain/Audit tests/Feature/Domain/Fx \
-    tests/Feature/Domain/TaxKnowledge tests/Feature/Support
+    vendor/bin/pest tests/Unit tests/Feature/Audit tests/Feature/TaxRomania/Fx \
+    tests/Feature/Legislation tests/Feature/Platform
   Tests: 7 skipped, 280 passed (628 assertions)
 
 # Real Postgres, run 2 (leak check) — identical:
   Tests: 7 skipped, 280 passed (628 assertions)
 
 # The live legislatie.just.ro fetch, opted in explicitly, on Postgres:
-$ LEGISLATIE_LIVE_TEST=1 vendor/bin/pest tests/Feature/Domain/TaxKnowledge/LegislatieJustRoLiveFetchTest.php
+$ LEGISLATIE_LIVE_TEST=1 vendor/bin/pest tests/Feature/Legislation/LegislatieJustRoLiveFetchTest.php
   Tests: 1 passed (5 assertions)   [genuinely fetched https://legislatie.just.ro/Public/DetaliiDocumentAfis/47355]
 ```
 
@@ -291,10 +291,10 @@ self-referencing `source_sections.parent_id` FK drop and the `foreignUuid`
 no dependency changed so there is nothing new to validate/audit.
 
 **A pre-existing, unrelated defect found during verification, not fixed (outside this task's
-scope: `apps/api/packages/platform/src/Identity/**`)**: `tests/Feature/Domain/Subjects` fatals with
+scope: `apps/api/packages/platform/src/Identity/**`)**: `tests/Feature/TaxRomania/Subjects` fatals with
 `Kern\Platform\Identity\Models\User and Illuminate\Auth\Authenticatable define the same property
 ($authPasswordName)... considered incompatible` on this PHP 8.5.10 image. Reproduced by running
-`tests/Feature/Domain/Subjects` in complete isolation — zero `TaxKnowledge` code involved — so this
+`tests/Feature/TaxRomania/Subjects` in complete isolation — zero `TaxKnowledge` code involved — so this
 predates and is unrelated to this task. Likely a PHP 8.5 point-release stricter-trait-property-
 compatibility check hitting `Kern\Platform\Identity\Models\User`'s composition of the
 `Authenticatable` trait. Not recorded in `docs/STATUS.md` per this task's explicit instruction not

@@ -64,9 +64,9 @@ carries a docblock explaining its own reasoning. Highlights not obvious from nam
 **Factories** — `apps/api/database/factories/FinancialAccountFactory.php`,
 `DepositFactory.php` (bare deposit only, no rate periods — see that factory's docblock for why).
 
-**Tests** — `apps/api/tests/Unit/Domain/Wallet/` (pure: `MoneyTest`, `DecimalTest`,
+**Tests** — `apps/api/tests/Unit/TaxRomania/Wallet/` (pure: `MoneyTest`, `DecimalTest`,
 `DayCountCalculatorTest`, `DepositPaymentScheduleBuilderTest`, `DepositRateCoverageValidatorTest`,
-`DepositInterestCalculatorTest`) and `apps/api/tests/Feature/Domain/Wallet/`
+`DepositInterestCalculatorTest`) and `apps/api/tests/Feature/TaxRomania/Wallet/`
 (`CrossTenantIsolationTest`, `RawDatabasePlaintextTest`, `RecordFinancialTransactionTest`,
 `DepositInterestScheduleTest`, `DepositInterestFxProvenanceTest`).
 
@@ -166,7 +166,7 @@ classic "30/360 US" / "Bond Basis" method: every month treated as 30 days, with 
 conventions, not a fiscal/legal citation — `docs/AGENTS.md` §9's sourcing requirement applies to
 tax rates and thresholds, not to a day-count method chosen by a deposit's own contract terms. Every
 formula is proven against hand-computed values (exact rational arithmetic, shown in the test
-docblocks) in `tests/Unit/Domain/Wallet/DayCountCalculatorTest.php`, not asserted from authority.
+docblocks) in `tests/Unit/TaxRomania/Wallet/DayCountCalculatorTest.php`, not asserted from authority.
 
 ### Interest calculation algorithm
 
@@ -180,7 +180,7 @@ and rounded exactly once, at the end of the payment period (round-half-up to the
 unit). `base` starts as the deposit's principal; under `InterestMethod::SIMPLE` it never changes;
 under `COMPOUND` it is increased by the *previous period's rounded* gross interest.
 
-Every numeric expectation in `tests/Unit/Domain/Wallet/DepositInterestCalculatorTest.php` is
+Every numeric expectation in `tests/Unit/TaxRomania/Wallet/DepositInterestCalculatorTest.php` is
 computed by hand via exact rational (fraction) arithmetic in the test's own docblock, not
 approximated — including a 3-period SIMPLE case, the matching COMPOUND case (showing capitalisation
 changes periods 2 and 3 but not period 1), and a VARIABLE-rate case that splits one payment period
@@ -222,11 +222,11 @@ $ docker run --rm --network anaf_data_net --user root \
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
     packages/tax-romania/src/Wallet database/migrations database/factories/FinancialAccountFactory.php \
-    database/factories/DepositFactory.php tests/Unit/Domain/Wallet tests/Feature/Domain/Wallet \
+    database/factories/DepositFactory.php tests/Unit/TaxRomania/Wallet tests/Feature/TaxRomania/Wallet \
     deptrac.php tests/Pest.php'
  [OK] No errors                                                    (level 9, no baseline)
 
-$ ... -c 'vendor/bin/pest tests/Unit/Domain/Wallet tests/Feature/Domain/Wallet'
+$ ... -c 'vendor/bin/pest tests/Unit/TaxRomania/Wallet tests/Feature/TaxRomania/Wallet'
   Tests:    56 passed (139 assertions)
 
 $ # ran a second consecutive time — identical result, no state leak

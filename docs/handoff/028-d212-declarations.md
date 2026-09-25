@@ -255,7 +255,7 @@ CREATE DATABASE
 
 $ docker run --rm --network anaf_data_net --user root -v "$PWD/apps/api":/app -w /app \
     --entrypoint sh anaf-app -c 'vendor/bin/pint --test packages/tax-romania/src/Declarations \
-    tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations \
+    tests/Unit/TaxRomania/Declarations tests/Feature/TaxRomania/Declarations \
     database/factories/Form{Definition,Version}Factory.php \
     database/migrations/2026_09_08_9000{00,01,02,03}_*.php deptrac.php tests/Pest.php \
     bootstrap/providers.php'
@@ -265,12 +265,12 @@ $ ... -c 'vendor/bin/pint --test'                     # whole project
   PASS .......................................................... 699 files
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G \
-    packages/tax-romania/src/Declarations tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations \
+    packages/tax-romania/src/Declarations tests/Unit/TaxRomania/Declarations tests/Feature/TaxRomania/Declarations \
     database/factories/Form{Definition,Version}Factory.php'
  [OK] No errors                                                    (level 9, no baseline)
 
 $ ... -c 'php -d memory_limit=1G vendor/bin/phpstan analyse --memory-limit=1G'   # whole project
- [ERROR] Found 1 error   — tests/Feature/Domain/TaxKnowledge/Retrieval/
+ [ERROR] Found 1 error   — tests/Feature/Legislation/Retrieval/
                             IndexSourceSectionForRetrievalTest.php:71, "Cannot access property
                             $text on IndexedChunk|null" — NOT in Domain/Declarations; a
                             concurrently-changing module per this task's own brief
@@ -290,7 +290,7 @@ $ ... -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_DATABASE=kern_d212 \
 $ ... -c 'php artisan migrate:rollback --step=4 --force && php artisan migrate --force'
   # all four down() then up() again, clean both directions
 
-$ ... -c 'vendor/bin/pest tests/Unit/Domain/Declarations tests/Feature/Domain/Declarations'   # run 1
+$ ... -c 'vendor/bin/pest tests/Unit/TaxRomania/Declarations tests/Feature/TaxRomania/Declarations'   # run 1
   Tests:    47 passed (102 assertions)
 $ ... # run 2 (leak check) — identical
   Tests:    47 passed (102 assertions)
@@ -387,7 +387,7 @@ use Kern\TaxRomania\Declarations\Enums\{DeclarationKind, DeclarationStatus, Form
   to check them against in the shapes it builds; a future task adding one should extend
   `DeclarationValidator`, not invent a default.
 - **The pre-existing whole-project PHPStan error** in
-  `tests/Feature/Domain/TaxKnowledge/Retrieval/IndexSourceSectionForRetrievalTest.php:71` (not
+  `tests/Feature/Legislation/Retrieval/IndexSourceSectionForRetrievalTest.php:71` (not
   introduced by this task, not in this task's scope to fix — see "How to verify").
 
 ## Sources consulted

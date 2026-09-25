@@ -105,9 +105,9 @@ blocked item #3, ADR 0007).
 **Factory**: `database/factories/IndexedChunkFactory.php`.
 
 **Tests**
-- Unit (pure): `tests/Unit/Domain/TaxKnowledge/Retrieval/Embedding/EmbeddingVectorTest.php`.
+- Unit (pure): `tests/Unit/Legislation/Retrieval/Embedding/EmbeddingVectorTest.php`.
 - Feature (real Postgres, per `docs/AGENTS.md` §7b):
-  `tests/Feature/Domain/TaxKnowledge/Retrieval/{IndexSourceSectionForRetrievalTest,
+  `tests/Feature/Legislation/Retrieval/{IndexSourceSectionForRetrievalTest,
   EmbedIndexedChunksTest,HybridLegislationSearchTest}.php`.
 - `tests/Fakes/DeterministicHashEmbeddingProvider.php` — the test-only embedding seam
   implementation: a hashed bag-of-words vector (deterministic, never random, never networked).
@@ -270,7 +270,7 @@ $ vendor/bin/deptrac analyse --config-file=deptrac.php
 
 # Real Postgres (kern_rag), run 1:
 $ DB_CONNECTION=pgsql DB_HOST=postgres DB_DATABASE=kern_rag DB_USERNAME=kern DB_PASSWORD=*** \
-    vendor/bin/pest tests/Unit/Domain/TaxKnowledge tests/Feature/Domain/TaxKnowledge --no-coverage
+    vendor/bin/pest tests/Unit/Legislation tests/Feature/Legislation --no-coverage
   Tests: 1 skipped, 118 passed (328 assertions)
 
 # Real Postgres (kern_rag), run 2 (leak check) — identical:

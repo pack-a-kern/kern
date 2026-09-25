@@ -69,9 +69,9 @@ one correct way to do that — a factory that fabricated a paired contract+versi
 duplicate that action's own validation, the same reasoning `docs/handoff/021-wallet.md` gives for
 `DepositFactory` shipping no `deposit_rate_periods`.
 
-**Tests** — `apps/api/tests/Unit/Domain/Rental/` (`OwnershipShareCalculatorTest`,
+**Tests** — `apps/api/tests/Unit/TaxRomania/Rental/` (`OwnershipShareCalculatorTest`,
 `AccrualPeriodBuilderTest`, `RentalDueDateCalculatorTest`, `MoneyNeverFloatTest` — all pure, no
-DB) and `apps/api/tests/Feature/Domain/Rental/` (`CrossTenantIsolationTest`,
+DB) and `apps/api/tests/Feature/TaxRomania/Rental/` (`CrossTenantIsolationTest`,
 `RawDatabasePlaintextTest`, `RentalContractAmendmentAccrualTest`, `CoOwnershipAccrualShareTest`,
 `RentalPaymentMatchingTest`).
 
@@ -122,7 +122,7 @@ splits that interval into `payment_frequency`-sized periods, clipping the final 
 version's own end. Because scheduling restarts from each version's own `valid_from`, a rent change
 always lands exactly on a period boundary — no single `rental_accruals` row is ever asked to
 represent two different rent amounts. Proven directly in
-`tests/Feature/Domain/Rental/RentalContractAmendmentAccrualTest.php`: a contract at 1000.00 RON/mo
+`tests/Feature/TaxRomania/Rental/RentalContractAmendmentAccrualTest.php`: a contract at 1000.00 RON/mo
 amended to 1500.00 RON/mo mid-February produces four accruals — `[01-01,02-01)` and `[02-01,02-15)`
 both at the old rate and tied to the old version's id, `[02-15,03-15)` and `[03-15,04-01)` both at
 the new rate and tied to the new version's id.
@@ -145,7 +145,7 @@ this module ever writes is **already the owning tax subject's share** —
 `OwnershipShareCalculator::shareOf($version->rent_minor, $property->ownership_percent_decimal)`,
 round-half-up to the nearest minor unit via the exact `bcadd($ratio, '0.5', 0)` idiom
 `Kern\TaxRomania\Wallet\ValueObjects\Decimal::roundedTo()` already documents and uses in this codebase.
-Proven directly in `tests/Feature/Domain/Rental/CoOwnershipAccrualShareTest.php`: a 50%-owned
+Proven directly in `tests/Feature/TaxRomania/Rental/CoOwnershipAccrualShareTest.php`: a 50%-owned
 property with a 2000.00 RON/mo contract produces accruals of exactly 1000.00 RON, never the full
 2000.00; a 33.33%-owned property with a 1000.00 RON/mo contract produces exactly 333.30 RON.
 
@@ -175,7 +175,7 @@ principle, applied to a financial link exactly as it applies to a document extra
 `result_ciphertext` regardless of review decision. All six matching scenarios (propose, confirm,
 reject-keeps-candidate, refuse-to-decide-an-unproposed-match, outside-date-window,
 already-confirmed-elsewhere) are proven in
-`tests/Feature/Domain/Rental/RentalPaymentMatchingTest.php`.
+`tests/Feature/TaxRomania/Rental/RentalPaymentMatchingTest.php`.
 
 **The `financial_transactions` table is read via `Illuminate\Support\Facades\DB::table(...)`, never
 `Kern\TaxRomania\Wallet\Models\FinancialTransaction`** — this is the reason `deptrac.php`'s new `Rental`
@@ -195,7 +195,7 @@ silently at runtime, not at compile time** — flagged as an open question below
 
 Every amount in this module — `rent_minor`, `deposit_minor`, `gross_minor`, `amount_minor` — is a
 plain PHP `int` of minor units, `bigInteger` at the database level, never a float
-(`docs/AGENTS.md` rule 6; `tests/Unit/Domain/Rental/MoneyNeverFloatTest.php` reflects over every
+(`docs/AGENTS.md` rule 6; `tests/Unit/TaxRomania/Rental/MoneyNeverFloatTest.php` reflects over every
 class under `packages/tax-romania/src/Rental` and asserts none declares a `float` type anywhere). **No `Money`
 value object was introduced for this module** — a deliberate choice, not an oversight, checked
 against `docs/handoff/021-wallet.md`'s own decision before making it: `Kern\TaxRomania\Wallet\
@@ -316,7 +316,7 @@ $ docker run --rm --network anaf_data_net --user root \
     -e DB_CONNECTION=pgsql -e DB_HOST=postgres -e DB_PORT=5432 -e DB_DATABASE=kern \
     -e DB_USERNAME=kern -e DB_PASSWORD=<POSTGRES_PASSWORD from root .env> \
     -e APP_KEY=base64:0000...= -v "$PWD/apps/api":/app -w /app --entrypoint sh anaf-app -c \
-    'vendor/bin/pest tests/Unit/Domain/Rental tests/Feature/Domain/Rental'
+    'vendor/bin/pest tests/Unit/TaxRomania/Rental tests/Feature/TaxRomania/Rental'
   Tests:    33 passed (141 assertions)
   # ran a second consecutive time — identical result, no state leak
   Tests:    33 passed (141 assertions)

@@ -74,22 +74,22 @@ Logging
   (bypasses the tap pipeline entirely — see **What is NOT done**).
 
 Tests (all real, all executed — see **How to verify**)
-- `tests/Unit/Domain/Audit/CanonicalJsonTest.php` — key-order independence, exact pinned byte
+- `tests/Unit/Audit/CanonicalJsonTest.php` — key-order independence, exact pinned byte
   output, float rejection, non-string-key rejection, null preservation, list-vs-object handling.
-- `tests/Unit/Support/Logging/SensitiveDataProcessorTest.php` — every redaction category
+- `tests/Unit/Platform/Logging/SensitiveDataProcessorTest.php` — every redaction category
   (CNP, IBAN, password, token/API-key under multiple naming conventions, JWT, `Authorization`
   header, OTP by key and inline in text), nested arrays, a plain object, a `Throwable`, a circular
   object reference, and a non-sensitive-data passthrough check.
-- `tests/Feature/Support/Logging/SensitiveLogRedactionFeatureTest.php` — end-to-end: writes through
+- `tests/Feature/Platform/Logging/SensitiveLogRedactionFeatureTest.php` — end-to-end: writes through
   the real `single` channel to an actual file on disk and asserts the raw secret never appears,
   including through `{placeholder}` substitution.
-- `tests/Feature/Domain/Audit/AuditChainServiceTest.php` — **requires Postgres**, self-skips
+- `tests/Feature/Audit/AuditChainServiceTest.php` — **requires Postgres**, self-skips
   otherwise. Builds a 3-event chain and checks linkage; two subjects get independent chains; a
   null-subject event lands on the system chain; the database rejects `UPDATE`/`DELETE` directly;
   the Eloquent model's three lines of defence (mass-assignment guard, `performUpdate`,
   `performDeleteOnModel`); the **tamper test** (see below); an empty chain verifies trivially ok;
   `hashPayload()` is deterministic.
-- `tests/Feature/Domain/Audit/AuditChainConcurrencyTest.php` — **requires Postgres + ext-pcntl**,
+- `tests/Feature/Audit/AuditChainConcurrencyTest.php` — **requires Postgres + ext-pcntl**,
   self-skips otherwise. See **Concurrency proof** below.
 
 ## Canonical JSON rule (`Kern\TaxRomania\Audit\Support\CanonicalJson`)
@@ -112,7 +112,7 @@ the caller happened to build the array. The rules, all enforced in code (not jus
    non-string key anywhere raises `InvalidArgumentException`.
 7. **Null**: preserved and encoded as JSON `null`, never dropped.
 
-Proven in `tests/Unit/Domain/Audit/CanonicalJsonTest.php`, including one test that pins the *exact*
+Proven in `tests/Unit/Audit/CanonicalJsonTest.php`, including one test that pins the *exact*
 expected byte string for a realistic payload — not just self-consistency between two encodings.
 
 ## How to append an event from another module
@@ -170,7 +170,7 @@ if (! $result->ok) {
 
 ## Concurrency proof
 
-`tests/Feature/Domain/Audit/AuditChainConcurrencyTest.php` forks 5 real OS processes
+`tests/Feature/Audit/AuditChainConcurrencyTest.php` forks 5 real OS processes
 (`pcntl_fork()`), each opening its **own** Postgres connection (`DB::purge()` immediately after
 `fork()`, both in the child and defensively in the parent before forking — without this, forked
 children would fight over the same inherited PDO socket file descriptor, which is undefined
@@ -428,7 +428,7 @@ task's tests). Always target `--filter=Audit` (or the equivalent path) when runn
 
 ## Known issue found outside this task's scope (not fixed here)
 
-`tests/Unit/Support/Crypto/BlindIndex/NormalizerTest.php`'s "it folds cedilla diacritics to the
+`tests/Unit/Platform/Crypto/BlindIndex/NormalizerTest.php`'s "it folds cedilla diacritics to the
 same result as comma-below" test (comparing `\u{0163}\u{0103}` cedilla forms against `Ș`/`Ț`
 comma-below forms) **failed once, then passed on an immediate unmodified re-run**, in the default
 sqlite full-suite run — output: expected `'stefan tariceanu'`, got `'stefan ttariceanu'` (an extra
