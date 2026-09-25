@@ -6,7 +6,7 @@ term needs explaining ("queue worker", "supervisor", "environment"), it's explai
 it appears.
 
 Everything below is drawn from the actual files in this repository — `compose.yaml`,
-`compose.override.yaml`, `.env.example`, `apps/api/config/horizon.php`, `Makefile`, the ADRs in
+`compose.override.yaml`, `apps/api/.env.example`, `apps/api/config/horizon.php`, `Makefile`, the ADRs in
 `docs/adr/`, and `BLUEPRINT.md`. Where something isn't in the repo, or is ambiguous, it's called out
 under "Needs a decision" at the end rather than guessed at.
 
@@ -67,8 +67,9 @@ override file:
 configured the same way in both cases and is fine to run as-is. `openbao`, however, is started with
 the command `bao server -dev`, i.e. "OpenBao's own development mode": everything it holds lives only
 in memory and is lost on every restart, and it is unlocked with a single "root token" taken straight
-from `OPENBAO_DEV_ROOT_TOKEN` in `.env`. The file itself says, in a comment right above the service:
-"DEV MODE ONLY... never anywhere but a developer's own machine." This is covered again in sections 4
+from `OPENBAO_TOKEN` in `apps/api/.env` — the same token the application presents. `compose.yaml`
+says, in a comment right above the service: "DEV MODE ONLY... never anywhere but a developer's own
+machine." This is covered again in sections 4
 and 7 because it's the single most important thing to fix before this holds real data.
 
 ---
@@ -139,20 +140,30 @@ Two more Horizon numbers worth knowing:
 
 ## 3. Environment variables to change before going live
 
-These come from `.env.example` at the repository root — copy it to `.env` and fill it in.
-`docker compose` reads `.env` and injects the values into each container's `environment:` block in
-`compose.yaml`; a value only reaches the app if it's named in that block (a few variables below are
-consumed only by `compose.yaml`/`compose.override.yaml` directly, for port numbers and the like).
+There is **one** file: `apps/api/.env`. Create it with `make env`, which writes it from
+`apps/api/.env.example` plus the `.env.example` every installed package ships — then fill it in. (The
+`.env` at the repository root is only a symlink to it, so that `docker compose`, which insists on
+finding its environment file there, reads the same file Laravel does.)
+
+`docker compose` hands that whole file to the `app`, `queue`, `scheduler` and `reverb` containers, so
+anything you set in it reaches the application. It also reads the file itself, for the `${...}` in
+`compose.yaml` — the host port numbers, and the credentials the bundled Postgres, Redis, MinIO and
+OpenBao containers are *created* with. That is the same direction throughout: the application's
+variables are the truth, and the bundled infrastructure is created to match them, which is why
+pointing `DB_HOST` or `AWS_ENDPOINT` at a service you already run needs no second edit anywhere.
+
+`python-api` and `spv-browser` deliberately do **not** get the whole file; each is handed only the few
+variables it needs, because they sit on networks that carry no database or object-storage credentials.
 
 ### Must change — secrets, keys, and addresses
 
 Every one of these either has no safe default, or currently defaults to something that is
-wrong once you leave your own laptop. Several of them (`APP_KEY`, `POSTGRES_PASSWORD`,
-`REDIS_PASSWORD`, `REVERB_APP_ID`/`KEY`/`SECRET`, `OPENBAO_DEV_ROOT_TOKEN`, `MINIO_ROOT_USER`/
-`PASSWORD`, `INTERNAL_SERVICE_AUTH_TOKEN`, `CRYPTO_BLIND_INDEX_KEYS`) are marked in `compose.yaml`
-with Compose's own `:?` syntax, which means: **if the variable is empty, the container refuses to
-even start**, with an error naming the missing variable. That's a deliberate fail-closed design, not
-a bug.
+wrong once you leave your own laptop. Four of them (`DB_PASSWORD`, `REDIS_PASSWORD`,
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `OPENBAO_TOKEN`) are marked in `compose.yaml` with
+Compose's own `:?` syntax, which means: **if the variable is empty, nothing starts at all**, with an
+error naming the missing variable. That's a deliberate fail-closed design, not a bug. The rest are
+enforced by the application itself: without `APP_KEY` or `CRYPTO_BLIND_INDEX_KEYS` it throws rather
+than running with a key nobody chose.
 
 | Variable | What it does | What to set it to |
 |---|---|---|
@@ -160,13 +171,14 @@ a bug.
 | `APP_DEBUG` | If `true`, error pages show full internal detail (stack traces, config values, other secrets) to anyone who can trigger an error. | `false` — never `true` on a reachable server |
 | `APP_URL` | The public web address of the site. | Your real domain or IP, e.g. `https://yourdomain.ro` |
 | `APP_KEY` | The master encryption key Laravel itself uses (sessions, some internal encryption). | Generate fresh — see section 4 |
-| `POSTGRES_PASSWORD` | Database password. | A strong random password, unique to this deployment |
+| `DB_PASSWORD` | Database password. The bundled Postgres container is *created* with it, so this one value is both ends of the connection. | A strong random password, unique to this deployment |
 | `REDIS_PASSWORD` | Redis password. Empty is refused: the app's own Redis startup script "refuses to start on an unset or placeholder value." | A strong random password |
 | `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET` | The three-part credential that lets a browser open a live-update connection and stops an outside site from opening one using your visitor's login. | Unique random values — see section 4 |
 | `REVERB_HOST` | The address browsers connect *to* for live updates. | Your real public domain/IP — `localhost` only works on your own machine |
 | `REVERB_ALLOWED_ORIGINS` | Which page addresses are allowed to open a live-update connection at all; anything else is silently refused. | Every hostname the app is actually reached at (comma-separated). Leaving this wrong doesn't error — it just makes live updates quietly stop working. |
-| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Login for the object storage that holds uploaded documents. | Strong random values, unique to this deployment |
-| `OPENBAO_DEV_ROOT_TOKEN` | The master password for the dev-mode key-management service (see section 4/7). | Must change from any default, but see section 7 — the bigger issue is that this whole service is dev-mode |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The key pair the app signs its object-storage requests with. The bundled MinIO is created with them; an S3 or MinIO you already run issues them instead. | Strong random values, unique to this deployment |
+| `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET`, `AWS_USE_PATH_STYLE_ENDPOINT` | Where object storage is, and the two buckets used: documents, and the quarantine unscanned uploads wait in. Path-style addressing is required by MinIO and must be dropped for real AWS S3. | The bundled MinIO's defaults work as shipped. For storage of your own: its URL, two buckets **you create yourself**, and the key pair above. |
+| `OPENBAO_TOKEN` | The token the key-management service is reached with — and, for the bundled dev-mode server, the token it is created with (see section 4/7). | Must change from any default, but see section 7 — the bigger issue is that this whole service is dev-mode |
 | `INTERNAL_SERVICE_AUTH_TOKEN` | The shared password the Laravel app and the Python service use to trust each other's requests. If empty, both sides refuse the request outright ("fail closed"). | Generate with `openssl rand -hex 32` |
 | `CRYPTO_BLIND_INDEX_KEYS` | The key used to allow exact-match lookups (e.g. "does this email already have an account") on fields that are otherwise fully encrypted, without decrypting every row to check. If empty, the app crashes on **any** such lookup — including login and registration. | Generate — see section 4 |
 
@@ -195,28 +207,22 @@ shipped default may not be what you want.
 | Variable | Why it's safe to leave |
 |---|---|
 | `APP_NAME` | Cosmetic — shows up in notifications and the Horizon dashboard title. |
-| `POSTGRES_DB`, `POSTGRES_USER` | Fine at their shipped defaults (`kern`) unless you have a naming reason to change them. |
+| `DB_DATABASE`, `DB_USERNAME` | Fine at their shipped defaults (`kern`) unless you have a naming reason to change them. The bundled Postgres is created with whatever they say. |
 | `CRYPTO_BLIND_INDEX_CURRENT_VERSION` | Only changes when you're deliberately rotating the blind-index key — leave at `1` otherwise. |
 | `VITE_DEFAULT_PALETTE` | Just picks which colour theme greets a user before they choose one. |
 | `POSTGRES_DEV_PORT`, `REDIS_DEV_PORT`, `MINIO_DEV_API_PORT`, `MINIO_DEV_CONSOLE_PORT`, `MAILPIT_UI_PORT`, `VITE_DEV_PORT` | These only do anything when `compose.override.yaml` (dev-only, section 1) is loaded. In a production deployment running `compose.yaml` alone, they have no effect at all. |
 
-### Not in `.env.example` at all, but worth knowing about
+### Worth knowing about
 
-- **`SETTINGS_ADMIN_USER_IDS`** — `compose.yaml` still passes this through to the app container, but
-  nothing in the current code reads it any more. It was the old way of naming admin users by ID in
-  an environment variable (ADR 0013); it was fully replaced by a proper roles system (ADR 0014,
-  section 5 below) and is now a harmless leftover. Don't rely on it — see section 5 for the real way
-  to create an administrator.
-- **`EDGE_HTTPS_PORT`** — used by `compose.yaml` (`"${EDGE_HTTPS_PORT:-443}:8443"`, controls the
-  public HTTPS port) but never listed in `.env.example`. Defaults to `443` if you don't set it.
-- **AI provider, model, and API key are *not* environment variables at all.** They're set inside the
+- **AI provider, model, and API key are settings, not environment variables.** They're set inside the
   running app, under Administrare → Setări sistem, and stored (encrypted where sensitive) in the
-  database — precisely so an operator can change them without redeploying. `apps/api/.env.example`
-  (a second, separate file, not the one this section is about) documents a fallback set of
-  `AI_ENABLED`/`AI_PROVIDER`/`AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY` variables, but that file is
-  excluded from the Docker build (`.dockerignore`) and none of those five names appear anywhere in
-  `compose.yaml`'s `environment:` block — so in this deployment they never reach the running
-  container, and the database setting is the only thing that actually takes effect.
+  database — precisely so an operator can change them without redeploying.
+  `AI_ENABLED`/`AI_PROVIDER`/`AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY` in `kern/platform`'s
+  `.env.example` are only the starting point, consulted for a field that has never been saved on that
+  screen. Once it has, the database wins.
+- **Which variables exist is not a fixed list.** Each package documents its own, in a `.env.example`
+  beside its `config/`. `docker compose exec app php artisan kern:env` prints the whole set — the
+  application's and every installed package's — with the sentence explaining each one.
 
 ---
 
@@ -271,8 +277,9 @@ not survivable for real data. See section 7.
 
 ### What must never be committed
 
-- `.env` — already excluded via `.gitignore` (line 7: `.env`). `.env.example` itself must **never**
-  contain a real value — its own header says so explicitly.
+- `apps/api/.env` — excluded via `.gitignore`, along with any other `.env`. The single exception is
+  the repository root's `.env`, which is committed because it is only a symlink to `apps/api/.env`
+  and holds nothing itself. Any `.env.example` must **never** contain a real value.
 - `docker/nginx/certs/*.key` — the TLS private key is excluded via `.gitignore` (line 16). The
   matching `.crt` (certificate) file is *not* excluded and is currently committed — that's fine for
   a self-signed dev certificate, but revisit this once you move to a real, CA-issued certificate.
@@ -284,11 +291,13 @@ not survivable for real data. See section 7.
 Derived from `Makefile`, `compose.yaml`, and `docker/nginx/Dockerfile`. Run these in order, from a
 clean checkout on the server.
 
-1. **Copy the environment file and fill it in.**
+1. **Create the environment file and fill it in.**
    ```bash
-   cp .env.example .env
+   make env
    ```
-   Fill in every "must change" variable from section 3, using the generation commands in section 4.
+   That writes `apps/api/.env` from the application's `.env.example` and every package's. It refuses
+   to overwrite one that already exists. Fill in every "must change" variable from section 3, using
+   the generation commands in section 4.
 
 2. **Put a TLS certificate in place.** `edge` expects a certificate and key at
    `docker/nginx/certs/kern.crt` and `docker/nginx/certs/kern.key` (mounted read-only into the
@@ -401,13 +410,13 @@ files.
    certificate that would make the site unreachable with no easy recovery — turn it on only after a
    real certificate is in place.
 
-3. **Object storage endpoint is hard-coded, not an environment variable.** `.env.example`'s own
-   comment says production should "point `AWS_ENDPOINT` at a real S3-compatible provider instead" of
-   MinIO — but in `compose.yaml`, `AWS_ENDPOINT` (`http://minio:9000`), `AWS_BUCKET`
-   (`kern-documents`), `QUARANTINE_BUCKET` (`kern-quarantine`), and `AWS_DEFAULT_REGION`
-   (`eu-central-1`) are all written directly into the file with no `${...}` variable behind them.
-   Moving off self-hosted MinIO to a real S3-compatible provider means **editing `compose.yaml`
-   itself**, not just `.env` — there's no environment variable to flip.
+3. **MinIO is still what's bundled, even though moving off it is now only a setting.**
+   `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET`, `AWS_DEFAULT_REGION` and
+   `AWS_USE_PATH_STYLE_ENDPOINT` are all plain variables in `apps/api/.env`, so a real S3-compatible
+   provider needs no file edited. Two things do not follow automatically: the two buckets have to be
+   created (the bundled `minio-init-buckets` container does that only for the bundled MinIO), and the
+   `minio` and `minio-init-buckets` containers should then not be started at all. MinIO's own last
+   release was 2025-09-07 — worth revisiting if it stays stale.
 
 4. **A known, unresolved security bug: passkey login is broken.** `docs/STATUS.md` records it
    directly: `POST /auth/passkeys/registration` fails because the registration challenge isn't found

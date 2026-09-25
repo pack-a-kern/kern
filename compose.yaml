@@ -60,118 +60,31 @@ x-php-image: &php-image
     context: .
     dockerfile: docker/php/Dockerfile
     target: runtime
-  environment: &php-environment
-    APP_NAME: ${APP_NAME:-TaxOS România}
-    APP_ENV: ${APP_ENV:-production}
-    APP_KEY: ${APP_KEY:?set APP_KEY — see .env.example}
-    # Default OFF, deliberately. A Laravel debug page renders the full environment —
-    # OPENBAO_TOKEN, POSTGRES_PASSWORD, CRYPTO_BLIND_INDEX_KEYS, APP_KEY — to any
-    # unauthenticated visitor who can provoke an error. Debug must be opted into for local
-    # work, never left as the default that a deployment inherits.
-    APP_DEBUG: ${APP_DEBUG:-false}
-    APP_URL: ${APP_URL:-http://localhost}
-    DB_CONNECTION: pgsql
-    DB_HOST: postgres
-    DB_PORT: 5432
-    DB_DATABASE: ${POSTGRES_DB:-kern}
-    DB_USERNAME: ${POSTGRES_USER:-kern}
-    DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
-    SESSION_DRIVER: redis
-    CACHE_STORE: redis
-    QUEUE_CONNECTION: redis
-    REDIS_CLIENT: phpredis
-    REDIS_HOST: redis
-    REDIS_PORT: 6379
-    REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD — see .env.example}
-    BROADCAST_CONNECTION: reverb
-    REVERB_APP_ID: ${REVERB_APP_ID:?set REVERB_APP_ID — see .env.example}
-    REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY — see .env.example}
-    REVERB_APP_SECRET: ${REVERB_APP_SECRET:?set REVERB_APP_SECRET — see .env.example}
-    # Server-side host: config/broadcasting.php uses REVERB_HOST when the APP publishes an event,
-    # and inside these containers `localhost:8080` is nothing — every broadcast failed with
-    # "cURL error 7: Failed to connect to localhost port 8080". The browser needs a different
-    # value (it connects from outside), which is what VITE_REVERB_HOST is for.
-    REVERB_HOST: ${REVERB_SERVER_DNS:-reverb}
-    REVERB_PORT: ${REVERB_PORT:-8080}
-    VITE_REVERB_HOST: ${REVERB_HOST:-localhost}
-    # KMS access (BLUEPRINT.md §4.2). The app is the primary consumer of the transit engine — it
-    # unwraps each tax subject's DEK on demand — but was never handed the address or token, so
-    # every encrypted read/write failed with 'Missing or invalid config value
-    # "crypto.kms.openbao.token"'. DEV credentials only; production injects these from a secret
-    # manager and never from a compose file.
-    OPENBAO_ADDR: ${OPENBAO_ADDR:-http://openbao:8200}
-    OPENBAO_TOKEN: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
-    # Mandatory: the global versioned HMAC key for blind-index lookups (BLUEPRINT.md §4.4).
-    # Unset, the app throws JsonException on registration and login. See .env.example.
-    # Deploy-time allowlist of system administrators until platform roles exist (ADR 0013).
-    SETTINGS_ADMIN_USER_IDS: ${SETTINGS_ADMIN_USER_IDS:-}
-    CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see .env.example}
-    CRYPTO_BLIND_INDEX_CURRENT_VERSION: ${CRYPTO_BLIND_INDEX_CURRENT_VERSION:-1}
-    # Whether a statement's counterparties are put to a model for a category and tags. Off, the rows
-    # are still staged, still filled in from earlier decisions, and still answerable by hand — the
-    # calls simply do not happen. Named here because this block is the only channel by which the
-    # root .env reaches these containers.
-    STATEMENT_IMPORT_CLASSIFICATION_ENABLED: ${STATEMENT_IMPORT_CLASSIFICATION_ENABLED:-true}
-    REVERB_SCHEME: ${REVERB_SCHEME:-http}
-    # Page origins allowed to open a websocket, comma-separated. Passed through explicitly because
-    # this `environment:` block is the only channel by which the root .env reaches these containers
-    # — a value set there but not named here simply never arrives, which is why the first attempt at
-    # this fix appeared to change nothing. Defaults to APP_URL, matching config/reverb.php's own
-    # fallback, so an unset value behaves the way it always did.
-    REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-${APP_URL:-http://localhost}}
-    REVERB_SERVER_HOST: 0.0.0.0
-    REVERB_SERVER_PORT: 8080
-    FILESYSTEM_DISK: s3
-    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
-    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
-    AWS_DEFAULT_REGION: eu-central-1
-    AWS_BUCKET: kern-documents
-    # The physically separate bucket unscanned uploads land in
-    # (Kern\Documents\Quarantine\QuarantineObjectStore). Named here beside AWS_BUCKET so
-    # one place declares both, and `minio-init-buckets` below creates exactly these two.
-    QUARANTINE_BUCKET: kern-quarantine
-    AWS_ENDPOINT: http://minio:9000
-    AWS_USE_PATH_STYLE_ENDPOINT: "true"
-    MAIL_MAILER: ${MAIL_MAILER:-log}
-    MAIL_HOST: ${MAIL_HOST:-mailpit}
-    MAIL_PORT: ${MAIL_PORT:-1025}
-    # Shared secret with python-api's own INTERNAL_SERVICE_AUTH_TOKEN below — BLUEPRINT.md §4.10,
-    # docs/handoff/024-extraction-endpoint.md. Kern\Documents\Extraction\
-    # HttpTextExtractionGateway sends it as `Authorization: Bearer <token>`.
-    INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}
-    # Legislation retrieval's embedding half (BLUEPRINT.md §15.2). `..._DIMENSION` must equal the
-    # python-api service's EMBEDDING_DIMENSION and the `vector(N)` on source_section_chunks.
-    RETRIEVAL_EMBEDDING_ENABLED: ${RETRIEVAL_EMBEDDING_ENABLED:-false}
-    # The processing service's address, read once by every feature using it (config/services.php).
-    PROCESSING_URL: ${PROCESSING_URL:-http://python-api:8000}
-    RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS: ${RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS:-900}
-    RETRIEVAL_EMBEDDING_MODEL: ${RETRIEVAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
-    RETRIEVAL_EMBEDDING_DIMENSION: ${RETRIEVAL_EMBEDDING_DIMENSION:-384}
-    RETRIEVAL_EMBEDDING_BATCH_SIZE: ${RETRIEVAL_EMBEDDING_BATCH_SIZE:-32}
-    # Background operations (/admin/operatiuni, docs/handoff/044-operations-console.md, ADR 0015).
-    # The file pair is here rather than only in config/operations.php because
-    # docker/php/scheduler-healthcheck.php runs *before* the framework boots and has no container
-    # to ask — it reads those two variables directly, so the healthcheck and the schedule entry
-    # that writes the file always resolve to the same path and limit.
-    OPERATIONS_HEARTBEAT_PATH: ${OPERATIONS_HEARTBEAT_PATH:-/tmp/scheduler-heartbeat}
-    OPERATIONS_HEARTBEAT_MAX_AGE_SECONDS: ${OPERATIONS_HEARTBEAT_MAX_AGE_SECONDS:-180}
-    # The screen is rendered by `app`, which has its own tmpfs and therefore cannot see the file
-    # above — `app` and `scheduler` share no filesystem. The cache is the channel both already have.
-    OPERATIONS_HEARTBEAT_CACHE_KEY: ${OPERATIONS_HEARTBEAT_CACHE_KEY:-operations:scheduler-heartbeat}
-    OPERATIONS_HEARTBEAT_CACHE_TTL_SECONDS: ${OPERATIONS_HEARTBEAT_CACHE_TTL_SECONDS:-86400}
-    # *When* a scheduled task runs. Deliberately not editable at runtime: a cron expression typed
-    # into a web form is how a job silently stops running forever. *Whether* it runs is the one
-    # runtime switch, held in `scheduled_tasks.enabled` and read on every scheduler tick.
-    OPERATIONS_SCHEDULE_TIMEZONE: ${OPERATIONS_SCHEDULE_TIMEZONE:-Europe/Bucharest}
-    OPERATIONS_CRON_FX_IMPORT_DAILY: ${OPERATIONS_CRON_FX_IMPORT_DAILY:-0 14 * * 1-5}
-    OPERATIONS_RUN_QUEUE: ${OPERATIONS_RUN_QUEUE:-default}
-    OPERATIONS_RUN_LOCK_SECONDS: ${OPERATIONS_RUN_LOCK_SECONDS:-1800}
-    OPERATIONS_RUNS_PAGE_SIZE: ${OPERATIONS_RUNS_PAGE_SIZE:-20}
-    OPERATIONS_RUN_MAX_OUTPUT_BYTES: ${OPERATIONS_RUN_MAX_OUTPUT_BYTES:-4000}
-    OPERATIONS_FX_MAX_AGE_DAYS: ${OPERATIONS_FX_MAX_AGE_DAYS:-4}
-    OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES: ${OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES:-60}
-    OPERATIONS_FAILED_JOBS_LIMIT: ${OPERATIONS_FAILED_JOBS_LIMIT:-50}
-    OPERATIONS_FX_BACKFILL_MIN_YEAR: ${OPERATIONS_FX_BACKFILL_MIN_YEAR:-2005}
+  # The one file this installation is configured in — see apps/api/.env.example. Every variable in
+  # it is handed to these four containers as a real environment variable, and Laravel prefers a real
+  # environment variable over anything a `.env` inside the image might say.
+  #
+  # Deliberately the whole file rather than a list of names: this block used to enumerate sixty
+  # variables, and a value set in the env file but not named here simply never arrived — a silent
+  # failure that looked like the setting not working. It also meant compose.yaml held application
+  # settings of its own, so the file an operator reads was not the file that decided anything.
+  #
+  # `python-api` and `spv-browser` do NOT get this file. They are on networks that carry no database
+  # or object-storage credentials (BLUEPRINT.md §3.3), and handing them the whole environment would
+  # undo that; each names the few variables it needs.
+  env_file:
+    - apps/api/.env
+  # Not configuration — every one of these is already in the file above, and takes its value from it.
+  # They are named again only so that an EMPTY one stops the stack, which is what `:?` does. Without
+  # a key the application cannot encrypt; without blind-index keys it cannot look up an encrypted
+  # column; with an empty Reverb secret it would publish events under a secret anyone can guess. A
+  # deployment that is missing one of these must fail to start, not start and fail later.
+  environment:
+    APP_KEY: ${APP_KEY:?set APP_KEY — see apps/api/.env.example}
+    CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see apps/api/.env.example}
+    REVERB_APP_ID: ${REVERB_APP_ID:?set REVERB_APP_ID — see apps/api/.env.example}
+    REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY — see apps/api/.env.example}
+    REVERB_APP_SECRET: ${REVERB_APP_SECRET:?set REVERB_APP_SECRET — see apps/api/.env.example}
   volumes: &php-volumes
     - app_storage:/var/www/html/storage
     - app_bootstrap_cache:/var/www/html/bootstrap/cache
@@ -241,7 +154,7 @@ services:
     # /etc/hosts, which containers never read. The result is a provider that answers fine from a
     # terminal and is unreachable from the app, with nothing in the error to say why.
     #
-    # Set both halves in the root .env to publish that mapping inside the container. The default is
+    # Set both halves in apps/api/.env to publish that mapping inside the container. The default is
     # a deliberately unroutable placeholder, so leaving them unset changes nothing for anyone whose
     # provider has ordinary public DNS.
     extra_hosts:
@@ -293,7 +206,7 @@ services:
     # /etc/hosts, which containers never read. The result is a provider that answers fine from a
     # terminal and is unreachable from the app, with nothing in the error to say why.
     #
-    # Set both halves in the root .env to publish that mapping inside the container. The default is
+    # Set both halves in apps/api/.env to publish that mapping inside the container. The default is
     # a deliberately unroutable placeholder, so leaving them unset changes nothing for anyone whose
     # provider has ordinary public DNS.
     extra_hosts:
@@ -403,10 +316,10 @@ services:
       - processing_net
     environment:
       # Shared secret with the app/queue/scheduler/reverb containers' own
-      # INTERNAL_SERVICE_AUTH_TOKEN above (x-php-image's &php-environment) — BLUEPRINT.md §4.10,
+      # INTERNAL_SERVICE_AUTH_TOKEN the application containers get from apps/api/.env — BLUEPRINT.md §4.10,
       # docs/handoff/024-extraction-endpoint.md. processing.internal_auth.require_internal_auth
       # fails closed (401) if this is unset.
-      INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see .env.example}
+      INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see apps/api/.env.example}
       # Local embedding model for legislation retrieval (BLUEPRINT.md §15.2). Self-hosted rather
       # than an external API: docs/STATUS.md blocked item #3 (provider, region, DPA) gates every
       # external AI call, and running the weights here sidesteps it for this corpus entirely.
@@ -569,10 +482,14 @@ services:
     image: pgvector/pgvector:pg18-trixie
     networks:
       - data_net
+    # Created with the credentials the APPLICATION connects with, not with names of its own. The
+    # database the application asks for is the database that exists, and pointing DB_HOST at a
+    # Postgres you already run means this container is simply never started — there is no second
+    # place to keep the password in step.
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-kern}
-      POSTGRES_USER: ${POSTGRES_USER:-kern}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD — see .env.example}
+      POSTGRES_DB: ${DB_DATABASE:-kern}
+      POSTGRES_USER: ${DB_USERNAME:-kern}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD — see apps/api/.env.example}
     volumes:
       # Postgres 18's own image changed convention: mount the parent
       # `/var/lib/postgresql`, not `/var/lib/postgresql/data` — the image
@@ -657,7 +574,7 @@ services:
       retries: 5
       start_period: 5s
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD — see .env.example}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD — see apps/api/.env.example}
     deploy:
       resources:
         limits:
@@ -686,9 +603,12 @@ services:
     networks:
       - processing_net
       - data_net
+    # Created with the key pair the APPLICATION signs its S3 requests with — same reasoning as
+    # postgres above. Point AWS_ENDPOINT at a MinIO or S3 you already run and this container is
+    # never started.
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID — see apps/api/.env.example}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY — see apps/api/.env.example}
       # No web console, no phone-home update checks — this is object
       # storage for a backend service, not an admin UI (BLUEPRINT.md §3.3
       # "minio nu este public").
@@ -746,10 +666,11 @@ services:
     networks:
       - data_net
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER — see .env.example}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD — see .env.example}
-      AWS_BUCKET: kern-documents
-      QUARANTINE_BUCKET: kern-quarantine
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID — see apps/api/.env.example}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY — see apps/api/.env.example}
+      # The two buckets the application reads and writes, named where the application names them.
+      AWS_BUCKET: ${AWS_BUCKET:-kern-documents}
+      QUARANTINE_BUCKET: ${QUARANTINE_BUCKET:-kern-quarantine}
       # `mc` writes an alias config on first use and defaults to `$HOME/.mc`, which this image's
       # non-root user cannot create — it fails with "Unable to save new mc config". Pointed at the
       # tmpfs below, which also means the credentials never touch a layer or a volume.
@@ -775,7 +696,9 @@ services:
     networks:
       - app_net
     environment:
-      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
+      # The dev server accepts the token the application presents, for the same reason postgres and
+      # minio take their credentials from the application's own: one place to write it down.
+      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
       # `bao status` (used by the healthcheck below) defaults to
       # https://127.0.0.1:8200 and fails against this plain-HTTP dev server
       # without this — confirmed by a real health-check failure 2026-09-07.
@@ -815,7 +738,7 @@ services:
       - app_net
     environment:
       BAO_ADDR: http://openbao:8200
-      BAO_TOKEN: ${OPENBAO_DEV_ROOT_TOKEN:?set OPENBAO_DEV_ROOT_TOKEN — see .env.example}
+      BAO_TOKEN: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
     volumes:
       - ./docker/openbao/init.sh:/init.sh:ro
     depends_on:

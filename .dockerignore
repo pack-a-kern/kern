@@ -28,3 +28,6 @@ apps/processing/.pyright
 
 apps/spv-browser/node_modules
 apps/spv-browser/dist
+
+# The installation's environment, and the repository-root symlink that points compose at it.
+.env

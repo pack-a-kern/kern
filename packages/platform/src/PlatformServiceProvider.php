@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\Console\Commands\Environment\BuildEnvironmentFileCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
@@ -87,6 +88,10 @@ final class PlatformServiceProvider extends ServiceProvider
         Relation::morphMap(['user' => User::class]);
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([BuildEnvironmentFileCommand::class]);
+        }
 
         $this->publishes([
             __DIR__ . '/../config/crypto.php' => config_path('crypto.php'),

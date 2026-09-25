@@ -4,7 +4,11 @@
 # repo root.
 
 # Local secrets — never commit real credentials (BLUEPRINT.md §4.10).
+# The installation's environment, which holds every credential: apps/api/.env — and any other `.env`
+# someone adds. The repository root's own `.env` is the exception and is committed: it configures
+# nothing, it only points compose at the file above.
 .env
+!/.env
 .env.*.local
 
 # Editor / OS noise.

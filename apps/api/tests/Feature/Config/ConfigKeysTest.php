@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Config\ConfigKeysTest;
 
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Config\EnvironmentVariables;
+use Kern\Platform\Config\InstalledPackages;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Symfony\Component\Finder\Finder;
 
@@ -87,33 +89,68 @@ it('points every database setting at a configuration key that exists', function 
 });
 
 /*
- * Every environment variable the application's own config reads is named in `.env.example`.
+ * Every environment variable the application's own config reads is written down where an operator
+ * will see it.
  *
- * When this was written, 72 were documented nowhere, and 16 more sat in the root `.env.example`,
- * which never reaches Laravel for a variable compose does not pass on. Laravel documents the
- * variables of its own config files, so those are skipped — except for the ones this application
- * added to them.
+ * An unset variable is the quietest failure a deployment has: `env()` returns the default, the
+ * feature runs with a value nobody chose, and nothing is logged. When this was written, 72 were
+ * documented nowhere.
+ *
+ * Laravel documents the variables of its own config files, so those are skipped — except the ones
+ * this application added to them. A variable a package documents counts: the application installs
+ * that package, `php artisan kern:env` prints both, and duplicating the sentence here is how the two
+ * copies come to disagree.
  */
 it('names every environment variable the application reads in .env.example', function (): void {
     $frameworkFiles = ['app', 'auth', 'broadcasting', 'cache', 'database', 'filesystems', 'hashing', 'logging', 'mail', 'queue', 'services', 'session', 'horizon', 'reverb', 'permission', 'webauthn'];
-    $addedToFrameworkFiles = '/^(HORIZON_(AI|DEFAULT)_|AI_|PROCESSING_URL$|INTERNAL_SERVICE_AUTH_TOKEN$)/';
-    $example = (string) file_get_contents(base_path('.env.example'));
+    $addedToFrameworkFiles = '/^(HORIZON_(AI|DEFAULT)_|AI_|PROCESSING_URL$|INTERNAL_SERVICE_AUTH_TOKEN$|QUARANTINE_BUCKET$)/';
+
+    $declared = EnvironmentVariables::declaredIn(base_path('.env.example'));
+
+    foreach (InstalledPackages::firstParty(base_path()) as $path) {
+        $declared = [...$declared, ...EnvironmentVariables::declaredIn($path . '/.env.example')];
+    }
+
     $missing = [];
 
-    foreach (Finder::create()->files()->name('*.php')->in(config_path()) as $file) {
-        $name = substr(str_replace('\\', '/', $file->getRelativePathname()), 0, -4);
-        preg_match_all("/env\\('([A-Z0-9_]+)'/", $file->getContents(), $matches);
+    foreach (EnvironmentVariables::readBy(config_path()) as $variable => $files) {
+        $read = array_map(static fn (string $file): string => substr($file, 0, -4), $files);
 
-        foreach (array_unique($matches[1]) as $variable) {
-            if (in_array($name, $frameworkFiles, true) && preg_match($addedToFrameworkFiles, $variable) !== 1) {
-                continue;
-            }
+        // Skipped only when every file reading it is one of Laravel's own.
+        if (array_diff($read, $frameworkFiles) === [] && preg_match($addedToFrameworkFiles, $variable) !== 1) {
+            continue;
+        }
 
-            if (preg_match('/^#?\\s?' . $variable . '=/m', $example) !== 1) {
-                $missing[] = "{$variable} (config/{$name}.php)";
-            }
+        if (! in_array($variable, $declared, true)) {
+            $missing[] = $variable . ' (config/' . implode(', config/', $files) . ')';
         }
     }
 
     expect($missing)->toBe([]);
+});
+
+/*
+ * And every package documents the variables *it* reads, in the `.env.example` it ships.
+ *
+ * A package is the only thing that knows what it reads, and it is installed into applications this
+ * repository will never see — so the documentation has to travel with it rather than with any one
+ * application. `php artisan kern:env` is what collects them, and is only as complete as this is.
+ */
+it('leaves every installed package to document the environment variables it reads', function (): void {
+    $missing = [];
+    $packages = InstalledPackages::firstParty(base_path());
+
+    foreach ($packages as $name => $path) {
+        $declared = EnvironmentVariables::declaredIn($path . '/.env.example');
+
+        foreach (array_keys(EnvironmentVariables::readBy($path . '/config')) as $variable) {
+            if (! in_array($variable, $declared, true)) {
+                $missing[] = "{$name}: {$variable}";
+            }
+        }
+    }
+
+    // Not empty first: discovery that stopped finding packages would pass every run and prove nothing.
+    expect(count($packages))->toBeGreaterThan(1)
+        ->and($missing)->toBe([]);
 });

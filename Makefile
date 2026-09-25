@@ -5,10 +5,22 @@
 
 SERVICE ?= app
 
-.PHONY: up down build logs shell test lint fresh
+.PHONY: env up down build logs shell test lint fresh
+
+## Create apps/api/.env — the one file this installation is configured in.
+##
+## It is the application's .env.example followed by the one every package ships, which is exactly
+## what `php artisan kern:env` prints. Done here with `cat` because at this point nothing can run:
+## compose needs this file to exist before it can start a container to run artisan in. Once the
+## stack is up, use the command — after installing a package, say, to see its new variables.
+env:
+	@test ! -e apps/api/.env || { echo "apps/api/.env exists — not overwriting it."; exit 1; }
+	@cat apps/api/.env.example packages/*/.env.example > apps/api/.env
+	@echo "Wrote apps/api/.env. Fill in every empty value — APP_KEY, the passwords, the tokens — before \`make up\`."
 
 ## Start the full stack in the background.
 up:
+	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
 	docker compose up -d
 
 ## Stop and remove containers (volumes are kept).
@@ -137,15 +149,16 @@ packages-install:
 packages-clean:
 	rm -rf packages/*/vendor
 
-## Apply .env or compose changes to the running stack.
+## Apply apps/api/.env or compose changes to the running stack.
 ##
 ## PHP edits no longer need this: `docker/php/php.dev.ini`, mounted only by compose.override.yaml,
 ## turns `opcache.validate_timestamps` back on in development, so php-fpm picks up an edited file on
 ## the next request exactly like a normal Laravel install. Production keeps it off.
 ##
-## Still required when a container's *environment* changes, because compose reads `.env` only when
-## it creates a container. If the variable is shared with another service (REDIS_PASSWORD is), name
-## that service here too, or the two come up disagreeing.
+## Still required when a container's *environment* changes, because compose reads apps/api/.env
+## only when it creates a container. If the variable is one an infrastructure container is created
+## with (DB_PASSWORD, AWS_ACCESS_KEY_ID, REDIS_PASSWORD, OPENBAO_TOKEN), name that service here too,
+## or the two come up disagreeing.
 reload:
 	docker compose up -d --force-recreate $(SERVICE)
 
