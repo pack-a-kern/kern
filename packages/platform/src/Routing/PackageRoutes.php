@@ -23,7 +23,7 @@ final class PackageRoutes
 {
     public static function load(string $file): void
     {
-        self::mount($file, 'kern.routing.middleware', 'kern.routing.prefix');
+        self::mount($file, ['kern.routing.middleware'], ['kern.routing.prefix']);
     }
 
     /**
@@ -37,16 +37,30 @@ final class PackageRoutes
     {
         self::mount(
             $file,
-            'kern.routing.tenant.middleware',
-            'kern.routing.prefix',
-            'kern.routing.tenant.prefix',
+            // The application's group *and* the tenant's: the second says how a tenant is bound, and
+            // it is not a replacement for the first. Mounting with the tenant middleware alone left
+            // every one of these routes outside `web`, so no session was ever started and `auth:web`
+            // answered 401 to a signed-in browser — while the test suite stayed green, because
+            // `actingAs()` puts the user on the guard directly and never needs a session at all.
+            ['kern.routing.middleware', 'kern.routing.tenant.middleware'],
+            ['kern.routing.prefix', 'kern.routing.tenant.prefix'],
         );
     }
 
-    private static function mount(string $file, string $middlewareKey, string ...$prefixKeys): void
+    /**
+     * @param list<string> $middlewareKeys in order, concatenated
+     * @param list<string> $prefixKeys     in order, joined with `/`
+     */
+    private static function mount(string $file, array $middlewareKeys, array $prefixKeys): void
     {
         if (app()->routesAreCached()) {
             return;
+        }
+
+        $middleware = [];
+
+        foreach ($middlewareKeys as $key) {
+            $middleware = [...$middleware, ...config()->array($key)];
         }
 
         $prefix = implode('/', array_map(
@@ -54,8 +68,6 @@ final class PackageRoutes
             $prefixKeys,
         ));
 
-        Route::middleware(config()->array($middlewareKey))
-            ->prefix($prefix)
-            ->group($file);
+        Route::middleware($middleware)->prefix($prefix)->group($file);
     }
 }
