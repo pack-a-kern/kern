@@ -24,7 +24,7 @@ use Webauthn\PublicKeyCredentialRequestOptions;
  * parses it (`Webauthn\AuthenticatorDataLoader::load()`, `Webauthn\CeremonyStep\CheckSignature`) —
  * confirmed by reading that source directly before writing this class, not assumed from the spec
  * text alone. Attestation format is always `none` (`fmt: "none", attStmt: {}`), matching
- * `App\Domain\Identity\Support\Webauthn\PasskeyManager`'s only registered
+ * `Kern\Platform\Identity\Support\Webauthn\PasskeyManager`'s only registered
  * `AttestationStatementSupport`.
  */
 final class FakeWebauthnAuthenticator

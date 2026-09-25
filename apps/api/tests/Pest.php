@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Fakes\InMemoryKeyManagementService;
@@ -80,8 +80,8 @@ uses()->afterEach(function (): void {
  * Swaps the real OpenBao-backed `KeyManagementService` and the config-driven `BlindIndexHasher`
  * for fakes with a random in-process key, exactly the pattern
  * `tests/Feature/Domain/Subjects/BlindIndexLookupTest.php` established first. Every `Feature/
- * Domain/Identity` test needs this: `App\Domain\Identity\Models\User::createWithEmail()` and
- * `App\Domain\Identity\Models\UserMfaMethod`'s encrypted TOTP secret both go through
+ * Domain/Identity` test needs this: `Kern\Platform\Identity\Models\User::createWithEmail()` and
+ * `Kern\Platform\Identity\Models\UserMfaMethod`'s encrypted TOTP secret both go through
  * `Kern\Platform\Crypto\Casts\Encrypted`, which resolves a real `KeyManagementService` — no live
  * OpenBao is reachable from the container this suite runs in. A random per-run blind-index key is
  * safe here (unlike production, ADR 0002) because no test needs its blind indexes to remain

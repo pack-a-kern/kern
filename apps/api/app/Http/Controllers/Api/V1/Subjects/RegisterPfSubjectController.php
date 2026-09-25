@@ -11,7 +11,6 @@ use App\Domain\Subjects\Exceptions\InvalidCnpException;
 use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
 use App\Domain\Subjects\Support\CnpParser;
 use App\Domain\Wallet\Actions\EnsureGeneralSource;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -28,7 +27,7 @@ use Illuminate\Validation\Rule;
  * field *name*, never its value, and no line in this controller writes the request body anywhere
  * (`BLUEPRINT.md` §4.10, `docs/AGENTS.md` rule 12).
  */
-final class RegisterPfSubjectController extends Controller
+final class RegisterPfSubjectController
 {
     public function __invoke(
         Request $request,

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Settings\AiProviderSettingsServiceTest;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
-use App\Domain\Settings\Services\AiProviderSettingsService;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
 use Kern\Audit\Models\AuditEvent;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
+use Kern\Platform\Settings\Services\AiProviderSettingsService;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

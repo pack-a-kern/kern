@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use App\Domain\Subjects\Exceptions\SubjectLimitReachedException;
 use App\Domain\Subjects\Services\SubjectAllowance;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 

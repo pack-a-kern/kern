@@ -20,7 +20,6 @@ use App\Domain\Documents\Extraction\PdfPageCounter;
 use App\Domain\Documents\Extraction\TextExtractionGateway;
 use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\Documents\Models\Document;
-use App\Domain\Settings\Services\AiProviderCatalogue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
@@ -31,6 +30,7 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\ObjectStore\DocumentObjectKind;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Tenancy\TenantScope;
 
 /**

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\TaxKnowledge\SyncLegislationDocumentTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\TaxKnowledge\Actions\SyncLegislationDocument;
 use App\Domain\TaxKnowledge\Enums\SourceDocumentVersionStatus;
 use App\Domain\TaxKnowledge\Legislatie\Exceptions\PortalAnswerException;
@@ -22,6 +21,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Kern\Platform\Identity\Models\User;
 
 /**
  * A law read from a faked legislatie.just.ro, end to end: found through the web service, followed to

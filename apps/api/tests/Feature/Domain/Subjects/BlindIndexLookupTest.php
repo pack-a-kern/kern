@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\BlindIndexLookupTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
 use App\Domain\Subjects\Models\TaxSubject;
 use Database\Factories\TaxSubjectFactory;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 

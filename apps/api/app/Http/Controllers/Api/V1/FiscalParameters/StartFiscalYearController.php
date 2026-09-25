@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
 use App\Domain\TaxKnowledge\FiscalParameters\Jobs\ReadFiscalYear;
-use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +16,7 @@ use Kern\Audit\Services\AuditChainService;
  * Queued, and answered at once: reading a year is a model call per value, minutes rather than the
  * seconds a request may take. What it proposes appears on the screen as it is read.
  */
-final class StartFiscalYearController extends Controller
+final class StartFiscalYearController
 {
     use RecordsFiscalParameterDecision;
 

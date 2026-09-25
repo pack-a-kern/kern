@@ -9,7 +9,6 @@ use App\Domain\Subjects\DataTransferObjects\UpdatePfSubjectInput;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,7 +20,7 @@ use Illuminate\Validation\Rule;
  * rewrite whose books they are, and the check is here rather than in the action because "who may"
  * is a question about the request, not about the correction.
  */
-final class UpdatePfSubjectController extends Controller
+final class UpdatePfSubjectController
 {
     public function __invoke(Request $request, string $subject, UpdatePfSubject $update): JsonResponse
     {

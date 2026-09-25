@@ -28,7 +28,7 @@ design questions have no existing answer in this codebase:
 
 ### 1. A dedicated, non-tenant encryption scope
 
-`App\Domain\Settings\Support\SystemEncryptionScope::ID` is the literal string `'system'`, used as
+`Kern\Platform\Settings\Support\SystemEncryptionScope::ID` is the literal string `'system'`, used as
 the `subject_id` segment of `AssociatedData` for every secret setting. This is not a UUID and can
 therefore never collide with a genuine `tax_subjects.id`/`users.id` — it is immediately
 recognisable, in a raw database dump or in code, as "not a tenant." This exact pattern already
@@ -38,10 +38,10 @@ no subject to their own chain. ADR 0013 generalises the same idea to encryption.
 
 This scope has its **own** DEK, wrapped and persisted in a new `system_encryption_keys` table
 (`scope` primary key, `encrypted_dek`/`dek_kek_version` columns — the same shape
-`tax_subjects`/`users` already use), read/written by a new `App\Domain\Settings\Infrastructure\
+`tax_subjects`/`users` already use), read/written by a new `Kern\Platform\Settings\Infrastructure\
 SystemDekRepository`. This is a **second, independent instance** of the existing
 `App\Support\KeyManagement\SubjectDekService` class — reused verbatim, not reimplemented — wired up
-in `App\Domain\Settings\SettingsServiceProvider` with `SystemDekRepository` instead of the
+in `Kern\Platform\Settings\SettingsServiceProvider` with `SystemDekRepository` instead of the
 container's shared `EloquentSubjectDekRepository`. Two consequences fall out of this design, both
 required by the task brief:
 
@@ -57,13 +57,13 @@ required by the task brief:
   `App\Support\KeyManagement\SubjectDekService` — all three already accept a plain `string` for
   "which principal," with no built-in assumption that it names a `TaxSubject` specifically. The
   only new code is a second table, a second `SubjectDekRepository` implementation, and a thin
-  `App\Domain\Settings\Support\SystemSecretCipher` wrapper — see `docs/handoff/041`.
+  `Kern\Platform\Settings\Support\SystemSecretCipher` wrapper — see `docs/handoff/041`.
 
 ### 2. A minimal, deploy-time admin allowlist — not a new RBAC system
 
 `config('settings.admin_user_ids')` (env `SETTINGS_ADMIN_USER_IDS`, comma-separated `users.id`
 values) is the entire authorization model for `/api/v1/settings/**`
-(`App\Domain\Settings\Authorization\SettingsAdministrators`,
+(`Kern\Platform\Settings\Authorization\SettingsAdministrators`,
 `App\Http\Middleware\EnsureSettingsAdmin`). Rejected alternatives:
 
 - **A `subject_memberships` role check** (e.g. "OWNER on any subject"). Rejected: that table's
@@ -73,7 +73,7 @@ values) is the entire authorization model for `/api/v1/settings/**`
   (`docs/AGENTS.md` §6).
 - **A new `is_system_admin` column on `users`.** Considered and rejected for this task: it would
   require a migration on a table `Domain/Identity` owns (out of this task's declared scope,
-  `apps/api/app/Domain/Settings/**`) and a self-service or admin-tooling path to flip it that does
+  `apps/api/packages/platform/src/Settings/**`) and a self-service or admin-tooling path to flip it that does
   not exist and was not asked for. A config-driven allowlist needs neither.
 - **A full RBAC system** (roles, permissions, a `system_roles` table). Explicitly out of scope per
   the task brief ("do not build a full RBAC system") and unjustified for gating exactly one

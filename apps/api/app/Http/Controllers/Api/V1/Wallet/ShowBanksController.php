@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Banks\DataTransferObjects\BankOption;
 use App\Domain\Banks\Queries\BankDirectory;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +16,7 @@ use Illuminate\Http\Request;
  * The same list for every taxpayer, imported from the ECB by the "Import banks" task. Under the
  * subject's routes anyway, because the deposit form that reads it is.
  */
-final class ShowBanksController extends Controller
+final class ShowBanksController
 {
     public function __invoke(Request $request, BankDirectory $banks): JsonResponse
     {

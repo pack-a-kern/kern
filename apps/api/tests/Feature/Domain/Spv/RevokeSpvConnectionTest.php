@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\RevokeSpvConnectionTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Spv\Actions\RevokeSpvConnection;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
@@ -15,6 +14,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /** The natural counterpart to connecting SPV — a user must be able to disconnect it. */

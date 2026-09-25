@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Settings\SettingsRepositoryTest;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Settings\Enums\SettingKey;
-use App\Domain\Settings\Repositories\SettingsRepository;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
 
 /**
  * `updated_by` is a native Postgres `uuid` column with a real foreign key to `users.id`
@@ -23,7 +23,7 @@ function fakeUserId(): string
 }
 
 /**
- * `App\Domain\Settings\Repositories\SettingsRepository` — the `settings` table's only reader/
+ * `Kern\Platform\Settings\Repositories\SettingsRepository` — the `settings` table's only reader/
  * writer. `AI_API_KEY` round-trips through real envelope encryption (`SystemSecretCipher`); every
  * other key is stored as plain text — a raw-database assertion proves which is which, per
  * `docs/AGENTS.md` §8/`BLUEPRINT.md` §21.4's "encrypted column raw DB assertions" requirement.

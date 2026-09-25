@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Domain\Wallet\DepositInterestFxProvenanceTest;
 
 use App\Domain\Fx\Models\FxRate;
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -23,6 +22,7 @@ use App\Domain\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use Database\Factories\OfficialSourceFactory;
 use Database\Factories\SourceDocumentVersionFactory;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

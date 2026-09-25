@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Queries\DuplicateTransactionGroups;
 use App\Domain\Wallet\Queries\TransactionSummary;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -16,7 +15,7 @@ use Illuminate\Http\JsonResponse;
  * Each group names the row a merge would keep, decided by the same rule the merge applies — so what
  * the screen marks as surviving is what survives.
  */
-final class ShowDuplicateTransactionsController extends Controller
+final class ShowDuplicateTransactionsController
 {
     public function __invoke(DuplicateTransactionGroups $groups): JsonResponse
     {

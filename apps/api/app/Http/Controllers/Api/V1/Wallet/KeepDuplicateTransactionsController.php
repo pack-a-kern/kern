@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\KeepDuplicateTransactions;
 use App\Domain\Wallet\Exceptions\NotDuplicateTransactionsException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +13,7 @@ use Illuminate\Http\Request;
  * `POST /api/v1/subjects/{subject}/wallet/transactions/duplicates/keep` — these lookalikes are
  * genuinely separate payments; stop asking.
  */
-final class KeepDuplicateTransactionsController extends Controller
+final class KeepDuplicateTransactionsController
 {
     public function __invoke(Request $request, KeepDuplicateTransactions $keep): JsonResponse
     {

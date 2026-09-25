@@ -6,14 +6,13 @@ namespace App\Http\Controllers\Api\V1\Rentals;
 
 use App\Domain\Rental\Actions\DeleteRental;
 use App\Domain\Rental\Models\RentalContract;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * `DELETE /api/v1/subjects/{subject}/rentals/{rental}` — remove a rental entered by mistake.
  */
-final class DeleteRentalController extends Controller
+final class DeleteRentalController
 {
     public function __invoke(Request $request, string $subject, string $rental, DeleteRental $delete): JsonResponse
     {

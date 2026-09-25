@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Support\SpvMfaPolicy;
 use App\Domain\Spv\Contracts\SpvBrowserSessionClient;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvSessionState;
@@ -14,6 +12,8 @@ use App\Domain\Spv\Models\SpvConnection;
 use App\Domain\Spv\Models\SpvSession;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\SpvMfaPolicy;
 
 /**
  * `BLUEPRINT.md` §13.2 steps 1-4: the user initiates "Connect SPV", Laravel starts a browser worker

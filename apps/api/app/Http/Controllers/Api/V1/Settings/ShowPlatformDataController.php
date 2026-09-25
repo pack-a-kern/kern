@@ -9,7 +9,6 @@ use App\Domain\Operations\DataTransferObjects\SourceRegistryEntry;
 use App\Domain\Operations\Services\ProbeDataFreshness;
 use App\Domain\Operations\Services\ProbeSchedulerStatus;
 use App\Domain\Operations\Services\ReadSourceAllowlist;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -28,7 +27,7 @@ use Illuminate\Http\JsonResponse;
  * Behind `system.settings.view`, not `operations.view`: reading what the platform is configured to
  * trust is a settings question, and the two permissions are held by different people.
  */
-final class ShowPlatformDataController extends Controller
+final class ShowPlatformDataController
 {
     public function __invoke(
         ProbeDataFreshness $freshness,

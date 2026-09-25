@@ -31,7 +31,7 @@ final class ExternalDocumentAiProviderNotConfiguredException extends RuntimeExce
     /**
      * Thrown by `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` when the
      * system-wide `ai.enabled` setting (`docs/handoff/041-settings-module.md`,
-     * `App\Domain\Settings\Services\ResolveAiProviderCredentials`) resolves to `false` — a
+     * `Kern\Platform\Settings\Services\ResolveAiProviderCredentials`) resolves to `false` — a
      * distinct, administrator-controlled off switch from `noProviderBound()`'s "nobody has
      * implemented a real provider yet" state. Both are visible, expected, non-retryable states,
      * never confused with a transient failure.

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -24,6 +23,7 @@ use App\Domain\TaxKnowledge\Providers\EloquentFiscalParameterProvider;
 use App\Domain\TaxKnowledge\Providers\EloquentTaxRuleVersionProvider;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;

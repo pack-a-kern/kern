@@ -14,7 +14,6 @@ use App\Domain\Wallet\Enums\DayCountConvention;
 use App\Domain\Wallet\Enums\InterestMethod;
 use App\Domain\Wallet\Enums\PaymentFrequency;
 use App\Domain\Wallet\Enums\RateType;
-use App\Http\Controllers\Controller;
 use App\Rules\StreamSource;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +33,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * and accepting a `tax_subject_id` field would let a caller write into a subject the URL did not
  * authorise — the bound context is the one the middleware checked membership against.
  */
-final class OpenAccountController extends Controller
+final class OpenAccountController
 {
     public function __invoke(
         Request $request,

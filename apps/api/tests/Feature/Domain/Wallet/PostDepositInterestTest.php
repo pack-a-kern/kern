@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -21,6 +20,7 @@ use App\Domain\Wallet\Models\DepositInterestEvent;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Tenancy\TenantScope;
 

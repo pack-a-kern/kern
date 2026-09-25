@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Legislation;
 use App\Domain\TaxKnowledge\Actions\DeleteLaw;
 use App\Domain\TaxKnowledge\Models\SourceDocument;
 use App\Domain\TaxKnowledge\Repositories\OfficialSourceRepository;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
  * which have no provisions to protect them and are what every past-year conversion rests on. Those
  * are not laws and are not found here.
  */
-final class DeleteLawController extends Controller
+final class DeleteLawController
 {
     public function __invoke(Request $request, string $law, DeleteLaw $delete, OfficialSourceRepository $sources): JsonResponse
     {

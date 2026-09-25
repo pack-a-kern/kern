@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Models\Document;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
 use Kern\Platform\ObjectStore\Exceptions\ObjectNotFoundException;
@@ -36,7 +35,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * threshold) straight to the response body; the decrypted plaintext is never buffered whole in
  * PHP memory.
  */
-final class ShowDocumentContentController extends Controller
+final class ShowDocumentContentController
 {
     /** Statuses whose original bytes have been promoted out of quarantine into the real store. */
     private const array CONTENT_AVAILABLE_STATUSES = [

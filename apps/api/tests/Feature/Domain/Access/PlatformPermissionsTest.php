@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Domain\Access\Services\AccessCatalogue;
-use App\Domain\Identity\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Access\Services\AccessCatalogue;
+use Kern\Platform\Identity\Models\User;
 use Spatie\Permission\PermissionRegistrar;
 
 uses(RefreshDatabase::class);
@@ -23,14 +23,6 @@ function userWithRole(string $role): User
     $user->assignRole($role);
 
     return $user;
-}
-
-/** `getKey()` is `mixed` to static analysis; the model declares a string key. */
-function userId(User $user): string
-{
-    $key = $user->getKey();
-
-    return is_scalar($key) ? (string) $key : '';
 }
 
 it('refuses every administrative route to a user with no platform role', function (): void {
@@ -60,12 +52,12 @@ it('refuses to remove the last super administrator', function (): void {
 
     // With two, demoting one is allowed.
     $this->actingAs($actor)
-        ->putJson('/api/v1/admin/users/' . userId($only) . '/roles', ['roles' => ['VIEWER']])
+        ->putJson('/api/v1/admin/users/' . $only->id . '/roles', ['roles' => ['VIEWER']])
         ->assertOk();
 
     // The actor is now the only one left, and cannot demote themselves out of existence.
     $this->actingAs($actor)
-        ->putJson('/api/v1/admin/users/' . userId($actor) . '/roles', ['roles' => ['VIEWER']])
+        ->putJson('/api/v1/admin/users/' . $actor->id . '/roles', ['roles' => ['VIEWER']])
         ->assertStatus(422);
 });
 
@@ -73,7 +65,7 @@ it('refuses to strip your own last role', function (): void {
     $actor = userWithRole('SUPER_ADMIN');
 
     $this->actingAs($actor)
-        ->putJson('/api/v1/admin/users/' . userId($actor) . '/roles', ['roles' => []])
+        ->putJson('/api/v1/admin/users/' . $actor->id . '/roles', ['roles' => []])
         ->assertStatus(422);
 });
 
@@ -81,7 +73,7 @@ it('refuses to suspend your own account', function (): void {
     $actor = userWithRole('SUPER_ADMIN');
 
     $this->actingAs($actor)
-        ->putJson('/api/v1/admin/users/' . userId($actor) . '/status', ['status' => 'SUSPENDED'])
+        ->putJson('/api/v1/admin/users/' . $actor->id . '/status', ['status' => 'SUSPENDED'])
         ->assertStatus(422);
 });
 
@@ -90,13 +82,13 @@ it('writes a role change into the audit chain', function (): void {
     $target = User::factory()->create();
 
     $this->actingAs($actor)
-        ->putJson('/api/v1/admin/users/' . userId($target) . '/roles', ['roles' => ['ACCOUNTANT']])
+        ->putJson('/api/v1/admin/users/' . $target->id . '/roles', ['roles' => ['ACCOUNTANT']])
         ->assertOk();
 
     $this->assertDatabaseHas('audit_events', [
         'event_type' => 'ROLE_CHANGED',
         'resource_type' => 'user',
-        'resource_id' => (string) $target->getKey(),
+        'resource_id' => $target->id,
     ]);
 });
 

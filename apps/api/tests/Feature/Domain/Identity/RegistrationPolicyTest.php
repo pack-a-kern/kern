@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Services\RegistrationPolicy;
-use App\Domain\Settings\Enums\SettingKey;
-use App\Domain\Settings\Repositories\SettingsRepository;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Services\RegistrationPolicy;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

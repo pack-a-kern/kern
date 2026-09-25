@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\SubjectMembershipUniquenessTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -13,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Services\RegistrationPolicy;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Kern\Platform\Identity\Services\RegistrationPolicy;
 
 /*
  * Milestone 7 PWA frontend (`docs/handoff/030-pwa-frontend.md`). Every page here renders an

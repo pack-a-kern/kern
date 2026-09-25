@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\StatementImport;
 use App\Domain\StatementImport\Actions\RequestRowSuggestions;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +16,7 @@ use Illuminate\Http\Request;
  * Accepted rather than answered: the calls run on the model queue, and the screen follows them over
  * the import's channel as they finish.
  */
-final class RequestRowSuggestionsController extends Controller
+final class RequestRowSuggestionsController
 {
     public function __invoke(
         Request $request,

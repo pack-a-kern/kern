@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Rental\RawDatabasePlaintextTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Rental\Actions\AmendRentalContract;
 use App\Domain\Rental\Actions\CreateRentalContract;
 use App\Domain\Rental\Actions\RegisterProperty;
@@ -19,6 +18,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\AuditTrailTest;
 
-use App\Domain\Identity\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Audit\Services\ChainVerifier;
+use Kern\Platform\Identity\Models\User;
 use OTPHP\TOTP;
 
 /**

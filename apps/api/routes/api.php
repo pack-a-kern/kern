@@ -2,28 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Api\V1\Account\ShowProfileController;
-use App\Http\Controllers\Api\V1\Account\UpdatePasswordController;
-use App\Http\Controllers\Api\V1\Admin\CreateUserController;
-use App\Http\Controllers\Api\V1\Admin\EraseUserController;
-use App\Http\Controllers\Api\V1\Admin\ImpersonationController;
-use App\Http\Controllers\Api\V1\Admin\ShowAccessCatalogueController;
 use App\Http\Controllers\Api\V1\Admin\ShowUsersController;
-use App\Http\Controllers\Api\V1\Admin\UpdateUserRolesController;
-use App\Http\Controllers\Api\V1\Admin\UpdateUserStatusController;
-use App\Http\Controllers\Api\V1\Audit\ShowAuditEventsController;
-use App\Http\Controllers\Api\V1\Audit\ShowAuditSummaryController;
-use App\Http\Controllers\Api\V1\Auth\DisableTotpController;
-use App\Http\Controllers\Api\V1\Auth\LoginController;
-use App\Http\Controllers\Api\V1\Auth\LogoutController;
-use App\Http\Controllers\Api\V1\Auth\MfaChallengeController;
-use App\Http\Controllers\Api\V1\Auth\MfaStatusController;
-use App\Http\Controllers\Api\V1\Auth\PasskeyLoginController;
-use App\Http\Controllers\Api\V1\Auth\PasskeyRegistrationController;
-use App\Http\Controllers\Api\V1\Auth\RecoveryCodeController;
-use App\Http\Controllers\Api\V1\Auth\RegistrationController;
-use App\Http\Controllers\Api\V1\Auth\SessionController;
-use App\Http\Controllers\Api\V1\Auth\TotpController;
 use App\Http\Controllers\Api\V1\Documents\AcceptDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\CorrectDocumentExtractionController;
 use App\Http\Controllers\Api\V1\Documents\CreateTransactionFromDocumentController;
@@ -52,8 +31,6 @@ use App\Http\Controllers\Api\V1\Legislation\ShowLawController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawOutlineController;
 use App\Http\Controllers\Api\V1\Legislation\ShowLawTextController;
 use App\Http\Controllers\Api\V1\Legislation\ShowProvisionHistoryController;
-use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
-use App\Http\Controllers\Api\V1\Notifications\MarkNotificationsReadController;
 use App\Http\Controllers\Api\V1\Operations\ForgetFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RetryFailedJobController;
 use App\Http\Controllers\Api\V1\Operations\RunOperationTaskController;
@@ -67,16 +44,7 @@ use App\Http\Controllers\Api\V1\Rentals\EndRentalController;
 use App\Http\Controllers\Api\V1\Rentals\OpenRentalController;
 use App\Http\Controllers\Api\V1\Rentals\ShowRentalsController;
 use App\Http\Controllers\Api\V1\Rentals\UpdateRentalController;
-use App\Http\Controllers\Api\V1\Settings\ClearAiApiKeyController;
-use App\Http\Controllers\Api\V1\Settings\ListAiModelsController;
-use App\Http\Controllers\Api\V1\Settings\ShowAiProvidersController;
-use App\Http\Controllers\Api\V1\Settings\ShowAiSettingsController;
 use App\Http\Controllers\Api\V1\Settings\ShowPlatformDataController;
-use App\Http\Controllers\Api\V1\Settings\ShowSettingsController;
-use App\Http\Controllers\Api\V1\Settings\ShowSystemHealthController;
-use App\Http\Controllers\Api\V1\Settings\TestAiConnectionController;
-use App\Http\Controllers\Api\V1\Settings\UpdateAiSettingsController;
-use App\Http\Controllers\Api\V1\Settings\UpdateSettingsGroupController;
 use App\Http\Controllers\Api\V1\StatementImport\CommitStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\DeleteStatementImportController;
 use App\Http\Controllers\Api\V1\StatementImport\ListStatementImportsController;
@@ -114,65 +82,6 @@ use App\Http\Controllers\Api\V1\Wallet\UpdateDisplayCurrencyController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateTagController;
 use App\Http\Controllers\Api\V1\Wallet\UpdateTransactionController;
 use Illuminate\Support\Facades\Route;
-
-/*
- * `docs/handoff/017-authentication.md` documents the full lifecycle these routes implement.
- * Every unauthenticated authentication endpoint carries a named rate limiter
- * (`App\Domain\Identity\IdentityServiceProvider::boot()`, `BLUEPRINT.md` §4.7) — none rely on the
- * framework's default unkeyed `throttle:60,1`.
- */
-Route::prefix('v1/auth')->group(function (): void {
-    Route::post('register', RegistrationController::class)
-        ->middleware('throttle:register-per-ip');
-
-    Route::post('login', LoginController::class)
-        ->middleware(['throttle:login-per-account-ip', 'throttle:login-per-ip']);
-
-    Route::post('mfa/challenge', MfaChallengeController::class)
-        ->middleware('throttle:mfa-challenge-per-user');
-
-    Route::post('passkeys/login/options', [PasskeyLoginController::class, 'options'])
-        ->middleware('throttle:passkey-ceremony-per-ip');
-    Route::post('passkeys/login', [PasskeyLoginController::class, 'store'])
-        ->middleware('throttle:passkey-ceremony-per-ip');
-
-    Route::middleware('auth:web')->group(function (): void {
-        Route::post('logout', LogoutController::class);
-
-        Route::post('passkeys/registration/options', [PasskeyRegistrationController::class, 'options'])
-            ->middleware('throttle:passkey-ceremony-per-ip');
-        Route::post('passkeys/registration', [PasskeyRegistrationController::class, 'store'])
-            ->middleware('throttle:passkey-ceremony-per-ip');
-
-        Route::get('mfa/status', MfaStatusController::class);
-        Route::post('mfa/totp/enroll', [TotpController::class, 'enroll']);
-        Route::post('mfa/totp/confirm', [TotpController::class, 'confirm']);
-        Route::delete('mfa/totp', DisableTotpController::class);
-        Route::post('mfa/recovery-codes/regenerate', [RecoveryCodeController::class, 'regenerate']);
-
-        Route::get('sessions', [SessionController::class, 'index']);
-        Route::delete('sessions/{sessionId}', [SessionController::class, 'destroy']);
-        Route::delete('sessions', [SessionController::class, 'destroyAll']);
-    });
-});
-
-/*
- * `docs/handoff/031-pwa-backend-endpoints.md` — which `TaxSubject`s the authenticated user can
- * access (driven by `subject_memberships`, `docs/handoff/011-identity-tenancy.md`), and
- * registering a new PF one (`App\Domain\Subjects\Actions\RegisterPfSubject`, reused verbatim).
- * Neither route binds `{subject}`/`tax-subject` — listing must work *before* any subject is
- * chosen, and registration creates one.
- */
-Route::post('v1/admin/impersonation/stop', [ImpersonationController::class, 'stop'])->middleware('auth:web');
-
-/*
- * The bell: a user's own notices, whichever taxpayer each is about. Not under `v1/subjects/{subject}`
- * because a notice follows the person, not the subject selected when the menu is opened.
- */
-Route::prefix('v1/notifications')->middleware('auth:web')->group(function (): void {
-    Route::get('/', ListNotificationsController::class);
-    Route::post('read', MarkNotificationsReadController::class);
-});
 
 Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListSubjectsController::class);
@@ -259,7 +168,6 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::patch('wallet/accounts/{account}', UpdateAccountController::class)->where('account', '[0-9a-f-]{36}');
     Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
 
-
     // Rentals: what a contract owes, per year. A rental never creates a transaction — see `RentalQuery`.
     Route::get('rentals', ShowRentalsController::class);
     Route::post('rentals', OpenRentalController::class);
@@ -317,57 +225,6 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // the splits again, and an empty list returns the row to the unclassified worklist.
     Route::put('wallet/transactions/{transaction}/splits', ClassifyTransactionController::class)
         ->where('transaction', '[0-9a-f-]{36}');
-});
-
-/*
- * `docs/handoff/041-settings-module.md` — system-wide runtime settings (today: the AI
- * document-extraction provider). Deliberately outside the `v1/subjects/{subject}` group above:
- * these settings have no tax subject at all — `tax-subject` binds a `TenantContext` from a
- * `{subject}` route parameter that does not apply here. Gated by a platform permission, not any
- * `subject_memberships` role, since changing where taxpayer documents are sent is a system-wide
- * administrative act, not a per-subject one (`docs/adr/0013-system-settings-scope-and-admin-
- * gate.md`).
- */
-Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void {
-    // Reading system configuration and changing it are separate permissions: an auditor or a
-    // support engineer often needs the first and must not have the second. `permission:` is
-    // Spatie's own middleware — there is no environment allowlist any more (docs/adr/0014).
-    Route::middleware('permission:system.settings.view')->group(function (): void {
-        // Every group, with each setting's effective value and whether it comes from the database
-        // or is inherited from configuration. Read-only keys are refused by the update route
-        // itself, not merely disabled in the UI.
-        Route::get('/', ShowSettingsController::class);
-        Route::get('ai', ShowAiSettingsController::class);
-        Route::get('health', ShowSystemHealthController::class);
-        // What this installation is allowed to fetch from, and how recently each of those actually
-        // delivered. Read-only — see ShowPlatformDataController.
-        Route::get('platform-data', ShowPlatformDataController::class);
-        Route::get('ai/providers', ShowAiProvidersController::class);
-    });
-
-    Route::middleware('permission:system.settings.manage')->group(function (): void {
-        // The AI group keeps its own richer endpoints (secret handling, connection test).
-        Route::put('ai', UpdateAiSettingsController::class);
-        Route::delete('ai/api-key', ClearAiApiKeyController::class);
-        // Both reach out to the configured provider with real credentials, so they are writes in
-        // every sense that matters even though neither stores anything.
-        Route::post('ai/test-connection', TestAiConnectionController::class);
-        Route::post('ai/models', ListAiModelsController::class);
-
-        // Namespaced under `group/` deliberately: a bare `{group}` wildcard collides with the
-        // AI-specific routes above, and `PUT settings/ai` then reaches the generic controller —
-        // or, worse, the AI controller reaches a partial payload and rejects it with "the enabled
-        // field is required". Distinct paths, no ordering subtleties.
-        Route::put('group/{group}', UpdateSettingsGroupController::class)
-            ->where('group', '[a-z_]+');
-    });
-});
-
-// The audit trail names every actor and resource across all tax subjects, so it sits behind the
-// same administrator gate as system settings rather than ordinary `auth:web`.
-Route::prefix('v1/audit')->middleware(['auth:web', 'permission:audit.view'])->group(function (): void {
-    Route::get('events', ShowAuditEventsController::class);
-    Route::get('summary', ShowAuditSummaryController::class);
 });
 
 /*
@@ -455,32 +312,20 @@ Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): voi
     });
 });
 
-// User administration. Same gate as settings and audit: this lists every account on the
-// installation, with decrypted email addresses.
-Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
-    Route::middleware('permission:users.view')->group(function (): void {
-        Route::get('users', ShowUsersController::class);
-        Route::get('access', ShowAccessCatalogueController::class);
-    });
-
-    Route::middleware('permission:users.manage')->group(function (): void {
-        Route::post('users', CreateUserController::class);
-        Route::put('users/{user}/roles', UpdateUserRolesController::class);
-        Route::put('users/{user}/status', UpdateUserStatusController::class);
-        // Erasing a person and acting as one are not role changes: both check SUPER_ADMIN
-        // themselves, on top of the `users.manage` permission this group already requires.
-        Route::delete('users/{user}', EraseUserController::class);
-        Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start']);
-    });
-});
-
-// The signed-in user's own account. No permission beyond being authenticated: everything here is
-// scoped to `$request->user()` and can only ever read or change that one account.
 // Which tax subjects permit external AI processing. A set rather than a value per subject, so a
 // consent screen needs one request instead of one per row.
 Route::get('v1/documents/ai-consents', ShowDocumentAiConsentsController::class)->middleware('auth:web');
 
-Route::prefix('v1/me')->middleware('auth:web')->group(function (): void {
-    Route::get('/', ShowProfileController::class);
-    Route::put('password', UpdatePasswordController::class);
-});
+/*
+ * The two administrative endpoints that compose a package's facts with this product's.
+ *
+ * `kern/platform` ships the rest of `v1/admin` and `v1/settings` itself. These two do not belong to
+ * it: one reports how many `subject_memberships` hold each tenant role, the other reports how fresh
+ * the BNR rates and the legislation index are. Both are questions about a taxpayer's world, which
+ * the platform deliberately knows nothing about. Same permissions as the routes they sit beside.
+ */
+Route::middleware(['auth:web', 'permission:users.view'])
+    ->get('v1/admin/users', ShowUsersController::class);
+
+Route::middleware(['auth:web', 'permission:system.settings.view'])
+    ->get('v1/settings/platform-data', ShowPlatformDataController::class);

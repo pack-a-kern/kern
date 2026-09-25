@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\Support\Totp\TotpVerifierTest;
 
-use App\Domain\Identity\Support\Totp\TotpVerifier;
+use Kern\Platform\Identity\Support\Totp\TotpVerifier;
 use OTPHP\TOTP;
 
 /**

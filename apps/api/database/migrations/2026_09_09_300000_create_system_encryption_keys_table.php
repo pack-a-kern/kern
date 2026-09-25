@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The wrapped DEK for `App\Domain\Settings\Support\SystemEncryptionScope::ID` — the encryption
+ * The wrapped DEK for `Kern\Platform\Settings\Support\SystemEncryptionScope::ID` — the encryption
  * principal for system-wide secrets that have no `TaxSubject` (e.g. the AI provider API key,
  * `docs/handoff/041-settings-module.md`). Deliberately a **separate** table from
  * `tax_subjects`/`users`, not a new row squeezed into either: both of those tables key
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * (`App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository`), and `SystemEncryptionScope::ID`
  * is deliberately *not* a UUID (see that class's docblock — "do not invent a fake subject id").
  * `scope` is a short string primary key so a future second system-wide encryption context (should
- * one ever be needed) does not require a schema change — today `App\Domain\Settings\Infrastructure\
+ * one ever be needed) does not require a schema change — today `Kern\Platform\Settings\Infrastructure\
  * SystemDekRepository` only ever reads/writes the single `'system'` row.
  *
  * Same nullable-until-first-use shape as `tax_subjects.encrypted_dek`/`users.encrypted_dek`: no

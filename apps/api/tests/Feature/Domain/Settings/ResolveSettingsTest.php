@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domain\Settings\Enums\SettingGroup;
-use App\Domain\Settings\Enums\SettingKey;
-use App\Domain\Settings\Enums\SettingSource;
-use App\Domain\Settings\Repositories\SettingsRepository;
-use App\Domain\Settings\Services\ResolveSettings;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Settings\Enums\SettingGroup;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Enums\SettingSource;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
+use Kern\Platform\Settings\Services\ResolveSettings;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);

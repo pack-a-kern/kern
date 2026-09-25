@@ -34,10 +34,6 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('app/Support/.*'),
     );
 
-    $identity = Layer::withName('Identity')->collectors(
-        DirectoryConfig::create('app/Domain/Identity/.*'),
-    );
-
     $subjects = Layer::withName('Subjects')->collectors(
         DirectoryConfig::create('app/Domain/Subjects/.*'),
     );
@@ -78,10 +74,6 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('app/Domain/Spv/.*'),
     );
 
-    $settings = Layer::withName('Settings')->collectors(
-        DirectoryConfig::create('app/Domain/Settings/.*'),
-    );
-
     $operations = Layer::withName('Operations')->collectors(
         DirectoryConfig::create('app/Domain/Operations/.*'),
     );
@@ -93,24 +85,9 @@ return static function (DeptracConfig $config): void {
     $config
         ->paths('app', 'database', 'routes')
         ->excludeFiles('#.*/tests/.*#')
-        ->layers($support, $identity, $subjects, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $settings, $operations, $statementImport)
+        ->layers($support, $subjects, $taxKnowledge, $fx, $banks, $wallet, $taxEngine, $documents, $rental, $declarations, $spv, $operations, $statementImport)
         ->rulesets(
             Ruleset::forLayer($support),
-            // Identity -> Audit: this module's login/MFA/session/passkey actions
-            // (App\Domain\Identity\Actions\*) record authentication events via
-            // AuditChainService::record() — the same sanctioned "application service"
-            // cross-module traffic shape docs/handoff/006-audit-chain.md documents for Subjects.
-            // Identity never imports App\Domain\Subjects\Models\SecurityEvent directly (that
-            // table's rows are written via a plain DB::table('security_events')->insert(...) call
-            // per docs/handoff/011-identity-tenancy.md "Key decisions" #9), so no Identity ->
-            // Subjects grant is needed here.
-            // Identity -> Settings: App\Domain\Identity\Services\RegistrationPolicy reads
-            // SettingKey::IDENTITY_REGISTRATION_ENABLED through SettingsRepository — the same
-            // application-service crossing Documents already makes for the AI provider settings,
-            // and for the same reason: whether sign-ups are open is an operational switch an owner
-            // flips at runtime, so the module that registers users has to ask rather than assume.
-            // Identity never touches a Settings Eloquent model.
-            Ruleset::forLayer($identity)->accesses($settings),
             // Subjects -> Audit: App\Domain\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
             // "application service" cross-module traffic shape) to record TaxSubjectRegistered.
@@ -138,10 +115,10 @@ return static function (DeptracConfig $config): void {
             // destroys. The chain is the only place a deleted law still exists.
             //
             // TaxKnowledge -> Settings: the law is read by a model, and which provider and
-            // credentials to use is a system setting (App\Domain\Settings\Services\
+            // credentials to use is a system setting (Kern\Platform\Settings\Services\
             // {AiProviderCatalogue,ResolveAiProviderCredentials}) rather than a second copy of the
             // provider configuration living here.
-            Ruleset::forLayer($taxKnowledge)->accesses($taxEngine, $documents, $settings),
+            Ruleset::forLayer($taxKnowledge)->accesses($taxEngine, $documents),
             // Fx -> TaxKnowledge: App\Domain\Fx\Actions\{ImportBnrDailyRates,BackfillBnrYear} call
             // App\Domain\TaxKnowledge\Services\SourceIngestionService (fetch/store/version the raw
             // BNR XML) and App\Domain\Fx\Services\FxRateQuery and the BNR actions call
@@ -201,12 +178,12 @@ return static function (DeptracConfig $config): void {
             // ADR 0005 requires — the same sanctioned application-service crossing every other
             // module above uses for the same audit chain.
             // Documents -> Settings: App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction
-            // calls App\Domain\Settings\Services\ResolveAiProviderCredentials to learn the
+            // calls Kern\Platform\Settings\Services\ResolveAiProviderCredentials to learn the
             // current AI provider configuration (docs/handoff/041-settings-module.md) — the same
             // sanctioned "application service" cross-module shape every grant above uses, plus
-            // App\Domain\Settings\DataTransferObjects\AiProviderCredentials, a plain DTO passed
+            // Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials, a plain DTO passed
             // as a constructor argument (never a Settings Eloquent model — this module has none).
-            Ruleset::forLayer($documents)->accesses($support, $subjects, $settings),
+            Ruleset::forLayer($documents)->accesses($support, $subjects),
             // Rental -> Subjects: every Rental model uses App\Domain\Subjects\Tenancy\
             // ScopedToTaxSubject/TaxSubjectScope, the same reusable tenancy mechanism every other
             // business module above adopts (docs/handoff/011-identity-tenancy.md).
@@ -233,8 +210,8 @@ return static function (DeptracConfig $config): void {
             // `rental_contracts.source_document_id -> documents` already establishes.
             Ruleset::forLayer($declarations)->accesses($subjects),
             // Spv -> Identity: App\Domain\Spv\Actions\{RegisterSpvConnection,InitiateSpvAuthAttempt}
-            // call App\Domain\Identity\Support\SpvMfaPolicy::ensureStrongAuthentication() and take
-            // an App\Domain\Identity\Models\User parameter — the enforceable MFA-before-SPV gate
+            // call Kern\Platform\Identity\Support\SpvMfaPolicy::ensureStrongAuthentication() and take
+            // an Kern\Platform\Identity\Models\User parameter — the enforceable MFA-before-SPV gate
             // docs/handoff/017-authentication.md built for exactly this milestone. Spv -> Audit:
             // every Spv action records an AuditChainService::record() event, the same sanctioned
             // application-service crossing every other module above uses. Spv -> Subjects: every
@@ -243,18 +220,8 @@ return static function (DeptracConfig $config): void {
             // `spv_messages.document_id -> documents` is a real foreign key at the migration/
             // schema level only, the same precedent `rental_contracts.source_document_id ->
             // documents` already establishes — no Documents grant is needed here.
-            Ruleset::forLayer($spv)->accesses($subjects, $identity),
-            // Settings has no grant at all: App\Domain\Settings\Support\SystemSecretCipher
-            // encrypts under this module's own scope rather than a TaxSubject's (see
-            // App\Domain\Settings\Support\SystemEncryptionScope), but it does so with
-            // Kern\Platform\Crypto and Kern\Platform\KeyManagement — a package, not a layer.
-            // Settings -> Audit:
-            // App\Domain\Settings\Services\AiProviderSettingsService calls
-            // AuditChainService::record() for every settings change, the same sanctioned
-            // application-service crossing every other module above uses. Settings never
-            // accesses Subjects/Identity/Documents: it has no TaxSubject scoping (these are
-            // system-wide, not per-subject, settings) and no Eloquent model of its own to import.
-            Ruleset::forLayer($settings),
+            Ruleset::forLayer($spv)->accesses($subjects),
+            // Settings has no grant at all: Kern\Platform\Settings\Support\SystemSecretCipher
             // Operations -> Audit: every act on the operations console (starting a task, pausing
             // the schedule, retrying or discarding a failed job, disabling an official source)
             // records an AuditChainService::record() event, the same sanctioned application-service
@@ -274,7 +241,7 @@ return static function (DeptracConfig $config): void {
             // all read through the plain query builder — the identical crossing
             // `App\Domain\Documents\Queries\ResolveTransactionImportState` already
             // establishes for `financial_transactions`. In particular there is no Settings grant:
-            // App\Domain\Settings\Services\ProbeSystemHealth is composed into the operations
+            // Kern\Platform\Settings\Services\ProbeSystemHealth is composed into the operations
             // *overview response* by the HTTP controller, which belongs to no layer, not by
             // anything under app/Domain/Operations.
             Ruleset::forLayer($operations)->accesses($documents),
@@ -292,6 +259,6 @@ return static function (DeptracConfig $config): void {
             // the user who started an import, to tell them it moved on. Nothing else here reads Identity.
             // StatementImport -> Banks: App\Domain\StatementImport\Services\GuessStatementBank matches the
             // statement's IBAN, or the bank the model named, against the bank directory.
-            Ruleset::forLayer($statementImport)->accesses($identity, $subjects, $settings, $wallet, $documents, $banks),
+            Ruleset::forLayer($statementImport)->accesses($subjects, $wallet, $documents, $banks),
         );
 };

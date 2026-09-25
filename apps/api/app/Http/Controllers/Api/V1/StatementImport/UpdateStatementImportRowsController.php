@@ -9,7 +9,6 @@ use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,7 +20,7 @@ use Illuminate\Validation\Rule;
  * forty supermarket payments, give them all one category and a tag, move on. Only the keys sent are
  * changed, so "tag these" does not untick them.
  */
-final class UpdateStatementImportRowsController extends Controller
+final class UpdateStatementImportRowsController
 {
     public function __invoke(
         Request $request,

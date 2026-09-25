@@ -10,8 +10,10 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
+use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
 use Kern\Platform\ObjectStore\ObjectStoreServiceProvider;
+use Kern\Platform\Settings\SettingsServiceProvider;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**
@@ -35,12 +37,14 @@ final class PlatformServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        foreach (['crypto', 'objectstore', 'tenancy'] as $file) {
+        foreach (['crypto', 'kern', 'objectstore', 'tenancy'] as $file) {
             $this->mergeConfigFrom(__DIR__ . "/../config/{$file}.php", $file);
         }
 
         $this->app->register(KeyManagementServiceProvider::class);
         $this->app->register(ObjectStoreServiceProvider::class);
+        $this->app->register(SettingsServiceProvider::class);
+        $this->app->register(IdentityServiceProvider::class);
 
         $this->app->singleton(BlindIndexKeyProvider::class, static function (Application $app): BlindIndexKeyProvider {
             $config = $app->make(ConfigRepository::class);
@@ -68,6 +72,11 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../config/crypto.php' => config_path('crypto.php'),
             __DIR__ . '/../config/objectstore.php' => config_path('objectstore.php'),
+            __DIR__ . '/../config/kern.php' => config_path('kern.php'),
+            __DIR__ . '/../config/ai/providers.php' => config_path('ai/providers.php'),
+            __DIR__ . '/../config/access.php' => config_path('access.php'),
+            __DIR__ . '/../config/identity.php' => config_path('identity.php'),
+            __DIR__ . '/../config/webauthn.php' => config_path('webauthn.php'),
             __DIR__ . '/../config/tenancy.php' => config_path('tenancy.php'),
         ], 'kern-platform-config');
     }

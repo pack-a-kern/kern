@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Operations;
 
 use App\Domain\Operations\Repositories\FailedJobRepository;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
@@ -18,7 +17,7 @@ use Kern\Audit\Services\AuditChainService;
  * Recorded in the audit chain before the row is removed, so "who dismissed the failure" survives
  * the row itself.
  */
-final class ForgetFailedJobController extends Controller
+final class ForgetFailedJobController
 {
     public function __invoke(
         Request $request,

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\SessionManagementTest;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserSession;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserSession;
 use Tests\TestCase;
 
 /**

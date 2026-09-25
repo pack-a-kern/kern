@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\TaxKnowledge\FiscalParameters\Reading;
 
-use App\Domain\Settings\Enums\AiDialect;
-use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use App\Domain\TaxKnowledge\FiscalParameters\Matching\Provision;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterAnswer;
 use App\Domain\TaxKnowledge\FiscalParameters\ParameterDefinition;
@@ -16,6 +13,9 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Kern\Platform\Settings\Enums\AiDialect;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 use Psr\Log\LoggerInterface;
 
 /**

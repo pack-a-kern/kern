@@ -5,7 +5,7 @@
  * this header, the same mechanism Laravel's own `axios`/jQuery defaults document).
  *
  * The token only changes when the session's `_token` is rotated (`session()->regenerateToken()`),
- * which this backend does exactly once — on logout (`App\Http\Controllers\Api\V1\Auth\
+ * which this backend does exactly once — on logout (`Kern\Platform\Http\Controllers\Auth\
  * LogoutController`). Every other privilege change (`login`, `mfa/challenge`,
  * `mfa/totp/confirm`) rotates the *session id* (`session()->regenerate()`), not the token, so the
  * meta tag stays valid for the lifetime of one document load. `resources/js/lib/http.ts`'s

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\StatementImport\Services;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\StatementImport\Enums\ImportNoticeKind;
 use App\Domain\StatementImport\Enums\RowProposalSource;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Notifications\StatementImportNotice;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantScope;
 
 /**

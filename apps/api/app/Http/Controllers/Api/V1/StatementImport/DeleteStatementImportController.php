@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\StatementImport;
 use App\Domain\StatementImport\Actions\DeleteStatementImport;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,7 +17,7 @@ use Illuminate\Http\Response;
  * Refused for one that did: those are undone first, so the ledger never holds figures pointing at an
  * import nobody can look up.
  */
-final class DeleteStatementImportController extends Controller
+final class DeleteStatementImportController
 {
     public function __invoke(
         Request $request,

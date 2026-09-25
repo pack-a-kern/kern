@@ -9,7 +9,6 @@ use App\Domain\Wallet\Enums\TransactionClassificationStatus;
 use App\Domain\Wallet\Queries\TransactionSummary;
 use App\Domain\Wallet\Queries\WalletQuery;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,7 +26,7 @@ use Illuminate\Validation\Rule;
  * So every filter is a `where` and the page is a page: the counts under the pager are counts of what
  * matches, not of what happened to be fetched.
  */
-final class ShowTransactionsController extends Controller
+final class ShowTransactionsController
 {
     private const int DEFAULT_PER_PAGE = 25;
 

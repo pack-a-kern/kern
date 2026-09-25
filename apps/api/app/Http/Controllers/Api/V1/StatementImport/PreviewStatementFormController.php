@@ -10,7 +10,6 @@ use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Services\StatementRowBuilder;
 use App\Domain\Wallet\Models\FinancialAccount;
 use App\Http\Controllers\Api\V1\StatementImport\Concerns\ValidatesStatementForm;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,7 +33,7 @@ use Illuminate\Http\Request;
  * nothing yet comes back as no transactions rather than an error, because "this does not work yet"
  * is what the empty preview is already saying.
  */
-final class PreviewStatementFormController extends Controller
+final class PreviewStatementFormController
 {
     use ValidatesStatementForm;
 

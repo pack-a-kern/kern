@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\PfaEncryptionAndCoexistenceTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfaSubject;
 use App\Domain\Subjects\Actions\RegisterPfSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
@@ -24,6 +23,7 @@ use Illuminate\Support\Facades\Schema;
 use Kern\Audit\Services\ChainVerifier;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
 use Tests\Fakes\InMemoryKeyManagementService;

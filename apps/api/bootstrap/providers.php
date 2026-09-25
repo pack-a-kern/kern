@@ -5,8 +5,6 @@ declare(strict_types=1);
 use App\Domain\Declarations\DeclarationsServiceProvider;
 use App\Domain\Documents\DocumentsServiceProvider;
 use App\Domain\Fx\FxServiceProvider;
-use App\Domain\Identity\IdentityServiceProvider;
-use App\Domain\Settings\SettingsServiceProvider;
 use App\Domain\Spv\SpvServiceProvider;
 use App\Domain\StatementImport\StatementImportServiceProvider;
 use App\Domain\Subjects\SubjectsServiceProvider;
@@ -16,12 +14,10 @@ use App\Providers\AppServiceProvider;
 return [
     AppServiceProvider::class,
     SubjectsServiceProvider::class,
-    IdentityServiceProvider::class,
     TaxKnowledgeServiceProvider::class,
     FxServiceProvider::class,
     DocumentsServiceProvider::class,
     DeclarationsServiceProvider::class,
     SpvServiceProvider::class,
-    SettingsServiceProvider::class,
     StatementImportServiceProvider::class,
 ];

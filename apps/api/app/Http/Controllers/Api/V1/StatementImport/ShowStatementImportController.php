@@ -10,7 +10,6 @@ use App\Domain\StatementImport\Models\StatementImportRow;
 use App\Domain\StatementImport\Queries\StatementImportSummary;
 use App\Domain\StatementImport\Queries\StatementRowSummary;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,7 +26,7 @@ use Illuminate\Validation\Rule;
  * statement is hundreds of rows, and "show me only what is still unanswered" is the filter that
  * makes reviewing one possible at all.
  */
-final class ShowStatementImportController extends Controller
+final class ShowStatementImportController
 {
     private const int DEFAULT_PER_PAGE = 50;
 

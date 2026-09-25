@@ -8,7 +8,6 @@ use App\Domain\Wallet\Actions\DeleteFinancialAccount;
 use App\Domain\Wallet\Exceptions\AccountNotEmptyException;
 use App\Domain\Wallet\Exceptions\UndeletableSourceException;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +19,7 @@ use Illuminate\Http\Request;
  * the screen's response is to offer *closing* instead, not to correct a field. The counts come back
  * in the body so it can say how much would have been destroyed.
  */
-final class DeleteAccountController extends Controller
+final class DeleteAccountController
 {
     public function __invoke(
         Request $request,

@@ -27,7 +27,7 @@ adding a provider is a config edit with no rebuild.
 not OpenAI-compatible** — it is `POST /v1/messages` with `x-api-key` and an
 `anthropic-version` header, not `/v1/chat/completions` with a bearer token.
 Listing Anthropic as a preset without modelling that would have shipped an option
-that could never report a working connection, so `App\Domain\Settings\Enums\AiDialect`
+that could never report a working connection, so `Kern\Platform\Settings\Enums\AiDialect`
 now selects the wire format and `TestAiProviderConnection` branches on it. This is
 consistent with ADR 0007, which standardises on the OpenAI shape and allows a thin
 per-provider adapter.

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Platform\Tenancy\TenantContext;
@@ -32,7 +31,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * simply produces a total the screen labels as partial, which is a better failure than refusing a
  * currency someone genuinely holds.
  */
-final class UpdateDisplayCurrencyController extends Controller
+final class UpdateDisplayCurrencyController
 {
     public function __invoke(Request $request, string $subject, TenantContext $tenant): JsonResponse
     {

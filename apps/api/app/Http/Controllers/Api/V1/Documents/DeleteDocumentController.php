@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\Actions\DeleteDocument;
 use App\Domain\Documents\Models\Document;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +16,7 @@ use Illuminate\Http\Request;
  * only the link goes — so nothing downstream loses a figure, and the audit chain keeps every entry
  * the document produced plus one recording its removal.
  */
-final class DeleteDocumentController extends Controller
+final class DeleteDocumentController
 {
     public function __invoke(Request $request, string $subject, string $document, DeleteDocument $delete): JsonResponse
     {

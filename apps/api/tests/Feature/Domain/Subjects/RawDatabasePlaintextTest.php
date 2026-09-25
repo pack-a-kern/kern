@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RawDatabasePlaintextTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Illuminate\Support\Facades\Artisan;
@@ -12,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 

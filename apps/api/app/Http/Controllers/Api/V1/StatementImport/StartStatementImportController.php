@@ -9,7 +9,6 @@ use App\Domain\Documents\Exceptions\DuplicateDocumentException;
 use App\Domain\Documents\FileSecurity\Exceptions\FileSecurityException;
 use App\Domain\StatementImport\Actions\StartStatementImport;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +23,7 @@ use RuntimeException;
  * the import until it is ready to have its columns confirmed. The same shape the document upload
  * uses, for the same reason — a virus scan is not something to hold a request open for.
  */
-final class StartStatementImportController extends Controller
+final class StartStatementImportController
 {
     public function __invoke(
         Request $request,

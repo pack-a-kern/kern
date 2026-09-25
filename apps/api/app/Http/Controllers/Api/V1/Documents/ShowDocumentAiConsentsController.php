@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  * Reads through `DocumentAiConsentGate` rather than the model: that is where ADR 0005's rule for
  * what counts as consent lives, and the model's docblock makes going around it a defect.
  */
-final class ShowDocumentAiConsentsController extends Controller
+final class ShowDocumentAiConsentsController
 {
     public function __invoke(Request $request, DocumentAiConsentGate $consent): JsonResponse
     {

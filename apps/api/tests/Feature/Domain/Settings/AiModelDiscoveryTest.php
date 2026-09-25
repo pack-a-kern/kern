@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domain\Settings\Enums\SettingKey;
-use App\Domain\Settings\Repositories\SettingsRepository;
-use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Settings\Services\FetchAiProviderModels;
-use App\Domain\Settings\Services\TestAiProviderConnection;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\FetchAiProviderModels;
+use Kern\Platform\Settings\Services\TestAiProviderConnection;
 
 /**
  * Swap the OpenBao-backed KMS for the in-memory fake. Encrypting a user's fields and the stored

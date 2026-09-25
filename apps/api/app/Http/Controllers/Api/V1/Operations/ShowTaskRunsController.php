@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Operations;
 
 use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Models\TaskRun;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,7 +21,7 @@ use Illuminate\Validation\Rule;
  * `{task}` is resolved against the enum, so an unknown key is a 404 rather than an empty page that
  * looks like a task which has never run.
  */
-final class ShowTaskRunsController extends Controller
+final class ShowTaskRunsController
 {
     private const int DEFAULT_PAGE_SIZE = 10;
 

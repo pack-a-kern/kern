@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Operations;
 
 use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
@@ -27,7 +26,7 @@ use Kern\Audit\Services\AuditChainService;
  *
  * Takes effect within a minute — `schedule:work` re-evaluates the schedule closure on every tick.
  */
-final class UpdateScheduledTaskController extends Controller
+final class UpdateScheduledTaskController
 {
     public function __invoke(
         Request $request,

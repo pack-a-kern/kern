@@ -13,13 +13,13 @@ The full authentication layer `BLUEPRINT.md` §4.7 asks for, on top of `docs/han
 4. **Recovery codes** — hashed (Argon2id via `Hash::make()`), single-use, countable.
 5. **Session management** — Redis-backed session cookie, rotated on login and on MFA-enrollment (privilege change), device/session listing, single and bulk revoke, logout.
 6. **Rate limiting** on every unauthenticated auth endpoint, keyed so one account's lockout never touches another's.
-7. **`App\Domain\Identity\Support\SpvMfaPolicy`** — the enforceable "MFA required before SPV" capability check Milestone 10 will call; SPV itself does not exist yet.
+7. **`Kern\Platform\Identity\Support\SpvMfaPolicy`** — the enforceable "MFA required before SPV" capability check Milestone 10 will call; SPV itself does not exist yet.
 8. Every event above is recorded on the audit chain (`App\Domain\Audit`, `docs/handoff/006-audit-chain.md`), with `security_events` rows for the failure-reason cases that table exists for.
 
 Entry points:
-- `App\Domain\Identity\Actions\{RegisterUser,AttemptPasswordLogin,CompleteMfaChallenge,EnrollTotp,ConfirmTotpEnrollment,GenerateRecoveryCodes,CompletePasskeyRegistration,CompletePasskeyLogin,RevokeSession,RevokeAllSessions}` — one class per use case, framework/session-free (see "Key decisions" #2).
-- `App\Domain\Identity\Support\Webauthn\PasskeyManager` — the WebAuthn ceremony orchestrator (`creationOptionsFor()`, `verifyRegistration()`, `requestOptionsForEmail()`, `verifyAssertionForEmail()`).
-- `App\Domain\Identity\Support\Totp\TotpVerifier`, `Support\RecoveryCodes\RecoveryCodeGenerator`, `Support\SessionRegistrar`, `Support\SpvMfaPolicy`.
+- `Kern\Platform\Identity\Actions\{RegisterUser,AttemptPasswordLogin,CompleteMfaChallenge,EnrollTotp,ConfirmTotpEnrollment,GenerateRecoveryCodes,CompletePasskeyRegistration,CompletePasskeyLogin,RevokeSession,RevokeAllSessions}` — one class per use case, framework/session-free (see "Key decisions" #2).
+- `Kern\Platform\Identity\Support\Webauthn\PasskeyManager` — the WebAuthn ceremony orchestrator (`creationOptionsFor()`, `verifyRegistration()`, `requestOptionsForEmail()`, `verifyAssertionForEmail()`).
+- `Kern\Platform\Identity\Support\Totp\TotpVerifier`, `Support\RecoveryCodes\RecoveryCodeGenerator`, `Support\SessionRegistrar`, `Support\SpvMfaPolicy`.
 - `routes/api.php` — `POST /api/v1/auth/{register,login,mfa/challenge,passkeys/login/options,passkeys/login}` (public, rate-limited) and, behind `auth:web`, `logout`, `passkeys/registration/{options,}`, `mfa/{status,totp/enroll,totp/confirm,recovery-codes/regenerate}`, `sessions` (`GET`, `DELETE /{id}`, `DELETE`).
 
 ## Files created / changed
@@ -31,12 +31,12 @@ Migrations (`apps/api/database/migrations/`)
 - `2026_09_08_600003_create_user_sessions_table.php` — `id` **is** the real session-store id (not a surrogate); `ip_address`/`user_agent` plaintext (not in `BLUEPRINT.md` §4.3's mandatory-encryption list, ordinary session-security metadata).
 
 Config
-- `config/auth.php` — session guard `web` / provider `users` → `App\Domain\Identity\Models\User`. No `Auth::attempt()`/token guard anywhere (see "Key decisions" #2).
+- `config/auth.php` — session guard `web` / provider `users` → `Kern\Platform\Identity\Models\User`. No `Auth::attempt()`/token guard anywhere (see "Key decisions" #2).
 - `config/hashing.php` — **new, not in the original scope list, but required**: `HASH_DRIVER=argon2id`. Without it, `Hash::make()` silently uses Laravel's unpublished bcrypt default, which is not what `BLUEPRINT.md` §4.7 asks for — found by an actual failing test (`str_starts_with($hash, '$argon2id$')`), not by inspection.
 - `config/webauthn.php` — relying-party name/id, allowed origins (defaults from `APP_URL`), ceremony timeout, challenge TTL.
 - `config/identity.php` — TOTP digits/period/clock-skew, recovery-code count/entropy, every rate-limit's `max_attempts`/`decay_seconds` (`docs/CODE-QUALITY.md` §4 — no magic numbers in the code itself).
 
-Identity (`apps/api/app/Domain/Identity/`)
+Identity (`apps/api/packages/platform/src/Identity/`)
 - `Enums/MfaMethodType.php` — `TOTP` only (schema allows more later, same pattern as `SubjectType`).
 - `Models/User.php` — added `Illuminate\Contracts\Auth\Authenticatable` + `Illuminate\Auth\Authenticatable` trait, `getAuthPasswordName()` override (see "Key decisions" #5 for why this is a method override, not a property), and `passkeys()`/`mfaMethods()`/`recoveryCodes()`/`sessions()` relations.
 - `Models/{UserPasskey,UserMfaMethod,UserRecoveryCode,UserSession}.php`.
@@ -50,7 +50,7 @@ Identity (`apps/api/app/Domain/Identity/`)
 - `Support/Webauthn/{ChallengeStore,WebauthnCredentialRepository,WebauthnSerializer,PasskeyManager}.php` + `Support/Webauthn/Exceptions/{ChallengeExpiredException,PasskeyVerificationException}.php`.
 - `IdentityServiceProvider.php` — binds the WebAuthn support singletons and every named rate limiter (`RateLimiter::for(...)`) — see its own docblock for exactly how each limiter is keyed.
 
-HTTP (`apps/api/app/Http/Controllers/Api/V1/Auth/`)
+HTTP (`apps/api/packages/platform/src/Http/Controllers/Auth/`)
 - `RegistrationController`, `LoginController`, `MfaChallengeController`, `PasskeyRegistrationController`, `PasskeyLoginController`, `TotpController`, `RecoveryCodeController`, `SessionController`, `LogoutController`, `MfaStatusController`.
 - `Concerns/EstablishesAuthenticatedSession.php` — the one place `Auth::login()` + `session()->regenerate()` + `SessionRegistrar::register()` happen, shared by the three ways a login can finish (password-only, password+MFA, passkey).
 
@@ -160,9 +160,9 @@ $ docker run ... anaf-app -c 'vendor/bin/pest tests/Feature/Domain/Identity'
 
 ## Interfaces exposed to other modules
 
-- `App\Domain\Identity\Support\SpvMfaPolicy::{hasStrongAuthentication(User): bool, ensureStrongAuthentication(User): void}` — **the entry point Milestone 10 must call** before creating an `SpvConnection` (`BLUEPRINT.md` §6.11): `app(SpvMfaPolicy::class)->ensureStrongAuthentication($user)`, catching `App\Domain\Identity\Exceptions\MfaNotEnrolledException` and surfacing "enroll MFA first" — the same "throw, let the HTTP layer translate" contract `TenantContext::authorizeAndActivate()` already uses.
-- `App\Domain\Identity\Models\User` — now `Illuminate\Contracts\Auth\Authenticatable`; `Auth::user()`/`$request->user()` return it directly on any `auth:web` route.
-- `App\Domain\Identity\Support\SessionRegistrar` — `register()`/`touch()`/`revoke()`/`revokeAllForUser()`, for any future feature needing to know about or terminate a user's sessions.
+- `Kern\Platform\Identity\Support\SpvMfaPolicy::{hasStrongAuthentication(User): bool, ensureStrongAuthentication(User): void}` — **the entry point Milestone 10 must call** before creating an `SpvConnection` (`BLUEPRINT.md` §6.11): `app(SpvMfaPolicy::class)->ensureStrongAuthentication($user)`, catching `Kern\Platform\Identity\Exceptions\MfaNotEnrolledException` and surfacing "enroll MFA first" — the same "throw, let the HTTP layer translate" contract `TenantContext::authorizeAndActivate()` already uses.
+- `Kern\Platform\Identity\Models\User` — now `Illuminate\Contracts\Auth\Authenticatable`; `Auth::user()`/`$request->user()` return it directly on any `auth:web` route.
+- `Kern\Platform\Identity\Support\SessionRegistrar` — `register()`/`touch()`/`revoke()`/`revokeAllForUser()`, for any future feature needing to know about or terminate a user's sessions.
 - Every `Actions\*` class listed above is a plain, container-resolvable, constructor-injectable class — no service provider bindings needed (same "application service" pattern as `RegisterPfSubject`).
 - Audit event vocabulary this module owns (all on the `system` chain, `subjectId: null`): `UserRegistered`, `AuthLoginSucceeded`, `AuthLoginFailed`, `AuthPasswordVerifiedPendingMfa`, `AuthMfaChallengeFailed`, `AuthRecoveryCodeUsed`, `AuthSessionRevoked`, `AuthAllSessionsRevoked`, `MfaEnrollmentStarted`, `MfaEnrolled`, `RecoveryCodesRegenerated`, `PasskeyRegistered`.
 - `security_events` rows written here: `event_type` `LOGIN_FAILED` (`context_json: {method: 'password'|'passkey'}`) and `MFA_CHALLENGE_FAILED`.

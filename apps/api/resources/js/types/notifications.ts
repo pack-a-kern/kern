@@ -1,5 +1,5 @@
 /**
- * The bell's notices (`App\Http\Controllers\Api\V1\Notifications\ListNotificationsController`).
+ * The bell's notices (`Kern\Platform\Http\Controllers\Notifications\ListNotificationsController`).
  *
  * Only statement imports raise one today. A notice of a type this screen does not know is dropped
  * rather than drawn blank: the server can learn a new kind before the bundle in an open tab does.

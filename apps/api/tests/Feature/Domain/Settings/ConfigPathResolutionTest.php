@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\Settings\Enums\SettingKey;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Settings\Enums\SettingKey;
 
 /**
  * Every setting names the config path it overrides, and that path must actually exist — otherwise

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\RawDatabasePlaintextTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
 use App\Domain\Spv\Actions\RegisterSpvConnection;
 use App\Domain\Spv\DataTransferObjects\RegisterSpvConnectionInput;
 use App\Domain\Spv\Enums\SpvAuthMethod;
@@ -17,6 +14,9 @@ use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
 
 /**
  * `BLUEPRINT.md` §4.1/§4.2/§6.11 — no `spv_connections` column can ever hold a plaintext SPV

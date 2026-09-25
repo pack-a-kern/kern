@@ -12,7 +12,6 @@ use App\Domain\Wallet\Exceptions\TransactionSplitMismatchException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,7 +26,7 @@ use Illuminate\Validation\Rule;
  * The category is checked against `config/reference/tax_categories.php` through the same catalogue the screen
  * reads, so the dropdown can never offer a value the server refuses.
  */
-final class ClassifyTransactionController extends Controller
+final class ClassifyTransactionController
 {
     use RespondsToCategoryDirection;
 

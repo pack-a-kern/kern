@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\StatementImport;
 use App\Domain\StatementImport\Actions\RequestColumnSuggestion;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -16,7 +15,7 @@ use Illuminate\Http\JsonResponse;
  * Accepted rather than answered: the file is read and the model asked on the model queue, and the
  * screen follows the import back through READING to the form.
  */
-final class RequestColumnSuggestionController extends Controller
+final class RequestColumnSuggestionController
 {
     public function __invoke(string $subject, string $import, RequestColumnSuggestion $suggest): JsonResponse
     {

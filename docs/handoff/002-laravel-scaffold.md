@@ -32,7 +32,7 @@ Backend
   `app/Support/*` and `app/Domain/{Identity,Subjects,Audit}/*`. Ruleset: each domain layer may
   depend on `Support`; domain layers may not depend on each other. **No layer contains any file yet**
   — `app/Domain/` does not exist (§19.1/AGENTS.md §6 forbid empty scaffolding). The M1 agent adding
-  `app/Domain/Identity/...` gets boundary enforcement for free; adding a *new* module (Wallet,
+  `packages/platform/src/Identity/...` gets boundary enforcement for free; adding a *new* module (Wallet,
   Documents, …) requires adding its layer to `deptrac.php` in the same change, or Deptrac won't see it.
 - `app/Http/Middleware/HandleInertiaRequests.php` — Inertia root-view middleware, registered in
   `bootstrap/app.php`'s `web` group.

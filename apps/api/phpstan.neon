@@ -4,6 +4,15 @@ includes:
 
 parameters:
     level: 9
+    # Larastan infers a model's column types by reading migrations, and it looks in the
+    # application's `database/migrations` alone. Half the schema now lives in packages, and without
+    # these a packaged model's every column reads as `mixed` — `(string) $user->getKey()` becomes a
+    # cast from mixed, and `$user->created_at` an undefined property. The alternative is hand-written
+    # `@property` blocks on every packaged model, which is a second source of truth for the schema.
+    databaseMigrationsPath:
+        - database/migrations
+        - ../../packages/audit/database/migrations
+        - ../../packages/platform/database/migrations
     paths:
         # `../../packages/*` is `<repository>/packages` from the host and `/var/packages` from
         # inside a container whose root is `/var/www/html` — the same files Composer symlinks into

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domain\Settings\DataTransferObjects\AiModelListShape;
-use App\Domain\Settings\DataTransferObjects\AiProviderPreset;
-use App\Domain\Settings\Enums\AiDialect;
-use App\Domain\Settings\Services\AiProviderCatalogue;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Settings\DataTransferObjects\AiModelListShape;
+use Kern\Platform\Settings\DataTransferObjects\AiProviderPreset;
+use Kern\Platform\Settings\Enums\AiDialect;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
 
 it('exposes every configured preset with a usable shape', function (): void {
     $presets = app(AiProviderCatalogue::class)->all();

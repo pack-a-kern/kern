@@ -9,7 +9,6 @@ use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Exceptions\ContractAlreadyTerminatedException;
 use App\Domain\Rental\Exceptions\InvalidAmendmentDateException;
 use App\Domain\Rental\Models\RentalContract;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,7 +16,7 @@ use Illuminate\Validation\Rule;
 /**
  * `POST /api/v1/subjects/{subject}/rentals/{rental}/rent` — a new rent from a date.
  */
-final class ChangeRentalRentController extends Controller
+final class ChangeRentalRentController
 {
     public function __invoke(Request $request, string $subject, string $rental, ChangeRentalRent $change): JsonResponse
     {

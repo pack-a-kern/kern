@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Queries\AccountSummary;
 use App\Domain\Wallet\Queries\WalletQuery;
-use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +20,7 @@ use Illuminate\Http\Request;
  * No pagination: a person has accounts in the tens, and paging a list that short costs a round trip
  * and a cursor to solve a problem nobody has.
  */
-final class ShowAccountsController extends Controller
+final class ShowAccountsController
 {
     public function __invoke(Request $request, WalletQuery $wallet, ConfigRepository $config): JsonResponse
     {

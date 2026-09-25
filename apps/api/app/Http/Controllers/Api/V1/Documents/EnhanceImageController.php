@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\FileSecurity\SniffedFileType;
-use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Settings\Services\ResolveAiProviderCredentials;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 use RuntimeException;
 
 /**
@@ -33,7 +32,7 @@ use RuntimeException;
  * bounded: the bytes are validated as a real image here first, and the provider is one the operator
  * already sends every document to.
  */
-final class EnhanceImageController extends Controller
+final class EnhanceImageController
 {
     public function __invoke(
         Request $request,

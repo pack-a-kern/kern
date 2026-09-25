@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -15,7 +14,7 @@ use Illuminate\Http\JsonResponse;
  * document import dialog — should not fetch a hundred transactions to learn fourteen codes. Same
  * catalogue, same shape, so both screens offer exactly what the server will accept.
  */
-final class ShowTaxCategoriesController extends Controller
+final class ShowTaxCategoriesController
 {
     public function __invoke(TaxCategoryCatalogue $categories): JsonResponse
     {

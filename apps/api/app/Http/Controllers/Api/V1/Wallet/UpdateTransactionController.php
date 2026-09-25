@@ -8,7 +8,6 @@ use App\Domain\Wallet\Actions\UpdateFinancialTransaction;
 use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
 use App\Domain\Wallet\Services\TagDirectory;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
  * accepted — moving a transaction between accounts changes two balances at once, and the honest
  * correction is to delete it and record it where it belongs.
  */
-final class UpdateTransactionController extends Controller
+final class UpdateTransactionController
 {
     public function __invoke(
         Request $request,

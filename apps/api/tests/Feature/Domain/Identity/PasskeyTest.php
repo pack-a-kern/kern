@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\PasskeyTest;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserPasskey;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserPasskey;
 use Tests\Fakes\FakeWebauthnAuthenticator;
 use Tests\TestCase;
 use Webauthn\PublicKeyCredentialCreationOptions;
@@ -25,7 +25,7 @@ beforeEach(function (): void {
 });
 
 /**
- * The origin `App\Domain\Identity\Support\Webauthn\PasskeyManager` will actually accept — derived
+ * The origin `Kern\Platform\Identity\Support\Webauthn\PasskeyManager` will actually accept — derived
  * from `config('webauthn.allowed_origins')` rather than hardcoded, since that config defaults to
  * `APP_URL` (`config/webauthn.php`'s own docblock), which varies by environment (e.g. this
  * project's own `.env.example` ships `http://localhost:8000`, not bare `http://localhost`).
@@ -55,7 +55,7 @@ it('registers a passkey for the authenticated user', function (): void {
 
     $optionsJson = carryCookiesFrom($this->postJson('/api/v1/auth/passkeys/registration/options')->assertOk())->json();
 
-    $creationOptions = app(\App\Domain\Identity\Support\Webauthn\WebauthnSerializer::class)
+    $creationOptions = app(\Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer::class)
         ->get()
         ->deserialize(json_encode($optionsJson, JSON_THROW_ON_ERROR), PublicKeyCredentialCreationOptions::class, 'json');
 
@@ -78,7 +78,7 @@ it('logs in passwordlessly with a registered passkey', function (): void {
     $authenticator = new FakeWebauthnAuthenticator();
 
     $creationOptionsJson = carryCookiesFrom($this->postJson('/api/v1/auth/passkeys/registration/options')->assertOk())->json();
-    $creationOptions = app(\App\Domain\Identity\Support\Webauthn\WebauthnSerializer::class)
+    $creationOptions = app(\Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer::class)
         ->get()
         ->deserialize(json_encode($creationOptionsJson, JSON_THROW_ON_ERROR), PublicKeyCredentialCreationOptions::class, 'json');
     carryCookiesFrom($this->postJson('/api/v1/auth/passkeys/registration', [
@@ -90,7 +90,7 @@ it('logs in passwordlessly with a registered passkey', function (): void {
 
     $requestOptionsJson = $this->postJson('/api/v1/auth/passkeys/login/options', ['email' => 'ion@example.com'])
         ->assertOk()->json();
-    $requestOptions = app(\App\Domain\Identity\Support\Webauthn\WebauthnSerializer::class)
+    $requestOptions = app(\Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer::class)
         ->get()
         ->deserialize(json_encode($requestOptionsJson, JSON_THROW_ON_ERROR), PublicKeyCredentialRequestOptions::class, 'json');
 
@@ -127,7 +127,7 @@ it('rejects an assertion from a credential that was never registered', function 
 
     $requestOptionsJson = $this->postJson('/api/v1/auth/passkeys/login/options', ['email' => 'ion@example.com'])
         ->assertOk()->json();
-    $requestOptions = app(\App\Domain\Identity\Support\Webauthn\WebauthnSerializer::class)
+    $requestOptions = app(\Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer::class)
         ->get()
         ->deserialize(json_encode($requestOptionsJson, JSON_THROW_ON_ERROR), PublicKeyCredentialRequestOptions::class, 'json');
 

@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\StatementImport;
 
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Domain\StatementImport\Queries\StatementImportSummary;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +15,7 @@ use Illuminate\Http\Request;
  * The history exists for one thing above all: undoing. A person who imported the wrong month needs
  * to find that import, see what it did, and take it back out.
  */
-final class ListStatementImportsController extends Controller
+final class ListStatementImportsController
 {
     private const int PER_PAGE = 25;
 

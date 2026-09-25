@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Enums\TaskRunStatus;
 use App\Domain\Operations\Enums\TaskRunTrigger;
@@ -15,6 +14,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Kern\Platform\Identity\Models\User;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {

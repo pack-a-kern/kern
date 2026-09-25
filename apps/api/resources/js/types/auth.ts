@@ -17,7 +17,7 @@ export interface LoginResult {
 }
 
 /**
- * `POST /api/v1/auth/login` response — `App\Http\Controllers\Api\V1\Auth\LoginController`.
+ * `POST /api/v1/auth/login` response — `Kern\Platform\Http\Controllers\Auth\LoginController`.
  *
  * `id` is **optional, not nullable**. When a second factor is required the controller returns
  * `{"mfa_required": true}` and omits the key entirely — it has not established a session, so there
@@ -37,7 +37,7 @@ export function parseLoginResult(text: string): LoginResult {
     return { mfaRequired: parsed.mfa_required, userId: parsed.id ?? null };
 }
 
-/** `App\Http\Controllers\Api\V1\Auth\MfaStatusController`. */
+/** `Kern\Platform\Http\Controllers\Auth\MfaStatusController`. */
 export interface MfaStatus {
     totpEnrolled: boolean;
     passkeysCount: number;
@@ -61,7 +61,7 @@ export function parseMfaStatus(text: string): MfaStatus {
     };
 }
 
-/** `App\Http\Controllers\Api\V1\Auth\TotpController::enroll` response. */
+/** `Kern\Platform\Http\Controllers\Auth\TotpController::enroll` response. */
 export interface TotpEnrollment {
     secret: string;
     provisioningUri: string;
@@ -120,7 +120,7 @@ export function parseSessionList(text: string): SessionSummary[] {
 }
 
 /** Raw pass-through: the exact WebAuthn `PublicKeyCredentialCreationOptionsJSON`/
- * `PublicKeyCredentialRequestOptionsJSON` shape `App\Domain\Identity\Support\Webauthn\
+ * `PublicKeyCredentialRequestOptionsJSON` shape `Kern\Platform\Identity\Support\Webauthn\
  * PasskeyManager` serializes via `web-auth/webauthn-lib`'s own Symfony serializer — this app does
  * not re-validate its internals field-by-field (that is `@simplewebauthn/browser`'s job at the
  * point it is handed to `navigator.credentials.{create,get}()`), only that it is a JSON object. */

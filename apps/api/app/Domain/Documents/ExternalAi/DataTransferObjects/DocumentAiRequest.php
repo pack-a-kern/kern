@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Documents\ExternalAi\DataTransferObjects;
 
 use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
-use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
+use Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials;
 
 /**
  * What would be sent to an external document-AI provider — ADR 0005's consent-gated path.
@@ -15,7 +15,7 @@ use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
  * system/instruction message; it must call `->reveal()` explicitly and pass the result only as a
  * clearly-delimited data field.
  *
- * `credentials` is resolved fresh, per call, from `App\Domain\Settings\Services\
+ * `credentials` is resolved fresh, per call, from `Kern\Platform\Settings\Services\
  * ResolveAiProviderCredentials` (`docs/handoff/041-settings-module.md`) — never cached across
  * requests — so a real future `ExternalDocumentAiProvider` implementation already receives which
  * provider/base URL/model/API key an administrator has configured *right now*, with no code

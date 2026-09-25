@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Queries\WalletReports;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,7 +15,7 @@ use Illuminate\Support\Carbon;
  * The period defaults to the current year because that is the question people ask of their own
  * money, and because a report with no default is a screen that opens empty.
  */
-final class ShowWalletReportsController extends Controller
+final class ShowWalletReportsController
 {
     public function __invoke(Request $request, string $subject, WalletReports $reports): JsonResponse
     {

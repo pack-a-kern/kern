@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 use App\Domain\Wallet\Actions\DeleteFinancialTransaction;
 use App\Domain\Wallet\Exceptions\SystemTransactionException;
 use App\Domain\Wallet\Models\FinancialTransaction;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +17,7 @@ use Illuminate\Http\Request;
  * nothing computes a figure *through* a transaction the way it does through an account. The audit
  * entry keeps the amount and date, so a total that no longer adds up can still be explained.
  */
-final class DeleteTransactionController extends Controller
+final class DeleteTransactionController
 {
     public function __invoke(
         Request $request,

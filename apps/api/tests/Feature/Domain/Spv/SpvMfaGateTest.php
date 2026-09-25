@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\SpvMfaGateTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Exceptions\MfaNotEnrolledException;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
 use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
 use App\Domain\Spv\Actions\RegisterSpvConnection;
 use App\Domain\Spv\Contracts\SpvBrowserSessionClient;
@@ -20,11 +16,15 @@ use App\Domain\Spv\Enums\SpvCredentialPolicy;
 use App\Domain\Spv\ValueObjects\SensitiveString;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
 use RuntimeException;
 
 /**
  * `BLUEPRINT.md` §4.7 — "MFA obligatoriu pentru conturi care conectează SPV." Both call sites this
- * milestone builds on top of `App\Domain\Identity\Support\SpvMfaPolicy`
+ * milestone builds on top of `Kern\Platform\Identity\Support\SpvMfaPolicy`
  * (`RegisterSpvConnection`, `InitiateSpvAuthAttempt`) must refuse to proceed without it.
  */
 beforeEach(function (): void {

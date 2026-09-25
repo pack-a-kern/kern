@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Rental\CrossTenantIsolationTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Rental\Enums\PropertyType;
 use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
@@ -17,6 +16,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

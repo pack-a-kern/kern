@@ -17,7 +17,6 @@ use App\Domain\Wallet\Enums\RateType;
 use App\Domain\Wallet\Exceptions\DepositClosedException;
 use App\Domain\Wallet\Exceptions\DepositTermsLockedException;
 use App\Domain\Wallet\Models\FinancialAccount;
-use App\Http\Controllers\Controller;
 use App\Rules\StreamSource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +32,7 @@ use Illuminate\Validation\Rule;
  * A term deposit's terms are edited through the same request, and editing them re-computes the
  * unpaid part of its interest schedule. Periods already settled are never touched.
  */
-final class UpdateAccountController extends Controller
+final class UpdateAccountController
 {
     public function __invoke(
         Request $request,

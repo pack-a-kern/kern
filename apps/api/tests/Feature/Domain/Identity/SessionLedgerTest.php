@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Support\SessionRegistrar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\SessionRegistrar;
 use OTPHP\TOTP;
 
 beforeEach(function (): void {
@@ -41,8 +41,8 @@ it('moves the session row when the session id rotates', function (): void {
     $user = User::factory()->create();
     $registrar = app(SessionRegistrar::class);
 
-    $registrar->register((string) $user->getKey(), 'old-session-id', '10.0.0.1', 'Test/1.0');
-    $registrar->rotate('old-session-id', 'new-session-id', (string) $user->getKey(), '10.0.0.1', 'Test/1.0');
+    $registrar->register($user->id, 'old-session-id', '10.0.0.1', 'Test/1.0');
+    $registrar->rotate('old-session-id', 'new-session-id', $user->id, '10.0.0.1', 'Test/1.0');
 
     expect(DB::table('user_sessions')->where('id', 'old-session-id')->exists())->toBeFalse()
         ->and(DB::table('user_sessions')->where('id', 'new-session-id')->exists())->toBeTrue()
@@ -54,7 +54,7 @@ it('moves the session row when the session id rotates', function (): void {
 it('registers a row when there was nothing to rotate', function (): void {
     $user = User::factory()->create();
 
-    app(SessionRegistrar::class)->rotate('never-existed', 'fresh', (string) $user->getKey(), null, null);
+    app(SessionRegistrar::class)->rotate('never-existed', 'fresh', $user->id, null, null);
 
     expect(DB::table('user_sessions')->where('id', 'fresh')->exists())->toBeTrue();
 });
@@ -65,10 +65,10 @@ it('leaves a revoked row revoked instead of resurrecting it under a new id', fun
     $user = User::factory()->create();
     $registrar = app(SessionRegistrar::class);
 
-    $registrar->register((string) $user->getKey(), 'revoked-session', null, null);
+    $registrar->register($user->id, 'revoked-session', null, null);
     DB::table('user_sessions')->where('id', 'revoked-session')->update(['revoked_at' => now('UTC')]);
 
-    $registrar->rotate('revoked-session', 'rotated', (string) $user->getKey(), null, null);
+    $registrar->rotate('revoked-session', 'rotated', $user->id, null, null);
 
     expect(DB::table('user_sessions')->where('id', 'revoked-session')->whereNotNull('revoked_at')->exists())
         ->toBeTrue();

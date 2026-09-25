@@ -12,7 +12,6 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Documents\Queries\ResolveTransactionImportState;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +51,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * (`BLUEPRINT.md` §4.4 reserves them for equality lookups that matter, like CNP). Filtering is by
  * the metadata that is stored in clear: status, type and the received date.
  */
-final class ListDocumentsController extends Controller
+final class ListDocumentsController
 {
     /** Matches `ListDocumentExtractionsController`, so both document lists page identically. */
     private const int DEFAULT_PER_PAGE = 20;

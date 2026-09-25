@@ -30,7 +30,7 @@ use RuntimeException;
  *
  * A `TaxSubject` encrypts its own `display_name`/`fiscal_identifier` under its own DEK —
  * `encryptionSubjectId()` returns its own primary key, the same self-referential pattern
- * `App\Domain\Identity\Models\User` uses. This is why creating one requires two writes (insert,
+ * `Kern\Platform\Identity\Models\User` uses. This is why creating one requires two writes (insert,
  * then update the encrypted columns) rather than one `create()` call — see
  * `App\Domain\Subjects\Actions\RegisterPfSubject`/`RegisterPfaSubject` and the `tax_subjects`
  * migration's docblock for exactly why.

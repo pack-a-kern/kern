@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Actions\EraseUser;
-use App\Domain\Identity\Models\User;
+use Kern\Platform\Identity\Actions\EraseUser;
+use Kern\Platform\Identity\Models\User;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

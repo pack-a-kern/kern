@@ -8,7 +8,6 @@ use App\Domain\Documents\Actions\MergeDocuments;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Wallet\Actions\MergeDuplicateTransactions;
 use App\Domain\Wallet\Exceptions\NotDuplicateTransactionsException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  * so it runs the two actions in one transaction — a merge that deleted the rows and then failed to
  * move their documents would leave evidence attached to nothing.
  */
-final class MergeDuplicateTransactionsController extends Controller
+final class MergeDuplicateTransactionsController
 {
     public function __invoke(
         Request $request,

@@ -6,12 +6,12 @@ namespace Tests\Feature\Domain\Declarations\CrossTenantIsolationTest;
 
 use App\Domain\Declarations\Models\Declaration;
 use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use App\Domain\TaxEngine\Models\TaxAssessment;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

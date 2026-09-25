@@ -14,7 +14,6 @@ use App\Domain\StatementImport\Exceptions\StatementParseUnavailableException;
 use App\Domain\StatementImport\Exceptions\StatementRejectedException;
 use App\Domain\StatementImport\Models\StatementImport;
 use App\Http\Controllers\Api\V1\StatementImport\Concerns\ValidatesStatementForm;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,7 +25,7 @@ use Illuminate\Validation\Rule;
  * that does not actually read the statement is refused — with both counts, so the screen can say
  * "reads 812 of 940" and the person can fix the field rather than import a fragment.
  */
-final class UpdateStatementImportMappingController extends Controller
+final class UpdateStatementImportMappingController
 {
     use ValidatesStatementForm;
 

@@ -9,7 +9,6 @@ use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Documents\Payments\ResolvePaymentParties;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,7 +24,7 @@ use Illuminate\Http\Request;
  * `document_extractions`, a table with no `tax_subject_id` column of its own to scope on
  * directly (`App\Domain\Documents\Models\DocumentExtraction`'s own docblock explains why).
  */
-final class ListDocumentExtractionsController extends Controller
+final class ListDocumentExtractionsController
 {
     public function __invoke(
         Request $request,

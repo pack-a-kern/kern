@@ -10,10 +10,10 @@ use App\Domain\Documents\ExternalAi\DataTransferObjects\DocumentContent;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderFailedException;
 use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConfiguredException;
 use App\Domain\Documents\Parsing\ExtractionSchema;
-use App\Domain\Settings\Services\AiProviderCatalogue;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
 
 /**
  * The one provider implementation, for every configured provider.

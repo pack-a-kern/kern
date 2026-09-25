@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Subjects\RegisterPfaSubjectTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Actions\RegisterPfaSubject;
 use App\Domain\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
 use App\Domain\Subjects\Enums\FiscalIdentifierKind;
@@ -17,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Kern\Audit\Services\ChainVerifier;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 

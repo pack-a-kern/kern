@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\StatementImport;
 use App\Domain\StatementImport\Actions\CommitStatementImport;
 use App\Domain\StatementImport\Exceptions\ImportNotOpenException;
 use App\Domain\StatementImport\Models\StatementImport;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +16,7 @@ use Illuminate\Http\Request;
  * 202, like the upload: several hundred transactions with their splits and tags are written by a
  * job, and the screen follows the import's status rather than waiting on a request.
  */
-final class CommitStatementImportController extends Controller
+final class CommitStatementImportController
 {
     public function __invoke(
         Request $request,

@@ -6,13 +6,12 @@ namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
 use App\Domain\TaxKnowledge\FiscalParameters\Actions\RejectFiscalParameterVersion;
 use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\Services\AuditChainService;
 
 /** `POST /api/v1/fiscal-parameters/versions/{version}/reject` — a person rejects a proposed value. */
-final class RejectFiscalParameterVersionController extends Controller
+final class RejectFiscalParameterVersionController
 {
     use RecordsFiscalParameterDecision;
 

@@ -10,7 +10,6 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentPart;
 use App\Domain\Documents\Parsing\ExtractionSchema;
 use App\Domain\Documents\Queries\ResolveTransactionImportState;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -26,7 +25,7 @@ use Illuminate\Http\JsonResponse;
  * still never leaves the server is `object_path` and `sha256` — where the bytes live and how to
  * recognise them.
  */
-final class ShowDocumentController extends Controller
+final class ShowDocumentController
 {
     public function __invoke(
         string $subject,

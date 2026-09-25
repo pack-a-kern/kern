@@ -11,7 +11,7 @@ namespace App\Domain\Spv\Enums;
  * (`BLUEPRINT.md` §13.3, §34 — permanent storage "purely for convenience is explicitly out of
  * scope"). This column exists so that guarantee is a queryable, auditable fact about a
  * connection, not just an absence of a column a future migration could quietly add back —
- * matching `App\Domain\Identity\Enums\MfaMethodType`'s identical "one case today, schema allows
+ * matching `Kern\Platform\Identity\Enums\MfaMethodType`'s identical "one case today, schema allows
  * more later" precedent.
  */
 enum SpvCredentialPolicy: string

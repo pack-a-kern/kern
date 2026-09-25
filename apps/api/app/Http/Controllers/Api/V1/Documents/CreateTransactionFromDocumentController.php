@@ -16,7 +16,6 @@ use App\Domain\Wallet\Enums\RecordSource;
 use App\Domain\Wallet\Exceptions\CategoryDirectionException;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -54,7 +53,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * client, because the button being hidden is a courtesy and this is the boundary — see
  * {@see TransactionImportState}.
  */
-final class CreateTransactionFromDocumentController extends Controller
+final class CreateTransactionFromDocumentController
 {
     use RespondsToCategoryDirection;
 

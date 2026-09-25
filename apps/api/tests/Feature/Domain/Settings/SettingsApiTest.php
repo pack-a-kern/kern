@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Settings\Enums\SettingKey;
-use App\Domain\Settings\Repositories\SettingsRepository;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
 use RuntimeException;
 use Tests\TestCase;
 

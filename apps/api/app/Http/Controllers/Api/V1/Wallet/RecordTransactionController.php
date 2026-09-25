@@ -13,7 +13,6 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use App\Domain\Wallet\Services\TagDirectory;
 use App\Domain\Wallet\Services\TaxCategoryCatalogue;
 use App\Http\Controllers\Api\V1\Wallet\Concerns\RespondsToCategoryDirection;
-use App\Http\Controllers\Controller;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +32,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * here — the screen has nowhere to express them yet, and an endpoint that took them would be
  * accepting input nothing can produce.
  */
-final class RecordTransactionController extends Controller
+final class RecordTransactionController
 {
     use RespondsToCategoryDirection;
 

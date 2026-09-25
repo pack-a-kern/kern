@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\Settings\Enums\SettingGroup;
-use App\Domain\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Enums\SettingGroup;
+use Kern\Platform\Settings\Enums\SettingKey;
 use RuntimeException;
 
 /**

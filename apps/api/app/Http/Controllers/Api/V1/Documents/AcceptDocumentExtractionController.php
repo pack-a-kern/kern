@@ -8,7 +8,6 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Review\AcceptDocumentExtraction;
 use App\Domain\Documents\Review\Exceptions\ExtractionAlreadyReviewedException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
  * `tax_subject_id` of its own), so an extraction id from another subject's document 404s here
  * exactly like a foreign `{document}` id does.
  */
-final class AcceptDocumentExtractionController extends Controller
+final class AcceptDocumentExtractionController
 {
     public function __invoke(
         Request $request,

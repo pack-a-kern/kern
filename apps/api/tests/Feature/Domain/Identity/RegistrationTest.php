@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\RegistrationTest;
 
-use App\Domain\Identity\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Models\User;
 
 /**
  * `POST /api/v1/auth/register` — account creation only (`BLUEPRINT.md` §5.1). Passwords are Argon2id

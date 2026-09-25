@@ -9,7 +9,6 @@ use App\Domain\TaxKnowledge\Legislatie\Exceptions\PortalAnswerException;
 use App\Domain\TaxKnowledge\Legislatie\PortalAct;
 use App\Domain\TaxKnowledge\Legislatie\PortalSearch;
 use App\Domain\TaxKnowledge\Queries\LegislationLibrary;
-use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +25,7 @@ use Illuminate\Validation\Rule;
  * every other task. Each result says whether it can be read (its type is one the task offers) and,
  * when it already has been, which law it is.
  */
-final class SearchPortalController extends Controller
+final class SearchPortalController
 {
     public function __invoke(Request $request, PortalSearch $search, LegislationLibrary $library, ConfigRepository $config): JsonResponse
     {

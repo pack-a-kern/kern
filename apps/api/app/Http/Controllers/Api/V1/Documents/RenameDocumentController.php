@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\FileSecurity\FilenameSanitizer;
 use App\Domain\Documents\Models\Document;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
@@ -28,7 +27,7 @@ use Kern\Audit\Services\AuditChainService;
  *
  * Sending `null` clears the name and returns the document to its hash-derived one.
  */
-final class RenameDocumentController extends Controller
+final class RenameDocumentController
 {
     public function __invoke(
         Request $request,

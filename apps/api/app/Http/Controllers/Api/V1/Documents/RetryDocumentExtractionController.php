@@ -8,7 +8,6 @@ use App\Domain\Documents\Enums\DocumentStatus;
 use App\Domain\Documents\Jobs\ProcessScannedDocument;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -41,7 +40,7 @@ use Illuminate\Http\JsonResponse;
  * what the review screen renders as work in progress, and it is true from the moment the request is
  * accepted rather than from whenever a worker happens to pick the job up.
  */
-final class RetryDocumentExtractionController extends Controller
+final class RetryDocumentExtractionController
 {
     public function __invoke(string $subject, string $document): JsonResponse
     {

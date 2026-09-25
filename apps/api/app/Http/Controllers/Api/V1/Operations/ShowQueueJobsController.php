@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Operations;
 use App\Domain\Operations\DataTransferObjects\QueueJobSummary;
 use App\Domain\Operations\Services\ProbeQueueStatus;
 use App\Domain\Operations\Services\ReadQueueJobs;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,7 +21,7 @@ use Illuminate\Validation\Rule;
  * `status` selects which of Horizon's lists is read, and is not a filter over a merged one — see
  * {@see ReadQueueJobs} for why a Redis sorted set cannot answer a filtered page.
  */
-final class ShowQueueJobsController extends Controller
+final class ShowQueueJobsController
 {
     private const int DEFAULT_PAGE_SIZE = 25;
 

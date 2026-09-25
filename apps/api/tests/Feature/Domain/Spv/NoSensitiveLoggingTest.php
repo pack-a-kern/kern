@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\NoSensitiveLoggingTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
 use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
 use App\Domain\Spv\Actions\SubmitSpvChallengeCode;
 use App\Domain\Spv\Actions\SubmitSpvCredentials;
@@ -22,6 +19,9 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
 
 const SECRET_PASSWORD = 'sup3r-secret-marker-password';

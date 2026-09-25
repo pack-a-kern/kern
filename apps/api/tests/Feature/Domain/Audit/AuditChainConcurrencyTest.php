@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,6 +10,7 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Audit\Services\ChainVerifier;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
@@ -52,7 +52,7 @@ beforeEach(function (): void {
 
 test('concurrent appends to the same chain from separate processes produce no gaps or duplicates', function (): void {
     $chainKey = (string) TaxSubject::factory()->create()->getKey();
-    $actorId = (string) User::factory()->create()->getKey();
+    $actorId = User::factory()->create()->id;
     $workerCount = 5;
     $eventsPerWorker = 15;
     $totalEvents = $workerCount * $eventsPerWorker;

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\PasswordLoginTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
-use App\Domain\Identity\Models\UserSession;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\Platform\Identity\Models\UserSession;
 
 /**
  * `POST /api/v1/auth/login` — `BLUEPRINT.md` §4.7's password login and its user-enumeration
- * resistance (§4.1, `docs/AGENTS.md` §8). See `App\Domain\Identity\Actions\AttemptPasswordLogin`'s
+ * resistance (§4.1, `docs/AGENTS.md` §8). See `Kern\Platform\Identity\Actions\AttemptPasswordLogin`'s
  * own docblock for the exact mechanism the timing test below exercises.
  */
 beforeEach(function (): void {

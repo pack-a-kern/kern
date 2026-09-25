@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Kern\Platform\Identity\Models\User;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

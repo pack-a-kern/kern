@@ -14,7 +14,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * is the only sanctioned way another module resolves this; nothing else in this codebase should
  * query this table directly to make an authorization decision.
  *
- * No `belongsTo` relationship to `App\Domain\Identity\Models\User` on purpose (`docs/AGENTS.md`
+ * No `belongsTo` relationship to `Kern\Platform\Identity\Models\User` on purpose (`docs/AGENTS.md`
  * §6: a module never imports another module's Eloquent models) — `user_id` is a plain column.
  * No encrypted fields, so neither `HasUuidPrimaryKey`'s AAD-ordering concern nor
  * `FillsSubjectForeignKeyFirst` applies for that reason; `HasUuidPrimaryKey` is still used purely

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Domain\Documents\FileSecurity\SniffedFileType;
-use App\Domain\Settings\Services\AiProviderCatalogue;
 use App\Domain\Subjects\Queries\ListSubjectsForUser;
 use App\Domain\Subjects\Queries\SubjectSummary;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
 
 final class HandleInertiaRequests extends Middleware
 {

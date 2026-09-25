@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 use App\Domain\Wallet\Queries\BankDeposits;
 use App\Domain\Wallet\Queries\DepositSummary;
 use App\Domain\Wallet\Queries\WalletQuery;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -17,7 +16,7 @@ use Illuminate\Http\JsonResponse;
  * The running deposits are read once and handed to each part, so the three cannot disagree about
  * which deposits are running.
  */
-final class ShowWalletOverviewController extends Controller
+final class ShowWalletOverviewController
 {
     /** Enough to see what matures next; the accounts screen lists them all. */
     private const int PREVIEW_LIMIT = 5;

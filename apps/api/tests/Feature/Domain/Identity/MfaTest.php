@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\MfaTest;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserRecoveryCode;
-use App\Domain\Identity\Support\Totp\TotpVerifier;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserRecoveryCode;
+use Kern\Platform\Identity\Support\Totp\TotpVerifier;
 use OTPHP\TOTP;
 use Tests\TestCase;
 

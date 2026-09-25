@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -13,6 +12,7 @@ use App\Domain\Wallet\Models\FinancialAccount;
 use Carbon\CarbonImmutable;
 use Database\Factories\BankFactory;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Identity\Models\User;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();

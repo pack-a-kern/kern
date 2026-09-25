@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 use App\Domain\Wallet\Actions\RenameTag;
 use App\Domain\Wallet\Models\Tag;
 use App\Domain\Wallet\Services\TagDirectory;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +17,7 @@ use Illuminate\Http\Request;
  * a tag and rewrites what every transaction carrying it says, and the screen has a separate control
  * that says so.
  */
-final class UpdateTagController extends Controller
+final class UpdateTagController
 {
     public function __invoke(Request $request, string $subject, string $tag, RenameTag $rename): JsonResponse
     {

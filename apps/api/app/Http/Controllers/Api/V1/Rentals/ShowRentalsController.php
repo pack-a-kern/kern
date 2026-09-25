@@ -9,7 +9,6 @@ use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Rental\Queries\RentalQuery;
 use App\Domain\Rental\Queries\RentalSummary;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -18,7 +17,7 @@ use Illuminate\Http\JsonResponse;
  * The choices travel with the list for the same reason the wallet's deposit options do: they are the
  * server's enums, and a copy of them in TypeScript would drift the first time one gained a case.
  */
-final class ShowRentalsController extends Controller
+final class ShowRentalsController
 {
     public function __invoke(RentalQuery $rentals): JsonResponse
     {

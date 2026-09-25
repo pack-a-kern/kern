@@ -28,7 +28,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The "session" driver reads/writes `Illuminate\Contracts\Session\Session`
-    | (config/session.php — Redis, BLUEPRINT.md §1.1). App\Domain\Identity's own
+    | (config/session.php — Redis, BLUEPRINT.md §1.1). Kern\Platform\Identity's own
     | login/MFA/passkey flows populate this guard via `Auth::login()` only
     | after every required factor has passed; nothing in this app ever calls
     | `Auth::attempt()` directly (see docs/handoff/017-authentication.md "Key
@@ -48,7 +48,7 @@ return [
     | User providers
     |--------------------------------------------------------------------------
     |
-    | App\Domain\Identity\Models\User is the only Authenticatable model this
+    | Kern\Platform\Identity\Models\User is the only Authenticatable model this
     | project has (BLUEPRINT.md §5.1) — a TaxSubject is never itself an
     | authentication principal, see docs/handoff/011-identity-tenancy.md.
     |
@@ -57,7 +57,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => App\Domain\Identity\Models\User::class,
+            'model' => Kern\Platform\Identity\Models\User::class,
         ],
     ],
 

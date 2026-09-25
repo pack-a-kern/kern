@@ -20,7 +20,7 @@ documents (`listaMesaje`, `descarcare`).
 
 ### The credential flow (`BLUEPRINT.md` §13.2), end to end
 
-1. `RegisterSpvConnection` — "Connect SPV." Calls `App\Domain\Identity\Support\SpvMfaPolicy::
+1. `RegisterSpvConnection` — "Connect SPV." Calls `Kern\Platform\Identity\Support\SpvMfaPolicy::
    ensureStrongAuthentication()` first, unconditionally; throws `MfaNotEnrolledException` for a
    user with no confirmed TOTP method and no passkey. Creates `spv_connections` — never a
    `password_ciphertext` column, `SpvCredentialPolicy::EPHEMERAL_ONLY` records that structurally.
@@ -336,7 +336,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
                                                   // reaches this module
 ```
 
-- **`App\Domain\Identity\Support\SpvMfaPolicy` is this module's one upstream gate** — every
+- **`Kern\Platform\Identity\Support\SpvMfaPolicy` is this module's one upstream gate** — every
   connection-establishing action calls `ensureStrongAuthentication()` before touching the database.
 - **A future HTTP/API layer** calls these actions directly (`app(RegisterSpvConnection::class)
   ($request->user(), $input)`) — no controller exists yet, matching Declarations' precedent.
@@ -439,7 +439,7 @@ use App\Domain\Spv\ValueObjects\SensitiveString; // wrap a raw password/OTP befo
   `App\Domain\Rental\{Models\*, Actions\CreateRentalContract}` (denormalised `tax_subject_id`,
   single-write-with-explicit-FK Eloquent conventions), `App\Support\Crypto\{Casts\Encrypted,
   Concerns\{HasUuidPrimaryKey,FillsSubjectForeignKeyFirst}}`, `App\Domain\Subjects\Tenancy\
-  {ScopedToTaxSubject,TaxSubjectScope,TenantContext}`, `App\Domain\Identity\Support\SpvMfaPolicy`
+  {ScopedToTaxSubject,TaxSubjectScope,TenantContext}`, `Kern\Platform\Identity\Support\SpvMfaPolicy`
   and `Models\{User,UserMfaMethod}`, `apps/processing/src/processing/internal_auth.py` (the
   internal-auth compromise this task's `internalAuth.ts` mirrors), `apps/spv-browser/src/
   {logger.ts, middleware/{requestLogging,errorHandler}.ts, sessions/*}` (the existing

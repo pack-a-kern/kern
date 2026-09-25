@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +14,7 @@ use Illuminate\Http\Request;
  * `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` checks before any external
  * send is even attempted.
  */
-final class DocumentAiConsentController extends Controller
+final class DocumentAiConsentController
 {
     public function store(Request $request, string $subject, DocumentAiConsentGate $gate): JsonResponse
     {

@@ -18,7 +18,7 @@ export class ApiError extends Error {
         this.name = 'ApiError';
     }
 
-    /** True for HTTP 429 — the named rate limiters in `App\Domain\Identity\IdentityServiceProvider`. */
+    /** True for HTTP 429 — the named rate limiters in `Kern\Platform\Identity\IdentityServiceProvider`. */
     get isRateLimited(): boolean {
         return this.status === 429;
     }

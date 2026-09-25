@@ -9,7 +9,6 @@ use App\Domain\Operations\Enums\OperationTask;
 use App\Domain\Operations\Enums\TaskRunTrigger;
 use App\Domain\Operations\Jobs\RunOperationTask;
 use App\Domain\Operations\Services\OperationRunLock;
-use App\Http\Controllers\Controller;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,7 +33,7 @@ use Kern\Audit\Services\AuditChainService;
  * says what the system did, the chain says which administrator asked for it and cannot be edited
  * afterwards (§4.8).
  */
-final class RunOperationTaskController extends Controller
+final class RunOperationTaskController
 {
     public function __invoke(
         Request $request,

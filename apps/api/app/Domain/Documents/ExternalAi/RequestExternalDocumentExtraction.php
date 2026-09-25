@@ -17,12 +17,12 @@ use App\Domain\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use App\Domain\Documents\FileSecurity\SniffedFileType;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
-use App\Domain\Settings\DataTransferObjects\AiProviderCredentials;
-use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 
 /**
  * ADR 0005's consent-gated external send, end to end: the gate, the actual call, and the audit

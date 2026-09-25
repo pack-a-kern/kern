@@ -291,12 +291,12 @@ self-referencing `source_sections.parent_id` FK drop and the `foreignUuid`
 no dependency changed so there is nothing new to validate/audit.
 
 **A pre-existing, unrelated defect found during verification, not fixed (outside this task's
-scope: `apps/api/app/Domain/Identity/**`)**: `tests/Feature/Domain/Subjects` fatals with
-`App\Domain\Identity\Models\User and Illuminate\Auth\Authenticatable define the same property
+scope: `apps/api/packages/platform/src/Identity/**`)**: `tests/Feature/Domain/Subjects` fatals with
+`Kern\Platform\Identity\Models\User and Illuminate\Auth\Authenticatable define the same property
 ($authPasswordName)... considered incompatible` on this PHP 8.5.10 image. Reproduced by running
 `tests/Feature/Domain/Subjects` in complete isolation — zero `TaxKnowledge` code involved — so this
 predates and is unrelated to this task. Likely a PHP 8.5 point-release stricter-trait-property-
-compatibility check hitting `App\Domain\Identity\Models\User`'s composition of the
+compatibility check hitting `Kern\Platform\Identity\Models\User`'s composition of the
 `Authenticatable` trait. Not recorded in `docs/STATUS.md` per this task's explicit instruction not
 to edit that file — flagged here for whoever owns `Domain/Identity` next.
 

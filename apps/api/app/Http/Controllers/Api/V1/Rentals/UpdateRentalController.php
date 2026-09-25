@@ -10,7 +10,6 @@ use App\Domain\Rental\Enums\PropertyType;
 use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Rental\Exceptions\InvalidOwnershipPercentException;
 use App\Domain\Rental\Models\RentalContract;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,7 +21,7 @@ use Illuminate\Validation\Rule;
  * date (`POST …/rent`) and an ending is its own request (`POST …/end`), and silently dropping either
  * field would let a caller believe it had changed a figure it had not.
  */
-final class UpdateRentalController extends Controller
+final class UpdateRentalController
 {
     public function __invoke(Request $request, string $subject, string $rental, UpdateRentalDetails $update): JsonResponse
     {

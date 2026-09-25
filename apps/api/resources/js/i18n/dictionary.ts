@@ -1497,7 +1497,7 @@ export interface Dictionary {
                 keyOptional: string;
                 testHint: string;
                 /**
-                 * Keyed by the `reason` codes `App\Domain\Settings\Services\FetchAiProviderModels`
+                 * Keyed by the `reason` codes `Kern\Platform\Settings\Services\FetchAiProviderModels`
                  * returns. Indexed so an unrecognised code falls back rather than crashing the page;
                  * every code the service can emit is listed, and adding one there fails the build here.
                  */

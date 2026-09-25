@@ -9,7 +9,6 @@ use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Enums\SubjectStatus;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +19,7 @@ use Illuminate\Validation\Rule;
  * This is the endpoint a "delete" button reaches. There is no delete: see
  * `App\Domain\Subjects\Actions\ChangeSubjectStatus` for why the schema forbids one.
  */
-final class ChangeSubjectStatusController extends Controller
+final class ChangeSubjectStatusController
 {
     public function __invoke(Request $request, string $subject, ChangeSubjectStatus $change): JsonResponse
     {

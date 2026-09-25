@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\DeleteTag;
 use App\Domain\Wallet\Models\Tag;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +15,7 @@ use Illuminate\Http\Request;
  * Nothing but the label goes: the transactions keep their figures, their categories and their
  * evidence, and only stop being findable under this word.
  */
-final class DeleteTagController extends Controller
+final class DeleteTagController
 {
     public function __invoke(Request $request, string $subject, string $tag, DeleteTag $delete): JsonResponse
     {

@@ -9,7 +9,6 @@ use App\Domain\Documents\DataTransferObjects\IncomingFile;
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Exceptions\DuplicateDocumentException;
 use App\Domain\Documents\FileSecurity\Exceptions\FileSecurityException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -31,7 +30,7 @@ use RuntimeException;
  * documents` Reverb channel (`routes/channels.php`), re-fetching via
  * `ShowDocumentController` rather than polling (`BLUEPRINT.md` §16).
  */
-final class UploadDocumentController extends Controller
+final class UploadDocumentController
 {
     public function __invoke(Request $request, string $subject, InitiateDocumentUpload $upload): JsonResponse
     {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Rental\CoOwnershipAccrualShareTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Rental\Actions\CreateRentalContract;
 use App\Domain\Rental\Actions\GenerateRentalAccruals;
 use App\Domain\Rental\Actions\RegisterProperty;
@@ -18,6 +17,7 @@ use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

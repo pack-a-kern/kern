@@ -10,7 +10,6 @@ use App\Domain\Operations\Models\TaskRun;
 use App\Domain\Operations\Repositories\TaskRunRepository;
 use App\Domain\Operations\Services\ProbeSchedulerStatus;
 use App\Domain\Operations\Services\ScheduledTaskRegistry;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -33,7 +32,7 @@ use Illuminate\Http\JsonResponse;
  * Each probe degrades inside its own service, so an unreachable dependency costs one panel rather
  * than the page.
  */
-final class ShowOperationsOverviewController extends Controller
+final class ShowOperationsOverviewController
 {
     public function __invoke(
         ScheduledTaskRegistry $registry,

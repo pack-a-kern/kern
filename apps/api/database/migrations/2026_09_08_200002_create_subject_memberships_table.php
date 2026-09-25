@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  * which `TaxSubject`s, and with what role. Every tenant-scoping decision in this codebase
  * ultimately resolves through this table (`Kern\Platform\Tenancy\TenantContext`).
  *
- * No Eloquent relationship to `App\Domain\Identity\Models\User` is defined on the model over this
+ * No Eloquent relationship to `Kern\Platform\Identity\Models\User` is defined on the model over this
  * table — only a plain `user_id` column — per `docs/AGENTS.md` §6: a module never imports another
  * module's Eloquent models.
  *

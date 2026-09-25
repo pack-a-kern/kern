@@ -18,7 +18,7 @@ Entry points:
 
 - `GET /login` → `resources/js/pages/auth/login.tsx` — password login, TOTP/recovery-code
   challenge, and passwordless passkey login (`@simplewebauthn/browser` +
-  `App\Domain\Identity\Support\Webauthn\PasskeyManager`'s endpoints), plus account registration.
+  `Kern\Platform\Identity\Support\Webauthn\PasskeyManager`'s endpoints), plus account registration.
 - `GET /dashboard` (behind `auth`) → `resources/js/pages/dashboard.tsx` — MFA status, TOTP
   enrollment, passkey registration, recovery-code regeneration, session list/revocation, the
   document-AI-consent toggle, and the "active tax subject" picker (see Key decision #1).
@@ -328,14 +328,14 @@ thing a future backend task should treat as a contract this frontend now depends
   verification commands, followed exactly.
 - `docs/handoff/017-authentication.md` — read in full; every `authApi.ts` function's request/
   response shape was cross-checked against the real controllers in
-  `apps/api/app/Http/Controllers/Api/V1/Auth/*.php`, not the handoff prose alone.
+  `apps/api/packages/platform/src/Http/Controllers/Auth/*.php`, not the handoff prose alone.
 - `docs/handoff/022-document-pipeline.md`, `docs/handoff/027-contract-reconciliation.md` — read in
   full; `documentsApi.ts`/`types/documents.ts` match `UploadDocumentController`/
   `ShowDocumentController`/`DocumentAiConsentController` and the five `App\Domain\Documents\
   Events\*` broadcast payloads exactly, read from the real PHP source, not the handoff summaries.
 - Source files read directly (not assumed from any handoff): `apps/api/routes/api.php`,
   `routes/channels.php`, `bootstrap/app.php`, every controller under
-  `app/Http/Controllers/Api/V1/**`, `app/Domain/Identity/Support/Webauthn/PasskeyManager.php` and
+  `app/Http/Controllers/Api/V1/**`, `packages/platform/src/Identity/Support/Webauthn/PasskeyManager.php` and
   `WebauthnCredentialRepository.php` (the WebAuthn JSON contract), `app/Domain/Documents/Events/*`.
 - npm registry queried live (`npm view <pkg> version/engines/license/time.modified`) for every
   dependency added — `laravel-echo`, `pusher-js`, `@simplewebauthn/browser`, `vitest`, `jsdom`,

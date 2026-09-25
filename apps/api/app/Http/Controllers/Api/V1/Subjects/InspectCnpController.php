@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1\Subjects;
 use App\Domain\Subjects\Exceptions\InvalidCnpException;
 use App\Domain\Subjects\Queries\FindSubjectByCnp;
 use App\Domain\Subjects\Support\CnpParser;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,7 +28,7 @@ use Illuminate\Http\Request;
  * logged (`Kern\Platform\Logging`'s redaction covers the shape in any case). Registration re-derives
  * from the CNP it is given, so a caller cannot use this endpoint to smuggle a mismatched pair in.
  */
-final class InspectCnpController extends Controller
+final class InspectCnpController
 {
     public function __invoke(Request $request, FindSubjectByCnp $find): JsonResponse
     {

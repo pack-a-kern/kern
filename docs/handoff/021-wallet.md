@@ -325,7 +325,7 @@ validate/audit.
   pattern and the real-Postgres verification command this handoff's own verification follows.
 - `docs/handoff/015-m1-integration-repairs.md` — the throwaway-container-against-live-Postgres
   verification recipe (`docker run --network anaf_data_net --user root ...`).
-- Read `App\Domain\Subjects\Models\{TaxSubject,PfProfile}`, `App\Domain\Identity\Models\
+- Read `App\Domain\Subjects\Models\{TaxSubject,PfProfile}`, `Kern\Platform\Identity\Models\
   UserMfaMethod`, and `App\Domain\Subjects\Actions\RegisterPfSubject` directly (not assumed) to
   confirm the `HasUuidPrimaryKey`/`FillsSubjectForeignKeyFirst`/`ScopedToTaxSubject` combination
   this task uses for `FinancialAccount`/`FinancialTransaction`/`Deposit` has real precedent.

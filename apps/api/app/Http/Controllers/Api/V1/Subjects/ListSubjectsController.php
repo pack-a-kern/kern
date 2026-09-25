@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Subjects;
 
 use App\Domain\Subjects\Queries\ListSubjectsForUser;
 use App\Domain\Subjects\Queries\SubjectSummary;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +15,7 @@ use Illuminate\Http\Request;
  * `docs/handoff/030-pwa-frontend.md`'s dashboard "Subiect fiscal activ" panel should call instead
  * of its `localStorage`-only workaround (that handoff's Key decision #1).
  */
-final class ListSubjectsController extends Controller
+final class ListSubjectsController
 {
     public function __invoke(Request $request, ListSubjectsForUser $listSubjects): JsonResponse
     {

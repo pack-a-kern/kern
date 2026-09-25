@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\FiscalParameters;
 
 use App\Domain\TaxKnowledge\FiscalParameters\Actions\ApproveFiscalParameterVersion;
 use App\Domain\TaxKnowledge\FiscalParameters\FiscalParameterDecisionException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\Services\AuditChainService;
@@ -15,7 +14,7 @@ use Kern\Audit\Services\AuditChainService;
  * `POST /api/v1/fiscal-parameters/versions/{version}/approve` — a person approves a proposed value,
  * on the paragraph of the law they chose among those found (`section_id`).
  */
-final class ApproveFiscalParameterVersionController extends Controller
+final class ApproveFiscalParameterVersionController
 {
     use RecordsFiscalParameterDecision;
 

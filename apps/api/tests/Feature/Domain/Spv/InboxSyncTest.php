@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\InboxSyncTest;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Spv\Actions\SyncSpvInbox;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
@@ -21,6 +20,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

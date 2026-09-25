@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Identity\SpvMfaPolicyTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Exceptions\MfaNotEnrolledException;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
-use App\Domain\Identity\Models\UserPasskey;
-use App\Domain\Identity\Support\SpvMfaPolicy;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\Platform\Identity\Models\UserPasskey;
+use Kern\Platform\Identity\Support\SpvMfaPolicy;
 
 /**
  * `BLUEPRINT.md` §4.7's "MFA mandatory for accounts connecting SPV" — expressed here as the
  * enforceable capability check Milestone 10 will call before creating an `SpvConnection`
- * (`App\Domain\Identity\Support\SpvMfaPolicy`'s own docblock). SPV itself does not exist yet; this
+ * (`Kern\Platform\Identity\Support\SpvMfaPolicy`'s own docblock). SPV itself does not exist yet; this
  * is the only thing this task's brief asked to prove about it.
  */
 beforeEach(function (): void {

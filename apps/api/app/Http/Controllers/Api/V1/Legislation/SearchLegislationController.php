@@ -8,7 +8,6 @@ use App\Domain\TaxKnowledge\Enums\TrustTier;
 use App\Domain\TaxKnowledge\Retrieval\Query\HybridLegislationSearch;
 use App\Domain\TaxKnowledge\Retrieval\Query\HybridSearchQuery;
 use App\Domain\TaxKnowledge\Retrieval\Query\RetrievalResult;
-use App\Http\Controllers\Controller;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,7 +31,7 @@ use Illuminate\Validation\Rule;
  * and nothing here is scoped to one. It is behind authentication at all because an unauthenticated
  * endpoint that runs an embedding model per call is an easy way to burn a server.
  */
-final class SearchLegislationController extends Controller
+final class SearchLegislationController
 {
     private const int MAX_RESULTS = 50;
 

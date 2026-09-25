@@ -6,10 +6,10 @@ namespace Tests\Feature\Domain\Documents\CrossTenantIsolationTest;
 
 use App\Domain\Documents\Enums\DocumentType;
 use App\Domain\Documents\Models\Document;
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\TenantContext;

@@ -13,7 +13,7 @@ own claim about itself.
 
 - one new table (`pfa_profiles`), one new model, one new DTO, one new action, one new exception —
   all in `App\Domain\Subjects`;
-- **zero changes** to `App\Domain\Identity`, `App\Domain\Wallet`, `App\Domain\Documents`,
+- **zero changes** to `Kern\Platform\Identity`, `App\Domain\Wallet`, `App\Domain\Documents`,
   `App\Domain\Fx`, `App\Domain\Spv`, `App\Domain\Audit`, `App\Domain\Declarations`, or any file
   under `App\Support\**` (encryption, key management, blind indexing, logging);
 - **zero changes** to `App\Domain\TaxEngine` — `RuleResolver`, `ParameterResolver`, `RuleInvoker`,

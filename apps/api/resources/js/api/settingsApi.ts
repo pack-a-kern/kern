@@ -41,7 +41,7 @@ export async function updateSettingsGroup(
 /**
  * `POST /api/v1/settings/ai/test-connection` — calls the configured provider for real.
  *
- * Response shape is `App\Domain\Settings\DataTransferObjects\ConnectionTestResult::toArray()`:
+ * Response shape is `Kern\Platform\Settings\DataTransferObjects\ConnectionTestResult::toArray()`:
  * `success` always, plus `error`, `message`, `status` and `latency_ms` when present.
  */
 export interface AiConnectionTest {

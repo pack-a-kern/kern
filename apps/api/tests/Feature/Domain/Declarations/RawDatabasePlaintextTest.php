@@ -8,7 +8,6 @@ use App\Domain\Declarations\Enums\SubmissionTransport;
 use App\Domain\Declarations\Models\Declaration;
 use App\Domain\Declarations\Models\DeclarationSubmission;
 use App\Domain\Declarations\Models\FormVersion;
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Enums\MembershipRole;
 use App\Domain\Subjects\Models\SubjectMembership;
 use App\Domain\Subjects\Models\TaxSubject;
@@ -16,6 +15,7 @@ use App\Domain\TaxEngine\Models\TaxAssessment;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

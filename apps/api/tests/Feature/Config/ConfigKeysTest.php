@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Config\ConfigKeysTest;
 
-use App\Domain\Settings\Enums\SettingKey;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Settings\Enums\SettingKey;
 use Symfony\Component\Finder\Finder;
 
 /**

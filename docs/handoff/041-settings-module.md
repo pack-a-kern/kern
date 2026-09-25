@@ -14,16 +14,16 @@ Entry points:
 - `GET /api/v1/settings/ai` / `PUT /api/v1/settings/ai` / `DELETE /api/v1/settings/ai/api-key` /
   `POST /api/v1/settings/ai/test-connection` — the HTTP surface, all behind `auth:web` +
   `settings-admin`.
-- `App\Domain\Settings\Services\ResolveAiProviderCredentials` — what
+- `Kern\Platform\Settings\Services\ResolveAiProviderCredentials` — what
   `App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction` now calls, fresh on every
   invocation, to learn the current AI provider configuration (settings store, falling back to env
   only when a field was never saved).
-- `App\Domain\Settings\Support\SystemEncryptionScope` — the non-tenant encryption principal a
+- `Kern\Platform\Settings\Support\SystemEncryptionScope` — the non-tenant encryption principal a
   system-wide secret is sealed under (`docs/adr/0013-system-settings-scope-and-admin-gate.md`).
 
 ## Files created / changed
 
-**New module** (`apps/api/app/Domain/Settings/`)
+**New module** (`apps/api/packages/platform/src/Settings/`)
 - `Support/SystemEncryptionScope.php` — the `'system'` sentinel id (mirrors
   `AuditChainService::SYSTEM_CHAIN_KEY`).
 - `Support/SystemSecretCipher.php` — seals/opens a setting value under the system DEK via the
@@ -96,7 +96,7 @@ No file under `apps/processing/**`, `resources/js/**`, or `docs/STATUS.md` was t
 ## Key decisions
 
 1. **`Documents` is granted access to `Settings` in `deptrac.php`.** The task brief's file-scope
-   list names only `app/Domain/Settings/**` as this task's home, but requirement #4 ("wire it into
+   list names only `packages/platform/src/Settings/**` as this task's home, but requirement #4 ("wire it into
    the document pipeline") is unsatisfiable without `RequestExternalDocumentExtraction` calling
    into this module. The crossing is the same sanctioned "application service + DTO" shape every
    other module-to-module grant in `deptrac.php` already uses (`Documents -> Subjects`,
@@ -228,8 +228,8 @@ $ docker run --rm -v apps/api:/var/www/html -w /var/www/html kern-php-test:local
 **PHPStan, level 9, no baseline** — zero errors in every file this task touched:
 ```
 $ docker run --rm -e APP_KEY=... -v apps/api:/var/www/html -w /var/www/html kern-php-test:local \
-    php -d memory_limit=1G vendor/bin/phpstan analyse app/Domain/Settings \
-    app/Http/Controllers/Api/V1/Settings app/Http/Middleware/EnsureSettingsAdmin.php \
+    php -d memory_limit=1G vendor/bin/phpstan analyse packages/platform/src/Settings \
+    packages/platform/src/Http/Controllers/Settings app/Http/Middleware/EnsureSettingsAdmin.php \
     app/Domain/Documents/ExternalAi tests/Feature/Domain/Settings tests/Unit/Domain/Settings \
     tests/Feature/Domain/Documents/RequestExternalDocumentExtractionSettingsTest.php \
     tests/Feature/Domain/Documents/RequestExternalDocumentExtractionTest.php --memory-limit=1G
@@ -368,7 +368,7 @@ or
 HTTP status was received. Always `200` — a failed connection test is a successful API call that
 reports failure, not an HTTP error.
 
-### `App\Domain\Settings\Services\ResolveAiProviderCredentials` (PHP, cross-module)
+### `Kern\Platform\Settings\Services\ResolveAiProviderCredentials` (PHP, cross-module)
 `__invoke(): AiProviderCredentials { enabled, provider, baseUrl, model, apiKey }` — resolved fresh
 on every call (no caching beyond the current PHP request), settings store first, env fallback per
 field. Carries the plaintext API key — **never log it, never serialize it into any HTTP response**.
@@ -446,7 +446,7 @@ Any future `ExternalDocumentAiProvider` implementation should read its credentia
   Contracts/*}.php`, `app/Domain/Subjects/Infrastructure/EloquentSubjectDekRepository.php` (and its
   `tax_subjects`/`users` table assumption — the reason a third table was needed rather than a third
   entry in that repository's own `TABLES` constant), `app/Domain/Subjects/Models/{TaxSubject,
-  SubjectMembership}.php`, `app/Domain/Identity/Models/User.php`, `app/Domain/Documents/
+  SubjectMembership}.php`, `packages/platform/src/Identity/Models/User.php`, `app/Domain/Documents/
   ExternalAi/**`, `app/Domain/Documents/DocumentsServiceProvider.php`, `app/Domain/Documents/
   Consent/DocumentAiConsentGate.php` (the `POST`/`DELETE` grant/revoke precedent this task's
   api-key clear endpoint follows), `routes/api.php`, `bootstrap/app.php`, `tests/Pest.php`,

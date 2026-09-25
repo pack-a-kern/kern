@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Operations;
 
 use App\Domain\Operations\Repositories\FailedJobRepository;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
@@ -19,7 +18,7 @@ use Kern\Audit\Services\AuditChainService;
  * `operations.run`, not something a read-only operator can trigger, and it is recorded in the
  * audit chain like any other administrative act.
  */
-final class RetryFailedJobController extends Controller
+final class RetryFailedJobController
 {
     public function __invoke(
         Request $request,

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Domain\Identity\Queries\AdminUserDirectory;
 use App\Domain\Subjects\Queries\MembershipRoleCounts;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Kern\Platform\Identity\Queries\AdminUserDirectory;
 
 /**
  * `GET /api/v1/admin/users` — the people who can sign in, their MFA posture and their memberships.
@@ -18,7 +17,7 @@ use Illuminate\Http\JsonResponse;
  * only writes. `enforcement.membership_roles_enforced` reports that, so the screen cannot imply a
  * per-subject permission model that does not exist yet.
  */
-final class ShowUsersController extends Controller
+final class ShowUsersController
 {
     public function __invoke(AdminUserDirectory $directory, MembershipRoleCounts $roleCounts): JsonResponse
     {

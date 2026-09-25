@@ -16,7 +16,6 @@ use App\Domain\Documents\FileSecurity\FileSecurityValidator;
 use App\Domain\Documents\Quarantine\QuarantineObjectStore;
 use App\Domain\Documents\Scanning\ClamdVirusScanner;
 use App\Domain\Documents\Scanning\VirusScanner;
-use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
@@ -27,6 +26,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\ObjectStore\EncryptedObjectStore;
+use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 
 /**
  * Wires Milestone 7's document pipeline (`docs/handoff/022-document-pipeline.md`). See that

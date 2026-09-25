@@ -15,7 +15,6 @@ use App\Domain\Rental\Enums\PropertyType;
 use App\Domain\Rental\Enums\RentalPaymentFrequency;
 use App\Domain\Rental\Enums\TenantType;
 use App\Domain\Rental\Exceptions\InvalidOwnershipPercentException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -32,7 +31,7 @@ use Kern\Platform\Tenancy\TenantContext;
  * cannot disagree about whether a rental may still be made from it. The figures themselves arrive in
  * the request: the reading pre-filled the form, and what the person saved is what is recorded.
  */
-final class OpenRentalController extends Controller
+final class OpenRentalController
 {
     public function __invoke(
         Request $request,

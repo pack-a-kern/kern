@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Documents;
 
 use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentScan;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +31,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Returned in the order things happened, oldest first, because this is read as a story.
  */
-final class ShowDocumentHistoryController extends Controller
+final class ShowDocumentHistoryController
 {
     /**
      * Event types this document's own lifecycle produces. An allowlist rather than "everything

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Spv\CredentialFlowTest;
 
-use App\Domain\Identity\Enums\MfaMethodType;
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Models\UserMfaMethod;
 use App\Domain\Spv\Actions\DestroySpvSession;
 use App\Domain\Spv\Actions\InitiateSpvAuthAttempt;
 use App\Domain\Spv\Actions\SubmitSpvChallengeCode;
@@ -33,6 +30,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Kern\Audit\Models\AuditEvent;
+use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
 
 /**

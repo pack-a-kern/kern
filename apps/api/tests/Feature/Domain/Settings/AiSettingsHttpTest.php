@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Domain\Settings\AiSettingsHttpTest;
 
-use App\Domain\Identity\Models\User;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;

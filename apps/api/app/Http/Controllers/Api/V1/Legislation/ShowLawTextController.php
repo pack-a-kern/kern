@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Legislation;
 
 use App\Domain\TaxKnowledge\Queries\LegislationLibrary;
-use App\Http\Controllers\Controller;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
  * fiscal is some 7 000 provisions, more than a page should carry at once. A date no consolidation
  * covers — before the law, or in a gap — answers 404, never the nearest text.
  */
-final class ShowLawTextController extends Controller
+final class ShowLawTextController
 {
     public function __invoke(string $law, Request $request, LegislationLibrary $library): JsonResponse
     {

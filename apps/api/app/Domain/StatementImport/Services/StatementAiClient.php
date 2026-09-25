@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\StatementImport\Services;
 
 use App\Domain\Documents\Consent\DocumentAiConsentGate;
-use App\Domain\Settings\Services\AiProviderCatalogue;
-use App\Domain\Settings\Services\ResolveAiProviderCredentials;
 use App\Domain\StatementImport\DataTransferObjects\AiAnswer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 
 /**
  * One structured question to the configured AI provider, for the statement import.

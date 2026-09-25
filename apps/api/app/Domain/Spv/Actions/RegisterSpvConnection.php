@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Spv\Actions;
 
-use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Support\SpvMfaPolicy;
 use App\Domain\Spv\DataTransferObjects\RegisterSpvConnectionInput;
 use App\Domain\Spv\Enums\SpvAuthMethod;
 use App\Domain\Spv\Enums\SpvConnectionStatus;
@@ -15,15 +13,17 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\SpvMfaPolicy;
 
 /**
  * `BLUEPRINT.md` §13.2 step 1 ("Connect SPV") and §4.7 ("MFA obligatoriu pentru conturi care
  * conectează SPV") — the single call site that enforces the MFA gate before a `spv_connections`
  * row can exist at all. `$actingUser` must be the user performing the connection; this action
  * never resolves "who is calling" itself (no session/request access in the domain layer, matching
- * `App\Domain\Identity\Actions\*`'s own framework-free convention).
+ * `Kern\Platform\Identity\Actions\*`'s own framework-free convention).
  *
- * @throws \App\Domain\Identity\Exceptions\MfaNotEnrolledException
+ * @throws \Kern\Platform\Identity\Exceptions\MfaNotEnrolledException
  */
 final readonly class RegisterSpvConnection
 {

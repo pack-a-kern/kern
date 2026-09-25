@@ -14,7 +14,7 @@ use RuntimeException;
  *
  * Backs **two** tables, not one: `tax_subjects.encrypted_dek`/`.dek_kek_version` for a
  * `App\Domain\Subjects\Models\TaxSubject`'s own DEK, and `users.encrypted_dek`/`.dek_kek_version`
- * for a `App\Domain\Identity\Models\User`'s own DEK (see `docs/handoff/011-identity-tenancy.md`
+ * for a `Kern\Platform\Identity\Models\User`'s own DEK (see `docs/handoff/011-identity-tenancy.md`
  * "Key decisions" for why a `User` needs its own DEK at all). `Kern\Platform\KeyManagement\
  * SubjectDekService` is registered as a single scoped container binding with exactly one bound
  * `SubjectDekRepository` — it has no way to know, from an id alone, which table a caller's id

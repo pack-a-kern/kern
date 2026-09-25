@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * §13.3/§34 rule out permanent SPV password storage entirely. `credential_policy` records that
  * this is a structural guarantee, not just an omission a future migration could quietly undo
  * (`App\Domain\Spv\Enums\SpvCredentialPolicy` has exactly one case today for the same reason
- * `App\Domain\Identity\Enums\MfaMethodType` has exactly one).
+ * `Kern\Platform\Identity\Enums\MfaMethodType` has exactly one).
  *
  * `username_ciphertext`/`username_blind_index` only apply to `USER_PASSWORD_OTP` connections — a
  * certificate holder authenticates by certificate, not by a stored username (`docs/reference/

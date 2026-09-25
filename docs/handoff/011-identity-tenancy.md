@@ -25,7 +25,7 @@ Entry points:
 - `App\Domain\Subjects\Actions\RegisterPfSubject` — the only place `SubjectType::PF` is ever
   registered in this task's code; the reference implementation of "how to create a `TaxSubject`
   correctly" and "how to append an audit event from your module."
-- `App\Domain\Identity\Models\User::createWithEmail()` — the only correct way to create a `User`.
+- `Kern\Platform\Identity\Models\User::createWithEmail()` — the only correct way to create a `User`.
 - `App\Domain\Subjects\Infrastructure\EloquentSubjectDekRepository` — implements
   `App\Support\KeyManagement\Contracts\SubjectDekRepository` against **both** `tax_subjects` and
   `users` (see "Key decisions" below for why both).
@@ -56,7 +56,7 @@ Migrations (`apps/api/database/migrations/`)
   `nullOnDelete()`/unqualified `->foreign()` that handoff's own snippet implied — see "Key
   decisions" #4, this needed real investigation, not just following the earlier instruction.
 
-Identity (`apps/api/app/Domain/Identity/`)
+Identity (`apps/api/packages/platform/src/Identity/`)
 - `Enums/UserStatus.php` — `ACTIVE|SUSPENDED|DELETED`.
 - `Models/User.php` — the `users` Eloquent model. Implements `EncryptsWithSubjectDek`
   self-referentially (its own id, like `TaxSubject`). `scopeWhereEmail()` for blind-index login
@@ -195,7 +195,7 @@ docblock documents this interaction in detail.
    The fix is the same two-write pattern in every case: insert a bare row first (no encrypted
    columns set), then assign the encrypted columns in a second `save()`, which is the write that
    triggers first-use DEK creation. `App\Domain\Subjects\Actions\RegisterPfSubject` does this for
-   `TaxSubject`; `App\Domain\Identity\Models\User::createWithEmail()` does it for `User`, and is
+   `TaxSubject`; `Kern\Platform\Identity\Models\User::createWithEmail()` does it for `User`, and is
    the **only** sanctioned way to create a `User` — documented prominently in that class's own
    docblock precisely so nobody rediscovers this failure mode by trial and error. `TaxSubjectFactory`
    and `UserFactory` both use the identical `configure()`/`afterCreating()` pattern for the same
@@ -358,7 +358,7 @@ a foreign key this task added at handoff 006's own request.
 - `App\Domain\Subjects\Actions\RegisterPfSubject` + `DataTransferObjects\RegisterPfSubjectInput` —
   callable from a future controller/command once auth exists.
 - `App\Domain\Subjects\Exceptions\DuplicateCnpException`.
-- `App\Domain\Identity\Models\User::createWithEmail()`, `::scopeWhereEmail()`.
+- `Kern\Platform\Identity\Models\User::createWithEmail()`, `::scopeWhereEmail()`.
 - `App\Domain\Subjects\Models\{TaxSubject,PfProfile,SubjectMembership,SecurityEvent}` — Eloquent
   models, importable only from within `Subjects`/`Identity` per `deptrac.php`'s current rules;
   another module needing subject/membership data goes through `TenantContext` or a future
@@ -401,7 +401,7 @@ now shows 10 failures, all the identical FK-violation shape, none of them presen
 task's migration existed.
 
 This is `app/Domain/Audit/**` test code, outside this task's file scope
-(`app/Domain/Identity/**`/`app/Domain/Subjects/**` only) — not fixed here, per `docs/AGENTS.md` §10
+(`packages/platform/src/Identity/**`/`app/Domain/Subjects/**` only) — not fixed here, per `docs/AGENTS.md` §10
 ("record a bug found outside your scope, don't fix it silently in an unrelated change"). The fix
 is mechanical: those two test files need to create a real `TaxSubject`
 (`App\Domain\Subjects\Models\TaxSubject::factory()->create()`, which this task provides) before

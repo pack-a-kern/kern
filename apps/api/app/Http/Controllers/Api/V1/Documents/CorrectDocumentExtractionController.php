@@ -8,7 +8,6 @@ use App\Domain\Documents\Models\Document;
 use App\Domain\Documents\Models\DocumentExtraction;
 use App\Domain\Documents\Review\CorrectDocumentExtraction;
 use App\Domain\Documents\Review\Exceptions\ExtractionAlreadyReviewedException;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,7 +22,7 @@ use Illuminate\Http\Request;
  * Never overwrites the original proposal — see `App\Domain\Documents\Review\
  * CorrectDocumentExtraction`'s own docblock for the two-row mechanics this controller triggers.
  */
-final class CorrectDocumentExtractionController extends Controller
+final class CorrectDocumentExtractionController
 {
     public function __invoke(
         Request $request,

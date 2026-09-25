@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Legislation;
 
 use App\Domain\TaxKnowledge\Queries\LegislationLibrary;
-use App\Http\Controllers\Controller;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +13,7 @@ use Illuminate\Http\Request;
  * `GET /api/v1/legislation/laws/{law}/outline?as_of=YYYY-MM-DD` — the law's table of contents on a
  * date: titles, chapters and sections, each with the articles under it.
  */
-final class ShowLawOutlineController extends Controller
+final class ShowLawOutlineController
 {
     public function __invoke(string $law, Request $request, LegislationLibrary $library): JsonResponse
     {

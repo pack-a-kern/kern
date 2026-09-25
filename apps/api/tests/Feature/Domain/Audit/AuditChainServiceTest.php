@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Subjects\Models\TaxSubject;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,6 +11,7 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Audit\Services\ChainVerifier;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Tests\Fakes\InMemoryKeyManagementService;
 
@@ -51,7 +51,7 @@ function auditSubjectId(): string
 
 function auditActorId(): string
 {
-    return (string) User::factory()->create()->getKey();
+    return User::factory()->create()->id;
 }
 
 function auditInput(string $chainSubjectId, string $eventType = 'DocumentUploaded'): AuditEventInput

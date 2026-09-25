@@ -12,10 +12,10 @@ use App\Domain\Documents\ExternalAi\Exceptions\ExternalDocumentAiProviderNotConf
 use App\Domain\Documents\ExternalAi\ExternalDocumentAiProvider;
 use App\Domain\Documents\ExternalAi\RequestExternalDocumentExtraction;
 use App\Domain\Documents\Models\Document;
-use App\Domain\Identity\Models\User;
-use App\Domain\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
-use App\Domain\Settings\Services\AiProviderSettingsService;
+use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
+use Kern\Platform\Settings\Services\AiProviderSettingsService;
 use Tests\Fakes\InMemoryKeyManagementService;
 use Tests\Fakes\InMemorySubjectDekRepository;
 

@@ -8,10 +8,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Settings\SystemEncryptionScopeIsolationTest;
 
-use App\Domain\Settings\Support\SystemEncryptionScope;
 use Kern\Platform\Crypto\AssociatedData;
 use Kern\Platform\Crypto\EnvelopeCipher;
 use Kern\Platform\Crypto\Exceptions\EnvelopeException;
+use Kern\Platform\Settings\Support\SystemEncryptionScope;
 
 /**
  * `docs/adr/0013-system-settings-scope-and-admin-gate.md` §1's central guarantee, proven directly

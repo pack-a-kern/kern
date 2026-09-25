@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\Wallet;
 
 use App\Domain\Wallet\Actions\MergeTags;
 use App\Domain\Wallet\Models\Tag;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +15,7 @@ use Illuminate\Http\Request;
  * The tag in the path is the one that goes, so the URL says what is being acted on, and the body
  * names where its transactions and rules end up.
  */
-final class MergeTagsController extends Controller
+final class MergeTagsController
 {
     public function __invoke(Request $request, string $subject, string $tag, MergeTags $merge): JsonResponse
     {
