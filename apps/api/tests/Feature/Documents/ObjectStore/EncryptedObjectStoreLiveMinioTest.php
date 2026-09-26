@@ -70,6 +70,11 @@ function configureLiveDisk(Application $app): void
         'throw' => false,
         'report' => false,
     ]]);
+
+    // `Tests\TestCase` fakes this disk for every test, and a resolved disk is cached — so the
+    // configuration above would be written and then ignored, and this "live" test would quietly
+    // exercise a local directory instead of a real endpoint. Forgetting it forces the rebuild.
+    Storage::forgetDisk('s3');
 }
 
 /** @return resource */

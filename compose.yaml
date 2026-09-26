@@ -1,6 +1,6 @@
 # TaxOS România — container topology (Milestone 0, BLUEPRINT.md §3).
 #
-# This is the production-shape file: no host ports on postgres/redis/minio,
+# This is the production-shape file: no host ports on postgres/redis,
 # app_net and data_net are `internal: true` (no outbound Internet), and
 # every image is pinned to an exact tag (docs/DEPENDENCY-POLICY.md).
 # compose.override.yaml adds dev-only conveniences (mailpit, published DB
@@ -14,8 +14,8 @@
 #   app_net         app, queue, scheduler, reverb,          — internal
 #                   redis, openbao
 #   processing_net  app, python-api,                        — not internal
-#                   minio, clamav
-#   data_net        postgres, redis, minio, app, queue,     — internal
+#                   clamav
+#   data_net        postgres, redis, app, queue,            — internal
 #                   scheduler, reverb
 #   browser_net     app, spv-browser                        — not internal
 #
@@ -50,7 +50,6 @@ volumes:
   embedding_cache:
   postgres_data:
   redis_data:
-  minio_data:
   clamav_data:
   app_storage:
   app_bootstrap_cache:
@@ -165,10 +164,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # The buckets must exist before the first upload, not merely minio itself — a missing bucket
-      # is answered with a silent `false` by the S3 driver, which surfaces as a 500 with no clue.
-      minio-init-buckets:
-        condition: service_completed_successfully
     healthcheck:
       # Hits php-fpm's own internal status page (pm.status_path in
       # docker/php/www.conf) over FastCGI — proves the pool is answering
@@ -217,9 +212,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # ScanQuarantinedDocument reads from the quarantine bucket and writes to the documents one.
-      minio-init-buckets:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "php", "artisan", "horizon:status"]
       interval: 30s
@@ -583,122 +575,14 @@ services:
           memory: 256M
     restart: unless-stopped
 
-  minio-init-perms:
-    # One-shot: MinIO's own image never chdir/chowns its data volume for a
-    # non-root `user:`, so a fresh named volume is root-owned and MinIO
-    # (running as uid 10001 below) fails with "file access denied" —
-    # confirmed by a real boot test 2026-09-07. This fixes ownership once,
-    # before minio starts, and exits.
-    image: alpine:3.24.1
-    command: ["chown", "-R", "10001:10001", "/data"]
-    volumes:
-      - minio_data:/data
-    network_mode: "none"
-    security_opt:
-      - no-new-privileges:true
-
-  minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: ["server", "/data", "--console-address", ":9001"]
-    user: "10001:10001"
-    networks:
-      - processing_net
-      - data_net
-    # Created with the key pair the APPLICATION signs its S3 requests with — same reasoning as
-    # postgres above. Point AWS_ENDPOINT at a MinIO or S3 you already run and this container is
-    # never started.
-    environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID — see apps/api/.env.example}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY — see apps/api/.env.example}
-      # No web console, no phone-home update checks — this is object
-      # storage for a backend service, not an admin UI (BLUEPRINT.md §3.3
-      # "minio nu este public").
-      MINIO_BROWSER: "off"
-    volumes:
-      - minio_data:/data
-    depends_on:
-      minio-init-perms:
-        condition: service_completed_successfully
-    read_only: true
-    tmpfs:
-      - /tmp:mode=1777
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 512M
-    restart: unless-stopped
-
-  minio-init-buckets:
-    # One-shot: creates the buckets the application expects, then exits.
-    #
-    # Nothing else in this repository ever created them. `kern-documents` had been made by hand at
-    # some point and `kern-quarantine` never had, so every upload failed at its first write with
-    # "Failed writing object … to the object store disk" — a 500 with no hint that a bucket was
-    # missing, because `config/filesystems.php` sets `'throw' => false` and the S3 driver answers a
-    # nonexistent bucket with a silent `false`. A `docker compose down -v` would have reproduced it
-    # from scratch on any machine.
-    #
-    # `mc mb --ignore-existing` is idempotent, so this is safe on every `up`, and it runs after
-    # minio reports healthy rather than merely started — `mc` against a booting server fails.
-    #
-    # Only on `data_net`, which is `internal: true`: this talks to minio and nothing else, and must
-    # not reach the Internet. Credentials come from the same env vars minio itself uses, so they
-    # cannot drift apart.
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -eu
-        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
-        mc mb --ignore-existing "local/$$AWS_BUCKET"
-        mc mb --ignore-existing "local/$$QUARANTINE_BUCKET"
-        echo "buckets ready: $$AWS_BUCKET, $$QUARANTINE_BUCKET"
-    networks:
-      - data_net
-    environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID — see apps/api/.env.example}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY — see apps/api/.env.example}
-      # The two buckets the application reads and writes, named where the application names them.
-      AWS_BUCKET: ${AWS_BUCKET:-kern-documents}
-      QUARANTINE_BUCKET: ${QUARANTINE_BUCKET:-kern-quarantine}
-      # `mc` writes an alias config on first use and defaults to `$HOME/.mc`, which this image's
-      # non-root user cannot create — it fails with "Unable to save new mc config". Pointed at the
-      # tmpfs below, which also means the credentials never touch a layer or a volume.
-      MC_CONFIG_DIR: /tmp/.mc
-    tmpfs:
-      - /tmp:mode=1777
-    depends_on:
-      minio:
-        condition: service_healthy
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-
-  # -------------------------------------------------------------------------
-  # KMS — OpenBao dev-mode transit engine (BLUEPRINT.md §4.2). DEV ONLY — see
-  # the handoff note before this ever runs anywhere but a developer machine.
-  # -------------------------------------------------------------------------
   openbao:
     image: openbao/openbao:2.6.2
     command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"]
     networks:
       - app_net
     environment:
-      # The dev server accepts the token the application presents, for the same reason postgres and
-      # minio take their credentials from the application's own: one place to write it down.
+      # The dev server accepts the token the application presents, for the same reason postgres is
+      # created with the application's own database password: one place to write it down.
       BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
       # `bao status` (used by the healthcheck below) defaults to
       # https://127.0.0.1:8200 and fails against this plain-HTTP dev server

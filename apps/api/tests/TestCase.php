@@ -7,6 +7,7 @@ namespace Tests;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
@@ -69,6 +70,27 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         Cache::flush();
+
+        /*
+         * Object storage is a local fake in every test, never the real store.
+         *
+         * Nothing pointed it anywhere: `phpunit.xml` configures no filesystem, so a test that wrote a
+         * document wrote it to whatever `apps/api/.env` names — the development MinIO, and then the
+         * storage server itself. It left 10,098 objects and 5,869 abandoned subject prefixes behind
+         * before anybody noticed, in the same bucket the running application uses. A suite that has to
+         * be *pointed away* from production storage is a suite that writes to it the first time
+         * somebody forgets.
+         *
+         * Both disks, because they are deliberately separate stores: a document is written to one and
+         * an unscanned upload to the other, and faking only the first would quietly keep writing the
+         * second to a real bucket.
+         *
+         * `Storage::fake()` also empties the fake between tests, so no test inherits another's files.
+         * A test that wants the real thing says so — see `EncryptedObjectStoreLiveMinioTest`, which
+         * rebuilds the `s3` disk from `OBJECTSTORE_TEST_*` and forgets this fake to get it.
+         */
+        Storage::fake('s3');
+        Storage::fake('quarantine');
     }
 
     /**

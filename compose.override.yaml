@@ -5,7 +5,7 @@
 # directory). Never used in production — see compose.yaml's own header.
 #
 # What this file does, and why it needs a non-internal `dev_net`:
-#   - Publishes postgres/redis/minio to the host for local psql/redis-cli/mc
+#   - Publishes postgres/redis to the host for local psql/redis-cli
 #     access ("dev access goes through the app or an explicit override" —
 #     this is that override). compose.yaml deliberately keeps those three on
 #     `data_net` only (internal: true, no outbound Internet); a container
@@ -40,19 +40,6 @@ services:
       - dev_net
     ports:
       - "${REDIS_DEV_PORT:-6379}:6379"
-
-  minio:
-    networks:
-      - processing_net
-      - data_net
-      - dev_net
-    ports:
-      - "${MINIO_DEV_API_PORT:-9000}:9000"
-      - "${MINIO_DEV_CONSOLE_PORT:-9001}:9001"
-    environment:
-      # The production shape disables the console entirely (compose.yaml);
-      # local dev wants it back to browse buckets.
-      MINIO_BROWSER: "on"
 
   mailpit:
     image: axllent/mailpit:v1.31.1
