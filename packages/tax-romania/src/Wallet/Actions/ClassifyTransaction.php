@@ -89,6 +89,7 @@ final readonly class ClassifyTransaction
         if ($splits !== []) {
             $this->rules->remember(
                 index: $transaction->counterparty_blind_index,
+                counterparty: $transaction->counterparty_ciphertext,
                 direction: MoneyDirection::ofAmount($transaction->amount_minor),
                 categoryCode: $splits[0]->categoryCode,
                 countryCode: $splits[0]->countryCode,

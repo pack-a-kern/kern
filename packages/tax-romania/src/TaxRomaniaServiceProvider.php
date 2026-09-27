@@ -6,6 +6,7 @@ namespace Kern\TaxRomania;
 
 use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Dependents\SectionDependents;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
@@ -80,6 +81,28 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $this->app->register(DeclarationsServiceProvider::class);
         $this->app->register(SpvServiceProvider::class);
         $this->app->register(StatementImportServiceProvider::class);
+
+        $this->registerBlindIndexReindexers();
+    }
+
+    /**
+     * The blind-indexed columns of this package, contributed to `kern:keys:reindex-blind-indexes`.
+     *
+     * Bound under plain string keys because a reindexer is a configured instance of one platform
+     * class, not a type of its own — there is nothing for another class to depend on. The list itself
+     * is `BlindIndexColumns`, at the package root for the reason given there: the columns belong to
+     * four modules and the list belongs to none of them.
+     */
+    private function registerBlindIndexReindexers(): void
+    {
+        $keys = [];
+
+        foreach (BlindIndexColumns::definitions() as $key => $factory) {
+            $this->app->bind($key, $factory);
+            $keys[] = $key;
+        }
+
+        $this->app->tag($keys, BlindIndexReindexers::TAG);
     }
 
     public function boot(): void

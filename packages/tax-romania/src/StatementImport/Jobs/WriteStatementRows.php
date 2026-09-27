@@ -166,6 +166,7 @@ final class WriteStatementRows implements ShouldQueue
                     // went through these rows, whatever proposed them first.
                     $rules->remember(
                         index: $row->counterparty_blind_index,
+                        counterparty: $row->counterparty_ciphertext,
                         direction: MoneyDirection::ofAmount((int) $row->amount_minor),
                         categoryCode: $row->category_code,
                         countryCode: $row->country_code,

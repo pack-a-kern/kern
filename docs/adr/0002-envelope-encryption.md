@@ -39,6 +39,16 @@ decrypting every row: logging in by email, and detecting a duplicate CNP across 
    requires recomputing every blind index under the new version, which is a real, scheduled
    operation, not a free one.
 
+   **A blind-indexed column must therefore keep the value it indexes.** Recomputing an index means
+   hashing its input again, and a hash cannot be reversed to recover that input — so a column that
+   stores only the index is a column that can never be re-keyed, and the promise above silently does
+   not hold for it. Every blind-indexed column in this schema sits beside the ciphertext of its own
+   value for that reason; `counterparty_rules` was the one exception, kept deliberately to avoid a
+   second copy of a counterparty's name, and
+   `2026_09_27_100000_give_counterparty_rules_the_name_they_index` reverses that decision because a
+   rotation that cannot finish is the larger cost. A new blind index goes with its own ciphertext, or
+   it is not re-keyable.
+
 `php:8.5-fpm-trixie` ships `sodium` (shared, enabled) and `--with-password-argon2` out of the box
 (`docs/reference/verified-versions.md`), so this ADR requires no custom PHP build — only
 `pdo_pgsql`, `redis`, `bcmath`, `intl` need adding.
@@ -90,7 +100,11 @@ rather than quietly worked around in code.
   tooling.
 - Key rotation is not instantaneous: rotating the global index key means recomputing every blind
   index in the system under the new version before the old one can be retired, which is a
-  real batch job with its own failure modes, not a config flag flip.
+  real batch job with its own failure modes, not a config flag flip. That job is
+  `kern:keys:reindex-blind-indexes`, and the KEK's equivalent — a rotation retires nothing until
+  every wrapped DEK has been carried onto the new version — is `kern:keys:rewrap-deks`. Both are
+  idempotent and resumable, and both report what they could not move, because the number of rows
+  still on an older version is the only thing that says whether a key may yet be removed.
 - Envelope encryption alone does not protect against the case §4.1 already names as
   unsolvable: a server that is fully compromised *while* actively serving decrypted data to a
   legitimate request has the plaintext in memory regardless of how it's stored at rest.

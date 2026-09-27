@@ -331,35 +331,55 @@ performed.
 
 ## How to rotate a key
 
-**KEK rotation** (OpenBao's `tax-subject-kek`):
-1. Call `$kms->rotateKek()` (or `bao write -f transit/keys/tax-subject-kek/rotate` directly) — this
-   is instantaneous and non-disruptive: OpenBao retains old key versions, so every already-wrapped
-   DEK keeps decrypting exactly as before.
-2. Insert a row into `encryption_key_records` recording the new version (`ACTIVE`) and mark the
-   previous version's row `RETIRED` (with `retired_at`) — bookkeeping only, doesn't affect
-   decryption.
-3. New DEKs (new `TaxSubject`s created from now on) are wrapped under the new KEK version
-   automatically — nothing else to do.
-4. Existing subjects' `encrypted_dek` blobs remain wrapped under the old version until
-   individually re-wrapped. Re-wrapping an existing subject (recommended periodically, not
-   required immediately) is: unwrap under the old version (still works), wrap the same plaintext
-   DEK again (now under the new version), update the stored `encrypted_dek`/`dek_kek_version`. No
-   field ciphertext needs touching — the DEK's own bytes don't change, so nothing encrypted under
-   it needs re-encryption.
-5. Retiring (deleting) an old KEK version entirely is a separate, deliberate, higher-risk
-   operation this module does not automate — do it only after confirming no `encrypted_dek` still
-   depends on that version.
+**KEK rotation** (OpenBao's `tax-subject-kek`) — two commands, in this order:
+
+```
+php artisan kern:keys:rotate-kek
+php artisan kern:keys:rewrap-deks
+```
+
+1. `kern:keys:rotate-kek` reports how many wrapped DEKs sit on each version, asks, then rolls the key
+   forward. Instantaneous and non-disruptive: OpenBao retains old key versions, so every
+   already-wrapped DEK keeps decrypting exactly as before. It writes the `encryption_key_records` rows
+   itself — the new version `ACTIVE`, the one it replaced `RETIRED` with `retired_at` — and records a
+   `KekRotated` event on the system audit chain.
+2. New DEKs are wrapped under the new version from that moment, automatically.
+3. **Existing DEKs are not**, and this is the step that used to be missing. `kern:keys:rewrap-deks`
+   walks every wrapped DEK below the current version — `tax_subjects`, `users` and
+   `system_encryption_keys` — unwraps it under the old version, wraps the same bytes under the new
+   one, and updates the row. No field ciphertext is touched: the DEK's own bytes do not change, so
+   nothing encrypted under it needs re-encryption. Chunked, idempotent and resumable; `--dry-run`
+   reports without writing. It exits non-zero while anything is still behind.
+4. Only then may an old KEK version be retired (deleted) in OpenBao — a separate, deliberate,
+   higher-risk operation this module does not automate. `kern:keys:rewrap-deks` reaching zero is the
+   precondition: it is what proves no `encrypted_dek` still depends on that version.
+
+The write path is `Kern\Platform\KeyManagement\Contracts\DekRewrapRepository`, deliberately a
+separate interface from `SubjectDekRepository` — that one is create-only, and must stay so, because
+`save()` is only ever called with a freshly generated random DEK and an overwrite there would destroy
+every field encrypted under the key it replaced.
 
 **Blind-index key rotation** (the global HMAC key):
 1. Add the new version's key to `CRYPTO_BLIND_INDEX_KEYS` (keep the old version's entry too) and
    bump `CRYPTO_BLIND_INDEX_CURRENT_VERSION`.
 2. All *new* writes now index under the new version (`BlindIndexHasher::compute()` uses
    `currentVersion()`).
-3. Run a batch job (not built here — see decision #9) that recomputes every existing row's blind
-   index under the new version using `computeWithVersion($normalizedValue, $oldVersion)` to find
-   candidates and `compute($normalizedValue)` to write the new value, per ADR 0002 ("a real batch
-   job, not a config flag flip").
-4. Once every row is re-indexed, remove the old version's key from `CRYPTO_BLIND_INDEX_KEYS`.
+3. Run `php artisan kern:keys:reindex-blind-indexes`. It recomputes every blind index in the schema
+   from the ciphertext beside it, column by column, and prints a table of examined/rewritten/could
+   not recompute. Idempotent, so running it before a rotation does nothing and running it again after
+   an interruption finishes the rest.
+4. Once it reports zero in the last column, remove the old version's key from
+   `CRYPTO_BLIND_INDEX_KEYS`. Not before: every index it could not recompute is a row that is still
+   only findable under the old key, and the command exits non-zero precisely so this cannot be missed.
+
+Which columns it covers is not a list in the command. Each package contributes its own under the
+`kern.blind-index-reindexer` container tag (`Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers`),
+so a package that adds a blind-indexed column adds it to the rotation in the same change —
+`Kern\TaxRomania\BlindIndexColumns` is the taxpayer package's list. Two of them are not the ordinary
+"hash one column" shape and are worth knowing about: `tax_subjects.fiscal_identifier_blind_index`
+hashes the identifier *with its kind* (`CNP:` / `CUI:`), and `statement_import_rows.fingerprint` is
+computed per import in row order, because a statement line's fingerprint includes how many identical
+lines preceded it in the same file.
 
 ## What is NOT done
 

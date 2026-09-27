@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Console\Commands\Environment\BuildEnvironmentFileCommand;
+use Kern\Platform\Console\Commands\KeyManagement\ReindexBlindIndexesCommand;
 use Kern\Platform\Console\Commands\KeyManagement\RewrapDeksCommand;
 use Kern\Platform\Console\Commands\KeyManagement\RotateKekCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
@@ -94,6 +95,7 @@ final class PlatformServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 BuildEnvironmentFileCommand::class,
+                ReindexBlindIndexesCommand::class,
                 RotateKekCommand::class,
                 RewrapDeksCommand::class,
             ]);

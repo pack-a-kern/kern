@@ -90,23 +90,33 @@ final readonly class CounterpartyRules
      * that it holds decisions. A rule with neither a category nor a tag is not stored — "I looked at
      * it and left it alone" is not an answer worth replaying onto next month's rows.
      *
+     * Takes the name as well as its index, and stores both. The index is what the rule is found by;
+     * the name is what makes the index recomputable when the blind-index key is rotated, which a
+     * hash on its own never is. Callers already hold it — it is the counterparty the index was
+     * computed from — so nothing has to be decrypted here to get it.
+     *
      * @param  list<string>  $tagIds
      */
     public function remember(
         ?string $index,
+        ?string $counterparty,
         MoneyDirection $direction,
         ?string $categoryCode,
         ?string $countryCode,
         array $tagIds,
         ProposalSource $source,
     ): void {
-        if ($index === null || ($categoryCode === null && $tagIds === [])) {
+        $name = trim($counterparty ?? '');
+
+        // No index without a name and no name without an index: `indexFor()` derives one from the
+        // other, so a caller holding one and not the other has already lost the pairing.
+        if ($index === null || $name === '' || ($categoryCode === null && $tagIds === [])) {
             return;
         }
 
         $subjectId = $this->tenant->currentTenantId();
 
-        DB::transaction(function () use ($index, $direction, $categoryCode, $countryCode, $tagIds, $source, $subjectId): void {
+        DB::transaction(function () use ($index, $name, $direction, $categoryCode, $countryCode, $tagIds, $source, $subjectId): void {
             $existing = $this->find($index, $direction);
 
             if ($existing !== null && $existing->source === ProposalSource::PERSON && $source === ProposalSource::AI) {
@@ -115,6 +125,7 @@ final readonly class CounterpartyRules
 
             $rule = $existing ?? new CounterpartyRule([
                 'tax_subject_id' => $subjectId,
+                'counterparty_ciphertext' => $name,
                 'counterparty_blind_index' => $index,
                 'direction' => $direction,
             ]);

@@ -125,6 +125,7 @@ final readonly class RecordFinancialTransaction
             if ($input->source !== RecordSource::IMPORT) {
                 $this->rules->remember(
                     index: $transaction->counterparty_blind_index,
+                    counterparty: $input->counterparty,
                     direction: MoneyDirection::ofAmount($input->amountMinor),
                     categoryCode: $input->splits[0]->categoryCode ?? null,
                     countryCode: $input->splits[0]->countryCode ?? null,
