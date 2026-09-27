@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Settings\Infrastructure\SystemDekRepository;
 
 /**
  * Binds {@see KeyManagementService} to the configured driver (`config/crypto.php`) and
@@ -22,6 +23,11 @@ use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
  * `SubjectDekService` before `SubjectDekRepository` is bound elsewhere throws Laravel's own
  * `BindingResolutionException`, which is the correct, honest failure mode — see
  * docs/handoff/005-crypto-core.md "What the identity agent must implement".
+ *
+ * {@see DekRewrapService} is assembled from whatever is tagged {@see DekRewrapService::TAG}, so a
+ * package contributes its own DEK store without this file naming it. Only
+ * `Kern\Platform\Settings\Infrastructure\SystemDekRepository` is tagged here — it is this
+ * package's own; `tax_subjects`/`users` are tagged by the module that owns them.
  */
 final class KeyManagementServiceProvider extends ServiceProvider
 {
@@ -42,6 +48,17 @@ final class KeyManagementServiceProvider extends ServiceProvider
         });
 
         $this->app->scoped(SubjectDekService::class);
+
+        // Not scoped and not a singleton: a rewrap run is a command, resolved once, and holding the
+        // service open past it would keep the tagged stores alive for no reason.
+        $this->app->tag([SystemDekRepository::class], DekRewrapService::TAG);
+
+        $this->app->bind(DekRewrapService::class, static function (Application $app): DekRewrapService {
+            /** @var iterable<\Kern\Platform\KeyManagement\Contracts\DekRewrapRepository> $stores */
+            $stores = $app->tagged(DekRewrapService::TAG);
+
+            return new DekRewrapService($app->make(KeyManagementService::class), $stores);
+        });
     }
 
     private static function makeOpenBaoService(Application $app): OpenBaoTransitKeyManagementService

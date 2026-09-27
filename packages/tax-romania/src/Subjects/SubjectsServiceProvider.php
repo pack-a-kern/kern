@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Subjects;
 
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
+use Kern\Platform\KeyManagement\DekRewrapService;
 use Kern\Platform\Tenancy\Contracts\TenantGate;
 use Kern\Platform\Tenancy\Contracts\TenantNames;
 use Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository;
@@ -27,6 +28,10 @@ final class SubjectsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SubjectDekRepository::class, EloquentSubjectDekRepository::class);
+
+        // The same class again, contributed to the rewrap run: `tax_subjects` and `users` are this
+        // module's tables, so this is the only place that can say they hold wrapped DEKs.
+        $this->app->tag([EloquentSubjectDekRepository::class], DekRewrapService::TAG);
         $this->app->bind(TenantGate::class, MembershipTenantGate::class);
         $this->app->bind(TenantNames::class, SubjectNames::class);
     }

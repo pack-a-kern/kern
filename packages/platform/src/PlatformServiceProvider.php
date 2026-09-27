@@ -9,6 +9,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Console\Commands\Environment\BuildEnvironmentFileCommand;
+use Kern\Platform\Console\Commands\KeyManagement\RewrapDeksCommand;
+use Kern\Platform\Console\Commands\KeyManagement\RotateKekCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
@@ -90,7 +92,11 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([BuildEnvironmentFileCommand::class]);
+            $this->commands([
+                BuildEnvironmentFileCommand::class,
+                RotateKekCommand::class,
+                RewrapDeksCommand::class,
+            ]);
         }
 
         $this->publishes([
