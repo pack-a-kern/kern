@@ -275,6 +275,14 @@ container wipes the master key, and `openbao-init` has to recreate it from scrat
 every DEK wrapped under the old key becomes permanently unreadable. This is fine for a demo; it is
 not survivable for real data. See section 7.
 
+### Rotating a key after it has been in use
+
+Both rotatable keys — the master key in OpenBao and the blind-index key above — take two steps, not
+one: rotating mints the new version, and a second command carries everything still on the old one
+across. Until that second command reports zero, the key you meant to retire is still in use and
+cannot be deleted. The exact flow, both keys, with the commands and what breaks in between, is at the
+bottom of `packages/platform/README.md`.
+
 ### What must never be committed
 
 - `apps/api/.env` — excluded via `.gitignore`, along with any other `.env`. The single exception is

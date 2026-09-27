@@ -122,3 +122,107 @@ vendor/bin/pest
 `tests/Unit` is this package's classes as plain PHP — no container, no database, milliseconds.
 `tests/Integration` boots Laravel with this package and its dependencies and nothing else, which is
 the only way to find out whether it is actually installable.
+
+## Rotating a key
+
+Two keys are rotatable, and each is only half rotated by the act of rotating it. Both runbooks below
+end in a command that has to report zero, because until it does, the old key is still in use.
+
+`docker compose exec app` is how these are reached in the bundled stack — drop the prefix if you run
+artisan directly. Leave out `-T`: `rotate-kek` asks for confirmation.
+
+### The KEK — the master key, in OpenBao
+
+Nothing to edit. The key never leaves the KMS.
+
+```
+docker compose exec app php artisan kern:keys:rewrap-deks --dry-run
+docker compose exec app php artisan kern:keys:rotate-kek
+docker compose exec app php artisan kern:keys:rewrap-deks
+```
+
+1. **Dry run first.** Prints every stored data key by table and KEK version. Nothing should be behind
+   the current version before you start; if something is, a previous rotation was not finished, and
+   running `rewrap-deks` on its own is all that is needed.
+2. **`rotate-kek`** mints the next version, writes `encryption_key_records` (the new version `ACTIVE`,
+   the one it replaced `RETIRED`), and records a `KekRotated` audit event. Instantaneous and
+   non-disruptive: the KMS keeps prior versions, so every already-wrapped key still decrypts. Add
+   `--force` to skip the prompt.
+3. **`rewrap-deks`** is the half that makes it mean something. Rotating alone leaves every existing
+   data key wrapped under the *old* version, so the version you just retired is still what protects
+   them. This unwraps each one under the old version and wraps the same bytes under the new, across
+   `tax_subjects`, `users` and `system_encryption_keys`. **No encrypted field is re-encrypted** — a
+   data key's own bytes do not change, only the wrapper around them. `--dry-run` reports without
+   writing.
+
+Interrupting it is safe. Some rows end up on the old version and some on the new; both decrypt,
+because the KMS still holds both. Run it again and it finishes — it skips what is already current, so
+it is safe to run at any time, rotation or not.
+
+**Then check:** sign in, open the AI settings screen (that value is sealed under the system-wide data
+key, so it exercises the third table), load a wallet page, and run `rewrap-deks --dry-run` once more —
+it should report nothing behind.
+
+Only now may an old KEK version be deleted in the KMS, and `rewrap-deks` reporting zero is the
+evidence for it: it is what proves no `encrypted_dek` still depends on that version.
+
+### The blind-index key — the HMAC key, in the environment
+
+This one has a window. A blind index is `HMAC-SHA-256(key, value)`, so the moment the current version
+changes, every stored index is a hash under a key nothing searches with any more: **sign-in by email,
+duplicate-CNP detection, counterparty matching and tag lookup by name all stop matching** until the
+reindex finishes. Existing sessions are unaffected. Plan it accordingly — on a small installation it
+is seconds, and the reindex is the whole of it.
+
+```
+openssl rand -base64 32
+```
+
+Put the new key in `CRYPTO_BLIND_INDEX_KEYS` **beside the old one**, and make it current:
+
+```
+CRYPTO_BLIND_INDEX_KEYS={"1":"<the existing key>","2":"<the new key>"}
+CRYPTO_BLIND_INDEX_CURRENT_VERSION=2
+```
+
+Both, because the outgoing key has to stay readable until every index has been rewritten. Compact
+JSON, no spaces — a value containing a space has to be quoted or the environment file is rejected
+whole.
+
+```
+docker compose up -d --force-recreate app queue scheduler reverb
+docker compose exec app php artisan kern:keys:reindex-blind-indexes
+```
+
+A recreate, not a restart: the environment file is read at boot.
+
+`reindex-blind-indexes` walks every blind-indexed column, recomputes each index from the ciphertext
+beside it, and prints examined / rewritten / could not recompute per column. **The last column must be
+zero.** It exits non-zero otherwise, and if it does, stop here — every index it could not recompute is
+a row that is only findable under the old key.
+
+Once it is zero, drop the old key and recreate again:
+
+```
+CRYPTO_BLIND_INDEX_KEYS={"2":"<the new key>"}
+```
+
+```
+docker compose up -d --force-recreate app queue scheduler reverb
+docker compose exec app php artisan kern:keys:reindex-blind-indexes
+```
+
+The second run should report nothing rewritten and nothing stuck. **Then check:** sign in with an
+email address — that is the blind index doing its job.
+
+**Keep the old key value until that final run is clean.** Removing it while any index still depends on
+it makes those rows permanently unfindable: the index cannot be recomputed without the key that
+produced it, and there is no way back once the key is gone.
+
+### Why both commands exist at all
+
+Rotating a key is one call. Retiring the old one is the whole job, and the two are not the same
+operation — which is why each runbook is two steps and each ends in a count. Every blind-indexed
+column in this package's schema keeps the ciphertext of the value it indexes for the same reason: a
+hash cannot be reversed, so a column holding only the index could never be re-keyed. See
+`docs/adr/0002-envelope-encryption.md` and `docs/handoff/005-crypto-core.md`.
