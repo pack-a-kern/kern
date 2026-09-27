@@ -8,7 +8,7 @@ return [
     // A Flysystem disk (config/filesystems.php) physically separate from `objectstore.disk` —
     // Kern\Documents\Quarantine\QuarantineObjectStore's whole guarantee depends on this
     // being a different bucket the rest of the app never reads from.
-    'quarantine_disk' => env('DOCUMENTS_QUARANTINE_DISK', 'quarantine'),
+    'quarantine_disk' => env('DOCUMENTS_QUARANTINE_DISK'),
 
     // File-security limits (BLUEPRINT.md §14.2). Engineering defaults, not fiscal values — no
     // source_section_id applies.
@@ -26,7 +26,7 @@ return [
     'max_image_pixels' => (int) env('DOCUMENTS_MAX_IMAGE_PIXELS', 40_000_000),
 
     'clamav' => [
-        'host' => env('CLAMAV_HOST', 'clamav'),
+        'host' => env('CLAMAV_HOST'),
         'port' => (int) env('CLAMAV_PORT', 3310),
         'connect_timeout_seconds' => (float) env('CLAMAV_CONNECT_TIMEOUT_SECONDS', 5),
         'stream_timeout_seconds' => (float) env('CLAMAV_STREAM_TIMEOUT_SECONDS', 30),

@@ -29,5 +29,29 @@
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
+
+        <!--
+            The addresses and names the suite has no deployment to read them from.
+
+            Every one of these is a value only an operator can know, so no config file invents a
+            default for it (a wrong default is a service quietly pointed at the wrong host). A test
+            run is the one environment with no operator: without these the container that would
+            answer is absent anyway, so what is set here is a plausible name, never a reachable one
+            — the doubles the suite binds are what answer.
+        -->
+        <env name="APP_NAME" value="Kern" force="true"/>
+        <env name="APP_URL" value="http://localhost" force="true"/>
+        <env name="OBJECTSTORE_DISK" value="s3" force="true"/>
+        <env name="DOCUMENTS_QUARANTINE_DISK" value="quarantine" force="true"/>
+        <env name="CLAMAV_HOST" value="clamav" force="true"/>
+        <env name="OPENBAO_ADDR" value="http://openbao:8200" force="true"/>
+        <env name="SPV_BROWSER_BASE_URL" value="http://spv-browser:8090" force="true"/>
+        <env name="PROCESSING_URL" value="http://python-api:8000" force="true"/>
+        <env name="QUARANTINE_BUCKET" value="kern-quarantine" force="true"/>
+        <env name="SOURCES_STORAGE_DISK" value="s3" force="true"/>
+        <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
+        <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
+        <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>
+        <env name="STATEMENT_IMPORT_CLASSIFICATION_MODEL" value="test-classifier" force="true"/>
     </php>
 </phpunit>

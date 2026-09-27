@@ -23,7 +23,7 @@ return [
         'openbao' => [
             // docker/openbao/init.sh enables the transit engine and creates this exact key
             // (docs/handoff/001-docker-topology.md). Matches KERN_KEK_NAME's default there.
-            'address' => env('OPENBAO_ADDR', 'http://openbao:8200'),
+            'address' => env('OPENBAO_ADDR'),
             'token' => env('OPENBAO_TOKEN'),
             'transit_mount' => env('OPENBAO_TRANSIT_MOUNT', 'transit'),
             'tax_subject_kek_name' => env('OPENBAO_TAX_SUBJECT_KEK_NAME', 'tax-subject-kek'),

@@ -29,12 +29,12 @@ return [
     // service's `EMBEDDING_DIMENSION`. All three are asserted against each other at runtime
     // rather than trusted — a mismatch writes vectors into the wrong space, which retrieves
     // plausible-looking nonsense instead of failing.
-    'dimension' => (int) env('RETRIEVAL_EMBEDDING_DIMENSION', 384),
+    'dimension' => (int) env('EMBEDDING_DIMENSION', 384),
 
     // Only a fallback for `modelIdentifier()` before any call has run — the stored
     // `embedding_model` always prefers what the service reported. Must match the Python
     // service's `EMBEDDING_MODEL_ID` to be meaningful.
-    'model' => env('RETRIEVAL_EMBEDDING_MODEL', 'intfloat/multilingual-e5-small'),
+    'model' => env('EMBEDDING_MODEL_ID'),
 
     // Texts per HTTP call. The Python service batches internally as well; this bounds the
     // request body and lets a long backfill make visible progress instead of one giant call.

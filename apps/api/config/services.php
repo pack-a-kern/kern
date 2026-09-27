@@ -23,7 +23,7 @@ return [
      * keeps its own timeout, because reading a PDF and embedding a law genuinely take different times.
      */
     'processing' => [
-        'base_url' => env('PROCESSING_URL', 'http://python-api:8000'),
+        'base_url' => env('PROCESSING_URL'),
 
         // Sent as `Authorization: Bearer <token>`, and must equal the Python service's own
         // `INTERNAL_SERVICE_AUTH_TOKEN` — compose wires the same value into both containers. Empty by

@@ -160,7 +160,7 @@ return [
     // document (no tenant, public, not PII) cannot be expressed by that module's
     // ObjectKey::forDocument() without a scope-violating change to Kern\Documents\ObjectStore.
     'storage' => [
-        'disk' => env('SOURCES_STORAGE_DISK', 's3'),
+        'disk' => env('SOURCES_STORAGE_DISK'),
         'prefix' => env('SOURCES_STORAGE_PREFIX', 'sources'),
     ],
 

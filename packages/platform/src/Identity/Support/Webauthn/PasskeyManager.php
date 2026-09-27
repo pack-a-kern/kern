@@ -12,6 +12,7 @@ use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserPasskey;
 use Kern\Platform\Identity\Support\Webauthn\Exceptions\PasskeyVerificationException;
+use RuntimeException;
 use Throwable;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
@@ -204,15 +205,32 @@ final readonly class PasskeyManager
         return $decoded;
     }
 
+    /**
+     * Who this application says it is, to a browser about to bind a key to it.
+     *
+     * Both values are required and neither has a fallback, because a passkey is bound to the relying
+     * party it was created under and cannot be moved afterwards. A name defaulting to the empty
+     * string shows the person a nameless prompt; an id defaulting to `localhost` — which is what an
+     * unset `APP_URL` used to produce — binds the credential to a host this application is not
+     * served from, and the person cannot undo it. Refusing outright is the only honest answer.
+     */
     private function relyingParty(): PublicKeyCredentialRpEntity
     {
         $name = config('webauthn.relying_party.name');
         $id = config('webauthn.relying_party.id');
 
-        return PublicKeyCredentialRpEntity::create(
-            is_string($name) ? $name : '',
-            is_string($id) && $id !== '' ? $id : null,
-        );
+        if (! is_string($name) || $name === '') {
+            throw new RuntimeException('webauthn.relying_party.name is empty — set APP_NAME.');
+        }
+
+        if (! is_string($id) || $id === '') {
+            throw new RuntimeException(
+                'webauthn.relying_party.id is empty — set APP_URL to the address this application is '
+                . 'served from, or WEBAUTHN_RP_ID to the host a passkey should be bound to.'
+            );
+        }
+
+        return PublicKeyCredentialRpEntity::create($name, $id);
     }
 
     /**

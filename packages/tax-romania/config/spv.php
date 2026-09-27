@@ -9,7 +9,7 @@ return [
     // lifecycle, extended by this milestone). Never reachable directly by the browser/PWA —
     // BLUEPRINT.md §13.4.
     'browser_worker' => [
-        'base_url' => env('SPV_BROWSER_BASE_URL', 'http://spv-browser:8090'),
+        'base_url' => env('SPV_BROWSER_BASE_URL'),
         'timeout_seconds' => (int) env('SPV_BROWSER_TIMEOUT_SECONDS', 30),
 
         // Shared secret sent as `Authorization: Bearer <token>` — must equal the worker's own

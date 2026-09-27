@@ -21,7 +21,7 @@ return [
 
     'relying_party' => [
         'name' => env('APP_NAME'),
-        'id' => env('WEBAUTHN_RP_ID', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        'id' => env('WEBAUTHN_RP_ID', parse_url((string) env('APP_URL'), PHP_URL_HOST)),
     ],
 
     /*
@@ -39,7 +39,7 @@ return [
 
     'allowed_origins' => array_filter(array_map(
         'trim',
-        explode(',', (string) env('WEBAUTHN_ALLOWED_ORIGINS', (string) env('APP_URL', 'http://localhost'))),
+        explode(',', (string) env('WEBAUTHN_ALLOWED_ORIGINS', (string) env('APP_URL'))),
     )),
 
     /*

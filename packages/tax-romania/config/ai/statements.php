@@ -36,7 +36,7 @@ return [
      * the import silently fell back to asking the person. Measured completions were 1 893 and 2 447.
      */
     'mapping' => [
-        'model' => env('STATEMENT_IMPORT_AI_MODEL', 'gpt-oss:20b'),
+        'model' => env('STATEMENT_IMPORT_AI_MODEL'),
         'max_tokens' => (int) env('STATEMENT_IMPORT_AI_MAX_TOKENS', 12_000),
 
         'system' => env('STATEMENT_PROMPT_MAPPING_SYSTEM', implode(' ', [
@@ -129,7 +129,7 @@ PROMPT),
          */
         'enabled' => filter_var(env('STATEMENT_IMPORT_CLASSIFICATION_ENABLED', true), FILTER_VALIDATE_BOOL),
 
-        'model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL', 'gpt-oss:20b'),
+        'model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL'),
         'max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
         'batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 100),
 

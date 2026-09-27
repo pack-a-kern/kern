@@ -8,7 +8,7 @@ return [
     // Which Laravel filesystem disk (config/filesystems.php) encrypted objects are written to.
     // Defaults to the 's3' disk, already configured to point at MinIO in dev and a real
     // S3-compatible bucket in production (BLUEPRINT.md §1.1/§3.1).
-    'disk' => env('OBJECTSTORE_DISK', 's3'),
+    'disk' => env('OBJECTSTORE_DISK'),
 
     // Plaintext bytes read/sealed per chunk when storing, and per frame when retrieving
     // (BLUEPRINT.md §4.6/§14.2 — a document must never be loaded wholly into memory to encrypt or
