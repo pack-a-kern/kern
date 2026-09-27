@@ -74,6 +74,16 @@ uses()->afterEach(function (): void {
         return;
     }
 
+    // And the database has to be one the suite owns. This hook keyed off the driver alone, which
+    // made it "any Postgres this process happens to be pointed at" — including a development
+    // database, whose accounts and tax subjects it emptied. `TestCase` refuses such a database, but
+    // it refuses it by throwing from `setUp()`, and an `afterEach` runs anyway: the test failed and
+    // the truncate went ahead regardless. Asking the same question here is what makes the refusal
+    // mean something.
+    if (! TestCase::isTestDatabase()) {
+        return;
+    }
+
     DB::statement('TRUNCATE users, tax_subjects, audit_events, audit_chain_heads RESTART IDENTITY CASCADE');
 })->in('Feature/Audit');
 

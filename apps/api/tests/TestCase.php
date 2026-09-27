@@ -46,6 +46,21 @@ abstract class TestCase extends BaseTestCase
     private const array ALLOWED_DATABASES = [':memory:', 'kern_test'];
 
     /**
+     * Whether the connection is pointed at a database the suite may destroy.
+     *
+     * Public because the guard below is not the only thing that writes destructively: `Pest.php`
+     * truncates the identity and audit tables after the Audit suite, and a failing test does not
+     * stop it — PHPUnit skips `tearDown()` when `setUp()` throws, but a Pest `afterEach` is not
+     * `tearDown()`, so it still ran on a database this class had just refused. The account rows in
+     * a development database were emptied exactly that way. Both places ask this one question now,
+     * so neither can be safe while the other is not.
+     */
+    public static function isTestDatabase(): bool
+    {
+        return in_array(DB::connection()->getDatabaseName(), self::ALLOWED_DATABASES, true);
+    }
+
+    /**
      * The guard has to run here, not in `setUp()`.
      *
      * `RefreshDatabase` does its `migrate:fresh` from `setUpTraits()`, which `parent::setUp()`
@@ -105,7 +120,7 @@ abstract class TestCase extends BaseTestCase
     {
         $database = DB::connection()->getDatabaseName();
 
-        if (in_array($database, self::ALLOWED_DATABASES, true)) {
+        if (self::isTestDatabase()) {
             return;
         }
 
