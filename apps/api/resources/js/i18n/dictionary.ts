@@ -1265,7 +1265,13 @@ export interface Dictionary {
                 /** The page title and the sentence under it. */
             title: string;
             subtitle: string;
-                /** Where the code went, with the address substituted for `:destination`. */
+                    /**
+             * Where a code will go, with the address substituted for `:destination`.
+             *
+             * Future tense on purpose: arriving at the screen sends nothing — a page that sent on
+             * mount would send again on every refresh — so wording that claimed a code was already on
+             * its way sent people looking for one that did not exist.
+             */
             sentTo: string;
             codeLabel: string;
             codePlaceholder: string;

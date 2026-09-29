@@ -1426,8 +1426,8 @@ export const en = {
         },
         verifyEmail: {
             title: 'Confirm your email address',
-            subtitle: 'We sent you a six-digit code. Enter it below to confirm this address is yours.',
-            sentTo: 'Sent to :destination',
+            subtitle: 'Ask for a six-digit code, then enter it below to confirm this address is yours.',
+            sentTo: 'The code goes to :destination',
             codeLabel: 'Code',
             codePlaceholder: '123456',
             submit: 'Confirm',

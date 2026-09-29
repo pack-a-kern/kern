@@ -1433,8 +1433,8 @@ export const ro = {
         },
         verifyEmail: {
             title: 'Confirmă adresa de e-mail',
-            subtitle: 'Ți-am trimis un cod din șase cifre. Introdu-l mai jos pentru a confirma că adresa este a ta.',
-            sentTo: 'Trimis la :destination',
+            subtitle: 'Cere un cod din șase cifre, apoi introdu-l mai jos pentru a confirma că adresa este a ta.',
+            sentTo: 'Codul ajunge la :destination',
             codeLabel: 'Cod',
             codePlaceholder: '123456',
             submit: 'Confirmă',
