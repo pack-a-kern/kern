@@ -9,7 +9,7 @@ use Kern\Platform\KeyManagement\OpenBaoTransitKeyManagementService;
 
 /**
  * Proves `OpenBaoTransitKeyManagementService` against a real, running dev-mode OpenBao
- * (docker/openbao/init.sh) — not a fake, not a mock. Skipped unless both `OPENBAO_TEST_ADDR`
+ * (docker/openbao/entrypoint.sh) — not a fake, not a mock. Skipped unless both `OPENBAO_TEST_ADDR`
  * and `OPENBAO_TEST_TOKEN` are set, since CI and `make test` do not start OpenBao alongside the
  * PHP test image. See docs/handoff/005-crypto-core.md "How to verify" for the exact commands
  * that were used to run this for real against `docker compose`'s `openbao` service.

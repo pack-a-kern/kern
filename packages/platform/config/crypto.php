@@ -21,7 +21,7 @@ return [
         'driver' => env('CRYPTO_KMS_DRIVER', 'openbao'),
 
         'openbao' => [
-            // docker/openbao/init.sh enables the transit engine and creates this exact key
+            // docker/openbao/entrypoint.sh enables the transit engine and creates this exact key
             // (docs/handoff/001-docker-topology.md). Matches KERN_KEK_NAME's default there.
             'address' => env('OPENBAO_ADDR'),
             'token' => env('OPENBAO_TOKEN'),

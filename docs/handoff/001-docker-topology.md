@@ -53,7 +53,9 @@ Entry points:
   `runtime`, `test` stages).
 - `docker/playwright/Dockerfile` — `spv-browser` image, built on Microsoft's official Playwright
   image. Cannot be built yet — `apps/spv-browser` is empty.
-- `docker/openbao/init.sh` — idempotent transit-engine + KEK bootstrap, POSIX `/bin/sh`.
+- `docker/openbao/config.hcl` — file storage on the `openbao_data` volume, plain-HTTP listener.
+- `docker/openbao/entrypoint.sh` — the server's own startup: init on first boot, unseal every boot,
+  then the idempotent transit-engine + KEK bootstrap and the application's scoped token. POSIX `/bin/sh`.
 - `docker/postgres/init/001-extensions.sql` — `vector`/`unaccent`/`pg_trgm`.
 
 ## Key decisions
@@ -91,12 +93,15 @@ Entry points:
    encryption (`BLUEPRINT.md` §4.3) is a separate, later concern for whoever implements Milestone 1,
    and is unaffected by this KMS-layer choice.
 
-6. **OpenBao runs in dev mode** (`bao server -dev`, in-memory storage, single unseal key, root
-   token from an env var). This is explicitly what the brief asked for ("dev-mode transit
-   engine") and is loudly marked DEV ONLY in `.env.example`, `compose.yaml`, and
-   `docker/openbao/init.sh`. **Production must not use this** — it needs a real storage backend,
-   auto-unseal, and scoped policies instead of a root token. Not built here; out of this task's
-   scope per the brief.
+6. **OpenBao no longer runs in dev mode.** It did — `bao server -dev`, in-memory storage, root token
+   from an env var — until a Proxmox kernel panic on 2026-09-28 restarted it empty and every wrapped
+   DEK in the database became permanently unreadable. It now runs a real server with file storage on
+   the `openbao_data` volume (`docker/openbao/config.hcl`), initialised and unsealed by its own
+   entrypoint, and the application holds a token scoped to the four transit paths it calls rather than
+   the root token. **What is still not production-shape is the unseal key**, which sits in plaintext in
+   that volume: it makes a reboot survivable, and it is no protection against an attacker with
+   filesystem access — though neither was the root token in `.env` that preceded it. Production wants
+   auto-unseal against a cloud KMS, or Shamir shares held by people.
 
 7. **`edge` listens on unprivileged port 8080, not 80**, with `cap_drop: [ALL]` and no
    `NET_BIND_SERVICE` added back — avoids needing any capability at all for the non-root `nginx`
@@ -338,10 +343,13 @@ no matches.
   not a dev-shape default.
 - **No OpenTelemetry/Prometheus/Grafana/Loki/Tempo/Sentry** — explicitly marked optional in
   `BLUEPRINT.md` §3.1 for this milestone; not built.
-- **`docker/openbao/init.sh` is not registered anywhere as a systemd/cron/etc. recovery hook** —
-  it re-runs correctly on every `docker compose up`, which is sufficient for dev-mode's
-  wipe-on-restart behavior, but a production OpenBao (not dev mode) would use a different, durable
-  bootstrap process entirely.
+- ~~**`docker/openbao/init.sh` is not registered anywhere as a systemd/cron/etc. recovery hook**~~ —
+  this one came true. "It re-runs on every `docker compose up`" was the whole problem: a reboot does
+  not run `docker compose up`, it lets Docker apply each container's restart policy, and the one-shot's
+  policy was `no`. OpenBao came back empty, the init container did not come back at all, and the
+  healthcheck (`bao status`) reported healthy for fourteen hours with no transit engine and no key.
+  The bootstrap now lives in the server's own entrypoint, so there is no separate container for a
+  reboot to skip, and the healthcheck reads the KEK instead of the server's status.
 
 ## Open questions
 

@@ -53,6 +53,9 @@ volumes:
   clamav_data:
   app_storage:
   app_bootstrap_cache:
+  # The master key, and the unseal key that opens it. This volume is the one thing in this stack whose
+  # loss is unrecoverable: without it every `encrypted_dek` in the database is a locked box with no key.
+  openbao_data:
 
 x-php-image: &php-image
   build:
@@ -575,58 +578,63 @@ services:
           memory: 256M
     restart: unless-stopped
 
+  # The key manager, on disk. It used to run `server -dev`, which kept the master key in memory only:
+  # a Proxmox kernel panic on 2026-09-28 restarted it empty, and every wrapped data key in the
+  # database became permanently unreadable. `docker/openbao/config.hcl` stores it on the volume below,
+  # and `docker/openbao/entrypoint.sh` initialises, unseals and configures it on every boot — see that
+  # script for why none of that can live in a separate container any more.
   openbao:
     image: openbao/openbao:2.6.2
-    command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"]
+    entrypoint: ["sh", "/openbao/entrypoint.sh"]
     networks:
       - app_net
     environment:
-      # The dev server accepts the token the application presents, for the same reason postgres is
-      # created with the application's own database password: one place to write it down.
-      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
-      # `bao status` (used by the healthcheck below) defaults to
-      # https://127.0.0.1:8200 and fails against this plain-HTTP dev server
-      # without this — confirmed by a real health-check failure 2026-09-07.
+      # The CLI calls the server from inside this container, over the plain-HTTP listener — without
+      # this it defaults to https://127.0.0.1:8200 and fails (a real health-check failure, 2026-09-07).
       BAO_ADDR: http://127.0.0.1:8200
+      # The token the application presents. The startup script issues it against a policy covering the
+      # four transit paths the application actually calls and nothing else — it is no longer the root
+      # token, which now exists only inside the volume. One place the value is written down, still.
+      KERN_APP_TOKEN: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
+      # Both must agree with what the application is configured with; the policy is written from them,
+      # so a mismatch fails closed rather than granting something wider.
+      KERN_KEK_NAME: ${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek}
+      KERN_TRANSIT_MOUNT: ${OPENBAO_TRANSIT_MOUNT:-transit}
+    volumes:
+      # The master key lives here. Losing this volume is losing every encrypted value in the database.
+      # `/openbao/file` is the path the image creates and owns, so the volume is writable by the user
+      # the server runs as without a chown step.
+      - openbao_data:/openbao/file
+      - ./docker/openbao/config.hcl:/openbao/config.hcl:ro
+      - ./docker/openbao/entrypoint.sh:/openbao/entrypoint.sh:ro
     read_only: true
     tmpfs:
       - /tmp:mode=1777
       - /home/openbao:mode=1777
     security_opt:
       - no-new-privileges:true
+    # No `cap_add: IPC_LOCK`: it existed for mlock(), and OpenBao 2.6.2 dropped mlock support — the
+    # capability would now grant something nothing asks for.
     cap_drop:
       - ALL
-    cap_add:
-      # OpenBao's dev-mode server calls mlock() to keep secrets out of swap;
-      # without IPC_LOCK it only logs a warning and continues, but this is
-      # the one capability worth granting back for a KMS component. Verified
-      # against a real running container 2026-09-07 (starts and serves
-      # without it too, IPC_LOCK just silences the mlock warning).
-      - IPC_LOCK
     healthcheck:
-      test: ["CMD", "bao", "status"]
+      # Reads the KEK, not `bao status`. Status answers "the server is running and unsealed", which it
+      # did for fourteen hours after the panic while holding no transit engine and no key — healthy,
+      # and useless, with the only symptom 500s in the application log. A container that comes back
+      # without the key now reports unhealthy immediately.
+      # Authenticated as the application, with the application's own token, reading the one path it
+      # needs. So "healthy" means precisely "the application can reach its key" — not "a server is
+      # listening", which is what `bao status` meant while this container held no key at all.
+      test: ["CMD", "sh", "-c", "BAO_TOKEN=\"$$KERN_APP_TOKEN\" bao read ${OPENBAO_TRANSIT_MOUNT:-transit}/keys/${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek} >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      # Longer than the old 5s: a first boot initialises, unseals, enables the engine and writes a
+      # policy before any of that is true.
+      start_period: 30s
     deploy:
       resources:
         limits:
           cpus: "0.50"
           memory: 256M
     restart: unless-stopped
-
-  openbao-init:
-    image: openbao/openbao:2.6.2
-    entrypoint: ["sh", "/init.sh"]
-    networks:
-      - app_net
-    environment:
-      BAO_ADDR: http://openbao:8200
-      BAO_TOKEN: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
-    volumes:
-      - ./docker/openbao/init.sh:/init.sh:ro
-    depends_on:
-      - openbao
-    security_opt:
-      - no-new-privileges:true
