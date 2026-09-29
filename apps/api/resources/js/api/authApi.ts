@@ -1,6 +1,7 @@
 import { apiRequest } from '../lib/http';
-import { parseJson, vNumber, vObject, vString } from '../lib/validate';
+import { parseJson, vBoolean, vNullable, vNumber, vObject, vString } from '../lib/validate';
 import {
+    type EmailVerificationStatus,
     type LoginResult,
     type MfaStatus,
     type SessionSummary,
@@ -47,6 +48,40 @@ export async function completePasskeyLogin(
     const text = await apiRequest('/v1/auth/passkeys/login', { method: 'POST', body: { email, credential } });
 
     return parseId(text);
+}
+
+/**
+ * Where an account stands on verifying its address, and whether it has to.
+ *
+ * Free to call: the screen draws itself from this, so opening it — or refreshing it — must not send
+ * anything. `destination` is the account's own address, so the screen can say where a code went
+ * rather than leaving somebody guessing which inbox to check.
+ */
+export async function fetchEmailVerificationStatus(): Promise<EmailVerificationStatus> {
+    const text = await apiRequest('/v1/auth/email/verification');
+
+    return parseJson(
+        text,
+        vObject({
+            verified: vBoolean,
+            required: vBoolean,
+            channel: vString,
+            deliverable: vBoolean,
+            destination: vNullable(vString),
+        }),
+    );
+}
+
+/** Asks for a code. Throttled server-side — three in five minutes, per account. */
+export async function resendEmailVerification(): Promise<{ sent: boolean }> {
+    const text = await apiRequest('/v1/auth/email/resend', { method: 'POST' });
+
+    return parseJson(text, vObject({ sent: vBoolean }));
+}
+
+/** Submits one. A wrong code comes back as a validation error against `code`. */
+export async function verifyEmail(code: string): Promise<void> {
+    await apiRequest('/v1/auth/email/verify', { method: 'POST', body: { code } });
 }
 
 export async function logout(): Promise<void> {

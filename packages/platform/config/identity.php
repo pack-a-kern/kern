@@ -23,6 +23,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Email verification
+    |--------------------------------------------------------------------------
+    |
+    | The fallback behind `SettingKey::IDENTITY_EMAIL_VERIFICATION_REQUIRED`.
+    | Off by default: switching it on locks out every account that has not
+    | verified yet, including every account that already exists, so it has to
+    | be a deliberate act rather than a default somebody inherits.
+    |
+    | A code rather than a signed link, because a code is channel-agnostic: six
+    | digits work in an email, in a WhatsApp message, in an SMS or read out on
+    | the phone, and a signed URL only ever works in the first of those.
+    | `Enums\VerificationChannel` is where a second channel is added.
+    |
+    | `length` is digits, not bytes — this is a short-lived code checked against
+    | a per-user attempt limit, not a key. Six digits with five attempts inside
+    | ten minutes is 5 guesses out of a million; lengthening it protects nothing
+    | the attempt limit does not already protect, and costs a person accuracy.
+    |
+    */
+
+    'verification' => [
+        'required' => filter_var(env('IDENTITY_EMAIL_VERIFICATION_REQUIRED', false), FILTER_VALIDATE_BOOL),
+        'code_length' => (int) env('IDENTITY_VERIFICATION_CODE_LENGTH', 6),
+        'ttl_seconds' => (int) env('IDENTITY_VERIFICATION_TTL_SECONDS', 600),
+        // Tried against one code before it is dead, regardless of what the rate limiter allows: a
+        // limiter lives in the cache and a cache can be flushed, while this is a column.
+        'max_attempts' => (int) env('IDENTITY_VERIFICATION_MAX_ATTEMPTS', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | TOTP (BLUEPRINT.md §4.7 — the MFA fallback)
     |--------------------------------------------------------------------------
     |
@@ -89,6 +120,10 @@ return [
         'mfa_challenge_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
         'passkey_ceremony_per_ip' => ['max_attempts' => 20, 'decay_seconds' => 60],
         'register_per_ip' => ['max_attempts' => 10, 'decay_seconds' => 300],
+        // Submitting a code, and asking for another. The first stops a six-digit code being guessed;
+        // the second stops somebody else's inbox being used as a weapon.
+        'email_verify_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
+        'email_resend_per_user' => ['max_attempts' => 3, 'decay_seconds' => 300],
     ],
 
 ];

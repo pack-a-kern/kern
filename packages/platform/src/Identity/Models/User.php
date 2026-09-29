@@ -134,6 +134,25 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
         );
     }
 
+    /**
+     * Where mail to this account goes.
+     *
+     * Laravel asks this rather than reading an `email` column, which this model does not have: the
+     * address lives in `email_ciphertext` and is decrypted by the cast on read. Null for an account
+     * with no address — an erased one, whose ciphertext is a tombstone — so the framework sends
+     * nothing rather than sending somewhere meaningless.
+     */
+    public function routeNotificationForMail(): ?string
+    {
+        $email = $this->email_ciphertext;
+
+        if (! is_string($email) || trim($email) === '') {
+            return null;
+        }
+
+        return trim($email);
+    }
+
     public function encryptionSubjectId(): string
     {
         $value = $this->getKey();

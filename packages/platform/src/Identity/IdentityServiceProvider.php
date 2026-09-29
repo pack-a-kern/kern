@@ -14,12 +14,15 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Access\Services\AccessCatalogue;
 use Kern\Platform\Console\Commands\Access\GrantPlatformRoleCommand;
 use Kern\Platform\Console\Commands\Access\SyncAccessCatalogueCommand;
+use Kern\Platform\Console\Commands\Identity\VerifyUserEmailCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Crypto\BlindIndex\EloquentColumnReindexer;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Identity\Contracts\VerificationSender;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\Verification\MailVerificationSender;
 use Kern\Platform\Identity\Support\Webauthn\ChallengeStore;
 use Kern\Platform\Identity\Support\Webauthn\PasskeyManager;
 use Kern\Platform\Identity\Support\Webauthn\WebauthnCredentialRepository;
@@ -61,6 +64,14 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->singleton(PasskeyManager::class);
 
         $this->registerBlindIndexReindexer();
+
+        /*
+         * One channel today, bound as the channel. `Contracts\VerificationSender` is the seam a second
+         * one arrives through — see `Enums\VerificationChannel` — and binding the interface rather
+         * than type-hinting the class is what makes that a one-line change here instead of a change in
+         * every caller.
+         */
+        $this->app->bind(VerificationSender::class, MailVerificationSender::class);
     }
 
     /**
@@ -98,7 +109,11 @@ final class IdentityServiceProvider extends ServiceProvider
         PackageRoutes::load(__DIR__ . '/../../routes/identity.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncAccessCatalogueCommand::class, GrantPlatformRoleCommand::class]);
+            $this->commands([
+                SyncAccessCatalogueCommand::class,
+                GrantPlatformRoleCommand::class,
+                VerifyUserEmailCommand::class,
+            ]);
         }
 
         $this->registerRateLimiter('login-per-account-ip', 'login_per_account_ip', function (Request $request): string {
@@ -125,6 +140,23 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->registerRateLimiter('passkey-ceremony-per-ip', 'passkey_ceremony_per_ip', static fn (Request $request): string => (string) $request->ip());
 
         $this->registerRateLimiter('register-per-ip', 'register_per_ip', static fn (Request $request): string => (string) $request->ip());
+
+        /*
+         * Keyed per account, not per IP. A code belongs to one account, so guessing at it from many
+         * addresses must still exhaust one budget — and asking for another code is a request to send
+         * mail somewhere, which is throttled by whose inbox it lands in, not by who asked.
+         */
+        $perUser = static function (Request $request): string {
+            $identifier = $request->user()?->getAuthIdentifier();
+
+            // Falls back to the address when there is no account, which on these two routes cannot
+            // happen — both are behind `auth:web` — but a limiter that keys on an empty string would
+            // pool every caller into one bucket, and that is the failure worth making impossible.
+            return is_string($identifier) ? $identifier : (string) $request->ip();
+        };
+
+        $this->registerRateLimiter('email-verify-per-user', 'email_verify_per_user', $perUser);
+        $this->registerRateLimiter('email-resend-per-user', 'email_resend_per_user', $perUser);
     }
 
     private function registerRateLimiter(string $name, string $configKey, callable $keyResolver): void

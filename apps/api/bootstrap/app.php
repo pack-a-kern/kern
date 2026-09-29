@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
@@ -45,6 +46,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'tax-subject' => BindTaxSubjectContext::class,
+            // Applied to the authenticated groups in routes/web.php and to the package's own routes,
+            // never globally: a guest must be told to sign in, and the verification screen and the
+            // endpoints it calls have to stay reachable. See that middleware's allowed set.
+            'verified' => RequireVerifiedEmail::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);

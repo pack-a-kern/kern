@@ -30,7 +30,15 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
                         <span className="font-semibold">{profile.email}</span>
                         {profile.emailVerifiedAt === null ? (
                             <div>
-                                <Pill tone="locked">{t((d) => d.pages.settingsProfile.emailUnverified)}</Pill>
+                                {/*
+                                 * A link, not a bare badge. It used to be the latter, and there was no
+                                 * verification flow behind it at all — a state nobody could ever leave,
+                                 * which reads as something the person should act on while offering
+                                 * nothing to act with.
+                                 */}
+                                <a href="/verify-email" className="inline-flex">
+                                    <Pill tone="locked">{t((d) => d.pages.settingsProfile.emailUnverified)}</Pill>
+                                </a>
                             </div>
                         ) : null}
                     </Detail>

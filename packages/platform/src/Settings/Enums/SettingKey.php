@@ -101,6 +101,21 @@ enum SettingKey: string
      */
     case IDENTITY_REGISTRATION_ENABLED = 'identity.registration_enabled';
 
+    /**
+     * Whether an account has to prove it can read its own address before it can use the application.
+     *
+     * Off unless somebody turns it on, and turning it on is not reversible in its effect: every
+     * account that has not verified — which, the moment this is first enabled, is all of them — is
+     * held at the verification screen until it does. There is deliberately no backfill; "already
+     * registered" is not evidence that an address was ever readable by the person who typed it.
+     *
+     * Enforced by `Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail`, not merely
+     * reflected in the interface, for the same reason the registration switch is enforced in its
+     * controller. If mail is misconfigured while this is on, nobody can get in at all — which is what
+     * `kern:identity:verify-email` exists for.
+     */
+    case IDENTITY_EMAIL_VERIFICATION_REQUIRED = 'identity.email_verification_required';
+
     case SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS = 'security.webauthn_challenge_ttl_seconds';
     case SECURITY_WEBAUTHN_TIMEOUT_MS = 'security.webauthn_timeout_ms';
     case SECURITY_SESSION_LIFETIME_MINUTES = 'security.session_lifetime_minutes';
@@ -170,7 +185,7 @@ enum SettingKey: string
             self::SPV_MESSAGES_WINDOW_DAYS, self::SPV_CHALLENGE_TTL_SECONDS,
             self::SPV_REQUEST_TIMEOUT_SECONDS => SettingGroup::SPV,
 
-            self::IDENTITY_REGISTRATION_ENABLED,
+            self::IDENTITY_REGISTRATION_ENABLED, self::IDENTITY_EMAIL_VERIFICATION_REQUIRED,
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
             self::SECURITY_SESSION_LIFETIME_MINUTES, self::CRYPTO_BLIND_INDEX_VERSION,
             self::CRYPTO_KMS_DRIVER, self::SECURITY_HASH_DRIVER => SettingGroup::SECURITY,
@@ -211,6 +226,7 @@ enum SettingKey: string
             self::SPV_CHALLENGE_TTL_SECONDS => 'spv.challenge_ttl_seconds',
             self::SPV_REQUEST_TIMEOUT_SECONDS => 'spv.browser_worker.timeout_seconds',
             self::IDENTITY_REGISTRATION_ENABLED => 'identity.registration.enabled',
+            self::IDENTITY_EMAIL_VERIFICATION_REQUIRED => 'identity.verification.required',
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS => 'webauthn.challenge_ttl_seconds',
             self::SECURITY_WEBAUTHN_TIMEOUT_MS => 'webauthn.timeout_ms',
             self::SECURITY_SESSION_LIFETIME_MINUTES => 'session.lifetime',
@@ -225,7 +241,8 @@ enum SettingKey: string
     {
         return match ($this) {
             self::AI_ENABLED, self::AI_SUPPORTS_ENHANCEMENT, self::AI_SUPPORTS_CONVERSION,
-            self::IDENTITY_REGISTRATION_ENABLED => SettingType::BOOLEAN,
+            self::IDENTITY_REGISTRATION_ENABLED,
+            self::IDENTITY_EMAIL_VERIFICATION_REQUIRED => SettingType::BOOLEAN,
             self::AI_API_KEY => SettingType::SECRET,
             self::AI_BASE_URL, self::SOURCES_BNR_DAILY_URL,
             self::SOURCES_BNR_YEARLY_URL_TEMPLATE, self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL,

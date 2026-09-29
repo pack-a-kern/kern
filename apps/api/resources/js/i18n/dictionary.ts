@@ -1261,6 +1261,30 @@ export interface Dictionary {
                 subjectsSub: string;
             };
         };
+        verifyEmail: {
+                /** The page title and the sentence under it. */
+            title: string;
+            subtitle: string;
+                /** Where the code went, with the address substituted for `:destination`. */
+            sentTo: string;
+            codeLabel: string;
+            codePlaceholder: string;
+            submit: string;
+            resend: string;
+            resent: string;
+                /** Shown when the setting is on, so the person understands why they cannot go on. */
+            requiredNotice: string;
+                /** Shown when it is off — verifying is offered, not demanded. */
+            optionalNotice: string;
+                /** No address on file, so nothing can be sent and there is no button to press. */
+            undeliverable: string;
+            verifiedTitle: string;
+            verifiedBody: string;
+            continueToApp: string;
+            signOut: string;
+            rateLimited: string;
+            genericError: string;
+    };
         settingsProfile: {
             title: string;
             description: string;

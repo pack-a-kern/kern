@@ -25,7 +25,14 @@ return [
      */
     'routing' => [
         'prefix' => env('KERN_ROUTE_PREFIX', 'api'),
-        'middleware' => ['web'],
+        /*
+         * `verified` here rather than on each authenticated route: the gate has to cover every JSON
+         * endpoint a package ships, and a list that has to be remembered per route is a list with a
+         * hole in it. It passes a guest straight through — the sign-in and registration endpoints in
+         * this same group are unaffected — and it allows the verification endpoints themselves by
+         * name. See `Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail`.
+         */
+        'middleware' => ['web', 'verified'],
 
         /*
          * And where the ones that act *inside* a tenant hang from.
@@ -38,7 +45,7 @@ return [
          */
         'tenant' => [
             'prefix' => 'v1/tenants/{tenant}',
-            'middleware' => ['auth:web', 'tenant'],
+            'middleware' => ['auth:web', 'tenant', 'verified'],
         ],
     ],
 

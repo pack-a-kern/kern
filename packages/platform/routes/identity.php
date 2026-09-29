@@ -12,6 +12,7 @@ use Kern\Platform\Http\Controllers\Admin\ShowAccessCatalogueController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserRolesController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserStatusController;
 use Kern\Platform\Http\Controllers\Auth\DisableTotpController;
+use Kern\Platform\Http\Controllers\Auth\EmailVerificationController;
 use Kern\Platform\Http\Controllers\Auth\LoginController;
 use Kern\Platform\Http\Controllers\Auth\LogoutController;
 use Kern\Platform\Http\Controllers\Auth\MfaChallengeController;
@@ -60,7 +61,26 @@ Route::prefix('v1/auth')->group(function (): void {
         ->middleware('throttle:passkey-ceremony-per-ip');
 
     Route::middleware('auth:web')->group(function (): void {
-        Route::post('logout', LogoutController::class);
+        Route::post('logout', LogoutController::class)->name('auth.logout');
+
+        /*
+         * The three routes an account with an unverified address may still reach — named, because
+         * `Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail` allows them by name rather
+         * than by path. Held on a screen with no way to leave it is how this feature goes wrong, so
+         * `auth.logout` above carries a name for the same reason.
+         *
+         * `status` is free and the other two are throttled: reading where you stand should not cost
+         * anything, submitting a code must not be repeatable a million times, and asking for another
+         * must not turn somebody's inbox into a weapon.
+         */
+        Route::get('email/verification', [EmailVerificationController::class, 'status'])
+            ->name('auth.email.status');
+        Route::post('email/verify', [EmailVerificationController::class, 'verify'])
+            ->name('auth.email.verify')
+            ->middleware('throttle:email-verify-per-user');
+        Route::post('email/resend', [EmailVerificationController::class, 'resend'])
+            ->name('auth.email.resend')
+            ->middleware('throttle:email-resend-per-user');
 
         Route::post('passkeys/registration/options', [PasskeyRegistrationController::class, 'options'])
             ->middleware('throttle:passkey-ceremony-per-ip');

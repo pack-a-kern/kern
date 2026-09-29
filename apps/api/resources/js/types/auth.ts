@@ -135,3 +135,19 @@ export function parseWebauthnOptions(text: string): WebauthnOptionsJson {
         return value;
     });
 }
+
+/**
+ * Where an account stands on verifying its address.
+ *
+ * `required` is the setting, `verified` is this account, and the two are independent: an account can
+ * be unverified on an installation that does not ask, in which case nothing holds it back and the
+ * screen is merely an offer.
+ */
+export interface EmailVerificationStatus {
+    verified: boolean;
+    required: boolean;
+    channel: string;
+    /** False when there is no address to send to — the screen offers nothing rather than a button that fails. */
+    deliverable: boolean;
+    destination: string | null;
+}

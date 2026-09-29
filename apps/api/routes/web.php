@@ -32,7 +32,17 @@ Route::get('/login', fn (RegistrationPolicy $registration) => Inertia::render('a
     'registrationOpen' => $registration->isOpen(),
 ]))->name('login');
 
+/*
+ * The verification screen sits inside `auth` and outside `verified`, which is the whole point: it is
+ * where `verified` sends people, so being held there by it would be a loop. It draws itself from
+ * `GET /api/v1/auth/email/verification` rather than from a prop, so opening it costs nothing and
+ * refreshing it does not send a second code.
+ */
 Route::middleware('auth')->group(function (): void {
+    Route::get('/verify-email', fn () => Inertia::render('auth/verify-email'))->name('verify-email');
+});
+
+Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
 
     Route::get('/documents', fn () => Inertia::render('documents/inbox'))->name('documents.inbox');
