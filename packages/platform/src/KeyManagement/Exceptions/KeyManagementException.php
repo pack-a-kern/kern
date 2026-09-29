@@ -24,6 +24,27 @@ final class KeyManagementException extends RuntimeException
         ));
     }
 
+    /**
+     * The key this server was asked to use does not exist.
+     *
+     * A distinct case because it is the only KMS failure that is not worth retrying. Every other one
+     * says "ask again later"; this one says the master key is gone, and everything wrapped under it is
+     * unreadable until it comes back — which, if it was never persisted, is never.
+     *
+     * OpenBao answers 404 both for a key that was never created and for one that was deleted, and it
+     * cannot tell them apart. It happened on 2026-09-28: a kernel panic restarted a dev-mode server
+     * whose storage was memory, and `requestFailed` logged it as `http_status=404` among ordinary
+     * transport errors for fourteen hours. The message now says what it means.
+     */
+    public static function keyMissing(string $operation): self
+    {
+        return new self(sprintf(
+            'KMS transit key does not exist — every data key wrapped under it is unreadable until it '
+            . 'is restored: operation="%s" http_status=404',
+            $operation,
+        ));
+    }
+
     public static function unreachable(string $operation): self
     {
         return new self(sprintf('KMS transit endpoint unreachable: operation="%s"', $operation));

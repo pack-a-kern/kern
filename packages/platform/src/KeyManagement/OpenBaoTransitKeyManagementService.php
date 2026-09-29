@@ -13,7 +13,7 @@ use Kern\Platform\KeyManagement\Exceptions\KeyManagementException;
 use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
 
 /**
- * Wraps/unwraps per-subject DEKs using OpenBao's transit secrets engine (docker/openbao/init.sh
+ * Wraps/unwraps per-subject DEKs using OpenBao's transit secrets engine (docker/openbao/entrypoint.sh
  * provisions the `chacha20-poly1305` transit key this talks to — docs/handoff/001-docker-topology.md
  * decision #5. This class never re-implements AEAD itself; it only calls transit's
  * encrypt/decrypt/rotate/key-info HTTP endpoints and never sees the KEK.
@@ -129,8 +129,19 @@ final readonly class OpenBaoTransitKeyManagementService implements KeyManagement
         return $this->assertSuccessful($operation, $response);
     }
 
+    /**
+     * A 404 is kept apart from every other failure, because it means something different.
+     *
+     * Transit answers 404 when the key named in the path is not there. Nothing about that is
+     * transient: retrying cannot help, and a caller that treats it like a timeout hides the fact that
+     * the master key is gone. See {@see KeyManagementException::keyMissing()}.
+     */
     private function assertSuccessful(string $operation, Response $response): Response
     {
+        if ($response->status() === 404) {
+            throw KeyManagementException::keyMissing($operation);
+        }
+
         if ($response->failed()) {
             throw KeyManagementException::requestFailed($operation, $response->status());
         }
