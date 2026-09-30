@@ -38,3 +38,12 @@ docker/nginx/certs/*.key
 # Design mockups. Reference material, not part of the application.
 /kern*.html
 /apps/api/kern*.html
+/taxos-*.html
+
+# Prompt experiments, generated from the development ledger. Every one of them carries
+# real counterparty names — the account holder's own, and private individuals who paid
+# or were paid. They exist to be pasted into a model and scored by hand, never to be
+# committed, and the masking that protects a statement line does not remove a name:
+# a name is the question those prompts ask.
+/*-prompt.txt
+/counterparty-classification-variant-*.txt

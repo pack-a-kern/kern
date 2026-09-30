@@ -5,7 +5,7 @@ import { setPageHeader } from '../../lib/pageHeader';
 import { iconForInputType } from '../../lib/inputIcons';
 import { cloneElement, isValidElement, type MouseEvent, useEffect } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
-import { CircleHelp, SearchIcon } from 'lucide-react';
+import { CheckIcon, CircleHelp, Plus, SearchIcon, X } from 'lucide-react';
 
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -533,7 +533,16 @@ export function PanelSelect(props: {
      */
     emptyIcon?: ReactNode;
     emptyDescription?: string;
-    options: Array<{ value: string; label: string; description?: string; icon?: ReactNode }>;
+    /**
+     * `label` is what the menu shows; `shortLabel`, where given, is what a chip shows.
+     *
+     * The two answer different questions. Choosing a column wants whatever tells it from its
+     * neighbour — "Amount (RON) · number -1234.56" against "Balance (RON) · number 1234.56" — and a
+     * chip only has to say which was chosen.
+     */
+    options: Array<{ value: string; label: string; shortLabel?: string; description?: string; icon?: ReactNode }>;
+    /** How many characters a chip shows before it is cut. The full text stays on hover. */
+    chipMaxChars?: number;
     /** Shows a search box above the list. Worth it past roughly a dozen options, not before. */
     searchable?: boolean;
     /** `tile` sets each option's icon in a rounded square; `bare` draws it as-is, for a dot. */
@@ -577,6 +586,219 @@ export function PanelSelect(props: {
             optionVisual={props.optionVisual ?? 'bare'}
             searchPlaceholder={t((d) => d.common.search)}
             emptyText={t((d) => d.common.noResults)}
+        />
+    );
+}
+
+/**
+ * Several options in one control, held as removable chips with the picker at the end of the row.
+ *
+ * ## Why not a column of selects
+ *
+ * Because that is what it replaced. A field that may name three places drew three full-width selects
+ * stacked downward, each nearly identical to the last, pushing everything below it out of alignment —
+ * and a form with four such fields grew unpredictably as it was filled in. Here a field is one
+ * control whatever it holds.
+ *
+ * ## `ordered`
+ *
+ * Off by default, because for most multiple choices the order is the option list's, not the order
+ * somebody happened to click: picking A then B is the same answer as B then A.
+ *
+ * On where the order *is* the answer. The statement import reads a field's places in turn until one
+ * has something in it, so "first this column, then that one" is a different instruction from its
+ * reverse — the chips are numbered for that reason, and a new pick goes on the end. There is no
+ * rearranging: with a ceiling of a few places, removing one and picking it again is the whole of it,
+ * and drag handles or a pair of arrows on every chip would put back the clutter this removes.
+ *
+ * ## Picking toggles
+ *
+ * Every option stays in the menu with a tick against the chosen ones, and clicking one that is
+ * already chosen removes it. That is the ordinary multi-select gesture, and it makes naming the same
+ * option twice unrepresentable rather than merely discouraged.
+ */
+export function PanelMultiSelect(props: {
+    values: string[];
+    onChange: (next: string[]) => void;
+    /**
+     * `label` is what the menu shows and `shortLabel`, where given, is what a chip shows.
+     *
+     * They differ because the two places answer different questions. Choosing a column wants
+     * everything that tells it from its neighbour — "Amount (RON) · number -1234.56" against
+     * "Balance (RON) · number 1234.56" — and a chip only has to say which one was chosen. Putting the
+     * long form on a chip means every chip is cut off at the same useless point.
+     */
+    options: Array<{ value: string; label: string; shortLabel?: string; description?: string; icon?: ReactNode }>;
+    /** How many characters a chip shows before it is cut. The full text stays on hover. */
+    chipMaxChars?: number;
+    /** Numbers the chips and keeps them in the order they were picked. See the docblock. */
+    ordered?: boolean;
+    /** How many may be chosen. The picker goes away at the ceiling rather than refusing a click. */
+    max?: number;
+    /** The picker's own label, e.g. "Add column". */
+    addLabel: string;
+    /** Shown in the picker's place once `max` is reached, e.g. "4 of 4". */
+    fullLabel?: string;
+    /** Named on each chip's remove button, for a screen reader. */
+    removeLabel: string;
+    placeholder?: string;
+    searchable?: boolean;
+    disabled?: boolean;
+    id?: string;
+    'aria-label'?: string;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const ordered = props.ordered ?? true;
+    const disabled = props.disabled ?? false;
+    const full = props.max !== undefined && props.values.length >= props.max;
+
+    const labelFor = (value: string): string => {
+        const option = props.options.find((one) => one.value === value);
+
+        return option?.shortLabel ?? option?.label ?? value;
+    };
+
+    /**
+     * A chip's text, cut to a fixed number of characters.
+     *
+     * CSS truncation does nothing here: the chips wrap, and a wrapped flex item moves to the next
+     * line at its natural width rather than shrinking, so `text-overflow` is never reached. Cutting
+     * the string is what actually keeps a row of chips a row. The full text stays in `title`.
+     */
+    const chipText = (value: string): string => {
+        const full = labelFor(value);
+        const max = props.chipMaxChars ?? 12;
+
+        return full.length <= max ? full : `${full.slice(0, max).trimEnd()}…`;
+    };
+
+    // Kept in the order they were picked where that matters, and in the options' own order where it
+    // does not — so an unordered control shows the same chips however they were clicked.
+    const chips = ordered
+        ? props.values
+        : props.options.map((option) => option.value).filter((value) => props.values.includes(value));
+
+    const toggle = (value: string): void => {
+        if (props.values.includes(value)) {
+            props.onChange(props.values.filter((one) => one !== value));
+
+            return;
+        }
+
+        // The ceiling is enforced here, not only by hiding the button. The menu opens from anywhere
+        // on the control, so an affordance that merely disappears stops nobody: it was still possible
+        // to click past the limit and keep adding.
+        if (full) {
+            return;
+        }
+
+        props.onChange([...props.values, value]);
+    };
+
+    return (
+        <CustomSelect
+            options={props.options}
+            value={null}
+            disabled={disabled || (full && props.values.length === 0)}
+            searchable={props.searchable ?? false}
+            searchPlaceholder={t((d) => d.common.search)}
+            emptyText={t((d) => d.common.noResults)}
+            // Closes on a pick, like any other select. Staying open to collect several read as the
+            // control being stuck: the menu covers the chips, so the one thing a person wants to see
+            // after choosing — that it landed, and where in the order — is hidden behind it.
+            closeOnSelect
+            {...(props.id === undefined ? {} : { id: props.id })}
+            {...(props['aria-label'] === undefined ? {} : { 'aria-label': props['aria-label'] })}
+            onChange={(value) => {
+                if (value !== null) {
+                    toggle(String(value));
+                }
+            }}
+            renderOption={(option) => (
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                    {/* A tick against what is already chosen, and clicking it again removes it —
+                        the ordinary multi-select gesture, which is also what makes naming the same
+                        option twice unrepresentable. */}
+                    <CheckIcon
+                        className={cn(
+                            'size-3.5 shrink-0',
+                            props.values.includes(String(option.value)) ? '' : 'opacity-0',
+                        )}
+                        aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-left">{option.label}</span>
+                </span>
+            )}
+            // No chevron: the "add" button on the right says what clicking does more plainly than an
+            // arrow would, and two affordances on one control is one too many.
+            hideChevron
+            className="ctl-multi"
+            renderTrigger={() => (
+                <span className="flex w-full items-start justify-between gap-2">
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                        {chips.length === 0 && props.placeholder !== undefined ? (
+                            <span className="text-muted-foreground inline-flex h-6 items-center">
+                                {props.placeholder}
+                            </span>
+                        ) : null}
+
+                        {chips.map((value, index) => (
+                            <span
+                                key={value}
+                                className="bg-secondary text-secondary-foreground border-border inline-flex h-6 min-w-0 shrink items-center gap-1.5 rounded-lg border px-2 text-xs font-semibold"
+                            >
+                                {/* The position, as its own mark rather than loose text: for these
+                                    fields the order is the instruction, and a number that reads as
+                                    part of the label is a number nobody sees. */}
+                                {ordered ? (
+                                    <span className="bg-background text-muted-foreground border-border rounded border px-1 text-[10px] leading-4 font-normal tabular-nums">
+                                        {index + 1}
+                                    </span>
+                                ) : null}
+
+                                <span className="min-w-0 flex-1" title={labelFor(value)}>
+                                    {chipText(value)}
+                                </span>
+
+                                {disabled ? null : (
+                                    <span
+                                        role="button"
+                                        tabIndex={-1}
+                                        aria-label={props.removeLabel}
+                                        // `mousedown` is what opens the menu, so it is stopped here
+                                        // as well as the click: removing a chip should not also drop
+                                        // the list open over the control.
+                                        onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                        }}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            toggle(value);
+                                        }}
+                                        className="text-muted-foreground hover:text-destructive grid size-4 shrink-0 cursor-pointer place-items-center"
+                                    >
+                                        <X className="size-3" />
+                                    </span>
+                                )}
+                            </span>
+                        ))}
+                    </span>
+
+                    {disabled ? null : full ? (
+                        // Saying the limit is reached, rather than removing the control's one
+                        // affordance and leaving a person to wonder where it went.
+                        <span className="text-muted-foreground inline-flex h-6 shrink-0 items-center text-xs tabular-nums">
+                            {props.fullLabel ?? ''}
+                        </span>
+                    ) : (
+                        <span className="text-info border-border inline-flex h-6 shrink-0 items-center gap-1 rounded-lg border border-dashed px-2 text-xs font-semibold">
+                            <Plus className="size-3" aria-hidden="true" />
+                            {props.addLabel}
+                        </span>
+                    )}
+                </span>
+            )}
         />
     );
 }

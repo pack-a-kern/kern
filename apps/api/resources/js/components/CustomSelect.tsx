@@ -42,18 +42,60 @@ interface Rect {
     width: number;
     /** True when there is more room above the trigger than below, so the menu opens upward. */
     above: boolean;
+    /** What the menu may grow to on the side it opened, so it always ends inside the window. */
+    maxHeight: number;
 }
 
+/** The gap between the trigger and the menu, matched by the offsets applied when it is positioned. */
+const MENU_GAP = 4;
+
+/** Breathing room at the window edge, so a menu never ends flush against it. */
+const MENU_EDGE = 8;
+
+/**
+ * As tall as the menu wants to be: a search box, and about eight options under it.
+ *
+ * A cap rather than a height. A menu with room to spare stops here instead of running the length of
+ * the window, which is what the list's own `max-height` used to do and is the size this is set to
+ * preserve.
+ */
+const MENU_PREFERRED = 328;
+
+/** Below this a menu is not worth opening in the space; it opens anyway and scrolls inside. */
+const MENU_MIN = 152;
+
+/**
+ * Where the menu goes, and how tall it may be there.
+ *
+ * ## Why the height is measured rather than set
+ *
+ * It used to open downward unless there was less than 280px beneath the trigger, and the list was
+ * then capped at a flat `max-h-72` — 288px, plus a search box and padding, so a menu was around 350
+ * tall. Between those two numbers is a gap: a trigger with 300px beneath it refused to flip, because
+ * 300 is more than 280, and then did not fit, because 300 is less than 350. The category select in
+ * the transaction dialog landed in that gap exactly, and its list ran off the bottom of the screen.
+ *
+ * Widening the flip threshold alone would not fix it either: flipping only helps if the other side
+ * has the room, and a trigger in the middle of a short window has neither. So the side is chosen by
+ * comparing the two, and whichever is chosen also decides the height. The menu then always ends
+ * inside the window, and scrolls within itself when the space is tight.
+ */
 function measure(trigger: HTMLElement): Rect {
     const rect = trigger.getBoundingClientRect();
-    const below = window.innerHeight - rect.bottom;
-    const above = below < 280 && rect.top > below;
+    const roomBelow = window.innerHeight - rect.bottom - MENU_GAP - MENU_EDGE;
+    const roomAbove = rect.top - MENU_GAP - MENU_EDGE;
+
+    // Downward unless it does not fit and the other side is roomier: opening upward when there was
+    // no need to is its own surprise, so it takes both conditions.
+    const above = roomBelow < MENU_PREFERRED && roomAbove > roomBelow;
+    const room = above ? roomAbove : roomBelow;
 
     return {
         top: above ? rect.top : rect.bottom,
         left: rect.left,
         width: rect.width,
         above,
+        maxHeight: Math.min(MENU_PREFERRED, Math.max(MENU_MIN, room)),
     };
 }
 
@@ -73,6 +115,9 @@ export default function CustomSelect<TMeta = unknown>({
     className,
     menuClassName,
     renderOption,
+    renderTrigger,
+    closeOnSelect = true,
+    hideChevron = false,
     'aria-label': ariaLabel,
 }: {
     options: SelectOption<TMeta>[];
@@ -93,6 +138,29 @@ export default function CustomSelect<TMeta = unknown>({
     className?: string;
     menuClassName?: string;
     renderOption?: (option: SelectOption<TMeta>, state: { selected: boolean; active: boolean }) => ReactNode;
+    /**
+     * What the trigger shows, in place of "icon, one label, chevron".
+     *
+     * For a control whose answer is not one option — several columns held as chips, say. Everything
+     * else about this component is unchanged by it: the menu, its search, the keyboard and the ARIA
+     * wiring are the same ones a single select gets, which is the point of putting it here rather
+     * than writing a second dropdown next to this one.
+     */
+    renderTrigger?: () => ReactNode;
+    /**
+     * Drops the chevron from the trigger.
+     *
+     * For a trigger that already carries its own affordance on the right — the multiple-choice
+     * control's "add" button, which says what clicking does more plainly than an arrow would. Opt-in,
+     * so an ordinary select keeps the mark that tells a person it opens.
+     */
+    hideChevron?: boolean;
+    /**
+     * Whether picking an option closes the menu. True for a single choice, where the menu has done
+     * its job; false where a caller is collecting several and closing after each would mean
+     * reopening for the next.
+     */
+    closeOnSelect?: boolean;
     'aria-label'?: string;
 }): JSX.Element {
     const generatedId = useId();
@@ -151,6 +219,11 @@ export default function CustomSelect<TMeta = unknown>({
         }
 
         onChange(option.value, option);
+
+        if (!closeOnSelect) {
+            return;
+        }
+
         closeMenu();
         triggerRef.current?.focus();
     }
@@ -279,7 +352,10 @@ export default function CustomSelect<TMeta = unknown>({
                     position: 'fixed',
                     left: rect.left,
                     width: rect.width,
-                    ...(rect.above ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.top + 4 }),
+                    maxHeight: rect.maxHeight,
+                    ...(rect.above
+                        ? { bottom: window.innerHeight - rect.top + MENU_GAP }
+                        : { top: rect.top + MENU_GAP }),
                 }}
                 className={cn('select-menu', menuClassName)}
             >
@@ -305,7 +381,7 @@ export default function CustomSelect<TMeta = unknown>({
                 <div
                     id={`${fieldId}-listbox`}
                     role="listbox"
-                    className="scroll-hairline max-h-72 overflow-y-auto p-1.5"
+                    className="scroll-hairline min-h-0 flex-1 overflow-y-auto p-1.5"
                     onWheel={(event) => {
                         // A dialog locks scrolling everywhere except its own content (Radix hands that
                         // node to `react-remove-scroll` as the single exception), and this menu is
@@ -377,11 +453,23 @@ export default function CustomSelect<TMeta = unknown>({
                 onKeyDown={onKeyDown}
                 className={cn('ctl select-trigger', className)}
             >
-                {selected?.icon !== undefined && <span className="flex shrink-0 items-center">{selected.icon}</span>}
+                {renderTrigger === undefined ? (
+                    <>
+                        {selected?.icon !== undefined && (
+                            <span className="flex shrink-0 items-center">{selected.icon}</span>
+                        )}
 
-                <span className="min-w-0 flex-1 truncate text-left">
-                    {selected === null ? <span className="text-muted-foreground">{placeholder}</span> : selected.label}
-                </span>
+                        <span className="min-w-0 flex-1 truncate text-left">
+                            {selected === null ? (
+                                <span className="text-muted-foreground">{placeholder}</span>
+                            ) : (
+                                selected.label
+                            )}
+                        </span>
+                    </>
+                ) : (
+                    <span className="min-w-0 flex-1 text-left">{renderTrigger()}</span>
+                )}
 
                 {clearable && selected !== null && !disabled && (
                     <span
@@ -402,10 +490,15 @@ export default function CustomSelect<TMeta = unknown>({
                     </span>
                 )}
 
-                <ChevronDown
-                    className={cn('text-muted-foreground size-3.5 shrink-0 transition-transform', open && 'rotate-180')}
-                    aria-hidden="true"
-                />
+                {hideChevron ? null : (
+                    <ChevronDown
+                        className={cn(
+                            'text-muted-foreground size-3.5 shrink-0 transition-transform',
+                            open && 'rotate-180',
+                        )}
+                        aria-hidden="true"
+                    />
+                )}
             </button>
 
             {menu !== null && createPortal(menu, document.body)}
