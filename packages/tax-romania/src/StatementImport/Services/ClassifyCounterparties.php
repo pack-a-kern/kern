@@ -9,6 +9,7 @@ use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
@@ -106,7 +107,7 @@ final readonly class ClassifyCounterparties
                     'id' => $group['id'],
                     'direction' => $group['direction'],
                     'name' => $group['name'],
-                    'description' => $group['description'],
+                    'descriptions' => $group['descriptions'],
                     'rows' => $group['count'],
                 ],
                 $groups,
@@ -119,7 +120,7 @@ final readonly class ClassifyCounterparties
 
         $answer = $this->ai->ask(
             $subjectId,
-            $this->config->string('ai.statements.classification.system'),
+            $this->withTaxpayer($this->config->string('ai.statements.classification.system'), $subjectId),
             $this->config->string('ai.statements.classification.instruction'),
             $sent,
             self::schema(),
@@ -158,12 +159,55 @@ final readonly class ClassifyCounterparties
                         'properties' => [
                             'id' => ['type' => 'string'],
                             'category' => ['type' => ['string', 'null']],
-                            'tags' => ['type' => 'array', 'items' => ['type' => 'string']],
+                            /*
+                             * One tag, in the schema rather than only in the prompt. The prompt tells
+                             * the model its output is constrained; that claim should be true of the
+                             * thing the application actually depends on.
+                             */
+                            'tags' => ['type' => 'array', 'maxItems' => 1, 'items' => ['type' => 'string']],
                         ],
                     ],
                 ],
             ],
         ];
+    }
+
+    /**
+     * How many distinct statement lines one counterparty may send.
+     *
+     * A cap rather than a limit anybody meets often: the average counterparty has one or two lines,
+     * and this is for the supermarket that prints thirteen branch names.
+     */
+    private function maxDescriptions(): int
+    {
+        return max(1, $this->config->integer('ai.statements.classification.max_descriptions'));
+    }
+
+    /**
+     * The prompt with the taxpayer's own name in it.
+     *
+     * Two of its rules turn on that name — money arriving under it is money moving between their own
+     * accounts, not income — and a rule that names nobody cannot be applied. The name is not in the
+     * config because the config is one text for every taxpayer, so it holds `{taxpayer}` and this
+     * fills it in.
+     *
+     * No new exposure. That name is already in the payload, printed on the person's own statement
+     * lines as a counterparty, which is exactly why the rule earns its place: the model sees it
+     * either way, and this is what lets it know whose name it is looking at.
+     *
+     * A subject with no name stored leaves the prompt without that sentence rather than sending an
+     * empty pair of quotes for a model to reason about.
+     */
+    private function withTaxpayer(string $prompt, string $subjectId): string
+    {
+        $subject = TaxSubject::query()->withoutGlobalScope(TenantScope::class)->find($subjectId);
+        $name = trim((string) ($subject->display_name_ciphertext ?? ''));
+
+        if ($name === '') {
+            return trim((string) preg_replace('/^.*\{taxpayer\}.*$\n?/mu', '', $prompt));
+        }
+
+        return str_replace('{taxpayer}', $name, $prompt);
     }
 
     /**
@@ -173,7 +217,7 @@ final readonly class ClassifyCounterparties
      * repayment, and one answer for both would be wrong half the time.
      *
      * @param  list<StatementImportRow>  $rows
-     * @return list<array{id: string, direction: string, name: string, description: string, count: int, row_ids: list<string>}>
+     * @return list<array{id: string, direction: string, name: string, descriptions: list<string>, count: int, row_ids: list<string>}>
      */
     private function groups(array $rows): array
     {
@@ -198,7 +242,7 @@ final readonly class ClassifyCounterparties
                     'id' => 'c' . (string) (count($groups) + 1),
                     'direction' => $direction === MoneyDirection::OUT ? 'out' : 'in',
                     'name' => MaskedStatementText::mask($subject),
-                    'description' => MaskedStatementText::mask($description),
+                    'descriptions' => [],
                     'count' => 0,
                     'row_ids' => [],
                 ];
@@ -206,6 +250,26 @@ final readonly class ClassifyCounterparties
 
             $groups[$key]['count']++;
             $groups[$key]['row_ids'][] = $row->id;
+
+            /*
+             * Every distinct line, not one sample.
+             *
+             * One counterparty is often one merchant said several ways — a supermarket printing its
+             * branch, a petrol station its number — and those add nothing. The case that matters is
+             * the other one: under a person's own name sit a matured deposit, an account closure, a
+             * bank transfer and a personal exchange, four different events behind one name. Sending
+             * one sample meant choosing which of the four spoke for the other twenty-five rows.
+             *
+             * It costs little. Across a real statement the average counterparty has 1.2 distinct
+             * lines; the cap is for the handful with a dozen branches.
+             */
+            $line = MaskedStatementText::mask($description);
+
+            if ($line !== ''
+                && count($groups[$key]['descriptions']) < $this->maxDescriptions()
+                && ! in_array($line, $groups[$key]['descriptions'], true)) {
+                $groups[$key]['descriptions'][] = $line;
+            }
         }
 
         return array_values($groups);
@@ -236,7 +300,7 @@ final readonly class ClassifyCounterparties
 
     /**
      * @param  array<string, mixed>  $answer
-     * @param  list<array{id: string, direction: string, name: string, description: string, count: int, row_ids: list<string>}>  $groups
+     * @param  list<array{id: string, direction: string, name: string, descriptions: list<string>, count: int, row_ids: list<string>}>  $groups
      */
     private function apply(array $answer, array $groups): void
     {
