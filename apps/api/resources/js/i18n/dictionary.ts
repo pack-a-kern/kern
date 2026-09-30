@@ -656,6 +656,10 @@ export interface Dictionary {
                 change: string;
                 /** Heading for the plain list of where each field was read from. */
                 summary: string;
+                /** The three headings the read-from summary groups its fields under. */
+                groupTransaction: string;
+                groupCounterparty: string;
+                groupText: string;
                 /** One transaction per line, or a line followed by its own detail lines. */
                 layout: string;
                 layoutRow: string;
@@ -688,6 +692,15 @@ export interface Dictionary {
                 referenceIn: string;
                 orHere: string;
                 chainHint: string;
+                /** The picker at the end of a chip row, and what a chip's remove button is called. */
+                addPlace: string;
+                /** Shown once the ceiling is reached, with `:max` replaced by the number. */
+                placesFull: string;
+                removePlace: string;
+                /** Shown in a chip row with nothing in it yet. */
+                noPlace: string;
+            /** Why description takes several places, and that they are joined rather than tried in turn. */
+            descriptionHint: string;
                 referenceHint: string;
                 thenSeparator: string;
                 referenceFallbackOut: string;
@@ -787,6 +800,10 @@ export interface Dictionary {
                 /** `{imported}` and `{duplicates}` are substituted. */
                 summary: string;
                 viewTransactions: string;
+                /** The two figures on the finished panel, and the line under them. */
+                imported: string;
+                skipped: string;
+                skippedHint: string;
                 undo: string;
                 undone: string;
                 undoTitle: string;

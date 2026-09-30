@@ -1,5 +1,17 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowRight, CopyCheck, FileSpreadsheet, FileText, ListChecks, Plus, Sparkles, Upload, X } from 'lucide-react';
+import {
+    ArrowRight,
+    CalendarDays,
+    CheckCircle2,
+    CopyCheck,
+    FileSpreadsheet,
+    FileText,
+    ListChecks,
+    Sparkles,
+    Upload,
+    Users,
+    X,
+} from 'lucide-react';
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -18,6 +30,7 @@ import {
 import AppShell from '../../components/AppShell';
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
+import { bankOptions, type BankSelectOption } from '../../components/wallet/bankOptions';
 import TagsInput from '../../components/wallet/TagsInput';
 import {
     DataTable,
@@ -28,7 +41,9 @@ import {
     Page,
     Panel,
     PanelButton,
+    PanelMultiSelect,
     PanelSelect,
+    Stat,
     Pill,
     Status,
     Toolbar,
@@ -38,15 +53,7 @@ import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { cn } from '../../lib/utils';
-import {
-    bankLabel,
-    categoriesFor,
-    CURRENCIES,
-    formatMinor,
-    isStreamKind,
-    type Bank,
-    type Tag,
-} from '../../types/wallet';
+import { categoriesFor, CURRENCIES, formatMinor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
 import type {
     StatementClassification,
@@ -739,13 +746,10 @@ export default function WalletImport(): JSX.Element {
                             mapping={mapping}
                             onChange={setMapping}
                             bank={{
-                                options: banks.map((bank) => ({
-                                    value: bank.id,
-                                    label: bankLabel(
-                                        bank,
-                                        t((d) => d.pages.walletTransactions.bank.closed),
-                                    ),
-                                })),
+                                options: bankOptions(
+                                    banks,
+                                    t((d) => d.pages.walletTransactions.bank.closed),
+                                ),
                                 value: chosenBank,
                                 source: bankChoice === undefined ? detail.preview.bankSource : null,
                                 onChange: setBankChoice,
@@ -1050,26 +1054,65 @@ export default function WalletImport(): JSX.Element {
 
                 {status === 'IMPORTED' ? (
                     <Panel title={t((d) => d.pages.walletImports.done.title)} aside={<Steps status={status} />}>
-                        <p className="note">
-                            {t((d) => d.pages.walletImports.done.summary)
-                                .replace('{imported}', String(detail?.import.importedCount ?? 0))
-                                .replace('{duplicates}', String(detail?.import.duplicateCount ?? 0))}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
+                        {/*
+                            The two numbers, as numbers.
+                            They were a sentence — "529 transactions imported, 0 skipped as already
+                            here" — which is the one thing a person came here to see, set as a note
+                            under a heading. `Stat` is what this interface already uses for a figure
+                            that matters, so the panel reads like the rest of the application rather
+                            than like a paragraph.
+                        */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Stat
+                                label={t((d) => d.pages.walletImports.done.imported)}
+                                value={
+                                    <span className="flex items-center gap-1.5">
+                                        <CheckCircle2
+                                            className="size-4 text-emerald-600 dark:text-emerald-400"
+                                            aria-hidden="true"
+                                        />
+                                        {String(detail?.import.importedCount ?? 0)}
+                                    </span>
+                                }
+                            />
+                            <Stat
+                                label={t((d) => d.pages.walletImports.done.skipped)}
+                                value={
+                                    <span
+                                        className={cn(
+                                            'flex items-center gap-1.5',
+                                            (detail?.import.duplicateCount ?? 0) === 0 && 'text-muted-foreground/60',
+                                        )}
+                                    >
+                                        <CopyCheck
+                                            className={cn(
+                                                'size-4',
+                                                (detail?.import.duplicateCount ?? 0) > 0
+                                                    ? 'text-amber-600 dark:text-amber-400'
+                                                    : 'text-muted-foreground/50',
+                                            )}
+                                            aria-hidden="true"
+                                        />
+                                        {String(detail?.import.duplicateCount ?? 0)}
+                                    </span>
+                                }
+                                // Only when there were any: "nothing was skipped" needs no explaining,
+                                // and a line that is always there stops being read.
+                                {...((detail?.import.duplicateCount ?? 0) > 0
+                                    ? { sub: t((d) => d.pages.walletImports.done.skippedHint) }
+                                    : {})}
+                            />
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-1.5">
                             <PanelButton
                                 primary
                                 onClick={() => {
                                     router.visit(TRANSACTIONS_PATH);
                                 }}
                             >
+                                <ArrowRight className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletImports.done.viewTransactions)}
-                            </PanelButton>
-                            <PanelButton
-                                onClick={() => {
-                                    router.visit(IMPORTS_PATH);
-                                }}
-                            >
-                                {t((d) => d.pages.walletImports.historyTitle)}
                             </PanelButton>
                             {/* One statement of several: straight on to the next rather than back
                                 to the list to find it. */}
@@ -1415,7 +1458,9 @@ function suggestForm(detail: StatementImportDetail): StatementForm {
             decimal_separator: decimal,
             thousands_separator: decimal === ',' ? '.' : ',',
         },
-        description: asField(texts[0]),
+        // A list, because the text may be split across columns. The guess names one; a person adds
+        // the rest when the preview shows half a sentence.
+        description: texts[0] === undefined ? [] : [{ type: 'index', value: texts[0].index }],
         // Left empty rather than guessed: which label names the other side of a payment is exactly
         // what a local guess gets wrong, and an empty select asks where a wrong one misleads.
         counterparty: { debit: [], credit: [] },
@@ -1748,38 +1793,101 @@ function FormSummary({ detail, form }: { detail: StatementImportDetail; form: St
                 ? `${String(field.value)}:`
                 : String(field.value);
 
-    const fields: { label: string; value: string }[] = [
+    /*
+     * Three groups rather than one column of eleven.
+     *
+     * The list used to be every field stacked, label above value, which on a wide screen is a narrow
+     * ribbon of text down the left and nothing beside it — and the fields are not one list anyway.
+     * "Which column is the date" and "which column names who was paid" are different questions, and a
+     * person checking this reads for one of them at a time.
+     *
+     * Each group is a `DetailList`, and the groups sit in a grid: one column on a phone, two from
+     * 640px, three from 1280px. The pairs inside a group stay stacked, because a label and a column
+     * name are both short and side by side they would wrap at the width a third of a screen gives.
+     */
+    const groups: { title: string; icon: JSX.Element; rows: { label: string; value: string }[] }[] = [
         {
-            label: t((d) => d.pages.walletImports.columns.date),
-            value: `${columnName(form.date.value)} · ${form.date.format}`,
+            title: t((d) => d.pages.walletImports.columns.groupTransaction),
+            icon: <CalendarDays className="size-3.5" aria-hidden="true" />,
+            rows: [
+                {
+                    label: t((d) => d.pages.walletImports.columns.date),
+                    value: `${columnName(form.date.value)} · ${form.date.format}`,
+                },
+                ...(form.amounts.mode === 'signed'
+                    ? [{ label: t((d) => d.pages.walletImports.columns.amount), value: describe(form.amounts.amount) }]
+                    : [
+                          { label: t((d) => d.pages.walletImports.columns.debit), value: describe(form.amounts.debit) },
+                          {
+                              label: t((d) => d.pages.walletImports.columns.credit),
+                              value: describe(form.amounts.credit),
+                          },
+                      ]),
+                { label: t((d) => d.pages.walletImports.columns.currency), value: describe(form.currency) },
+            ],
         },
-        ...(form.amounts.mode === 'signed'
-            ? [{ label: t((d) => d.pages.walletImports.columns.amount), value: describe(form.amounts.amount) }]
-            : [
-                  { label: t((d) => d.pages.walletImports.columns.debit), value: describe(form.amounts.debit) },
-                  { label: t((d) => d.pages.walletImports.columns.credit), value: describe(form.amounts.credit) },
-              ]),
-        { label: t((d) => d.pages.walletImports.columns.description), value: describe(form.description) },
-        { label: t((d) => d.pages.walletImports.columns.counterpartyOut), value: describeChain(form.counterparty.debit) },
-        { label: t((d) => d.pages.walletImports.columns.counterpartyIn), value: describeChain(form.counterparty.credit) },
-        { label: t((d) => d.pages.walletImports.columns.referenceOut), value: describeChain(form.reference.debit) },
-        { label: t((d) => d.pages.walletImports.columns.referenceIn), value: describeChain(form.reference.credit) },
-        { label: t((d) => d.pages.walletImports.columns.currency), value: describe(form.currency) },
+        {
+            title: t((d) => d.pages.walletImports.columns.groupCounterparty),
+            icon: <Users className="size-3.5" aria-hidden="true" />,
+            rows: [
+                {
+                    label: t((d) => d.pages.walletImports.columns.counterpartyOut),
+                    value: describeChain(form.counterparty.debit),
+                },
+                {
+                    label: t((d) => d.pages.walletImports.columns.counterpartyIn),
+                    value: describeChain(form.counterparty.credit),
+                },
+            ],
+        },
+        {
+            title: t((d) => d.pages.walletImports.columns.groupText),
+            icon: <FileText className="size-3.5" aria-hidden="true" />,
+            rows: [
+                {
+                    label: t((d) => d.pages.walletImports.columns.description),
+                    value: describeChain(form.description),
+                },
+                {
+                    label: t((d) => d.pages.walletImports.columns.referenceOut),
+                    value: describeChain(form.reference.debit),
+                },
+                {
+                    label: t((d) => d.pages.walletImports.columns.referenceIn),
+                    value: describeChain(form.reference.credit),
+                },
+            ],
+        },
     ];
 
     return (
-        <details className="border-border border-b px-4 py-3">
+        /*
+         * Open by default. This is the answer to "did it read my file the way I think it did", asked
+         * at the moment a person is deciding whether to trust the preview below it — and a question
+         * that has to be clicked open is one most people never ask.
+         */
+        <details open className="border-border border-b px-4 py-3">
             <summary className="cursor-pointer text-sm font-medium">
                 {t((d) => d.pages.walletImports.columns.summary)}
             </summary>
-            <div className="mt-3">
-                <DetailList>
-                    {fields.map((field) => (
-                        <Detail key={field.label} label={field.label}>
-                            {field.value}
-                        </Detail>
-                    ))}
-                </DetailList>
+
+            <div className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                {groups.map((group) => (
+                    <section key={group.title} className="min-w-0">
+                        <h4 className="eyebrow mb-2 flex items-center gap-1.5">
+                            {group.icon}
+                            {group.title}
+                        </h4>
+
+                        <DetailList>
+                            {group.rows.map((row) => (
+                                <Detail key={row.label} label={row.label}>
+                                    {row.value}
+                                </Detail>
+                            ))}
+                        </DetailList>
+                    </section>
+                ))}
             </div>
         </details>
     );
@@ -1827,7 +1935,7 @@ function MappingFields({
     onChange: (mapping: StatementForm) => void;
     /** Which bank issued the statement — not part of the form, but asked beside the currency. */
     bank: {
-        options: { value: string; label: string }[];
+        options: BankSelectOption[];
         value: string;
         source: 'IBAN' | 'AI' | null;
         onChange: (bankId: string | null) => void;
@@ -1835,16 +1943,22 @@ function MappingFields({
 }): JSX.Element {
     const { t } = useTranslation();
 
-    const columnOptions = detail.preview.columns.map((column) => ({
-        value: `index:${String(column.index)}`,
-        label: `${column.header === '' ? `#${String(column.index + 1)}` : column.header} · ${column.shape}`,
-    }));
+    const columnOptions = detail.preview.columns.map((column) => {
+        const name = column.header === '' ? `#${String(column.index + 1)}` : column.header;
+
+        return {
+            value: `index:${String(column.index)}`,
+            // The shape is what tells two number columns apart while choosing, and dead weight once
+            // chosen — so a chip shows the name alone. See `PanelMultiSelect`'s `shortLabel`.
+            label: `${name} · ${column.shape}`,
+            shortLabel: name,
+        };
+    });
 
     const none = { value: '', label: t((d) => d.pages.walletImports.columns.none) };
     const chainable = (field: string): boolean => detail.multiSource.fields.includes(field);
     // An empty row waiting to be answered is the screen's business, not the form's: the mapping
     // holds places, and a place nobody has chosen yet is not one.
-    const [extra, setExtra] = useState<Record<string, number>>({});
     const plainColumns = detail.preview.columns.map((column) => ({
         value: String(column.index),
         label: `${column.header === '' ? `#${String(column.index + 1)}` : column.header} · ${column.shape}`,
@@ -1894,14 +2008,18 @@ function MappingFields({
         labels: { value: string; label: string }[],
         onPick: (next: StatementField | null) => void,
         codes: readonly string[] = [],
+        exclude: readonly string[] = [],
     ): JSX.Element => {
         const chosen = encodeField(field);
+        // Built here, so anything that wants to narrow them has to say so: `exclude` is how a chain
+        // stops offering a place its other rows already name. Never the empty option, and never this
+        // select's own answer, or changing it would mean clearing it first.
         const options = [
             none,
             ...columnOptions,
             ...labels,
             ...codes.map((code) => ({ value: `code:${code}`, label: code })),
-        ];
+        ].filter((option) => option.value === '' || option.value === chosen || !exclude.includes(option.value));
 
         return (
             <PanelSelect
@@ -1928,6 +2046,16 @@ function MappingFields({
      * row numbered with the order it is tried in, and an empty row is offered until the ceiling the
      * validator holds, so the screen never offers a place the server would refuse.
      */
+    /**
+     * A field that may name several places: the places as chips, in the order they are tried.
+     *
+     * One control rather than a column of selects. A field allowed only one place still renders a
+     * plain select, because a chip row for a single answer is a heavier control saying less.
+     *
+     * Ordered, because for these fields the order is the instruction: the row is read place by place
+     * until one has something in it, so "this column, then that one" and its reverse are different
+     * mappings. Rearranging is deliberately absent — remove a chip and pick it again.
+     */
     const chainSelect = (
         chain: StatementField[],
         labels: { value: string; label: string }[],
@@ -1940,44 +2068,24 @@ function MappingFields({
             });
         }
 
-        const empty = extra[field] ?? 0;
-        const places: (StatementField | null)[] = [...chain, ...Array.from({ length: empty }, () => null)];
-        const shown = places.length === 0 ? [null] : places;
-
         return (
-            <div className="flex flex-col gap-1.5">
-                {shown.map((place, index) => (
-                    <div key={index} className="flex items-center gap-1.5">
-                        {shown.length === 1 ? null : (
-                            <span className="note w-3 shrink-0 tabular-nums">{index + 1}</span>
-                        )}
-                        <span className="min-w-0 flex-1">
-                            {fieldSelect(place, labels, (next) => {
-                                const kept = [...shown];
-                                kept[index] = next;
-
-                                setExtra((counts) => ({ ...counts, [field]: 0 }));
-                                onChange(kept.filter((one): one is StatementField => one !== null));
-                            })}
-                        </span>
-                    </div>
-                ))}
-
-                {/* Only once the places named so far are answered: an empty row below an empty row
-                    asks a person to fill in two things to say one. */}
-                {shown.every((place) => place !== null) && shown.length < detail.multiSource.max ? (
-                    <button
-                        type="button"
-                        className="text-info inline-flex w-fit items-center gap-1 text-xs font-semibold"
-                        onClick={() => {
-                            setExtra((counts) => ({ ...counts, [field]: (counts[field] ?? 0) + 1 }));
-                        }}
-                    >
-                        <Plus className="size-3" aria-hidden="true" />
-                        {t((d) => d.pages.walletImports.columns.orHere)}
-                    </button>
-                ) : null}
-            </div>
+            <PanelMultiSelect
+                options={[...columnOptions, ...labels]}
+                values={chain.map((place) => encodeField(place))}
+                max={detail.multiSource.max}
+                addLabel={t((d) => d.pages.walletImports.columns.addPlace)}
+                fullLabel={t((d) => d.pages.walletImports.columns.placesFull).replace(
+                    ':max',
+                    String(detail.multiSource.max),
+                )}
+                removeLabel={t((d) => d.pages.walletImports.columns.removePlace)}
+                placeholder={t((d) => d.pages.walletImports.columns.noPlace)}
+                onChange={(next) => {
+                    onChange(
+                        next.map((value) => decodeField(value)).filter((one): one is StatementField => one !== null),
+                    );
+                }}
+            />
         );
     };
 
@@ -2113,17 +2221,20 @@ function MappingFields({
                     />
                 </Field>
 
-                <Field label={t((d) => d.pages.walletImports.columns.description)}>
-                    {fieldSelect(mapping.description, labelsFor(null), (next) => {
+                <Field
+                    label={t((d) => d.pages.walletImports.columns.description)}
+                    {...(chainable('description')
+                        ? { help: t((d) => d.pages.walletImports.columns.descriptionHint) }
+                        : {})}
+                >
+                    {chainSelect(mapping.description, labelsFor(null), 'description', (next) => {
                         set({ description: next });
                     })}
                 </Field>
 
                 <Field
                     label={t((d) => d.pages.walletImports.columns.counterpartyOut)}
-                    {...(chainable('counterparty')
-                        ? { help: t((d) => d.pages.walletImports.columns.chainHint) }
-                        : {})}
+                    {...(chainable('counterparty') ? { help: t((d) => d.pages.walletImports.columns.chainHint) } : {})}
                 >
                     {chainSelect(mapping.counterparty.debit, labelsFor(debitColumn), 'counterparty', (next) => {
                         set({ counterparty: { ...mapping.counterparty, debit: next } });
@@ -2132,9 +2243,7 @@ function MappingFields({
 
                 <Field
                     label={t((d) => d.pages.walletImports.columns.counterpartyIn)}
-                    {...(chainable('counterparty')
-                        ? { help: t((d) => d.pages.walletImports.columns.chainHint) }
-                        : {})}
+                    {...(chainable('counterparty') ? { help: t((d) => d.pages.walletImports.columns.chainHint) } : {})}
                 >
                     {chainSelect(mapping.counterparty.credit, labelsFor(creditColumn), 'counterparty', (next) => {
                         set({ counterparty: { ...mapping.counterparty, credit: next } });
@@ -2185,6 +2294,7 @@ function MappingFields({
                         onValueChange={(next) => {
                             bank.onChange(next === '' ? null : next);
                         }}
+                        optionVisual="bare"
                         options={bank.options}
                     />
                 </Field>

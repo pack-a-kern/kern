@@ -44,6 +44,12 @@ trait ValidatesStatementForm
             }
         }
 
+        // `description` has no sides — it is one chain, not one per direction — so it is wrapped
+        // here rather than in the loop above.
+        if (self::chainable('description') && is_array($form['description'] ?? null) && ! array_is_list($form['description'])) {
+            $form['description'] = [$form['description']];
+        }
+
         return $form;
     }
 
@@ -127,7 +133,7 @@ trait ValidatesStatementForm
             $field('amounts.debit', columnsOnly: true),
             $field('amounts.credit', columnsOnly: true),
             $field('currency'),
-            $field('description'),
+            $field('description', chain: self::chainable('description')),
             // Which of these may name more than one place is `statement_import.multi_source_fields`,
             // so this layer, the form and the screen cannot disagree about it.
             $field('counterparty.debit', chain: self::chainable('counterparty')),

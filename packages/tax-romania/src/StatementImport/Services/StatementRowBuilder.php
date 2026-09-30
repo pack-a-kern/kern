@@ -152,16 +152,24 @@ final readonly class StatementRowBuilder
         $labels = $this->labels($details, $form);
         $amount = $this->values->rowAmountMinor($cells, $form);
 
+        /*
+         * Worked out before the row is assembled, because two of the fields below are answered
+         * against it. It used to be assigned inside the array literal, on the line after the one that
+         * needed it — which worked only because nothing needed it yet.
+         *
+         * Which side the money moved decides which places are asked: a statement names the
+         * counterparty of a card payment and of an incoming transfer differently.
+         */
+        $counterparty = $this->firstOf($form->counterpartyFor($amount ?? 0), $cells, $labels);
+
         return [
             'row_number' => $rowNumber,
             'booked_at' => $this->values->date($cells[$form->dateColumn] ?? '', $form->dateFormat),
             'amount_minor' => $amount,
             'currency_code' => $this->currency($cells, $labels, $form, $accountCurrency),
-            'text' => $this->field($form->description, $cells, $labels),
-            // Which side the money moved decides which labels are asked for: a statement names the
-            // counterparty of a card payment and of an incoming transfer differently.
-            'counterparty' => $counterparty = $this->firstOf($form->counterpartyFor($amount ?? 0), $cells, $labels),
-            'reference' => $this->reference($form, $amount ?? 0, $counterparty, $cells, $labels),
+            'text' => $this->firstUnlike($form->description, $counterparty, $cells, $labels),
+            'counterparty' => $counterparty,
+            'reference' => $this->firstUnlike($form->referenceFor($amount ?? 0), $counterparty, $cells, $labels),
         ];
     }
 
@@ -297,26 +305,33 @@ final readonly class StatementRowBuilder
     }
 
     /**
-     * The bank's own reference for this row, from the next place where the first has none.
+     * The first of a field's places that says something, and something other than `$avoid`.
      *
-     * "None" is either empty or the counterparty repeated: a reference column filled with the payee's
-     * name looks like an identity and is not one, and taking it would put every payment to that shop
-     * on a day under the same fingerprint. So a place saying what the counterparty already says is
-     * passed over exactly as an empty one is — and if every place does, the row keeps what it found,
-     * because a reference that repeats the payee is still better than claiming there is none.
+     * {@see self::firstOf()} with one more rule, and the two are the whole vocabulary: a field either
+     * takes the first place with anything in it, or the first place that also says something new.
      *
+     * Used for the bank's reference, where it is a correctness rule rather than a preference. A
+     * reference column filled with the payee's name looks like an identity and is not one, and taking
+     * it would put every payment to that shop on a day under the same fingerprint — the duplicate
+     * check would then fold real transactions into one. Used for the description too, where the
+     * argument is only that repeating the payee says nothing the row does not already carry.
+     *
+     * If every place repeats `$avoid`, the first one found is kept: a value that says what the payee
+     * said still beats claiming the row has none.
+     *
+     * @param  list<StatementField>  $chain
      * @param  list<string>  $cells
      * @param  array<string, string>  $labels
      */
-    private function reference(StatementForm $form, int $amount, string $counterparty, array $cells, array $labels): string
+    private function firstUnlike(array $chain, string $avoid, array $cells, array $labels): string
     {
         $first = '';
 
-        foreach ($form->referenceFor($amount) as $place) {
+        foreach ($chain as $place) {
             $value = $this->field($place, $cells, $labels);
             $first = $first === '' ? $value : $first;
 
-            if ($value !== '' && Normalizer::text($value) !== Normalizer::text($counterparty)) {
+            if ($value !== '' && Normalizer::text($value) !== Normalizer::text($avoid)) {
                 return $value;
             }
         }

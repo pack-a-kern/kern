@@ -65,7 +65,17 @@ final readonly class StatementForm
         public string $decimalSeparator,
         public string $thousandsSeparator,
         public ?StatementField $currency,
-        public ?StatementField $description,
+        /**
+         * Where the payment's text is, in the order it reads.
+         *
+         * A list rather than one place, read exactly as `counterparty` is: the places are tried in
+         * order and the first with anything in it wins. A card payment writes the text in one column
+         * and a transfer in another, and a statement that uses one column names one place, which is
+         * most of them.
+         *
+         * @var list<StatementField>
+         */
+        public array $description,
         /**
          * The places a counterparty and a reference may be found, in the order they are tried.
          *
@@ -135,7 +145,7 @@ final readonly class StatementForm
             decimalSeparator: self::separator($amounts['decimal_separator'] ?? null, ','),
             thousandsSeparator: self::separator($amounts['thousands_separator'] ?? null, ''),
             currency: StatementField::fromArray($raw['currency'] ?? null),
-            description: StatementField::fromArray($raw['description'] ?? null),
+            description: StatementField::chain($raw['description'] ?? null),
             counterpartyOut: StatementField::chain($counterparty['debit'] ?? null),
             counterpartyIn: StatementField::chain($counterparty['credit'] ?? null),
             referenceOut: StatementField::chain($reference['debit'] ?? null),
@@ -160,7 +170,7 @@ final readonly class StatementForm
                 'decimal_separator' => $this->decimalSeparator,
                 'thousands_separator' => $this->thousandsSeparator,
             ],
-            'description' => $this->description?->toArray(),
+            'description' => StatementField::chainToArray($this->description),
             'counterparty' => [
                 'debit' => StatementField::chainToArray($this->counterpartyOut),
                 'credit' => StatementField::chainToArray($this->counterpartyIn),

@@ -191,27 +191,4 @@ final readonly class StatementValueParser
         return null;
     }
 
-    /**
-     * The text columns joined, in the order the mapping names them.
-     *
-     * Joined rather than concatenated: several banks split a payment's text across two or three
-     * columns, and running them together makes one unreadable string.
-     *
-     * @param  list<string>  $row
-     * @param  list<int>  $columns
-     */
-    public function text(array $row, array $columns): string
-    {
-        $parts = [];
-
-        foreach ($columns as $index) {
-            $value = trim($row[$index] ?? '');
-
-            if ($value !== '') {
-                $parts[] = $value;
-            }
-        }
-
-        return implode(' · ', $parts);
-    }
 }

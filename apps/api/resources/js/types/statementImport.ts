@@ -166,7 +166,14 @@ export interface StatementForm {
         decimal_separator: string;
         thousands_separator: string;
     };
-    description: StatementField | null;
+    /**
+     * Where the payment's text is, in the order it reads.
+     *
+     * A list, like `counterparty`, and read the same way: the places are tried in order and the first
+     * with anything in it wins. Several banks write the text in one column for a card payment and
+     * another for a transfer. One place is the common case and is still stored as a bare object.
+     */
+    description: StatementField[];
     /**
      * Answered per direction, and each side may name several places to look.
      *
@@ -428,7 +435,7 @@ function parseForm(payload: unknown): StatementForm | null {
             decimal_separator: str(amounts, 'decimal_separator'),
             thousands_separator: str(amounts, 'thousands_separator'),
         },
-        description: parseField(row.description),
+        description: parseChain(row.description),
         // One place is stored as an object and several as a list, and both are read back: a mapping
         // the server holds and this parser drops is a choice that vanishes on refresh.
         counterparty: { debit: parseChain(counterparty.debit), credit: parseChain(counterparty.credit) },

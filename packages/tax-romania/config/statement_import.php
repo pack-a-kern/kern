@@ -75,16 +75,17 @@ return [
      * screen cannot disagree about it — and so a statement shape nobody has met yet costs a line
      * here rather than a release. Anything not named takes exactly one place.
      */
-    'multi_source_fields' => ['counterparty', 'reference'],
+    'multi_source_fields' => ['counterparty', 'reference', 'description'],
 
     /*
      * How many places one such field may name.
      *
      * A ceiling rather than a preference: a form is a description of how a statement is written, and
-     * a person adding a sixth place is no longer describing one. Read by the validator that refuses
-     * a longer chain and by the screen that stops offering another row, so the two agree.
+     * a person naming a fourth place is no longer describing one. Read by the validator that refuses
+     * a longer chain and by the screen, which stops offering another and says "3 of 3" instead — so
+     * the two agree, and neither the button nor the menu lets a person past it.
      */
-    'max_source_places' => 4,
+    'max_source_places' => 3,
 
     'limits' => [
         /*

@@ -271,7 +271,7 @@ final readonly class SuggestColumnMapping
             decimalSeparator: $form->decimalSeparator,
             thousandsSeparator: $form->thousandsSeparator,
             currency: $known($form->currency),
-            description: $known($form->description),
+            description: $knownChain($form->description),
             // A model proposes one place per field; a second is a person's answer to a file whose
             // first choice turned out to be empty on some rows, which only the rows show.
             counterpartyOut: $knownChain($form->counterpartyOut),
