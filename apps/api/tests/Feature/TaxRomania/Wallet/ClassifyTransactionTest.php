@@ -8,6 +8,7 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
+use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
 beforeEach(function (): void {
     bootstrapIdentityCryptoForTests();
@@ -195,11 +196,11 @@ it('offers the screen exactly the categories it will accept', function (): void 
         ->and($byCode['RENT']['income'])->toBeTrue()
         ->and($byCode['TRANSFER']['income'])->toBeFalse()
         // The screen filters by these, so a list it shows can never hold a category the save refuses.
-        ->and($byCode['DIVIDENDS']['direction'])->toBe('in')
+        ->and($byCode['DIVIDENDS_INTEREST']['direction'])->toBe('in')
         ->and($byCode['EXPENSE']['direction'])->toBe('out')
         ->and($byCode['LOAN']['direction'])->toBe('either')
         ->and($byCode['EXPENSE']['preselected'])->toBeTrue()
-        ->and($byCode['DIVIDENDS']['preselected'])->toBeFalse();
+        ->and($byCode['DIVIDENDS_INTEREST']['preselected'])->toBeFalse();
 });
 
 it('accepts the answer while the transaction is being typed', function (): void {
@@ -307,13 +308,67 @@ it('refuses income typed on money going out, and lets a loan go either way', fun
         'category_code' => $category,
     ];
 
-    // A dividend recorded on money that left would be declared as income nobody received.
+    // Interest recorded on money that left would be declared as income nobody received.
     $this->actingAs($user)
-        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $outgoing('DIVIDENDS'))
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $outgoing('DIVIDENDS_INTEREST'))
         ->assertStatus(422)
         ->assertJsonPath('reason', 'CATEGORY_DIRECTION');
 
     $this->actingAs($user)
         ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $outgoing('LOAN'))
         ->assertCreated();
+});
+
+it('will not let cash be withdrawn into an account, or paid out of one', function (): void {
+    /*
+     * The whole reason these are two codes rather than one `CASH` that goes either way. A single
+     * code could not be pinned to a direction, so nothing would stop a withdrawal being recorded on
+     * money arriving — and a ledger that counts 18 000 lei of withdrawals as money received is
+     * wrong in the direction that matters.
+     */
+    [$user, $subjectId, $transactionId] = classifiable($this);
+    $accountId = FinancialTransaction::query()->findOrFail($transactionId)->account_id;
+
+    $row = static fn (int $amountMinor, string $category): array => [
+        'account_id' => $accountId,
+        'amount_minor' => $amountMinor,
+        'currency_code' => 'RON',
+        'booked_at' => '2026-03-04',
+        'description' => 'Numerar',
+        'category_code' => $category,
+    ];
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $row(80_000, 'CASH_WITHDRAWAL'))
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'CATEGORY_DIRECTION');
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $row(-80_000, 'CASH_DEPOSIT'))
+        ->assertStatus(422)
+        ->assertJsonPath('reason', 'CATEGORY_DIRECTION');
+
+    // And each the way round it belongs.
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $row(-80_000, 'CASH_WITHDRAWAL'))
+        ->assertCreated();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", $row(80_000, 'CASH_DEPOSIT'))
+        ->assertCreated();
+});
+
+it('counts cash as money that moved, never as income', function (): void {
+    // A withdrawal is not spending and a deposit is not earning: the money changed form. Both sit in
+    // the `not_income` group, so neither reaches a figure anyone declares.
+    $categories = app(TaxCategoryCatalogue::class)->toArray();
+    $byCode = array_column($categories, null, 'code');
+
+    expect($byCode['CASH_WITHDRAWAL']['income'])->toBeFalse()
+        ->and($byCode['CASH_DEPOSIT']['income'])->toBeFalse()
+        ->and($byCode['CASH_WITHDRAWAL']['direction'])->toBe('out')
+        ->and($byCode['CASH_DEPOSIT']['direction'])->toBe('in')
+        // Not preselected: money leaving an account is spending far more often than it is a
+        // withdrawal, and `EXPENSE` is the one that may be assumed.
+        ->and($byCode['CASH_WITHDRAWAL']['preselected'])->toBeFalse();
 });

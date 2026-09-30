@@ -32,7 +32,14 @@ final readonly class DepositMovements
 {
     public const string TRANSFER = 'TRANSFER';
 
-    public const string INTEREST = 'INTEREST';
+    /*
+     * Both values are tax category codes from `config/reference/tax_categories.php`, not names this
+     * class is free to choose: `PostMaturedDepositInterest` writes this straight into
+     * `transaction_splits.category_code`, and a value the catalogue does not know renders in the
+     * interface as the raw string and is refused by every save a person makes. So a category renamed
+     * there has to be renamed here in the same commit.
+     */
+    public const string INTEREST = 'DIVIDENDS_INTEREST';
 
     /**
      * Makes the funding transaction match the deposit's terms as they are now.

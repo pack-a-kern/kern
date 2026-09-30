@@ -220,7 +220,7 @@ it('closes a matured deposit and returns its principal and interest to where the
         ->pluck('transaction_splits.category_code')
         ->all();
 
-    expect($categories)->toBe(['INTEREST', 'TRANSFER']);
+    expect($categories)->toBe(['DIVIDENDS_INTEREST', 'TRANSFER']);
 
     // A settled deposit is a record, not a running product.
     $this->actingAs($user)

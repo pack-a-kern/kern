@@ -162,7 +162,7 @@ it('totals each category from the splits', function (): void {
 
     spend($this, $user, $subjectId, $accountId, -12_000, ['category_code' => 'EXPENSE']);
     spend($this, $user, $subjectId, $accountId, -8_000, ['category_code' => 'EXPENSE']);
-    spend($this, $user, $subjectId, $accountId, 45_000, ['category_code' => 'DIVIDENDS']);
+    spend($this, $user, $subjectId, $accountId, 45_000, ['category_code' => 'DIVIDENDS_INTEREST']);
 
     $response = $this->actingAs($user)
         ->getJson("/api/v1/subjects/{$subjectId}/wallet/reports?from=2026-01-01&to=2026-12-31")
@@ -174,11 +174,11 @@ it('totals each category from the splits', function (): void {
 
     /** @var array<string, mixed> $expense */
     $expense = $byCategory->get('EXPENSE');
-    /** @var array<string, mixed> $dividends */
-    $dividends = $byCategory->get('DIVIDENDS');
+    /** @var array<string, mixed> $interest */
+    $interest = $byCategory->get('DIVIDENDS_INTEREST');
 
     expect($expense['total_minor'])->toBe(-20_000)
-        ->and($dividends['total_minor'])->toBe(45_000);
+        ->and($interest['total_minor'])->toBe(45_000);
 });
 
 it('counts only the period asked for', function (): void {

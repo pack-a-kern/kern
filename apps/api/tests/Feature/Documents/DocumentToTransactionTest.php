@@ -382,7 +382,7 @@ it('files the transaction under the category the person chose', function (): voi
             'currency_code' => 'USD',
             'booked_at' => '2026-03-04',
             'description' => 'Dividende nete',
-            'category' => 'DIVIDENDS',
+            'category' => 'DIVIDENDS_INTEREST',
         ])
         ->assertCreated();
 
@@ -391,7 +391,7 @@ it('files the transaction under the category the person chose', function (): voi
 
     // One split for the whole amount, and the transaction marked classified because of it — the
     // category is not a label on the side, it is what `transaction_splits` exists to hold.
-    expect($split->category_code)->toBe('DIVIDENDS')
+    expect($split->category_code)->toBe('DIVIDENDS_INTEREST')
         ->and($split->amount_minor)->toBe(27944800)
         ->and($transaction->classification_status->value)->toBe('CLASSIFIED')
         // The currency is the one chosen, not the account's: a dividend paid in USD is a USD

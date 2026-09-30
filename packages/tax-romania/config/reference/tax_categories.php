@@ -38,7 +38,7 @@ declare(strict_types=1);
  * its own section, **per country and per type** — foreign rent and foreign dividends are different
  * rows there, taxed differently and often subject to a treaty. Collapsing them into one category
  * would destroy exactly the distinction the form asks for. So the country is a second field on the
- * split (`country_code`), and a category like `DIVIDENDS` carries `RO` or `DE` beside it.
+ * split (`country_code`), and a category like `DIVIDENDS_INTEREST` carries `RO` or `DE` beside it.
  */
 
 return [
@@ -53,12 +53,10 @@ return [
      * leave the worklist.
      */
     'income' => [
-        'DIVIDENDS' => 'in',
-        'INTEREST' => 'in',
+        'DIVIDENDS_INTEREST' => 'in',
         'CAPITAL_GAIN' => 'in',
         'CRYPTO_GAIN' => 'in',
         'FREELANCE' => 'in',
-        'ROYALTIES' => 'in',
         'OTHER_INCOME' => 'in',
         'RENT' => 'in',
         'SALARY_PENSION' => 'in',
@@ -75,9 +73,20 @@ return [
      * One `LOAN` and one `LOAN_REPAYMENT` rather than a code for each side: lent or borrowed is
      * already said by the direction. `NOT_INCOME` covers everything else that arrives without a tax
      * effect — a gift, a refund, an expense someone paid back.
+     *
+     * Cash is the other way round, and the difference is worth stating because it looks like the same
+     * case. Lending and borrowing are one event seen from two ends, so one code carries both and the
+     * direction says which end. Taking money out of an account and paying money into one are two
+     * different events, so they are two codes — and naming them separately is what lets each be
+     * pinned to a direction, which is the part that actually protects the ledger: a withdrawal
+     * recorded on money arriving is refused at the save rather than quietly counted backwards.
+     * A withdrawal is also not spending. The money changed form and is still yours; what it was
+     * spent on afterwards leaves no trace in any statement, and guessing is not the ledger's job.
      */
     'not_income' => [
         'TRANSFER' => 'either',
+        'CASH_WITHDRAWAL' => 'out',
+        'CASH_DEPOSIT' => 'in',
         'LOAN' => 'either',
         'LOAN_REPAYMENT' => 'either',
         'EXPENSE' => 'out',
