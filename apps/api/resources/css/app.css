@@ -901,6 +901,7 @@ label:has(
 
 /* One nav row. `--brand` only appears on the active one; everything else is neutral, so the eye
    has exactly one place to land. */
+/* The sidebar's own rhythm, deliberately independent of the form controls' height. */
 .nav-item {
     position: relative;
     display: flex;
@@ -1468,6 +1469,53 @@ label:has(
     border-bottom: 1px solid var(--border);
 }
 
+/* A toolbar holding more than one kind of control, in labelled rows.
+ *
+ * The transactions toolbar had grown to nine controls in one wrapping line: which view to show, six
+ * filters, a reset, and a "manage tags" that is not a filter at all. Everything wrapped wherever it
+ * happened to fit, so the line that chose a view and the line that narrowed a list were the same
+ * line, and nothing said which was which.
+ *
+ * `.toolbar` itself is untouched — most screens have one row of one kind of control and should not
+ * pay for this. The rows carry the gap and the wrapping; the wrapper carries the padding and the
+ * rule beneath, so two rows read as one band rather than two stacked toolbars.
+ */
+.toolbar-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    /* Same name and value as `.toolbar`: the narrow-screen rules below do arithmetic on it, and a
+       second number here would make a row inside a group wrap differently from a row that is one. */
+    --toolbar-gap: 8px;
+    gap: var(--toolbar-gap);
+}
+/* The one thing a row does that a toolbar does not: say what its controls are for. Sized and spaced
+   like a field label rather than a heading — it names the row, it does not introduce a section. */
+.toolbar-label {
+    flex: 0 0 auto;
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+/* Everything after it goes to the far end: a row's own actions — manage tags, bulk actions — are
+   not filters and should not sit in the run of them. */
+.toolbar-end {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--toolbar-gap);
+}
+
 /* Below 640px the row cannot hold a search field, two selects and a button, and letting it wrap on
    its own leaves each control at its content width with a ragged right edge. Laid out explicitly
    instead: search across the top, the two selects half and half beneath it, the reset button alone
@@ -1475,16 +1523,28 @@ label:has(
    The button needs no wrap rule of its own — the two selects already fill their line exactly, so it
    is pushed to the next one, and `margin-left: auto` takes the free space on that line. */
 @media (width < 40rem) {
-    .toolbar > .search {
+    .toolbar-label {
+        /* On a phone the label costs a line of its own beside controls that are already stacking,
+           and "Filtre" above four selects says less than the selects do. */
+        display: none;
+    }
+    .toolbar-end {
+        margin-left: 0;
+        flex: 1 1 100%;
+    }
+    .toolbar > .search,
+    .toolbar-row > .search {
         flex: 1 1 100%;
         min-width: 0;
     }
-    .toolbar > .filter-select {
+    .toolbar > .filter-select,
+    .toolbar-row > .filter-select {
         flex: 1 1 calc(50% - var(--toolbar-gap) / 2);
         width: auto;
         min-width: 0;
     }
-    .toolbar > .ctl-action {
+    .toolbar > .ctl-action,
+    .toolbar-row > .ctl-action {
         margin-left: auto;
     }
 }
@@ -2025,6 +2085,21 @@ label:has(
 .data-table td.col-primary {
     color: var(--foreground);
     font-weight: 600;
+}
+
+/* A name that can run long, inside a cell that must not grow to fit it — a counterparty, a payee.
+ *
+ * On the element rather than on the `td`, because an auto-layout table ignores a cell's own
+ * `max-width` and sizes the column to its content: one "EPISCOPIA ORTODOXA ROMANA A EUROPEI DE NORD"
+ * would then push the amount and the status off the row. Capping the block inside the cell caps what
+ * the column can ask for. The full text belongs on the element's `title`.
+ */
+.cell-name {
+    display: block;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* A second line under a row's name — why it was rejected, what still needs doing. Quieter and

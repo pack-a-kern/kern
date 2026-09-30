@@ -1139,10 +1139,16 @@ export const en = {
             allAccounts: 'All accounts',
             columns: {
                 date: 'Date',
-                account: 'Account',
+                account: 'Source',
                 description: 'Description',
+                counterparty: 'Counterparty',
                 amount: 'Amount',
                 status: 'Tax status',
+            },
+            toolbar: {
+                view: 'View',
+                filter: 'Filter',
+                ledger: 'Transactions',
             },
             add: 'Add transaction',
             unit: 'transactions',

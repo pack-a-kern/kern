@@ -231,6 +231,24 @@ export interface TransactionPage {
     perPage: number;
     /** The vocabulary the classification dialog offers; the server validates against the same list. */
     categories: TaxCategory[];
+    /**
+     * The banks reachable under the other filters in force — what the bank *filter* offers.
+     *
+     * Narrowed by every filter except the bank itself, so filtering by a tag leaves only the banks
+     * that tag appears at, while choosing a bank never reduces the list to that one bank. The form
+     * that *assigns* a bank offers every bank instead: you have to be able to record the first
+     * transaction at a bank you have never used.
+     */
+    bankIdsInUse: string[];
+    /**
+     * The sources those rows are on — what the account *filter* offers.
+     *
+     * Narrowed the same way, and for a sharper reason: a cash holding's rows are never listed at
+     * all, and a term deposit's are not listed until interest has been posted to it, so both were
+     * choices that answered "no transactions". The form that *records* a transaction offers the
+     * stream sources instead — a holding cannot receive one.
+     */
+    accountIdsInUse: string[];
 }
 
 /**
@@ -686,6 +704,12 @@ export function parseTransactions(payload: unknown): TransactionPage {
         page: num(body, 'page'),
         perPage: num(body, 'per_page'),
         categories: parseTaxCategories(payload),
+        bankIdsInUse: (Array.isArray(body.bank_ids_in_use) ? body.bank_ids_in_use : []).filter(
+            (id): id is string => typeof id === 'string',
+        ),
+        accountIdsInUse: (Array.isArray(body.account_ids_in_use) ? body.account_ids_in_use : []).filter(
+            (id): id is string => typeof id === 'string',
+        ),
     };
 }
 

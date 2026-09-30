@@ -21,6 +21,7 @@ import {
     ArrowLeftRight,
     Check,
     FileSpreadsheet,
+    FilterX,
     Landmark,
     PlusIcon,
     TagsIcon,
@@ -31,6 +32,7 @@ import {
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
+    ActionGroup,
     ButtonGroup,
     DataTable,
     EmptyState,
@@ -43,7 +45,8 @@ import {
     PanelInput,
     PanelSelect,
     Pill,
-    Toolbar,
+    ToolbarRow,
+    ToolbarRows,
 } from '../../components/panel';
 import BulkActions from '../../components/BulkActions';
 import { PanelDate, PanelDateRange } from '../../components/PanelDatePicker';
@@ -51,6 +54,7 @@ import TagsDialog from '../../components/wallet/TagsDialog';
 import TagsInput from '../../components/wallet/TagsInput';
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
+import { bankOptions } from '../../components/wallet/bankOptions';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
@@ -59,6 +63,7 @@ import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
+import { formatDate } from '../../lib/format';
 import { cn } from '../../lib/utils';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
@@ -69,7 +74,6 @@ import {
     CURRENCIES,
     isStreamKind,
     sourceName,
-    bankLabel,
     type AccountSummary,
     type Bank,
     type DuplicateGroup,
@@ -140,13 +144,23 @@ export default function WalletTransactions(): JSX.Element {
     const [managingTags, setManagingTags] = useState(false);
     /** The transaction being corrected, or null when the dialog is recording a new one. */
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
+    /**
+     * Which table this screen is showing. `duplicates` used to be a fourth option in the status
+     * select beside `all`, `unclassified` and `classified` — and it is not a status and not a filter:
+     * it replaces the table with lookalike groups, answered by its own endpoint, and every filter
+     * beside it stops applying. A person choosing it from a list of statuses had no way to know that.
+     */
+    const [view, setView] = useRememberedState<string>('wallet.transactions.view', 'ledger', {
+        perSubject: true,
+        isValid: (value) => ['ledger', 'duplicates'].includes(value),
+    });
     /** `all` | `unclassified` | `classified` — the list is a worklist, so it can be narrowed to it. */
     const [classification, setClassification] = useRememberedState<string>(
         'wallet.transactions.classification',
         'all',
         {
             perSubject: true,
-            isValid: (value) => ['all', 'unclassified', 'classified', 'duplicates'].includes(value),
+            isValid: (value) => ['all', 'unclassified', 'classified'].includes(value),
         },
     );
     const {
@@ -183,6 +197,19 @@ export default function WalletTransactions(): JSX.Element {
     const [merging, setMerging] = useState<DuplicateGroup | null>(null);
 
     /**
+     * Whether anything is narrowing the list. Drives the reset button, which otherwise sat in the row
+     * permanently offering to undo nothing.
+     */
+    const filtersSet =
+        accountId !== '' ||
+        bankId !== '' ||
+        tagId !== '' ||
+        direction !== '' ||
+        from !== '' ||
+        to !== '' ||
+        classification !== 'all';
+
+    /**
      * Any narrowing starts again from the first page: staying on page 7 of a list that now has two
      * pages shows an empty table and looks like the filter found nothing.
      */
@@ -199,8 +226,7 @@ export default function WalletTransactions(): JSX.Element {
 
     /*
      * What the server is asked for. `classification` is sent as the stored status rather than the
-     * screen's own word for it, and `duplicates` is not a filter on this list at all — it is a
-     * different view, answered by its own endpoint below.
+     * screen's own word for it.
      */
     const filters: TransactionFilters = useMemo(
         () => ({
@@ -303,7 +329,7 @@ export default function WalletTransactions(): JSX.Element {
     // Only while the duplicates view is open: it decrypts every candidate row's counterparty, which
     // is work nobody asked for while reading the ordinary list.
     useEffect(() => {
-        if (subjectId === null || classification !== 'duplicates') {
+        if (subjectId === null || view !== 'duplicates') {
             return;
         }
 
@@ -326,7 +352,7 @@ export default function WalletTransactions(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [subjectId, classification, reloadKey, t]);
+    }, [subjectId, view, reloadKey, t]);
 
     const page = loaded !== null && loaded.key === filterKey ? loaded.page : null;
     const duplicates =
@@ -545,145 +571,218 @@ export default function WalletTransactions(): JSX.Element {
                         />
                     }
                 >
-                    <Toolbar>
-                        <PanelSelect
-                            className="filter-select"
-                            value={accountId}
-                            onValueChange={(next) => {
-                                narrow(() => {
-                                    setAccountId(next);
-                                });
-                            }}
-                            placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
-                            emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
-                            options={accounts.map((account) => ({
-                                value: account.id,
-                                label: sourceName(
-                                    account,
-                                    t((d) => d.pages.wallet.generalSource),
-                                ),
-                            }))}
-                        />
-                        {/* What turns a list into a worklist: "Neclasificate" is the only view that
-                            says what is still to do, and it is the reason this screen exists. */}
-                        <BulkActions count={selection.size} disabled={bulkDeleting}>
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => {
-                                    setConfirmingBulkDelete(true);
+                    <ToolbarRows>
+                        {/* Which table, and what is done to a selection of it. Neither narrows
+                            anything, and both used to sit in the same wrapping line as six filters. */}
+                        <ToolbarRow
+                            label={t((d) => d.pages.walletTransactions.toolbar.view)}
+                            end={
+                                <>
+                                    <BulkActions count={selection.size} disabled={bulkDeleting}>
+                                        <DropdownMenuItem
+                                            variant="destructive"
+                                            onSelect={() => {
+                                                setConfirmingBulkDelete(true);
+                                            }}
+                                        >
+                                            <Trash2 className="size-4" />
+                                            {t((d) => d.pages.walletTransactions.deleteSelected)}
+                                        </DropdownMenuItem>
+                                    </BulkActions>
+                                    <PanelButton
+                                        onClick={() => {
+                                            setManagingTags(true);
+                                        }}
+                                    >
+                                        <TagsIcon className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.walletTransactions.tags.manage)}
+                                    </PanelButton>
+                                </>
+                            }
+                        >
+                            <ButtonGroup
+                                value={view}
+                                onChange={(next) => {
+                                    narrow(() => {
+                                        setView(next);
+                                    });
                                 }}
+                                options={[
+                                    { value: 'ledger', label: t((d) => d.pages.walletTransactions.toolbar.ledger) },
+                                    {
+                                        value: 'duplicates',
+                                        label: t((d) => d.pages.walletTransactions.duplicates.filter),
+                                    },
+                                ]}
+                            />
+                        </ToolbarRow>
+                        {/* Hidden in the duplicates view, because none of it applies there: that view
+                            asks its own endpoint for lookalike groups and ignores every filter. Left
+                            on screen, the controls invited a person to narrow a list that was not
+                            listening. */}
+                        {view === 'duplicates' ? null : (
+                            <ToolbarRow
+                                label={t((d) => d.pages.walletTransactions.toolbar.filter)}
+                                end={
+                                    /* Only once something is set. A reset beside untouched filters is
+                                       a button that does nothing, and it was the widest thing in the
+                                       row. */
+                                    filtersSet ? (
+                                        <PanelButton
+                                            variant="ghost"
+                                            onClick={() => {
+                                                narrow(() => {
+                                                    setAccountId('');
+                                                    setBankId('');
+                                                    setTagId('');
+                                                    setDirection('');
+                                                    setFrom('');
+                                                    setTo('');
+                                                    setClassification('all');
+                                                });
+                                            }}
+                                        >
+                                            <FilterX className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.walletTransactions.filters.reset)}
+                                        </PanelButton>
+                                    ) : null
+                                }
                             >
-                                <Trash2 className="size-4" />
-                                {t((d) => d.pages.walletTransactions.deleteSelected)}
-                            </DropdownMenuItem>
-                        </BulkActions>
-                        <PanelSelect
-                            className="filter-select"
-                            searchable
-                            value={bankId}
-                            placeholder={t((d) => d.pages.walletTransactions.filters.allBanks)}
-                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allBanks)}
-                            onValueChange={(next) => {
-                                narrow(() => {
-                                    setBankId(next);
-                                });
-                            }}
-                            options={banks.map((bank) => ({
-                                value: bank.id,
-                                label: bankLabel(
-                                    bank,
-                                    t((d) => d.pages.walletTransactions.bank.closed),
-                                ),
-                            }))}
-                        />
-                        <PanelSelect
-                            className="filter-select"
-                            searchable
-                            value={tagId}
-                            placeholder={t((d) => d.pages.walletTransactions.filters.allTags)}
-                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allTags)}
-                            onValueChange={(next) => {
-                                narrow(() => {
-                                    setTagId(next);
-                                });
-                            }}
-                            options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
-                        />
-                        <PanelSelect
-                            className="filter-select"
-                            value={direction}
-                            placeholder={t((d) => d.pages.walletTransactions.filters.allDirections)}
-                            emptyLabel={t((d) => d.pages.walletTransactions.filters.allDirections)}
-                            onValueChange={(next) => {
-                                narrow(() => {
-                                    setDirection(next);
-                                });
-                            }}
-                            options={[
-                                { value: 'IN', label: t((d) => d.pages.walletTransactions.filters.directionIn) },
-                                { value: 'OUT', label: t((d) => d.pages.walletTransactions.filters.directionOut) },
-                            ]}
-                        />
-                        <PanelDateRange
-                            disableFuture
-                            value={{ from: from === '' ? null : from, to: to === '' ? null : to }}
-                            onChange={(next) => {
-                                narrow(() => {
-                                    setFrom(next.from ?? '');
-                                    setTo(next.to ?? '');
-                                });
-                            }}
-                        />
-                        <PanelButton
-                            onClick={() => {
-                                narrow(() => {
-                                    setAccountId('');
-                                    setBankId('');
-                                    setTagId('');
-                                    setDirection('');
-                                    setFrom('');
-                                    setTo('');
-                                    setClassification('all');
-                                });
-                            }}
-                        >
-                            {t((d) => d.pages.walletTransactions.filters.reset)}
-                        </PanelButton>
-                        <PanelButton
-                            onClick={() => {
-                                setManagingTags(true);
-                            }}
-                        >
-                            <TagsIcon className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.walletTransactions.tags.manage)}
-                        </PanelButton>
-                        <PanelSelect
-                            className="filter-select"
-                            value={classification}
-                            onValueChange={(next) => {
-                                narrow(() => {
-                                    setClassification(next === '' ? 'all' : next);
-                                });
-                            }}
-                            options={[
-                                { value: 'all', label: t((d) => d.pages.walletTransactions.classify.allStatuses) },
-                                {
-                                    value: 'unclassified',
-                                    label: t((d) => d.pages.walletTransactions.classify.unclassified),
-                                },
-                                {
-                                    value: 'classified',
-                                    label: t((d) => d.pages.walletTransactions.classify.classified),
-                                },
-                                {
-                                    value: 'duplicates',
-                                    label: t((d) => d.pages.walletTransactions.duplicates.filter),
-                                },
-                            ]}
-                        />
-                    </Toolbar>
+                                <PanelSelect
+                                    className="filter-select"
+                                    value={accountId}
+                                    onValueChange={(next) => {
+                                        narrow(() => {
+                                            setAccountId(next);
+                                        });
+                                    }}
+                                    placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
+                                    emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
+                                    /*
+                                    The sources with rows in this view, not every source the taxpayer
+                                    has. A cash holding's rows are never listed and a term deposit's are
+                                    not listed until interest is posted, so both were choices that
+                                    answered "no transactions". Narrowed by the other filters and not by
+                                    this one, and the chosen source is kept whatever the list says —
+                                    exactly as for the banks beside it.
+                                */
+                                    options={accounts
+                                        .filter(
+                                            (account) =>
+                                                account.id === accountId ||
+                                                (page?.accountIdsInUse ?? []).includes(account.id),
+                                        )
+                                        .map((account) => ({
+                                            value: account.id,
+                                            label: sourceName(
+                                                account,
+                                                t((d) => d.pages.wallet.generalSource),
+                                            ),
+                                        }))}
+                                />
+                                <PanelSelect
+                                    className="filter-select"
+                                    searchable
+                                    value={bankId}
+                                    placeholder={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                                    emptyLabel={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                                    onValueChange={(next) => {
+                                        narrow(() => {
+                                            setBankId(next);
+                                        });
+                                    }}
+                                    optionVisual="bare"
+                                    /*
+                                    The banks reachable under the other filters, not the register.
+                                    Offering all forty-six meant scrolling past forty-odd choices that
+                                    each return nothing, and a filter should never offer an empty result.
+                                    The server narrows this by every filter except the bank itself, so
+                                    choosing a bank never leaves it as the only bank left to choose.
 
-                    {classification === 'duplicates' ? (
+                                    The chosen one is kept whatever the list says, because the list is
+                                    free to drop it: pick a bank, then a tag it has no rows under, and
+                                    the select would otherwise hold a value it cannot show a name for.
+                                */
+                                    options={bankOptions(
+                                        banks.filter(
+                                            (bank) =>
+                                                bank.id === bankId || (page?.bankIdsInUse ?? []).includes(bank.id),
+                                        ),
+                                        t((d) => d.pages.walletTransactions.bank.closed),
+                                    )}
+                                />
+                                <PanelSelect
+                                    className="filter-select"
+                                    searchable
+                                    value={tagId}
+                                    placeholder={t((d) => d.pages.walletTransactions.filters.allTags)}
+                                    emptyLabel={t((d) => d.pages.walletTransactions.filters.allTags)}
+                                    onValueChange={(next) => {
+                                        narrow(() => {
+                                            setTagId(next);
+                                        });
+                                    }}
+                                    options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+                                />
+                                <PanelSelect
+                                    className="filter-select"
+                                    value={direction}
+                                    placeholder={t((d) => d.pages.walletTransactions.filters.allDirections)}
+                                    emptyLabel={t((d) => d.pages.walletTransactions.filters.allDirections)}
+                                    onValueChange={(next) => {
+                                        narrow(() => {
+                                            setDirection(next);
+                                        });
+                                    }}
+                                    options={[
+                                        {
+                                            value: 'IN',
+                                            label: t((d) => d.pages.walletTransactions.filters.directionIn),
+                                        },
+                                        {
+                                            value: 'OUT',
+                                            label: t((d) => d.pages.walletTransactions.filters.directionOut),
+                                        },
+                                    ]}
+                                />
+                                <PanelDateRange
+                                    disableFuture
+                                    value={{ from: from === '' ? null : from, to: to === '' ? null : to }}
+                                    onChange={(next) => {
+                                        narrow(() => {
+                                            setFrom(next.from ?? '');
+                                            setTo(next.to ?? '');
+                                        });
+                                    }}
+                                />
+                                <PanelSelect
+                                    className="filter-select"
+                                    value={classification}
+                                    onValueChange={(next) => {
+                                        narrow(() => {
+                                            setClassification(next === '' ? 'all' : next);
+                                        });
+                                    }}
+                                    options={[
+                                        {
+                                            value: 'all',
+                                            label: t((d) => d.pages.walletTransactions.classify.allStatuses),
+                                        },
+                                        {
+                                            value: 'unclassified',
+                                            label: t((d) => d.pages.walletTransactions.classify.unclassified),
+                                        },
+                                        {
+                                            value: 'classified',
+                                            label: t((d) => d.pages.walletTransactions.classify.classified),
+                                        },
+                                    ]}
+                                />
+                            </ToolbarRow>
+                        )}
+                    </ToolbarRows>
+
+                    {view === 'duplicates' ? (
                         duplicates === null ? (
                             <TableSkeleton />
                         ) : duplicates.length === 0 ? (
@@ -729,6 +828,7 @@ export default function WalletTransactions(): JSX.Element {
                                     <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
+                                    <th>{t((d) => d.pages.walletTransactions.columns.counterparty)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.status)}</th>
                                     <th />
@@ -752,33 +852,54 @@ export default function WalletTransactions(): JSX.Element {
                                         )}
                                     </td>
                                     <td className="col-primary whitespace-nowrap tabular-nums">
-                                        {new Date(transaction.bookedAt).toLocaleDateString()}
+                                        {formatDate(transaction.bookedAt, locale)}
                                     </td>
+                                    {/* The account, and beneath it the bank. Both answer "where", and
+                                        the bank was down in the description cell answering it from
+                                        under the counterparty and the tags. */}
                                     <td className="col-hide">
-                                        {sourceName(
-                                            { kind: transaction.accountKind, displayName: transaction.accountName },
-                                            t((d) => d.pages.wallet.generalSource),
+                                        <div className="truncate">
+                                            {sourceName(
+                                                {
+                                                    kind: transaction.accountKind,
+                                                    displayName: transaction.accountName,
+                                                },
+                                                t((d) => d.pages.wallet.generalSource),
+                                            )}
+                                        </div>
+                                        {transaction.bankName === null ? null : (
+                                            <div className="note inline-flex items-center gap-1">
+                                                <Landmark className="size-3 shrink-0" aria-hidden="true" />
+                                                <span className="truncate">{transaction.bankName}</span>
+                                            </div>
                                         )}
                                     </td>
-                                    <td>
+                                    {/* What the bank called it, and what the person called it.
+                                        This cell used to hold four stacked things — the text, the
+                                        counterparty, the bank and the tags — with one header above
+                                        them saying "Description", so nothing said which line was
+                                        which. Three of them now sit under headers of their own. */}
+                                    <td className="col-wide">
                                         <div>{transaction.description}</div>
-                                        {transaction.counterparty === null ? null : (
-                                            <div className="note">{transaction.counterparty}</div>
-                                        )}
-                                        {/* Where it happened and what it was for — the two labels that
-                                            answer "which bank was this" and "how much on food", neither
-                                            of which is a tax question. */}
-                                        {transaction.bankName === null && transaction.tags.length === 0 ? null : (
+                                        {/* The person's own labels stay here: a tag describes the
+                                            payment, not who was paid, and "how much on food" is a
+                                            question about this text rather than about the payee. */}
+                                        {transaction.tags.length === 0 ? null : (
                                             <div className="mt-1 flex flex-wrap items-center gap-1">
-                                                {transaction.bankName === null ? null : (
-                                                    <span className="note inline-flex items-center gap-1">
-                                                        <Landmark className="size-3" aria-hidden="true" />
-                                                        {transaction.bankName}
-                                                    </span>
-                                                )}
                                                 {transaction.tags.map((tag) => (
                                                     <Pill key={tag.id}>{tag.name}</Pill>
                                                 ))}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td data-label={t((d) => d.pages.walletTransactions.columns.counterparty)}>
+                                        {transaction.counterparty === null ? (
+                                            // An em dash rather than nothing: an empty cell in a
+                                            // column of names reads as a rendering fault.
+                                            <span className="note">—</span>
+                                        ) : (
+                                            <div className="cell-name" title={transaction.counterparty}>
+                                                {transaction.counterparty}
                                             </div>
                                         )}
                                     </td>
@@ -815,42 +936,57 @@ export default function WalletTransactions(): JSX.Element {
                                         )}
                                     </td>
                                     <td className="col-end text-right">
-                                        <div className="flex justify-end gap-1.5">
-                                            {/* One button, because there is one thing to change: the
-                                            figures and what the money was are the same dialog. A
+                                        {/* One group rather than two loose buttons, as on accounts,
+                                            imports and the document inbox: a row's actions are one
+                                            object, and two buttons with a gap between them read as
+                                            two unrelated ones.
+
+                                            Edit is one action because there is one thing to change:
+                                            the figures and what the money was are the same dialog. A
                                             separate "classify" opened a second dialog to edit one
                                             field the first was already showing. */}
-                                            <PanelButton
-                                                onClick={() => {
-                                                    errors.reset();
-                                                    setForm({
-                                                        account_id: transaction.accountId,
-                                                        direction: transaction.amountMinor < 0 ? 'out' : 'in',
-                                                        amount: String(Math.abs(transaction.amountMinor) / 100),
-                                                        currency_code: transaction.currencyCode,
-                                                        booked_at: transaction.bookedAt.slice(0, 10),
-                                                        description: transaction.description,
-                                                        counterparty: transaction.counterparty ?? '',
-                                                        category_code: transaction.splits[0]?.categoryCode ?? '',
-                                                        country_code: transaction.splits[0]?.countryCode ?? 'RO',
-                                                        bank_id: transaction.bankId ?? '',
-                                                        tags: transaction.tags.map((tag) => tag.name),
-                                                    });
-                                                    setEditing(transaction);
-                                                }}
-                                            >
-                                                {t((d) => d.common.edit)}
-                                            </PanelButton>
-                                            {transaction.source === 'SYSTEM' ? null : (
-                                                <PanelButton
-                                                    variant="ghost"
-                                                    onClick={() => {
-                                                        setDeleting(transaction);
-                                                    }}
-                                                >
-                                                    {t((d) => d.common.delete)}
-                                                </PanelButton>
-                                            )}
+                                        <div className="flex justify-end">
+                                            <ActionGroup
+                                                actions={[
+                                                    {
+                                                        key: 'edit',
+                                                        label: t((d) => d.common.edit),
+                                                        onClick: () => {
+                                                            errors.reset();
+                                                            setForm({
+                                                                account_id: transaction.accountId,
+                                                                direction: transaction.amountMinor < 0 ? 'out' : 'in',
+                                                                amount: String(Math.abs(transaction.amountMinor) / 100),
+                                                                currency_code: transaction.currencyCode,
+                                                                booked_at: transaction.bookedAt.slice(0, 10),
+                                                                description: transaction.description,
+                                                                counterparty: transaction.counterparty ?? '',
+                                                                category_code:
+                                                                    transaction.splits[0]?.categoryCode ?? '',
+                                                                country_code:
+                                                                    transaction.splits[0]?.countryCode ?? 'RO',
+                                                                bank_id: transaction.bankId ?? '',
+                                                                tags: transaction.tags.map((tag) => tag.name),
+                                                            });
+                                                            setEditing(transaction);
+                                                        },
+                                                    },
+                                                    // A deposit's own movements are rewritten by the
+                                                    // deposit, so there is nothing here to delete.
+                                                    ...(transaction.source === 'SYSTEM'
+                                                        ? []
+                                                        : [
+                                                              {
+                                                                  key: 'delete',
+                                                                  label: t((d) => d.common.delete),
+                                                                  tone: 'destructive' as const,
+                                                                  onClick: () => {
+                                                                      setDeleting(transaction);
+                                                                  },
+                                                              },
+                                                          ]),
+                                                ]}
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -1190,13 +1326,11 @@ export default function WalletTransactions(): JSX.Element {
                             onValueChange={(next) => {
                                 setForm((current) => ({ ...current, bank_id: next }));
                             }}
-                            options={banks.map((bank) => ({
-                                value: bank.id,
-                                label: bankLabel(
-                                    bank,
-                                    t((d) => d.pages.walletTransactions.bank.closed),
-                                ),
-                            }))}
+                            optionVisual="bare"
+                            options={bankOptions(
+                                banks,
+                                t((d) => d.pages.walletTransactions.bank.closed),
+                            )}
                         />
                     </Field>
 
@@ -1297,6 +1431,7 @@ function DuplicateGroups({
                                 <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
                                 <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                 <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
+                                <th>{t((d) => d.pages.walletTransactions.columns.counterparty)}</th>
                                 <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
                                 <th />
                             </>
@@ -1305,7 +1440,7 @@ function DuplicateGroups({
                         {group.transactions.map((transaction) => (
                             <tr key={transaction.id}>
                                 <td className="col-primary whitespace-nowrap tabular-nums">
-                                    {new Date(transaction.bookedAt).toLocaleDateString()}
+                                    {formatDate(transaction.bookedAt, locale)}
                                 </td>
                                 <td className="col-hide">
                                     {sourceName(
@@ -1313,10 +1448,18 @@ function DuplicateGroups({
                                         t((d) => d.pages.wallet.generalSource),
                                     )}
                                 </td>
-                                <td>
-                                    <div>{transaction.description}</div>
-                                    {transaction.counterparty === null ? null : (
-                                        <div className="note">{transaction.counterparty}</div>
+                                <td className="col-wide">{transaction.description}</td>
+                                {/* Split out for the same reason as the ledger above, and it matters
+                                    more here: deciding whether two rows are the same payment is
+                                    mostly comparing who was paid, which is easier down a column than
+                                    on the second line of two cells. */}
+                                <td data-label={t((d) => d.pages.walletTransactions.columns.counterparty)}>
+                                    {transaction.counterparty === null ? (
+                                        <span className="note">—</span>
+                                    ) : (
+                                        <div className="cell-name" title={transaction.counterparty}>
+                                            {transaction.counterparty}
+                                        </div>
                                     )}
                                 </td>
                                 <td

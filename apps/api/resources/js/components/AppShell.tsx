@@ -710,7 +710,16 @@ export default function AppShell({
                     </header>
 
                     <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
-                        <div className={cn('mx-auto w-full max-w-[1420px] space-y-4', contentClassName)}>
+                        {/*
+                            The cap widens on a large monitor, not below one.
+                            `2xl:` is 1536px and up, so every laptop keeps the 1420px it had; past
+                            that the content takes 1680px and the margins stop growing as fast. It
+                            does not go further because this number has to suit a settings form as
+                            well as a table, and a form two thousand pixels wide reads worse than one
+                            at fourteen hundred. A screen that is genuinely table-shaped says so with
+                            `contentClassName`, which lands after this and wins.
+                        */}
+                        <div className={cn('mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]', contentClassName)}>
                             {children}
                         </div>
                     </main>

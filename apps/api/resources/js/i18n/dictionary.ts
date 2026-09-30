@@ -941,7 +941,8 @@ export interface Dictionary {
             accountLocked: string;
             /** Lookalike transactions, gathered for a person to merge or keep — never refused at import. */
             duplicates: {
-                /** The option in the status filter that switches the list to groups. */
+                /** The second view, beside `toolbar.ledger`. It was an option in the status filter,
+                 *  which hid that it replaces the table and ignores every filter. */
                 filter: string;
                 /** `{count}` is substituted. */
                 groupTitle: string;
@@ -1008,10 +1009,21 @@ export interface Dictionary {
             allAccounts: string;
             columns: {
                 date: string;
+                /** The account, with the bank beneath it: both answer "where". */
                 account: string;
                 description: string;
+                /** Who the money went to or came from — its own column since the description cell
+                 *  held four stacked things and no header said which was which. */
+                counterparty: string;
                 amount: string;
                 status: string;
+            };
+            /** The two rows of the toolbar, each named by what its controls do. */
+            toolbar: {
+                view: string;
+                filter: string;
+                /** The first view: the ledger itself, beside `duplicates.filter`. */
+                ledger: string;
             };
             add: string;
             unit: string;

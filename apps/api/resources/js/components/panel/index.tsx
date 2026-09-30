@@ -881,6 +881,38 @@ export function Toolbar({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
+ * A toolbar whose controls do more than one job, split into labelled rows.
+ *
+ * For the case `Toolbar` handles badly: transactions had nine controls in one wrapping line — a view
+ * to choose, six filters, a reset, and a tag manager that filters nothing. They wrapped wherever
+ * they fitted, so choosing a view and narrowing a list happened on whichever line the browser
+ * decided, and nothing told a person which control did which.
+ *
+ * `Toolbar` stays as it is for the screens with one row of one kind of control, which is most of
+ * them.
+ */
+export function ToolbarRows({ children }: { children: ReactNode }): JSX.Element {
+    return <div className="toolbar-rows">{children}</div>;
+}
+
+/**
+ * One row of a {@see ToolbarRows}, named by what its controls do.
+ *
+ * `end` is for the controls that are not what the row is about — a row of filters still has to put
+ * "manage tags" and the bulk actions somewhere, and the far end is where they stop reading as
+ * filters.
+ */
+export function ToolbarRow(props: { label: string; children: ReactNode; end?: ReactNode }): JSX.Element {
+    return (
+        <div className="toolbar-row">
+            <span className="toolbar-label">{props.label}</span>
+            {props.children}
+            {props.end === undefined ? null : <div className="toolbar-end">{props.end}</div>}
+        </div>
+    );
+}
+
+/**
  * A listing table. Wide content scrolls inside this wrapper so the page body never scrolls
  * sideways — a table of hashes is always wider than the viewport on a laptop.
  */

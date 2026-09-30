@@ -1146,10 +1146,16 @@ export const ro = {
             allAccounts: 'Toate conturile',
             columns: {
                 date: 'Data',
-                account: 'Cont',
+                account: 'Sursă',
                 description: 'Descriere',
+                counterparty: 'Contrapartidă',
                 amount: 'Sumă',
                 status: 'Stare fiscală',
+            },
+            toolbar: {
+                view: 'Afișare',
+                filter: 'Filtre',
+                ledger: 'Tranzacții',
             },
             add: 'Adaugă tranzacție',
             unit: 'tranzacții',
