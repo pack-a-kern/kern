@@ -33,6 +33,51 @@ return [
     'categories' => $list((string) env('BANKS_CATEGORIES', 'Credit Institution')),
 
     /*
+     * What kind of institution a code says this is, per country.
+     *
+     * The ECB's own `CATEGORY` is `Credit Institution` for everything we keep, so it draws no line
+     * between a cooperative in Slatina, a branch of ING and Banca Comercială Română. The line is in
+     * the registration number, which the national central bank assigns and the ECB passes through —
+     * letters for Romania, digits for Germany and France. So the table is keyed by country: a code
+     * means nothing outside the register that issued it.
+     *
+     * ## Written as the regulation writes them
+     *
+     * `RB-PJR`, not `RORBPJR`. The file prints these without punctuation and sometimes behind the
+     * country code, so both sides are stripped of anything but letters and digits and lowercased
+     * before they are compared, and a pattern matches at the start of the code or at the start of
+     * what follows the country code. That way this list reads like its source rather than like the
+     * file, and can be checked against the source by eye.
+     *
+     * ## The source, and how sure it is
+     *
+     * These are from Regulamentul BNR nr. 1/2007 privind registrul instituțiilor de credit, art. 7,
+     * which was repealed on 23 December 2020 by Regulamentul BNR nr. 12/2020 — where the equivalent
+     * article has not been located. `IEME-RO` is from Regulamentul BNR nr. 11/2022. Every pattern
+     * below is confirmed against real rows, and the ones that are not confirmed are simply absent:
+     * `BD-PJR`, which Banca de Investiții și Dezvoltare has carried since November 2025, is left out
+     * deliberately because no regulation we have read defines it. It resolves to `UNKNOWN`, which is
+     * the honest answer until somebody reads the register and adds it here.
+     *
+     * A country with no entry resolves to `UNKNOWN` for every row rather than guessing — so widening
+     * `BANKS_COUNTRIES` before writing that country's table is visible instead of silently wrong.
+     */
+    'kinds' => [
+        'RO' => [
+            // Bancă, persoană juridică română. Also covers mortgage banks and housing savings banks,
+            // which the register keeps in their own sections under the same code.
+            'BANK' => ['RB-PJR'],
+            // Sucursală a unei instituții de credit străine, from a third country or a member state.
+            'FOREIGN_BRANCH' => ['RB-PJS'],
+            // Cooperativă de credit, and the casă centrală its network is affiliated to.
+            'COOPERATIVE' => ['ROCC-CO', 'ROCC-CC'],
+            // Instituție emitentă de monedă electronică. None reach the database today: they are a
+            // different `CATEGORY` and the filter above drops them.
+            'ELECTRONIC_MONEY' => ['IEME-RO'],
+        ],
+    ],
+
+    /*
      * Banks that closed or merged before the first import, read from the ECB's archived lists.
      *
      * One list a month, from `from` up to the first day already imported: a bank that lived for

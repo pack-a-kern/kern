@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
+use Kern\TaxRomania\Banks\Enums\BankKind;
+use Kern\TaxRomania\Banks\Services\BankKindResolver;
 use Kern\TaxRomania\Database\Factories\BankFactory;
 
 /**
@@ -78,5 +80,21 @@ final class Bank extends Model
     public function code(): ?string
     {
         return $this->bic === null ? null : substr($this->bic, 0, 4);
+    }
+
+    /**
+     * What kind of institution this is, read from its registration number.
+     *
+     * Derived rather than stored. It is a pure function of two columns the import already writes, and
+     * a column would be a second copy of the same fact — one that can disagree with the code after a
+     * re-import, or after the table in `config/banks.php` is corrected. Nothing here is expensive:
+     * the config is loaded once and the match is a handful of string comparisons.
+     *
+     * A query that needs to filter on it should match the code prefix in SQL rather than reaching for
+     * a column that is not there.
+     */
+    public function kind(): BankKind
+    {
+        return app(BankKindResolver::class)->for($this->country_code, $this->ecb_code);
     }
 }

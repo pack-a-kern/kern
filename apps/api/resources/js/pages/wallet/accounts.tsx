@@ -8,6 +8,7 @@ import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Pagination from '../../components/Pagination';
+import { bankOptions } from '../../components/wallet/bankOptions';
 import { PanelDate } from '../../components/PanelDatePicker';
 import {
     ActionGroup,
@@ -48,7 +49,6 @@ import {
     type Bank,
     type DepositFacts,
     type DepositFormOptions,
-    bankLabel,
     formatMinor,
 } from '../../types/wallet';
 
@@ -799,7 +799,13 @@ export default function WalletAccounts(): JSX.Element {
                                 onValueChange={(value) => {
                                     setForm((current) => ({ ...current, bank_id: value }));
                                 }}
-                                options={banks.map((bank) => ({ value: bank.id, label: bankLabel(bank) }))}
+                                optionVisual="bare"
+                                // This list is the current banks only, so every dot is green — drawn
+                                // anyway so the column reads the same here as everywhere else.
+                                options={bankOptions(
+                                    banks,
+                                    t((d) => d.pages.walletTransactions.bank.closed),
+                                )}
                             />
                         </Field>
                     ) : (
