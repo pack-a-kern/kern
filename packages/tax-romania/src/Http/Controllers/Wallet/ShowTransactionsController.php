@@ -75,6 +75,11 @@ final class ShowTransactionsController
             // classify endpoint validates against — so the dropdown cannot offer a code the
             // server would refuse.
             'categories' => $categories->toArray(),
+            // What the two filters above the ledger should offer: the banks and the sources
+            // reachable under the other filters in force, rather than the whole register and every
+            // account the taxpayer has. See `WalletQuery::reachable()`.
+            'bank_ids_in_use' => $wallet->bankIdsInUse($filters),
+            'account_ids_in_use' => $wallet->accountIdsInUse($filters),
         ]);
     }
 }

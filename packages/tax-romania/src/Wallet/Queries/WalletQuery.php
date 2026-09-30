@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Queries;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
@@ -266,6 +267,71 @@ final readonly class WalletQuery
      * @return list<TransactionSummary>
      */
     /**
+     * The banks the rows in front of this person are actually at — what the bank filter offers.
+     *
+     * The register holds forty-six Romanian banks; a person's money sits at two or three. A filter
+     * offering the register is forty-odd choices that each return nothing.
+     *
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @return list<string>
+     */
+    public function bankIdsInUse(array $filters = []): array
+    {
+        return $this->reachable('bank_id', $filters);
+    }
+
+    /**
+     * The sources those rows are on — what the account filter offers.
+     *
+     * Same problem as the banks, found the same way and easier to hit: this filter offered every
+     * account, and two kinds of account can hold nothing it would list. A `CASH` holding is a
+     * declared value rather than a stream of payments, so the list excludes the whole account and
+     * choosing it always answered "no transactions". A `TERM_DEPOSIT` answers the same until its
+     * first interest posting, and then stops — which is the case a rule about kinds would miss and
+     * this one gets for free.
+     *
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @return list<string>
+     */
+    public function accountIdsInUse(array $filters = []): array
+    {
+        return $this->reachable('account_id', $filters);
+    }
+
+    /**
+     * The values of one column still reachable from where the filters have put this person.
+     *
+     * ## Narrowed by the other filters, never by its own
+     *
+     * Filter by a tag and only the banks that tag appears at are offered: the filters describe one
+     * view of the ledger together, so each should say what is reachable from where the person now is.
+     *
+     * Its own filter is the exception, and it is the whole reason this takes the filters apart
+     * rather than passing them through. A list narrowed by the bank already chosen holds exactly
+     * that bank, so changing banks means clearing the filter and choosing again instead of just
+     * choosing.
+     *
+     * The tenant scope on the model does the scoping, as everywhere else in this class.
+     *
+     * @param  'account_id'|'bank_id'  $column
+     * @param  array<string, mixed>  $filters
+     * @return list<string>
+     */
+    private function reachable(string $column, array $filters): array
+    {
+        unset($filters[$column]);
+
+        $query = $this->listedTransactions()->whereNotNull($column);
+
+        $this->applyTransactionFilters($query, $filters);
+
+        /** @var list<string> $values */
+        $values = $query->distinct()->pluck($column)->all();
+
+        return $values;
+    }
+
+    /**
      * The transaction list, narrowed and paged by the server.
      *
      * ## Why the server pages this
@@ -286,16 +352,7 @@ final readonly class WalletQuery
      */
     public function transactions(array $filters, int $page, int $perPage): array
     {
-        $query = FinancialTransaction::query()
-            ->whereNotIn('account_id', FinancialAccount::query()->where('kind', AccountKind::CASH->value)->select('id'))
-            ->whereNot(static function ($query): void {
-                $query->where('source', RecordSource::SYSTEM->value)
-                    ->whereExists(static function ($splits): void {
-                        $splits->from('transaction_splits')
-                            ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
-                            ->where('category_code', DepositMovements::TRANSFER);
-                    });
-            });
+        $query = $this->listedTransactions();
 
         $this->applyTransactionFilters($query, $filters);
 
@@ -312,6 +369,32 @@ final readonly class WalletQuery
             ->all();
 
         return ['transactions' => $this->summarise($transactions), 'total' => $total];
+    }
+
+    /**
+     * Every transaction this screen is willing to show, before any filter.
+     *
+     * Shared so the list and the bank filter agree about what exists by construction rather than by
+     * coincidence. Nothing writes an excluded row with a bank today — a cash holding's declared value
+     * and a deposit's funding transfer both carry none — so the filter reading the table directly
+     * happened to give the same answer. It would stop the day one of them gained a bank, and the
+     * symptom would be a filter offering a choice that returns nothing, which is the one thing it
+     * exists to prevent.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<FinancialTransaction>
+     */
+    private function listedTransactions(): Builder
+    {
+        return FinancialTransaction::query()
+            ->whereNotIn('account_id', FinancialAccount::query()->where('kind', AccountKind::CASH->value)->select('id'))
+            ->whereNot(static function ($query): void {
+                $query->where('source', RecordSource::SYSTEM->value)
+                    ->whereExists(static function ($splits): void {
+                        $splits->from('transaction_splits')
+                            ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
+                            ->where('category_code', DepositMovements::TRANSFER);
+                    });
+            });
     }
 
     /**
