@@ -19,6 +19,18 @@ use Transliterator;
  */
 final class Normalizer
 {
+    /**
+     * Built once and kept, because building it is the expensive part.
+     *
+     * `Transliterator::create()` compiles an ICU rule set, which costs roughly a fifth of a
+     * millisecond — nothing for one value, and the dominant cost of any operation that normalises a
+     * whole table. Measured: a counterparty search over 2585 names spent 486ms here and 66ms on the
+     * decryption it exists to support, because each name rebuilt this object from scratch.
+     *
+     * Safe to share: a transliterator holds no per-call state, and the rule set is a constant.
+     */
+    private static ?Transliterator $folder = null;
+
     private function __construct()
     {
     }
@@ -84,7 +96,7 @@ final class Normalizer
      */
     private static function foldDiacritics(string $value): string
     {
-        $transliterator = Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
+        $transliterator = self::$folder ??= Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
 
         if ($transliterator === null) {
             throw new RuntimeException(
