@@ -919,7 +919,7 @@ export default function WalletReports(): JSX.Element {
                                                     <td className="col-figure is-in">{money(row.inMinor)}</td>
                                                     <td className="col-figure is-out">{money(-row.outMinor)}</td>
                                                     <td
-                                                        className={`col-figure font-semibold${net < 0 ? ' is-out' : ''}`}
+                                                        className={`col-figure font-semibold ${net < 0 ? 'is-out' : 'is-in'}`}
                                                     >
                                                         {money(net)}
                                                     </td>

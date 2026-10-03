@@ -1069,7 +1069,9 @@ export default function WalletTransactions(): JSX.Element {
                                     <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.counterparty)}</th>
-                                    <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                                    <th className="col-figure">
+                                        {t((d) => d.pages.walletTransactions.columns.amount)}
+                                    </th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.status)}</th>
                                     <th />
                                 </>
@@ -1152,11 +1154,7 @@ export default function WalletTransactions(): JSX.Element {
                                     </td>
                                     {/* Money out reads red; the sign is the source of truth, not a
                                         separate direction column that could contradict it. */}
-                                    <td
-                                        className={`tabular-nums whitespace-nowrap ${
-                                            transaction.amountMinor < 0 ? 'is-out' : 'is-in'
-                                        }`}
-                                    >
+                                    <td className={`col-figure ${transaction.amountMinor < 0 ? 'is-out' : 'is-in'}`}>
                                         {formatMinor(transaction.amountMinor, transaction.currencyCode, locale)}
                                     </td>
                                     <td data-label={t((d) => d.pages.walletTransactions.columns.status)}>
@@ -1679,7 +1677,7 @@ function DuplicateGroups({
                                 <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                 <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
                                 <th>{t((d) => d.pages.walletTransactions.columns.counterparty)}</th>
-                                <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                                <th className="col-figure">{t((d) => d.pages.walletTransactions.columns.amount)}</th>
                                 <th />
                             </>
                         }
@@ -1709,11 +1707,7 @@ function DuplicateGroups({
                                         </div>
                                     )}
                                 </td>
-                                <td
-                                    className={`tabular-nums whitespace-nowrap ${
-                                        transaction.amountMinor < 0 ? 'is-out' : 'is-in'
-                                    }`}
-                                >
+                                <td className={`col-figure ${transaction.amountMinor < 0 ? 'is-out' : 'is-in'}`}>
                                     {formatMinor(transaction.amountMinor, transaction.currencyCode, locale)}
                                 </td>
                                 <td className="col-end text-right">

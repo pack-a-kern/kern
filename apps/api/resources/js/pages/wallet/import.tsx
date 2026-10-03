@@ -866,8 +866,9 @@ export default function WalletImport(): JSX.Element {
                         {/* Which rows to show belongs with what to do about them, so the three controls
                             share one bar: the filter takes the left on a wide screen and the two
                             decisions stay right. On a phone the filter keeps its own line — it is the
-                            widest of the three — and the buttons sit side by side beneath it rather
-                            than stacked, which cost two rows to say what one row says. */}
+                            widest of the three — and goes last, directly above the rows it filters,
+                            while the two buttons sit side by side rather than stacked, which cost
+                            two rows to say what one row says. */}
                         <div className="review-actions border-border border-b px-4 py-3">
                             <PanelButton
                                 className="review-action"
@@ -991,7 +992,9 @@ export default function WalletImport(): JSX.Element {
                                     </th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
-                                    <th>{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                                    <th className="col-figure">
+                                        {t((d) => d.pages.walletTransactions.columns.amount)}
+                                    </th>
                                     <th>{t((d) => d.pages.walletTransactions.classify.category)}</th>
                                 </>
                             }
@@ -1033,8 +1036,8 @@ export default function WalletImport(): JSX.Element {
                                         </div>
                                     </td>
                                     <td
-                                        className={`row-sum tabular-nums whitespace-nowrap${
-                                            (row.amountMinor ?? 0) < 0 ? ' text-destructive' : ''
+                                        className={`row-sum col-figure ${
+                                            (row.amountMinor ?? 0) < 0 ? 'is-out' : 'is-in'
                                         }`}
                                     >
                                         {row.amountMinor === null
@@ -1365,27 +1368,31 @@ function Steps({ status }: { status: string | null }): JSX.Element {
             <ol className="flex items-center" role="list">
                 {labels.map((label, index) => (
                     <li key={label} className="flex items-center">
-                        {/* The label is the first thing to go on a phone, not the step: four dots and
-                            three chevrons still say where you are and how far is left, where four
-                            labelled steps wrapped onto two lines and stopped reading as a sequence. */}
-                        <span className="step" aria-current={index === current ? 'step' : undefined}>
+                        {/* The step you are on keeps its name on a phone; the others give theirs up.
+                            Hiding all four left a row of bare dots that said how far along you were
+                            and not what you were doing, and the tinted chip is what makes one of
+                            them readable without putting the other three back. */}
+                        <div
+                            className={index === current ? 'wizard-step is-current' : 'wizard-step'}
+                            aria-current={index === current ? 'step' : undefined}
+                        >
                             <span
                                 className={
                                     index < current
-                                        ? 'step-dot step-done'
+                                        ? 'wizard-dot is-done'
                                         : index === current
-                                          ? 'step-dot step-now'
-                                          : 'step-dot'
+                                          ? 'wizard-dot is-now'
+                                          : 'wizard-dot'
                                 }
                                 aria-hidden="true"
                             >
                                 {index < current ? <Check className="size-3" /> : index + 1}
                             </span>
-                            <span className={index === current ? 'step-label font-semibold' : 'step-label'}>
-                                {label}
-                            </span>
-                        </span>
-                        {index === labels.length - 1 ? null : <ChevronRight className="step-sep" aria-hidden="true" />}
+                            <span className={index === current ? undefined : 'wizard-label'}>{label}</span>
+                        </div>
+                        {index === labels.length - 1 ? null : (
+                            <ChevronRight className="wizard-sep" aria-hidden="true" />
+                        )}
                     </li>
                 ))}
             </ol>
@@ -1424,7 +1431,7 @@ function RebuiltPreview({ preview }: { preview: StatementFormPreview | null }): 
                                 <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
                                 <th>{t((d) => d.pages.walletImports.columns.counterparty)}</th>
                                 <th>{t((d) => d.pages.walletImports.columns.reference)}</th>
-                                <th className="text-right">{t((d) => d.pages.walletTransactions.columns.amount)}</th>
+                                <th className="col-figure">{t((d) => d.pages.walletTransactions.columns.amount)}</th>
                             </>
                         }
                     >
@@ -1436,8 +1443,7 @@ function RebuiltPreview({ preview }: { preview: StatementFormPreview | null }): 
                                 <td className="tabular-nums">{row.reference === '' ? '—' : row.reference}</td>
                                 <td
                                     className={
-                                        'col-end whitespace-nowrap text-right tabular-nums' +
-                                        ((row.amount_minor ?? 0) < 0 ? ' text-destructive' : '')
+                                        'col-end col-figure ' + ((row.amount_minor ?? 0) < 0 ? 'is-out' : 'is-in')
                                     }
                                 >
                                     {row.amount_minor === null

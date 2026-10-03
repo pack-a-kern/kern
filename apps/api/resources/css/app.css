@@ -1513,16 +1513,22 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
 }
 
-/* Where you are in a wizard, as dots and chevrons.
+/* Where you are in a wizard: dots and chevrons, with the step you are on wearing its name.
  *
- * The labels go first on a narrow screen, not the steps: four dots and three chevrons still say
- * where you are and how much is left, while four labelled steps wrapped onto two lines and stopped
- * reading as a sequence at all. */
-.step {
-    display: inline-flex;
+ * `wizard-` and not `step-`: `.step` is taken, by the 16px numbered marker used in instruction
+ * lists, and it is declared later in this file — so the shorter name silently turned each step into
+ * a 16px inline-grid box and stacked its label under its dot.
+ *
+ * Only the current step keeps its label on a narrow screen. Four labelled steps wrapped onto two
+ * lines and stopped reading as a sequence, but hiding all four labels left a row of bare dots that
+ * said how far along you were and not what you were doing — the tinted chip makes one of them
+ * readable without putting the other three back. */
+.wizard-step {
+    display: flex;
     height: 1.75rem;
     align-items: center;
     gap: 6px;
+    border-radius: var(--radius-lg);
     padding-inline: 6px;
     font-size: 11px;
     font-weight: 500;
@@ -1530,7 +1536,16 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     white-space: nowrap;
 }
 
-.step-dot {
+/* The one you are on: a tint and a hairline, so it reads as a place rather than as a darker dot. */
+.wizard-step.is-current {
+    padding-inline: 8px;
+    background: color-mix(in srgb, var(--info) 9%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 20%, transparent);
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.wizard-dot {
     display: grid;
     place-items: center;
     flex: none;
@@ -1541,25 +1556,28 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     background: var(--card);
     font-size: 10px;
     font-weight: 600;
+    color: var(--muted-foreground);
 }
 
-/* Done: filled, and carrying a tick rather than its number — the number is only useful while it is
-   still ahead of you. */
-.step-dot.step-done {
+/* Done: filled and muted, carrying a tick rather than its number — the number is only useful while
+   the step is still ahead of you. Grey rather than accent: finished is not where the eye goes. */
+.wizard-dot.is-done {
     border-color: transparent;
-    background: color-mix(in srgb, var(--info) 14%, transparent);
-    color: var(--info);
+    background: var(--muted);
+    color: var(--muted-foreground);
 }
 
-/* Current: lifted out of the track rather than filled, so it reads as the one you are on rather
-   than as another one finished. */
-.step-dot.step-now {
-    border-color: color-mix(in srgb, var(--info) 35%, transparent);
+/* Current: lifted off the chip's tint rather than filled, so it reads as the step in progress
+   rather than as another one finished. */
+.wizard-dot.is-now {
+    border-color: color-mix(in srgb, var(--info) 28%, transparent);
+    background: var(--card);
     color: var(--info);
-    box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.07);
 }
 
-.step-sep {
+.wizard-sep {
     flex: none;
     width: 0.875rem;
     height: 0.875rem;
@@ -1568,11 +1586,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 @media (width < 48rem) {
-    .step-label {
+    .wizard-label {
         display: none;
     }
 
-    .step-sep {
+    .wizard-sep {
         margin-inline: 1px;
     }
 }
@@ -1614,9 +1632,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     justify-content: center;
 }
 
+/* Last on a phone, so it sits directly above the rows it filters — it belongs to the table, not to
+   the two decisions, and putting it over them separated it from the thing it acts on. */
 .review-actions > .review-filter {
     flex: 1 0 100%;
-    order: -1;
+    order: 1;
 }
 
 @media (width >= 48rem) {
@@ -1625,9 +1645,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
 
     /* Left, and the buttons take the right: `auto` on the one item is what separates the two groups
-       without a spacer element between them. */
+       without a spacer element between them. The table is beside it rather than under it here, so
+       leading the bar costs the filter nothing. */
     .review-actions > .review-filter {
         flex: 0 0 auto;
+        order: -1;
         margin-right: auto;
     }
 }
@@ -1952,6 +1974,10 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 .data-table th.col-figure,
 .data-table td.col-figure {
     text-align: right;
+    /* Right, because that is what lets magnitudes be compared without reading them: -5,00 and
+       -1.234,56 start in the same place when they are set left, and the shorter number has to be
+       read before it can be seen as the smaller one. */
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
 
