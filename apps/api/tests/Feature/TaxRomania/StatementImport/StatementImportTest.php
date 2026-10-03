@@ -6,6 +6,7 @@ namespace Tests\Feature\TaxRomania\StatementImport\StatementImportTest;
 
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Kern\Audit\Models\AuditEvent;
@@ -85,6 +86,14 @@ final class FakeParseGateway implements StatementParseGateway
     /** @var list<list<string>> the lines above the header — where a statement prints its IBAN */
     public array $preamble = [];
 
+    /**
+     * What the parser says each column is called, which is where the import takes its field names
+     * from. Settable because a test about names has to be able to choose them.
+     *
+     * @var list<StatementColumn>
+     */
+    public array $columns = [];
+
     /** What `check` answers — a test of a PDF sets it to PDF. */
     public StatementFormat $format = StatementFormat::CSV;
 
@@ -109,12 +118,12 @@ final class FakeParseGateway implements StatementParseGateway
 
         return new ParsedStatementFile(
             format: StatementFormat::CSV,
-            columns: [
+            columns: $this->columns === [] ? [
                 new StatementColumn(0, 'Data', 'date DD.MM.YYYY', 1.0),
                 new StatementColumn(1, 'Detalii', 'text ~20 chars', 1.0),
                 new StatementColumn(2, 'Debit', 'number 1.234,56', 0.67),
                 new StatementColumn(3, 'Credit', 'number 1.234,56', 0.33),
-            ],
+            ] : $this->columns,
             rows: $this->rows,
             headerRow: 0,
             preamble: $this->preamble,
@@ -1188,4 +1197,85 @@ it('lists closed banks only when asked, after the current ones', function (): vo
 
     expect($current->json('banks.*.name'))->toBe(['Banca Transilvania'])
         ->and($all->json('banks.*.name'))->toBe(['Banca Transilvania', 'Alpha Bank Romania']);
+});
+
+/**
+ * Each transaction keeps every field the file named for it, encrypted.
+ *
+ * Three things at once, because each is worthless without the others. Named fields are kept —
+ * including the running balance nothing maps and the identity line every parsed field refuses. A
+ * page footer is not kept, because it is neither a headed column nor a `Label: value` and so is
+ * never collected rather than filtered out by a guess. And the column is encrypted at rest, which is
+ * the condition on which keeping any of it was agreed.
+ */
+it('keeps every field the file named, and not the page furniture', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+
+    /** @var FakeParseGateway $gateway */
+    $gateway = app(StatementParseGateway::class);
+    // Five columns, the last of which nothing maps — the running balance, which is exactly the kind
+    // of field this feature exists to stop discarding.
+    $gateway->columns = [
+        new StatementColumn(0, 'Data', 'date D MONTH YYYY', 1.0),
+        new StatementColumn(1, 'Detalii tranzactie', 'text ~20 chars', 1.0),
+        new StatementColumn(2, 'Debit', 'number 1.234,56', 0.5),
+        new StatementColumn(3, 'Credit', 'number 1.234,56', 0.5),
+        new StatementColumn(4, 'Balanta', 'number 1.234,56', 1.0),
+    ];
+    $gateway->rows = [
+        ['12 septembrie 2026', 'Cumparare POS', '155,47', '', '982,10'],
+        ['', 'Tranzactie la: DIGI ROMANIA SA', '', '', ''],
+        ['', 'Numar autorizare: 004521', '', '', ''],
+        ['', 'CNP: 1234567890123', '', '', ''],
+        // The page's footer: no header above it, no label in it.
+        ['Roxana Petria', 'Sef Serviciu', '', '', ''],
+    ];
+
+    $import = startImport($this, $user, $subjectId, $accountId);
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", [
+            'layout' => 'block',
+            'date' => ['type' => 'index', 'value' => 0, 'format' => 'D MONTH YYYY'],
+            'amounts' => [
+                'mode' => 'debit_credit',
+                'debit' => ['type' => 'index', 'value' => 2],
+                'credit' => ['type' => 'index', 'value' => 3],
+                'decimal_separator' => ',',
+                'thousands_separator' => '.',
+            ],
+            'description' => ['type' => 'index', 'value' => 1],
+            'counterparty' => ['debit' => ['type' => 'label', 'value' => 'Tranzactie la']],
+            'reference' => ['debit' => ['type' => 'label', 'value' => 'Numar autorizare']],
+            'identity_labels' => ['CNP'],
+        ])
+        ->assertOk();
+
+    $row = StatementImportRow::query()
+        ->where('import_id', $import->id)
+        ->whereNotNull('fields_ciphertext')
+        ->firstOrFail();
+
+    /** @var array<string, string> $fields */
+    $fields = json_decode((string) $row->fields_ciphertext, true);
+
+    // Named by a label in the block.
+    expect($fields)->toHaveKey('tranzactie la')
+        ->and($fields)->toHaveKey('numar autorizare');
+
+    // And named by a column header — the half this test did not cover, which is how a release went
+    // out keying every cell under `Tranzactie la:MEGAIMAGE 0290 …`: the headers were being read from
+    // the file's header line by an index that counts lines in the whole file, not in the rows that
+    // reach the builder.
+    expect($fields)->toHaveKey('Balanta')
+        ->and($fields['Balanta'])->toBe('982,10');
+
+    // The page footer named nothing, so nothing collected it.
+    expect(implode(' ', $fields))->not->toContain('Roxana Petria')
+        ->and(implode(' ', $fields))->not->toContain('Sef Serviciu');
+
+    // Encrypted at rest: what the database holds is not what was read back above.
+    $stored = DB::table('statement_import_rows')->where('id', $row->id)->value('fields_ciphertext');
+
+    expect($stored)->toBeString()->and($stored)->not->toContain('DIGI ROMANIA SA');
 });

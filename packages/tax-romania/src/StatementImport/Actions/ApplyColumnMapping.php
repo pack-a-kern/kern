@@ -23,7 +23,7 @@ use Kern\TaxRomania\StatementImport\Services\StatementFileContents;
 use Kern\TaxRomania\StatementImport\Services\StatementRowBuilder;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 
 /**
  * Turns the file into rows a person can go through, using the mapping they confirmed.
@@ -47,7 +47,7 @@ final readonly class ApplyColumnMapping
         private StatementFileContents $files,
         private StatementRowBuilder $builder,
         private RowFingerprint $fingerprints,
-        private CounterpartyRules $rules,
+        private CounterpartyDirectory $rules,
         private ConfigRepository $config,
     ) {
     }
@@ -83,6 +83,13 @@ final readonly class ApplyColumnMapping
             $form,
             $this->config->float('statement_import.limits.parse_threshold'),
             $account?->currency_code,
+            // What each column is called, so a cell can be kept under a name rather than an index.
+            //
+            // From the preview's own `columns`, which the parser worked out — not from the file's
+            // header line. `header_row` counts lines in the whole file, and the rows reaching here
+            // begin at the first transaction, so indexing them by it lands on a detail line: every
+            // cell was briefly stored under a header reading `Tranzactie la:MEGAIMAGE 0290 …`.
+            self::headers($import),
         );
         $rows = $built->rows;
 
@@ -117,7 +124,7 @@ final readonly class ApplyColumnMapping
                 $counterpartyIndex = $this->rules->indexFor($row['counterparty']);
                 $rule = $counterpartyIndex === null || $row['amount_minor'] === null
                     ? null
-                    : ($ruleFor[CounterpartyRules::key($counterpartyIndex, MoneyDirection::ofAmount($row['amount_minor']))] ?? null);
+                    : ($ruleFor[CounterpartyDirectory::key($counterpartyIndex, MoneyDirection::ofAmount($row['amount_minor']))] ?? null);
 
                 if ($duplicateId !== null) {
                     $duplicates++;
@@ -131,6 +138,10 @@ final readonly class ApplyColumnMapping
                     'amount_minor' => $row['amount_minor'],
                     'currency_code' => $row['currency_code'],
                     'description_ciphertext' => $row['text'],
+                    // Every field the file named for this transaction — see the column's migration.
+                    'fields_ciphertext' => $row['fields'] === []
+                        ? null
+                        : json_encode($row['fields'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                     'counterparty_ciphertext' => $row['counterparty'] === '' ? null : $row['counterparty'],
                     'counterparty_blind_index' => $counterpartyIndex,
                     'reference_ciphertext' => $row['reference'] === '' ? null : $row['reference'],
@@ -227,10 +238,43 @@ final readonly class ApplyColumnMapping
     }
 
     /**
+     * Each column's name, by its index.
+     *
+     * A statement leaves gaps: the spacer columns a spreadsheet puts between the ones that mean
+     * something have no header, and a cell under one has nothing to be recorded as.
+     *
+     * @return list<string>
+     */
+    private static function headers(StatementImport $import): array
+    {
+        $headers = [];
+
+        foreach ($import->preview()['columns'] as $column) {
+            $index = $column['index'] ?? null;
+            $header = $column['header'] ?? null;
+
+            if (is_int($index) && is_string($header)) {
+                $headers[$index] = trim($header);
+            }
+        }
+
+        if ($headers === []) {
+            return [];
+        }
+
+        // Dense and in order, so a position with no column of its own reads as unnamed rather than
+        // taking the next one's name.
+        return array_map(
+            static fn (int $index): string => $headers[$index] ?? '',
+            range(0, max(array_keys($headers))),
+        );
+    }
+
+    /**
      * The remembered answers for every counterparty in the file, in one query.
      *
      * @param  list<array<string, mixed>>  $rows
-     * @return array<string, \Kern\TaxRomania\Wallet\Models\CounterpartyRule>
+     * @return array<string, \Kern\TaxRomania\Wallet\Models\Counterparty>
      */
     private function rulesFor(array $rows): array
     {

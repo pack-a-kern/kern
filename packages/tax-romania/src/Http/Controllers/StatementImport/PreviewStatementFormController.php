@@ -51,6 +51,8 @@ final class PreviewStatementFormController
 
         try {
             // No threshold: a preview judges nothing, it only shows.
+            // No headers: this is the dry run behind the mapping screen, which shows what each row
+            // would become and not the fields kept beside it. The import itself names them.
             $built = $builder->build($rows, $form, 0.0, $account?->currency_code);
         } catch (MappingNotUsableException) {
             return response()->json(['transactions' => [], 'lines_folded' => 0, 'lines_skipped' => 0]);

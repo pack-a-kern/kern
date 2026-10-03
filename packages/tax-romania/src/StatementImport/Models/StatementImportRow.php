@@ -31,6 +31,7 @@ use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
  * @property string|null $counterparty_ciphertext
  * @property string|null $counterparty_blind_index
  * @property string|null $reference_ciphertext
+ * @property string|null $fields_ciphertext every field the file named, as JSON
  * @property string|null $fingerprint
  * @property string|null $duplicate_transaction_id
  * @property string|null $category_code
@@ -60,6 +61,7 @@ final class StatementImportRow extends Model implements EncryptsWithSubjectDek
         'counterparty_ciphertext',
         'counterparty_blind_index',
         'reference_ciphertext',
+        'fields_ciphertext',
         'fingerprint',
         'duplicate_transaction_id',
         'category_code',
@@ -76,6 +78,7 @@ final class StatementImportRow extends Model implements EncryptsWithSubjectDek
         'description_ciphertext' => Encrypted::class,
         'counterparty_ciphertext' => Encrypted::class,
         'reference_ciphertext' => Encrypted::class,
+        'fields_ciphertext' => Encrypted::class,
         // Tag *names*, not ids: a tag a model proposed may not exist until the import is committed,
         // and creating one for a row nobody kept would leave the vocabulary full of rejected guesses.
         'tags_ciphertext' => Encrypted::class,

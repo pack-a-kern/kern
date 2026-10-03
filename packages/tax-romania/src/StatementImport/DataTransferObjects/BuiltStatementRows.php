@@ -18,7 +18,7 @@ namespace Kern\TaxRomania\StatementImport\DataTransferObjects;
 final readonly class BuiltStatementRows
 {
     /**
-     * @param  list<array{row_number: int, booked_at: ?string, amount_minor: ?int, currency_code: ?string, text: string, counterparty: string, reference: string}>  $rows
+     * @param  list<array{row_number: int, booked_at: ?string, amount_minor: ?int, currency_code: ?string, text: string, counterparty: string, reference: string, fields: array<string, string>}>  $rows
      */
     public function __construct(
         public array $rows,

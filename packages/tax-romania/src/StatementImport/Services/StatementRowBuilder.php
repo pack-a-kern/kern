@@ -51,11 +51,17 @@ final readonly class StatementRowBuilder
 
     /**
      * @param  list<list<string>>  $rows  the file's lines, as text
+     * @param  list<string>  $headers  the file's column headers, by index — what each cell is called
      *
      * @throws MappingNotUsableException when too few of the lines that look like transactions can be read
      */
-    public function build(array $rows, StatementForm $form, float $threshold, ?string $accountCurrency): BuiltStatementRows
-    {
+    public function build(
+        array $rows,
+        StatementForm $form,
+        float $threshold,
+        ?string $accountCurrency,
+        array $headers = [],
+    ): BuiltStatementRows {
         $built = [];
         $candidates = 0;
         $readable = 0;
@@ -68,12 +74,12 @@ final readonly class StatementRowBuilder
         $details = [];
         $openNumber = 0;
 
-        $close = function () use (&$open, &$details, &$openNumber, &$built, $form, $accountCurrency): void {
+        $close = function () use (&$open, &$details, &$openNumber, &$built, $form, $accountCurrency, $headers): void {
             if ($open === null) {
                 return;
             }
 
-            $built[] = $this->transaction($open, $details, $openNumber, $form, $accountCurrency);
+            $built[] = $this->transaction($open, $details, $openNumber, $form, $accountCurrency, $headers);
             $open = null;
             $details = [];
         };
@@ -105,7 +111,7 @@ final readonly class StatementRowBuilder
             if (! $opens && ! $form->isBlock()) {
                 // Row layout reads every line, readable or not: the review screen shows the ones it
                 // could not read so a person can see what was in the file.
-                $built[] = $this->transaction($row, [], $index + 1, $form, $accountCurrency);
+                $built[] = $this->transaction($row, [], $index + 1, $form, $accountCurrency, $headers);
 
                 continue;
             }
@@ -145,9 +151,10 @@ final readonly class StatementRowBuilder
      *
      * @param  list<string>  $cells
      * @param  list<list<string>>  $details
-     * @return array{row_number: int, booked_at: ?string, amount_minor: ?int, currency_code: ?string, text: string, counterparty: string, reference: string}
+     * @param  list<string>  $headers
+     * @return array{row_number: int, booked_at: ?string, amount_minor: ?int, currency_code: ?string, text: string, counterparty: string, reference: string, fields: array<string, string>}
      */
-    private function transaction(array $cells, array $details, int $rowNumber, StatementForm $form, ?string $accountCurrency): array
+    private function transaction(array $cells, array $details, int $rowNumber, StatementForm $form, ?string $accountCurrency, array $headers): array
     {
         $labels = $this->labels($details, $form);
         $amount = $this->values->rowAmountMinor($cells, $form);
@@ -170,7 +177,49 @@ final readonly class StatementRowBuilder
             'text' => $this->firstUnlike($form->description, $counterparty, $cells, $labels),
             'counterparty' => $counterparty,
             'reference' => $this->firstUnlike($form->referenceFor($amount ?? 0), $counterparty, $cells, $labels),
+            'fields' => self::fields($cells, $labels, $headers, $form),
         ];
+    }
+
+    /**
+     * Every field the file named for this transaction, keyed by the name it used.
+     *
+     * Two sources, and both are *named*: the opener's cells, under their column headers, and the
+     * `Label: value` pairs in the block below it. That is the whole trick — a page footer is neither
+     * a headed column nor a labelled pair, so `Roxana Petria  Alexandra Ilie` is never collected.
+     * The first version of this kept the lines verbatim instead, and fifteen per cent of rows ended
+     * up carrying the bank's letterhead, because in block layout a transaction owns every line until
+     * the next one opens and nothing in the file says where the stationery begins.
+     *
+     * Identity labels are already absent: {@see self::labels()} refuses them, and a header matching
+     * one is skipped here for the same reason. What the taxpayer decided to keep is the rest.
+     *
+     * @param  list<string>  $cells
+     * @param  array<string, string>  $labels  already identity-filtered
+     * @param  list<string>  $headers  the file's column headers, by index
+     * @return array<string, string>
+     */
+    private static function fields(array $cells, array $labels, array $headers, StatementForm $form): array
+    {
+        $identity = array_map(LabelKey::for(...), $form->identityLabels);
+        $fields = [];
+
+        foreach ($cells as $index => $cell) {
+            $value = trim($cell);
+            $header = trim($headers[$index] ?? '');
+
+            // A cell with no header has no name, so there is nothing to record it under. Those are
+            // the spacer columns a spreadsheet leaves between the ones that mean something.
+            if ($value === '' || $header === '' || in_array(LabelKey::for($header), $identity, true)) {
+                continue;
+            }
+
+            $fields[$header] = $value;
+        }
+
+        // The block's own labels last: where a statement names something twice, the labelled one is
+        // the specific one — `Data: 17-05-2013` against a column header reading `Data`.
+        return [...$fields, ...$labels];
     }
 
     /**
