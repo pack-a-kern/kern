@@ -443,7 +443,8 @@ it('creates a tag named on a counterparty', function (): void {
         ->assertOk();
 
     expect(Tag::query()->count())->toBe(1)
-        ->and($rule->fresh()->tags()->sole()->name_ciphertext)->toBe('împrumut familie');
+        ->and(Counterparty::query()->findOrFail($rule->id)->tags()->sole()->name_ciphertext)
+        ->toBe('împrumut familie');
 });
 
 /**

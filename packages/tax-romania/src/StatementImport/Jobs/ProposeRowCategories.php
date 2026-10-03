@@ -57,7 +57,13 @@ final class ProposeRowCategories implements ShouldQueue
     private const string NO_ACTOR = 'NO_ACTOR';
 
     /** Recorded when this installation does not put statements to a model at all. */
-    private const string TURNED_OFF = 'TURNED_OFF';
+    /**
+     * Recorded instead of a round when classification is switched off for this installation.
+     *
+     * Public because {@see ApplyColumnMapping} decides the same thing a moment earlier, and two
+     * spellings of one marker is one chance to write them differently.
+     */
+    public const string TURNED_OFF = 'TURNED_OFF';
 
     public function __construct(
         private readonly string $importId,

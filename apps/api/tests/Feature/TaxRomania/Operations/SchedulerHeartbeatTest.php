@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Kern\TaxRomania\Operations\Services\ProbeSchedulerStatus;
-use Mockery;
-use RuntimeException;
 
 /**
  * The scheduler heartbeat must survive the container boundary.

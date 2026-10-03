@@ -2,12 +2,7 @@
 
 declare(strict_types=1);
 
-use FilesystemIterator;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use ReflectionClass;
-use SplFileInfo;
 use Tests\Support\TaxEngineRulePurity\RulePuritySourceScanner;
 
 /**

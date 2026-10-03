@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Config;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Repositories\SettingsRepository;
-use RuntimeException;
 use Tests\TestCase;
 
 /**

@@ -711,7 +711,7 @@ export interface Dictionary {
             historyTitle: string;
             historyHint: string;
             empty: string;
-            steps: { file: string; columns: string; review: string; done: string };
+            steps: { progress: string; file: string; columns: string; review: string; done: string };
             /** The screen shown instead of the review while the model is still suggesting. */
             /** A model call's failure code, in words. Keyed by the code the server stores. */
             aiReasons: Record<string, string | undefined>;
@@ -798,8 +798,8 @@ export interface Dictionary {
                 removePlace: string;
                 /** Shown in a chip row with nothing in it yet. */
                 noPlace: string;
-            /** Why description takes several places, and that they are joined rather than tried in turn. */
-            descriptionHint: string;
+                /** Why description takes several places, and that they are joined rather than tried in turn. */
+                descriptionHint: string;
                 referenceHint: string;
                 thenSeparator: string;
                 referenceFallbackOut: string;
@@ -868,6 +868,8 @@ export interface Dictionary {
                 aiPartial: string;
                 /** `{reason}` is substituted. */
                 aiRoundFailed: string;
+                /** Said where a round would be reported, when classification is switched off. */
+                aiOff: string;
                 aiUnavailable: string;
                 aiNothing: string;
                 aiCalls: string;
@@ -1398,10 +1400,10 @@ export interface Dictionary {
             };
         };
         verifyEmail: {
-                /** The page title and the sentence under it. */
+            /** The page title and the sentence under it. */
             title: string;
             subtitle: string;
-                    /**
+            /**
              * Where a code will go, with the address substituted for `:destination`.
              *
              * Future tense on purpose: arriving at the screen sends nothing — a page that sent on
@@ -1414,11 +1416,11 @@ export interface Dictionary {
             submit: string;
             resend: string;
             resent: string;
-                /** Shown when the setting is on, so the person understands why they cannot go on. */
+            /** Shown when the setting is on, so the person understands why they cannot go on. */
             requiredNotice: string;
-                /** Shown when it is off — verifying is offered, not demanded. */
+            /** Shown when it is off — verifying is offered, not demanded. */
             optionalNotice: string;
-                /** No address on file, so nothing can be sent and there is no button to press. */
+            /** No address on file, so nothing can be sent and there is no button to press. */
             undeliverable: string;
             verifiedTitle: string;
             verifiedBody: string;
@@ -1426,7 +1428,7 @@ export interface Dictionary {
             signOut: string;
             rateLimited: string;
             genericError: string;
-    };
+        };
         settingsProfile: {
             title: string;
             description: string;

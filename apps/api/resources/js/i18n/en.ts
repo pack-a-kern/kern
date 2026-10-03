@@ -564,7 +564,7 @@ export const en = {
         transaction_date: 'Transaction date',
         confidence: 'Confidence',
         value_date: 'Settlement date',
-                counterparty: 'Counterparty',
+        counterparty: 'Counterparty',
         reference: 'Reference',
     },
 
@@ -621,7 +621,8 @@ export const en = {
             DUPLICATE_DOCUMENT: 'This file has already been uploaded.',
             CURRENCY_REQUIRED:
                 'This statement never says which currency its figures are in, and this account has none set. Pick one in the Currency field.',
-            IMPORT_HOLDS_TRANSACTIONS: 'This import is being written into the ledger right now. Wait for it to finish, then it can be deleted.',
+            IMPORT_HOLDS_TRANSACTIONS:
+                'This import is being written into the ledger right now. Wait for it to finish, then it can be deleted.',
             READER_UNAVAILABLE:
                 'The service that reads statement files could not be reached, even after several tries. Try again in a few minutes.',
             READ_FAILED: 'Reading the statement stopped unexpectedly. Try again.',
@@ -724,7 +725,8 @@ export const en = {
             editHint: 'What money moving each way with this counterparty is.',
             forget: 'Forget',
             forgetTitle: 'Forget these counterparties?',
-            forgetHint: '{count} counterparties lose what was decided about them. Their transactions are not touched, and the next statement naming one writes it down again.',
+            forgetHint:
+                '{count} counterparties lose what was decided about them. Their transactions are not touched, and the next statement naming one writes it down again.',
             forgotten: '{count} counterparties forgotten.',
             willReplace: '{count} transactions already have an answer. Saving replaces it.',
             applyToAll: 'Apply to all {count}',
@@ -747,7 +749,8 @@ export const en = {
             editIn: 'What money arriving from this counterparty is.',
             editOut: 'What money going to this counterparty is.',
             category: 'Tax category',
-            categoryHelp: 'Applied to this counterparty’s transactions that nobody has answered yet. Answers already given are left alone.',
+            categoryHelp:
+                'Applied to this counterparty’s transactions that nobody has answered yet. Answers already given are left alone.',
             tags: 'Tags',
             noTags: 'No tags',
             ruleSaved: 'Saved. {count} transactions took the answer.',
@@ -860,7 +863,7 @@ export const en = {
             historyTitle: 'Imports',
             historyHint: 'Every statement imported for this taxpayer.',
             empty: 'No statements imported yet.',
-            steps: { file: 'File', columns: 'Columns', review: 'Review', done: 'Import' },
+            steps: { progress: 'Import progress', file: 'File', columns: 'Columns', review: 'Review', done: 'Import' },
             aiReasons: {
                 UNAVAILABLE: 'AI is off, or this taxpayer has not consented',
                 REFUSED: 'the provider refused the request or did not answer in time',
@@ -938,13 +941,16 @@ export const en = {
                 referenceOut: 'Bank reference (money out)',
                 referenceIn: 'Bank reference (money in)',
                 orHere: 'or here',
-                chainHint: 'A statement can name this in more than one place — a column for card payments, a detail line for transfers. Add the places in the order they should be tried.',
+                chainHint:
+                    'A statement can name this in more than one place — a column for card payments, a detail line for transfers. Add the places in the order they should be tried.',
                 addPlace: 'Add column',
                 placesFull: ':max of :max',
                 removePlace: 'Remove',
                 noPlace: 'Not in this file',
-                descriptionHint: 'A statement can split the text across columns. Name them in the order they should be tried — the first one with anything in it is used.',
-                referenceHint: 'The bank’s own number for the payment, which is what tells two identical payments apart. A place that just repeats the counterparty is skipped.',
+                descriptionHint:
+                    'A statement can split the text across columns. Name them in the order they should be tried — the first one with anything in it is used.',
+                referenceHint:
+                    'The bank’s own number for the payment, which is what tells two identical payments apart. A place that just repeats the counterparty is skipped.',
                 thenSeparator: ', then ',
                 referenceFallbackOut: 'Reference, second place (money out)',
                 referenceFallbackIn: 'Reference, second place (money in)',
@@ -981,7 +987,7 @@ export const en = {
                 unusable: 'This mapping reads only {parsed} of {total} rows. Check the date and amount columns.',
             },
             review: {
-                askAgain: 'Ask the AI again for rows without a suggestion',
+                askAgain: 'Ask again',
                 title: 'Go through the rows',
                 hint: 'Ticked rows will be imported. Rows already imported are unticked.',
                 statLines: 'Lines in the file',
@@ -999,6 +1005,7 @@ export const en = {
                 aiPartial:
                     'The model suggested categories and tags for {rows} rows, but {failed} of {calls} calls failed ({reasons}) — {missing} rows have no suggestion.',
                 aiRoundFailed: 'The suggestions could not run: {reason}.',
+                aiOff: 'Categories come from counterparties you have already answered.',
                 aiUnavailable: 'No model was asked: AI is off, or this taxpayer has not consented.',
                 aiNothing: 'Every row already had an answer, so the model was not needed.',
                 aiCalls: 'What was sent to the model, and what it replied',
@@ -1556,7 +1563,8 @@ export const en = {
             resent: 'A new code is on its way.',
             requiredNotice: 'This instance requires a confirmed email address before you can continue.',
             optionalNotice: 'You can confirm your address now, or carry on and do it later.',
-            undeliverable: 'This account has no email address on file, so no code can be sent. An administrator can confirm it for you.',
+            undeliverable:
+                'This account has no email address on file, so no code can be sent. An administrator can confirm it for you.',
             verifiedTitle: 'Address confirmed',
             verifiedBody: 'Thank you — this address is confirmed.',
             continueToApp: 'Continue',

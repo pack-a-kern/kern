@@ -85,7 +85,7 @@
     --color-ink-900: #182230;
     --color-ink-700: #344054;
     --color-ink-500: #667085;
-    --color-ink-400: #98A2B3;
+    --color-ink-400: #98a2b3;
 
     --color-accent-50: var(--brand-50);
     --color-accent-100: var(--brand-100);
@@ -167,39 +167,39 @@
 :root {
     /* The default palette, written out so the page is styled before `usePalette` runs. Overridden
        in place by the hook; never read a literal from here in a rule. */
-    --brand-50: #EDF2F6;
-    --brand-100: #DBE4EC;
-    --brand-200: #BBCCDB;
-    --brand-300: #96B0C7;
-    --brand-400: #6A8FB0;
-    --brand-500: #386A96;
-    --brand-600: #315D84;
-    --brand-700: #2A5071;
+    --brand-50: #edf2f6;
+    --brand-100: #dbe4ec;
+    --brand-200: #bbccdb;
+    --brand-300: #96b0c7;
+    --brand-400: #6a8fb0;
+    --brand-500: #386a96;
+    --brand-600: #315d84;
+    --brand-700: #2a5071;
     --brand-800: #244460;
-    --brand-900: #1D374E;
+    --brand-900: #1d374e;
     --brand-rgb: 56 106 150;
 
     --support: #667085;
-    --attention: #F59E0B;
-    --critical: #DC2626;
+    --attention: #f59e0b;
+    --critical: #dc2626;
 
-    --background: #F5F7F9;
+    --background: #f5f7f9;
     --foreground: #182230;
-    --shell: #FFFFFF;
-    --card: #FFFFFF;
+    --shell: #ffffff;
+    --card: #ffffff;
     --card-foreground: #182230;
-    --popover: #FFFFFF;
+    --popover: #ffffff;
     --popover-foreground: #182230;
     /* The deep end of the ramp, not a near-black: a primary button is the one place the brand
        should be unmistakable. */
     --primary: var(--brand-800);
-    --primary-foreground: #FFFFFF;
-    --secondary: #F1F4F7;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f4f7;
     --secondary-foreground: #344054;
     /* The table header's own ground. It is not `--secondary`: in dark that value is the hover
        grey, one step lighter, and a header lit like a hovered row reads as one. */
-    --table-head: #F1F4F7;
-    --muted: #F1F4F7;
+    --table-head: #f1f4f7;
+    --muted: #f1f4f7;
     /*
      * Secondary text follows the palette's own `support` colour — that is what a per-palette
      * support colour is for, and "blue identity, slate structure" only means anything if the
@@ -214,15 +214,15 @@
     --accent: var(--brand-50);
     --accent-foreground: var(--brand-700);
     --destructive: var(--critical);
-    --destructive-foreground: #FFFFFF;
+    --destructive-foreground: #ffffff;
     --success: oklch(0.5 0.11 155);
     --success-foreground: oklch(0.98 0.01 155);
     --warning: var(--attention);
-    --warning-foreground: #22180A;
+    --warning-foreground: #22180a;
     --info: var(--brand-600);
-    --info-foreground: #FFFFFF;
-    --border: #E7EBF0;
-    --input: #E7EBF0;
+    --info-foreground: #ffffff;
+    --border: #e7ebf0;
+    --input: #e7ebf0;
     --ring: var(--brand-600);
     /* Rounder than the original 0.375rem. Radius is fully token-derived, so this one value moves
        every panel, control and chip together. */
@@ -238,37 +238,37 @@
 .dark {
     /* Four distinct greys, not one with opacity: canvas, shell, card, hover. Depth here comes from
        surface separation rather than shadow, which barely reads on a dark ground. */
-    --background: #191A1C;
-    --foreground: #ECEEF0;
+    --background: #191a1c;
+    --foreground: #eceef0;
     --shell: #202225;
-    --card: #292B2F;
-    --card-foreground: #ECEEF0;
-    --popover: #2C2F33;
-    --popover-foreground: #ECEEF0;
+    --card: #292b2f;
+    --card-foreground: #eceef0;
+    --popover: #2c2f33;
+    --popover-foreground: #eceef0;
     /* The mid ramp, not the deep end: #244460 on a near-black ground reads as disabled. */
     --primary: var(--brand-500);
-    --primary-foreground: #FFFFFF;
-    --secondary: #33363B;
-    --secondary-foreground: #E2E4E7;
-    --table-head: #2F3135;
-    --muted: #33363B;
+    --primary-foreground: #ffffff;
+    --secondary: #33363b;
+    --secondary-foreground: #e2e4e7;
+    --table-head: #2f3135;
+    --muted: #33363b;
     /* Lifted toward white rather than the ground: on a dark surface `support` neat is too close to
        the background to read at all, which is the opposite failure from the light theme's. */
-    --muted-foreground: color-mix(in srgb, var(--support) 45%, #FFFFFF);
+    --muted-foreground: color-mix(in srgb, var(--support) 45%, #ffffff);
     /* The soft brand wash cannot be `--brand-50` here — it is almost white. Mixed against the card
        instead, so it stays a tint of the brand at any palette. */
     --accent: color-mix(in srgb, var(--brand-500) 16%, #202225);
     --accent-foreground: var(--brand-200);
     --destructive: color-mix(in srgb, var(--critical) 82%, white);
-    --destructive-foreground: #FFFFFF;
+    --destructive-foreground: #ffffff;
     --success: oklch(0.68 0.13 155);
     --success-foreground: oklch(0.14 0.02 155);
     --warning: color-mix(in srgb, var(--attention) 80%, white);
-    --warning-foreground: #1B1406;
+    --warning-foreground: #1b1406;
     --info: var(--brand-300);
-    --info-foreground: #12212E;
-    --border: #42464D;
-    --input: #474B52;
+    --info-foreground: #12212e;
+    --border: #42464d;
+    --input: #474b52;
     --ring: var(--brand-400);
     --elevation-hair: 0 1px 0 rgb(0 0 0 / 25%);
     --elevation-float: 0 1px 2px rgb(0 0 0 / 28%), 0 14px 34px rgb(0 0 0 / 22%);
@@ -417,7 +417,6 @@
     box-shadow: none;
     outline: none;
 }
-
 
 /* Inside a menu, the highlight *is* the focus indicator.
  *
@@ -796,11 +795,20 @@
  * Disabled controls take the opposite treatment rather than none: a pointer on something that will
  * not respond is a worse lie than no pointer at all.
  */
-:is(button, summary, input[type='checkbox'], input[type='radio'], [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option'], [role='tab'], [aria-haspopup='menu'], [aria-haspopup='listbox'], [aria-haspopup='dialog']):not(
-        :disabled,
-        [aria-disabled='true'],
-        [data-disabled]
-    ) {
+:is(
+    button,
+    summary,
+    input[type='checkbox'],
+    input[type='radio'],
+    [role='button'],
+    [role='menuitem'],
+    [role='menuitemradio'],
+    [role='option'],
+    [role='tab'],
+    [aria-haspopup='menu'],
+    [aria-haspopup='listbox'],
+    [aria-haspopup='dialog']
+):not(:disabled, [aria-disabled='true'], [data-disabled]) {
     cursor: pointer;
 }
 
@@ -810,11 +818,7 @@
 
 /* A label that drives a *toggle* is part of that control's hit area. Deliberately not every label:
    one wrapping a text field must keep the caret, or the subject search box stops looking typeable. */
-label:has(
-        input[type='checkbox']:not(:disabled),
-        input[type='radio']:not(:disabled),
-        select:not(:disabled)
-    ) {
+label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabled), select:not(:disabled)) {
     cursor: pointer;
 }
 
@@ -1059,7 +1063,6 @@ label:has(
     padding-left: 0.5rem;
     font-size: 13px;
 }
-
 
 /* A header control: the language, palette, theme and account buttons. A bordered 32px tile on the
    shell surface rather than a bare ghost button, so the cluster reads as one group of controls. */
@@ -1510,6 +1513,125 @@ label:has(
     box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
 }
 
+/* Where you are in a wizard, as dots and chevrons.
+ *
+ * The labels go first on a narrow screen, not the steps: four dots and three chevrons still say
+ * where you are and how much is left, while four labelled steps wrapped onto two lines and stopped
+ * reading as a sequence at all. */
+.step {
+    display: inline-flex;
+    height: 1.75rem;
+    align-items: center;
+    gap: 6px;
+    padding-inline: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+}
+
+.step-dot {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Done: filled, and carrying a tick rather than its number — the number is only useful while it is
+   still ahead of you. */
+.step-dot.step-done {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--info) 14%, transparent);
+    color: var(--info);
+}
+
+/* Current: lifted out of the track rather than filled, so it reads as the one you are on rather
+   than as another one finished. */
+.step-dot.step-now {
+    border-color: color-mix(in srgb, var(--info) 35%, transparent);
+    color: var(--info);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
+}
+
+.step-sep {
+    flex: none;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-inline: 4px;
+    color: var(--border);
+}
+
+@media (width < 48rem) {
+    .step-label {
+        display: none;
+    }
+
+    .step-sep {
+        margin-inline: 1px;
+    }
+}
+
+/* One line about where a screen's answers came from, with the control that changes it beside.
+ *
+ * A tinted strip rather than a loose sentence under a progress bar: it is a standing statement about
+ * the screen, not a result, and it reads as neither when it is set as body text between two panels.
+ * The mark on the left carries the state, which is what lets the sentence drop the words that would
+ * otherwise open it — "Suggestions are off." in front of the thing a reader actually needs. */
+.ai-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+    font-size: 12px;
+    color: var(--muted-foreground);
+}
+
+/* The decisions at the foot of a review, with the control that chooses what is under review.
+ *
+ * On a phone the filter is the widest of the three and takes its own line, while the two buttons
+ * share the one below — equal halves, because neither is a secondary action here, and stacking them
+ * spent two rows saying what one row says. On a wide screen all three sit together with the filter
+ * pushed left, which is the arrangement the space was going to waste otherwise. */
+.review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.review-actions > .review-action {
+    flex: 1 1 0;
+    justify-content: center;
+}
+
+.review-actions > .review-filter {
+    flex: 1 0 100%;
+    order: -1;
+}
+
+@media (width >= 48rem) {
+    .review-actions > .review-action {
+        flex: 0 0 auto;
+    }
+
+    /* Left, and the buttons take the right: `auto` on the one item is what separates the two groups
+       without a spacer element between them. */
+    .review-actions > .review-filter {
+        flex: 0 0 auto;
+        margin-right: auto;
+    }
+}
+
 /* Summary tiles above a listing. */
 .stat-grid {
     display: grid;
@@ -1906,6 +2028,43 @@ label:has(
     .data-table-stack td.col-wide {
         flex-basis: 100%;
         min-width: 0;
+    }
+    /* A transaction as a phone shows one: what it was and how much, then when, then the one
+       decision to make about it.
+
+       The date had the first line to itself and the amount was laid out after a two-line
+       description, so it came to rest halfway down the row against nothing, and the select that
+       followed took whatever width was left — a little over half, with the rest empty. Reading a
+       statement, the pair worth seeing together is the name and the figure; the date is what you
+       check second, which is where it now is.
+
+       `order` rather than reordered markup: the columns are right for the table this becomes again
+       at 640px, and the cells carry their own meaning in either arrangement. */
+    .data-table-stack td.row-name {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        font-weight: 500;
+    }
+    /* Top-aligned, not centred: the name beside it may run to three lines with its pills, and the
+       figure belongs on the first of them. */
+    .data-table-stack td.row-sum {
+        order: 1;
+        align-self: flex-start;
+        margin-left: auto;
+        padding-left: 10px;
+        font-weight: 600;
+    }
+    .data-table-stack td.row-when {
+        order: 2;
+        flex-basis: 100%;
+        font-size: 12px;
+        color: var(--muted-foreground);
+    }
+    /* The whole width: it is the only thing on the row anyone clicks. */
+    .data-table-stack td.row-pick {
+        order: 3;
+        flex-basis: 100%;
     }
     /* A labelled cell reads as one thing: the header row is gone on a phone, so the label travels
        with its control instead of sitting above it and leaving the column ragged. */

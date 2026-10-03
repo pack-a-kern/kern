@@ -568,7 +568,7 @@ export const ro = {
         transaction_date: 'Data tranzacției',
         confidence: 'Încredere',
         value_date: 'Data decontării',
-                counterparty: 'Contrapartidă',
+        counterparty: 'Contrapartidă',
         reference: 'Referință',
     },
     documentTypeUnknown: 'Neclasificat',
@@ -621,7 +621,8 @@ export const ro = {
             SUBJECT_CLOSED: 'Acest contribuabil este închis. Reactivați-l pentru a face modificări.',
             CURRENCY_REQUIRED:
                 'Acest extras nu spune nicăieri în ce monedă sunt sumele, iar contul nu are una setată. Alege una în câmpul Moneda.',
-            IMPORT_HOLDS_TRANSACTIONS: 'Importul se scrie chiar acum în registru. Așteaptă să se termine, apoi poate fi șters.',
+            IMPORT_HOLDS_TRANSACTIONS:
+                'Importul se scrie chiar acum în registru. Așteaptă să se termine, apoi poate fi șters.',
             READER_UNAVAILABLE:
                 'Serviciul care citește extrasele nu a putut fi contactat, nici după mai multe încercări. Încearcă din nou peste câteva minute.',
             READ_FAILED: 'Citirea extrasului s-a oprit neașteptat. Încearcă din nou.',
@@ -728,7 +729,8 @@ export const ro = {
             editHint: 'Ce sunt banii care circulă în fiecare sens cu această contrapartidă.',
             forget: 'Uită',
             forgetTitle: 'Uiți aceste contrapartide?',
-            forgetHint: '{count} contrapartide pierd ce s-a decis despre ele. Tranzacțiile rămân neatinse, iar următorul extras care le numește le scrie din nou.',
+            forgetHint:
+                '{count} contrapartide pierd ce s-a decis despre ele. Tranzacțiile rămân neatinse, iar următorul extras care le numește le scrie din nou.',
             forgotten: '{count} contrapartide uitate.',
             willReplace: '{count} tranzacții au deja un răspuns. Salvarea îl înlocuiește.',
             applyToAll: 'Aplică la toate ({count})',
@@ -751,7 +753,8 @@ export const ro = {
             editIn: 'Ce sunt banii primiți de la această contrapartidă.',
             editOut: 'Ce sunt banii trimiși către această contrapartidă.',
             category: 'Categorie fiscală',
-            categoryHelp: 'Se aplică tranzacțiilor acestei contrapartide care nu au încă un răspuns. Răspunsurile date rămân neatinse.',
+            categoryHelp:
+                'Se aplică tranzacțiilor acestei contrapartide care nu au încă un răspuns. Răspunsurile date rămân neatinse.',
             tags: 'Etichete',
             noTags: 'Fără etichete',
             ruleSaved: 'Salvat. {count} tranzacții au preluat răspunsul.',
@@ -864,7 +867,13 @@ export const ro = {
             historyTitle: 'Importuri',
             historyHint: 'Toate extrasele importate pentru acest contribuabil.',
             empty: 'Niciun extras importat încă.',
-            steps: { file: 'Fișier', columns: 'Coloane', review: 'Verificare', done: 'Import' },
+            steps: {
+                progress: 'Progresul importului',
+                file: 'Fișier',
+                columns: 'Coloane',
+                review: 'Verificare',
+                done: 'Import',
+            },
             aiReasons: {
                 UNAVAILABLE: 'AI este oprit sau contribuabilul nu și-a dat acordul',
                 REFUSED: 'furnizorul a refuzat cererea sau nu a răspuns la timp',
@@ -942,13 +951,16 @@ export const ro = {
                 referenceOut: 'Referință bancară (bani ieșiți)',
                 referenceIn: 'Referință bancară (bani intrați)',
                 orHere: 'sau aici',
-                chainHint: 'Un extras poate scrie asta în mai multe locuri — o coloană pentru plăți cu cardul, o linie de detaliu pentru transferuri. Adaugă locurile în ordinea în care să fie căutate.',
+                chainHint:
+                    'Un extras poate scrie asta în mai multe locuri — o coloană pentru plăți cu cardul, o linie de detaliu pentru transferuri. Adaugă locurile în ordinea în care să fie căutate.',
                 addPlace: 'Adaugă o coloană',
                 placesFull: ':max din :max',
                 removePlace: 'Șterge',
                 noPlace: 'Nu este în acest fișier',
-                descriptionHint: 'Un extras poate împărți textul în mai multe coloane. Numește-le în ordinea în care să fie încercate — se folosește prima care are ceva în ea.',
-                referenceHint: 'Numărul propriu al băncii pentru plată, cel care deosebește două plăți identice. Un loc care repetă contrapartida este sărit.',
+                descriptionHint:
+                    'Un extras poate împărți textul în mai multe coloane. Numește-le în ordinea în care să fie încercate — se folosește prima care are ceva în ea.',
+                referenceHint:
+                    'Numărul propriu al băncii pentru plată, cel care deosebește două plăți identice. Un loc care repetă contrapartida este sărit.',
                 thenSeparator: ', apoi ',
                 referenceFallbackOut: 'Referință, a doua sursă (ieșiri)',
                 referenceFallbackIn: 'Referință, a doua sursă (intrări)',
@@ -985,7 +997,7 @@ export const ro = {
                     'Această potrivire citește doar {parsed} din {total} rânduri. Verifică coloanele de dată și sumă.',
             },
             review: {
-                askAgain: 'Întreabă din nou AI-ul pentru rândurile fără propunere',
+                askAgain: 'Întreabă din nou',
                 title: 'Treci prin rânduri',
                 hint: 'Rândurile bifate vor fi importate. Cele deja importate sunt debifate.',
                 statLines: 'Linii în fișier',
@@ -1003,6 +1015,7 @@ export const ro = {
                 aiPartial:
                     'Modelul a propus categorii și etichete pentru {rows} rânduri, dar {failed} din {calls} apeluri au eșuat ({reasons}) — {missing} rânduri nu au nicio propunere.',
                 aiRoundFailed: 'Propunerile nu au putut rula: {reason}.',
+                aiOff: 'Categoriile vin de la contrapartidele la care ai răspuns deja.',
                 aiUnavailable: 'Niciun model nu a fost întrebat: AI este oprit sau contribuabilul nu și-a dat acordul.',
                 aiNothing: 'Toate rândurile aveau deja un răspuns, așa că modelul nu a fost necesar.',
                 aiCalls: 'Ce s-a trimis modelului și ce a răspuns',
@@ -1031,7 +1044,8 @@ export const ro = {
                 viewTransactions: 'Vezi tranzacțiile',
                 imported: 'Importate',
                 skipped: 'Sărite',
-                skippedHint: 'Rândurile sărite erau deja în acest cont — reimportarea aceluiași fișier nu adaugă nimic.',
+                skippedHint:
+                    'Rândurile sărite erau deja în acest cont — reimportarea aceluiași fișier nu adaugă nimic.',
                 undo: 'Anulează importul',
                 undone: 'Importul a fost anulat.',
                 undoTitle: 'Anulați importul?',
@@ -1563,7 +1577,8 @@ export const ro = {
             resent: 'Un cod nou este pe drum.',
             requiredNotice: 'Această instalare cere o adresă de e-mail confirmată înainte să poți continua.',
             optionalNotice: 'Poți confirma adresa acum sau poți continua și o confirmi mai târziu.',
-            undeliverable: 'Acest cont nu are o adresă de e-mail înregistrată, deci nu se poate trimite niciun cod. Un administrator o poate confirma în locul tău.',
+            undeliverable:
+                'Acest cont nu are o adresă de e-mail înregistrată, deci nu se poate trimite niciun cod. Un administrator o poate confirma în locul tău.',
             verifiedTitle: 'Adresă confirmată',
             verifiedBody: 'Mulțumim — această adresă este confirmată.',
             continueToApp: 'Continuă',

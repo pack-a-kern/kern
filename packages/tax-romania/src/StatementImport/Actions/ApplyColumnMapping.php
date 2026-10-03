@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\StatementImport\Actions;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Kern\Documents\Models\Document;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementForm;
 use Kern\TaxRomania\StatementImport\Enums\MappingSource;
@@ -190,11 +191,26 @@ final readonly class ApplyColumnMapping
          * statement's unanswered counterparties are usually a handful, and the review screen is
          * usable while they arrive. The job leaves every row it cannot answer alone.
          */
-        // The actor travels with it: the job reads this person's tags and remembered answers, and a
-        // queue worker has no one bound until it is told who.
-        $import->queueClassification();
+        /*
+         * Switched off: the round is recorded as over, here, rather than queued and discovered.
+         *
+         * `queueClassification()` writes a round with no outcome yet, which is what the review screen
+         * waits behind — so dispatching a job that would read this same setting and immediately
+         * record `TURNED_OFF` meant a person watched "waiting for suggestions" until a worker picked
+         * it up, to be told something this request already knew.
+         *
+         * The outcome recorded is the same one the job would have written, so nothing downstream can
+         * tell the difference; only the waiting is gone.
+         */
+        if (! $this->config->boolean('ai.statements.classification.enabled')) {
+            $import->startClassification((string) Str::uuid(), 0, 0, ProposeRowCategories::TURNED_OFF);
+        } else {
+            // The actor travels with it: the job reads this person's tags and remembered answers, and
+            // a queue worker has no one bound until it is told who.
+            $import->queueClassification();
 
-        ProposeRowCategories::dispatch($import->id, $actorId);
+            ProposeRowCategories::dispatch($import->id, $actorId);
+        }
 
         StatementImportChanged::dispatch($import->id, $import->tax_subject_id, $import->status);
 

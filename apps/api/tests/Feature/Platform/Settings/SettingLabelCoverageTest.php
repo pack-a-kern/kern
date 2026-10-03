@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Kern\Platform\Settings\Enums\SettingGroup;
 use Kern\Platform\Settings\Enums\SettingKey;
-use RuntimeException;
 
 /**
  * Every setting the API can return must have a label in every locale, and every label must name a

@@ -1,16 +1,21 @@
 import { Head, router } from '@inertiajs/react';
 import {
     ArrowDownLeft,
+    ArrowDownToLine,
     ArrowUpRight,
     ArrowRight,
+    Check,
     CalendarDays,
     CalendarRange,
     Coins,
     CheckCircle2,
+    Columns3,
+    ChevronRight,
     CopyCheck,
     Filter,
     Hash,
     Landmark,
+    Loader2,
     FileSpreadsheet,
     FileText,
     ListChecks,
@@ -18,6 +23,7 @@ import {
     Scale,
     Shapes,
     Sparkles,
+    TriangleAlert,
     Upload,
     Users,
     X,
@@ -857,31 +863,37 @@ export default function WalletImport(): JSX.Element {
 
                         <AiCalls classification={detail.preview.classification} />
 
-                        <div className="border-border flex flex-wrap justify-end gap-1.5 border-b px-4 py-3">
+                        {/* Which rows to show belongs with what to do about them, so the three controls
+                            share one bar: the filter takes the left on a wide screen and the two
+                            decisions stay right. On a phone the filter keeps its own line — it is the
+                            widest of the three — and the buttons sit side by side beneath it rather
+                            than stacked, which cost two rows to say what one row says. */}
+                        <div className="review-actions border-border border-b px-4 py-3">
                             <PanelButton
+                                className="review-action"
                                 onClick={() => {
                                     setRemapping(true);
                                 }}
                             >
+                                <Columns3 className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletImports.columns.change)}
                             </PanelButton>
                             <PanelButton
                                 primary
+                                className="review-action"
                                 disabled={working}
                                 onClick={() => {
                                     void commit();
                                 }}
                             >
+                                <ArrowDownToLine className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletImports.review.commit).replace(
                                     '{count}',
                                     String(detail.import.rowCount - detail.import.excludedCount),
                                 )}
                             </PanelButton>
-                        </div>
-
-                        <Toolbar>
                             <PanelSelect
-                                className="filter-select"
+                                className="filter-select review-filter"
                                 value={filter}
                                 placeholder={t((d) => d.pages.walletImports.review.all)}
                                 emptyLabel={t((d) => d.pages.walletImports.review.all)}
@@ -896,8 +908,12 @@ export default function WalletImport(): JSX.Element {
                                     { value: 'unanswered', label: t((d) => d.pages.walletImports.review.unanswered) },
                                 ]}
                             />
+                        </div>
 
-                            {selection.size === 0 ? null : (
+                        {/* Only once rows are picked: an empty bar under the actions said a control
+                            was coming and never arrived. */}
+                        {selection.size === 0 ? null : (
+                            <Toolbar>
                                 <>
                                     <span className="note">
                                         {t((d) => d.pages.walletImports.review.selected).replace(
@@ -958,8 +974,8 @@ export default function WalletImport(): JSX.Element {
                                         {t((d) => d.pages.walletImports.review.include)}
                                     </PanelButton>
                                 </>
-                            )}
-                        </Toolbar>
+                            </Toolbar>
+                        )}
 
                         <DataTable
                             stacked
@@ -991,10 +1007,8 @@ export default function WalletImport(): JSX.Element {
                                             aria-label={row.description}
                                         />
                                     </td>
-                                    <td className="col-primary whitespace-nowrap tabular-nums">
-                                        {row.bookedAt ?? '—'}
-                                    </td>
-                                    <td>
+                                    <td className="row-when whitespace-nowrap tabular-nums">{row.bookedAt ?? '—'}</td>
+                                    <td className="row-name">
                                         <div>{row.description}</div>
                                         {row.counterparty === null ? null : (
                                             <div className="note">{row.counterparty}</div>
@@ -1019,7 +1033,7 @@ export default function WalletImport(): JSX.Element {
                                         </div>
                                     </td>
                                     <td
-                                        className={`tabular-nums whitespace-nowrap${
+                                        className={`row-sum tabular-nums whitespace-nowrap${
                                             (row.amountMinor ?? 0) < 0 ? ' text-destructive' : ''
                                         }`}
                                     >
@@ -1027,7 +1041,7 @@ export default function WalletImport(): JSX.Element {
                                             ? '—'
                                             : formatMinor(row.amountMinor, row.currencyCode ?? '', locale)}
                                     </td>
-                                    <td>
+                                    <td className="row-pick">
                                         <PanelSelect
                                             searchable
                                             value={row.categoryCode ?? ''}
@@ -1347,30 +1361,35 @@ function Steps({ status }: { status: string | null }): JSX.Element {
     ];
 
     return (
-        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
-            {labels.map((label, index) => (
-                <li key={label} className="flex items-center gap-2">
-                    <span
-                        className={
-                            index < current
-                                ? 'bg-accent/20 text-accent flex size-5 items-center justify-center rounded-full'
-                                : index === current
-                                  ? 'bg-accent text-accent-foreground flex size-5 items-center justify-center rounded-full font-semibold'
-                                  : 'border-border text-muted-foreground flex size-5 items-center justify-center rounded-full border'
-                        }
-                        aria-hidden="true"
-                    >
-                        {index < current ? '✓' : String(index + 1)}
-                    </span>
-                    <span className={index === current ? 'font-semibold' : 'text-muted-foreground'}>{label}</span>
-                    {index === labels.length - 1 ? null : (
-                        <span className="text-muted-foreground/40" aria-hidden="true">
-                            ›
+        <nav aria-label={t((d) => d.pages.walletImports.steps.progress)}>
+            <ol className="flex items-center" role="list">
+                {labels.map((label, index) => (
+                    <li key={label} className="flex items-center">
+                        {/* The label is the first thing to go on a phone, not the step: four dots and
+                            three chevrons still say where you are and how far is left, where four
+                            labelled steps wrapped onto two lines and stopped reading as a sequence. */}
+                        <span className="step" aria-current={index === current ? 'step' : undefined}>
+                            <span
+                                className={
+                                    index < current
+                                        ? 'step-dot step-done'
+                                        : index === current
+                                          ? 'step-dot step-now'
+                                          : 'step-dot'
+                                }
+                                aria-hidden="true"
+                            >
+                                {index < current ? <Check className="size-3" /> : index + 1}
+                            </span>
+                            <span className={index === current ? 'step-label font-semibold' : 'step-label'}>
+                                {label}
+                            </span>
                         </span>
-                    )}
-                </li>
-            ))}
-        </ol>
+                        {index === labels.length - 1 ? null : <ChevronRight className="step-sep" aria-hidden="true" />}
+                    </li>
+                ))}
+            </ol>
+        </nav>
     );
 }
 
@@ -1657,9 +1676,12 @@ function ReviewOverview({
 
     const aiStatus =
         classification === null || classification.failure === 'TURNED_OFF'
-            ? // Turned off for this installation: no round ran, so there is nothing to report and
-              // nothing to ask again. A line saying a code nobody chose is worse than silence.
-              null
+            ? // Turned off for this installation. Silence was the earlier answer here, on the
+              // grounds that nobody needs telling about a setting they chose — but it left a review
+              // of blank categories with no account of itself, and "the model is thinking" and "no
+              // model will be asked" look identical from the chair. So it says which, and says where
+              // the answers that are filled in came from instead.
+              t((d) => d.pages.walletImports.review.aiOff)
             : classification.failure === 'UNAVAILABLE'
               ? t((d) => d.pages.walletImports.review.aiUnavailable)
               : classification.failure !== null
@@ -1709,19 +1731,39 @@ function ReviewOverview({
                     bar={current.rowCount === 0 ? null : answered / current.rowCount}
                 />
             </div>
-            {aiStatus === null ? null : (
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className={'text-sm' + (waiting ? ' motion-safe:animate-pulse' : '')}>{aiStatus}</p>
-                    {/* Offered whenever asking again could help: calls failed, the round did not run, or
-                        rows are still without a suggestion. Never while calls are still running. */}
-                    {waiting ||
-                    (failedCalls.length === 0 && classification?.failure === null && withoutSuggestion === 0) ? null : (
-                        <PanelButton onClick={onAskAgain}>
-                            {t((d) => d.pages.walletImports.review.askAgain)}
-                        </PanelButton>
-                    )}
-                </div>
-            )}
+            {/* A note rather than a loose sentence: it is one line about where the answers come
+                from, and the button beside it acts on exactly that. Always shown — every branch of
+                `aiStatus` says something, including the one for a round that was never going to run.
+
+                The mark carries the state, so the sentence does not have to open by naming it: a
+                tick where the round is done, a warning where it failed, a muted dot where nothing
+                was ever going to be asked. */}
+            <div className="ai-note mt-3">
+                {waiting ? (
+                    <Loader2 className="size-3.5 shrink-0 motion-safe:animate-spin" aria-hidden="true" />
+                ) : classification === null || classification.failure === 'TURNED_OFF' ? (
+                    <Sparkles className="size-3.5 shrink-0 opacity-60" aria-hidden="true" />
+                ) : classification.failure === null ? (
+                    <CheckCircle2 className="text-success size-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                    <TriangleAlert
+                        className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+                        aria-hidden="true"
+                    />
+                )}
+
+                <p className="min-w-0 flex-1">{aiStatus}</p>
+
+                {/* Offered whenever asking again could help: calls failed, the round did not run, or
+                    rows are still without a suggestion. Never while calls are still running. */}
+                {waiting ||
+                (failedCalls.length === 0 && classification?.failure === null && withoutSuggestion === 0) ? null : (
+                    <PanelButton inline onClick={onAskAgain}>
+                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.pages.walletImports.review.askAgain)}
+                    </PanelButton>
+                )}
+            </div>
         </div>
     );
 }
