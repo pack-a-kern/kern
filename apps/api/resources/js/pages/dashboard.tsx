@@ -173,7 +173,7 @@ export default function Dashboard(): JSX.Element {
 
                     {/* Where it is, as one bar: the question the four separate figures used to leave the
                         reader to work out by comparing numbers. */}
-                    <div className="bg-muted mt-5 flex h-2.5 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+                    <div className="bg-muted mt-5 flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
                         {groups.map((group) =>
                             shareOf(group.holding) === 0 ? null : (
                                 <div
@@ -324,9 +324,7 @@ export default function Dashboard(): JSX.Element {
                                                         {bank.code === null ? (
                                                             <Landmark className="size-3.5" />
                                                         ) : (
-                                                            <span className="text-[9px] font-bold tracking-wide">
-                                                                {bank.code}
-                                                            </span>
+                                                            <span className="badge-code">{bank.code}</span>
                                                         )}
                                                     </IconBadge>
                                                     <div className="min-w-0">
@@ -354,7 +352,7 @@ export default function Dashboard(): JSX.Element {
                                                     </div>
                                                     <div className="note">{perCurrency(bank.principal)}</div>
                                                     {Object.keys(bank.interestAtMaturity).length === 0 ? null : (
-                                                        <div className="text-success text-[10.5px]">
+                                                        <div className="text-success note-xs">
                                                             {t((d) => d.pages.walletOverview.plusInterest).replace(
                                                                 '{amount}',
                                                                 perCurrency(bank.interestAtMaturity),
@@ -416,7 +414,7 @@ export default function Dashboard(): JSX.Element {
                                                 {formatMinor(deposit.principalMinor, deposit.currencyCode, locale)}
                                             </div>
                                             {deposit.interestAtMaturityMinor === null ? null : (
-                                                <div className="text-success text-[10.5px]">
+                                                <div className="text-success note-xs">
                                                     {t((d) => d.pages.walletOverview.plusInterest).replace(
                                                         '{amount}',
                                                         formatMinor(
@@ -480,9 +478,7 @@ function CalendarTile({ isoDate, locale }: { isoDate: string; locale: string }):
     return (
         <div className="border-border bg-muted/60 flex w-11 shrink-0 flex-col items-center rounded-lg border py-1 leading-none">
             <span className="text-base font-bold tabular-nums">{part({ day: 'numeric' })}</span>
-            <span className="text-muted-foreground mt-0.5 text-[10px] uppercase">
-                {part({ month: 'short' }).replace('.', '')}
-            </span>
+            <span className="eyebrow mt-0.5">{part({ month: 'short' }).replace('.', '')}</span>
         </div>
     );
 }

@@ -20,14 +20,13 @@ export const ro = {
         spv: 'SPV',
         accountGroup: 'Contul meu',
         settingsSubjects: 'Contribuabili',
-        logs: 'Jurnale',
         adminGroup: 'Administrare',
         adminSettings: 'Setări sistem',
         taxRules: 'Reguli fiscale',
         adminUsers: 'Utilizatori și roluri',
-        adminOperations: 'Operațiuni',
-        adminJobs: 'Joburi',
-        adminAudit: 'Jurnal de audit',
+        adminOperations: 'Sarcini programate',
+        adminJobs: 'Coadă',
+        adminAudit: 'Audit',
     },
     shell: {
         appTagline: 'Sistem de operare fiscal',
@@ -127,6 +126,7 @@ export const ro = {
     pagination: {
         range: '{first}–{last} din {total} {unit}',
         rows: 'Rânduri',
+        pageOf: 'Pagina {page} din {total}',
         nav: 'paginare',
         next: 'Următor',
         previous: 'Anterior',
@@ -2256,6 +2256,9 @@ export const ro = {
             },
         },
         adminOperations: {
+            title: 'Sarcini programate',
+            description:
+                'Comenzile de întreținere, când e scadentă fiecare și fiecare rulare făcută — cu ce a raportat înapoi.',
             forbidden: 'Nu aveți drepturi de administrare pentru operațiuni.',
             loadFailed: 'Starea operațiunilor nu a putut fi încărcată.',
             tasks: {
@@ -2347,6 +2350,9 @@ export const ro = {
             confirm: 'Confirmă',
         },
         adminJobs: {
+            title: 'Coadă',
+            description:
+                'Ce face mașina chiar acum, citit live din Horizon: lucru în așteptare, lucru terminat și lucru care a eșuat și poate fi reîncercat.',
             forbidden: 'Nu aveți drepturi de administrare pentru coada de lucru.',
             loadFailed: 'Coada de lucru nu a putut fi încărcată.',
             unavailable: 'Horizon nu poate fi interogat. Contoarele sunt necunoscute, nu zero.',
@@ -2408,17 +2414,10 @@ export const ro = {
             cancel: 'Renunță',
             confirm: 'Confirmă',
         },
-        logs: {
-            title: 'Jurnale',
-            description:
-                'Tot ce înregistrează această instalare despre sine: urma de audit, coada de lucru și rulările sarcinilor de întreținere.',
-            tabs: {
-                audit: 'Audit',
-                jobs: 'Joburi',
-                tasks: 'Sarcini',
-            },
-        },
         adminAudit: {
+            title: 'Audit',
+            description:
+                'Înregistrarea cu adăugare continuă, înlănțuită prin hash, a cine ce a făcut cu datele contribuabilului. Probe, păstrate ca să poată fi verificate, nu crezute pe cuvânt.',
             forbidden: 'Nu aveți drepturi de administrare pentru jurnalul de audit.',
             loadFailed: 'Jurnalul nu a putut fi încărcat.',
             empty: 'Niciun eveniment pentru filtrele alese.',

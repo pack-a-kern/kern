@@ -10,7 +10,7 @@ describe('useRememberedState', () => {
     });
 
     it('comes back with the value a screen was left on', () => {
-        const first = renderHook(() => useRememberedState<string>('logs.tab', 'audit'));
+        const first = renderHook(() => useRememberedState<string>('audit.range', 'audit'));
 
         act(() => {
             first.result.current[1]('tasks');
@@ -18,7 +18,7 @@ describe('useRememberedState', () => {
         first.unmount();
 
         // A refresh, or a visit to another screen and back.
-        const again = renderHook(() => useRememberedState<string>('logs.tab', 'audit'));
+        const again = renderHook(() => useRememberedState<string>('audit.range', 'audit'));
 
         expect(again.result.current[0]).toBe('tasks');
     });
@@ -54,7 +54,7 @@ describe('useRememberedState', () => {
     });
 
     it('leaves nothing behind once a value is back at its default', () => {
-        const { result } = renderHook(() => useRememberedState<string>('logs.tab', 'audit'));
+        const { result } = renderHook(() => useRememberedState<string>('audit.range', 'audit'));
 
         act(() => {
             result.current[1]('jobs');
@@ -63,7 +63,7 @@ describe('useRememberedState', () => {
             result.current[1]('audit');
         });
 
-        expect(window.localStorage.getItem('kern.view.logs.tab')).toBeNull();
+        expect(window.localStorage.getItem('kern.view.audit.range')).toBeNull();
     });
 });
 

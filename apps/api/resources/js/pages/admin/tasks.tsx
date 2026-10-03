@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import AppShell from '../../components/AppShell';
 import { CalendarClock, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,6 +14,7 @@ import {
     Detail,
     DetailList,
     Field,
+    Page,
     Panel,
     PanelButton,
     PanelDialog,
@@ -56,7 +58,7 @@ import type { OperationTaskView, OperationsOverview, TaskRun } from '../../types
  * ledger is opened one task at a time, where the exit code and the console output are the answer to
  * a question actually being asked.
  */
-export default function AdminOperations(): JSX.Element {
+function AdminOperationsBody(): JSX.Element {
     const { t } = useTranslation();
 
     const [overview, setOverview] = useState<OperationsOverview | null>(null);
@@ -185,8 +187,8 @@ export default function AdminOperations(): JSX.Element {
     };
 
     if (forbidden) {
-        // Inline, not a whole-page refusal: the other tabs on this screen may well be readable, and
-        // replacing all of them because one permission is missing hides what the person can see.
+        // Just the body: the frame around it comes from the default export, so a refusal still
+        // arrives with the heading that says what was refused and the navigation to leave by.
         return <p className="note p-4">{t((d) => d.pages.adminOperations.forbidden)}</p>;
     }
 
@@ -667,5 +669,25 @@ function TableSkeleton(): JSX.Element {
                 <Skeleton key={index} className="tile h-9 w-full" />
             ))}
         </div>
+    );
+}
+
+/**
+ * The screen, framed.
+ *
+ * Its own page rather than one of three tabs: these three records were kept together because the
+ * question "what happened" does not say which table holds the answer, but two of them answered it
+ * by *doing* something — retrying a job, running a task — and one is a read-only chain of evidence.
+ * They are in the navigation now, where a person can see all three without opening any.
+ */
+export default function AdminTasks(): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <AppShell>
+            <Page title={t((d) => d.pages.adminOperations.title)} lede={t((d) => d.pages.adminOperations.description)}>
+                <AdminOperationsBody />
+            </Page>
+        </AppShell>
     );
 }

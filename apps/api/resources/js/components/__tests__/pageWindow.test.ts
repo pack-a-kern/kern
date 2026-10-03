@@ -21,15 +21,40 @@ describe('pageWindow', () => {
         expect(pageWindow(50, 100)).toEqual([1, null, 49, 50, 51, null, 100]);
     });
 
-    it('does not draw a gap where there is nothing to hide', () => {
-        // Page 2 of 100: 1 and 2 are adjacent, so a "…" between them would stand for no pages.
-        expect(pageWindow(2, 100)).toEqual([1, 2, 3, null, 100]);
-        expect(pageWindow(99, 100)).toEqual([1, null, 98, 99, 100]);
+    it('spends the run on reachable pages at either end', () => {
+        // Near an end there is nothing to collapse on that side, so the slots the gap would have
+        // taken go to pages instead of leaving the control narrower than it is in the middle.
+        expect(pageWindow(2, 100)).toEqual([1, 2, 3, 4, 5, null, 100]);
+        expect(pageWindow(99, 100)).toEqual([1, null, 96, 97, 98, 99, 100]);
     });
 
-    it('never grows past seven slots, however many pages there are', () => {
+    it('never draws a gap standing for no pages', () => {
+        for (const total of [8, 9, 50, 1000]) {
+            for (const page of [1, 2, 3, 4, 5, total - 4, total - 1, total]) {
+                const window = pageWindow(page, total);
+
+                window.forEach((entry, index) => {
+                    if (entry !== null) {
+                        return;
+                    }
+
+                    const before = window[index - 1];
+                    const after = window[index + 1];
+
+                    // A gap earns its place only where it hides at least one page.
+                    expect(before).not.toBeNull();
+                    expect(after).not.toBeNull();
+                    expect((after as number) - (before as number)).toBeGreaterThan(1);
+                });
+            }
+        }
+    });
+
+    it('is the same width wherever you are, once there is anything to collapse', () => {
         for (const total of [8, 50, 1000, 99999]) {
-            expect(pageWindow(Math.ceil(total / 2), total).length).toBeLessThanOrEqual(7);
+            for (const page of [1, 2, 5, Math.ceil(total / 2), total - 1, total]) {
+                expect(pageWindow(page, total)).toHaveLength(7);
+            }
         }
     });
 });

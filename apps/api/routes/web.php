@@ -125,11 +125,17 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/admin/users', fn () => Inertia::render('admin/users'))->name('admin.users');
 
     /*
-     * The audit trail, the queue and the task ledger, on one screen with three tabs.
+     * The audit trail, at the root rather than under `/admin`.
      *
-     * At the root rather than under `/admin`, because "what happened" is a question asked far more
-     * often than anything on the administration screens, and it is answered by reading rather than
-     * by changing configuration. Each tab still checks its own permission server-side.
+     * "What happened" is a question asked far more often than anything on the administration
+     * screens, and it is answered by reading rather than by changing configuration. The queue and
+     * the task ledger shared this screen until both turned out to answer it by acting — retrying a
+     * job, running a task — which is administration whatever the question that led there.
+     *
+     * Each screen still checks its own permission server-side; the navigation hides a row it knows
+     * is refused, which is a courtesy and not the gate.
      */
-    Route::get('/logs', fn () => Inertia::render('logs'))->name('logs');
+    Route::get('/audit', fn () => Inertia::render('audit'))->name('audit');
+    Route::get('/admin/jobs', fn () => Inertia::render('admin/jobs'))->name('admin.jobs');
+    Route::get('/admin/tasks', fn () => Inertia::render('admin/tasks'))->name('admin.tasks');
 });

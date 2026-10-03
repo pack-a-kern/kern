@@ -20,14 +20,13 @@ export const en = {
         spv: 'SPV',
         accountGroup: 'My account',
         settingsSubjects: 'Taxpayers',
-        logs: 'Logs',
         adminGroup: 'Administration',
         adminSettings: 'System settings',
         taxRules: 'Tax rules',
         adminUsers: 'Users & roles',
-        adminOperations: 'Operations',
-        adminJobs: 'Jobs',
-        adminAudit: 'Audit log',
+        adminOperations: 'Scheduled tasks',
+        adminJobs: 'Queue',
+        adminAudit: 'Audit',
     },
     shell: {
         appTagline: 'Fiscal operating system',
@@ -127,6 +126,7 @@ export const en = {
     pagination: {
         range: '{first}–{last} of {total} {unit}',
         rows: 'Rows',
+        pageOf: 'Page {page} of {total}',
         nav: 'pagination',
         next: 'Next',
         previous: 'Previous',
@@ -2231,6 +2231,9 @@ export const en = {
             },
         },
         adminOperations: {
+            title: 'Scheduled tasks',
+            description:
+                'The maintenance commands, when each is due, and every run it has made — with what it reported back.',
             forbidden: 'You do not have administrator access to operations.',
             loadFailed: 'The operations status could not be loaded.',
             tasks: {
@@ -2321,6 +2324,9 @@ export const en = {
             confirm: 'Confirm',
         },
         adminJobs: {
+            title: 'Queue',
+            description:
+                'What the machine is doing right now, read live from Horizon: work waiting, work finished, and work that failed and can be tried again.',
             forbidden: 'You do not have administrator access to the queue.',
             loadFailed: 'The queue could not be loaded.',
             unavailable: 'Horizon cannot be reached. The counters are unknown, not zero.',
@@ -2382,17 +2388,10 @@ export const en = {
             cancel: 'Cancel',
             confirm: 'Confirm',
         },
-        logs: {
-            title: 'Logs',
-            description:
-                'Everything this installation records about itself: the audit trail, the work queue, and maintenance task runs.',
-            tabs: {
-                audit: 'Audit',
-                jobs: 'Jobs',
-                tasks: 'Tasks',
-            },
-        },
         adminAudit: {
+            title: 'Audit',
+            description:
+                'The append-only, hash-chained record of who did what to taxpayer data. Evidence, kept so that it can be checked rather than trusted.',
             forbidden: 'You do not have administrator access to the audit log.',
             loadFailed: 'The audit log could not be loaded.',
             empty: 'No events match these filters.',

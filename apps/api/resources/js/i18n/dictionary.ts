@@ -29,7 +29,6 @@ export interface Dictionary {
         spv: string;
         accountGroup: string;
         settingsSubjects: string;
-        logs: string;
         adminGroup: string;
         adminSettings: string;
         taxRules: string;
@@ -114,6 +113,8 @@ export interface Dictionary {
         loadingMore: string;
     };
     pagination: {
+        /** `{page}` and `{total}` are substituted. Shown where numbers do not fit. */
+        pageOf: string;
         nav: string;
         next: string;
         previous: string;
@@ -1936,6 +1937,9 @@ export interface Dictionary {
             };
         };
         adminOperations: {
+            /** The screen's own heading and the line under it. */
+            title: string;
+            description: string;
             forbidden: string;
             loadFailed: string;
             tasks: {
@@ -1993,6 +1997,9 @@ export interface Dictionary {
          * the six maintenance tasks. Neither ever contains the other.
          */
         adminJobs: {
+            /** The screen's own heading and the line under it. */
+            title: string;
+            description: string;
             forbidden: string;
             loadFailed: string;
             unavailable: string;
@@ -2044,16 +2051,10 @@ export interface Dictionary {
             confirm: string;
         };
         /** The audit trail, the queue and the task ledger — one screen, three tabs. */
-        logs: {
+        adminAudit: {
+            /** The screen's own heading and the line under it. */
             title: string;
             description: string;
-            tabs: {
-                audit: string;
-                jobs: string;
-                tasks: string;
-            };
-        };
-        adminAudit: {
             forbidden: string;
             loadFailed: string;
             empty: string;

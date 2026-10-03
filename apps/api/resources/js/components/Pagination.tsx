@@ -18,34 +18,26 @@ export const PAGE_SIZES = [10, 25, 50, 100] as const;
 /**
  * The page numbers to draw, with `null` standing for a gap.
  *
- * Always first and last, plus a window around the current page — so the ends stay reachable in one
- * click and the control never grows past seven slots. Below eight pages there is nothing to
- * collapse and every number is shown.
+ * Seven slots, always, once there is anything to collapse: first and last are always reachable in
+ * one click, and the rest is a run around where you are. A window of the current page ± 1 was
+ * narrower near the ends — page 2 of 100 drew four slots and page 50 drew seven — so the control
+ * changed width as you paged through it and the numbers moved under the cursor. At the ends the run
+ * is spent on the five pages you can actually reach from there instead.
  */
 export function pageWindow(current: number, total: number): (number | null)[] {
     if (total <= 7) {
         return Array.from({ length: total }, (_, index) => index + 1);
     }
 
-    const from = Math.max(2, current - 1);
-    const to = Math.min(total - 1, current + 1);
-    const pages: (number | null)[] = [1];
-
-    if (from > 2) {
-        pages.push(null);
+    if (current <= 4) {
+        return [1, 2, 3, 4, 5, null, total];
     }
 
-    for (let page = from; page <= to; page += 1) {
-        pages.push(page);
+    if (current >= total - 3) {
+        return [1, null, total - 4, total - 3, total - 2, total - 1, total];
     }
 
-    if (to < total - 1) {
-        pages.push(null);
-    }
-
-    pages.push(total);
-
-    return pages;
+    return [1, null, current - 1, current, current + 1, null, total];
 }
 
 export default function Pagination(props: {
@@ -90,10 +82,12 @@ export default function Pagination(props: {
                         .replace('{unit}', props.unit)}
                 </span>
 
+                {/* Shown on a phone too: it was hidden there, which left the one screen where a
+                    shorter page helps most unable to ask for one. */}
                 {props.onPageSizeChange !== null && (
                     <>
                         <span className="hidden opacity-50 sm:inline">•</span>
-                        <label className="hidden items-center gap-1.5 sm:flex">
+                        <label className="flex items-center gap-1.5">
                             <span>{t((d) => d.pagination.rows)}</span>
                             <select
                                 value={props.pageSize}
@@ -113,58 +107,96 @@ export default function Pagination(props: {
                 )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <div className="flex items-center gap-1">
-                    {pageWindow(props.page, totalPages).map((entry, index) =>
-                        entry === null ? (
-                            <span
-                                key={`gap-${String(index)}`}
-                                className="text-muted-foreground grid size-8 place-items-center text-[10px]"
-                            >
-                                …
-                            </span>
-                        ) : (
-                            <button
-                                key={entry}
-                                type="button"
-                                aria-current={entry === props.page ? 'page' : undefined}
-                                onClick={() => {
-                                    props.onPageChange(entry);
-                                }}
-                                className={cn('pager-page', entry === props.page && 'pager-page-current')}
-                            >
-                                {format(entry)}
-                            </button>
-                        ),
-                    )}
-                </div>
+            {/* Only once there is somewhere to go. A single page drew a `1` between two dead arrows
+                — navigation for a list that has none — which was quiet enough to live with while it
+                was a small button and is not once it is a bar across the screen.
 
-                <div className="border-border bg-card inline-flex overflow-hidden rounded-xl border">
-                    <button
-                        type="button"
-                        className="pager-step"
-                        disabled={props.page <= 1}
-                        aria-label={t((d) => d.pagination.previous)}
-                        onClick={() => {
-                            props.onPageChange(props.page - 1);
-                        }}
-                    >
-                        <ChevronLeft className="size-3.5" />
-                    </button>
-                    <div className="bg-border w-px" />
-                    <button
-                        type="button"
-                        className="pager-step"
-                        disabled={props.page >= totalPages}
-                        aria-label={t((d) => d.pagination.next)}
-                        onClick={() => {
-                            props.onPageChange(props.page + 1);
-                        }}
-                    >
-                        <ChevronRight className="size-3.5" />
-                    </button>
-                </div>
-            </div>
+                Two controls, not one made responsive: a phone gets a bar it can be thumbed through,
+                a wide screen gets the numbers. Numbered pages squeezed onto 390px were 24px targets
+                with no room between them, and the page you wanted was never the one you hit. */}
+            {totalPages <= 1 ? null : (
+                <nav className="pager-nav" aria-label={t((d) => d.pagination.nav)}>
+                    <div className="pager-group pager-mobile">
+                        <button
+                            type="button"
+                            className="pager-step"
+                            disabled={props.page <= 1}
+                            aria-label={t((d) => d.pagination.previous)}
+                            onClick={() => {
+                                props.onPageChange(props.page - 1);
+                            }}
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                        <span className="pager-where">
+                            {t((d) => d.pagination.pageOf)
+                                .replace('{page}', format(props.page))
+                                .replace('{total}', format(totalPages))}
+                        </span>
+                        <button
+                            type="button"
+                            className="pager-step"
+                            disabled={props.page >= totalPages}
+                            aria-label={t((d) => d.pagination.next)}
+                            onClick={() => {
+                                props.onPageChange(props.page + 1);
+                            }}
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                    </div>
+
+                    <div className="pager-group pager-wide">
+                        <button
+                            type="button"
+                            className="pager-step"
+                            disabled={props.page <= 1}
+                            aria-label={t((d) => d.pagination.previous)}
+                            onClick={() => {
+                                props.onPageChange(props.page - 1);
+                            }}
+                        >
+                            <ChevronLeft className="size-3.5" />
+                        </button>
+
+                        {pageWindow(props.page, totalPages).map((entry, index) =>
+                            entry === null ? (
+                                <span
+                                    key={`gap-${String(index)}`}
+                                    className="pager-gap"
+                                    aria-label={t((d) => d.pagination.morePages)}
+                                >
+                                    …
+                                </span>
+                            ) : (
+                                <button
+                                    key={entry}
+                                    type="button"
+                                    aria-current={entry === props.page ? 'page' : undefined}
+                                    onClick={() => {
+                                        props.onPageChange(entry);
+                                    }}
+                                    className={cn('pager-page', entry === props.page && 'pager-page-current')}
+                                >
+                                    {format(entry)}
+                                </button>
+                            ),
+                        )}
+
+                        <button
+                            type="button"
+                            className="pager-step"
+                            disabled={props.page >= totalPages}
+                            aria-label={t((d) => d.pagination.next)}
+                            onClick={() => {
+                                props.onPageChange(props.page + 1);
+                            }}
+                        >
+                            <ChevronRight className="size-3.5" />
+                        </button>
+                    </div>
+                </nav>
+            )}
         </>
     );
 }

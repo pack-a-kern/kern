@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { ScrollTextIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getAuditSummary, listAuditEvents } from '../../api/auditApi';
+import { getAuditSummary, listAuditEvents } from '../api/auditApi';
 import {
     DataTable,
     Detail,
     DetailList,
+    Page,
     Panel,
     PanelButton,
     PanelSelect,
@@ -16,15 +17,16 @@ import {
     StatGrid,
     Status,
     Toolbar,
-} from '../../components/panel';
-import Pagination from '../../components/Pagination';
-import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
-import { Skeleton } from '../../components/ui/skeleton';
-import { useTranslation } from '../../i18n';
-import { describeApiFailure } from '../../lib/apiErrors';
-import { ApiError } from '../../lib/http';
-import type { AuditEvent, AuditSummary } from '../../types/audit';
+} from '../components/panel';
+import AppShell from '../components/AppShell';
+import Pagination from '../components/Pagination';
+import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedState';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { Skeleton } from '../components/ui/skeleton';
+import { useTranslation } from '../i18n';
+import { describeApiFailure } from '../lib/apiErrors';
+import { ApiError } from '../lib/http';
+import type { AuditEvent, AuditSummary } from '../types/audit';
 
 /** Time ranges offered by the filter, as hours back from now. `null` is "everything". */
 const RANGES: Array<{ key: string; hours: number | null }> = [
@@ -47,7 +49,7 @@ const RANGES: Array<{ key: string; hours: number | null }> = [
  * The integrity figure is a real re-verification: the server walks each chain and recomputes every
  * hash on request. A tamper-evidence indicator that reads a stored flag is evidence of nothing.
  */
-export default function AdminAudit(): JSX.Element {
+function AdminAuditBody(): JSX.Element {
     const { t } = useTranslation();
 
     const [summary, setSummary] = useState<AuditSummary | null>(null);
@@ -55,7 +57,7 @@ export default function AdminAudit(): JSX.Element {
     const [total, setTotal] = useState(0);
     // Remembered, with the filters below: coming back to the trail lands on the page and the filters
     // it was left on. A page past the end is clamped by the server, as it already is after a filter.
-    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('logs.audit');
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('audit');
     /*
      * The window this run of paging is frozen to.
      *
@@ -68,9 +70,9 @@ export default function AdminAudit(): JSX.Element {
     const [forbidden, setForbidden] = useState(false);
     const [selected, setSelected] = useState<AuditEvent | null>(null);
 
-    const [search, setSearch] = useRememberedState<string>('logs.audit.search', '');
-    const [eventType, setEventType] = useRememberedState<string>('logs.audit.eventType', '');
-    const [range, setRange] = useRememberedState<string>('logs.audit.range', 'h24', {
+    const [search, setSearch] = useRememberedState<string>('audit.search', '');
+    const [eventType, setEventType] = useRememberedState<string>('audit.eventType', '');
+    const [range, setRange] = useRememberedState<string>('audit.range', 'h24', {
         isValid: (value) => RANGES.some((entry) => entry.key === value),
     });
 
@@ -173,8 +175,8 @@ export default function AdminAudit(): JSX.Element {
     };
 
     if (forbidden) {
-        // Inline, not a whole-page refusal: the other tabs on this screen may well be readable, and
-        // replacing all of them because one permission is missing hides what the person can see.
+        // Just the body: the frame around it comes from the default export, so a refusal still
+        // arrives with the heading that says what was refused and the navigation to leave by.
         return <p className="note p-4">{t((d) => d.pages.adminAudit.forbidden)}</p>;
     }
 
@@ -429,5 +431,25 @@ export default function AdminAudit(): JSX.Element {
                 </SheetContent>
             </Sheet>
         </>
+    );
+}
+
+/**
+ * The screen, framed.
+ *
+ * Its own page rather than one of three tabs: these three records were kept together because the
+ * question "what happened" does not say which table holds the answer, but two of them answered it
+ * by *doing* something — retrying a job, running a task — and one is a read-only chain of evidence.
+ * They are in the navigation now, where a person can see all three without opening any.
+ */
+export default function Audit(): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <AppShell>
+            <Page title={t((d) => d.pages.adminAudit.title)} lede={t((d) => d.pages.adminAudit.description)}>
+                <AdminAuditBody />
+            </Page>
+        </AppShell>
     );
 }

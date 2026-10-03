@@ -1363,6 +1363,22 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     color: var(--muted-foreground);
 }
 
+/* A note a size below `.note`, for a line that hangs off a figure — "+ 240,00 RON interest" under a
+   deposit's principal. Sets size and nothing else, so the colour that gives it its meaning stays
+   with the element: these are green where they are good news and muted where they are not. */
+.note-xs {
+    font-size: 10.5px;
+    line-height: 1.45;
+}
+
+/* A short code standing in for an icon inside a badge — a bank's three letters where there is no
+   mark to draw. Small and heavy, because it has to read as a symbol at the size an icon would be. */
+.badge-code {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+}
+
 /* Read-mostly value tile. */
 .metric {
     border-radius: var(--radius-xl);
@@ -2545,16 +2561,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     color: var(--destructive);
 }
 
-/* Pager under a listing: position on the left, controls on the right. */
-.pager {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 12px;
-    border-top: 1px solid var(--border);
-}
-
 /* A field the server rejected: the control's edge says so, wherever that edge lives. */
 .field-invalid .ctl,
 .field-invalid .input-group {
@@ -2634,15 +2640,43 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  * Deliberately not on `--ctl-h`: these are squares, and tying the height to the control token
  * without the width would turn them into rectangles the first time that token changes. They sit in a
  * card footer on their own, not on a row with selects, so nothing needs them to agree. */
+/* The pager's controls, as one segmented group rather than a row of loose buttons.
+ *
+ * Prev, the numbers and next share a single border with hairlines between them, so the control
+ * reads as one thing you move through. As separate boxes they read as three decisions, and the
+ * gap between the numbers and the arrows was the easiest place to click nothing at all. */
+.pager-nav {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.pager-group {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+}
+
+/* Hairlines between the segments, drawn by each item rather than by spacer elements, so the group
+   stays a flex row of controls and nothing has to be inserted between them. */
+.pager-group > * + * {
+    border-left: 1px solid var(--border);
+}
+
 .pager-page {
     display: grid;
     height: 2rem;
-    width: 2rem;
+    min-width: 2rem;
     place-items: center;
-    border-radius: var(--radius-lg);
+    padding-inline: 6px;
     font-size: 10px;
     font-weight: 600;
     color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
     transition:
         background-color 0.12s ease,
         color 0.12s ease;
@@ -2653,16 +2687,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     color: var(--foreground);
 }
 
-/* The current page is marked with the brand, like the active nav row — one idea, used twice. */
+/* The current page carries a bar on its own edge rather than a filled block: inside a segmented
+   group a filled cell reads as a pressed button, which invites a second press on the page you are
+   already looking at. */
 .pager-page.pager-page-current {
-    background: var(--accent);
-    color: var(--accent-foreground);
+    background: color-mix(in srgb, var(--info) 9%, transparent);
+    color: var(--info);
+    box-shadow: inset 0 -2px 0 var(--info);
+}
+
+.pager-gap {
+    display: grid;
+    height: 2rem;
+    min-width: 1.75rem;
+    place-items: center;
+    font-size: 10px;
+    color: var(--muted-foreground);
 }
 
 .pager-step {
     display: grid;
     height: 2rem;
     width: 2rem;
+    flex: none;
     place-items: center;
     color: var(--muted-foreground);
     transition:
@@ -2677,6 +2724,46 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 
 .pager-step:disabled {
     opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* Where you are, when there is no room to show it as numbers. */
+.pager-where {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 12px;
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* One of the two is always hidden. The phone's is full width and 44px tall — a thumb's target,
+   and the row it sits on holds nothing else to crowd. */
+.pager-mobile {
+    width: 100%;
+}
+
+.pager-mobile .pager-step {
+    height: 2.75rem;
+    width: 2.75rem;
+}
+
+.pager-wide {
+    display: none;
+}
+
+@media (width >= 40rem) {
+    .pager-mobile {
+        display: none;
+    }
+
+    .pager-wide {
+        display: flex;
+    }
 }
 
 /* A status marker inside a select — trigger and option. Takes its colour from the text colour it

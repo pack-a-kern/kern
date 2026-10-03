@@ -13,6 +13,7 @@ import {
     Files,
     Gavel,
     LayoutDashboard,
+    ListTodo,
     Landmark,
     LogOut,
     Menu,
@@ -127,8 +128,13 @@ const ACCOUNT_GROUP: NavLink = {
 };
 
 /* Above the administration group, not inside it: reading what happened is not administering the
-   installation, and the people who do the first outnumber the people who do the second. */
-const LOGS_ITEM: NavLink = { href: '/logs', label: (d) => d.nav.logs, icon: ScrollText };
+   installation, and the people who do the first outnumber the people who do the second.
+
+   Alone here now. The queue and the scheduled tasks used to share a screen with it, on the grounds
+   that "what happened" does not say which table holds the answer — but both of those answer it by
+   doing something, retrying a job or running a task, and this one is a chain of evidence nobody can
+   write to. Reading and doing are what separate them, so the two that act moved to administration. */
+const AUDIT_ITEM: NavLink = { href: '/audit', label: (d) => d.nav.adminAudit, icon: ScrollText };
 
 const ADMIN_GROUP: NavLink = {
     id: 'admin',
@@ -137,6 +143,15 @@ const ADMIN_GROUP: NavLink = {
     children: [
         { href: '/admin/settings', label: (d) => d.nav.adminSettings, icon: Settings },
         { href: '/admin/users', label: (d) => d.nav.adminUsers, icon: Users },
+        /* Hidden rather than refused: both read the operations API, and a row that answers 403 when
+           pressed tells a person about a permission instead of about the installation. */
+        { href: '/admin/jobs', label: (d) => d.nav.adminJobs, icon: ListTodo, permission: 'operations.view' },
+        {
+            href: '/admin/tasks',
+            label: (d) => d.nav.adminOperations,
+            icon: CalendarClock,
+            permission: 'operations.view',
+        },
     ],
 };
 
@@ -506,7 +521,7 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
     const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
     const permissions = useSharedAuth()?.user.permissions ?? [];
-    const items = [...MAIN_ITEMS, ACCOUNT_GROUP, LOGS_ITEM, ...(ADMIN_UI_ENABLED ? [ADMIN_GROUP] : [])].map((item) =>
+    const items = [...MAIN_ITEMS, ACCOUNT_GROUP, AUDIT_ITEM, ...(ADMIN_UI_ENABLED ? [ADMIN_GROUP] : [])].map((item) =>
         item.children === undefined
             ? item
             : {
@@ -721,7 +736,12 @@ export default function AppShell({
                             at fourteen hundred. A screen that is genuinely table-shaped says so with
                             `contentClassName`, which lands after this and wins.
                         */}
-                        <div className={cn('mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]', contentClassName)}>
+                        <div
+                            className={cn(
+                                'mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]',
+                                contentClassName,
+                            )}
+                        >
                             {children}
                         </div>
                     </main>

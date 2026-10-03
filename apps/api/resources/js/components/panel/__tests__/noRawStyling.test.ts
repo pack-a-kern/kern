@@ -37,7 +37,11 @@ const PANEL_WITH_P0 = /<Panel\b[^>]*className="[^"]*\bp-0\b[^"]*"/g;
  * `components/panel` it is covered. Coverage grows as screens are rebuilt, without a flag day.
  */
 const adopted = Object.entries(sources)
-    .filter(([, source]) => source.includes("from '../../components/panel'"))
+    // Any depth, not just `../../`: a page one directory down imports the barrel with two steps up
+    // and a page at the top of `pages/` with one, so matching only the first silently exempted every
+    // top-level screen. Moving one page from `pages/logs/` to `pages/audit.tsx` dropped it out of
+    // this suite without dropping a single assertion, which is how the gap was found at all.
+    .filter(([, source]) => /from '(?:\.\.\/)+components\/panel'/.test(source))
     .map(([path, source]): [string, string] => [path.replace('../../../pages/', ''), source]);
 
 describe('pages use the shared panel vocabulary', () => {

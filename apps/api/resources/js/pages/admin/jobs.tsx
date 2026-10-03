@@ -7,6 +7,7 @@ import {
     DataTable,
     Detail,
     DetailList,
+    Page,
     Panel,
     PanelButton,
     PanelDialog,
@@ -17,6 +18,7 @@ import {
     Status,
     type StatusTone,
 } from '../../components/panel';
+import AppShell from '../../components/AppShell';
 import Pagination from '../../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -56,7 +58,7 @@ const STATUSES = ['all', 'pending', 'completed', 'failed'] as const;
  * `task_runs`. It therefore completes from the queue's point of view even when the import failed,
  * and its history lives on the Tasks tab.
  */
-export default function AdminJobs(): JSX.Element {
+function AdminJobsBody(): JSX.Element {
     const { t } = useTranslation();
 
     const [page, setPage] = useState<QueueJobsPage | null>(null);
@@ -70,10 +72,10 @@ export default function AdminJobs(): JSX.Element {
      * can be an empty table under a tile reporting real failures — the failures list is one click away,
      * and once chosen it is what this tab opens on next time.
      */
-    const [status, setStatus] = useRememberedState<string>('logs.jobs.status', 'all', {
+    const [status, setStatus] = useRememberedState<string>('admin.jobs.status', 'all', {
         isValid: (value) => (STATUSES as readonly string[]).includes(value),
     });
-    const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('logs.jobs');
+    const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('admin.jobs');
 
     const [selected, setSelected] = useState<QueueJob | null>(null);
     const [toDiscard, setToDiscard] = useState<QueueJob | null>(null);
@@ -167,8 +169,8 @@ export default function AdminJobs(): JSX.Element {
     };
 
     if (forbidden) {
-        // Inline, not a whole-page refusal: the other tabs on this screen may well be readable, and
-        // replacing all of them because one permission is missing hides what the person can see.
+        // Just the body: the frame around it comes from the default export, so a refusal still
+        // arrives with the heading that says what was refused and the navigation to leave by.
         return <p className="note p-4">{t((d) => d.pages.adminJobs.forbidden)}</p>;
     }
 
@@ -477,4 +479,24 @@ function jobTone(status: string): StatusTone {
     }
 
     return status === 'reserved' ? 'warn' : 'idle';
+}
+
+/**
+ * The screen, framed.
+ *
+ * Its own page rather than one of three tabs: these three records were kept together because the
+ * question "what happened" does not say which table holds the answer, but two of them answered it
+ * by *doing* something — retrying a job, running a task — and one is a read-only chain of evidence.
+ * They are in the navigation now, where a person can see all three without opening any.
+ */
+export default function AdminJobs(): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <AppShell>
+            <Page title={t((d) => d.pages.adminJobs.title)} lede={t((d) => d.pages.adminJobs.description)}>
+                <AdminJobsBody />
+            </Page>
+        </AppShell>
+    );
 }
