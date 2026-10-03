@@ -65,6 +65,15 @@ const MENU_PREFERRED = 328;
 const MENU_MIN = 152;
 
 /**
+ * `.select-menu`'s own `min-width: 14rem`, and the two must agree.
+ *
+ * The menu is deliberately roomier than the control that opens it — a status label needs more width
+ * than a filter button gives — which means its width is not the trigger's, and placing it at the
+ * trigger's left edge is not enough to keep it on the screen.
+ */
+const MENU_MIN_WIDTH = 224;
+
+/**
  * Where the menu goes, and how tall it may be there.
  *
  * ## Why the height is measured rather than set
@@ -90,9 +99,28 @@ function measure(trigger: HTMLElement): Rect {
     const above = roomBelow < MENU_PREFERRED && roomAbove > roomBelow;
     const room = above ? roomAbove : roomBelow;
 
+    /*
+     * Aligned to the trigger, on whichever edge keeps it on the screen.
+     *
+     * The menu is portalled and fixed, so `left: rect.left` put it wherever the trigger was — and
+     * because the menu is at least 224px wide whatever the trigger is, a narrow trigger near the
+     * right edge pushed it off the screen. Measured on the transactions filter row: 31px of the tag
+     * menu was past the edge at 1280, 1000 and 900 pixels wide.
+     *
+     * The left edge is preferred; where that does not fit, the menu's right edge lines up with the
+     * trigger's right edge. Pinning it to the window instead keeps it on screen and looks detached —
+     * a menu ending at the browser frame rather than under the control that opened it. The window
+     * clamp remains for the case where neither alignment fits.
+     */
+    const width = Math.max(rect.width, MENU_MIN_WIDTH);
+    const fitsLeftAligned = rect.left + width <= window.innerWidth - MENU_EDGE;
+
     return {
         top: above ? rect.top : rect.bottom,
-        left: rect.left,
+        left: Math.max(
+            MENU_EDGE,
+            Math.min(fitsLeftAligned ? rect.left : rect.right - width, window.innerWidth - width - MENU_EDGE),
+        ),
         width: rect.width,
         above,
         maxHeight: Math.min(MENU_PREFERRED, Math.max(MENU_MIN, room)),
@@ -108,6 +136,7 @@ export default function CustomSelect<TMeta = unknown>({
     emptyText,
     searchable = false,
     optionVisual = 'bare',
+    icon,
     clearable = false,
     disabled = false,
     name,
@@ -130,6 +159,18 @@ export default function CustomSelect<TMeta = unknown>({
     searchable?: boolean;
     /** `tile` sets each option's icon in a rounded square; `bare` draws it as-is, for a dot. */
     optionVisual?: 'tile' | 'bare';
+    /**
+     * One mark for the control itself, whatever is chosen — a calendar on a period, a bank on a bank.
+     *
+     * Distinct from `options[].icon`, which marks the options apart from each other and is what the
+     * trigger shows otherwise. Saying "this control is about dates" through the options meant giving
+     * every one of them the same calendar, which then appeared four times down a menu where it
+     * distinguished nothing. This says it once, in the only place it means anything.
+     *
+     * Wins over the selected option's own icon, because a control that says what it is should not
+     * stop saying it depending on the answer.
+     */
+    icon?: ReactNode;
     clearable?: boolean;
     disabled?: boolean;
     /** Renders a hidden input, for the rare case a plain HTML form posts this. */
@@ -455,8 +496,8 @@ export default function CustomSelect<TMeta = unknown>({
             >
                 {renderTrigger === undefined ? (
                     <>
-                        {selected?.icon !== undefined && (
-                            <span className="flex shrink-0 items-center">{selected.icon}</span>
+                        {(icon ?? selected?.icon) !== undefined && (
+                            <span className="flex shrink-0 items-center">{icon ?? selected?.icon}</span>
                         )}
 
                         <span className="min-w-0 flex-1 truncate text-left">

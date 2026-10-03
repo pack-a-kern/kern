@@ -9,7 +9,6 @@ use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
-use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
@@ -44,6 +43,7 @@ final readonly class ClassifyCounterparties
         private TaxCategoryCatalogue $categories,
         private TagDirectory $tags,
         private ConfigRepository $config,
+        private CounterpartyPrompt $prompt,
     ) {
     }
 
@@ -120,8 +120,8 @@ final readonly class ClassifyCounterparties
 
         $answer = $this->ai->ask(
             $subjectId,
-            $this->withTaxpayer($this->config->string('ai.statements.classification.system'), $subjectId),
-            $this->config->string('ai.statements.classification.instruction'),
+            $this->prompt->system($subjectId),
+            $this->prompt->instruction(),
             $sent,
             self::schema(),
             $this->config->string('ai.statements.classification.model'),
@@ -181,33 +181,6 @@ final readonly class ClassifyCounterparties
     private function maxDescriptions(): int
     {
         return max(1, $this->config->integer('ai.statements.classification.max_descriptions'));
-    }
-
-    /**
-     * The prompt with the taxpayer's own name in it.
-     *
-     * Two of its rules turn on that name — money arriving under it is money moving between their own
-     * accounts, not income — and a rule that names nobody cannot be applied. The name is not in the
-     * config because the config is one text for every taxpayer, so it holds `{taxpayer}` and this
-     * fills it in.
-     *
-     * No new exposure. That name is already in the payload, printed on the person's own statement
-     * lines as a counterparty, which is exactly why the rule earns its place: the model sees it
-     * either way, and this is what lets it know whose name it is looking at.
-     *
-     * A subject with no name stored leaves the prompt without that sentence rather than sending an
-     * empty pair of quotes for a model to reason about.
-     */
-    private function withTaxpayer(string $prompt, string $subjectId): string
-    {
-        $subject = TaxSubject::query()->withoutGlobalScope(TenantScope::class)->find($subjectId);
-        $name = trim((string) ($subject->display_name_ciphertext ?? ''));
-
-        if ($name === '') {
-            return trim((string) preg_replace('/^.*\{taxpayer\}.*$\n?/mu', '', $prompt));
-        }
-
-        return str_replace('{taxpayer}', $name, $prompt);
     }
 
     /**

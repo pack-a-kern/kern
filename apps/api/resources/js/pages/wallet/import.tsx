@@ -1,12 +1,22 @@
 import { Head, router } from '@inertiajs/react';
 import {
+    ArrowDownLeft,
+    ArrowUpRight,
     ArrowRight,
     CalendarDays,
+    CalendarRange,
+    Coins,
     CheckCircle2,
     CopyCheck,
+    Filter,
+    Hash,
+    Landmark,
     FileSpreadsheet,
     FileText,
     ListChecks,
+    Rows3,
+    Scale,
+    Shapes,
     Sparkles,
     Upload,
     Users,
@@ -830,6 +840,9 @@ export default function WalletImport(): JSX.Element {
                                 total={detail.total}
                                 unit={t((d) => d.pages.walletTransactions.unit)}
                                 onPageChange={setPage}
+                                // The server decides how many rows a review page holds, so there is
+                                // nothing here for a reader to choose.
+                                onPageSizeChange={null}
                             />
                         }
                     >
@@ -872,6 +885,7 @@ export default function WalletImport(): JSX.Element {
                                 value={filter}
                                 placeholder={t((d) => d.pages.walletImports.review.all)}
                                 emptyLabel={t((d) => d.pages.walletImports.review.all)}
+                                icon={<Filter className="size-3.5" aria-hidden="true" />}
                                 onValueChange={(next) => {
                                     setFilter(next);
                                     setPage(1);
@@ -897,6 +911,7 @@ export default function WalletImport(): JSX.Element {
                                         value={bulkCategory}
                                         placeholder={t((d) => d.pages.walletImports.review.setCategory)}
                                         emptyLabel={t((d) => d.pages.walletImports.review.setCategory)}
+                                        icon={<Shapes className="size-3.5" aria-hidden="true" />}
                                         onValueChange={(next) => {
                                             setBulkCategory(next);
 
@@ -2131,6 +2146,8 @@ function MappingFields({
             <FieldGrid>
                 <Field label={t((d) => d.pages.walletImports.columns.layout)}>
                     <PanelSelect
+                        icon={<Rows3 className="size-3.5" aria-hidden="true" />}
+
                         value={mapping.layout}
                         onValueChange={(next) => {
                             set({ layout: next === 'block' ? 'block' : 'row' });
@@ -2144,6 +2161,8 @@ function MappingFields({
 
                 <Field label={t((d) => d.pages.walletImports.columns.date)}>
                     <PanelSelect
+                        icon={<CalendarRange className="size-3.5" aria-hidden="true" />}
+
                         value={String(mapping.date.value)}
                         onValueChange={(next) => {
                             set({ date: { ...mapping.date, value: Number(next) } });
@@ -2154,6 +2173,8 @@ function MappingFields({
 
                 <Field label={t((d) => d.pages.walletImports.columns.dateFormat)}>
                     <PanelSelect
+                        icon={<Hash className="size-3.5" aria-hidden="true" />}
+
                         value={mapping.date.format}
                         onValueChange={(next) => {
                             set({ date: { ...mapping.date, format: next } });
@@ -2164,6 +2185,8 @@ function MappingFields({
 
                 <Field label={t((d) => d.pages.walletImports.columns.amountMode)}>
                     <PanelSelect
+                        icon={<Scale className="size-3.5" aria-hidden="true" />}
+
                         value={mapping.amounts.mode}
                         onValueChange={(next) => {
                             setAmounts({ mode: next === 'debit_credit' ? 'debit_credit' : 'signed' });
@@ -2178,6 +2201,8 @@ function MappingFields({
                 {mapping.amounts.mode === 'signed' ? (
                     <Field label={t((d) => d.pages.walletImports.columns.amount)}>
                         <PanelSelect
+                            icon={<Coins className="size-3.5" aria-hidden="true" />}
+
                             value={mapping.amounts.amount === null ? '' : String(mapping.amounts.amount.value)}
                             onValueChange={(next) => {
                                 setAmounts({ amount: next === '' ? null : { type: 'index', value: Number(next) } });
@@ -2189,6 +2214,8 @@ function MappingFields({
                     <>
                         <Field label={t((d) => d.pages.walletImports.columns.debit)}>
                             <PanelSelect
+                                icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
+
                                 value={mapping.amounts.debit === null ? '' : String(mapping.amounts.debit.value)}
                                 onValueChange={(next) => {
                                     setAmounts({ debit: next === '' ? null : { type: 'index', value: Number(next) } });
@@ -2198,6 +2225,8 @@ function MappingFields({
                         </Field>
                         <Field label={t((d) => d.pages.walletImports.columns.credit)}>
                             <PanelSelect
+                                icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
+
                                 value={mapping.amounts.credit === null ? '' : String(mapping.amounts.credit.value)}
                                 onValueChange={(next) => {
                                     setAmounts({ credit: next === '' ? null : { type: 'index', value: Number(next) } });
@@ -2210,6 +2239,8 @@ function MappingFields({
 
                 <Field label={t((d) => d.pages.walletImports.columns.decimal)}>
                     <PanelSelect
+                        icon={<Hash className="size-3.5" aria-hidden="true" />}
+
                         value={mapping.amounts.decimal_separator}
                         onValueChange={(next) => {
                             setAmounts({ decimal_separator: next, thousands_separator: next === ',' ? '.' : ',' });
@@ -2286,6 +2317,7 @@ function MappingFields({
                     htmlFor="import-bank"
                 >
                     <PanelSelect
+                        icon={<Landmark className="size-3.5" aria-hidden="true" />}
                         searchable
                         id="import-bank"
                         value={bank.value}
@@ -2311,6 +2343,7 @@ function MappingFields({
                     htmlFor="import-currency"
                 >
                     <PanelSelect
+                        icon={<Coins className="size-3.5" aria-hidden="true" />}
                         searchable
                         id="import-currency"
                         value={mapping.currency?.type === 'code' ? String(mapping.currency.value) : ''}

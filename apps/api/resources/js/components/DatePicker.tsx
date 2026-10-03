@@ -110,6 +110,12 @@ const DEFAULT_RANGE_PRESETS: DatePickerPreset[] = [
     },
 ];
 
+/** The panel's own width — `w-[332px]` on the element below, and the two must agree. */
+const PANEL_WIDTH = 332;
+
+/** Breathing room at the window edge, so a clamped panel never sits flush against it. */
+const PANEL_EDGE = 8;
+
 export function DatePicker(props: DatePickerProps) {
     const {
         compact = false,
@@ -157,7 +163,35 @@ export function DatePicker(props: DatePickerProps) {
         // room above — otherwise a picker near the bottom of a short page opens off-screen upward.
         const above = below < 420 && box.top > below;
 
-        setRect({ top: above ? box.top - 8 : box.bottom + 8, left: box.left, above });
+        /*
+         * Aligned to the trigger, on whichever edge keeps it on the screen.
+         *
+         * The panel is portalled and fixed, so `left: box.left` put it wherever the trigger happened
+         * to be — and a trigger near the right edge, which is where a filter row puts its date
+         * control, pushed it off the screen. On the legislation page the Clear button went; on the
+         * transactions filter row only three weekday columns survived and the month name read
+         * "Octo".
+         *
+         * Pinning it to the window's edge instead fixed that and looked wrong: the panel ended a few
+         * pixels from the browser frame rather than under the control it came from, which reads as
+         * something that floated loose. So the left edge is preferred, and where that does not fit
+         * the panel's right edge lines up with the trigger's right edge — still anchored to the
+         * control, just from the other end. The window clamp stays as a last resort, for a trigger
+         * so close to the edge that neither alignment fits.
+         *
+         * The width is the panel's own `w-[332px]`, which is why none of this has to measure the
+         * thing being placed.
+         */
+        const fitsLeftAligned = box.left + PANEL_WIDTH <= window.innerWidth - PANEL_EDGE;
+        const left = Math.max(
+            PANEL_EDGE,
+            Math.min(
+                fitsLeftAligned ? box.left : box.right - PANEL_WIDTH,
+                window.innerWidth - PANEL_WIDTH - PANEL_EDGE,
+            ),
+        );
+
+        setRect({ top: above ? box.top - 8 : box.bottom + 8, left, above });
     };
 
     const resolvedMinDate = useMemo(() => resolveMinDate(minDate, disablePast, today), [minDate, disablePast, today]);
@@ -418,10 +452,14 @@ export function DatePicker(props: DatePickerProps) {
                         setOpenSafe(!open);
                     }}
                     className={[
-                        'inline-flex h-8 items-center justify-center gap-1.5 rounded-xl',
-                        'border border-border bg-popover px-2.5 text-xs font-medium text-ink-500',
+                        /* The shared control class, as `CustomSelect` uses it, rather than a height
+                           and a radius restated here: this button stands beside the selects and had
+                           drifted 2px shorter and a step rounder than them. `.ctl` sets only
+                           `border-color`, having been written for controls that already carry a
+                           border, so a plain button still declares `border` itself. */
+                        'ctl inline-flex items-center justify-center gap-1.5',
+                        'border bg-card font-medium text-muted-foreground',
                         'transition-colors hover:border-ring disabled:cursor-not-allowed disabled:opacity-50',
-                        '',
                         triggerClassName,
                     ].join(' ')}
                 >

@@ -4,33 +4,45 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Services;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
-use Kern\TaxRomania\Wallet\Models\CounterpartyRule;
+use Kern\TaxRomania\Wallet\Models\Counterparty;
 
 /**
- * What this taxpayer already decided about a counterparty — looked up, and written down.
+ * Every counterparty this taxpayer has paid or been paid by, and what has been decided about each.
  *
  * A bank statement is the same names every month: the employer, the landlord, the supermarket.
- * Answering each once and reusing that answer is what makes an import cheap, and it is why the
- * model is only ever asked about names nobody has answered yet.
+ * Answering each once and reusing that answer is what makes an import cheap, and it is why a model
+ * is only ever asked about names nobody has answered yet.
+ *
+ * ## A row exists because the name exists
+ *
+ * {@see self::observe()} writes one the first time money moves under a counterparty, before anybody
+ * has decided anything. That is what makes three otherwise expensive questions cheap: which names
+ * this person has (for searching), which of them nobody has answered (the worklist), and what was
+ * decided last time (the lookup this class started as).
+ *
+ * `category_code` null means undecided. `source` null means nobody has decided — it answers "who",
+ * and a row with no decision has no decider.
  *
  * ## Found without decrypting anything
  *
  * The counterparty is encrypted on every transaction, so the lookup is by blind index: the same
  * keyed hash stored on the transaction is computed for the name being asked about, and matched
- * against the rules table. Nothing is decrypted to decide what a row probably is.
+ * here. Nothing is decrypted to decide what a row probably is.
  *
  * ## A person's answer outranks a proposal
  *
- * A rule remembers who decided it. An answer a person gave is never replaced by one a model
+ * A row remembers who decided it. An answer a person gave is never replaced by one a model
  * proposed; a proposal is replaced by anything.
  */
-final readonly class CounterpartyRules
+final readonly class CounterpartyDirectory
 {
     public function __construct(
         private BlindIndexHasher $blindIndex,
@@ -51,7 +63,7 @@ final readonly class CounterpartyRules
      * statement can look each row up without a query per row.
      *
      * @param  list<string>  $indexes
-     * @return array<string, CounterpartyRule>
+     * @return array<string, Counterparty>
      */
     public function forIndexes(array $indexes): array
     {
@@ -61,7 +73,7 @@ final readonly class CounterpartyRules
 
         $rules = [];
 
-        foreach (CounterpartyRule::query()->with('tags')->whereIn('counterparty_blind_index', $indexes)->get() as $rule) {
+        foreach (Counterparty::query()->with('tags')->whereIn('counterparty_blind_index', $indexes)->get() as $rule) {
             $rules[self::key($rule->counterparty_blind_index, $rule->direction)] = $rule;
         }
 
@@ -69,7 +81,7 @@ final readonly class CounterpartyRules
     }
 
     /** One rule, or null when this counterparty has not been answered in this direction. */
-    public function find(?string $index, MoneyDirection $direction): ?CounterpartyRule
+    public function find(?string $index, MoneyDirection $direction): ?Counterparty
     {
         if ($index === null) {
             return null;
@@ -81,6 +93,133 @@ final readonly class CounterpartyRules
     public static function key(string $index, MoneyDirection $direction): string
     {
         return $index . '|' . $direction->value;
+    }
+
+    /**
+     * Note that this counterparty exists, without deciding anything about it.
+     *
+     * Called wherever a transaction is written with a counterparty. Cheap by design: one `upsert`
+     * that does nothing when the row is already there, so the common case — the supermarket, for the
+     * two hundredth time — costs one statement and no read.
+     *
+     * Never touches a decision. A row already carrying a category keeps it, which is the whole point
+     * of the table; this only guarantees the row is present so the worklist and the search can see
+     * the name.
+     *
+     * The name is stored beside its index for the same reason {@see self::remember()} stores it: a
+     * blind index is `HMAC-SHA-256(key, name)`, so re-keying means hashing the name again, and a
+     * table holding only the hash can never be re-keyed.
+     *
+     * `$subjectId` is for the callers that have no bound tenant — the backfill command and the
+     * background classifier, which walk every taxpayer in turn. They name the subject explicitly,
+     * the way `Kern\TaxRomania\Wallet\Services\DepositMovements` does for the nightly settlement
+     * and for the same reason: `TenantContext` has no "set the id and trust me" method, deliberately,
+     * so background work says whose row it is writing rather than pretending to be somebody.
+     * Everything running in a request leaves it null and gets the bound tenant.
+     */
+    public function observe(?string $index, ?string $counterparty, MoneyDirection $direction, ?string $subjectId = null): void
+    {
+        $name = trim($counterparty ?? '');
+
+        // No index without a name and no name without an index, as everywhere else here.
+        if ($index === null || $name === '') {
+            return;
+        }
+
+        $subjectId ??= $this->tenant->currentTenantId();
+
+        $existing = Counterparty::query()
+            ->withoutGlobalScope(TenantScope::class)
+            ->where('tax_subject_id', $subjectId)
+            ->where('counterparty_blind_index', $index)
+            ->where('direction', $direction->value)
+            ->exists();
+
+        if ($existing) {
+            return;
+        }
+
+        /*
+         * Through the model rather than an `upsert`, because the name is encrypted: the cast seals it
+         * against `subject_id | table | field | record_uuid`, and a query builder writing the column
+         * directly would store the plaintext.
+         *
+         * The unique key is (subject, index, direction), so two jobs racing on the same new name
+         * collide on the insert rather than writing it twice. The loser's exception is swallowed: the
+         * row it wanted exists, which is all it was asking for.
+         */
+        $counterpartyRow = new Counterparty([
+            'tax_subject_id' => $subjectId,
+            'counterparty_ciphertext' => $name,
+            'counterparty_blind_index' => $index,
+            'direction' => $direction,
+        ]);
+
+        try {
+            $counterpartyRow->save();
+        } catch (QueryException) {
+            // Somebody else wrote it between the read and the write.
+        }
+    }
+
+    /**
+     * The counterparties whose name contains this text.
+     *
+     * ## Why this cannot be a query
+     *
+     * The name is encrypted and the index beside it is a hash, so neither can be matched against a
+     * fragment: `LIKE '%digi%'` has nothing to compare, and `HMAC(key, 'digi')` equals the hash of
+     * the whole name only when the whole name is "digi". Substring matching therefore happens in
+     * PHP, on decrypted names, and the names come back out as blind indexes — which is what a
+     * caller filters transactions by, so nothing plaintext travels further than this method.
+     *
+     * ## Why this reads the directory and not the ledger
+     *
+     * Both hold the name. The ledger holds it once per transaction — 1 199 rows for 269 names on the
+     * development data — and the directory holds it once. Same answer, a quarter of the decrypts,
+     * and the gap widens with every statement imported.
+     *
+     * Direction is not part of identity here, unlike everywhere else in this class: a person
+     * searching for a shop wants the shop, whichever way money moved. So the same name found in both
+     * directions is one result, and both its indexes come back.
+     *
+     * @return list<array{name: string, indexes: list<string>}> matches, most-used name first
+     */
+    public function search(string $query, int $limit = 20): array
+    {
+        $needle = Normalizer::text($query);
+
+        if ($needle === '') {
+            return [];
+        }
+
+        $found = [];
+
+        foreach (Counterparty::query()->orderBy('id')->cursor() as $counterparty) {
+            $name = trim((string) $counterparty->counterparty_ciphertext);
+
+            if ($name === '' || ! str_contains(Normalizer::text($name), $needle)) {
+                continue;
+            }
+
+            // Keyed by the normalised name so the two directions of one counterparty are one result,
+            // and so two spellings differing only in case or accent do not both appear.
+            $key = Normalizer::text($name);
+            $found[$key] ??= ['name' => $name, 'indexes' => []];
+
+            if (! in_array($counterparty->counterparty_blind_index, $found[$key]['indexes'], true)) {
+                $found[$key]['indexes'][] = $counterparty->counterparty_blind_index;
+            }
+
+            if (count($found) > $limit) {
+                // One past the limit is enough to know there are more; the caller asked for a
+                // shortlist, and reading the rest to rank them would cost the decrypts this method
+                // exists to save.
+                break;
+            }
+        }
+
+        return array_slice(array_values($found), 0, $limit);
     }
 
     /**
@@ -123,7 +262,7 @@ final readonly class CounterpartyRules
                 return;
             }
 
-            $rule = $existing ?? new CounterpartyRule([
+            $rule = $existing ?? new Counterparty([
                 'tax_subject_id' => $subjectId,
                 'counterparty_ciphertext' => $name,
                 'counterparty_blind_index' => $index,
@@ -135,11 +274,11 @@ final readonly class CounterpartyRules
             $rule->source = $source;
             $rule->save();
 
-            DB::table('counterparty_rule_tags')->where('rule_id', $rule->id)->delete();
+            DB::table('counterparty_tags')->where('counterparty_id', $rule->id)->delete();
 
             foreach ($tagIds as $tagId) {
-                DB::table('counterparty_rule_tags')->insertOrIgnore([
-                    'rule_id' => $rule->id,
+                DB::table('counterparty_tags')->insertOrIgnore([
+                    'counterparty_id' => $rule->id,
                     'tag_id' => $tagId,
                     'tax_subject_id' => $subjectId,
                 ]);

@@ -7,12 +7,14 @@ namespace Kern\TaxRomania\Wallet\Actions;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Kern\TaxRomania\Wallet\DataTransferObjects\ImportedTransactionInput;
+use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
 use Kern\TaxRomania\Wallet\Exceptions\HoldingSourceException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
 /**
@@ -38,8 +40,10 @@ use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
  */
 final readonly class RecordImportedTransactions
 {
-    public function __construct(private TaxCategoryCatalogue $categories)
-    {
+    public function __construct(
+        private TaxCategoryCatalogue $categories,
+        private CounterpartyDirectory $counterparties,
+    ) {
     }
 
     /**
@@ -114,6 +118,15 @@ final readonly class RecordImportedTransactions
         // is what makes a second import of the same file write nothing.
         $transaction->external_id_blind_index = $row->fingerprint;
         $transaction->save();
+
+        // Every name an import brings in, whether or not this row was answered. A statement is where
+        // most counterparties are met for the first time, so this is the path that fills the
+        // directory; the two by-hand ones matter far less.
+        $this->counterparties->observe(
+            $row->counterpartyBlindIndex,
+            $row->counterparty,
+            MoneyDirection::ofAmount($row->amountMinor),
+        );
 
         if ($row->categoryCode !== null) {
             TransactionSplit::create([

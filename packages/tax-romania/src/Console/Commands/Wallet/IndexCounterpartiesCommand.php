@@ -7,13 +7,13 @@ namespace Kern\TaxRomania\Console\Commands\Wallet;
 use Illuminate\Console\Command;
 use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 
 /**
  * Fills `financial_transactions.counterparty_blind_index` for rows recorded before it existed.
  *
  * The index is what makes "what did I say this counterparty was last time" answerable without
- * decrypting every row — see {@see CounterpartyRules}. A transaction written before the column
+ * decrypting every row — see {@see CounterpartyDirectory}. A transaction written before the column
  * existed carries none, so it would never be recognised, and the answer a person already gave for
  * that shop would not be offered for it.
  *
@@ -32,7 +32,7 @@ final class IndexCounterpartiesCommand extends Command
 
     protected $description = 'Backfill the counterparty blind index on transactions recorded before it existed.';
 
-    public function handle(CounterpartyRules $rules): int
+    public function handle(CounterpartyDirectory $rules): int
     {
         $indexed = 0;
 

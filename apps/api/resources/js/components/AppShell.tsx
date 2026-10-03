@@ -23,6 +23,7 @@ import {
     Settings,
     UserRound,
     Users,
+    UsersRound,
     Wallet,
 } from 'lucide-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
@@ -93,6 +94,7 @@ const MAIN_ITEMS: NavLink[] = [
         children: [
             { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
             { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
+            { href: '/wallet/counterparties', label: (d) => d.nav.walletCounterparties, icon: UsersRound },
             { href: '/wallet/imports', label: (d) => d.nav.walletImports, icon: FileSpreadsheet },
             { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
             { href: '/documents', label: (d) => d.nav.documents, icon: Files },

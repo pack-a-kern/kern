@@ -54,6 +54,32 @@ final readonly class DuplicateTransactionGroups
     }
 
     /**
+     * How many groups there are, without building any of them.
+     *
+     * Exists so a screen reporting the number asks the rule rather than restating its first half.
+     * The reports panel did restate it — same day, amount and currency — and counted 26 groups on a
+     * taxpayer whose duplicates screen showed none, because that is the *candidate bucket*, and a
+     * group also has to name one counterparty and come from more than one import. Three hundred
+     * buckets, no duplicates.
+     *
+     * Skips `summarise`, which is what makes `__invoke` expensive: a count needs no decrypted names.
+     */
+    public function count(): int
+    {
+        $total = 0;
+
+        foreach ($this->candidateBuckets() as $rows) {
+            foreach ($this->clusters($rows) as $cluster) {
+                if (count($cluster) >= 2 && $this->hasUnreviewed($cluster)) {
+                    $total++;
+                }
+            }
+        }
+
+        return $total;
+    }
+
+    /**
      * @return list<array{survivor_id: string, transactions: list<TransactionSummary>}>
      */
     public function __invoke(): array

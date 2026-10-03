@@ -506,7 +506,7 @@ export default function WalletAccounts(): JSX.Element {
                                 }}
                             >
                                 <Trash2 className="size-4" />
-                                {t((d) => d.pages.walletAccounts.deleteSelected)}
+                                {t((d) => d.common.deleteSelected)}
                             </DropdownMenuItem>
                         </BulkActions>
                     </Toolbar>
@@ -670,7 +670,7 @@ export default function WalletAccounts(): JSX.Element {
                             setConfirmingBulkDelete(false);
                         }
                     }}
-                    title={t((d) => d.pages.walletAccounts.deleteSelected)}
+                    title={t((d) => d.common.deleteSelected)}
                     description={t((d) => d.pages.walletAccounts.deleteSelectedHint)}
                     confirmLabel={t((d) => d.common.delete)}
                     cancelLabel={t((d) => d.common.cancel)}

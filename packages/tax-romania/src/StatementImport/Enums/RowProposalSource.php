@@ -13,7 +13,7 @@ namespace Kern\TaxRomania\StatementImport\Enums;
  */
 enum RowProposalSource: string
 {
-    /** A remembered answer for this counterparty — `counterparty_rules`. */
+    /** A remembered answer for this counterparty — `counterparties`. */
     case RULE = 'RULE';
 
     case AI = 'AI';

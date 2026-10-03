@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Queries;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 
@@ -33,9 +37,20 @@ use Kern\TaxRomania\Wallet\Services\TagDirectory;
  */
 final readonly class WalletReports
 {
+    /**
+     * Per direction, so the panel shows ten rows: the five biggest payments and the five biggest
+     * receipts. Few enough that decrypting each one's counterparty is not a cost worth naming, and
+     * enough that a year's totals have something behind them.
+     */
+    private const int LARGEST = 5;
+
+    /** How many lines a ranked breakdown shows before the tail stops being worth a row. */
+    private const int BREAKDOWN = 10;
+
     public function __construct(
         private TenantContext $tenant,
         private TagDirectory $tags,
+        private DuplicateTransactionGroups $duplicates,
     ) {
     }
 
@@ -43,15 +58,374 @@ final readonly class WalletReports
      * @return array{
      *     by_tag: list<array{tag_id: string, name: string, currency_code: string, total_minor: int, months: list<array{month: string, amount_minor: int}>}>,
      *     by_bank: list<array{bank_id: ?string, name: ?string, currency_code: string, in_minor: int, out_minor: int}>,
-     *     by_category: list<array{category_code: string, currency_code: string, total_minor: int}>
+     *     by_category: list<array{category_code: string, currency_code: string, total_minor: int}>,
+     *     by_counterparty: list<array{name: ?string, currency_code: string, total_minor: int, count: int}>,
+     *     by_account: list<array{account_id: string, name: ?string, kind: string, currency_code: string, in_minor: int, out_minor: int}>,
+     *     years: list<int>,
+     *     totals: list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>,
+     *     previous: list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>,
+     *     cash_flow: list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string}>,
+     *     largest: list<array{id: string, booked_at: string, counterparty: ?string, description: ?string, currency_code: string, amount_minor: int}>,
+     *     attention: array{unclassified_count: int, unclassified_minor: list<array{currency_code: string, total_minor: int}>, duplicate_groups: int, total_count: int}
      * }
      */
     public function between(string $from, string $to): array
     {
         return [
+            'years' => $this->years(),
+            'totals' => $this->totals($from, $to),
+            'previous' => $this->totals(...$this->precedingPeriod($from, $to)),
             'by_tag' => $this->byTag($from, $to),
             'by_bank' => $this->byBank($from, $to),
             'by_category' => $this->byCategory($from, $to),
+            'by_counterparty' => $this->byCounterparty($from, $to),
+            'by_account' => $this->byAccount($from, $to),
+            'cash_flow' => $this->cashFlow($from, $to),
+            'largest' => $this->largest($from, $to),
+            'attention' => $this->attention($from, $to),
+        ];
+    }
+
+    /**
+     * The years this taxpayer actually has transactions in, newest first.
+     *
+     * Offered instead of the last four calendar years, which is a menu of mostly empty reports for
+     * somebody who started in March and a menu missing their history for somebody who imported ten
+     * years of statements. Deliberately not bounded by the period being viewed — it is the list of
+     * periods available, so bounding it by one of them would leave a menu that cannot be left.
+     *
+     * @return list<int>
+     */
+    private function years(): array
+    {
+        $rows = DB::table('financial_transactions')
+            ->where('tax_subject_id', $this->tenant->currentTenantId())
+            ->groupBy(DB::raw('extract(year from booked_at)'))
+            ->orderBy(DB::raw('extract(year from booked_at)'), 'desc')
+            ->get([DB::raw('extract(year from booked_at) as year')]);
+
+        return array_values(array_map(static fn (object $row): int => (int) $row->year, $rows->all()));
+    }
+
+    /**
+     * The same length of time, immediately before — what "versus last year" compares against.
+     *
+     * Measured rather than assumed to be a calendar year: the period may be a rolling twelve months
+     * or any range the caller passed, and comparing a half-year against a full one would report a
+     * halving that never happened.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function precedingPeriod(string $from, string $to): array
+    {
+        $start = CarbonImmutable::parse($from);
+        $end = CarbonImmutable::parse($to);
+        $days = $start->diffInDays($end) + 1;
+
+        return [$start->subDays($days)->toDateString(), $start->subDay()->toDateString()];
+    }
+
+    /**
+     * What the period came to, per currency: in, out, and how many movements made it.
+     *
+     * The figures the screen leads with, and the ones every panel below is a breakdown of. Counted
+     * here rather than summed from `cash_flow` on the client, so a month with no rows cannot quietly
+     * drop out of a total.
+     *
+     * @return list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>
+     */
+    private function totals(string $from, string $to): array
+    {
+        $rows = $this->base($from, $to)
+            ->groupBy('financial_transactions.currency_code')
+            ->get([
+                'financial_transactions.currency_code',
+                DB::raw('sum(case when amount_minor > 0 then amount_minor else 0 end) as money_in'),
+                DB::raw('sum(case when amount_minor < 0 then -amount_minor else 0 end) as money_out'),
+                DB::raw('count(*) as rows_count'),
+            ]);
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[] = [
+                'currency_code' => (string) $row->currency_code,
+                'in_minor' => (int) $row->money_in,
+                'out_minor' => (int) $row->money_out,
+                'count' => (int) $row->rows_count,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Money in and money out, month by month.
+     *
+     * The same shape `byTag` already produces per tag, but for everything at once — which is the
+     * question a person actually opens a report with, and the one the three breakdowns could only
+     * answer by being added up by eye.
+     *
+     * Per currency, like every other figure here: a month holding 100 EUR in and 100 RON out has no
+     * single net number, and inventing one is the thing this class refuses to do.
+     *
+     * @return list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string}>
+     */
+    private function cashFlow(string $from, string $to): array
+    {
+        $rows = $this->base($from, $to)
+            ->groupBy(DB::raw("to_char(booked_at, 'YYYY-MM')"), 'financial_transactions.currency_code')
+            ->orderBy(DB::raw("to_char(booked_at, 'YYYY-MM')"))
+            ->get([
+                DB::raw("to_char(booked_at, 'YYYY-MM') as month"),
+                'financial_transactions.currency_code',
+                DB::raw('sum(case when amount_minor > 0 then amount_minor else 0 end) as money_in'),
+                DB::raw('sum(case when amount_minor < 0 then -amount_minor else 0 end) as money_out'),
+                DB::raw('count(*) as rows_count'),
+            ]);
+
+        $top = $this->topCategoryByMonth($from, $to);
+        $result = [];
+
+        foreach ($rows as $row) {
+            $month = (string) $row->month;
+
+            $result[] = [
+                'month' => $month,
+                'currency_code' => (string) $row->currency_code,
+                'in_minor' => (int) $row->money_in,
+                'out_minor' => (int) $row->money_out,
+                'count' => (int) $row->rows_count,
+                'top_category' => $top[$month] ?? null,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * The category each month spent most on.
+     *
+     * One query for the whole year rather than one per month: twelve round trips to label twelve
+     * rows is the shape that makes a table feel slow for no reason a reader could name.
+     *
+     * @return array<string, string>
+     */
+    private function topCategoryByMonth(string $from, string $to): array
+    {
+        $rows = $this->base($from, $to)
+            ->join('transaction_splits', 'transaction_splits.transaction_id', '=', 'financial_transactions.id')
+            ->where('transaction_splits.amount_minor', '<', 0)
+            ->groupBy(DB::raw("to_char(booked_at, 'YYYY-MM')"), 'transaction_splits.category_code')
+            ->orderByRaw("to_char(booked_at, 'YYYY-MM'), sum(-transaction_splits.amount_minor) desc")
+            ->get([
+                DB::raw("to_char(booked_at, 'YYYY-MM') as month"),
+                'transaction_splits.category_code',
+            ]);
+
+        $top = [];
+
+        foreach ($rows as $row) {
+            // Ordered biggest-first within each month, so the first one seen is the answer.
+            $top[(string) $row->month] ??= (string) $row->category_code;
+        }
+
+        return $top;
+    }
+
+    /**
+     * What went out to each counterparty, biggest first.
+     *
+     * The one breakdown that has to decrypt, so it is built to decrypt as little as possible: group
+     * by the blind index, which needs no key, take the few that lead, and open one name per group.
+     * Ten decrypts rather than one per transaction — the whole ledger would be thousands.
+     *
+     * @return list<array{name: ?string, currency_code: string, total_minor: int, count: int}>
+     */
+    private function byCounterparty(string $from, string $to): array
+    {
+        $rows = $this->base($from, $to)
+            ->where('amount_minor', '<', 0)
+            ->whereNotNull('counterparty_blind_index')
+            ->groupBy('counterparty_blind_index', 'financial_transactions.currency_code')
+            ->orderByRaw('sum(-amount_minor) desc')
+            ->limit(self::BREAKDOWN)
+            ->get([
+                'counterparty_blind_index',
+                'financial_transactions.currency_code',
+                DB::raw('sum(-amount_minor) as total'),
+                DB::raw('count(*) as rows_count'),
+                DB::raw('min(financial_transactions.id::text) as sample_id'),
+            ]);
+
+        $sampleIds = array_map(static fn (object $row): string => (string) $row->sample_id, $rows->all());
+        $names = [];
+
+        if ($sampleIds !== []) {
+            foreach (FinancialTransaction::query()->whereIn('id', $sampleIds)->get() as $transaction) {
+                $names[$transaction->id] = $transaction->counterparty_ciphertext;
+            }
+        }
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[] = [
+                'name' => $names[(string) $row->sample_id] ?? null,
+                'currency_code' => (string) $row->currency_code,
+                'total_minor' => (int) $row->total,
+                'count' => (int) $row->rows_count,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * What moved through each source — the same question as `byBank`, asked of accounts.
+     *
+     * A person with two cards at one bank sees one line there and two here, which is the difference
+     * the tab exists for. Named from the account's own display name, which is encrypted, so the
+     * names are opened a handful at a time like the counterparties above.
+     *
+     * @return list<array{account_id: string, name: ?string, kind: string, currency_code: string, in_minor: int, out_minor: int}>
+     */
+    private function byAccount(string $from, string $to): array
+    {
+        $rows = $this->base($from, $to)
+            ->groupBy('financial_transactions.account_id', 'financial_transactions.currency_code')
+            ->get([
+                'financial_transactions.account_id',
+                'financial_transactions.currency_code',
+                DB::raw('sum(case when amount_minor > 0 then amount_minor else 0 end) as money_in'),
+                DB::raw('sum(case when amount_minor < 0 then -amount_minor else 0 end) as money_out'),
+            ]);
+
+        $accountIds = array_map(static fn (object $row): string => (string) $row->account_id, $rows->all());
+        $accounts = [];
+
+        if ($accountIds !== []) {
+            foreach (FinancialAccount::query()->whereIn('id', $accountIds)->get() as $account) {
+                $accounts[$account->id] = $account;
+            }
+        }
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $account = $accounts[(string) $row->account_id] ?? null;
+
+            $result[] = [
+                'account_id' => (string) $row->account_id,
+                'name' => $account?->display_name_ciphertext,
+                'kind' => $account === null ? '' : $account->kind->value,
+                'currency_code' => (string) $row->currency_code,
+                'in_minor' => (int) $row->money_in,
+                'out_minor' => (int) $row->money_out,
+            ];
+        }
+
+        usort($result, static fn (array $a, array $b): int => ($b['in_minor'] + $b['out_minor']) <=> ($a['in_minor'] + $a['out_minor']));
+
+        return $result;
+    }
+
+    /**
+     * The handful of movements big enough to explain a total.
+     *
+     * Hydrated as models rather than read as rows, because the counterparty and the description are
+     * encrypted and the cast is what knows how to open them. That costs a model per row, which is
+     * why this is capped — the cap is the point of the panel, not a limitation of it.
+     *
+     * @return list<array{id: string, booked_at: string, counterparty: ?string, description: ?string, currency_code: string, amount_minor: int}>
+     */
+    private function largest(string $from, string $to): array
+    {
+        $out = $this->base($from, $to)
+            ->where('amount_minor', '<', 0)
+            ->orderBy('amount_minor')
+            ->limit(self::LARGEST)
+            ->get(['financial_transactions.id']);
+        $in = $this->base($from, $to)
+            ->where('amount_minor', '>', 0)
+            ->orderByDesc('amount_minor')
+            ->limit(self::LARGEST)
+            ->get(['financial_transactions.id']);
+
+        $ids = array_map(
+            static fn (object $row): string => (string) $row->id,
+            [...$out->all(), ...$in->all()],
+        );
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach (FinancialTransaction::query()->whereIn('id', $ids)->get() as $transaction) {
+            $result[] = [
+                'id' => $transaction->id,
+                'booked_at' => $transaction->booked_at->toDateString(),
+                'counterparty' => $transaction->counterparty_ciphertext,
+                'description' => $transaction->description_ciphertext,
+                'currency_code' => $transaction->currency_code,
+                'amount_minor' => $transaction->amount_minor,
+            ];
+        }
+
+        usort($result, static fn (array $a, array $b): int => abs($b['amount_minor']) <=> abs($a['amount_minor']));
+
+        return $result;
+    }
+
+    /**
+     * What would make this report wrong if left alone.
+     *
+     * Two things, both already defined elsewhere and deliberately not redefined here: money in that
+     * nobody has said what it is — the worklist `WalletQuery` offers, which is income-only because
+     * what goes out is spending unless someone says otherwise — and the lookalike groups the
+     * duplicates view suggests, on the same day/amount/currency rule, so the two screens cannot
+     * disagree about how many there are.
+     *
+     * @return array{unclassified_count: int, unclassified_minor: list<array{currency_code: string, total_minor: int}>, duplicate_groups: int, total_count: int}
+     */
+    private function attention(string $from, string $to): array
+    {
+        $unclassified = $this->base($from, $to)
+            ->where('classification_status', TransactionClassificationStatus::UNCLASSIFIED->value)
+            ->where('amount_minor', '>', 0)
+            ->groupBy('financial_transactions.currency_code')
+            ->get([
+                'financial_transactions.currency_code',
+                DB::raw('count(*) as rows_count'),
+                DB::raw('sum(amount_minor) as total'),
+            ]);
+
+        $count = 0;
+        $totals = [];
+
+        foreach ($unclassified as $row) {
+            $count += (int) $row->rows_count;
+            $totals[] = [
+                'currency_code' => (string) $row->currency_code,
+                'total_minor' => (int) $row->total,
+            ];
+        }
+
+        // Asked of the rule rather than restated here. This used to run the day/amount/currency
+        // grouping itself and report the result, which is the candidate bucket and not a group: a
+        // group also has to name one counterparty and draw from more than one import. On real data
+        // that was 26 against the duplicates screen's 0.
+        $groups = $this->duplicates->count();
+
+        return [
+            'unclassified_count' => $count,
+            'unclassified_minor' => $totals,
+            'duplicate_groups' => $groups,
+            // What the two counts above are a share of. Sent rather than derived on the client from
+            // `totals`, which is per currency — a completeness figure is about rows, not money.
+            'total_count' => $this->base($from, $to)->count(),
         ];
     }
 

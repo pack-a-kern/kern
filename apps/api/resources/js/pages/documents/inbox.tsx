@@ -514,7 +514,7 @@ export default function DocumentsInbox(): JSX.Element {
                                     }}
                                 >
                                     <Trash2 className="size-4" />
-                                    {t((d) => d.documentsInbox.deleteSelected)}
+                                    {t((d) => d.common.deleteSelected)}
                                 </DropdownMenuItem>
                             </BulkActions>
                         </div>

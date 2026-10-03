@@ -19,7 +19,7 @@ use Kern\TaxRomania\Wallet\Exceptions\ZeroAmountTransactionException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
@@ -37,7 +37,7 @@ final readonly class RecordFinancialTransaction
         private BlindIndexHasher $blindIndex,
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
-        private CounterpartyRules $rules,
+        private CounterpartyDirectory $rules,
     ) {
     }
 
@@ -84,6 +84,15 @@ final readonly class RecordFinancialTransaction
             }
 
             $transaction->save();
+
+            // The name enters the directory as the transaction does. Not a decision — only that this
+            // counterparty exists, which is what makes searching by it and listing the ones nobody
+            // has answered cheap later.
+            $this->rules->observe(
+                $transaction->counterparty_blind_index,
+                $input->counterparty,
+                MoneyDirection::ofAmount($input->amountMinor),
+            );
 
             if ($input->tagIds !== []) {
                 $transaction->tags()->sync(array_fill_keys(

@@ -17,6 +17,7 @@ export interface Dictionary {
         walletAccounts: string;
         walletTransactions: string;
         documents: string;
+        walletCounterparties: string;
         walletImports: string;
         walletReports: string;
         rentals: string;
@@ -104,6 +105,8 @@ export interface Dictionary {
         noResults: string;
         actions: string;
         /** "{count} selected" — the bulk-action trigger, shared by every table that has one. */
+        /** The one wording for the one action, on every screen that offers it. */
+        deleteSelected: string;
         selectedCount: string;
         /** The header checkbox's label — select-all acts on this page only. */
         selectPage: string;
@@ -266,7 +269,6 @@ export interface Dictionary {
         selectPage: string;
         /** `{count}` is substituted. */
         selectedCount: string;
-        deleteSelected: string;
         /** Renames every selected document whose current name is not the one its reading proposed. */
         acceptNames: string;
         /** `{count}` is substituted. */
@@ -568,7 +570,103 @@ export interface Dictionary {
             maturingHint: string;
             noDeposits: string;
         };
+        walletCounterparties: {
+            manageTags: string;
+            editHint: string;
+            forget: string;
+            forgetTitle: string;
+            forgetHint: string;
+            forgotten: string;
+            willReplace: string;
+            applyToAll: string;
+            addTag: string;
+            removeTag: string;
+            title: string;
+            description: string;
+            search: string;
+            party: string;
+            rows: string;
+            moneyIn: string;
+            moneyOut: string;
+            undecided: string;
+            merge: string;
+            mergeTitle: string;
+            mergeHint: string;
+            survivingName: string;
+            survivingHelp: string;
+            merged: string;
+            editIn: string;
+            editOut: string;
+            category: string;
+            categoryHelp: string;
+            tags: string;
+            noTags: string;
+            ruleSaved: string;
+            saveFailed: string;
+            empty: string;
+            emptyHint: string;
+            loadFailed: string;
+            unit: string;
+        };
         walletReports: {
+            date: string;
+            amount: string;
+            tabMonths: string;
+            tabLargest: string;
+            colTxs: string;
+            colTop: string;
+            exportReport: string;
+            exportSoon: string;
+            versusPrevious: string;
+            retained: string;
+            needAttention: string;
+            transactions: string;
+            flowBoth: string;
+            flowNet: string;
+            spend: string;
+            currencies: string;
+            mainCurrency: string;
+            ofActivity: string;
+            dataQuality: string;
+            cleanCount: string;
+            reviewCount: string;
+            clean: string;
+            yearByMonth: string;
+            yearByMonthHint: string;
+            month: string;
+            monthlySpend: string;
+            breakdown: string;
+            breakdownHint: string;
+            tabCategory: string;
+            tabTag: string;
+            tabMerchant: string;
+            totalExpenses: string;
+            movement: string;
+            movementHint: string;
+            tabBank: string;
+            tabCurrency: string;
+            tabAccount: string;
+            source: string;
+            currency: string;
+            completeness: string;
+            duplicatesNote: string;
+            cashFlow: string;
+            cashFlowHint: string;
+            composition: string;
+            compositionHint: string;
+            attention: string;
+            attentionHint: string;
+            needsTreatment: string;
+            needsTreatmentAction: string;
+            possibleDuplicates: string;
+            duplicatesAction: string;
+            allClear: string;
+            largest: string;
+            largestHint: string;
+            net: string;
+            topCategory: string;
+            lastTwelve: string;
+            noCounterparty: string;
             title: string;
             description: string;
             period: string;
@@ -592,7 +690,6 @@ export interface Dictionary {
             start: string;
             /** Removing an import that never became transactions. One that did is undone instead. */
             delete: string;
-            deleteSelected: string;
             deleteSelectedTitle: string;
             deletedCount: string;
             table: {
@@ -609,6 +706,8 @@ export interface Dictionary {
             deleted: string;
             opening: string;
             working: string;
+            /** What the pager counts, in lower case — see every other listing. */
+            unit: string;
             historyTitle: string;
             historyHint: string;
             empty: string;
@@ -837,7 +936,6 @@ export interface Dictionary {
             noMatches: string;
             emptyTitle: string;
             emptyHint: string;
-            deleteSelected: string;
             deleteSelectedHint: string;
             addHint: string;
             added: string;
@@ -963,8 +1061,18 @@ export interface Dictionary {
             /** Labels for `config/reference/tax_categories.php`. A code with no label renders as the code. */
             /** Narrowing the ledger: bank, tag, direction and a date range. */
             filters: {
+                labelDates: string;
+                remove: string;
                 allBanks: string;
                 allTags: string;
+                /** What each control in the filter card is labelled. */
+                labelAccount: string;
+                labelBank: string;
+                labelTag: string;
+                labelDirection: string;
+                labelStatus: string;
+                counterparty: string;
+                allCounterparties: string;
                 allDirections: string;
                 directionIn: string;
                 directionOut: string;
@@ -1027,7 +1135,6 @@ export interface Dictionary {
             };
             add: string;
             unit: string;
-            deleteSelected: string;
             deleteSelectedHint: string;
             emptyTitle: string;
             emptyHint: string;

@@ -54,7 +54,15 @@ export default function Pagination(props: {
     /** Total rows across every page — not the number on this one. */
     total: number;
     onPageChange: (page: number) => void;
-    onPageSizeChange?: (pageSize: number) => void;
+    /**
+     * `null` where the page size is not the reader's to choose — a screen that takes it from the
+     * server, say.
+     *
+     * Required rather than optional, and that is the whole point: optional, a screen could omit it
+     * by accident and silently lose the control every other listing has. The statement imports
+     * screen did exactly that, and nobody had decided it should differ. `null` says somebody did.
+     */
+    onPageSizeChange: ((pageSize: number) => void) | null;
     /** Names the thing being counted, e.g. "documents". */
     unit: string;
 }): JSX.Element {
@@ -63,6 +71,13 @@ export default function Pagination(props: {
     const first = props.total === 0 ? 0 : (props.page - 1) * props.pageSize + 1;
     const last = Math.min(props.page * props.pageSize, props.total);
     const format = (value: number): string => value.toLocaleString(locale);
+
+    // Nothing to page through, so nothing to say about it. The empty state above already says the
+    // list is empty; a foot reading "0–0 of 0" under it says so a second time, and offers a page
+    // button for a page that does not exist.
+    if (props.total === 0) {
+        return <></>;
+    }
 
     return (
         <>
@@ -75,7 +90,7 @@ export default function Pagination(props: {
                         .replace('{unit}', props.unit)}
                 </span>
 
-                {props.onPageSizeChange !== undefined && (
+                {props.onPageSizeChange !== null && (
                     <>
                         <span className="hidden opacity-50 sm:inline">•</span>
                         <label className="hidden items-center gap-1.5 sm:flex">

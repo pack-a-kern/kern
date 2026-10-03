@@ -45,6 +45,15 @@ enum WalletAuditEvent: string
      * what every transaction carrying it says. The name itself never reaches the payload — it is
      * encrypted for the same reason a description is.
      */
+    /** A party's rule for one direction was decided by a person. */
+    case COUNTERPARTY_UPDATED = 'WalletCounterpartyUpdated';
+
+    /** Several spellings of one party were folded into a single name. */
+    case COUNTERPARTIES_MERGED = 'WalletCounterpartiesMerged';
+
+    /** What was decided about several parties was forgotten; their transactions were not touched. */
+    case COUNTERPARTIES_FORGOTTEN = 'WalletCounterpartiesForgotten';
+
     case TAG_RENAMED = 'WalletTagRenamed';
 
     case TAGS_MERGED = 'WalletTagsMerged';
@@ -90,6 +99,7 @@ enum WalletAuditEvent: string
             self::DUPLICATES_KEPT => 'FinancialTransaction',
             self::TAG_RENAMED,
             self::TAGS_MERGED,
+            self::COUNTERPARTY_UPDATED, self::COUNTERPARTIES_MERGED, self::COUNTERPARTIES_FORGOTTEN => 'Counterparty',
             self::TAG_DELETED => 'Tag',
             self::STATEMENT_IMPORTED,
             self::STATEMENT_IMPORT_UNDONE,

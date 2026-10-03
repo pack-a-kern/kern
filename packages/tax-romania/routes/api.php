@@ -47,7 +47,11 @@ use Kern\TaxRomania\Http\Controllers\Wallet\RecordTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowAccountsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowBanksController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowDuplicateTransactionsController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ForgetCounterpartiesController;
+use Kern\TaxRomania\Http\Controllers\Wallet\MergeCounterpartiesController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartiesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTagsController;
+use Kern\TaxRomania\Http\Controllers\Wallet\UpdateCounterpartyController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTaxCategoriesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTransactionsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowWalletOverviewController;
@@ -132,6 +136,11 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * A person's own labels for their spending — not a tax vocabulary, so unlike categories these
      * are rows a person creates, renames and merges rather than a config file.
      */
+    Route::get('wallet/counterparties', ShowCounterpartiesController::class);
+    Route::post('wallet/counterparties/merge', MergeCounterpartiesController::class);
+    Route::post('wallet/counterparties/forget', ForgetCounterpartiesController::class);
+    Route::patch('wallet/counterparties/{counterparty}', UpdateCounterpartyController::class)
+        ->where('counterparty', '[0-9a-f-]{36}');
     Route::get('wallet/tags', ShowTagsController::class);
     Route::patch('wallet/tags/{tag}', UpdateTagController::class)->where('tag', '[0-9a-f-]{36}');
     Route::post('wallet/tags/{tag}/merge', MergeTagsController::class)->where('tag', '[0-9a-f-]{36}');

@@ -214,6 +214,24 @@ export interface TransactionSummary {
     tags: Tag[];
     /** The statement import that created it, for undoing a whole import. */
     importId: string | null;
+    /**
+     * The statement line it was made from, where there is one.
+     *
+     * Null for a transaction somebody typed. Carried with the row rather than fetched when a dialog
+     * opens, because it is four short strings and the alternative is a request per row looked at.
+     */
+    sourceLine: SourceLine | null;
+}
+
+/** What the bank's own file said, before anything was made of it. */
+export interface SourceLine {
+    importId: string;
+    fileName: string | null;
+    documentId: string | null;
+    rowNumber: number;
+    description: string | null;
+    counterparty: string | null;
+    reference: string | null;
 }
 
 /** Lookalike transactions gathered for a person to merge or keep. */
@@ -679,6 +697,25 @@ function parseTransactionRow(entry: unknown): TransactionSummary {
             return { id: str(tag, 'id'), name: str(tag, 'name') };
         }),
         importId: nullableStr(row, 'import_id'),
+        sourceLine: ((): SourceLine | null => {
+            const line = row.source_line;
+
+            if (typeof line !== 'object' || line === null) {
+                return null;
+            }
+
+            const source = obj(line);
+
+            return {
+                importId: str(source, 'import_id'),
+                fileName: nullableStr(source, 'file_name'),
+                documentId: nullableStr(source, 'document_id'),
+                rowNumber: typeof source.row_number === 'number' ? source.row_number : 0,
+                description: nullableStr(source, 'description'),
+                counterparty: nullableStr(source, 'counterparty'),
+                reference: nullableStr(source, 'reference'),
+            };
+        })(),
     };
 }
 

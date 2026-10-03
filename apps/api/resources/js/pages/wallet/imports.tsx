@@ -189,7 +189,7 @@ export default function WalletImports(): JSX.Element {
                                     }}
                                 >
                                     <Trash2 className="size-4" />
-                                    {t((d) => d.pages.walletImports.deleteSelected)}
+                                    {t((d) => d.common.deleteSelected)}
                                 </DropdownMenuItem>
                             </BulkActions>
                             <PanelButton
@@ -209,8 +209,12 @@ export default function WalletImports(): JSX.Element {
                             page={page}
                             pageSize={perPage}
                             total={total}
-                            unit={t((d) => d.pages.walletImports.historyTitle)}
+                            unit={t((d) => d.pages.walletImports.unit)}
                             onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPerPage(size);
+                                setPage(1);
+                            }}
                         />
                     }
                 >

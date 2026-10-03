@@ -237,7 +237,9 @@ export async function keepDuplicateTransactions(subjectId: string, transactionId
 export async function listBanks(subjectId: string, options: { includeClosed?: boolean } = {}): Promise<Bank[]> {
     const query = options.includeClosed === true ? '?include_closed=1' : '';
 
-    return parseBanks(JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks${query}`)));
+    return parseBanks(
+        JSON.parse(await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/banks${query}`)),
+    );
 }
 
 /** This taxpayer's own tags, for the filter and the chips input. */
@@ -276,8 +278,18 @@ export interface TransactionFilters {
     accountId?: string;
     bankId?: string;
     tagId?: string;
+    /**
+     * Part of a counterparty's name, as typed.
+     *
+     * Matched on the server against its decrypted directory rather than in SQL — a fragment cannot
+     * be compared with a ciphertext, nor with the hash of a whole name. Every counterparty it
+     * matches narrows the list, which is what makes "lukoil" find all five spellings of it.
+     */
+    counterparty?: string;
     /** `CLASSIFIED` or `UNCLASSIFIED`; anything else means every row. */
     classification?: string;
+    /** One tax category code, as the catalogue spells it. Matches a row with a split in it. */
+    categoryCode?: string;
     /** `IN` or `OUT`. */
     direction?: string;
     from?: string;
@@ -300,7 +312,9 @@ export async function listTransactions(subjectId: string, filters: TransactionFi
         ['account_id', filters.accountId],
         ['bank_id', filters.bankId],
         ['tag_id', filters.tagId],
+        ['counterparty', filters.counterparty],
         ['classification', filters.classification],
+        ['category_code', filters.categoryCode],
         ['direction', filters.direction],
         ['from', filters.from],
         ['to', filters.to],

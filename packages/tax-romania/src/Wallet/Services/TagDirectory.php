@@ -155,7 +155,7 @@ final readonly class TagDirectory
         DB::transaction(function () use ($from, $into): void {
             foreach ([
                 ['transaction_tags', 'transaction_id'],
-                ['counterparty_rule_tags', 'rule_id'],
+                ['counterparty_tags', 'counterparty_id'],
             ] as [$table, $ownerKey]) {
                 $rows = DB::table($table)
                     ->where('tax_subject_id', $this->tenant->currentTenantId())

@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
 use Kern\TaxRomania\Wallet\Exceptions\SystemTransactionException;
 use Kern\TaxRomania\Wallet\Exceptions\ZeroAmountTransactionException;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
 /**
@@ -35,7 +36,7 @@ final readonly class UpdateFinancialTransaction
 {
     public function __construct(
         private WalletAudit $audit,
-        private CounterpartyRules $rules,
+        private CounterpartyDirectory $rules,
     ) {
     }
 
@@ -111,6 +112,17 @@ final readonly class UpdateFinancialTransaction
             }
 
             $transaction->save();
+
+            // A corrected counterparty is a name the directory may never have seen. The old one is
+            // left alone: other transactions may still carry it, and a directory that forgot a name
+            // the moment one row stopped using it would be wrong more often than tidy.
+            if ($counterparty !== null) {
+                $this->rules->observe(
+                    $transaction->counterparty_blind_index,
+                    $counterparty,
+                    MoneyDirection::ofAmount((int) $transaction->amount_minor),
+                );
+            }
 
             if ($tagIds !== null) {
                 // Replace, never append: the form shows every tag the row has, so what comes back

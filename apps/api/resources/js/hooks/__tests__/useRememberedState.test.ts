@@ -94,3 +94,44 @@ describe('useRememberedPaging', () => {
         expect(result.current.pageSize).toBe(25);
     });
 });
+
+describe('useRememberedPaging', () => {
+    it('moves to the page it is asked for, and stays there', () => {
+        const paging = renderHook(() => useRememberedPaging('wallet.transactions', { perSubject: true }));
+
+        expect(paging.result.current.page).toBe(1);
+
+        act(() => {
+            paging.result.current.setPage(2);
+        });
+
+        expect(paging.result.current.page).toBe(2);
+
+        // A re-render must not read the page back from storage as the default: the whole symptom of
+        // the bug this guards is a pager that moves and a list that does not.
+        paging.rerender();
+
+        expect(paging.result.current.page).toBe(2);
+
+        act(() => {
+            paging.result.current.setPage(3);
+        });
+
+        expect(paging.result.current.page).toBe(3);
+    });
+
+    it('starts again from the first page when the page size changes', () => {
+        const paging = renderHook(() => useRememberedPaging('wallet.reports'));
+
+        act(() => {
+            paging.result.current.setPage(4);
+        });
+
+        act(() => {
+            paging.result.current.setPageSize(100);
+        });
+
+        expect(paging.result.current.page).toBe(1);
+        expect(paging.result.current.pageSize).toBe(100);
+    });
+});

@@ -51,6 +51,13 @@ return [
             // Weekly, at night: a law gains a consolidation when an amendment enters into force, a
             // few times a year — reading it within the week is soon enough, and the night is quiet.
             'legislation.sync' => env('OPERATIONS_CRON_LEGISLATION_SYNC', '0 3 * * 0'),
+            /*
+             * Every ten minutes, not every minute. Nobody is waiting: a person who has just imported
+             * a statement is reviewing it, and the answers this produces are proposals they will see
+             * next time they open the screen. Ten minutes also bounds what a stuck run can overlap
+             * with, since one call takes minutes rather than seconds.
+             */
+            'counterparties.classify' => env('OPERATIONS_CRON_COUNTERPARTIES_CLASSIFY', '*/10 * * * *'),
         ],
     ],
 

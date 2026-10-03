@@ -360,7 +360,7 @@
        of restating it. Changing it here moves selects, inputs and buttons together, which is the
        whole reason they share this class. */
     height: var(--ctl-h);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     padding-inline: 9px;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -400,14 +400,19 @@
  * field needs, drawn on the border rather than bleeding outside it.
  *
  * The indicator is *strengthened*, never removed — a keyboard user must still be able to see where
- * they are. `:focus-visible` keeps it off for pointer clicks; `:focus-within` covers the select,
- * whose focus lands on an inner element. */
+ * they are. `:focus-visible` keeps it off for pointer clicks, and `:has(:focus-visible)` extends
+ * that to a control whose focus lands on an inner element — a select, a field inside a group.
+ *
+ * Not `:focus-within`, which was here first and is the pointer case all over again: it matches
+ * whatever gave the focus, so a clicked button or select kept a ring-coloured border long after the
+ * pointer had gone, until something else happened to take focus. `:has()` asks the same question
+ * about descendants that `:focus-visible` asks about the element, which is the one we mean. */
 /* Focus is the border firming up — no halo.
  *
  * The vendor controls' `ring-3` utilities were removed at source (`components/ui/*`), so this does
  * not have to fight them; `box-shadow: none` stays as a guard in case a control reintroduces one. */
 .ctl:focus-visible,
-.ctl:focus-within {
+.ctl:has(:focus-visible) {
     border-color: var(--ring);
     box-shadow: none;
     outline: none;
@@ -540,12 +545,15 @@
     align-items: stretch;
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     background: var(--card);
 }
 
+/* Flattening the members is its own rule, below, and deliberately not part of this one: it needs
+   more specificity than this block, and raising this whole rule to match took `border-color:
+   transparent` up with it, past the divider rule underneath — which erased the separator between
+   members entirely. */
 .btn-group > * {
-    border-radius: 0;
     border-color: transparent;
     background: transparent;
     color: var(--foreground);
@@ -554,6 +562,17 @@
        as a hairline around whichever member is hovered. Here the fill runs to the edge, and the
        divider — a real border colour — still draws over it. */
     background-clip: border-box;
+}
+
+/* Only the rounding, and with a doubled class for the specificity.
+ *
+ * Source order decided this before, and that is the whole problem: `.ctl` declares a radius above
+ * this block and lost to it, `.ctl-action` declares one below and won. So the day the members were
+ * switched from the first class to the second, each started drawing its own corners — a hover fill
+ * curving away from the divider instead of meeting it. Two classes beat one whatever the order, and
+ * keeping it to this one property leaves the cascade inside the block alone. */
+.btn-group.btn-group > * {
+    border-radius: 0;
 }
 
 /* The separator between two members, drawn by the second one rather than an element of its own. */
@@ -724,11 +743,28 @@
 .pill {
     display: inline-flex;
     align-items: center;
-    border-radius: 9999px;
-    padding: 3px 7px;
+    /* For the mark a pill may carry before its word — a tag, a category — so the two are tellable
+       apart now that they share a colour. */
+    gap: 4px;
+    border-radius: var(--radius-md);
+    padding: 5px 8px;
     font-size: 10.5px;
     line-height: 1;
     white-space: nowrap;
+}
+
+/* The one icon in this interface below the 12px step, and the exception is the point: the scale
+   assumes type at 11.5px or more, while a pill sets 10.5px. A 12px mark in a 10.5px chip is larger
+   than the word it introduces and becomes the loudest thing in it.
+ *
+ * Sized here rather than by a utility at each call site so every pill's mark matches its own type,
+ * and `block` because an inline SVG otherwise sits on the text baseline and leaves a descender's
+ * worth of gap under it — which is what made it look off-centre rather than any alignment rule. */
+.pill > svg {
+    flex: none;
+    display: block;
+    width: 10px;
+    height: 10px;
 }
 
 /* One padded box with a single hairline above its actions — never a header/body/footer sandwich.
@@ -804,6 +840,17 @@ label:has(
     font-weight: 500;
     color: var(--muted-foreground);
     text-align: left;
+}
+
+/* A select whose answer is a word or a number — a year, a currency.
+ *
+ * The 155px floor above exists so a row of filters does not collapse its controls to the width of
+ * their own text; a control that only ever holds four digits has no such row to stay in line with,
+ * and at the floor it was mostly empty. Stated as a class because that floor is unlayered CSS and a
+ * width utility cannot reach past it. */
+.select-compact.select-trigger {
+    width: auto;
+    min-width: 0;
 }
 
 .select-trigger:hover:not(:disabled) {
@@ -1018,11 +1065,11 @@ label:has(
    shell surface rather than a bare ghost button, so the cluster reads as one group of controls. */
 .shell-control {
     display: inline-flex;
-    height: var(--ctl-h);
+    height: calc(var(--ctl-h) - 4px);
     align-items: center;
     gap: 0.375rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     background: var(--card);
     padding-inline: 0.5rem;
     font-size: 0.75rem;
@@ -1422,6 +1469,47 @@ label:has(
     color: var(--muted-foreground);
 }
 
+/* Several readings of one panel, one of them current.
+ *
+ * Deliberately not `.btn-group`: that joins buttons which each *do* something, and reads as one
+ * bordered control because pressing any of it is an action. These only change what is shown, so the
+ * set is an inset track with the current reading lifted out of it — the shape a phone's settings use
+ * for exactly this, and the one the mockup drew. */
+.tabs {
+    display: inline-flex;
+    width: fit-content;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 1.625rem;
+    padding-inline: 10px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tab:hover {
+    color: var(--foreground);
+}
+
+/* Lifted rather than tinted: the current reading is the surface you are looking at, and a tint
+   would make it read as selected-and-pressable like the rest of the row. */
+.tab[aria-selected='true'] {
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
+}
+
 /* Summary tiles above a listing. */
 .stat-grid {
     display: grid;
@@ -1443,6 +1531,28 @@ label:has(
     font-size: 10.5px;
     color: var(--muted-foreground);
     margin-bottom: 7px;
+}
+
+/* With a mark, the label shares a line with it and the spacing moves to the row. */
+.stat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+}
+
+.stat-head .stat-label {
+    margin-bottom: 0;
+}
+
+.stat-mark {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-lg);
+    flex: none;
 }
 .stat-value {
     font-size: 19px;
@@ -1529,8 +1639,12 @@ label:has(
         display: none;
     }
     .toolbar-end {
-        margin-left: 0;
-        flex: 1 1 100%;
+        /* Sits at the right of whichever line it lands on, and wraps to its own only when it cannot
+           fit. `flex: 1 1 100%` took a line unconditionally, which put one icon button on a line of
+           its own under the date it belongs beside. Wrapping still happens — it is just no longer
+           forced for an `end` that is one small control. */
+        flex: 0 1 auto;
+        margin-left: auto;
     }
     .toolbar > .search,
     .toolbar-row > .search {
@@ -1547,6 +1661,107 @@ label:has(
     .toolbar-row > .ctl-action {
         margin-left: auto;
     }
+}
+
+/* The counterparty filter: a search box whose results hang under it.
+ *
+ * Not a select, because a select offers what it holds and this holds nothing until the server has
+ * decrypted its directory to match what was typed. The results are positioned rather than portalled
+ * — unlike `.select-menu`, this one is never inside a dialog or a sideways-scrolling panel, and
+ * anchoring it to the box keeps it with the box when the toolbar wraps.
+ */
+.counterparty-search {
+    position: relative;
+    min-width: 200px;
+}
+.counterparty-results {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+/* The folded filters, as a panel rather than as a second line of loose controls — one bordered
+   surface says they belong together and that they were opened deliberately. */
+.filter-card {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+}
+
+/* Equal tracks rather than a wrapping row: five controls sized by their own content line up at five
+   different widths, and the ragged right edge reads as five unrelated things. One column on a phone,
+   two where a pair fits, five where they all do. */
+.filter-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px 10px;
+}
+
+@media (width >= 40rem) {
+    .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (width >= 72rem) {
+    .filter-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+/* The reset, on its own line below a hairline. Among the controls it was a sixth cell in a grid of
+   five filters, which made it look like one of them. */
+/* The card's foot: what is filtering on the left, the way to clear it on the right. */
+.filter-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+
+.filter-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* A filter in force, shown as something you can take off.
+ *
+ * Chip height rather than control height: at `--ctl-h` it read as another button in a row of
+ * buttons rather than as a label on what is already filtering. Tinted with the accent so the row
+ * says "these are on" at a glance, which a grey one did not. */
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 1.75rem;
+    max-width: 16rem;
+    padding-inline: 8px;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--info) 28%, transparent);
+    background: color-mix(in srgb, var(--info) 8%, transparent);
+    color: var(--info);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.filter-chip:hover {
+    background: color-mix(in srgb, var(--info) 14%, transparent);
 }
 
 /* Listing table. Wide content scrolls inside its own wrapper, never the page. */
@@ -1578,6 +1793,46 @@ label:has(
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
+/* Which way the money went, as a tinted square at the head of a row.
+ *
+ * Sized to the row's own text rather than to a control: it sits inside a cell beside a date, so a
+ * `.stat-mark`'s 28px would set the row height on its own. */
+.direction-mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--radius-md);
+}
+
+/* A figure that carries its sign in colour.
+ *
+ * As classes rather than `text-success` / `text-destructive` utilities, because `.data-table td`
+ * sets `color` unlayered a few rules below and beats any Tailwind text colour on the element — so
+ * the amounts were drawing muted grey while the markup said otherwise. The same reason `.col-figure`
+ * exists for the alignment.
+ */
+.data-table td.is-in {
+    color: var(--success);
+}
+
+.data-table td.is-out {
+    color: var(--destructive);
+}
+
+/* A column of figures, headed by a label over its own digits.
+ *
+ * Needed as a class rather than a `text-right` utility because `.data-table th` sets `text-align`
+ * unlayered, which beats any Tailwind alignment on the element — so the headings sat left of
+ * columns that were right-aligned, and the table read as two tables. Cells take it too, so a column
+ * is declared once at its head and at its rows rather than each cell restating it. */
+.data-table th.col-figure,
+.data-table td.col-figure {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 .data-table td {
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
@@ -1609,6 +1864,7 @@ label:has(
         display: none;
     }
     .data-table-stack tbody tr {
+        position: relative;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -1629,13 +1885,21 @@ label:has(
     .data-table-stack td.col-hide {
         display: none;
     }
-    /* Takes the whole first line; everything else flows onto the second. */
+    /* Takes the whole first line; everything else flows onto the second. The right padding is the
+       actions' width — they are pinned over this line, not laid out beside it. */
     .data-table-stack td.col-primary {
         flex-basis: 100%;
+        padding-right: 80px;
     }
-    /* Pushed against the right edge of whatever line it lands on — the row's action. */
+    /* Pinned to the row's top-right corner rather than pushed right on whatever line it ended up on
+       — which was the last one, so a card's controls sat at its foot beside its final value. Taken
+       out of the flow because the cells before it wrap freely and there is no line to put it on;
+       `.col-primary` reserves the width so the row's name cannot run underneath. */
     .data-table-stack td.col-end {
-        margin-left: auto;
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        margin-left: 0;
     }
     /* A cell whose value is long enough to own a line of its own — a URL, an error message. It
        still wraps inside that line rather than widening the row. */
@@ -1647,13 +1911,62 @@ label:has(
        with its control instead of sitting above it and leaving the column ragged. */
     .data-table-stack td[data-label] {
         display: flex;
-        align-items: center;
+        flex-basis: 100%;
+        align-items: baseline;
+        justify-content: space-between;
         gap: 6px;
+        padding: 10px 0 6px;
+        border-top: 1px dashed var(--border);
+    }
+    /* Dashed, and only between the labelled pairs: the solid line already means "next row", and a
+       second solid one inside a card would read as the start of another. */
+    .data-table-stack td[data-label] + td[data-label] {
+        margin-top: -2px;
     }
     .data-table-stack td[data-label]::before {
         content: attr(data-label);
         flex: none;
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
         color: var(--muted-foreground);
+    }
+}
+
+/* Tall enough that twelve months of paired bars are read as a shape rather than a row of ticks. */
+.chart-tall {
+    height: 310px;
+}
+
+/* A ring with a figure in its hole. The two sizes are the two jobs: a tile beside its reading, and
+   the one chart a panel is built around. */
+.chart-donut {
+    position: relative;
+    flex: none;
+    width: 92px;
+    height: 92px;
+}
+
+.chart-donut-lead {
+    position: relative;
+    width: 230px;
+    height: 230px;
+}
+
+.donut-note {
+    font-size: 9px;
+}
+
+/* A wide panel beside a narrow one. Stated as a pair of fractions rather than halves because the
+   chart needs the room and the summary beside it does not. */
+@media (width >= 80rem) {
+    .report-split {
+        grid-template-columns: 1.7fr 0.85fr;
+    }
+
+    .report-split-wide {
+        grid-template-columns: 1.35fr 0.65fr;
     }
 }
 
@@ -1964,8 +2277,9 @@ label:has(
         box-shadow 0.12s ease;
 }
 
-/* Focus belongs to the whole group: focusing the field must not light up only part of the shape. */
-.input-group:focus-within {
+/* Focus belongs to the whole group: focusing the field must not light up only part of the shape.
+   `:has(:focus-visible)` rather than `:focus-within`, for the reason given at `.ctl:focus-visible`. */
+.input-group:has(:focus-visible) {
     border-color: var(--ring);
 }
 
@@ -2061,9 +2375,11 @@ label:has(
 .field-invalid .input-group {
     border-color: var(--destructive);
 }
+/* Matched to `.ctl:has(:focus-visible)` above, because this exists to beat it: an override that
+   fires in more cases than the rule it overrides is an override that paints on its own. */
 .field-invalid .ctl:focus-visible,
-.field-invalid .ctl:focus-within,
-.field-invalid .input-group:focus-within {
+.field-invalid .ctl:has(:focus-visible),
+.field-invalid .input-group:has(:focus-visible) {
     border-color: var(--destructive);
 }
 

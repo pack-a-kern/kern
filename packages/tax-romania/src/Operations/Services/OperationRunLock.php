@@ -44,6 +44,22 @@ final readonly class OperationRunLock
     }
 
     /**
+     * Release a lock whose owner token is gone.
+     *
+     * For a job the worker killed rather than threw into: it never reached the `finally` that
+     * releases, and the token it held died with the process. Without this the lock stands for its
+     * full time to live, and every scheduled run in that window returns having done nothing — which
+     * is the half hour somebody spends wondering why the task looks idle.
+     *
+     * Deliberately not reachable from a request. Forcing a lock is how two imports end up racing on
+     * the same rows, so it belongs to the one caller that can prove the holder is dead.
+     */
+    public function forceRelease(OperationTask $task): void
+    {
+        $this->store()->lock($this->name($task))->forceRelease();
+    }
+
+    /**
      * The atomic-lock capability, taken from the cache *store* rather than the repository: the
      * `Cache` contract has no `lock()`, only stores that implement `LockProvider` do.
      *

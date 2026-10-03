@@ -19,7 +19,7 @@ use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
 use Kern\TaxRomania\StatementImport\Services\StatementFingerprintReindexer;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use Kern\TaxRomania\Wallet\Models\CounterpartyRule;
+use Kern\TaxRomania\Wallet\Models\Counterparty;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\Tag;
 
@@ -140,10 +140,10 @@ final class BlindIndexColumns
             ),
 
             // Re-keyable only because the rule now carries the name it indexes — see that table's
-            // `2026_09_27_100000_give_counterparty_rules_the_name_they_index` migration.
+            // `2026_09_27_100000_give_counterparties_the_name_they_index` migration.
             'kern.reindexer.counterparty-rules' => static fn (Application $app): BlindIndexReindexer => new EloquentColumnReindexer(
-                label: 'counterparty_rules.counterparty_blind_index',
-                query: static fn (): Builder => CounterpartyRule::query()->withoutGlobalScope(TenantScope::class),
+                label: 'counterparties.counterparty_blind_index',
+                query: static fn (): Builder => Counterparty::query()->withoutGlobalScope(TenantScope::class),
                 indexColumn: 'counterparty_blind_index',
                 normalize: self::text('counterparty_ciphertext'),
                 hasher: $app->make(BlindIndexHasher::class),
@@ -156,7 +156,7 @@ final class BlindIndexColumns
     /**
      * The common case: hash `Normalizer::text()` of one encrypted column, trimmed.
      *
-     * Trimmed because the writing side trims — `CounterpartyRules::indexFor()` does it explicitly, and
+     * Trimmed because the writing side trims — `CounterpartyDirectory::indexFor()` does it explicitly, and
      * a value that is only whitespace has no index at all rather than the index of an empty string.
      *
      * @return Closure(Model): ?string

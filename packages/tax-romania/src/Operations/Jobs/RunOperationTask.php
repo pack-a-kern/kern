@@ -11,7 +11,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kern\TaxRomania\Operations\Enums\OperationTask;
+use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Models\TaskRun;
 use Kern\TaxRomania\Operations\Services\OperationRunLock;
 use Kern\TaxRomania\Operations\Services\TaskRunRecorder;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -86,6 +88,42 @@ final class RunOperationTask implements ShouldQueue
         }
 
         return $mapped;
+    }
+
+    /**
+     * What a job that was killed rather than thrown leaves behind.
+     *
+     * A worker timeout does not raise into `handle()` — it fails the job and ends the process — so
+     * the `catch` below never runs, the `finally` never runs, and the ledger row stays `RUNNING`
+     * for ever. The Tasks tab then shows a run still in flight that nothing will ever finish, which
+     * is worse than a failure: a failure says look at me.
+     *
+     * Found when the counterparty classifier was put on the `default` queue, whose sixty-second
+     * timeout it exceeded every ten minutes. That was a mistake in the task, but the stuck row is
+     * this job's to prevent, and it would have happened to any task slow enough.
+     *
+     * The run is found rather than remembered: `$run` is created inside `handle()` and this may be
+     * called in a process that never had it.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        $recorder = app(TaskRunRecorder::class);
+        $run = TaskRun::query()
+            ->where('task_key', $this->task->value)
+            ->where('status', TaskRunStatus::RUNNING)
+            ->orderByDesc('started_at')
+            ->first();
+
+        if ($run !== null) {
+            $recorder->fail($run, $exception === null ? 'Killed' : class_basename($exception));
+        }
+
+        // And the lock, which `finally` never reached. It has a time to live, so this only saves the
+        // next half hour of scheduled runs from returning without doing anything — which is exactly
+        // the half hour in which somebody is looking at why the last one failed.
+        if ($this->lockOwner === null) {
+            app(OperationRunLock::class)->forceRelease($this->task);
+        }
     }
 
     public function handle(Kernel $artisan, TaskRunRecorder $recorder, OperationRunLock $lock): void

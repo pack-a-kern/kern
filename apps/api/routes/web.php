@@ -62,6 +62,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
      */
     // Wallet has no page of its own: its summary is the dashboard, and in the menu it only opens these.
     Route::get('/wallet/accounts', fn () => Inertia::render('wallet/accounts'))->name('wallet.accounts');
+    Route::get('/wallet/counterparties', fn () => Inertia::render('wallet/counterparties'))
+        ->name('wallet.counterparties');
     // `countries` is a page prop rather than a shared one, for the same reason `counties` is:
     // only the classification dialog offers the list, and sharing it would put it on every Inertia
     // response in the application.

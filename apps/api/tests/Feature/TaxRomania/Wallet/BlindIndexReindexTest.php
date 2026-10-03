@@ -22,7 +22,7 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
-use Kern\TaxRomania\Wallet\Models\CounterpartyRule;
+use Kern\TaxRomania\Wallet\Models\Counterparty;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use RuntimeException;
@@ -103,7 +103,7 @@ it('finds a user by email again once the indexes are rebuilt', function (): void
 it('finds a counterparty rule again once the indexes are rebuilt', function (): void {
     [, $subject] = subjectWithOwner();
 
-    $rule = new CounterpartyRule([
+    $rule = new Counterparty([
         'tax_subject_id' => $subject->id,
         'counterparty_ciphertext' => 'LIDL DISCOUNT SRL',
         'counterparty_blind_index' => app(BlindIndexHasher::class)->compute(Normalizer::text('LIDL DISCOUNT SRL')),
@@ -115,7 +115,7 @@ it('finds a counterparty rule again once the indexes are rebuilt', function (): 
 
     rotateBlindIndexKey();
 
-    $searched = fn (): ?CounterpartyRule => CounterpartyRule::query()
+    $searched = fn (): ?Counterparty => Counterparty::query()
         ->withoutGlobalScope(TenantScope::class)
         ->where('counterparty_blind_index', app(BlindIndexHasher::class)->compute(Normalizer::text('LIDL DISCOUNT SRL')))
         ->first();

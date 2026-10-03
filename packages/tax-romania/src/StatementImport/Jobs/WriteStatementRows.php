@@ -26,7 +26,7 @@ use Kern\TaxRomania\Wallet\DataTransferObjects\ImportedTransactionInput;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Throwable;
 
@@ -66,7 +66,7 @@ final class WriteStatementRows implements ShouldQueue
     public function handle(
         RecordImportedTransactions $record,
         TagDirectory $tags,
-        CounterpartyRules $rules,
+        CounterpartyDirectory $rules,
         AuditChainService $audit,
         TenantContext $tenant,
         ConfigRepository $config,

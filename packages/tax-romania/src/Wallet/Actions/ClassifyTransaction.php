@@ -15,7 +15,7 @@ use Kern\TaxRomania\Wallet\Exceptions\SystemTransactionException;
 use Kern\TaxRomania\Wallet\Exceptions\TransactionSplitMismatchException;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
-use Kern\TaxRomania\Wallet\Services\CounterpartyRules;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
@@ -44,7 +44,7 @@ final readonly class ClassifyTransaction
     public function __construct(
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
-        private CounterpartyRules $rules,
+        private CounterpartyDirectory $rules,
     ) {
     }
 
@@ -84,8 +84,16 @@ final readonly class ClassifyTransaction
             $transaction->save();
         });
 
-        // What a person just said this counterparty was, kept for the next statement that names it.
-        // Clearing the answer clears nothing remembered: "I am not sure yet" is not a decision either.
+        // What a person just said this counterparty was, kept for the next statement that names it —
+        // and only that. Clearing the answer clears nothing remembered: "I am not sure yet" is not a
+        // decision either.
+        //
+        // Deliberately not applied to this counterparty's other rows. Here a person is answering one
+        // transaction, and one of a party's payments is often not like the rest: a transfer to
+        // somebody you usually lend to can be a gift. Pushing that answer across every unanswered row
+        // of the party would make the exception impossible to state. Saying something about the whole
+        // party is what the counterparties screen is for, and it says how many rows it will change
+        // before it changes them.
         if ($splits !== []) {
             $this->rules->remember(
                 index: $transaction->counterparty_blind_index,

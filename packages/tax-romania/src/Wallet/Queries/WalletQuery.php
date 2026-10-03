@@ -16,6 +16,7 @@ use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
+use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
 use Kern\TaxRomania\Wallet\Services\Fx\DisplayCurrencyConverter;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
@@ -57,6 +58,7 @@ final readonly class WalletQuery
         private DisplayCurrencyConverter $converter,
         private TenantContext $tenant,
         private TagDirectory $tags,
+        private CounterpartyDirectory $counterparties,
     ) {
     }
 
@@ -272,7 +274,7 @@ final readonly class WalletQuery
      * The register holds forty-six Romanian banks; a person's money sits at two or three. A filter
      * offering the register is forty-odd choices that each return nothing.
      *
-     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, counterparty?: ?string, classification?: ?string, category_code?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
      * @return list<string>
      */
     public function bankIdsInUse(array $filters = []): array
@@ -290,7 +292,7 @@ final readonly class WalletQuery
      * first interest posting, and then stops — which is the case a rule about kinds would miss and
      * this one gets for free.
      *
-     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, counterparty?: ?string, classification?: ?string, category_code?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
      * @return list<string>
      */
     public function accountIdsInUse(array $filters = []): array
@@ -347,7 +349,7 @@ final readonly class WalletQuery
      * made; they exist so the balances add up, and listing them makes a person hunt for the rows
      * that are actually theirs.
      *
-     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, classification?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
+     * @param  array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, counterparty?: ?string, classification?: ?string, category_code?: ?string, direction?: ?string, from?: ?string, to?: ?string}  $filters
      * @return array{transactions: list<TransactionSummary>, total: int}
      */
     public function transactions(array $filters, int $page, int $perPage): array
@@ -415,6 +417,33 @@ final readonly class WalletQuery
             $query->where('bank_id', $bankId);
         }
 
+        /*
+         * Typed into the search box above the ledger.
+         *
+         * The name is encrypted and the index beside it is a hash of the whole name, so neither
+         * column can be matched against a fragment — `LIKE '%mega%'` has nothing to compare, and
+         * `HMAC(key, 'mega')` is unrelated to the hash of "Mega Image". So the directory is decrypted
+         * and matched in PHP, and what comes out of that is a list of hashes this query can use.
+         *
+         * Every match, not one of them. A person typing "lukoil" means the fuel they bought, and
+         * their bank wrote that name five ways — filtering by one of the five answers with nine rows
+         * out of thirty-five, which looks like an answer and is not.
+         *
+         * Two letters before it matches anything: one letter matches most of a directory, and the
+         * decrypting is the cost of the whole operation.
+         */
+        if (($counterparty = $value('counterparty')) !== null && mb_strlen(trim($counterparty)) >= 2) {
+            $indexes = [];
+
+            foreach ($this->counterparties->search($counterparty, PHP_INT_MAX) as $match) {
+                array_push($indexes, ...$match['indexes']);
+            }
+
+            // Nothing matched is not the same as no filter: a search for a name this person has never
+            // paid should answer with an empty ledger, not with all of it.
+            $query->whereIn('counterparty_blind_index', $indexes === [] ? [''] : $indexes);
+        }
+
         if (($tagId = $value('tag_id')) !== null) {
             // `whereExists` rather than a join: a transaction can carry several tags, and a join
             // would return it once per tag and make the page size mean nothing.
@@ -435,6 +464,18 @@ final readonly class WalletQuery
 
         if (($direction = $value('direction')) !== null) {
             $query->where('amount_minor', $direction === MoneyDirection::OUT->value ? '<' : '>', 0);
+        }
+
+        if (($category = $value('category_code')) !== null) {
+            // On the splits, because a category is a property of a share of a transaction rather than
+            // of the transaction: one payment can be half rent and half spending, and it belongs in
+            // both answers. `whereExists` rather than a join for that reason — a join would return
+            // such a row twice and quietly inflate every count on the screen.
+            $query->whereExists(static function ($splits) use ($category): void {
+                $splits->from('transaction_splits')
+                    ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
+                    ->where('transaction_splits.category_code', $category);
+            });
         }
 
         $classification = $value('classification');
@@ -508,6 +549,7 @@ final readonly class WalletQuery
                     splits: $splits[self::str($transaction->getKey())] ?? [],
                     source: $transaction->source->value,
                     documentId: $transaction->document_id,
+                    importId: $transaction->import_id,
                     bankId: $transaction->bank_id,
                     bankName: $transaction->bank_id === null ? null : ($banks[$transaction->bank_id] ?? null),
                     tags: $tags[self::str($transaction->getKey())] ?? [],

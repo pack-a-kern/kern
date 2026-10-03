@@ -69,6 +69,16 @@ enum OperationTask: string
     case BANKS_BACKFILL = 'banks.backfill';
 
     /**
+     * Ask a model what the counterparties nobody has answered are, and apply what it says.
+     *
+     * Scheduled rather than done at import, which is where it used to live. An import that waits for
+     * a model is an import a person waits for, and the thing being asked about is not a file: it is a
+     * name, and a name is answered once and reused every month afterwards. So the import stages its
+     * rows and finishes, and this picks up whatever nobody has decided, whenever it next runs.
+     */
+    case COUNTERPARTIES_CLASSIFY = 'counterparties.classify';
+
+    /**
      * Read the fiscal values — the minimum-wage decisions and ANAF's D212 structure files — and
      * propose those the law says, for a person to approve. Started from the tax rules screen.
      */
@@ -85,6 +95,7 @@ enum OperationTask: string
             self::DEPOSIT_POST_INTEREST => 'kern:wallet:post-deposit-interest',
             self::BANKS_IMPORT => 'kern:banks:import',
             self::BANKS_BACKFILL => 'kern:banks:backfill',
+            self::COUNTERPARTIES_CLASSIFY => 'kern:counterparties:classify',
         };
     }
 
@@ -97,7 +108,13 @@ enum OperationTask: string
     {
         // The deposit task was described as daily and given a cron expression, but never listed
         // here — so nothing ran it, interest never posted, and a matured deposit's money vanished.
-        return in_array($this, [self::FX_IMPORT_DAILY, self::DEPOSIT_POST_INTEREST, self::BANKS_IMPORT, self::LEGISLATION_SYNC], true);
+        return in_array($this, [
+            self::FX_IMPORT_DAILY,
+            self::DEPOSIT_POST_INTEREST,
+            self::BANKS_IMPORT,
+            self::LEGISLATION_SYNC,
+            self::COUNTERPARTIES_CLASSIFY,
+        ], true);
     }
 
     /**

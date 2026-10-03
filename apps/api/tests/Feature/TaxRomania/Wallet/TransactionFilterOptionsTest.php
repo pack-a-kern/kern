@@ -261,3 +261,93 @@ it('narrows the sources by a bank, and not by the source already chosen', functi
         ->and(offeredAccounts($this, $user, $subjectId, ['account_id' => $accountId]))
         ->toBe(offeredAccounts($this, $user, $subjectId));
 });
+
+/**
+ * The tax filter names a category, not a state.
+ *
+ * It used to offer "classified", which named something nobody acts on: a person looking at what is
+ * answered is looking for rent, or for dividends. The category is a property of a *split* rather
+ * than of the transaction — one payment can be half rent and half spending — so this is the filter
+ * that can silently match everything, and it did exactly that once before this test existed.
+ */
+it('narrows the ledger to one tax category', function (): void {
+    [$user, $subjectId, $accountId] = bankFilterSubject();
+
+    recordAt($this, $user, $subjectId, $accountId, null, -4_000);
+    recordAt($this, $user, $subjectId, $accountId, null, 9_000);
+
+    /** @var list<string> $ids */
+    $ids = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions")
+        ->assertOk()
+        ->json('transactions.*.id');
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$ids[0]}/splits", [
+            'splits' => [['amount_minor' => 9_000, 'category_code' => 'RENT']],
+        ])->assertNoContent();
+
+    $rent = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions?category_code=RENT")
+        ->assertOk();
+
+    expect($rent->json('total'))->toBe(1)
+        ->and($rent->json('transactions.0.id'))->toBe($ids[0]);
+
+    // And a category nobody used returns nothing rather than everything.
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions?category_code=SALARY_PENSION")
+        ->assertOk()
+        ->assertJsonPath('total', 0);
+});
+
+/**
+ * A code outside the catalogue is refused rather than answered with an empty list.
+ *
+ * Silently returning nothing reads as "you have no such transactions", which is a different and
+ * wrong answer to a filter that names a category that does not exist.
+ */
+it('refuses a tax category the catalogue does not have', function (): void {
+    [$user, $subjectId] = bankFilterSubject();
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions?category_code=ROYALTIES")
+        ->assertStatus(422);
+});
+
+/**
+ * The second page is the second page.
+ *
+ * `page` and `per_page` arrive as query strings, and the controller read them with `is_int`, which
+ * is false for `'2'` — so every page returned the first one and the per-page default hid half of it.
+ * Asserted over HTTP rather than against the query, because the query was never wrong: the defect
+ * lived entirely in reading the request.
+ */
+it('pages the ledger', function (): void {
+    [$user, $subjectId, $accountId] = bankFilterSubject();
+
+    for ($amount = 1; $amount <= 5; $amount++) {
+        recordAt($this, $user, $subjectId, $accountId, null, $amount * -1_000);
+    }
+
+    $pageOf = function (int $page) use ($user, $subjectId): array {
+        /** @var list<string> $ids */
+        $ids = $this->actingAs($user)
+            ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions?page={$page}&per_page=2")
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->json('transactions.*.id');
+
+        return $ids;
+    };
+
+    $first = $pageOf(1);
+    $second = $pageOf(2);
+    $third = $pageOf(3);
+
+    expect($first)->toHaveCount(2)
+        ->and($second)->toHaveCount(2)
+        ->and($third)->toHaveCount(1)
+        // No row appears twice across the three pages, and together they are the whole ledger.
+        ->and(array_unique([...$first, ...$second, ...$third]))->toHaveCount(5);
+});

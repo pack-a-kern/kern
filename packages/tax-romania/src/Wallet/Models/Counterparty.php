@@ -15,7 +15,7 @@ use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
 
 /**
- * `counterparty_rules` — what this taxpayer already decided about a counterparty, per direction.
+ * `counterparties` — what this taxpayer already decided about a counterparty, per direction.
  *
  * The name is stored here as well as on the transactions that share it, which this table originally
  * refused — "a second copy of the name here would be one more place holding it". That was true about
@@ -26,7 +26,7 @@ use Kern\TaxRomania\Wallet\Enums\ProposalSource;
  *
  * The cost is genuinely one more encrypted field: it is sealed under the same taxpayer's DEK as the
  * copy on the transaction, so there is no additional key, principal or exposure surface. See this
- * table's `2026_09_27_100000_give_counterparty_rules_the_name_they_index` migration for the whole
+ * table's `2026_09_27_100000_give_counterparties_the_name_they_index` migration for the whole
  * argument, and `Kern\Platform\Console\Commands\KeyManagement\ReindexBlindIndexesCommand` for what
  * it makes possible.
  *
@@ -37,14 +37,23 @@ use Kern\TaxRomania\Wallet\Enums\ProposalSource;
  * @property MoneyDirection $direction
  * @property string|null $category_code
  * @property string|null $country_code
- * @property ProposalSource $source
+ * @property ProposalSource|null $source who decided; null while nobody has
+ * @property \Carbon\CarbonImmutable|null $analysed_at when a model last looked, answered or not
  */
-final class CounterpartyRule extends Model implements EncryptsWithSubjectDek
+final class Counterparty extends Model implements EncryptsWithSubjectDek
 {
     use FillsSubjectForeignKeyFirst;
     use HasUuidPrimaryKey;
     use ScopedToTenant;
 
+    /*
+     * Named explicitly, and it cannot be renamed to match this class.
+     * `Kern\Platform\Crypto\AssociatedData` binds every ciphertext to
+     * `subject_id | table | field | record_uuid`, so a table name is an input to decryption rather
+     * than a label on the outside: renaming it leaves every row already stored unreadable. Measured,
+     * not assumed — the rename was tried here, and the rows written before it threw
+     * `EnvelopeException` on every read afterwards while the ones written after read fine.
+     */
     protected $table = 'counterparty_rules';
 
     /** @var list<string> */
@@ -56,6 +65,7 @@ final class CounterpartyRule extends Model implements EncryptsWithSubjectDek
         'category_code',
         'country_code',
         'source',
+        'analysed_at',
     ];
 
     /** @var array<string, string> */
@@ -63,12 +73,13 @@ final class CounterpartyRule extends Model implements EncryptsWithSubjectDek
         'counterparty_ciphertext' => Encrypted::class,
         'direction' => MoneyDirection::class,
         'source' => ProposalSource::class,
+        'analysed_at' => 'immutable_datetime',
     ];
 
     /** @return BelongsToMany<Tag, $this> */
     public function tags(): BelongsToMany
     {
-        return $this->belongsToMany(Tag::class, 'counterparty_rule_tags', 'rule_id', 'tag_id');
+        return $this->belongsToMany(Tag::class, 'counterparty_tags', 'counterparty_id', 'tag_id');
     }
 
     public function encryptionSubjectId(): string

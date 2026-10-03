@@ -13,6 +13,8 @@ use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
 use Kern\TaxRomania\Console\Commands\Fx\BackfillBnrYearCommand;
 use Kern\TaxRomania\Console\Commands\Fx\ImportBnrDailyRatesCommand;
+use Kern\TaxRomania\Console\Commands\Wallet\BackfillCounterpartiesCommand;
+use Kern\TaxRomania\Console\Commands\Wallet\ClassifyCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\IndexCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\PostDepositInterestCommand;
 use Kern\TaxRomania\Declarations\DeclarationsServiceProvider;
@@ -134,6 +136,8 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 BackfillBanksCommand::class,
                 ImportBnrDailyRatesCommand::class,
                 BackfillBnrYearCommand::class,
+                BackfillCounterpartiesCommand::class,
+                ClassifyCounterpartiesCommand::class,
                 IndexCounterpartiesCommand::class,
                 PostDepositInterestCommand::class,
             ]);

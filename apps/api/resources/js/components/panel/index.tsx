@@ -68,7 +68,10 @@ export function Panel(props: {
                         {props.description !== undefined && <p className="panel-subtitle">{props.description}</p>}
                     </div>
                 </div>
-                {props.aside !== undefined && <div className="shrink-0">{props.aside}</div>}
+                {/* A row with air in it: the aside usually holds two or three buttons, and with no gap
+                    they met edge to edge and read as one segmented control rather than as separate
+                    actions. */}
+                {props.aside !== undefined && <div className="flex shrink-0 items-center gap-2">{props.aside}</div>}
             </div>
 
             <div className="panel-body">{props.children}</div>
@@ -130,6 +133,11 @@ export function EmptyState(props: {
  * the control height come from the same place as every other button in the app rather than from a
  * parallel set of rules.
  *
+ * Drawn at `.ctl-action`'s size rather than a control's: a row action is not something you fill in,
+ * and at full control height the pair at the end of every row carried the same weight as the data it
+ * acts on. The group's own rounding still wins — `.btn-group > *` zeroes each member's — so only the
+ * height and the label size come from here.
+ *
  * An action may navigate instead of firing a handler — a link and a button look identical here and
  * must, because "open this" and "delete this" sit side by side and read as one set.
  */
@@ -163,7 +171,7 @@ export function ActionGroup(props: {
                         key={action.key}
                         type="button"
                         variant="ghost"
-                        className="ctl font-semibold"
+                        className="ctl-action"
                         data-tone={action.tone}
                         aria-label={action.title}
                         disabled={action.disabled ?? false}
@@ -172,13 +180,7 @@ export function ActionGroup(props: {
                         {content}
                     </Button>
                 ) : (
-                    <Button
-                        key={action.key}
-                        asChild
-                        variant="ghost"
-                        className="ctl font-semibold"
-                        data-tone={action.tone}
-                    >
+                    <Button key={action.key} asChild variant="ghost" className="ctl-action" data-tone={action.tone}>
                         <Link href={action.href} aria-label={action.title}>
                             {content}
                         </Link>
@@ -547,6 +549,8 @@ export function PanelSelect(props: {
     searchable?: boolean;
     /** `tile` sets each option's icon in a rounded square; `bare` draws it as-is, for a dot. */
     optionVisual?: 'tile' | 'bare';
+    /** One mark for the control itself, whatever is chosen — see `CustomSelect`. */
+    icon?: ReactNode;
     id?: string;
     /** A select the viewer may read but not change — the same meaning `disabled` has on an input. */
     disabled?: boolean;
@@ -584,6 +588,7 @@ export function PanelSelect(props: {
             disabled={props.disabled ?? false}
             searchable={props.searchable ?? false}
             optionVisual={props.optionVisual ?? 'bare'}
+            {...(props.icon === undefined ? {} : { icon: props.icon })}
             searchPlaceholder={t((d) => d.common.search)}
             emptyText={t((d) => d.common.noResults)}
         />
@@ -865,10 +870,36 @@ export function StatGrid({ children }: { children: ReactNode }): JSX.Element {
     return <div className="stat-grid">{children}</div>;
 }
 
-export function Stat(props: { label: string; value: ReactNode; sub?: ReactNode }): JSX.Element {
+export function Stat(props: {
+    label: string;
+    value: ReactNode;
+    sub?: ReactNode;
+    /** A mark for what the figure is about, set against the label rather than beside the number. */
+    icon?: ReactNode;
+    /** Colours the mark only — the figure itself stays in the text colour, because a green number
+     *  and a green tile would say the same thing twice and leave nothing for a bad one to say. */
+    tone?: 'success' | 'destructive' | 'accent' | 'neutral';
+}): JSX.Element {
     return (
         <div className="stat">
-            <div className="stat-label">{props.label}</div>
+            {props.icon === undefined ? (
+                <div className="stat-label">{props.label}</div>
+            ) : (
+                <div className="stat-head">
+                    <div className="stat-label">{props.label}</div>
+                    <span
+                        className={cn(
+                            'stat-mark',
+                            props.tone === 'success' && 'bg-success/10 text-success',
+                            props.tone === 'destructive' && 'bg-destructive/10 text-destructive',
+                            props.tone === 'accent' && 'bg-info/10 text-info',
+                            (props.tone === 'neutral' || props.tone === undefined) && 'bg-muted text-muted-foreground',
+                        )}
+                    >
+                        {props.icon}
+                    </span>
+                </div>
+            )}
             <div className="stat-value">{props.value}</div>
             {props.sub !== undefined ? <div className="stat-sub">{props.sub}</div> : null}
         </div>
@@ -876,6 +907,43 @@ export function Stat(props: { label: string; value: ReactNode; sub?: ReactNode }
 }
 
 /** The filter bar that sits above a table, inside the same bordered panel. */
+/**
+ * Several readings of one panel, one of them current.
+ *
+ * Distinct from {@link ButtonGroup}, which is a joined set of *actions*, and from {@link Tabs}'
+ * nearest miss — a row of plain buttons, which gives a reader nothing to tell the current one by
+ * except its colour. This is the inset track with the current reading lifted out of it.
+ *
+ * `role="tablist"` with `aria-selected` rather than `aria-pressed`: these are views of one thing,
+ * not switches that are each on or off, and a reader is told which of the set is showing.
+ */
+export function Tabs<T extends string>(props: {
+    value: T;
+    onChange: (value: T) => void;
+    options: Array<{ value: T; label: ReactNode; icon?: ReactNode }>;
+    className?: string;
+}): JSX.Element {
+    return (
+        <div className={cn('tabs', props.className)} role="tablist">
+            {props.options.map((option) => (
+                <button
+                    key={option.value}
+                    type="button"
+                    role="tab"
+                    className="tab"
+                    aria-selected={option.value === props.value}
+                    onClick={() => {
+                        props.onChange(option.value);
+                    }}
+                >
+                    {option.icon}
+                    {option.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 export function Toolbar({ children }: { children: ReactNode }): JSX.Element {
     return <div className="toolbar">{children}</div>;
 }
@@ -902,10 +970,12 @@ export function ToolbarRows({ children }: { children: ReactNode }): JSX.Element 
  * "manage tags" and the bulk actions somewhere, and the far end is where they stop reading as
  * filters.
  */
-export function ToolbarRow(props: { label: string; children: ReactNode; end?: ReactNode }): JSX.Element {
+export function ToolbarRow(props: { label?: string; children: ReactNode; end?: ReactNode }): JSX.Element {
     return (
         <div className="toolbar-row">
-            <span className="toolbar-label">{props.label}</span>
+            {/* Only where the row needs naming. A line holding one search box explains itself, and an
+                eyebrow in front of it is a word to read before the thing it labels. */}
+            {props.label === undefined ? null : <span className="toolbar-label">{props.label}</span>}
             {props.children}
             {props.end === undefined ? null : <div className="toolbar-end">{props.end}</div>}
         </div>
@@ -1106,12 +1176,20 @@ export function PanelButton(props: {
     variant?: 'ghost' | 'outline';
     /** Match a control it stands beside (32px) instead of the 30px card-foot button. */
     inline?: boolean;
+    /** The hover text an icon-only button needs, since its label is a picture. */
+    title?: string;
+    /** For a button that is on or off, so a reader is told which rather than shown a shade. */
+    'aria-pressed'?: boolean;
+    'aria-expanded'?: boolean;
     className?: string;
 }): JSX.Element {
     return (
         <Button
             type="button"
             variant={props.primary === true ? 'default' : (props.variant ?? 'outline')}
+            {...(props.title === undefined ? {} : { title: props.title })}
+            {...(props['aria-pressed'] === undefined ? {} : { 'aria-pressed': props['aria-pressed'] })}
+            {...(props['aria-expanded'] === undefined ? {} : { 'aria-expanded': props['aria-expanded'] })}
             className={cn(props.inline === true ? 'ctl shrink-0 font-semibold' : 'ctl-action', props.className)}
             onClick={props.onClick}
             disabled={props.disabled ?? false}
