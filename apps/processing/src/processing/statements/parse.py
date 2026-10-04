@@ -60,7 +60,17 @@ _DATE_LIKE = re.compile(
     r"|^\d{4}[./-]\d{1,2}[./-]\d{1,2}",
     re.UNICODE,
 )
-_NUMERIC_CELL = re.compile(r"^-?\d{1,3}([.,\s]\d{3})*([.,]\d{1,2})?$|^-?\d+[.,]\d{1,2}$")
+# An amount, with the currency some banks write beside it in the same cell.
+#
+# Used only to find which column a block's amount sat in, so the labels beneath it can be grouped by
+# that column — never to read a value. Without the currency, `75,000.00 USD` was not an amount here,
+# so the block it opened was skipped and every label under it went uncounted: a statement whose
+# bank writes the currency inline offered nothing on the mapping screen, while the same statement
+# imported all of its transactions correctly, because that path never consults this.
+_NUMERIC_CELL = re.compile(
+    r"^-?\d{1,3}([.,\s]\d{3})*([.,]\d{1,2})?(\s*[A-Za-z]{3})?$"
+    r"|^-?\d+[.,]\d{1,2}(\s*[A-Za-z]{3})?$"
+)
 _LABELLED_CELL = re.compile(r"^\s*([^:]{2,45}?)\s*:\s*(.*)$", re.UNICODE)
 
 

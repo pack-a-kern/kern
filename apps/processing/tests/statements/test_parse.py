@@ -7,6 +7,7 @@ are what this code exists to read.
 """
 
 import io
+from typing import cast
 
 import pytest
 
@@ -305,3 +306,47 @@ def test_shape_reads_the_separators_a_column_writes() -> None:
 
 def test_a_column_that_is_only_mostly_one_thing_says_so() -> None:
     assert shape_of(["05.03.2026", "06.03.2026", "n/a"]).endswith("(mostly)")
+
+
+_DEPOSIT_CSV = """Data Tranzactiei,Data Valutei,Referinta,Descriere,Debit,Credit
+22/11/2023,22/11/2023,REF0000000000001,Depozit,"75,000.00 USD",-
+,,,DEPOZIT: TD 12 Luni PF,,
+,,,PROC.DOBANDA: 1%,,
+30/10/2023,29/10/2023,REF0000000000002,Incasare dobanda,-,419.56 USD
+,,,PROC.DOBANDA: 2%,,
+"""
+
+
+def test_labels_are_found_when_the_amount_carries_its_currency() -> None:
+    """A bank that writes `75,000.00 USD` in one cell still offers its labels.
+
+    The labels under a transaction are grouped by the column its amount sat in, so the amount has to
+    be recognised before anything beneath it is read. While that recognition wanted a bare number, a
+    statement written this way skipped every block and offered nothing on the mapping screen — and
+    did so silently, because the same statement's transactions imported perfectly: the import reads
+    values through its own parser and never consults this.
+    """
+    statement = parse_statement(_DEPOSIT_CSV.encode())
+
+    # One group per amount column, which is what separates money out from money in without this code
+    # being told which column means what: column 4 carried the first amount, column 5 the second.
+    found: dict[object, list[object]] = {}
+
+    for group in statement.labels_by_amount_column:
+        labels = cast(list[dict[str, object]], group["labels"])
+        found[group["amount_column"]] = [label["label"] for label in labels]
+
+    assert found == {4: ["DEPOZIT", "PROC.DOBANDA"], 5: ["PROC.DOBANDA"]}
+
+
+_DATE_FIRST_CSV = """Data,Data Valutei,Descriere,Suma
+22/11/2023,22.11.2023,Plata,"1.234,56 RON"
+,,TIP: card,
+"""
+
+
+def test_a_date_is_never_taken_for_the_amount() -> None:
+    """The first numeric cell names the column, so a date counting as one would pick wrongly."""
+    statement = parse_statement(_DATE_FIRST_CSV.encode())
+
+    assert [group["amount_column"] for group in statement.labels_by_amount_column] == [3]
