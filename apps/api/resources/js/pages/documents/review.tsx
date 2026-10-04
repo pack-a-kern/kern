@@ -75,7 +75,6 @@ import type {
 import { documentTypeLabel, type DerivativeKind } from '../../types/documents';
 import {
     ActionGroup,
-    DataTable,
     Detail,
     DetailList,
     Page,
@@ -1229,7 +1228,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                 )}
 
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)]">
-                    <Panel title={t((d) => d.documentsReview.source)}>
+                    <Panel title={t((d) => d.documentsReview.source)} icon={<FileText className="size-4" />}>
                         <>
                             {document && !CONTENT_AVAILABLE_STATUSES.includes(document.status) && (
                                 <div className="flex h-64 items-center justify-center rounded-md border border-dashed border-border bg-muted p-4 text-center text-sm text-muted-foreground">
@@ -1306,54 +1305,51 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                 </>
                             )}
                         </>
-                    </Panel>
 
-                    {/* Only where something was made. Of the eight kinds the store can name, one is
-                        produced today, so for most documents this panel is simply absent rather than
-                        standing empty and promising a pipeline that has not run. */}
-                    {(document?.derivatives.length ?? 0) === 0 ? null : (
-                        <Panel
-                            title={t((d) => d.documentsReview.derivatives)}
-                            description={t((d) => d.documentsReview.derivativesHint)}
-                            icon={<FileCog className="size-4" />}
-                            flush
-                        >
-                            <DataTable stacked head={<></>}>
-                                {(document?.derivatives ?? []).map((derivative) => (
-                                    <tr key={derivative.kind}>
-                                        <td className="col-primary">{t((d) => d.derivativeKind[derivative.kind])}</td>
-                                        <td
-                                            className="col-hide whitespace-nowrap"
-                                            data-label={t((d) => d.documentsReview.derivativeMade)}
+                        {(document?.derivatives.length ?? 0) === 0 ? null : (
+                            /* Under the original, in its card: a conversion is this document in
+                               another form, and a card of its own said it was a separate subject.
+                               Only where something was made — of the eight kinds the store can name,
+                               one is produced today, so for most documents there is nothing here. */
+                            <div className="border-border mt-4 border-t pt-3">
+                                <div className="eyebrow mb-2">{t((d) => d.documentsReview.derivatives)}</div>
+                                <ul className="flex flex-col gap-1.5">
+                                    {(document?.derivatives ?? []).map((derivative) => (
+                                        <li
+                                            key={derivative.kind}
+                                            className="flex flex-wrap items-center justify-between gap-2"
                                         >
-                                            {derivative.createdAt === null ? (
-                                                '—'
-                                            ) : (
-                                                <time dateTime={derivative.createdAt} className="tabular-nums">
-                                                    {formatDateTime(derivative.createdAt, locale)}
-                                                </time>
-                                            )}
-                                        </td>
-                                        <td className="col-actions text-right">
-                                            <div className="flex justify-end">
-                                                <PanelButton
-                                                    onClick={() => {
-                                                        void openDerivative(derivative.kind);
-                                                    }}
-                                                >
-                                                    <Download className="size-3.5" aria-hidden="true" />
-                                                    {t((d) => d.documentsReview.derivativeOpen)}
-                                                </PanelButton>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </DataTable>
-                            {derivativeError === null ? null : (
-                                <p className="note text-destructive px-4 py-3">{derivativeError}</p>
-                            )}
-                        </Panel>
-                    )}
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                <FileCog
+                                                    className="text-muted-foreground size-3.5 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="truncate">
+                                                    {t((d) => d.derivativeKind[derivative.kind])}
+                                                </span>
+                                                {derivative.createdAt === null ? null : (
+                                                    <time dateTime={derivative.createdAt} className="note tabular-nums">
+                                                        {formatDateTime(derivative.createdAt, locale)}
+                                                    </time>
+                                                )}
+                                            </span>
+                                            <PanelButton
+                                                onClick={() => {
+                                                    void openDerivative(derivative.kind);
+                                                }}
+                                            >
+                                                <Download className="size-3.5" aria-hidden="true" />
+                                                {t((d) => d.documentsReview.derivativeOpen)}
+                                            </PanelButton>
+                                        </li>
+                                    ))}
+                                </ul>
+                                {derivativeError === null ? null : (
+                                    <p className="note text-destructive mt-2">{derivativeError}</p>
+                                )}
+                            </div>
+                        )}
+                    </Panel>
 
                     <Panel
                         title={t((d) => d.documentsReview.proposedExtractions)}

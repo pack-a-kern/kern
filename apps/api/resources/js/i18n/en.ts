@@ -341,7 +341,6 @@ export const en = {
     },
     documentsReview: {
         derivatives: 'Generated files',
-        derivativesHint: 'What the installation produced from this document. The original is above, unchanged.',
         derivativeMade: 'Made',
         derivativeOpen: 'Download',
         unrenderableValue: '(value cannot be displayed)',

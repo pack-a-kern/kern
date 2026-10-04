@@ -346,7 +346,6 @@ export const ro = {
     },
     documentsReview: {
         derivatives: 'Fișiere generate',
-        derivativesHint: 'Ce a produs instalarea din acest document. Originalul este mai sus, neatins.',
         derivativeMade: 'Creat',
         derivativeOpen: 'Descarcă',
         unrenderableValue: '(valoare neafișabilă)',

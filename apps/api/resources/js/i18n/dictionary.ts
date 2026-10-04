@@ -338,7 +338,6 @@ export interface Dictionary {
     documentsReview: {
         /** The panel listing what was made from a document, and the control on each row. */
         derivatives: string;
-        derivativesHint: string;
         derivativeMade: string;
         derivativeOpen: string;
         /** Shown in place of a `proposed_fields` value that cannot be serialised for display. */
