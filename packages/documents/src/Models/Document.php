@@ -128,6 +128,20 @@ final class Document extends Model implements EncryptsWithSubjectDek
         return $this->hasMany(DocumentPart::class)->orderBy('position');
     }
 
+    /**
+     * What was made *from* this document, as opposed to what it is made of.
+     *
+     * A part is a file somebody uploaded — four photographs of one receipt are four parts. A
+     * derivative is something the installation produced from those: a statement's CSV conversion
+     * today, and the thumbnails, OCR and extracted text the pipeline is designed to write.
+     *
+     * @return HasMany<DocumentDerivative, $this>
+     */
+    public function derivatives(): HasMany
+    {
+        return $this->hasMany(DocumentDerivative::class)->orderBy('created_at');
+    }
+
     public function firstPart(): ?DocumentPart
     {
         return $this->relationLoaded('parts')

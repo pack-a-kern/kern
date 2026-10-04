@@ -142,7 +142,39 @@ export interface DocumentSummary {
     sizeBytes: number;
     /** The files this document is made of, in page order. Never empty for a stored document. */
     parts: DocumentPart[];
+    /**
+     * What the installation made *from* it, oldest first — not what it is made of.
+     *
+     * Usually empty: of the eight kinds the store can name, one is produced today, so this carries a
+     * statement's CSV conversion and nothing else until the rest of the pipeline writes its own.
+     */
+    derivatives: DocumentDerivative[];
     receivedAt: string;
+}
+
+/**
+ * Every artefact kind the object store can name, mirroring `DocumentObjectKind`.
+ *
+ * Closed on both sides: the server resolves the value through its own enum before building a key, so
+ * a kind this list does not know is a kind the server would refuse anyway.
+ */
+export const DERIVATIVE_KINDS = [
+    'original',
+    'preview',
+    'thumbnail',
+    'pdf_normalized',
+    'ocr',
+    'extracted_text',
+    'structured_json',
+    'converted_csv',
+] as const;
+
+export type DerivativeKind = (typeof DERIVATIVE_KINDS)[number];
+
+export interface DocumentDerivative {
+    kind: DerivativeKind;
+    /** When it was produced, or null for rows written before the column meant anything. */
+    createdAt: string | null;
 }
 
 export function parseDocumentSummary(text: string): DocumentSummary {
@@ -165,6 +197,12 @@ export function parseDocumentSummary(text: string): DocumentSummary {
             transaction_import: vEnum(TRANSACTION_IMPORT_STATES),
             mime_type: vNullable(vString),
             size_bytes: vNumber,
+            derivatives: vArray(
+                vObject({
+                    kind: vEnum(DERIVATIVE_KINDS),
+                    created_at: vNullable(vString),
+                }),
+            ),
             parts: vArray(
                 vObject({
                     id: vString,
@@ -197,6 +235,10 @@ export function parseDocumentSummary(text: string): DocumentSummary {
         transactionImport: parsed.transaction_import,
         mimeType: parsed.mime_type,
         sizeBytes: parsed.size_bytes,
+        derivatives: parsed.derivatives.map((derivative) => ({
+            kind: derivative.kind,
+            createdAt: derivative.created_at,
+        })),
         parts: parsed.parts.map((part) => ({
             id: part.id,
             position: part.position,

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Kern\Documents\Enums\DocumentStage;
 use Kern\Documents\Enums\DocumentType;
 use Kern\Documents\Models\Document;
+use Kern\Documents\Models\DocumentDerivative;
 use Kern\Documents\Models\DocumentPart;
 use Kern\Documents\Parsing\ExtractionSchema;
 use Kern\Documents\Queries\ResolveTransactionImportState;
@@ -32,7 +33,7 @@ final class ShowDocumentController
         string $document,
         ResolveTransactionImportState $importState,
     ): JsonResponse {
-        $model = Document::query()->with('parts')->findOrFail($document);
+        $model = Document::query()->with(['parts', 'derivatives'])->findOrFail($document);
         $import = $importState($model);
 
         return response()->json([
@@ -72,6 +73,18 @@ final class ShowDocumentController
             // The files this document is made of, in order. The review screen pages through them;
             // `id` is what its content endpoint takes, and the per-part status is what tells it
             // that page 3 was the one refused.
+            /*
+             * What was made from this document. `kind` is the closed enum's value, which is also what
+             * the content route takes — the screen names it from its own dictionary rather than
+             * showing the value, since `converted_csv` is a storage word.
+             *
+             * No size: the row records a path and a hash, and asking the store for a length would be
+             * a round trip per derivative for a number nobody acts on.
+             */
+            'derivatives' => $model->derivatives->map(static fn (DocumentDerivative $derivative): array => [
+                'kind' => $derivative->kind->value,
+                'created_at' => $derivative->created_at?->toAtomString(),
+            ])->all(),
             'parts' => $model->parts->map(static fn (DocumentPart $part): array => [
                 'id' => $part->id,
                 'position' => $part->position,

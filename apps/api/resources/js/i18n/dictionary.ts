@@ -328,7 +328,19 @@ export interface Dictionary {
             status: string;
         };
     };
+    /**
+     * A derivative kind's name, keyed by `DocumentObjectKind`'s value.
+     *
+     * Named here rather than shown as stored: `converted_csv` is a storage word, and the eight keys
+     * are a closed set, so every one has a name whether or not anything writes it yet.
+     */
+    derivativeKind: Record<string, string>;
     documentsReview: {
+        /** The panel listing what was made from a document, and the control on each row. */
+        derivatives: string;
+        derivativesHint: string;
+        derivativeMade: string;
+        derivativeOpen: string;
         /** Shown in place of a `proposed_fields` value that cannot be serialised for display. */
         unrenderableValue: string;
         title: string;

@@ -27,6 +27,7 @@ describe('parseDocumentSummary', () => {
         transaction_import: 'AWAITING_ACCEPTANCE',
         mime_type: 'application/pdf',
         size_bytes: 1024,
+        derivatives: [],
         parts: [
             {
                 id: 'part-1',
@@ -61,6 +62,7 @@ describe('parseDocumentSummary', () => {
             transactionImport: 'AWAITING_ACCEPTANCE',
             mimeType: 'application/pdf',
             sizeBytes: 1024,
+            derivatives: [],
             parts: [
                 {
                     id: 'part-1',
@@ -115,6 +117,7 @@ describe('parseDocumentSummary', () => {
             transaction_import: 'AWAITING_ACCEPTANCE',
             mime_type: 'application/pdf',
             size_bytes: 512,
+            derivatives: [],
             parts: [
                 {
                     id: 'part-1',
@@ -150,6 +153,7 @@ describe('parseDocumentSummary', () => {
             transaction_import: 'AWAITING_ACCEPTANCE',
             mime_type: 'image/png',
             size_bytes: 296440,
+            derivatives: [],
             parts: [
                 {
                     id: 'part-1',
@@ -188,6 +192,7 @@ describe('parseDocumentSummary', () => {
             transaction_import: 'AWAITING_ACCEPTANCE',
             mime_type: 'image/png',
             size_bytes: 10,
+            derivatives: [],
             parts: [
                 {
                     id: 'part-1',
@@ -203,6 +208,18 @@ describe('parseDocumentSummary', () => {
         });
 
         expect(() => parseDocumentSummary(bad)).toThrow(ValidationError);
+    });
+    it('reads what was made from the document', () => {
+        // Empty in every other fixture, because one of the eight kinds is produced today and most
+        // documents have none — so the shape needs a case of its own to be read at all.
+        const summary = parseDocumentSummary(
+            JSON.stringify({
+                ...(JSON.parse(validJson) as Record<string, unknown>),
+                derivatives: [{ kind: 'converted_csv', created_at: '2026-10-03T09:00:00+00:00' }],
+            }),
+        );
+
+        expect(summary.derivatives).toEqual([{ kind: 'converted_csv', createdAt: '2026-10-03T09:00:00+00:00' }]);
     });
 });
 

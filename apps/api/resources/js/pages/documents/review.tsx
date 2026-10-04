@@ -29,6 +29,8 @@ import {
     Trash2,
     User,
     X,
+    Download,
+    FileCog,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode, type SyntheticEvent } from 'react';
 import AppShell from '../../components/AppShell';
@@ -43,6 +45,7 @@ import {
     correctDocumentExtraction,
     fetchDocument,
     fetchDocumentContent,
+    fetchDocumentDerivative,
     fetchDocumentExtractions,
     fetchDocumentHistory,
     renameDocument,
@@ -69,12 +72,13 @@ import type {
     DocumentLifecycleEvent,
     DocumentSummary,
 } from '../../types/documents';
-import { documentTypeLabel } from '../../types/documents';
+import { documentTypeLabel, type DerivativeKind } from '../../types/documents';
 import {
+    ActionGroup,
+    DataTable,
     Detail,
     DetailList,
     Page,
-    ActionGroup,
     Panel,
     PanelButton,
     PanelDialog,
@@ -710,6 +714,38 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
         })();
     }, [loadDocument, loadExtractions, loadHistory]);
 
+    const [derivativeError, setDerivativeError] = useState<string | null>(null);
+
+    /**
+     * Save one artefact the installation made from this document.
+     *
+     * A download rather than a preview: what exists today is a CSV, which a browser shown inline
+     * renders as unstyled text — worse than the file somebody asked for. The object URL is released
+     * on the next frame, after the click has been dispatched; holding it would leak the decrypted
+     * bytes for as long as the screen is open.
+     */
+    const openDerivative = async (kind: DerivativeKind): Promise<void> => {
+        if (!subjectId) {
+            return;
+        }
+
+        try {
+            const blob = await fetchDocumentDerivative(subjectId, documentId, kind);
+            const url = URL.createObjectURL(blob);
+            const link = window.document.createElement('a');
+
+            link.href = url;
+            link.download = `${kind}.csv`;
+            link.click();
+
+            window.setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 0);
+        } catch (cause) {
+            setDerivativeError(cause instanceof ApiError ? cause.message : t((d) => d.documentsReview.loading));
+        }
+    };
+
     const parts = document?.parts ?? [];
     // Clamped rather than trusted: a re-fetch that returns fewer pages than before must not leave
     // this screen asking for a page that is no longer there.
@@ -1271,6 +1307,53 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                             )}
                         </>
                     </Panel>
+
+                    {/* Only where something was made. Of the eight kinds the store can name, one is
+                        produced today, so for most documents this panel is simply absent rather than
+                        standing empty and promising a pipeline that has not run. */}
+                    {(document?.derivatives.length ?? 0) === 0 ? null : (
+                        <Panel
+                            title={t((d) => d.documentsReview.derivatives)}
+                            description={t((d) => d.documentsReview.derivativesHint)}
+                            icon={<FileCog className="size-4" />}
+                            flush
+                        >
+                            <DataTable stacked head={<></>}>
+                                {(document?.derivatives ?? []).map((derivative) => (
+                                    <tr key={derivative.kind}>
+                                        <td className="col-primary">{t((d) => d.derivativeKind[derivative.kind])}</td>
+                                        <td
+                                            className="col-hide whitespace-nowrap"
+                                            data-label={t((d) => d.documentsReview.derivativeMade)}
+                                        >
+                                            {derivative.createdAt === null ? (
+                                                '—'
+                                            ) : (
+                                                <time dateTime={derivative.createdAt} className="tabular-nums">
+                                                    {formatDateTime(derivative.createdAt, locale)}
+                                                </time>
+                                            )}
+                                        </td>
+                                        <td className="col-actions text-right">
+                                            <div className="flex justify-end">
+                                                <PanelButton
+                                                    onClick={() => {
+                                                        void openDerivative(derivative.kind);
+                                                    }}
+                                                >
+                                                    <Download className="size-3.5" aria-hidden="true" />
+                                                    {t((d) => d.documentsReview.derivativeOpen)}
+                                                </PanelButton>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </DataTable>
+                            {derivativeError === null ? null : (
+                                <p className="note text-destructive px-4 py-3">{derivativeError}</p>
+                            )}
+                        </Panel>
+                    )}
 
                     <Panel
                         title={t((d) => d.documentsReview.proposedExtractions)}

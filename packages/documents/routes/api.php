@@ -13,6 +13,7 @@ use Kern\Documents\Http\Controllers\ListDocumentsController;
 use Kern\Documents\Http\Controllers\RenameDocumentController;
 use Kern\Documents\Http\Controllers\RetryDocumentExtractionController;
 use Kern\Documents\Http\Controllers\ShowDocumentContentController;
+use Kern\Documents\Http\Controllers\ShowDocumentDerivativeContentController;
 use Kern\Documents\Http\Controllers\ShowDocumentController;
 use Kern\Documents\Http\Controllers\ShowDocumentHistoryController;
 use Kern\Documents\Http\Controllers\ShowDocumentPartContentController;
@@ -47,6 +48,12 @@ Route::delete('documents/{document}', DeleteDocumentController::class);
 Route::get('documents/{document}/content', ShowDocumentContentController::class);
 // One page of a document made of several files; the review screen pages through these.
 Route::get('documents/{document}/parts/{part}/content', ShowDocumentPartContentController::class);
+// What the installation made from the document, as opposed to what it is made of — a statement's
+// CSV conversion today. `{kind}` is resolved through the closed enum before it reaches the store.
+Route::get(
+    'documents/{document}/derivatives/{kind}/content',
+    ShowDocumentDerivativeContentController::class,
+);
 // What was done to this document: the virus-scan records, and this document's own entries in
 // the subject's audit chain. Subject-scoped, unlike the cross-tenant /v1/audit screens.
 Route::get('documents/{document}/history', ShowDocumentHistoryController::class);

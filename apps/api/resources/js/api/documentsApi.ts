@@ -1,15 +1,6 @@
 import { ApiError, apiRequest, apiRequestBinary, apiUpload } from '../lib/http';
 import { type NumberedPage, type CursorPage, parseJson, vBoolean, vObject, vString } from '../lib/validate';
 import {
-    type AcceptedExtraction,
-    type DocumentListItem,
-    type CorrectedExtraction,
-    type DocumentExtractionSummary,
-    type DocumentStage,
-    type DocumentHistory,
-    type DocumentSummary,
-    type DocumentType,
-    type UploadAccepted,
     parseAcceptedExtraction,
     parseCorrectedExtraction,
     parseDocumentExtractionsPage,
@@ -17,6 +8,16 @@ import {
     parseDocumentSummary,
     parseDocumentsPage,
     parseUploadAccepted,
+    type AcceptedExtraction,
+    type CorrectedExtraction,
+    type DerivativeKind,
+    type DocumentExtractionSummary,
+    type DocumentHistory,
+    type DocumentListItem,
+    type DocumentStage,
+    type DocumentSummary,
+    type DocumentType,
+    type UploadAccepted,
 } from '../types/documents';
 
 /**
@@ -401,6 +402,31 @@ export async function fetchDocumentContent(
         return await apiRequestBinary(
             partId === undefined ? `${base}/content` : `${base}/parts/${encodeURIComponent(partId)}/content`,
         );
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 409 && error.reason === 'CONTENT_NOT_AVAILABLE') {
+            throw new DocumentContentNotAvailableError(error.message);
+        }
+
+        throw error;
+    }
+}
+
+/**
+ * One artefact made from a document, as a blob to open or save.
+ *
+ * Separate from `fetchDocumentContent` rather than another optional argument on it: that function
+ * answers "the document", in one of its pages, and this answers "something made from the document".
+ * A third parameter switching between the two would read as a variation on the same request.
+ */
+export async function fetchDocumentDerivative(
+    subjectId: string,
+    documentId: string,
+    kind: DerivativeKind,
+): Promise<Blob> {
+    const base = `/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}`;
+
+    try {
+        return await apiRequestBinary(`${base}/derivatives/${encodeURIComponent(kind)}/content`);
     } catch (error) {
         if (error instanceof ApiError && error.status === 409 && error.reason === 'CONTENT_NOT_AVAILABLE') {
             throw new DocumentContentNotAvailableError(error.message);
