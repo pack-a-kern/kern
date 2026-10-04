@@ -2077,9 +2077,10 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         border-top: 1px dashed var(--border);
     }
 
-    /* Spread, not pushed right: the switch is a different kind of control from the two buttons, and
-       given a line to themselves they read as one undifferentiated cluster otherwise. */
-    .data-table-stack td.col-actions > div {
+    /* Spread, for a row whose controls are not all the same kind of thing: a switch beside two
+       buttons reads as one undifferentiated cluster when they are pushed together. Opt-in, because a
+       row of buttons that are all alike should stay where the eye already is — at the right. */
+    .data-table-stack td.col-actions-split > div {
         justify-content: space-between;
     }
 

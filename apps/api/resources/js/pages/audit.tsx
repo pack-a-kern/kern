@@ -344,7 +344,11 @@ function AdminAuditBody(): JSX.Element {
                                     >
                                         {event.sequence}
                                     </td>
-                                    <td className="col-end text-right">
+                                    {/* The card's last line rather than its corner: `.col-end` reserves
+                                        80px, which a labelled button with an icon no longer fits, and
+                                        the three screens in this corner of the application should not
+                                        each place their row actions somewhere different. */}
+                                    <td className="col-actions text-right">
                                         <PanelButton
                                             onClick={() => {
                                                 setSelected(event);

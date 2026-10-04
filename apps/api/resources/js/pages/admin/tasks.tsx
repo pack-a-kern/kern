@@ -329,7 +329,7 @@ function AdminOperationsBody(): JSX.Element {
                                             </Pill>
                                         )}
                                     </td>
-                                    <td className="col-actions">
+                                    <td className="col-actions col-actions-split">
                                         <div className="flex items-center justify-end gap-2">
                                             {task.schedulable ? (
                                                 <Switch

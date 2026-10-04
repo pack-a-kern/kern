@@ -313,8 +313,11 @@ function AdminJobsBody(): JSX.Element {
                                             ? '—'
                                             : new Date(occurredAt(job) ?? '').toLocaleString()}
                                     </td>
-                                    <td className="col-end text-right">
-                                        <div className="flex justify-end gap-1.5">
+                                    {/* Not pinned to the corner: a failed job carries three buttons, and
+                                        `.col-end` reserves 80px for them. They take the card's last
+                                        line on a phone and sit at the row's right on a table. */}
+                                    <td className="col-actions text-right">
+                                        <div className="flex flex-wrap justify-end gap-1.5">
                                             {job.status === 'failed' ? (
                                                 <>
                                                     <PanelButton
