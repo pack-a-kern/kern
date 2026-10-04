@@ -28,7 +28,7 @@ describe('cnp', function (): void {
 
 describe('iban', function (): void {
     it('strips spaces and uppercases', function (): void {
-        expect(Normalizer::iban('ro49 aaaa 1b31 0075 9384 0000'))->toBe('RO49AAAA1B31007593840000');
+        expect(Normalizer::iban('ro00 aaaa 1b31 0075 9384 0000'))->toBe('RO00AAAA1B31007593840000');
     });
 
     it('is deterministic regardless of grouping', function (): void {

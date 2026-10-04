@@ -152,8 +152,11 @@ it('still fails a reading that cannot say what the document is', function (): vo
 
 it('gives an account statement a schema shaped around its rows', function (): void {
     $extraction = validator()->validate(DocumentType::ACCOUNT_STATEMENT, [
-        'description' => 'Extras ING ianuarie 2017',
-        'statement' => ['account_iban' => 'RO39INGB0000999903613944', 'institution_name' => 'ING'],
+        // Nothing that could be an account. The IBAN fails its own check digits and names a bank
+        // code that does not exist, so it cannot be anybody's: this test is about the schema's
+        // shape, and the value only has to be a string.
+        'description' => 'Extras de cont',
+        'statement' => ['account_iban' => 'RO00TEST0000000000000000', 'institution_name' => 'Banca'],
         'transactions' => [
             // Signed, because a statement prints the sign: a Debit column and a Credit column.
             ['transaction_date' => '2016-12-29', 'amount' => '-8.00'],
@@ -165,7 +168,7 @@ it('gives an account statement a schema shaped around its rows', function (): vo
     expect(at($extraction?->fields, 'transactions'))->toHaveCount(2)
         ->and(at($extraction?->fields, 'transactions.0.amount'))->toBe('-8.00')
         ->and(at($extraction?->fields, 'transactions.0'))->not->toHaveKey('reference')
-        ->and(at($extraction?->fields, 'statement.institution_name'))->toBe('ING');
+        ->and(at($extraction?->fields, 'statement.institution_name'))->toBe('Banca');
 });
 
 it('reads payments off a document that is neither an invoice nor a receipt', function (): void {

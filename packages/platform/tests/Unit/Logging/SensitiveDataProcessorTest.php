@@ -36,9 +36,9 @@ function sensitiveDataTestRecord(string $message, array $context = [], array $ex
 test('an IBAN in the message is redacted', function (): void {
     $processor = new SensitiveDataProcessor(new Redactions());
 
-    $result = $processor(sensitiveDataTestRecord('transfer to RO49AAAA1B31007593840000 failed'));
+    $result = $processor(sensitiveDataTestRecord('transfer to RO00AAAA1B31007593840000 failed'));
 
-    expect($result->message)->not->toContain('RO49AAAA1B31007593840000')
+    expect($result->message)->not->toContain('RO00AAAA1B31007593840000')
         ->and($result->message)->toContain('[REDACTED]');
 });
 
@@ -112,7 +112,7 @@ test('sensitive data nested arbitrarily deep in arrays is redacted', function ()
             ],
             'body' => [
                 'user' => [
-                    'iban' => 'RO49AAAA1B31007593840000',
+                    'iban' => 'RO00AAAA1B31007593840000',
                 ],
             ],
         ],
@@ -120,7 +120,7 @@ test('sensitive data nested arbitrarily deep in arrays is redacted', function ()
 
     $encoded = json_encode($result->context);
 
-    expect($encoded)->not->toContain('RO49AAAA1B31007593840000')
+    expect($encoded)->not->toContain('RO00AAAA1B31007593840000')
         ->and($encoded)->not->toContain('some.jwt.value')
         ->and($encoded)->toContain('[REDACTED]');
 });
@@ -132,20 +132,20 @@ test('sensitive data nested inside a plain object is redacted', function (): voi
     // an identifier only `kern/tax-romania` can recognise is tested in that package's suite.
     $payload = new stdClass();
     $payload->password = 'Sup3rSecret!';
-    $payload->iban = 'RO49AAAA1B31007593840000';
+    $payload->iban = 'RO00AAAA1B31007593840000';
 
     $result = $processor(sensitiveDataTestRecord('object payload', ['payload' => $payload]));
 
     $encoded = json_encode($result->context);
 
     expect($encoded)->not->toContain('Sup3rSecret!')
-        ->and($encoded)->not->toContain('RO49AAAA1B31007593840000');
+        ->and($encoded)->not->toContain('RO00AAAA1B31007593840000');
 });
 
 test('a Throwable in context keeps its class and location but redacts its message', function (): void {
     $processor = new SensitiveDataProcessor(new Redactions());
 
-    $exception = new RuntimeException('login failed for RO49AAAA1B31007593840000 password=Sup3rSecret!');
+    $exception = new RuntimeException('login failed for RO00AAAA1B31007593840000 password=Sup3rSecret!');
 
     $result = $processor(sensitiveDataTestRecord('spv error', ['exception' => $exception]));
 
@@ -154,7 +154,7 @@ test('a Throwable in context keeps its class and location but redacts its messag
     /** @var array{class: string, message: string, file: string, line: int} $exceptionContext */
     $exceptionContext = $result->context['exception'];
 
-    expect($encoded)->not->toContain('RO49AAAA1B31007593840000')
+    expect($encoded)->not->toContain('RO00AAAA1B31007593840000')
         ->and($encoded)->not->toContain('Sup3rSecret!')
         ->and($exceptionContext['class'])->toBe(RuntimeException::class);
 });
