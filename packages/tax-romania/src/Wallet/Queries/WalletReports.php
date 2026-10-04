@@ -8,7 +8,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
-use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
@@ -594,13 +593,23 @@ final readonly class WalletReports
                     ->where('kind', AccountKind::CASH->value)
                     ->select('id'),
             )
+            /*
+             * A transfer is money moving between the taxpayer's own places, so it is neither income
+             * nor spending whoever recorded it.
+             *
+             * This used to exclude only the rows this application writes itself, which meant a
+             * statement's own deposit movements were counted. One imported year read as $200,719 in
+             * and $200,719 out, because a $100,000 deposit matured and was re-constituted twice and
+             * each leg counted on both sides — a year that earned $87.92 in interest, reported as
+             * half a million dollars of activity. Marking those rows as transfers did nothing,
+             * because the exclusion also demanded they be ours.
+             */
             ->whereNot(static function ($query): void {
-                $query->where('financial_transactions.source', RecordSource::SYSTEM->value)
-                    ->whereExists(static function ($splits): void {
-                        $splits->from('transaction_splits')
-                            ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
-                            ->where('category_code', DepositMovements::TRANSFER);
-                    });
+                $query->whereExists(static function ($splits): void {
+                    $splits->from('transaction_splits')
+                        ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
+                        ->where('category_code', DepositMovements::TRANSFER);
+                });
             });
     }
 }

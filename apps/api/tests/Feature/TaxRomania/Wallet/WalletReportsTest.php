@@ -193,3 +193,31 @@ it('counts only the period asked for', function (): void {
 
     expect($response->json('by_tag.0.total_minor'))->toBe(12_000);
 });
+
+it('leaves a transfer out of the totals whoever recorded it', function (): void {
+    [$user, $subjectId, $accountId] = reportingSubject();
+
+    // A deposit maturing and being re-constituted, as an imported statement writes it: the same
+    // money out and back, which is neither income nor spending. Before this, only the rows this
+    // application wrote itself were excluded, so one imported year of a rolled-over deposit read as
+    // 200,719 in and 200,719 out — a year that earned 97.69 in interest.
+    spend($this, $user, $subjectId, $accountId, 10_028_600, ['category_code' => 'TRANSFER']);
+    spend($this, $user, $subjectId, $accountId, -10_033_616, ['category_code' => 'TRANSFER']);
+
+    // What the year actually was.
+    spend($this, $user, $subjectId, $accountId, 5_536, ['category_code' => 'DIVIDENDS_INTEREST']);
+    spend($this, $user, $subjectId, $accountId, -554, ['category_code' => 'EXPENSE']);
+
+    $response = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/reports?year=2026")
+        ->assertOk();
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = $response->json('totals');
+    /** @var array<string, mixed> $totals */
+    $totals = collect($rows)->firstWhere('currency_code', 'RON');
+
+    expect($totals['in_minor'])->toBe(5_536)
+        ->and($totals['out_minor'])->toBe(554)
+        ->and($totals['count'])->toBe(2);
+});
