@@ -123,6 +123,16 @@ export const en = {
         loadMore: 'Load more',
         loadingMore: 'Loading…',
     },
+    cron: {
+        everyMinutes: 'Every {minutes} minutes',
+        everyHours: 'Every {hours} hours, at {minute} past',
+        daily: 'Every day at {time}',
+        weekdays: 'Weekdays at {time}',
+        weekends: 'Weekends at {time}',
+        weekly: '{day} at {time}',
+        monthly: 'Monthly on day {day}, at {time}',
+        days: 'Sundays|Mondays|Tuesdays|Wednesdays|Thursdays|Fridays|Saturdays',
+    },
     pagination: {
         range: '{first}–{last} of {total} {unit}',
         rows: 'Rows',
@@ -2252,7 +2262,7 @@ export const en = {
                 readOnly: 'Read-only',
                 writes: 'Writes data',
                 never: 'Never',
-                run: 'Run now',
+                run: 'Run',
                 runTitle: 'Run task',
                 runConfirm: 'The task is queued and runs on a worker. The outcome appears in the run history.',
                 runCommand: 'Command executed',
@@ -2349,8 +2359,6 @@ export const en = {
                 'Horizon keeps pending, recent and completed jobs for 60 minutes, and failures for 7 days. Anything missing here expired from Redis; it did not vanish from the system.',
             noPayloadNotice:
                 "A job's payload is not shown: it carries document and taxpayer identifiers, and rendering it would bypass the access controls the rest of the application enforces.",
-            tasksNotice:
-                'Maintenance tasks do not appear here. They record their own outcome in their own history — see the Tasks tab.',
             statusFilter: {
                 all: 'All (last hour)',
                 pending: 'Pending',

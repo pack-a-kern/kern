@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { Check, ListChecks, X } from 'lucide-react';
+import { Check, Eye, Filter, ListChecks, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { forgetFailedJob, listQueueJobs, retryFailedJob } from '../../api/operationsApi';
@@ -231,10 +231,12 @@ function AdminJobsBody(): JSX.Element {
                     title={t((d) => d.pages.adminJobs.listTitle)}
                     description={t((d) => d.pages.adminJobs.listDescription)}
                     icon={<ListChecks className="size-4" />}
+                    help={t((d) => d.pages.adminJobs.retentionNotice)}
                     flush
                     aside={
                         <PanelSelect
                             className="filter-select"
+                            icon={<Filter className="size-3.5" aria-hidden="true" />}
                             value={status}
                             onValueChange={(next) => {
                                 // A different Horizon list entirely, so the page number belongs to
@@ -321,6 +323,7 @@ function AdminJobsBody(): JSX.Element {
                                                             void retry(job);
                                                         }}
                                                     >
+                                                        <RotateCcw className="size-3.5" aria-hidden="true" />
                                                         {t((d) => d.pages.adminJobs.retry)}
                                                     </PanelButton>
                                                     <PanelButton
@@ -329,6 +332,7 @@ function AdminJobsBody(): JSX.Element {
                                                             setToDiscard(job);
                                                         }}
                                                     >
+                                                        <Trash2 className="size-3.5" aria-hidden="true" />
                                                         {t((d) => d.pages.adminJobs.discard)}
                                                     </PanelButton>
                                                 </>
@@ -338,6 +342,7 @@ function AdminJobsBody(): JSX.Element {
                                                     setSelected(job);
                                                 }}
                                             >
+                                                <Eye className="size-3.5" aria-hidden="true" />
                                                 {t((d) => d.pages.adminJobs.details)}
                                             </PanelButton>
                                         </div>
@@ -347,9 +352,6 @@ function AdminJobsBody(): JSX.Element {
                         </DataTable>
                     )}
                 </Panel>
-
-                <p className="note">{t((d) => d.pages.adminJobs.retentionNotice)}</p>
-                <p className="note">{t((d) => d.pages.adminJobs.tasksNotice)}</p>
             </div>
 
             <PanelDialog

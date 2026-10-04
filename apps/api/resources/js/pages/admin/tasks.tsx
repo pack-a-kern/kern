@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import AppShell from '../../components/AppShell';
-import { CalendarClock, Play, X } from 'lucide-react';
+import { CalendarClock, CircleHelp, History, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -25,6 +25,9 @@ import {
     type StatusTone,
 } from '../../components/panel';
 import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
+import { describeCron } from '../../lib/cron';
+import type { Dictionary } from '../../i18n/dictionary';
 import { PanelDate } from '../../components/PanelDatePicker';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Switch } from '../../components/ui/switch';
@@ -58,6 +61,16 @@ import type { OperationTaskView, OperationsOverview, TaskRun } from '../../types
  * ledger is opened one task at a time, where the exit code and the console output are the answer to
  * a question actually being asked.
  */
+/**
+ * What a task's mark explains.
+ *
+ * The translated description where there is one, and otherwise the command itself — which is still
+ * the most useful thing that can be said about a task nobody has written a description for.
+ */
+function taskHelp(task: OperationTaskView, t: (pick: (d: Dictionary) => string) => string): string {
+    return t((d) => d.pages.adminOperations.tasks.descriptions[task.key] ?? task.command);
+}
+
 function AdminOperationsBody(): JSX.Element {
     const { t } = useTranslation();
 
@@ -223,24 +236,52 @@ function AdminOperationsBody(): JSX.Element {
                             {overview.tasks.map((task) => (
                                 <tr key={task.key}>
                                     <td className="col-primary">
-                                        <div className="font-semibold">{taskName(task.key)}</div>
-                                        <div className="note">
-                                            {t(
-                                                (d) =>
-                                                    d.pages.adminOperations.tasks.descriptions[task.key] ??
-                                                    task.command,
-                                            )}
-                                        </div>
+                                        {/* The description explains the task once; it does not need
+                                            restating under every row it belongs to. Six of them down
+                                            the first column pushed the schedule, the last run and the
+                                            two controls into a table that had to be scrolled to be
+                                            used. On the mark it is one hover away, and still readable
+                                            to a screen reader, which the row text was not doing any
+                                            better. */}
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="font-semibold">{taskName(task.key)}</span>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
+                                                        <CircleHelp className="size-3.5" />
+                                                        <span className="sr-only">{taskHelp(task, t)}</span>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="max-w-72">
+                                                    {taskHelp(task, t)}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </span>
                                     </td>
                                     <td
                                         className="whitespace-nowrap"
                                         data-label={t((d) => d.pages.adminOperations.tasks.columns.schedule)}
                                     >
                                         {task.schedulable ? (
-                                            <>
-                                                <span className="mono">{task.cronExpression}</span>
-                                                <div className="note">{task.timezone}</div>
-                                            </>
+                                            /* One element, not two: a stacked row lays a labelled cell out
+                                               as a flex row, so loose siblings here become columns beside
+                                               the label rather than lines under each other.
+
+                                               The reading first, the expression under it. `0 14 * * 1-5` is
+                                               what an operator would change and so it stays on the screen,
+                                               but it is not what anybody reads to answer "does this run
+                                               often enough". Where the shape is one `describeCron` does not
+                                               read with certainty, the expression stands alone rather than
+                                               carrying a guess above it. */
+                                            <div className="min-w-0 text-right sm:text-left">
+                                                {describeCron(task.cronExpression, t) === null ? null : (
+                                                    <div>{describeCron(task.cronExpression, t)}</div>
+                                                )}
+                                                <div className="note">
+                                                    <span className="mono">{task.cronExpression}</span>
+                                                    {` · ${task.timezone}`}
+                                                </div>
+                                            </div>
                                         ) : (
                                             <Pill>{t((d) => d.pages.adminOperations.tasks.manualOnly)}</Pill>
                                         )}
@@ -254,7 +295,7 @@ function AdminOperationsBody(): JSX.Element {
                                                 {t((d) => d.pages.adminOperations.tasks.never)}
                                             </span>
                                         ) : (
-                                            <>
+                                            <div className="min-w-0 text-right sm:text-left">
                                                 <Status tone={runTone(task.lastRun.status)}>
                                                     {t(
                                                         (d) =>
@@ -268,7 +309,7 @@ function AdminOperationsBody(): JSX.Element {
                                                 <div className="note">
                                                     {new Date(task.lastRun.startedAt).toLocaleString()}
                                                 </div>
-                                            </>
+                                            </div>
                                         )}
                                     </td>
                                     <td data-label={t((d) => d.pages.adminOperations.tasks.columns.state)}>
@@ -288,7 +329,7 @@ function AdminOperationsBody(): JSX.Element {
                                             </Pill>
                                         )}
                                     </td>
-                                    <td className="col-end">
+                                    <td className="col-actions">
                                         <div className="flex items-center justify-end gap-2">
                                             {task.schedulable ? (
                                                 <Switch
@@ -304,6 +345,7 @@ function AdminOperationsBody(): JSX.Element {
                                                     setHistory(task);
                                                 }}
                                             >
+                                                <History className="size-3.5" aria-hidden="true" />
                                                 {t((d) => d.pages.adminOperations.tasks.details)}
                                             </PanelButton>
                                             <PanelButton
@@ -313,6 +355,7 @@ function AdminOperationsBody(): JSX.Element {
                                                     setTaskToRun(task);
                                                 }}
                                             >
+                                                <Play className="size-3.5" aria-hidden="true" />
                                                 {t((d) => d.pages.adminOperations.tasks.run)}
                                             </PanelButton>
                                         </div>

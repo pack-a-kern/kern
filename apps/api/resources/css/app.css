@@ -2065,6 +2065,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         right: 12px;
         margin-left: 0;
     }
+    /* A row whose controls will not fit the corner.
+     *
+     * `.col-end` pins to the top-right and `.col-primary` reserves 80px for it, which holds for a
+     * single icon button and not for a switch beside two labelled ones — those overlapped the name
+     * they were pinned next to. These take a line of their own at the foot of the card instead. */
+    .data-table-stack td.col-actions {
+        flex-basis: 100%;
+        margin-top: 2px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border);
+    }
+
+    /* Spread, not pushed right: the switch is a different kind of control from the two buttons, and
+       given a line to themselves they read as one undifferentiated cluster otherwise. */
+    .data-table-stack td.col-actions > div {
+        justify-content: space-between;
+    }
+
+    /* Nothing is pinned in this row's corner, so its name may have the width back. */
+    .data-table-stack tr:has(td.col-actions) td.col-primary {
+        padding-right: 0;
+    }
+
     /* A cell whose value is long enough to own a line of its own — a URL, an error message. It
        still wraps inside that line rather than widening the row. */
     .data-table-stack td.col-wide {

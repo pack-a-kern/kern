@@ -112,6 +112,21 @@ export interface Dictionary {
         loadMore: string;
         loadingMore: string;
     };
+    /**
+     * A cron expression said in words. `{minutes}`, `{hours}`, `{minute}`, `{time}`, `{day}` are
+     * substituted; `days` is the seven day names, Sunday first, separated by `|` — cron counts from
+     * Sunday, so the order is cron's rather than the week's as it is read locally.
+     */
+    cron: {
+        everyMinutes: string;
+        everyHours: string;
+        daily: string;
+        weekdays: string;
+        weekends: string;
+        weekly: string;
+        monthly: string;
+        days: string;
+    };
     pagination: {
         /** `{page}` and `{total}` are substituted. Shown where numbers do not fit. */
         pageOf: string;
@@ -2023,7 +2038,6 @@ export interface Dictionary {
             /** Why a job's payload is never rendered — a design property, not a gap. */
             noPayloadNotice: string;
             /** Says where maintenance-task runs went, so nobody hunts for them in this list. */
-            tasksNotice: string;
             statusFilter: Record<string, string | undefined>;
             columns: {
                 job: string;

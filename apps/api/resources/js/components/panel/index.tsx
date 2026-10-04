@@ -38,6 +38,15 @@ export function Panel(props: {
     description?: string;
     /** An icon for the head's leading tile. A card without one still aligns, it just has no mark. */
     icon?: ReactNode;
+    /**
+     * A caveat about the card's contents, on a mark beside its title.
+     *
+     * For what a reader needs only if they ask — a retention window, a source's limits. `description`
+     * is for what they need before reading the card at all; this is for what would otherwise become a
+     * paragraph underneath it, where it is read last by the people it was written for and read every
+     * time by everyone else.
+     */
+    help?: string;
     /** The body reaches the card's edges — for a table or a toolbar, which draw their own rules. */
     flush?: boolean;
     /** Right-hand side of the card head — an action, a switch, a status. */
@@ -64,7 +73,22 @@ export function Panel(props: {
                 <div className="flex min-w-0 items-center gap-2.5">
                     {props.icon !== undefined && <div className="panel-head-icon">{props.icon}</div>}
                     <div className="min-w-0">
-                        <h2 className="panel-title truncate">{props.title}</h2>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                            <h2 className="panel-title truncate">{props.title}</h2>
+                            {props.help === undefined || props.help === '' ? null : (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
+                                            <CircleHelp className="size-3.5" />
+                                            <span className="sr-only">{props.help}</span>
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-80">
+                                        {props.help}
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                        </span>
                         {props.description !== undefined && <p className="panel-subtitle">{props.description}</p>}
                     </div>
                 </div>

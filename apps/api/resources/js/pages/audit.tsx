@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import { ScrollTextIcon } from 'lucide-react';
+import { CalendarRange, Eye, RotateCcw, ScrollTextIcon, Shapes } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getAuditSummary, listAuditEvents } from '../api/auditApi';
@@ -253,6 +253,7 @@ function AdminAuditBody(): JSX.Element {
                         />
                         <PanelSelect
                             className="filter-select"
+                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
                             value={eventType}
                             onValueChange={(next) => {
                                 filter(() => {
@@ -265,6 +266,7 @@ function AdminAuditBody(): JSX.Element {
                         />
                         <PanelSelect
                             className="filter-select"
+                            icon={<CalendarRange className="size-3.5" aria-hidden="true" />}
                             value={range}
                             onValueChange={(next) => {
                                 filter(() => {
@@ -285,6 +287,7 @@ function AdminAuditBody(): JSX.Element {
                                 });
                             }}
                         >
+                            <RotateCcw className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminAudit.reset)}
                         </PanelButton>
                     </Toolbar>
@@ -347,6 +350,7 @@ function AdminAuditBody(): JSX.Element {
                                                 setSelected(event);
                                             }}
                                         >
+                                            <Eye className="size-3.5" aria-hidden="true" />
                                             {t((d) => d.pages.adminAudit.details)}
                                         </PanelButton>
                                     </td>

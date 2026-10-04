@@ -123,6 +123,16 @@ export const ro = {
         loadMore: 'Vezi mai multe',
         loadingMore: 'Se încarcă…',
     },
+    cron: {
+        everyMinutes: 'La fiecare {minutes} minute',
+        everyHours: 'La fiecare {hours} ore, la minutul {minute}',
+        daily: 'Zilnic la {time}',
+        weekdays: 'În zilele lucrătoare la {time}',
+        weekends: 'În weekend la {time}',
+        weekly: '{day} la {time}',
+        monthly: 'Lunar în ziua {day}, la {time}',
+        days: 'Duminica|Lunea|Marțea|Miercurea|Joia|Vinerea|Sâmbăta',
+    },
     pagination: {
         range: '{first}–{last} din {total} {unit}',
         rows: 'Rânduri',
@@ -2277,7 +2287,7 @@ export const ro = {
                 readOnly: 'Doar citire',
                 writes: 'Scrie date',
                 never: 'Niciodată',
-                run: 'Rulează acum',
+                run: 'Rulează',
                 runTitle: 'Rulează sarcina',
                 runConfirm:
                     'Sarcina este trimisă în coadă și rulează pe un worker. Rezultatul apare în istoricul rulărilor.',
@@ -2375,8 +2385,6 @@ export const ro = {
                 'Horizon păstrează joburile în așteptare, recente și finalizate 60 de minute, iar eșecurile 7 zile. Ce nu apare aici a expirat din Redis, nu a dispărut din sistem.',
             noPayloadNotice:
                 'Conținutul unui job nu este afișat: poartă identificatori de documente și de contribuabili, iar afișarea lui ar ocoli controalele de acces din restul aplicației.',
-            tasksNotice:
-                'Sarcinile de întreținere nu apar aici. Ele își înregistrează rezultatul în propriul istoric — vezi fila Sarcini.',
             statusFilter: {
                 all: 'Toate (ultima oră)',
                 pending: 'În așteptare',
