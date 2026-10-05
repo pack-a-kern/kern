@@ -205,11 +205,18 @@
      * support colour is for, and "blue identity, slate structure" only means anything if the
      * structure colour actually moves.
      *
-     * Mixed a little toward the page rather than used neat: at full strength this sits close enough
-     * to body text to compete with it, and the whole job of muted text is to recede. 12% is enough
-     * to soften without dropping it below a readable contrast on the canvas.
+     * Mixed *toward body text*, not away from it. This was faded 12% toward the page on the grounds
+     * that support neat would compete with body text — which measured at 4.14:1 on the canvas, under
+     * the 4.5 that normal text is meant to clear, and most of what wears this is 10 to 11.5px, where
+     * the bar is higher rather than lower. Receding is not the same as being hard to read.
+     *
+     * 20% toward the foreground gives 6.32:1, against body text's own 16:1. The gap is what carries
+     * the hierarchy, and it stays wide.
+     *
+     * `--support` itself does not move: it draws borders and marks, which should not darken with
+     * the text.
      */
-    --muted-foreground: color-mix(in srgb, var(--support) 88%, var(--background));
+    --muted-foreground: color-mix(in srgb, var(--foreground) 20%, var(--support));
     /* Soft brand wash — the active nav row, a selected option, a subject avatar. */
     --accent: var(--brand-50);
     --accent-foreground: var(--brand-700);
@@ -253,8 +260,10 @@
     --table-head: #2f3135;
     --muted: #33363b;
     /* Lifted toward white rather than the ground: on a dark surface `support` neat is too close to
-       the background to read at all, which is the opposite failure from the light theme's. */
-    --muted-foreground: color-mix(in srgb, var(--support) 45%, #ffffff);
+       the background to read at all, which is the opposite failure from the light theme's — and the
+       numbers move in opposite directions, so less fading means a smaller share of support here and
+       a larger one there. Stepped with the light theme, by the same amount. */
+    --muted-foreground: color-mix(in srgb, var(--support) 32%, #ffffff);
     /* The soft brand wash cannot be `--brand-50` here — it is almost white. Mixed against the card
        instead, so it stays a tint of the brand at any palette. */
     --accent: color-mix(in srgb, var(--brand-500) 16%, #202225);
