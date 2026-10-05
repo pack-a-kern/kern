@@ -628,6 +628,7 @@ export const en = {
         unexpected: 'An unexpected error occurred.',
         rateLimited: 'Too many attempts. Please wait a few minutes before trying again.',
         reasons: {
+            MFA_REQUIRED: 'Enrol two-factor authentication on your account before connecting it to SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',
             SOURCE_NOT_EMPTY:
@@ -1598,11 +1599,10 @@ export const en = {
             code: 'Code from the email',
             submit: 'Continue',
             cancel: 'Cancel',
+            signInFailed: 'ANAF did not accept that sign-in.',
             signedIn: 'Signed in. Checking the inbox…',
             syncDone: '{count} messages in the inbox.',
             syncFailed: 'The inbox could not be read.',
-            registerFailed: 'The connection could not be created.',
-            signInFailed: 'Signing in failed.',
             certificateHint: 'A certificate connection signs in on its own — there is nothing to type.',
         },
         account: {

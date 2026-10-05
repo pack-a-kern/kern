@@ -631,6 +631,7 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Așteptați câteva minute înainte de a reîncerca.',
         reasons: {
+            MFA_REQUIRED: 'Activează autentificarea în doi pași pe contul tău înainte să îl conectezi la SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'Sursa generală nu poate fi ștearsă: acolo se înregistrează tot ce nu are altă destinație.',
             SOURCE_NOT_EMPTY:
@@ -1613,11 +1614,10 @@ export const ro = {
             code: 'Codul din e-mail',
             submit: 'Continuă',
             cancel: 'Renunță',
+            signInFailed: 'ANAF nu a acceptat autentificarea.',
             signedIn: 'Autentificat. Se verifică mesajele…',
             syncDone: '{count} mesaje în căsuță.',
             syncFailed: 'Mesajele nu au putut fi citite.',
-            registerFailed: 'Conexiunea nu a putut fi creată.',
-            signInFailed: 'Autentificarea a eșuat.',
             certificateHint: 'O conexiune cu certificat se autentifică singură — nu ai nimic de scris.',
         },
         account: {

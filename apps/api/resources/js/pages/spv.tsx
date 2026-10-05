@@ -18,6 +18,7 @@ import {
 import { useTranslation } from '../i18n';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import { formatDateTime } from '../lib/format';
+import { describeApiFailure } from '../lib/apiErrors';
 import { apiRequest } from '../lib/http';
 
 /** What the server says a connection is. Mirrors `ShowSpvConnectionsController`. */
@@ -173,8 +174,8 @@ export default function Spv(): JSX.Element {
             } else {
                 toast.error(t((d) => d.pages.spv.syncFailed));
             }
-        } catch {
-            toast.error(t((d) => d.pages.spv.syncFailed));
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
         } finally {
             setWorking(false);
             reload();
@@ -196,8 +197,8 @@ export default function Spv(): JSX.Element {
 
             setUsername(connection.username ?? '');
             setSignIn({ step: 'credentials', connection, sessionId: str(body, 'session_id') });
-        } catch {
-            toast.error(t((d) => d.pages.spv.signInFailed));
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
         } finally {
             setWorking(false);
         }
@@ -231,8 +232,8 @@ export default function Spv(): JSX.Element {
             } else {
                 toast.error(t((d) => d.pages.spv.signInFailed));
             }
-        } catch {
-            toast.error(t((d) => d.pages.spv.signInFailed));
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
         } finally {
             setWorking(false);
         }
@@ -261,8 +262,8 @@ export default function Spv(): JSX.Element {
             } else {
                 toast.error(t((d) => d.pages.spv.signInFailed));
             }
-        } catch {
-            toast.error(t((d) => d.pages.spv.signInFailed));
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
         } finally {
             setWorking(false);
         }
@@ -284,8 +285,8 @@ export default function Spv(): JSX.Element {
             setConnecting(false);
             setUsername('');
             reload();
-        } catch {
-            toast.error(t((d) => d.pages.spv.registerFailed));
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
         } finally {
             setWorking(false);
         }

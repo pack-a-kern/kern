@@ -1447,12 +1447,12 @@ export interface Dictionary {
             code: string;
             submit: string;
             cancel: string;
+            /** The portal answered, and what it said was no — not a transport failure. */
+            signInFailed: string;
             signedIn: string;
             /** `{count}` is substituted. */
             syncDone: string;
             syncFailed: string;
-            registerFailed: string;
-            signInFailed: string;
             certificateHint: string;
         };
         account: {
