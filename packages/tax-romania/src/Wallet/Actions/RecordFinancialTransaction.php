@@ -140,6 +140,9 @@ final readonly class RecordFinancialTransaction
                     countryCode: $input->splits[0]->countryCode ?? null,
                     tagIds: $input->tagIds,
                     source: ProposalSource::PERSON,
+                    // As when an existing transaction is classified: one payment does not redefine a
+                    // party that has already been decided.
+                    onlyWhenUndecided: true,
                 );
             }
 

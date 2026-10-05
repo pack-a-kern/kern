@@ -106,6 +106,9 @@ final readonly class ClassifyTransaction
                     $transaction->tags()->pluck('tags.id')->all(),
                 )),
                 source: ProposalSource::PERSON,
+                // Only where the party has no answer yet. Changing what a decided party means is the
+                // counterparties screen's job, which says how many rows it will change first.
+                onlyWhenUndecided: true,
             );
         }
 

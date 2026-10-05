@@ -234,6 +234,13 @@ final readonly class CounterpartyDirectory
      * hash on its own never is. Callers already hold it — it is the counterparty the index was
      * computed from — so nothing has to be decrypted here to get it.
      *
+     * `$onlyWhenUndecided` is for an answer about one transaction. Saying what a single payment was
+     * is a smaller claim than saying what a party means, and one of a party's payments is routinely
+     * unlike the rest — a transfer to somebody you usually lend to can be a gift. Left to overwrite,
+     * answering one row quietly redefined the party for every statement that followed, which is the
+     * counterparties screen's job, and that screen says how many rows it will change before it
+     * changes them. An undecided party is still filled in: there is nothing to overwrite.
+     *
      * @param  list<string>  $tagIds
      */
     public function remember(
@@ -244,6 +251,7 @@ final readonly class CounterpartyDirectory
         ?string $countryCode,
         array $tagIds,
         ProposalSource $source,
+        bool $onlyWhenUndecided = false,
     ): void {
         $name = trim($counterparty ?? '');
 
@@ -255,10 +263,14 @@ final readonly class CounterpartyDirectory
 
         $subjectId = $this->tenant->currentTenantId();
 
-        DB::transaction(function () use ($index, $name, $direction, $categoryCode, $countryCode, $tagIds, $source, $subjectId): void {
+        DB::transaction(function () use ($index, $name, $direction, $categoryCode, $countryCode, $tagIds, $source, $subjectId, $onlyWhenUndecided): void {
             $existing = $this->find($index, $direction);
 
             if ($existing !== null && $existing->source === ProposalSource::PERSON && $source === ProposalSource::AI) {
+                return;
+            }
+
+            if ($onlyWhenUndecided && $existing?->category_code !== null) {
                 return;
             }
 

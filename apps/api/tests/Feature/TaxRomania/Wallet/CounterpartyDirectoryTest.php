@@ -503,3 +503,46 @@ it('does not page a search', function (): void {
         ->assertJsonCount(3, 'counterparties')
         ->assertJsonPath('total', 3);
 });
+
+it('fills in a party nobody has decided yet from one transaction', function (): void {
+    [$user, $subjectId, $accountId] = directorySubject();
+
+    record($this, $user, $subjectId, $accountId, -12_000, 'Mega Image');
+
+    /** @var string $transactionId */
+    $transactionId = FinancialTransaction::query()->sole()->getKey();
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
+            'splits' => [['amount_minor' => -12_000, 'category_code' => 'EXPENSE']],
+        ])
+        ->assertNoContent();
+
+    // Nothing was being overwritten, so the answer is worth keeping for the next statement.
+    expect(Counterparty::query()->sole()->category_code)->toBe('EXPENSE');
+});
+
+it('does not let one transaction redefine a party already decided', function (): void {
+    [$user, $subjectId, $accountId] = directorySubject();
+
+    record($this, $user, $subjectId, $accountId, -12_000, 'Grigore Andrei');
+    record($this, $user, $subjectId, $accountId, -9_000, 'Grigore Andrei');
+
+    $party = Counterparty::query()->sole();
+    $party->category_code = 'LOAN';
+    $party->save();
+
+    /** @var string $transactionId */
+    $transactionId = FinancialTransaction::query()->where('amount_minor', -12_000)->sole()->getKey();
+
+    // One of a party's payments is routinely unlike the rest: a transfer to somebody you usually
+    // lend to can be a gift. Saying so about one row must not say it about the party — that is the
+    // counterparties screen's job, and it says how many rows it will change before it changes them.
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transactionId}/splits", [
+            'splits' => [['amount_minor' => -12_000, 'category_code' => 'EXPENSE']],
+        ])
+        ->assertNoContent();
+
+    expect(Counterparty::query()->sole()->category_code)->toBe('LOAN');
+});
