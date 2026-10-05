@@ -35,6 +35,13 @@ use Kern\TaxRomania\Http\Controllers\Subjects\InspectCnpController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController;
 use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
+use Kern\TaxRomania\Http\Controllers\Spv\DestroySpvSessionController;
+use Kern\TaxRomania\Http\Controllers\Spv\RegisterSpvConnectionController;
+use Kern\TaxRomania\Http\Controllers\Spv\ShowSpvConnectionsController;
+use Kern\TaxRomania\Http\Controllers\Spv\StartSpvSignInController;
+use Kern\TaxRomania\Http\Controllers\Spv\SubmitSpvChallengeCodeController;
+use Kern\TaxRomania\Http\Controllers\Spv\SubmitSpvCredentialsController;
+use Kern\TaxRomania\Http\Controllers\Spv\SyncSpvInboxController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ClassifyTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteAccountController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteTagController;
@@ -186,6 +193,30 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // the splits again, and an empty list returns the row to the unclassified worklist.
     Route::put('wallet/transactions/{transaction}/splits', ClassifyTransactionController::class)
         ->where('transaction', '[0-9a-f-]{36}');
+
+    /*
+     * SPV — the taxpayer's inbox at ANAF.
+     *
+     * A connection records how this taxpayer signs in; it is never a saved login. The three session
+     * routes are one sitting a person spends in front of the screen: open a browser, send the
+     * credentials, send the code ANAF emails. All synchronous, because a queued job would serialise
+     * a password into Redis and the whole point of `SpvCredentialPolicy` is that nothing does.
+     *
+     * A certificate connection uses none of the session routes: the certificate authenticates each
+     * request on its own, so such a connection goes straight to sync.
+     */
+    Route::get('spv/connections', ShowSpvConnectionsController::class);
+    Route::post('spv/connections', RegisterSpvConnectionController::class);
+    Route::post('spv/connections/{connection}/session', StartSpvSignInController::class)
+        ->where('connection', '[0-9a-f-]{36}');
+    Route::post('spv/connections/{connection}/sync', SyncSpvInboxController::class)
+        ->where('connection', '[0-9a-f-]{36}');
+    Route::post('spv/sessions/{session}/credentials', SubmitSpvCredentialsController::class)
+        ->where('session', '[0-9a-f-]{36}');
+    Route::post('spv/sessions/{session}/challenge', SubmitSpvChallengeCodeController::class)
+        ->where('session', '[0-9a-f-]{36}');
+    Route::delete('spv/sessions/{session}', DestroySpvSessionController::class)
+        ->where('session', '[0-9a-f-]{36}');
 });
 
 // The values a tax is computed from, as read from the official texts: seen by those who may view

@@ -1420,7 +1420,41 @@ export interface Dictionary {
                 contentsEmpty: string;
             };
         };
-        spv: { title: string; description: string; blockedOn: string };
+        spv: {
+            statusColumn: string;
+            title: string;
+            description: string;
+            connections: string;
+            connectionsHint: string;
+            connect: string;
+            connectTitle: string;
+            connectHint: string;
+            method: string;
+            /** Keyed by `SpvAuthMethod`. */
+            methods: Record<string, string>;
+            username: string;
+            noConnections: string;
+            /** Keyed by `SpvConnectionStatus`. */
+            statuses: Record<string, string>;
+            lastSuccess: string;
+            never: string;
+            sync: string;
+            signIn: string;
+            signInTitle: string;
+            credentialsStep: string;
+            password: string;
+            challengeStep: string;
+            code: string;
+            submit: string;
+            cancel: string;
+            signedIn: string;
+            /** `{count}` is substituted. */
+            syncDone: string;
+            syncFailed: string;
+            registerFailed: string;
+            signInFailed: string;
+            certificateHint: string;
+        };
         account: {
             title: string;
             description: string;

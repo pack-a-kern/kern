@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
+use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
@@ -184,6 +185,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // to catch it (docs/AGENTS.md §6).
         $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
+            403,
+        ));
+
+        // §4.7 — an account must enrol MFA before it may connect SPV. A refusal, not a fault: the
+        // person has to go and do something, and a 500 would tell them the installation is broken.
+        // Rendered here for the same reason as the one above — every call site gets it without any
+        // controller importing the exception to catch it.
+        $exceptions->render(fn (MfaNotEnrolledException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'MFA_REQUIRED'],
             403,
         ));
     })->create();
