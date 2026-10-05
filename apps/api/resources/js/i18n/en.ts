@@ -1312,6 +1312,7 @@ export const en = {
                 bookedAt: 'Transaction date',
                 description: 'Description',
                 counterparty: 'Counterparty',
+                counterpartyMatches: '{count} matching counterparties',
                 counterpartyHint: 'Optional. Who sent or received the money.',
             },
         },

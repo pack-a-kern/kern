@@ -1,4 +1,23 @@
-import { Banknote, Check, LandmarkIcon, PercentIcon, PlusIcon, TagIcon, Trash2, X } from 'lucide-react';
+import {
+    Banknote,
+    Calculator,
+    CalendarCheck,
+    CalendarClock,
+    Check,
+    Coins,
+    Hourglass,
+    Landmark,
+    LandmarkIcon,
+    Pencil,
+    Percent,
+    PercentIcon,
+    PlusIcon,
+    Shapes,
+    TagIcon,
+    Trash2,
+    WalletCards,
+    X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -420,6 +439,7 @@ export default function WalletAccounts(): JSX.Element {
                 actions={[
                     {
                         key: 'edit',
+                        icon: <Pencil className="size-3.5" />,
                         label: t((d) => d.pages.walletAccounts.edit),
                         onClick: () => {
                             errors.reset();
@@ -429,6 +449,7 @@ export default function WalletAccounts(): JSX.Element {
                     },
                     {
                         key: 'delete',
+                        icon: <Trash2 className="size-3.5" />,
                         label: t((d) => d.common.delete),
                         tone: 'destructive' as const,
                         onClick: () => {
@@ -485,6 +506,7 @@ export default function WalletAccounts(): JSX.Element {
                         own: one that still has transactions is refused rather than cascaded. */}
                     <Toolbar>
                         <PanelSelect
+                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
                             className="filter-select"
                             value={kindFilter}
                             onValueChange={(value) => {
@@ -601,7 +623,10 @@ export default function WalletAccounts(): JSX.Element {
                                             data-label={t((d) => d.pages.walletAccounts.columns.interest)}
                                         >
                                             {deposit === null ? null : (
-                                                <>
+                                                /* One element: a stacked row lays a labelled cell out as a
+                                                   flex row, so loose siblings become columns beside the
+                                                   label rather than lines under each other. */
+                                                <div className="min-w-0 text-right sm:text-left">
                                                     {deposit.interestAtMaturityMinor === null ? (
                                                         <span className="note">
                                                             {t((d) => d.pages.walletDeposits.notComputed)}
@@ -626,7 +651,7 @@ export default function WalletAccounts(): JSX.Element {
                                                             )}
                                                         </div>
                                                     ) : null}
-                                                </>
+                                                </div>
                                             )}
                                         </td>
                                         <td
@@ -653,7 +678,7 @@ export default function WalletAccounts(): JSX.Element {
                                         <td data-label={t((d) => d.pages.walletAccounts.columns.status)}>
                                             {deposit === null ? null : depositStatus(deposit)}
                                         </td>
-                                        <td className="col-end text-right">{rowActions(account)}</td>
+                                        <td className="col-actions text-right">{rowActions(account)}</td>
                                     </tr>
                                 );
                             })}
@@ -789,6 +814,7 @@ export default function WalletAccounts(): JSX.Element {
                             }
                         >
                             <PanelSelect
+                                icon={<Landmark className="size-3.5" aria-hidden="true" />}
                                 id="account-bank"
                                 disabled={depositClosed}
                                 value={form.bank_id}
@@ -834,6 +860,7 @@ export default function WalletAccounts(): JSX.Element {
                         {/* Fixed once the source exists: the server refuses `kind` on an edit, because
                             it decides whether transactions may be recorded against the source at all. */}
                         <PanelSelect
+                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
                             id="account-kind"
                             disabled={editing !== null}
                             value={form.kind}
@@ -854,6 +881,7 @@ export default function WalletAccounts(): JSX.Element {
                         {...(isDeposit && termsLocked ? { hint: lockedHint } : {})}
                     >
                         <PanelSelect
+                            icon={<Coins className="size-3.5" aria-hidden="true" />}
                             id="account-currency"
                             disabled={isDeposit && termsLocked}
                             value={form.currency_code}
@@ -918,6 +946,7 @@ export default function WalletAccounts(): JSX.Element {
                                 }
                             >
                                 <PanelSelect
+                                    icon={<WalletCards className="size-3.5" aria-hidden="true" />}
                                     id="account-funding"
                                     disabled={termsLocked}
                                     value={form.funding_account_id}
@@ -944,6 +973,7 @@ export default function WalletAccounts(): JSX.Element {
                                 hint={termsLocked ? lockedHint : t((d) => d.pages.walletDeposits.form.principalHint)}
                             >
                                 <PanelInput
+                                    icon={<Coins className="size-3.5" aria-hidden="true" />}
                                     id="account-principal"
                                     disabled={termsLocked}
                                     type="number"
@@ -980,6 +1010,7 @@ export default function WalletAccounts(): JSX.Element {
                                 hint={t((d) => d.pages.walletDeposits.form.termHint)}
                             >
                                 <PanelSelect
+                                    icon={<Hourglass className="size-3.5" aria-hidden="true" />}
                                     id="account-term"
                                     disabled={depositClosed}
                                     value={form.term_months}
@@ -1013,7 +1044,14 @@ export default function WalletAccounts(): JSX.Element {
                                           ].join(' ')
                                 }
                             >
-                                <PanelInput id="account-maturity" type="date" value={maturityAt} disabled readOnly />
+                                <PanelInput
+                                    id="account-maturity"
+                                    type="date"
+                                    value={maturityAt}
+                                    disabled
+                                    readOnly
+                                    icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
+                                />
                             </Field>
 
                             <Field
@@ -1022,6 +1060,7 @@ export default function WalletAccounts(): JSX.Element {
                                 error={errors.get('rate_type')}
                             >
                                 <PanelSelect
+                                    icon={<Percent className="size-3.5" aria-hidden="true" />}
                                     id="account-rate-type"
                                     disabled={termsLocked}
                                     value={form.rate_type}
@@ -1041,6 +1080,7 @@ export default function WalletAccounts(): JSX.Element {
                                 error={errors.get('interest_method')}
                             >
                                 <PanelSelect
+                                    icon={<Calculator className="size-3.5" aria-hidden="true" />}
                                     id="account-method"
                                     disabled={termsLocked}
                                     value={form.interest_method}
@@ -1060,6 +1100,7 @@ export default function WalletAccounts(): JSX.Element {
                                 error={errors.get('payment_frequency')}
                             >
                                 <PanelSelect
+                                    icon={<CalendarClock className="size-3.5" aria-hidden="true" />}
                                     id="account-frequency"
                                     disabled={termsLocked}
                                     value={form.payment_frequency}

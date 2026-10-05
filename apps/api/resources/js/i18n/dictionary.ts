@@ -1184,6 +1184,8 @@ export interface Dictionary {
                 bookedAt: string;
                 description: string;
                 counterparty: string;
+                /** Announced to a screen reader when matches appear. `{count}` is substituted. */
+                counterpartyMatches: string;
                 counterpartyHint: string;
             };
         };

@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Merge, Pencil, Tag as TagIcon, Trash2, UsersRound } from 'lucide-react';
+import { Merge, Pencil, Shapes, Tag as TagIcon, Trash2, UserRound, UsersRound } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -520,6 +520,7 @@ export default function WalletCounterparties(): JSX.Element {
                                 <FieldGrid>
                                     <Field label={t((d) => d.pages.walletCounterparties.category)}>
                                         <PanelSelect
+                                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
                                             value={draft.categoryCode}
                                             emptyLabel={t((d) => d.pages.walletCounterparties.undecided)}
                                             onValueChange={(next) => {
@@ -607,6 +608,7 @@ export default function WalletCounterparties(): JSX.Element {
                             help={t((d) => d.pages.walletCounterparties.survivingHelp)}
                         >
                             <PanelInput
+                                icon={<UserRound className="size-3.5" aria-hidden="true" />}
                                 value={survivor}
                                 onChange={(event) => {
                                     setSurvivor(event.target.value);

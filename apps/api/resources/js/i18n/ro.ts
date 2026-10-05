@@ -1325,6 +1325,7 @@ export const ro = {
                 bookedAt: 'Data tranzacției',
                 description: 'Descriere',
                 counterparty: 'Contrapartidă',
+                counterpartyMatches: '{count} contrapartide care se potrivesc',
                 counterpartyHint: 'Opțional. Cine a trimis sau a primit banii.',
             },
         },

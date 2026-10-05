@@ -19,15 +19,16 @@ import {
     AlignLeftIcon,
     ArrowLeftRight,
     Check,
+    Coins,
     Copy as CopyIcon,
     FilterX,
+    Globe,
     Landmark,
     Pencil,
     PlusIcon,
     Shapes,
     Tag as TagIcon,
     Trash2,
-    UserIcon,
     WalletCards,
     X,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ import {
 } from '../../components/panel';
 import BulkActions from '../../components/BulkActions';
 import { PanelDate, PanelDateRange } from '../../components/PanelDatePicker';
+import CounterpartyInput from '../../components/wallet/CounterpartyInput';
 import TagsInput from '../../components/wallet/TagsInput';
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
@@ -1395,6 +1397,7 @@ export default function WalletTransactions(): JSX.Element {
                         {...(editing === null ? {} : { hint: t((d) => d.pages.walletTransactions.accountLocked) })}
                     >
                         <PanelSelect
+                            icon={<WalletCards className="size-3.5" aria-hidden="true" />}
                             id="tx-account"
                             disabled={editing !== null}
                             value={form.account_id}
@@ -1432,6 +1435,7 @@ export default function WalletTransactions(): JSX.Element {
                         error={errors.get('currency_code')}
                     >
                         <PanelSelect
+                            icon={<Coins className="size-3.5" aria-hidden="true" />}
                             id="tx-currency"
                             disabled={isSystem}
                             value={form.currency_code}
@@ -1470,6 +1474,7 @@ export default function WalletTransactions(): JSX.Element {
                         hint={t((d) => d.pages.walletTransactions.form.amountHint)}
                     >
                         <PanelInput
+                            icon={<Coins className="size-3.5" aria-hidden="true" />}
                             id="tx-amount"
                             disabled={isSystem}
                             type="number"
@@ -1504,13 +1509,13 @@ export default function WalletTransactions(): JSX.Element {
                         error={errors.get('counterparty')}
                         hint={t((d) => d.pages.walletTransactions.form.counterpartyHint)}
                     >
-                        <PanelInput
+                        <CounterpartyInput
                             id="tx-counterparty"
                             disabled={isSystem}
-                            icon={<UserIcon className="size-3.5" />}
+                            subjectId={subjectId}
                             value={form.counterparty}
-                            onChange={(event) => {
-                                setForm((current) => ({ ...current, counterparty: event.target.value }));
+                            onChange={(next) => {
+                                setForm((current) => ({ ...current, counterparty: next }));
                             }}
                         />
                     </Field>
@@ -1540,6 +1545,7 @@ export default function WalletTransactions(): JSX.Element {
                         error={errors.get('category_code')}
                     >
                         <PanelSelect
+                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
                             searchable
                             disabled={isSystem}
                             value={form.category_code}
@@ -1562,6 +1568,7 @@ export default function WalletTransactions(): JSX.Element {
                         error={errors.get('bank_id')}
                     >
                         <PanelSelect
+                            icon={<Landmark className="size-3.5" aria-hidden="true" />}
                             searchable
                             id="tx-bank"
                             disabled={isSystem}
@@ -1600,6 +1607,7 @@ export default function WalletTransactions(): JSX.Element {
                     {form.category_code === '' ? null : (
                         <Field label={t((d) => d.pages.walletTransactions.classify.country)}>
                             <PanelSelect
+                                icon={<Globe className="size-3.5" aria-hidden="true" />}
                                 searchable
                                 disabled={isSystem}
                                 value={form.country_code}
