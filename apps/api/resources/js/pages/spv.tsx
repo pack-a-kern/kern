@@ -15,6 +15,7 @@ import {
     PanelSelect,
     Status,
 } from '../components/panel';
+import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import { formatDateTime } from '../lib/format';
@@ -104,6 +105,7 @@ export default function Spv(): JSX.Element {
     const [password, setPassword] = useState('');
     const [code, setCode] = useState('');
     const [working, setWorking] = useState(false);
+    const errors = useFormErrors();
 
     const base = subjectId === null ? null : `/v1/subjects/${encodeURIComponent(subjectId)}/spv`;
 
@@ -233,7 +235,9 @@ export default function Spv(): JSX.Element {
                 toast.error(t((d) => d.pages.spv.signInFailed));
             }
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            if (!errors.capture(cause)) {
+                toast.error(describeApiFailure(cause, t));
+            }
         } finally {
             setWorking(false);
         }
@@ -263,7 +267,9 @@ export default function Spv(): JSX.Element {
                 toast.error(t((d) => d.pages.spv.signInFailed));
             }
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            if (!errors.capture(cause)) {
+                toast.error(describeApiFailure(cause, t));
+            }
         } finally {
             setWorking(false);
         }
@@ -284,9 +290,12 @@ export default function Spv(): JSX.Element {
 
             setConnecting(false);
             setUsername('');
+            errors.reset();
             reload();
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            if (!errors.capture(cause)) {
+                toast.error(describeApiFailure(cause, t));
+            }
         } finally {
             setWorking(false);
         }
@@ -310,6 +319,7 @@ export default function Spv(): JSX.Element {
                             primary
                             inline
                             onClick={() => {
+                                errors.reset();
                                 setConnecting(true);
                             }}
                         >
@@ -404,6 +414,7 @@ export default function Spv(): JSX.Element {
                 onOpenChange={(next) => {
                     if (!next) {
                         setConnecting(false);
+                        errors.reset();
                     }
                 }}
                 title={t((d) => d.pages.spv.connectTitle)}
@@ -446,7 +457,11 @@ export default function Spv(): JSX.Element {
                     {method === 'CERTIFICATE' ? (
                         <p className="note">{t((d) => d.pages.spv.certificateHint)}</p>
                     ) : (
-                        <Field label={t((d) => d.pages.spv.username)} htmlFor="spv-username">
+                        <Field
+                            label={t((d) => d.pages.spv.username)}
+                            htmlFor="spv-username"
+                            error={errors.get('username')}
+                        >
                             <PanelInput
                                 id="spv-username"
                                 value={username}
@@ -502,7 +517,7 @@ export default function Spv(): JSX.Element {
                 }
             >
                 {signIn.step === 'challenge' ? (
-                    <Field label={t((d) => d.pages.spv.code)} htmlFor="spv-code">
+                    <Field label={t((d) => d.pages.spv.code)} htmlFor="spv-code" error={errors.get('code')}>
                         <PanelInput
                             id="spv-code"
                             value={code}
@@ -516,7 +531,11 @@ export default function Spv(): JSX.Element {
                     </Field>
                 ) : (
                     <FieldGrid>
-                        <Field label={t((d) => d.pages.spv.username)} htmlFor="spv-signin-username">
+                        <Field
+                            label={t((d) => d.pages.spv.username)}
+                            htmlFor="spv-signin-username"
+                            error={errors.get('username')}
+                        >
                             <PanelInput
                                 id="spv-signin-username"
                                 value={username}
@@ -527,7 +546,11 @@ export default function Spv(): JSX.Element {
                                 }}
                             />
                         </Field>
-                        <Field label={t((d) => d.pages.spv.password)} htmlFor="spv-password">
+                        <Field
+                            label={t((d) => d.pages.spv.password)}
+                            htmlFor="spv-password"
+                            error={errors.get('password')}
+                        >
                             <PanelInput
                                 id="spv-password"
                                 type="password"

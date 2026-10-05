@@ -9,12 +9,12 @@ use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
 use Kern\Platform\Identity\Models\User;
 
 /**
- * `BLUEPRINT.md` §4.7: "MFA obligatoriu pentru conturi care conectează SPV." SPV automation itself is
- * Milestone 10 (`docs/STATUS.md` — not started), so there is nothing yet that calls this class in
- * production — but the *policy* is a Milestone 1 deliverable per this task's own brief ("express
- * this as an enforceable policy/capability check that Milestone 10 can require — not as dead code
- * for a feature that doesn't exist"). This class is that enforceable check: real logic, real
- * tests, zero speculative SPV plumbing.
+ * `BLUEPRINT.md` §4.7: "MFA obligatoriu pentru conturi care conectează SPV."
+ *
+ * The reason the bar is higher here than for signing in at all: an account that connects SPV reaches
+ * the state's own record of the taxpayer — every message ANAF has sent them — rather than this
+ * installation's record of it. A password protects what is stored here; this protects a channel to
+ * the tax authority.
  *
  * A confirmed TOTP method **or** at least one registered passkey both satisfy "strong
  * authentication" here, not TOTP alone: a WebAuthn passkey ceremony already combines possession
@@ -26,13 +26,17 @@ use Kern\Platform\Identity\Models\User;
  * completed with a valid code) does not count — see `Kern\Platform\Identity\Models\
  * UserMfaMethod::isConfirmed()`.
  *
- * ## How Milestone 10 uses this
+ * ## Where it is enforced
  *
- * Before creating an `SpvConnection` for a `User` (`BLUEPRINT.md` §6.11), that module's registration
- * action calls `app(SpvMfaPolicy::class)->ensureStrongAuthentication($user)` — a thrown
- * `MfaNotEnrolledException` is caught by that module's controller and surfaced as "enroll MFA
- * first," exactly the same shape `Kern\Platform\Tenancy\TenantContext::
- * authorizeAndActivate()` already uses for its own "throw, let the HTTP layer translate" contract.
+ * `Kern\TaxRomania\Spv\Actions\RegisterSpvConnection` before an `SpvConnection` may exist, and
+ * `Kern\TaxRomania\Spv\Actions\InitiateSpvAuthAttempt` again at each sign-in — the second because
+ * MFA could have been un-enrolled since the connection was made, and a check that only ran once
+ * would be a check on history.
+ *
+ * In the actions rather than the controllers, so a second call site cannot skip it. The thrown
+ * `MfaNotEnrolledException` is rendered centrally as a 403 carrying `MFA_REQUIRED`, beside the
+ * tenant refusal and for the same reason: every call site gets it without a controller importing
+ * the exception to catch it.
  */
 final class SpvMfaPolicy
 {
