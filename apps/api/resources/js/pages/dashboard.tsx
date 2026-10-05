@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Banknote, HandCoins, Landmark, PiggyBank, Receipt, TrendingUp, Wallet } from 'lucide-react';
+import { Banknote, CircleHelp, HandCoins, Landmark, PiggyBank, Receipt, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 
 import { getWalletOverview } from '../api/walletApi';
@@ -10,7 +10,13 @@ import { useTranslation } from '../i18n';
 import { formatDate } from '../lib/format';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import { cn } from '../lib/utils';
-import { formatMinor, type Holding, type NetWorth, type WalletOverview as Overview } from '../types/wallet';
+import {
+    addHoldings,
+    formatMinor,
+    type Holding,
+    type NetWorth,
+    type WalletOverview as Overview,
+} from '../types/wallet';
 
 /**
  * Not a configurable choice: `deposit_interest_events.ron_equivalent_minor` is RON by definition —
@@ -131,10 +137,22 @@ export default function Dashboard(): JSX.Element {
 
     // The shares are of the converted figures, so a currency with no rate is left out of both the
     // part and the whole rather than drawn at a size nobody computed.
-    const groups =
+    /*
+     * General and what sits in accounts held elsewhere, as one figure.
+     *
+     * The payload keeps them apart because they answer different questions — how much, and where —
+     * but a transfer to the taxpayer's own account at another bank is not a different kind of
+     * holding, and a row of its own would invite the question "is that mine?" about money that is.
+     */
+    const held =
         totals === null
+            ? null
+            : { ...totals.holdings, general: addHoldings(totals.holdings.general, totals.holdings.internal) };
+
+    const groups =
+        held === null
             ? []
-            : GROUPS.map((group) => ({ ...group, holding: totals.holdings[group.key] })).filter(
+            : GROUPS.map((group) => ({ ...group, holding: held[group.key] })).filter(
                   // Only once there is one: most taxpayers have no broker or exchange account, and a
                   // permanent zero would be a legend entry answering a question nobody asked.
                   (group) => group.key !== 'other' || Object.keys(group.holding.amounts).length > 0,
@@ -232,7 +250,7 @@ export default function Dashboard(): JSX.Element {
                                 : [
                                       {
                                           label: t((d) => d.pages.walletOverview.general),
-                                          holding: totals.holdings.general,
+                                          holding: held?.general ?? totals.holdings.general,
                                       },
                                       { label: t((d) => d.pages.walletOverview.cash), holding: totals.holdings.cash },
                                   ]
@@ -241,6 +259,24 @@ export default function Dashboard(): JSX.Element {
                                       .join(' · ')
                         }
                     />
+                    {/* Only when the rule actually fired. A balance is the sum of what was recorded, and
+                        an account cannot go below zero, so money leaving before anything arrived is
+                        taken as money the taxpayer already had. That assumption is inside the figures
+                        above and indistinguishable from money the records account for — which is how a
+                        total ends up larger than a person expects with nothing to explain it. */}
+                    {totals === null || Object.keys(totals.assumedOpening.amounts).length === 0 ? null : (
+                        <Kpi
+                            tone="info"
+                            icon={<CircleHelp className="size-4" />}
+                            label={t((d) => d.pages.walletOverview.assumedOpening)}
+                            value={holdingValue(totals.assumedOpening)}
+                            sub={[
+                                t((d) => d.pages.walletOverview.assumedOpeningHint),
+                                perCurrency(totals.assumedOpening.amounts),
+                            ].join(' · ')}
+                        />
+                    )}
+
                     {/* Only once something is lent: a permanent zero would read as a debt being tracked. */}
                     {owedToMe === undefined || Object.keys(owedToMe.amounts).length === 0 ? null : (
                         <Kpi

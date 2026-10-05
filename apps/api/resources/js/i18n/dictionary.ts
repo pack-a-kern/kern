@@ -557,6 +557,9 @@ export interface Dictionary {
             interestMethods: Record<string, string | undefined>;
         };
         walletOverview: {
+            /** The assumed opening balance, and the sentence under it. */
+            assumedOpening: string;
+            assumedOpeningHint: string;
             /** Everything the subject holds, in one currency. An indication, never a fiscal figure. */
             netWorth: string;
             netWorthRate: string;

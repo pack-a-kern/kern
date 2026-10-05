@@ -290,6 +290,35 @@ export interface NetWorth {
     complete: boolean;
 }
 
+/**
+ * Two holdings as one.
+ *
+ * For a screen that shows a single figure over parts the payload keeps apart — General and the
+ * accounts held elsewhere are one answer to "what have I got", and two answers to "where is it".
+ *
+ * Both sides were converted in the same request at the same rates, so the display figures add. A
+ * currency missing a rate is missing from the sum as well, and the result says so rather than
+ * quietly reporting a total that left something out.
+ */
+export function addHoldings(first: Holding, second: Holding): Holding {
+    const amounts: Record<string, number> = { ...first.amounts };
+
+    for (const [currency, amount] of Object.entries(second.amounts)) {
+        amounts[currency] = (amounts[currency] ?? 0) + amount;
+    }
+
+    return {
+        amounts,
+        converted: {
+            ...first.converted,
+            amountMinor: first.converted.amountMinor + second.converted.amountMinor,
+            rates: { ...first.converted.rates, ...second.converted.rates },
+            missing: [...new Set([...first.converted.missing, ...second.converted.missing])],
+            complete: first.converted.complete && second.converted.complete,
+        },
+    };
+}
+
 /** Amounts per currency, and the same amounts in the display currency. */
 export interface Holding {
     amounts: Record<string, number>;
@@ -302,12 +331,18 @@ export interface WalletTotals {
     holdings: {
         /** Recorded in General, never below zero. */
         general: Holding;
+        /**
+         * Moved out of a tracked account as the taxpayer's own transfer, landing somewhere this
+         * application does not hold. Shown with General rather than beside it: it is money in an
+         * account, and which account is a detail the taxpayer did not record.
+         */
+        internal: Holding;
         /** Running principal, plus interest paid into a deposit and not yet settled. */
         deposits: Holding;
         cash: Holding;
         /** Broker, crypto and other accounts, never below zero. */
         other: Holding;
-        /** What can be spent today: General and cash together. */
+        /** What can be spent today: General, cash and the accounts held elsewhere. */
         available: Holding;
     };
     depositCount: number;
@@ -317,6 +352,13 @@ export interface WalletTotals {
     interestReceived: Holding;
     /** Lent and not yet paid back. Beside what the taxpayer has, never part of it. */
     owedToMe: Holding;
+    /**
+     * What the never-below-zero rule assumed was there before these records.
+     *
+     * Already inside `general`, so never added to anything — reported so a total larger than a
+     * person expects can say why, instead of leaving them to find the day their history starts.
+     */
+    assumedOpening: Holding;
     /** Safe to show as one number: already converted at the BNR rate for each accrual date. */
     recognisedRonMinor: number | null;
 }
@@ -766,6 +808,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
             netWorth: parseNetWorth(totals.net_worth),
             holdings: {
                 general: parseHolding(holdings.general),
+                internal: parseHolding(holdings.internal),
                 deposits: parseHolding(holdings.deposits),
                 cash: parseHolding(holdings.cash),
                 other: parseHolding(holdings.other),
@@ -775,6 +818,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
             interestAtMaturity: parseHolding(totals.interest_at_maturity),
             interestReceived: parseHolding(totals.interest_received),
             owedToMe: parseHolding(totals.owed_to_me),
+            assumedOpening: parseHolding(totals.assumed_opening),
             recognisedRonMinor: nullableNum(totals, 'recognised_ron_minor'),
         },
         banks: (Array.isArray(body.banks) ? body.banks : []).map((entry): BankDeposits => {

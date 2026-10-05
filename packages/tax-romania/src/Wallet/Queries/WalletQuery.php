@@ -46,6 +46,20 @@ final readonly class WalletQuery
 
     private const string OTHER = 'other';
 
+    /**
+     * Money moved out of a tracked account to somewhere this application does not hold.
+     *
+     * A transfer has two ends and only one of them is recorded here: the taxpayer says the money
+     * went to their own account at another bank, and nothing says what that account holds. Counting
+     * only the end that is recorded loses the money — it leaves General and lands nowhere, so "what
+     * you have" falls by an amount that was never spent.
+     *
+     * Spendable, unlike a deposit: it is in an account, just not one described here.
+     */
+    private const string INTERNAL = 'internal';
+
+
+
     /** The categories that say money was lent or paid back — `config/reference/tax_categories.php`. */
     private const string LOAN = 'LOAN';
 
@@ -99,7 +113,7 @@ final readonly class WalletQuery
         }
 
         $ids = array_keys($kinds);
-        $balances = $this->balancesByAccount($kinds);
+        $balances = $this->balancesByAccount($kinds)['balances'];
         // One query each for the whole page rather than per deposit row: the rate and the interest
         // totals are all simple aggregates keyed by account.
         $today = CarbonImmutable::now('UTC')->startOfDay();
@@ -586,7 +600,7 @@ final readonly class WalletQuery
      */
     public function totals(array $running): array
     {
-        $held = $this->heldInAccounts();
+        ['held' => $held, 'assumed' => $assumed] = $this->heldInAccounts();
         $expected = [];
 
         foreach ($running as $deposit) {
@@ -606,13 +620,17 @@ final readonly class WalletQuery
             }
         }
 
-        // What can be spent today: General and cash. Deposits are locked until they mature, and broker or
-        // crypto accounts are invested rather than spendable, so neither is in it. Added per currency and
-        // converted once, so it rounds the way every other figure here does.
+        // What can be spent today: General, cash, and what was moved to the taxpayer's own accounts
+        // elsewhere — that money is in an account, just not one described here. Deposits are locked
+        // until they mature, and broker or crypto accounts are invested rather than spendable, so
+        // neither is in it. Added per currency and converted once, so it rounds the way every other
+        // figure here does.
         $available = $held[self::GENERAL];
 
-        foreach ($held[self::CASH] as $currency => $amount) {
-            $available[$currency] = ($available[$currency] ?? 0) + $amount;
+        foreach ([self::CASH, self::INTERNAL] as $group) {
+            foreach ($held[$group] as $currency => $amount) {
+                $available[$currency] = ($available[$currency] ?? 0) + $amount;
+            }
         }
 
         $display = $this->displayCurrency();
@@ -628,6 +646,10 @@ final readonly class WalletQuery
             'interest_at_maturity' => $this->converted($expected, $display),
             'interest_received' => $this->converted($this->interestReceived(), $display),
             'owed_to_me' => $this->converted($this->owedToMe(), $display),
+            // Beside the holdings, not inside them: this much is already counted in `general`, where
+            // nothing distinguishes it from money the records account for. Reported so a total that
+            // is larger than a person expects can say why.
+            'assumed_opening' => $this->converted($assumed, $display),
             // What a tax return would actually see. `ron_equivalent_minor` is written by
             // `DepositInterestFxAnnotator` at the BNR rate for the accrual date, with the source
             // document version recorded beside it — so this one may legitimately be a single number.
@@ -719,18 +741,26 @@ final readonly class WalletQuery
      * A cash holding is its declared value, and a deposit account holds only interest paid into it and
      * not yet settled; neither has an unknown history, so both are plain sums.
      *
-     * @return array{general: array<string, int>, deposits: array<string, int>, cash: array<string, int>, other: array<string, int>}
+     * @return array{held: array{general: array<string, int>, deposits: array<string, int>, cash: array<string, int>, other: array<string, int>, internal: array<string, int>}, assumed: array<string, int>}
      */
     private function heldInAccounts(): array
     {
-        $held = [self::GENERAL => [], self::DEPOSITS => [], self::CASH => [], self::OTHER => []];
+        $held = [
+            self::GENERAL => [],
+            self::DEPOSITS => [],
+            self::CASH => [],
+            self::OTHER => [],
+            self::INTERNAL => $this->movedOutOfReach(),
+        ];
         $kinds = [];
 
         foreach (FinancialAccount::query()->get(['id', 'kind']) as $account) {
             $kinds[self::str($account->getKey())] = $account->kind;
         }
 
-        foreach ($this->balancesByAccount($kinds) as $accountId => $byCurrency) {
+        $derived = $this->balancesByAccount($kinds);
+
+        foreach ($derived['balances'] as $accountId => $byCurrency) {
             $group = match ($kinds[$accountId]) {
                 AccountKind::GENERAL => self::GENERAL,
                 AccountKind::TERM_DEPOSIT => self::DEPOSITS,
@@ -741,6 +771,52 @@ final readonly class WalletQuery
             foreach ($byCurrency as $currency => $amount) {
                 $held[$group][$currency] = ($held[$group][$currency] ?? 0) + $amount;
             }
+        }
+
+        return ['held' => $held, 'assumed' => $derived['assumed']];
+    }
+
+    /**
+     * What left a tracked account as the taxpayer's own transfer and landed nowhere this knows.
+     *
+     * Only the out-leg is counted, never the in-leg: money arriving from an account not described
+     * here is already in the account it arrived in, and adding its counterpart would hold the same
+     * sum twice.
+     *
+     * A deposit's own funding is excluded by the link the deposit keeps to it. That money is in the
+     * deposits group as the deposit's principal, so counting it here as well would double it — which
+     * is the whole reason the exclusion is the link and not the category: a funding transfer and a
+     * transfer to another bank are written identically, and only the link tells them apart.
+     *
+     * Not `TransactionSplit` and `DepositTerms` models but their tables, like every other aggregate
+     * in this class: these are sums over rows, and hydrating them would buy nothing.
+     *
+     * @return array<string, int> positive amounts, per currency
+     */
+    private function movedOutOfReach(): array
+    {
+        $rows = DB::table('financial_transactions')
+            ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
+            ->where('financial_transactions.amount_minor', '<', 0)
+            ->whereExists(static function ($splits): void {
+                $splits->from('transaction_splits')
+                    ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
+                    ->where('transaction_splits.category_code', DepositMovements::TRANSFER);
+            })
+            ->whereNotExists(static function ($terms): void {
+                $terms->from('deposit_terms')
+                    ->whereColumn('deposit_terms.funding_transaction_id', 'financial_transactions.id');
+            })
+            ->groupBy('financial_transactions.currency_code')
+            ->get([
+                'financial_transactions.currency_code',
+                DB::raw('sum(-amount_minor) as total'),
+            ]);
+
+        $held = [];
+
+        foreach ($rows as $row) {
+            $held[self::str($row->currency_code)] = (int) $row->total;
         }
 
         return $held;
@@ -974,12 +1050,16 @@ final readonly class WalletQuery
      * it lower; see {@see heldInAccounts()} for why. A cash holding and a deposit account are plain sums.
      *
      * @param  array<string, AccountKind>  $kinds  every account to report, keyed by id
-     * @return array<string, array<string, int>> balances per currency, keyed by account id
+     * `assumed` is what the clamp had to add, per currency: the figure that explains a balance a
+     * person did not expect, kept as it happens because a total already raised to zero cannot say
+     * afterwards how far it was raised.
+     *
+     * @return array{balances: array<string, array<string, int>>, assumed: array<string, int>}
      */
     private function balancesByAccount(array $kinds): array
     {
         if ($kinds === []) {
-            return [];
+            return ['balances' => [], 'assumed' => []];
         }
 
         $days = DB::table('financial_transactions')
@@ -989,20 +1069,37 @@ final readonly class WalletQuery
             ->get(['account_id', 'currency_code', DB::raw('sum(amount_minor) as total')]);
 
         $balances = [];
+        $assumed = [];
 
         foreach ($days as $day) {
             $accountId = self::str($day->account_id);
             $currency = self::str($day->currency_code);
             $balance = ($balances[$accountId][$currency] ?? 0) + (int) $day->total;
 
-            $balances[$accountId][$currency] = $kinds[$accountId]->isStream() ? max(0, $balance) : $balance;
+            if (! $kinds[$accountId]->isStream()) {
+                $balances[$accountId][$currency] = $balance;
+
+                continue;
+            }
+
+            // What the day was lifted by, kept as it happens: this is the figure that explains a
+            // balance a person did not expect, and it cannot be recovered afterwards from a total
+            // that has already been raised to zero.
+            if ($balance < 0) {
+                $assumed[$currency] = ($assumed[$currency] ?? 0) - $balance;
+            }
+
+            $balances[$accountId][$currency] = max(0, $balance);
         }
 
-        return array_map(static function (array $byCurrency): array {
-            ksort($byCurrency);
+        return [
+            'balances' => array_map(static function (array $byCurrency): array {
+                ksort($byCurrency);
 
-            return $byCurrency;
-        }, $balances);
+                return $byCurrency;
+            }, $balances),
+            'assumed' => $assumed,
+        ];
     }
 
     /**

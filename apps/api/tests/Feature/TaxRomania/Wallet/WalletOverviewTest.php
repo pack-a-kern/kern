@@ -85,6 +85,19 @@ function recordInGeneral(TestCase $case, User $user, string $subjectId, string $
     ])->assertCreated();
 }
 
+/** Money leaving General as the taxpayer's own transfer, to an account this installation does not hold. */
+function transferOut(TestCase $case, User $user, string $subjectId, string $generalId, int $amount, string $bookedAt): void
+{
+    $case->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+        'account_id' => $generalId,
+        'amount_minor' => -$amount,
+        'currency_code' => 'RON',
+        'booked_at' => $bookedAt,
+        'description' => 'Transfer',
+        'category_code' => 'TRANSFER',
+    ])->assertCreated();
+}
+
 it('counts a deposit funded from General as money already had, not as General going negative', function (): void {
     [$user, $subjectId, $generalId] = startingFromNothing();
     openDeposit($this, $user, $subjectId, $generalId, 15_000_000);
@@ -203,4 +216,56 @@ it('counts money lent as owed until it is paid back, and never as money had', fu
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
         ->assertJsonPath('totals.owed_to_me.amounts.RON', 3_000_000)
         ->assertJsonPath('totals.holdings.general.amounts.RON', 0);
+});
+
+it('keeps money transferred to an account it does not hold', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
+    transferOut($this, $user, $subjectId, $generalId, 20_000_000, '2026-01-20');
+
+    // The money left General and landed nowhere this records, which is not the same as being spent.
+    // Counting only the end that is written down lost it: "what you have" fell by twenty million
+    // that the taxpayer still has, in an account at another bank.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 10_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts.RON', 20_000_000)
+        // Reachable, unlike a deposit: it is in an account, just not one described here.
+        ->assertJsonPath('totals.holdings.available.amounts.RON', 30_000_000)
+        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
+});
+
+it('does not count a deposit’s own funding as money held elsewhere', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
+    openDeposit($this, $user, $subjectId, $generalId, 20_000_000);
+
+    // A funding transfer and a transfer to another bank are written identically — same category,
+    // same direction — and only the link the deposit keeps tells them apart. Without it this would
+    // hold the same twenty million twice: once as the deposit, once as money moved away.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.deposits.amounts.RON', 20_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts', [])
+        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
+});
+
+it('says how much it assumed was there before the records start', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    // Money leaving before anything arrived: an account cannot go below zero, so this much must
+    // already have been there. The figure is inside General, where nothing distinguishes it from
+    // money the records account for — which is how a total ends up larger than a person expects.
+    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-10');
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-20');
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.assumed_opening.amounts.RON', 10_000_000)
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 30_000_000);
+});
+
+it('assumes nothing when the records cover every movement', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
+    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-20');
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.assumed_opening.amounts', []);
 });
