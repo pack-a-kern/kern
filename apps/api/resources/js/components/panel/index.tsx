@@ -849,11 +849,13 @@ export function PanelDialog(props: {
     children: ReactNode;
     actions: ReactNode;
     /**
-     * Whether a click outside or Escape may close this.
+     * Whether Escape may close this.
      *
      * `true` by default. Set false while work is moving that the dialog is the only view of — an
      * upload in progress, say: dismissing it silently is how a person concludes something finished
      * when it did not. The dialog still closes, through whatever control the screen provides.
+     *
+     * A click outside never closes a dialog, whatever this says. See the handler below.
      */
     dismissable?: boolean;
 }): JSX.Element {
@@ -863,10 +865,16 @@ export function PanelDialog(props: {
         <Dialog open={props.open} onOpenChange={props.onOpenChange}>
             <DialogContent
                 className={cn('dialog-panel', `dialog-${props.size ?? 'md'}`)}
+                /*
+                 * A click outside never closes a dialog.
+                 *
+                 * These hold forms — a transaction being split, a party being merged, a task being
+                 * run with arguments — and a stray click on the page behind is not a decision to
+                 * throw that away. Escape and the close control are: one is a key pressed on
+                 * purpose, the other is a button that says what it does.
+                 */
                 onPointerDownOutside={(event) => {
-                    if (!dismissable) {
-                        event.preventDefault();
-                    }
+                    event.preventDefault();
                 }}
                 onEscapeKeyDown={(event) => {
                     if (!dismissable) {

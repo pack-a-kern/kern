@@ -1477,7 +1477,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     max-width: min(520px, calc(100vw - 2rem));
 }
 .dialog-panel.dialog-lg {
-    max-width: min(680px, calc(100vw - 2rem));
+    max-width: min(820px, calc(100vw - 2rem));
 }
 
 /* The sentence under a page's <h1>. */
