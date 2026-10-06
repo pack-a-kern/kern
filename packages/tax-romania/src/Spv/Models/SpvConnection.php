@@ -28,6 +28,7 @@ use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
  * @property SpvConnectionStatus $status
  * @property \Illuminate\Support\Carbon|null $last_success_at
  * @property string|null $last_error_code
+ * @property string|null $last_error_message
  */
 final class SpvConnection extends Model implements EncryptsWithSubjectDek
 {
@@ -46,6 +47,7 @@ final class SpvConnection extends Model implements EncryptsWithSubjectDek
         'status',
         'last_success_at',
         'last_error_code',
+        'last_error_message',
     ];
 
     protected $casts = [

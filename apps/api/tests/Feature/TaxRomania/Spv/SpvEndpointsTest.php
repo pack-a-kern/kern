@@ -8,9 +8,13 @@ use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
+use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvSession;
 use Kern\TaxRomania\Spv\Models\SpvSyncRun;
+use Kern\TaxRomania\Spv\Services\ApplyPortalAuthResult;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -213,4 +217,73 @@ it('reports how many runs a connection has, so the screen knows which endings to
     $this->actingAs($user, 'web')
         ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
         ->assertJsonPath('connections.0.run_count', 1);
+});
+
+it('keeps what the portal said, so a person is told which credential was wrong', function (): void {
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ]);
+
+    $connectionId = jsonString($created, 'id');
+    /** @var SpvConnection $connection */
+    $connection = SpvConnection::query()->findOrFail($connectionId);
+
+    $session = SpvSession::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'state' => SpvSessionState::CREATED,
+        'browser_session_ref' => 'worker-session-err',
+        'expires_at' => now('UTC')->addMinutes(5),
+    ]);
+
+    // Exactly what ANAF prints in `#credentials_table_postheader`, observed 2026-10-06.
+    $portalSaid = 'Utilizatorul sau parola nu sunt corecte. Va rugam să incercati din nou.';
+
+    app(ApplyPortalAuthResult::class)($session, $connection, new PortalAuthResult(SpvSessionState::FAILED, $portalSaid));
+
+    $connection->refresh();
+
+    expect($connection->last_error_message)->toBe($portalSaid)
+        // The code stays a code. It is ours, it is closed, and it is what the dictionary translates;
+        // the sentence above is ANAF's and is quoted rather than rendered.
+        ->and($connection->last_error_code)->toBe('authentication_failed');
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.last_error_message', $portalSaid);
+});
+
+it('does not let a portal message outgrow its column', function (): void {
+    // `varchar(255)` is what this used to share with the error code: a portal free to print a paragraph
+    // would have thrown on Postgres and been truncated nowhere on sqlite, so the suite would have gone
+    // green on one lane and red on the other.
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", ['auth_method' => 'CERTIFICATE']);
+
+    /** @var SpvConnection $connection */
+    $connection = SpvConnection::query()->findOrFail(jsonString($created, 'id'));
+
+    $session = SpvSession::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::CREATED,
+        'browser_session_ref' => 'worker-session-long',
+        'expires_at' => now('UTC')->addMinutes(5),
+    ]);
+
+    app(ApplyPortalAuthResult::class)(
+        $session,
+        $connection,
+        new PortalAuthResult(SpvSessionState::FAILED, str_repeat('ă', 4000)),
+    );
+
+    $connection->refresh();
+
+    expect(mb_strlen((string) $connection->last_error_message))->toBe(500);
 });

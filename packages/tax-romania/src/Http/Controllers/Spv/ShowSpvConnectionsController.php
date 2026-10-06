@@ -53,6 +53,9 @@ final class ShowSpvConnectionsController
                 'status' => $connection->status->value,
                 'last_success_at' => $connection->last_success_at?->toAtomString(),
                 'last_error_code' => $connection->last_error_code,
+                // The portal's own words, where it gave any. The code above says a sign-in failed; this
+                // says which credential, or that the account is locked rather than mistyped.
+                'last_error_message' => $connection->last_error_message,
                 // What deleting this would destroy, and therefore which endings the screen offers:
                 // revoking preserves a history, and a connection that never ran has none.
                 'run_count' => $runCounts[$connection->id] ?? 0,

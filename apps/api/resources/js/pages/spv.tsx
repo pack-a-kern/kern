@@ -29,6 +29,14 @@ interface Connection {
     username: string | null;
     status: string;
     lastSuccessAt: string | null;
+    /**
+     * What ANAF said when it refused, in its own words.
+     *
+     * Shown rather than translated: the portal is the only thing that knows *which* credential was
+     * wrong, or that an account is locked rather than mistyped, and paraphrasing it into "sign-in
+     * failed" throws away the one detail the person needed.
+     */
+    lastErrorMessage: string | null;
     lastRun: { status: string; startedAt: string; messageCount: number | null } | null;
     /**
      * How many times this connection has been used.
@@ -71,6 +79,7 @@ function parse(payload: unknown): Connection[] {
             username: typeof row.username === 'string' ? row.username : null,
             status: str(row, 'status'),
             lastSuccessAt: typeof row.last_success_at === 'string' ? row.last_success_at : null,
+            lastErrorMessage: typeof row.last_error_message === 'string' ? row.last_error_message : null,
             runCount: typeof row.run_count === 'number' ? row.run_count : 0,
             lastRun:
                 row.last_run === null || row.last_run === undefined
@@ -423,6 +432,14 @@ export default function Spv(): JSX.Element {
                                         <Status tone={statusTone(connection.status)}>
                                             {t((d) => d.pages.spv.statuses[connection.status] ?? connection.status)}
                                         </Status>
+                                        {/* Beneath the badge rather than instead of it: the badge says
+                                            what state this is in, and this says why. Romanian whatever
+                                            the interface language, because it is a quotation. */}
+                                        {connection.lastErrorMessage === null ? null : (
+                                            <p className="note text-destructive mt-1" lang="ro">
+                                                {connection.lastErrorMessage}
+                                            </p>
+                                        )}
                                     </td>
                                     {/* Two labelled buttons do not fit the corner a pinned cell gets,
                                         so they take the card's last line on a phone. */}

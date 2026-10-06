@@ -20,6 +20,9 @@ use Kern\TaxRomania\Spv\Models\SpvSession;
  */
 final readonly class ApplyPortalAuthResult
 {
+    private const int MAX_PORTAL_MESSAGE_LENGTH = 500;
+
+
     public function __invoke(SpvSession $session, SpvConnection $connection, PortalAuthResult $result): void
     {
         $session->state = $result->state;
@@ -48,10 +51,22 @@ final readonly class ApplyPortalAuthResult
         SpvAuthenticated::dispatch($session->id, $session->tax_subject_id);
     }
 
+    /**
+     * Records the refusal twice over: as this application's own code, and as whatever the portal said.
+     *
+     * The code is closed and translated; the message is ANAF's Romanian, shown as-is because
+     * paraphrasing "Utilizatorul sau parola nu sunt corecte" into "sign-in failed" throws away the one
+     * thing the person needed — which of the two was wrong.
+     *
+     * Capped at a length nobody has to think about. A `message` is whatever text the playbook's
+     * selector matched, and a selector aimed one element too high would hand over a page. React escapes
+     * it on the way out, so the risk here is a wall of text rather than markup.
+     */
     private function markFailed(SpvConnection $connection, ?string $reason): void
     {
         $connection->status = SpvConnectionStatus::FAILED;
-        $connection->last_error_code = $reason ?? 'authentication_failed';
+        $connection->last_error_code = 'authentication_failed';
+        $connection->last_error_message = $reason === null ? null : mb_substr(trim($reason), 0, self::MAX_PORTAL_MESSAGE_LENGTH);
         $connection->save();
     }
 }
