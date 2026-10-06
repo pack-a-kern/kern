@@ -22,7 +22,15 @@ return [
      */
     'url' => env('BROWSER_WORKER_URL'),
 
-    'timeout_seconds' => (int) env('BROWSER_WORKER_TIMEOUT_SECONDS', 30),
+    /*
+     * How long this installation waits on a single worker call.
+     *
+     * It has to outlast the slowest thing a playbook can ask for, or the application gives up on a run
+     * that is still going and reports a worker that is working — which is a confusing way to describe a
+     * slow website. ANAF's message list is served by a JSF application that takes tens of seconds to
+     * render, and the playbook allows it 45; this allows for that plus the waiting and reading after it.
+     */
+    'timeout_seconds' => (int) env('BROWSER_WORKER_TIMEOUT_SECONDS', 120),
 
     /*
      * The shared secret, sent as `Authorization: Bearer <token>`, which must equal the worker's own

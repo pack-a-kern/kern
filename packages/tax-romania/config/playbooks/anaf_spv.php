@@ -248,9 +248,23 @@ return [
             // Observed: the message list's own address. The guessed one was the portal root, which with
             // an authenticated session does not resolve at all — a `goto` that timed out rather than a
             // page that looked almost right, which is the better way for a guess to fail.
-            ['goto' => 'https://pfinternet.anaf.ro/SNMD/index.xhtml'],
+            /*
+             * 45 seconds, not the worker's 15.
+             *
+             * Unauthenticated, this address answers in about 150ms — the appliance redirects to the login
+             * form and nothing touches the application behind it. *Authenticated*, the same request is
+             * served by the JSF application itself, which renders the whole message table server-side,
+             * and 15 seconds was not enough for it. Measured both ways rather than guessed: the redirect
+             * was timed from inside the worker's own container, with and without resource blocking, and
+             * it is never the navigation that is slow.
+             *
+             * `browser_worker.timeout_seconds` has to stay above whatever this adds up to, or the
+             * application stops waiting first and reports a worker that is still working.
+             */
+            ['goto' => 'https://pfinternet.anaf.ro/SNMD/index.xhtml', 'timeout' => 45000],
             [
                 'waitFor' => [
+                    'timeout' => 30000,
                     'any' => [
                         // Observed. The table itself, by attribute so its colons need no escaping.
                         [
