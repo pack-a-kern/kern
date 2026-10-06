@@ -63,8 +63,18 @@ return [
         // Romanian, because a portal that localises by locale should answer in the language whose
         // error messages the selectors below will eventually match.
         'locale' => 'ro-RO',
-        // Nothing here reads a picture, and a page without them loads in a fraction of the time.
-        'block' => ['image', 'font', 'media'],
+        /*
+         * Nothing is blocked, and that is a decision rather than an omission.
+         *
+         * Blocking images and fonts is implemented by routing *every* request through the driver and
+         * continuing the ones that are wanted. On a login form that is free. On the message list — a JSF
+         * page with scripts, stylesheets and twenty row actions — it puts an interception round trip in
+         * front of each one, and that is the most plausible remaining explanation for a navigation that
+         * answered in 150ms unauthenticated and then would not finish in 45 seconds signed in.
+         *
+         * If the page loads with this gone, the blocking was the cost rather than the saving, and it was
+         * saving nothing worth having: nobody is looking at the pictures either way.
+         */
     ],
 
     'sequences' => [

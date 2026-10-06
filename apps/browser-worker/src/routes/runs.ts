@@ -167,7 +167,11 @@ async function execute(
     });
   } catch (error) {
     stats.recordFailure();
-    respondToFailure(error, res, secrets);
+    // Where the browser actually was. A step that fails is nearly always a page that is not the page the
+    // playbook was written against, and the address is the cheapest thing that says which — without it,
+    // diagnosing means reproducing the run, which for a portal that emails a one-time code means
+    // spending one.
+    respondToFailure(error, res, secrets, handle.context.pages()[0]?.url());
   }
 }
 
@@ -179,7 +183,7 @@ async function execute(
  * worker's. And every message is redacted on the way out, including the ones that came from
  * Playwright, which quotes values back in its errors.
  */
-function respondToFailure(error: unknown, res: Response, secrets: Secrets | null): void {
+function respondToFailure(error: unknown, res: Response, secrets: Secrets | null, url?: string): void {
   const say = (message: string): string => (secrets === null || secrets.isEmpty ? message : secrets.redact(message));
 
   if (error instanceof PlaybookInvalidError) {
@@ -206,8 +210,13 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
     return;
   }
 
+  // The address is a URL on a host the playbook already named, so it reveals nothing the caller did not
+  // send — but it is redacted anyway, because a portal is free to put anything in a query string.
+  const at = url === undefined ? {} : { url: say(url) };
+
   if (error instanceof StepFailedError) {
-    res.status(422).json({ error: "step_failed", step: error.step, message: say(error.message) });
+    logger.error("step_failed", { event: "step_failed", failure: say(error.message), ...at });
+    res.status(422).json({ error: "step_failed", step: error.step, message: say(error.message), ...at });
 
     return;
   }
@@ -216,8 +225,8 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
 
   // The message, not merely the fact. It is redacted by `say()` above, and without it an operator
   // reads "run_failed" and has to reproduce the run to learn anything.
-  logger.error("run_failed", { event: "run_failed", failure: message });
-  res.status(502).json({ error: "run_failed", message });
+  logger.error("run_failed", { event: "run_failed", failure: message, ...at });
+  res.status(502).json({ error: "run_failed", message, ...at });
 }
 
 /** Express types a path parameter as `string | string[]`; anything but a string is "not found". */

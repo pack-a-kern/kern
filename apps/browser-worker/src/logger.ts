@@ -35,6 +35,8 @@ const ALLOWED_FIELDS = [
    * it, because Playwright quotes a value back in the error it throws and that error is this string.
    */
   "failure",
+  /* Where the browser was when something failed. Redacted like everything else on its way out. */
+  "url",
 ] as const;
 
 type AllowedField = (typeof ALLOWED_FIELDS)[number];
