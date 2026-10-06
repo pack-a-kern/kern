@@ -17,10 +17,15 @@ interface TrackedSession {
 const MAX_SWEEP_INTERVAL_MS = 60_000;
 
 /**
- * Owns the ephemeral browser context behind every SPV session: creation,
- * lookup, explicit destruction, and TTL expiry (`BLUEPRINT.md` §3.4, §13.2 step
- * 11 — "sesiunea se distruge conform policy"). Holds no ANAF-specific state;
- * that starts at Milestone 10.
+ * Owns the ephemeral browser context behind every session: creation, lookup, explicit destruction,
+ * and expiry at the TTL.
+ *
+ * One browser and one context per session, never reused between them — a session's cookies and
+ * storage are the whole reason it is held open between calls, and two callers sharing a context
+ * would share those.
+ *
+ * Nothing here knows what a session is for. Which site it visits, and what it does there, arrives
+ * with each run as a playbook.
  */
 export class SessionManager {
   private readonly sessions = new Map<string, TrackedSession>();

@@ -15,19 +15,18 @@ export interface BrowserContextHandle {
 export type BrowserContextFactory = (context?: RunContext) => Promise<BrowserContextHandle>;
 
 /**
- * One Chromium browser and one browser context per session (`BLUEPRINT.md`
- * §3.4): no Chrome profile is ever reused between tax subjects, downloads
- * land in a session-private directory, and both are torn down together in
- * `close()`. Navigating the actual SPV portal is Milestone 10 — this
- * factory only establishes the isolated runtime that automation will later
- * run inside.
+ * One Chromium browser and one browser context per session.
+ *
+ * Never reused between sessions: a profile carries cookies, storage and cached credentials, and two
+ * callers sharing one would share whoever signed in first. Downloads land in a directory private to
+ * the session, and browser, context and directory are torn down together in `close()`.
  */
 /**
  * A playbook's `context` as Playwright's own options.
  *
  * A device descriptor first, so a named device sets viewport, user agent and scale together the way
  * Playwright means it to, and anything stated explicitly beside it wins — "iPhone 13, but in
- * Romanian" is a thing somebody will want to say.
+ * a different locale" is a thing somebody will want to say.
  */
 function optionsFor(context: RunContext | undefined): BrowserContextOptions {
   const described = context?.device === undefined ? undefined : devices[context.device];

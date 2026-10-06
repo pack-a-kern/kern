@@ -18,13 +18,16 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 /**
- * Guards every `/v1/spv/*` route (never `/health`) with a shared-secret bearer token —
- * `BLUEPRINT.md` §13.4's internal contract, reachable only from Laravel over the internal network,
- * never directly by the browser/PWA. This is the identical shared-secret compromise
- * `apps/processing`'s `internal_auth.py` documents (mTLS/signed-JWT was never decided anywhere in
- * this codebase, and standing one up here would itself be inventing an unverified contract,
- * `docs/AGENTS.md` §1 rule 1) — fails closed when the expected token is unset, exactly like that
- * module.
+ * Guards every `/v1` route — never `/health` — with a shared-secret bearer token.
+ *
+ * A shared secret rather than mTLS or a signed JWT: this worker is reached by one caller over one
+ * network, and the heavier schemes buy nothing there while costing a certificate lifecycle nobody
+ * asked for.
+ *
+ * **Fails closed.** A worker in token mode with no token configured refuses everything, rather than
+ * accepting whatever arrives — a missing variable must never be the thing that opens a service. A
+ * deployment that wants no token says so with `BROWSER_AUTH_MODE`, and then this middleware is not
+ * mounted at all.
  */
 export function createInternalAuthMiddleware(
   expectedToken: string | undefined,

@@ -10,9 +10,10 @@ export class DestinationRefusedError extends Error {
 /**
  * Whether a playbook may send the browser to a URL.
  *
- * Host-based, and a host matches its own subdomains: `anaf.ro` admits `spv.anaf.ro`, because a
- * portal that moves its login to a subdomain has not become a different site. It never matches by
- * suffix alone — `evil-anaf.ro` does not end up admitted by `anaf.ro`.
+ * Host-based, and a host matches its own subdomains: `example.com` admits `login.example.com`,
+ * because a site that moves its login to a subdomain has not become a different site. It never
+ * matches by suffix alone — `notexample.com` is not admitted by `example.com`, which is the mistake
+ * a string comparison makes and the reason this compares labels.
  *
  * `"*"` admits everything, which is the point: a screenshot playbook genuinely wants any URL, and
  * saying so in the playbook makes it a decision a reader can see rather than a default nobody chose.
