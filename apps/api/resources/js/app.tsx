@@ -4,6 +4,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { registerServiceWorker } from './lib/registerServiceWorker';
 import { appNameFrom } from './lib/sharedProps';
+import StepUpGate from './components/StepUpGate';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 
@@ -36,7 +37,11 @@ void createInertiaApp({
 
         createRoot(el).render(
             <TooltipProvider>
-                <App {...props} />
+                {/* Wraps every page, because any screen may call a route that demands a code and none
+                    of them knows in advance which. The dialog it renders is closed until one does. */}
+                <StepUpGate>
+                    <App {...props} />
+                </StepUpGate>
                 <Toaster />
             </TooltipProvider>,
         );

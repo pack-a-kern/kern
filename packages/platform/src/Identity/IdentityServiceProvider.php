@@ -127,7 +127,7 @@ final class IdentityServiceProvider extends ServiceProvider
 
         $this->registerRateLimiter('login-per-ip', 'login_per_ip', static fn (Request $request): string => (string) $request->ip());
 
-        $this->registerRateLimiter('mfa-challenge-per-user', 'mfa_challenge_per_user', static function (Request $request): string {
+        $perAuthenticatedUser = static function (Request $request): string {
             $user = $request->user();
             $identifier = $user?->getAuthIdentifier();
             $identifierString = is_string($identifier) ? $identifier : null;
@@ -135,7 +135,13 @@ final class IdentityServiceProvider extends ServiceProvider
             return $identifierString !== null
                 ? $identifierString . '|' . $request->ip()
                 : (string) $request->ip();
-        });
+        };
+
+        $this->registerRateLimiter('mfa-challenge-per-user', 'mfa_challenge_per_user', $perAuthenticatedUser);
+
+        // Step-up submits the same kind of code against the same secret, so it is keyed identically —
+        // with its own budget, because exhausting one must not lock a person out of the other.
+        $this->registerRateLimiter('step-up-per-user', 'step_up_per_user', $perAuthenticatedUser);
 
         $this->registerRateLimiter('passkey-ceremony-per-ip', 'passkey_ceremony_per_ip', static fn (Request $request): string => (string) $request->ip());
 

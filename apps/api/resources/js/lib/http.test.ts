@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiRequest, apiRequestBinary } from './http';
+import { ApiError, apiRequest, apiRequestBinary, setStepUpPrompt } from './http';
 
 function setCsrfMeta(token: string): void {
     document.head.querySelectorAll('meta[name="csrf-token"]').forEach((el) => {
@@ -122,5 +122,121 @@ describe('apiRequestBinary', () => {
         await apiRequestBinary('/v1/subjects/s1/documents/d1/content');
         const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string> | undefined;
         expect(headers?.['X-CSRF-TOKEN']).toBeUndefined();
+    });
+});
+
+/**
+ * The step-up retry: what happens when the server says a sensitive act needs a fresh code.
+ *
+ * Covered here rather than in a component test because the behaviour is this module's — when it
+ * prompts, how many times it retries, and what it does when nobody is listening.
+ */
+describe('step-up verification', () => {
+    beforeEach(() => {
+        setCsrfMeta('test-token');
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        setStepUpPrompt(null);
+    });
+
+    function refusal(): Response {
+        return new Response(JSON.stringify({ message: 'needs a code', reason: 'VERIFICATION_REQUIRED' }), {
+            status: 403,
+        });
+    }
+
+    it('prompts, then sends the same request again once verified', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock
+            .mockImplementationOnce(() => Promise.resolve(refusal()))
+            .mockImplementationOnce(() => Promise.resolve(new Response('{"ok":true}', { status: 200 })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const prompt = vi.fn(() => Promise.resolve(true));
+        setStepUpPrompt(prompt);
+
+        const body = await apiRequest('/v1/subjects/s/spv/connections', { method: 'POST', body: { a: 1 } });
+
+        expect(prompt).toHaveBeenCalledOnce();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(body).toBe('{"ok":true}');
+        // The same request, not a different one — a retry that dropped the body would succeed while
+        // doing nothing.
+        expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(fetchMock.mock.calls[0]?.[1]?.body);
+    });
+
+    it('retries exactly once, so one click cannot become two writes', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock.mockImplementation(() => Promise.resolve(refusal()));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const prompt = vi.fn(() => Promise.resolve(true));
+        setStepUpPrompt(prompt);
+
+        await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toThrow(ApiError);
+
+        expect(prompt).toHaveBeenCalledOnce();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives up and reports the failure when the dialog is dismissed', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock.mockImplementation(() => Promise.resolve(refusal()));
+        vi.stubGlobal('fetch', fetchMock);
+
+        setStepUpPrompt(() => Promise.resolve(false));
+
+        await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toMatchObject({
+            reason: 'VERIFICATION_REQUIRED',
+        });
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('does not prompt for an account that has nothing to prove with', async () => {
+        // MFA_ENROLLMENT_REQUIRED is a refusal the screen reports, not a dialog: there is no code to
+        // type, and offering one would be unanswerable.
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock.mockImplementation(() =>
+            Promise.resolve(
+                new Response(JSON.stringify({ message: 'enrol first', reason: 'MFA_ENROLLMENT_REQUIRED' }), {
+                    status: 403,
+                }),
+            ),
+        );
+        vi.stubGlobal('fetch', fetchMock);
+
+        const prompt = vi.fn(() => Promise.resolve(true));
+        setStepUpPrompt(prompt);
+
+        await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toThrow(ApiError);
+
+        expect(prompt).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('reports the refusal unchanged when no dialog is mounted at all', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock.mockImplementation(() => Promise.resolve(refusal()));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toThrow(ApiError);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('covers a binary response too, which is a separate path through the same module', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock
+            .mockImplementationOnce(() => Promise.resolve(refusal()))
+            .mockImplementationOnce(() => Promise.resolve(new Response('pdf-bytes', { status: 200 })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        setStepUpPrompt(() => Promise.resolve(true));
+
+        const blob = await apiRequestBinary('/v1/x');
+
+        expect(await blob.text()).toBe('pdf-bytes');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 });

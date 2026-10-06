@@ -542,6 +542,14 @@ export interface Dictionary {
          */
         reasons: Record<string, string | undefined>;
     };
+    /** The dialog that asks for an authenticator code before a sensitive act. */
+    stepUp: {
+        title: string;
+        hint: string;
+        code: string;
+        confirm: string;
+        cancel: string;
+    };
     pages: {
         wallet: {
             /** Shared by all three wallet screens. */
@@ -1422,6 +1430,10 @@ export interface Dictionary {
         };
         spv: {
             revoke: string;
+            delete: string;
+            deleteTitle: string;
+            deleteHint: string;
+            deleteRuns: string;
             revokeTitle: string;
             revokeHint: string;
             statusColumn: string;

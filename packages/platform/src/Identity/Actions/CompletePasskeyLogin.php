@@ -16,7 +16,7 @@ use Throwable;
 /**
  * Finishes a passkey login ceremony. A successful passkey assertion is, by itself, a complete
  * login — no separate TOTP/recovery-code step follows (`Kern\Platform\Identity\Support\
- * SpvMfaPolicy`'s docblock explains why a passkey already satisfies this project's "strong
+ * StepUpPolicy`'s docblock explains why a passkey already satisfies this project's "strong
  * authentication" bar on its own).
  */
 final readonly class CompletePasskeyLogin

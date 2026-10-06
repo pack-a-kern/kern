@@ -13,14 +13,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Kern\Platform\Identity\Http\Middleware\RequiresRecentVerification;
 use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
-use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
-use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 
@@ -52,6 +52,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // never globally: a guest must be told to sign in, and the verification screen and the
             // endpoints it calls have to stay reachable. See that middleware's allowed set.
             'verified' => RequireVerifiedEmail::class,
+            // Marked on the individual routes that need it, never on a group: the list of sensitive
+            // acts is short, and a group that grew would quietly start demanding a code for reads.
+            'verify-recent' => RequiresRecentVerification::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);
@@ -186,15 +189,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // to catch it (docs/AGENTS.md §6).
         $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
-            403,
-        ));
-
-        // §4.7 — an account must enrol MFA before it may connect SPV. A refusal, not a fault: the
-        // person has to go and do something, and a 500 would tell them the installation is broken.
-        // Rendered here for the same reason as the one above — every call site gets it without any
-        // controller importing the exception to catch it.
-        $exceptions->render(fn (MfaNotEnrolledException $exception): JsonResponse => response()->json(
-            ['message' => $exception->getMessage(), 'reason' => 'MFA_REQUIRED'],
             403,
         ));
 

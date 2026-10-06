@@ -680,6 +680,13 @@ export const ro = {
             INVALID_OWNERSHIP_PERCENT: 'Cota de proprietate trebuie să fie peste 0 și cel mult 100.',
         },
     },
+    stepUp: {
+        title: 'Confirmă că ești tu',
+        hint: 'Această acțiune necesită codul din aplicația de autentificare.',
+        code: 'Cod de autentificare',
+        confirm: 'Confirmă',
+        cancel: 'Anulează',
+    },
     pages: {
         wallet: {
             noSubject: 'Alegeți un contribuabil pentru a vedea portofelul.',
@@ -1582,6 +1589,10 @@ export const ro = {
         },
         spv: {
             revoke: 'Revocă',
+            delete: 'Șterge',
+            deleteTitle: 'Ștergi această conexiune?',
+            deleteHint: 'Conexiunea și tot ce a fost înregistrat pentru ea se șterg. Acțiunea nu poate fi anulată.',
+            deleteRuns: '{count} înregistrări de sincronizare se vor șterge împreună cu ea.',
             revokeTitle: 'Revoci această conexiune?',
             revokeHint:
                 'Nu va mai fi oferită la autentificare. Istoricul rămâne, pentru că rulările și evenimentele de audit trimit la ea.',
@@ -2033,6 +2044,7 @@ export const ro = {
                 'identity.registration_enabled': 'Înregistrarea conturilor este deschisă',
                 'identity.email_verification_required': 'Adresă de e-mail confirmată obligatorie',
                 'security.session_lifetime_minutes': 'Durată sesiune',
+                'security.step_up_window_seconds': 'Interval de reverificare',
                 'crypto.blind_index_current_version': 'Versiune cheie index de căutare',
                 'crypto.kms_driver': 'Driver KMS',
                 'security.hash_driver': 'Algoritm de hash pentru parole',

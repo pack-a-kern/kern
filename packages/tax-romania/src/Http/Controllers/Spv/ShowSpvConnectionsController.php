@@ -17,6 +17,9 @@ use Kern\TaxRomania\Spv\Models\SpvSyncRun;
  *
  * No password is returned, because none is stored — {@see \Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy}
  * holds exactly one case and that is the whole reason it exists as a column.
+ *
+ * `run_count` is here rather than counted on the client because it decides which endings the screen
+ * offers — see {@see \Kern\TaxRomania\Spv\Actions\DeleteSpvConnection}.
  */
 final class ShowSpvConnectionsController
 {
@@ -28,10 +31,12 @@ final class ShowSpvConnectionsController
         // The newest run per connection, for "last checked" beside each. One query for the page
         // rather than one per row: a taxpayer has a handful of connections and this is a listing.
         $latest = [];
+        $runCounts = [];
 
         /** @var SpvSyncRun $run */
         foreach (SpvSyncRun::query()->orderByDesc('started_at')->get() as $run) {
             $latest[$run->connection_id] ??= $run;
+            $runCounts[$run->connection_id] = ($runCounts[$run->connection_id] ?? 0) + 1;
         }
 
         $rows = [];
@@ -48,6 +53,9 @@ final class ShowSpvConnectionsController
                 'status' => $connection->status->value,
                 'last_success_at' => $connection->last_success_at?->toAtomString(),
                 'last_error_code' => $connection->last_error_code,
+                // What deleting this would destroy, and therefore which endings the screen offers:
+                // revoking preserves a history, and a connection that never ran has none.
+                'run_count' => $runCounts[$connection->id] ?? 0,
                 'last_run' => $run === null ? null : [
                     'status' => $run->status->value,
                     'started_at' => $run->started_at->toAtomString(),

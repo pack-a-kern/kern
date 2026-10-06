@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
+use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvSyncRun;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -43,6 +45,10 @@ function connectedUser(bool $withMfa = true): array
             'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
             'confirmed_at' => now('UTC'),
         ]);
+
+        // Enrolled *and* recently proved: every route that acts is behind `verify-recent`, and these
+        // tests are about what the endpoints decide once past it. The gate has its own file.
+        verifySession();
     }
 
     return [$user, $subject->id];
@@ -83,7 +89,7 @@ it('refuses to register a connection for a user with no MFA', function (): void 
             'username' => 'contribuabil.test',
         ])
         ->assertForbidden()
-        ->assertJsonPath('reason', 'MFA_REQUIRED');
+        ->assertJsonPath('reason', 'MFA_ENROLLMENT_REQUIRED');
 
     expect(SpvConnection::query()->withoutGlobalScopes()->count())->toBe(0);
 });
@@ -124,4 +130,88 @@ it('does not serve one taxpayer another taxpayer’s connections', function (): 
     $this->actingAs($stranger, 'web')
         ->getJson("/api/v1/subjects/{$ownerSubject}/spv/connections")
         ->assertForbidden();
+});
+
+it('deletes a connection and the sync history that pointed at it', function (): void {
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'CERTIFICATE',
+        ])
+        ->assertCreated();
+
+    $connectionId = jsonString($created, 'id');
+
+    SpvSyncRun::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'status' => SpvSyncRunStatus::SUCCEEDED,
+        'started_at' => now('UTC'),
+        'completed_at' => now('UTC'),
+        'summary_json' => ['message_count' => 2],
+    ]);
+
+    $this->actingAs($user, 'web')
+        ->deleteJson("/api/v1/subjects/{$subjectId}/spv/connections/{$connectionId}")
+        ->assertNoContent();
+
+    expect(SpvConnection::query()->find($connectionId))->toBeNull()
+        // ON DELETE CASCADE, which is the cost the dialog states before anybody agrees to it.
+        ->and(SpvSyncRun::query()->where('connection_id', $connectionId)->count())->toBe(0);
+});
+
+it('revokes without destroying what the connection did', function (): void {
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'CERTIFICATE',
+        ]);
+
+    $connectionId = jsonString($created, 'id');
+
+    SpvSyncRun::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'status' => SpvSyncRunStatus::SUCCEEDED,
+        'started_at' => now('UTC'),
+        'completed_at' => now('UTC'),
+        'summary_json' => ['message_count' => 2],
+    ]);
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections/{$connectionId}/revocation")
+        ->assertOk()
+        ->assertJsonPath('status', 'REVOKED');
+
+    expect(SpvSyncRun::query()->where('connection_id', $connectionId)->count())->toBe(1);
+});
+
+it('reports how many runs a connection has, so the screen knows which endings to offer', function (): void {
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", ['auth_method' => 'CERTIFICATE']);
+
+    $connectionId = jsonString($created, 'id');
+
+    // Nothing has run: there is no history to preserve, so revoking has nothing to offer over
+    // deleting, and the screen shows only the one ending.
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.run_count', 0);
+
+    SpvSyncRun::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'status' => SpvSyncRunStatus::SUCCEEDED,
+        'started_at' => now('UTC'),
+        'completed_at' => now('UTC'),
+        'summary_json' => ['message_count' => 1],
+    ]);
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.run_count', 1);
 });

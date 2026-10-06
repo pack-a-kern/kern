@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Schema;
  * `confirmed_at` is null until the user proves possession of the secret with one valid code during
  * enrollment (`Kern\Platform\Identity\Actions\ConfirmTotpEnrollment`) — an unconfirmed method must
  * never count toward "this user has MFA enrolled" (the Milestone 10 SPV gate,
- * `Kern\Platform\Identity\Support\SpvMfaPolicy`, checks `confirmed_at !== null`).
+ * `Kern\Platform\Identity\Support\StepUpPolicy`, checks `confirmed_at !== null`).
  *
  * At most one TOTP method per user: re-enrollment replaces the existing row rather than
  * accumulating unconfirmed ones (`docs/CODE-QUALITY.md` — no benefit to allowing several).

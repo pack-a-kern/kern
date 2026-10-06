@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { KeyRound, Link2, Mails, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { Ban, KeyRound, Link2, Mails, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AppShell from '../components/AppShell';
@@ -30,6 +30,13 @@ interface Connection {
     status: string;
     lastSuccessAt: string | null;
     lastRun: { status: string; startedAt: string; messageCount: number | null } | null;
+    /**
+     * How many times this connection has been used.
+     *
+     * Decides which endings the row offers: revoking preserves a history, so it is only worth
+     * offering once there is one. Deleting is always offered, and says what it will destroy.
+     */
+    runCount: number;
 }
 
 /**
@@ -64,6 +71,7 @@ function parse(payload: unknown): Connection[] {
             username: typeof row.username === 'string' ? row.username : null,
             status: str(row, 'status'),
             lastSuccessAt: typeof row.last_success_at === 'string' ? row.last_success_at : null,
+            runCount: typeof row.run_count === 'number' ? row.run_count : 0,
             lastRun:
                 row.last_run === null || row.last_run === undefined
                     ? null
@@ -107,6 +115,7 @@ export default function Spv(): JSX.Element {
     const [working, setWorking] = useState(false);
     const errors = useFormErrors();
     const [revoking, setRevoking] = useState<Connection | null>(null);
+    const [deleting, setDeleting] = useState<Connection | null>(null);
 
     const base = subjectId === null ? null : `/v1/subjects/${encodeURIComponent(subjectId)}/spv`;
 
@@ -284,8 +293,28 @@ export default function Spv(): JSX.Element {
         setWorking(true);
 
         try {
-            await apiRequest(`${base}/connections/${encodeURIComponent(connection.id)}`, { method: 'DELETE' });
+            await apiRequest(`${base}/connections/${encodeURIComponent(connection.id)}/revocation`, {
+                method: 'POST',
+            });
             setRevoking(null);
+            reload();
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
+        } finally {
+            setWorking(false);
+        }
+    };
+
+    const remove = async (connection: Connection): Promise<void> => {
+        if (base === null) {
+            return;
+        }
+
+        setWorking(true);
+
+        try {
+            await apiRequest(`${base}/connections/${encodeURIComponent(connection.id)}`, { method: 'DELETE' });
+            setDeleting(null);
             reload();
         } catch (cause: unknown) {
             toast.error(describeApiFailure(cause, t));
@@ -422,17 +451,31 @@ export default function Spv(): JSX.Element {
                                                     {t((d) => d.pages.spv.sync)}
                                                 </PanelButton>
                                             )}
-                                            {connection.status === 'REVOKED' ? null : (
+                                            {/* Revoking is only offered where there is something to
+                                                preserve. A connection that never ran has no history,
+                                                so leaving it in the list marked "revoked" for ever
+                                                answers a question nobody asked — deleting is the
+                                                only sensible ending for it. */}
+                                            {connection.status === 'REVOKED' || connection.runCount === 0 ? null : (
                                                 <PanelButton
                                                     disabled={working}
                                                     onClick={() => {
                                                         setRevoking(connection);
                                                     }}
                                                 >
-                                                    <Trash2 className="text-destructive size-3.5" aria-hidden="true" />
+                                                    <Ban className="size-3.5" aria-hidden="true" />
                                                     {t((d) => d.pages.spv.revoke)}
                                                 </PanelButton>
                                             )}
+                                            <PanelButton
+                                                disabled={working}
+                                                onClick={() => {
+                                                    setDeleting(connection);
+                                                }}
+                                            >
+                                                <Trash2 className="text-destructive size-3.5" aria-hidden="true" />
+                                                {t((d) => d.pages.spv.delete)}
+                                            </PanelButton>
                                         </div>
                                     </td>
                                 </tr>
@@ -543,6 +586,49 @@ export default function Spv(): JSX.Element {
                 }
             >
                 <p className="note">{revoking?.username ?? ''}</p>
+            </PanelDialog>
+
+            <PanelDialog
+                open={deleting !== null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        setDeleting(null);
+                    }
+                }}
+                title={t((d) => d.pages.spv.deleteTitle)}
+                description={t((d) => d.pages.spv.deleteHint)}
+                size="sm"
+                actions={
+                    <>
+                        <PanelButton
+                            onClick={() => {
+                                setDeleting(null);
+                            }}
+                        >
+                            {t((d) => d.pages.spv.cancel)}
+                        </PanelButton>
+                        <PanelButton
+                            primary
+                            disabled={working}
+                            onClick={() => {
+                                if (deleting !== null) {
+                                    void remove(deleting);
+                                }
+                            }}
+                        >
+                            {t((d) => d.pages.spv.delete)}
+                        </PanelButton>
+                    </>
+                }
+            >
+                <p className="note">{deleting?.username ?? ''}</p>
+                {/* Named, not implied: the sync history cascades, and nobody should lose a year of it
+                    without being told how much there was. */}
+                {deleting !== null && deleting.runCount > 0 ? (
+                    <p className="note text-destructive">
+                        {t((d) => d.pages.spv.deleteRuns).replace('{count}', String(deleting.runCount))}
+                    </p>
+                ) : null}
             </PanelDialog>
 
             {/* One dialog for both steps: it is one sitting, and the browser on the worker stays open

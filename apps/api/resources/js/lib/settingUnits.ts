@@ -67,6 +67,7 @@ const UNITS: Record<string, DisplayUnit> = {
     'security.webauthn_challenge_ttl_seconds': identity('s'),
     'security.webauthn_timeout_ms': identity('ms'),
     'security.session_lifetime_minutes': identity('min'),
+    'security.step_up_window_seconds': identity('s'),
     'spv.messages_window_days': identity('d'),
 };
 

@@ -6,107 +6,142 @@ namespace Tests\Feature\TaxRomania\Spv\SpvMfaGateTest;
 
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Identity\Enums\MfaMethodType;
-use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
-use Kern\TaxRomania\Spv\Actions\InitiateSpvAuthAttempt;
-use Kern\TaxRomania\Spv\Actions\RegisterSpvConnection;
-use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
-use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
-use Kern\TaxRomania\Spv\DataTransferObjects\RegisterSpvConnectionInput;
-use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
-use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
-use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
-use Kern\TaxRomania\Spv\Enums\SpvCredentialPolicy;
-use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
+use Kern\Platform\Identity\Support\StepUpPolicy;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
-use RuntimeException;
 
 /**
- * `BLUEPRINT.md` §4.7 — "MFA obligatoriu pentru conturi care conectează SPV." Both call sites this
- * milestone builds on top of `Kern\Platform\Identity\Support\SpvMfaPolicy`
- * (`RegisterSpvConnection`, `InitiateSpvAuthAttempt`) must refuse to proceed without it.
+ * `BLUEPRINT.md` §4.7 — "MFA obligatoriu pentru conturi care conectează SPV."
+ *
+ * The gate used to live inside two actions and ask `exists()`: had this account enrolled a factor,
+ * ever. Anybody holding the session passed it without owning one, and `sync` — reading the inbox,
+ * which is the thing worth protecting — did not consult it at all.
+ *
+ * These cover what replaced it: proof, recently, on every route that acts, and told apart from having
+ * nothing to prove with.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
     bootstrapIdentityCryptoForTests();
 });
 
-it('refuses to register an SPV connection for a user with no MFA enrolled', function (): void {
+/** @return array{0: User, 1: string} */
+function member(bool $withTotp = true): array
+{
     $user = User::factory()->create();
     $subject = TaxSubject::factory()->create();
 
-    app(RegisterSpvConnection::class)($user, new RegisterSpvConnectionInput(
-        taxSubjectId: $subject->id,
-        authMethod: SpvAuthMethod::USER_PASSWORD_OTP,
-        username: 'someone@example.test',
-    ));
-})->throws(MfaNotEnrolledException::class);
+    SubjectMembership::create([
+        'subject_id' => $subject->id,
+        'user_id' => $user->id,
+        'role' => MembershipRole::OWNER,
+        'permissions_json' => [],
+        'valid_from' => now('UTC'),
+    ]);
 
-it('allows registering an SPV connection once the user has a confirmed TOTP method', function (): void {
-    $user = User::factory()->create();
-    $subject = TaxSubject::factory()->create();
-    enrollTotpFor($user);
+    if ($withTotp) {
+        UserMfaMethod::create([
+            'user_id' => $user->id,
+            'type' => MfaMethodType::TOTP,
+            'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
+            'confirmed_at' => now('UTC'),
+        ]);
+    }
 
-    $connection = app(RegisterSpvConnection::class)($user, new RegisterSpvConnectionInput(
-        taxSubjectId: $subject->id,
-        authMethod: SpvAuthMethod::USER_PASSWORD_OTP,
-        username: 'someone@example.test',
-    ));
+    return [$user, $subject->id];
+}
 
-    expect($connection->status)->toBe(SpvConnectionStatus::PENDING)
-        ->and($connection->credential_policy)->toBe(SpvCredentialPolicy::EPHEMERAL_ONLY);
+it('tells an account with no authenticator to enrol one, rather than offering a dialog it cannot answer', function (): void {
+    [$user, $subjectId] = member(withTotp: false);
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'MFA_ENROLLMENT_REQUIRED');
 });
 
-it('refuses to initiate an auth attempt for a user whose MFA was un-enrolled since registration', function (): void {
-    $user = User::factory()->create();
-    $subject = TaxSubject::factory()->create();
-    $method = enrollTotpFor($user);
+it('asks an enrolled account to prove itself, which the enrolment check alone never did', function (): void {
+    [$user, $subjectId] = member();
 
-    $connection = app(RegisterSpvConnection::class)($user, new RegisterSpvConnectionInput(
-        taxSubjectId: $subject->id,
-        authMethod: SpvAuthMethod::USER_PASSWORD_OTP,
-        username: 'someone@example.test',
-    ));
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'VERIFICATION_REQUIRED');
+});
 
-    $method->delete();
+it('lets the act through once the session has proved itself', function (): void {
+    [$user, $subjectId] = member();
+    verifySession();
 
-    app()->instance(SpvBrowserSessionClient::class, new class () implements SpvBrowserSessionClient {
-        public function createSession(): SpvBrowserSession
-        {
-            throw new RuntimeException('must not be called once MFA is missing');
-        }
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ])
+        ->assertCreated();
+});
 
-        public function submitCredentials(string $browserSessionRef, string $username, SensitiveString $password): PortalAuthResult
-        {
-            throw new RuntimeException('unused');
-        }
+it('stops honouring a proof once the window has passed', function (): void {
+    [$user, $subjectId] = member();
 
-        public function submitChallengeCode(string $browserSessionRef, SensitiveString $code): PortalAuthResult
-        {
-            throw new RuntimeException('unused');
-        }
+    // Verified, then time moves past the window. The marker is a timestamp rather than a flag for
+    // exactly this reason: elevation has to stop on its own, with nothing running to expire it.
+    verifySession();
+    $this->travel(app(StepUpPolicy::class)->windowSeconds() + 1)->seconds();
 
-        public function destroySession(string $browserSessionRef): void
-        {
-            throw new RuntimeException('unused');
-        }
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'VERIFICATION_REQUIRED');
+});
 
-        public function requestSync(string $browserSessionRef): void
-        {
-            throw new RuntimeException('unused');
-        }
-    });
+it('guards reading the inbox, which the check it replaced did not cover at all', function (): void {
+    [$user, $subjectId] = member();
 
-    app(InitiateSpvAuthAttempt::class)($user, $connection->id);
-})->throws(MfaNotEnrolledException::class);
+    verifySession();
 
-function enrollTotpFor(User $user): UserMfaMethod
-{
-    return UserMfaMethod::create([
-        'user_id' => $user->id,
-        'type' => MfaMethodType::TOTP,
-        'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
-        'confirmed_at' => now('UTC'),
-    ]);
-}
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ]);
+
+    $connectionId = jsonString($created, 'id');
+
+    // The window the registration used is deliberately dropped before syncing, because a sync can
+    // happen days later and must be gated on its own.
+    session()->forget('auth.step_up_verified_at');
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections/{$connectionId}/sync")
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'VERIFICATION_REQUIRED');
+});
+
+it('does not demand a code to read the list of connections', function (): void {
+    [$user, $subjectId] = member();
+
+    // Marked on the acts, not on the reads: a screen that could not draw itself without a dialog
+    // would ask for a code before the person had asked for anything.
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertOk();
+});
+
+it('reads the window from configuration, so an installation can set it', function (): void {
+    config(['identity.step_up.window_seconds' => 60]);
+
+    expect(app(StepUpPolicy::class)->windowSeconds())->toBe(60);
+});

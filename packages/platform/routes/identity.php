@@ -16,6 +16,7 @@ use Kern\Platform\Http\Controllers\Auth\EmailVerificationController;
 use Kern\Platform\Http\Controllers\Auth\LoginController;
 use Kern\Platform\Http\Controllers\Auth\LogoutController;
 use Kern\Platform\Http\Controllers\Auth\MfaChallengeController;
+use Kern\Platform\Http\Controllers\Auth\StepUpVerificationController;
 use Kern\Platform\Http\Controllers\Auth\MfaStatusController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyLoginController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyRegistrationController;
@@ -86,6 +87,15 @@ Route::prefix('v1/auth')->group(function (): void {
             ->middleware('throttle:passkey-ceremony-per-ip');
         Route::post('passkeys/registration', [PasskeyRegistrationController::class, 'store'])
             ->middleware('throttle:passkey-ceremony-per-ip');
+
+        /*
+         * Proving the second factor again inside a live session, for whatever
+         * `RequiresRecentVerification` is guarding. Deliberately not itself guarded by that
+         * middleware: a route that demanded recent verification in order to verify could never be
+         * satisfied.
+         */
+        Route::post('step-up', StepUpVerificationController::class)
+            ->middleware('throttle:step-up-per-user');
 
         Route::get('mfa/status', MfaStatusController::class);
         Route::post('mfa/totp/enroll', [TotpController::class, 'enroll']);

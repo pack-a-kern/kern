@@ -111,6 +111,60 @@ function throwForFailure(status: number, text: string): never {
 }
 
 /**
+ * Asks the person to prove their second factor, resolving true once they have.
+ *
+ * Registered by `<StepUpGate>` at the root of the app, which owns the dialog. This module cannot open
+ * one itself — it is not a component and has no idea what is on screen — and a React context cannot
+ * be read from a plain async function, so the two meet here.
+ */
+type StepUpPrompt = () => Promise<boolean>;
+
+let promptForStepUp: StepUpPrompt | null = null;
+
+/** Called once, by `<StepUpGate>`. A second registration replaces the first. */
+export function setStepUpPrompt(prompt: StepUpPrompt | null): void {
+    promptForStepUp = prompt;
+}
+
+/**
+ * Whether this failure is the server asking for a code rather than refusing outright.
+ *
+ * `MFA_ENROLLMENT_REQUIRED` is deliberately **not** included: that account has nothing to prove with,
+ * so a dialog would be unanswerable and the screen must show the refusal instead.
+ */
+function needsStepUp(error: unknown): boolean {
+    return error instanceof ApiError && error.status === 403 && error.reason === 'VERIFICATION_REQUIRED';
+}
+
+/**
+ * Runs a request, and if the server asks for recent verification, asks the person and runs it once more.
+ *
+ * **Exactly once.** A retry loop around a non-idempotent POST is how one click becomes two
+ * registrations, so a second `VERIFICATION_REQUIRED` is thrown rather than prompted again — that is a
+ * server-side disagreement, not something the person can fix by typing another code.
+ *
+ * With no prompt registered, or when the dialog is dismissed, the original error is rethrown and the
+ * calling screen reports it as it would any other failure.
+ */
+async function withStepUp<T>(attempt: () => Promise<T>): Promise<T> {
+    try {
+        return await attempt();
+    } catch (cause: unknown) {
+        if (!needsStepUp(cause) || promptForStepUp === null) {
+            throw cause;
+        }
+
+        const verified = await promptForStepUp();
+
+        if (!verified) {
+            throw cause;
+        }
+
+        return attempt();
+    }
+}
+
+/**
  * The one place every call to `/api/v1/**` goes through: same-origin session cookie,
  * `X-CSRF-TOKEN` on every mutating verb, and a typed {@link ApiError} instead of a raw
  * `Response`. Resolves to the **raw response text** on success — callers pass it straight into
@@ -119,14 +173,18 @@ function throwForFailure(status: number, text: string): never {
  * This module only handles the HTTP envelope, never the body's shape.
  */
 export async function apiRequest(path: string, options: RequestOptions = {}): Promise<string> {
-    const [url, init] = buildRequestInit(path, options);
-    const response = await performFetch(url, init);
+    return withStepUp(async () => {
+        // Rebuilt per attempt: a retry after the dialog needs a fresh CSRF token, because verifying
+        // wrote to the session and the token may have rotated.
+        const [url, init] = buildRequestInit(path, options);
+        const response = await performFetch(url, init);
 
-    if (!response.ok) {
-        return throwForFailedResponse(response);
-    }
+        if (!response.ok) {
+            return throwForFailedResponse(response);
+        }
 
-    return response.text();
+        return response.text();
+    });
 }
 
 /**
@@ -137,14 +195,16 @@ export async function apiRequest(path: string, options: RequestOptions = {}): Pr
  * identically (e.g. a `409 {"reason": "CONTENT_NOT_AVAILABLE"}`).
  */
 export async function apiRequestBinary(path: string, options: RequestOptions = {}): Promise<Blob> {
-    const [url, init] = buildRequestInit(path, options);
-    const response = await performFetch(url, init);
+    return withStepUp(async () => {
+        const [url, init] = buildRequestInit(path, options);
+        const response = await performFetch(url, init);
 
-    if (!response.ok) {
-        return throwForFailedResponse(response);
-    }
+        if (!response.ok) {
+            return throwForFailedResponse(response);
+        }
 
-    return response.blob();
+        return response.blob();
+    });
 }
 
 /**

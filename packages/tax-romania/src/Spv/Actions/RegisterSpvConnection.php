@@ -9,7 +9,6 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\Identity\Support\SpvMfaPolicy;
 use Kern\TaxRomania\Spv\DataTransferObjects\RegisterSpvConnectionInput;
 use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
 use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
@@ -23,12 +22,10 @@ use Kern\TaxRomania\Spv\Models\SpvConnection;
  * never resolves "who is calling" itself (no session/request access in the domain layer, matching
  * `Kern\Platform\Identity\Actions\*`'s own framework-free convention).
  *
- * @throws \Kern\Platform\Identity\Exceptions\MfaNotEnrolledException
  */
 final readonly class RegisterSpvConnection
 {
     public function __construct(
-        private SpvMfaPolicy $mfaPolicy,
         private BlindIndexHasher $blindIndex,
         private AuditChainService $audit,
     ) {
@@ -36,8 +33,6 @@ final readonly class RegisterSpvConnection
 
     public function __invoke(User $actingUser, RegisterSpvConnectionInput $input): SpvConnection
     {
-        $this->mfaPolicy->ensureStrongAuthentication($actingUser);
-
         $usernameBlindIndex = null;
 
         if ($input->authMethod === SpvAuthMethod::USER_PASSWORD_OTP && $input->username !== null) {

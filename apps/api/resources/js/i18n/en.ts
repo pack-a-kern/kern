@@ -676,6 +676,19 @@ export const en = {
             INVALID_OWNERSHIP_PERCENT: 'The ownership share must be above 0 and at most 100.',
         },
     },
+    /**
+     * The dialog that asks for an authenticator code before a sensitive act.
+     *
+     * Top level rather than under a page, because the dialog belongs to no page: it appears over
+     * whichever screen called a route that demanded it.
+     */
+    stepUp: {
+        title: 'Confirm it is you',
+        hint: 'This action needs the code from your authenticator app.',
+        code: 'Authenticator code',
+        confirm: 'Confirm',
+        cancel: 'Cancel',
+    },
     pages: {
         wallet: {
             noSubject: 'Choose a taxpayer to see the wallet.',
@@ -1568,6 +1581,10 @@ export const en = {
         },
         spv: {
             revoke: 'Revoke',
+            delete: 'Delete',
+            deleteTitle: 'Delete this connection?',
+            deleteHint: 'The connection and everything recorded against it are removed. This cannot be undone.',
+            deleteRuns: '{count} sync records will be deleted with it.',
             revokeTitle: 'Revoke this connection?',
             revokeHint:
                 'It stops being offered for signing in. Its history is kept, because the sync runs and audit events point at it.',
@@ -2013,6 +2030,7 @@ export const en = {
                 'identity.registration_enabled': 'Account registration open',
                 'identity.email_verification_required': 'Confirmed email address required',
                 'security.session_lifetime_minutes': 'Session lifetime',
+                'security.step_up_window_seconds': 'Re-verification window',
                 'crypto.blind_index_current_version': 'Search index key version',
                 'crypto.kms_driver': 'KMS driver',
                 'security.hash_driver': 'Password hashing driver',

@@ -94,6 +94,21 @@ return [
     |
     */
 
+    /*
+     * Step-up verification: how long a session stays "recently verified".
+     *
+     * Not `verification` above — that one is about proving an email address once. This is the window
+     * during which an already-signed-in session may perform a sensitive act without proving, again
+     * and now, that the person at the keyboard holds the account's second factor.
+     *
+     * Long enough that a flow with a human reading an email in the middle of it is not interrupted;
+     * short enough that a walked-away-from laptop is not still elevated. It is a setting because the
+     * right answer depends on who uses the installation and where.
+     */
+    'step_up' => [
+        'window_seconds' => (int) env('IDENTITY_STEP_UP_WINDOW_SECONDS', 1800),
+    ],
+
     'mfa' => [
         'pending_ttl_seconds' => (int) env('IDENTITY_MFA_PENDING_TTL_SECONDS', 300),
     ],
@@ -118,6 +133,9 @@ return [
         'login_per_account_ip' => ['max_attempts' => 5, 'decay_seconds' => 60],
         'login_per_ip' => ['max_attempts' => 20, 'decay_seconds' => 60],
         'mfa_challenge_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
+        // Step-up, keyed the same way and for the same reason: a six-digit code belongs to one
+        // account, so grinding at it from many addresses must still exhaust one budget.
+        'step_up_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
         'passkey_ceremony_per_ip' => ['max_attempts' => 20, 'decay_seconds' => 60],
         'register_per_ip' => ['max_attempts' => 10, 'decay_seconds' => 300],
         // Submitting a code, and asking for another. The first stops a six-digit code being guessed;

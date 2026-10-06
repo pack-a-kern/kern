@@ -10,11 +10,15 @@ use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\Spv\Actions\RevokeSpvConnection;
 
 /**
- * `DELETE .../spv/connections/{connection}` — stop using this connection.
+ * `POST .../spv/connections/{connection}/revocation` — stop using this connection, keep what it did.
  *
- * Revoked rather than deleted: the row is what the sync runs and the audit events point at, and
- * removing it would leave a history of calls to a connection nothing can name. A revoked connection
- * is not offered for signing in, and registering the same username again is a new one.
+ * Revoking keeps the row, because the sync runs point at it and a history of calls to a connection
+ * nothing can name is worse than a tidy list. A revoked connection is not offered for signing in, and
+ * registering the same username again makes a new one.
+ *
+ * `POST` on a sub-resource rather than `DELETE` on the connection, now that
+ * {@see DeleteSpvConnectionController} holds that verb: revoking creates a state, deleting removes a
+ * row, and one URL cannot mean both.
  */
 final class RevokeSpvConnectionController
 {

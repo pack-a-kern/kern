@@ -18,7 +18,7 @@ use Kern\Platform\Identity\Support\Totp\TotpVerifier;
  * (`confirmed_at IS NULL`), and returns the provisioning URI for the user's authenticator app.
  * `Kern\Platform\Identity\Actions\ConfirmTotpEnrollment` is the only thing that ever sets
  * `confirmed_at` — until then this method does not count toward `Kern\Platform\Identity\Support\
- * SpvMfaPolicy::hasStrongAuthentication()` or `Kern\Platform\Identity\Actions\
+ * StepUpPolicy::canVerify()` or `Kern\Platform\Identity\Actions\
  * AttemptPasswordLogin::$mfaRequired`.
  *
  * Refuses to run if the account already has a *confirmed* TOTP method (`TotpAlreadyEnrolledException`

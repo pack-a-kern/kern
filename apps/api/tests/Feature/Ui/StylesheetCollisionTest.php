@@ -57,7 +57,8 @@ final class Block
         public string $head,
         public int $line,
         public string $body = '',
-    ) {}
+    ) {
+    }
 
     /** `@media`, `@layer` and friends hold rules rather than declarations. */
     public function isAtRule(): bool

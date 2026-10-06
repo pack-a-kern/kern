@@ -119,6 +119,7 @@ enum SettingKey: string
     case SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS = 'security.webauthn_challenge_ttl_seconds';
     case SECURITY_WEBAUTHN_TIMEOUT_MS = 'security.webauthn_timeout_ms';
     case SECURITY_SESSION_LIFETIME_MINUTES = 'security.session_lifetime_minutes';
+    case SECURITY_STEP_UP_WINDOW_SECONDS = 'security.step_up_window_seconds';
 
     // Display-only. See isReadOnly().
     case FX_DECIMAL_SCALE = 'fx.decimal_scale';
@@ -189,7 +190,8 @@ enum SettingKey: string
 
             self::IDENTITY_REGISTRATION_ENABLED, self::IDENTITY_EMAIL_VERIFICATION_REQUIRED,
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
-            self::SECURITY_SESSION_LIFETIME_MINUTES, self::CRYPTO_BLIND_INDEX_VERSION,
+            self::SECURITY_SESSION_LIFETIME_MINUTES, self::SECURITY_STEP_UP_WINDOW_SECONDS,
+            self::CRYPTO_BLIND_INDEX_VERSION,
             self::CRYPTO_KMS_DRIVER, self::SECURITY_HASH_DRIVER => SettingGroup::SECURITY,
         };
     }
@@ -232,6 +234,7 @@ enum SettingKey: string
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS => 'webauthn.challenge_ttl_seconds',
             self::SECURITY_WEBAUTHN_TIMEOUT_MS => 'webauthn.timeout_ms',
             self::SECURITY_SESSION_LIFETIME_MINUTES => 'session.lifetime',
+            self::SECURITY_STEP_UP_WINDOW_SECONDS => 'identity.step_up.window_seconds',
             self::CRYPTO_BLIND_INDEX_VERSION => 'crypto.blind_index.current_version',
             self::CRYPTO_KMS_DRIVER => 'crypto.kms.driver',
             self::SECURITY_HASH_DRIVER => 'hashing.driver',

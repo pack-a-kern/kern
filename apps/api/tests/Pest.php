@@ -110,6 +110,38 @@ function bootstrapIdentityCryptoForTests(): void
 }
 
 /**
+ * Marks the current test session as having just proved its second factor, so a route behind
+ * `verify-recent` lets the request through.
+ *
+ * Needed because `actingAs()` sets the guard's user and nothing else. It writes the same session key
+ * `Kern\Platform\Identity\Support\StepUpPolicy` reads, through the Store the next request will use —
+ * a container singleton within one test, which is why this survives into it even though
+ * `postJson()` sends no cookies (see `carryCookiesFrom()` below).
+ *
+ * A test that wants the *refusal* simply does not call this.
+ */
+function verifySession(): void
+{
+    app(\Kern\Platform\Identity\Support\StepUpPolicy::class)->markVerified(testSessionStore());
+}
+
+/**
+ * The session Store behind the `session()` manager, typed.
+ *
+ * `session()` returns the manager, whose `driver()` is documented as returning a `Session` but is
+ * typed loosely enough that every caller would otherwise narrow it itself.
+ */
+function testSessionStore(): \Illuminate\Contracts\Session\Session
+{
+    $store = session()->driver();
+
+    expect($store)->toBeInstanceOf(\Illuminate\Contracts\Session\Session::class);
+
+    /** @var \Illuminate\Contracts\Session\Session $store */
+    return $store;
+}
+
+/**
  * Laravel's `TestCase` does **not** automatically carry `Set-Cookie` headers from one simulated
  * HTTP call into the next — unlike a real browser. Two separate, both-necessary reasons, each
  * confirmed by reading `Illuminate\Foundation\Testing\Concerns\MakesHttpRequests` directly rather

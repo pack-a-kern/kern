@@ -38,6 +38,7 @@ use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
 use Kern\TaxRomania\Http\Controllers\Spv\DestroySpvSessionController;
 use Kern\TaxRomania\Http\Controllers\Spv\RegisterSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\ShowSpvConnectionsController;
+use Kern\TaxRomania\Http\Controllers\Spv\DeleteSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\RevokeSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\StartSpvSignInController;
 use Kern\TaxRomania\Http\Controllers\Spv\SubmitSpvChallengeCodeController;
@@ -206,14 +207,35 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * A certificate connection uses none of the session routes: the certificate authenticates each
      * request on its own, so such a connection goes straight to sync.
      */
+    /*
+     * `verify-recent` marks the acts, not the reads.
+     *
+     * §4.7 wants MFA of an account that reaches the tax authority. It used to be checked inside two
+     * actions, as enrolment — which anybody holding the session passes without owning a factor, and
+     * which `sync` did not consult at all, although reading the inbox is the thing worth protecting.
+     * The middleware demands a code, recently, on every route that acts.
+     */
     Route::get('spv/connections', ShowSpvConnectionsController::class);
-    Route::post('spv/connections', RegisterSpvConnectionController::class);
-    Route::delete('spv/connections/{connection}', RevokeSpvConnectionController::class)
+    Route::post('spv/connections', RegisterSpvConnectionController::class)
+        ->middleware('verify-recent');
+    Route::delete('spv/connections/{connection}', DeleteSpvConnectionController::class)
+        ->middleware('verify-recent')
+        ->where('connection', '[0-9a-f-]{36}');
+    Route::post('spv/connections/{connection}/revocation', RevokeSpvConnectionController::class)
+        ->middleware('verify-recent')
         ->where('connection', '[0-9a-f-]{36}');
     Route::post('spv/connections/{connection}/session', StartSpvSignInController::class)
+        ->middleware('verify-recent')
         ->where('connection', '[0-9a-f-]{36}');
     Route::post('spv/connections/{connection}/sync', SyncSpvInboxController::class)
+        ->middleware('verify-recent')
         ->where('connection', '[0-9a-f-]{36}');
+    /*
+     * Not marked: both are steps of the sign-in that `.../session` opened moments ago, inside the
+     * same window, and the challenge code is itself a factor arriving from ANAF. Demanding a second
+     * code between typing a password and typing the emailed one would be friction with nothing
+     * behind it.
+     */
     Route::post('spv/sessions/{session}/credentials', SubmitSpvCredentialsController::class)
         ->where('session', '[0-9a-f-]{36}');
     Route::post('spv/sessions/{session}/challenge', SubmitSpvChallengeCodeController::class)

@@ -174,10 +174,10 @@ return static function (DeptracConfig $config): void {
             // the migration/schema level only, the same precedent
             // `rental_contracts.source_document_id -> documents` already establishes.
             Ruleset::forLayer($declarations)->accesses($subjects),
-            // Spv -> Identity: Kern\TaxRomania\Spv\Actions\{RegisterSpvConnection,InitiateSpvAuthAttempt}
-            // call Kern\Platform\Identity\Support\SpvMfaPolicy::ensureStrongAuthentication() and take
-            // an Kern\Platform\Identity\Models\User parameter — the enforceable MFA-before-SPV gate
-            // docs/handoff/017-authentication.md built for exactly this milestone. Spv -> Audit:
+            // Spv -> Identity: every Spv action takes an Kern\Platform\Identity\Models\User
+            // parameter, because an act against the tax authority is recorded as somebody's. §4.7's
+            // MFA gate is no longer a call from here — it is the `verify-recent` middleware on the
+            // routes, reached by an alias string, which is not a code dependency at all. Spv -> Audit:
             // every Spv action records an AuditChainService::record() event, the same sanctioned
             // application-service crossing every other module above uses. Spv -> Subjects: every
             // Spv model uses Kern\Platform\Tenancy\ScopedToTenant (a trait, not a model
