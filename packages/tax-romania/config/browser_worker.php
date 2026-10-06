@@ -15,11 +15,12 @@ return [
     /*
      * Where the worker is.
      *
-     * Defaulted to the service's own name, so an installation running the shipped compose file needs
-     * no variable at all — and overriding it is what lets the worker move to another host without
-     * anything else changing.
+     * No default. Where a service lives is the installation's fact, not this package's: a hostname
+     * written here would be one repository's compose file baked into a package installed into
+     * applications it will never see. The example beside this config carries the value, and
+     * `kern:env` puts it into every installation's own file.
      */
-    'url' => env('BROWSER_WORKER_URL', 'http://browser-worker:8090'),
+    'url' => env('BROWSER_WORKER_URL'),
 
     'timeout_seconds' => (int) env('BROWSER_WORKER_TIMEOUT_SECONDS', 30),
 
