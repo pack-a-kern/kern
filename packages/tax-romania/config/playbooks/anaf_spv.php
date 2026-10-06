@@ -175,13 +175,24 @@ return [
             // Observed: the same single submit, captioned "Autentificare", as on the login page.
             ['click' => ['selector' => 'input[type="submit"]']],
             /*
-             * The refusal branch is the login form's, which this step can reuse because it is the same
-             * form: a rejected code prints into the same red cell. UNOBSERVED for the success branch —
-             * nobody has seen the inbox a good code leads to, so `table.mesaje` is still a guess.
+             * Signing in means the credentials form is gone — not that any particular page arrived.
+             *
+             * This step used to wait for the inbox, which made "authenticated" mean "standing on the
+             * message list" and forced the sign-in to know what the inbox looks like. It does not need
+             * to: where the portal lands afterwards is its business, and reading the messages is the
+             * `inbox` sequence's job in the same browser.
+             *
+             * Read as an absence, which is safe here and was measured rather than assumed: Playwright's
+             * `click` waits for the navigation it triggers, so by the time this is evaluated the next
+             * document is loading. Against a server deliberately stalled 300ms, a refusal — which
+             * re-renders this very form — never once read as "gone".
+             *
+             * The refusal branch is the login form's own, reused because it is the same form: a rejected
+             * code prints into the same red cell.
              */
             ['waitFor' => [
                 'any' => [
-                    ['selector' => 'table.mesaje', 'outcome' => 'authenticated'],
+                    ['selector' => '#credentials_table', 'state' => 'absent', 'outcome' => 'authenticated'],
                     [
                         'selector' => '#credentials_table_postheader font[color="red"]',
                         'outcome' => 'failed',
@@ -198,10 +209,50 @@ return [
          * import expects, and a playbook that renamed them would move the mapping somewhere nobody
          * looks for it.
          */
+        /*
+         * The inbox, in the browser the sign-in left open.
+         *
+         * Runs against the same session, so the login is reused rather than repeated — the worker keeps
+         * one browser per session id and this sequence is sent to that id.
+         *
+         * **The guard comes before the read, deliberately.** A portal that has dropped the session
+         * answers with its login form, and a table selector that finds nothing there would extract an
+         * empty list — which reaches a person as "no new messages" rather than "you are signed out".
+         * A wrong answer, not a missing one. `continue` is what lets the check precede what it guards.
+         */
         'inbox' => [
-            // UNOBSERVED. The field *names* are real — they are ANAF's own, from the documented
-            // certificate API that `AnafCertificateApiTransport` already reads. Which cell holds which
-            // is the guess.
+            /*
+             * UNOBSERVED: nobody has seen the signed-in portal, so the address of the message list is
+             * not known. It is the one thing left before this sequence is real, and it belongs in a
+             * `goto` rather than being inherited from wherever the sign-in happened to land — reading
+             * the inbox is this sequence's job, and it should not depend on the previous one's view.
+             */
+            ['goto' => 'https://pfinternet.anaf.ro/'],
+            [
+                'waitFor' => [
+                    'any' => [
+                        // UNOBSERVED: the message list itself.
+                        ['selector' => 'table.mesaje', 'outcome' => 'signed_in', 'continue' => true],
+                        /*
+                         * Observed. The login form reappearing means the portal has let the session go —
+                         * the browser is still open on this side, and nothing in it is signed in any
+                         * more. Matched positively, requiring both the table and the username field, so
+                         * it cannot fire against a half-parsed document.
+                         */
+                        [
+                            'selector' => '#credentials_table:has(input[name="username"])',
+                            'outcome' => 'session_lost',
+                        ],
+                    ],
+                ],
+            ],
+            /*
+             * The field names are this application's, not the portal's: `SpvInboxMessage` is what the
+             * import expects, and they match the documented certificate API that
+             * `AnafCertificateApiTransport` already reads, so one shape serves both transports.
+             *
+             * UNOBSERVED: which cell holds which.
+             */
             ['extract' => [
                 'rows' => 'table.mesaje tbody tr',
                 'fields' => [

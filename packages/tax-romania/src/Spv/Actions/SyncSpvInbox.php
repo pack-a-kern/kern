@@ -13,6 +13,7 @@ use Kern\TaxRomania\Spv\Enums\SpvAuthMethod;
 use Kern\TaxRomania\Spv\Enums\SpvSyncRunStatus;
 use Kern\TaxRomania\Spv\Events\SpvSyncCompleted;
 use Kern\TaxRomania\Spv\Events\SpvSyncStarted;
+use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSyncUnavailableException;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
 use Kern\TaxRomania\Spv\Models\SpvMessage;
@@ -65,6 +66,21 @@ final readonly class SyncSpvInbox
             $messages = $transport->fetchMessages($connection);
         } catch (SpvSyncUnavailableException) {
             return $this->finish($run, $actorId, SpvSyncRunStatus::FAILED, 0, ['error' => 'unavailable']);
+        } catch (SpvSignInRequiredException $exception) {
+            /*
+             * Recorded as a failed run *and* raised.
+             *
+             * Recorded because the attempt happened and the history should say why it stopped —
+             * "nobody was signed in" is a different fact from "the worker was down", and a run that
+             * silently did not exist would make the second look like the only way this fails.
+             *
+             * Raised because the person has to do something about it, and a 200 with a run id would tell
+             * them nothing. The two are not alternatives: the ledger and the answer serve different
+             * readers.
+             */
+            $this->finish($run, $actorId, SpvSyncRunStatus::FAILED, 0, ['error' => 'sign_in_required']);
+
+            throw $exception;
         }
 
         foreach ($messages as $message) {

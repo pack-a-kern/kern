@@ -14,6 +14,7 @@ use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
 use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
 use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Exceptions\SpvPortalAutomationUnavailableException;
+use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 use Throwable;
@@ -84,9 +85,43 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
         $this->send('delete', '/v1/sessions/' . rawurlencode($browserSessionRef), []);
     }
 
-    public function requestSync(string $browserSessionRef): void
+    public function fetchInbox(string $browserSessionRef): array
     {
-        $this->runSequence($browserSessionRef, 'inbox', []);
+        $payload = $this->run($browserSessionRef, 'inbox', []);
+
+        if (($payload['outcome'] ?? null) === 'session_lost') {
+            throw SpvSignInRequiredException::sessionLost();
+        }
+
+        $data = $payload['data'] ?? null;
+        $rows = is_array($data) ? ($data['messages'] ?? null) : null;
+
+        if (! is_array($rows)) {
+            // The sequence said it was signed in and produced nothing to read. That is the playbook's
+            // selectors disagreeing with the page, not an empty inbox — and reporting zero messages
+            // would be a wrong answer rather than a missing one.
+            throw SpvWorkerUnavailableException::malformedResponse();
+        }
+
+        $messages = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $fields = [];
+
+            foreach ($row as $name => $value) {
+                if (is_string($name)) {
+                    $fields[$name] = is_string($value) ? $value : null;
+                }
+            }
+
+            $messages[] = $fields;
+        }
+
+        return $messages;
     }
 
     /**
@@ -99,11 +134,7 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
      */
     private function runSequence(string $sessionRef, string $sequence, array $secrets): PortalAuthResult
     {
-        $payload = $this->post('/v1/sessions/' . rawurlencode($sessionRef) . '/run', [
-            'playbook' => $this->playbook(),
-            'sequence' => $sequence,
-            'secrets' => $secrets,
-        ]);
+        $payload = $this->run($sessionRef, $sequence, $secrets);
 
         $outcome = is_string($payload['outcome'] ?? null) ? $payload['outcome'] : '';
         $message = is_string($payload['message'] ?? null) ? $payload['message'] : null;
@@ -115,6 +146,24 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
             // worker's own error text: that can name a host, and a reason belongs to the portal.
             default => new PortalAuthResult(SpvSessionState::FAILED, $message),
         };
+    }
+
+    /**
+     * Runs a sequence in an existing session and hands back what the worker said, whole.
+     *
+     * Separate from `runSequence` because the two callers want different halves: a sign-in wants the
+     * outcome as a state, and the inbox wants the rows the run collected.
+     *
+     * @param  array<string, string>  $secrets
+     * @return array<string, mixed>
+     */
+    private function run(string $sessionRef, string $sequence, array $secrets): array
+    {
+        return $this->post('/v1/sessions/' . rawurlencode($sessionRef) . '/run', [
+            'playbook' => $this->playbook(),
+            'sequence' => $sequence,
+            'secrets' => $secrets,
+        ]);
     }
 
     /** @return array<string, mixed> */

@@ -45,6 +45,15 @@ interface Connection {
      * offering once there is one. Deleting is always offered, and says what it will destroy.
      */
     runCount: number;
+    /**
+     * The signed-in browser behind this connection, if one is open.
+     *
+     * Reading the portal happens in the browser the sign-in left open, so without one there is nothing
+     * to read with and "Check inbox" is not offered. Null for a certificate connection too, which needs
+     * no sitting — it authenticates every request on its own — so that case is told apart by
+     * `authMethod` rather than by this being absent.
+     */
+    session: { expiresAt: string } | null;
 }
 
 /**
@@ -81,6 +90,7 @@ function parse(payload: unknown): Connection[] {
             lastSuccessAt: typeof row.last_success_at === 'string' ? row.last_success_at : null,
             lastErrorMessage: typeof row.last_error_message === 'string' ? row.last_error_message : null,
             runCount: typeof row.run_count === 'number' ? row.run_count : 0,
+            session: str(obj(row.session), 'expires_at') === '' ? null : { expiresAt: str(obj(row.session), 'expires_at') },
             lastRun:
                 row.last_run === null || row.last_run === undefined
                     ? null
@@ -457,7 +467,14 @@ export default function Spv(): JSX.Element {
                                                     {t((d) => d.pages.spv.signIn)}
                                                 </PanelButton>
                                             )}
-                                            {connection.status === 'REVOKED' ? null : (
+                                            {/* Reading the portal happens in the browser the sign-in
+                                                left open, so the action exists only while one does.
+                                                A certificate connection needs no sitting — it
+                                                authenticates every request on its own — so it keeps
+                                                the action unconditionally. When a sitting ends, this
+                                                disappears rather than failing when pressed. */}
+                                            {connection.status === 'REVOKED' ||
+                                            (connection.authMethod !== 'CERTIFICATE' && connection.session === null) ? null : (
                                                 <PanelButton
                                                     disabled={working}
                                                     onClick={() => {

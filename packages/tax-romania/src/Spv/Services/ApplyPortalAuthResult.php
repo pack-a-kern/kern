@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Spv\Services;
 
+use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
 use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Events\SpvAuthChallengeRequired;
@@ -22,6 +24,10 @@ final readonly class ApplyPortalAuthResult
 {
     private const int MAX_PORTAL_MESSAGE_LENGTH = 500;
 
+    public function __construct(private SpvBrowserSessionClient $client)
+    {
+    }
+
 
     public function __invoke(SpvSession $session, SpvConnection $connection, PortalAuthResult $result): void
     {
@@ -36,7 +42,7 @@ final readonly class ApplyPortalAuthResult
         match ($result->state) {
             SpvSessionState::AWAITING_USER_CHALLENGE => SpvAuthChallengeRequired::dispatch($session->id, $session->tax_subject_id),
             SpvSessionState::AUTHENTICATED => $this->markAuthenticated($session, $connection),
-            SpvSessionState::FAILED => $this->markFailed($connection, $result->reason),
+            SpvSessionState::FAILED => $this->markFailed($session, $connection, $result->reason),
             default => null,
         };
     }
@@ -62,11 +68,42 @@ final readonly class ApplyPortalAuthResult
      * selector matched, and a selector aimed one element too high would hand over a page. React escapes
      * it on the way out, so the risk here is a wall of text rather than markup.
      */
-    private function markFailed(SpvConnection $connection, ?string $reason): void
+    private function markFailed(SpvSession $session, SpvConnection $connection, ?string $reason): void
     {
         $connection->status = SpvConnectionStatus::FAILED;
         $connection->last_error_code = 'authentication_failed';
         $connection->last_error_message = $reason === null ? null : mb_substr(trim($reason), 0, self::MAX_PORTAL_MESSAGE_LENGTH);
         $connection->save();
+
+        $this->releaseBrowser($session);
+    }
+
+    /**
+     * Closes the browser behind a sign-in that has failed.
+     *
+     * Nothing was doing this. `SubmitSpvChallengeCode::expire()` released the browser when the local
+     * challenge window ran out, but a portal that *refused* — or a step that timed out — left an open
+     * Chromium holding whatever state the attempt had reached, for the rest of the worker's own session
+     * TTL, with nothing on this side that would ever use it again. Observed as a live session in
+     * `/v1/stats` minutes after a failure the person had already been told about.
+     *
+     * It matters most in the case that looks least like a leak: ANAF accepts the code, the step after it
+     * fails for an unrelated reason, and the browser is left holding an *authenticated* portal session.
+     * A session nobody can use should not be a session that still exists.
+     *
+     * Best-effort, the same way `expire()` is: the local records are already written, and a worker that
+     * cannot be reached to release its own resources will expire them at its TTL. Failing the request
+     * over a teardown would tell the person their sign-in broke twice.
+     */
+    private function releaseBrowser(SpvSession $session): void
+    {
+        $session->destroyed_at = now('UTC');
+        $session->save();
+
+        try {
+            $this->client->destroySession($session->browser_session_ref);
+        } catch (SpvWorkerUnavailableException) {
+            // The worker's own TTL sweeper closes what this could not.
+        }
     }
 }

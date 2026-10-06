@@ -48,18 +48,32 @@ export class Interpreter {
   public async run(steps: readonly Step[]): Promise<RunResult> {
     const started = Date.now();
     const data: Record<string, unknown> = {};
+    // What the last guard said while letting the sequence carry on. Kept so a run that goes on to
+    // throw still reports which way the page had gone, rather than only that something broke.
+    let passed: { outcome: string; message?: string } | null = null;
 
     for (const [index, step] of steps.entries()) {
       const outcome = await this.step(step, index, data);
 
-      // A `waitFor` that names an outcome ends the sequence: the page has said which way it went,
-      // and the steps after it belong to one branch or the other, not to both.
-      if (outcome !== null) {
-        return { ...outcome, data, timingMs: Date.now() - started };
+      if (outcome === null) {
+        continue;
       }
+
+      const { carryOn, ...decided } = outcome;
+
+      // A `waitFor` that names an outcome ends the sequence: the page has said which way it went, and
+      // the steps after it belong to one branch or the other, not to both.
+      //
+      // Unless the branch that matched was marked `continue`, which is how a guard is written. "Still
+      // signed in" is not a destination; it is permission to go on to the next step.
+      if (carryOn !== true) {
+        return { ...decided, data, timingMs: Date.now() - started };
+      }
+
+      passed = decided;
     }
 
-    return { outcome: "completed", data, timingMs: Date.now() - started };
+    return { ...(passed ?? { outcome: "completed" }), data, timingMs: Date.now() - started };
   }
 
   /** Returns an outcome when the page decided one, otherwise null to carry on. */
@@ -67,7 +81,7 @@ export class Interpreter {
     step: Step,
     index: number,
     data: Record<string, unknown>,
-  ): Promise<{ outcome: string; message?: string } | null> {
+  ): Promise<{ outcome: string; message?: string; carryOn?: boolean } | null> {
     if ("goto" in step) {
       const url = this.secrets.fill(step.goto);
 
@@ -168,21 +182,30 @@ export class Interpreter {
   private async waitForAny(
     wait: Extract<Step, { waitFor: unknown }>["waitFor"],
     index: number,
-  ): Promise<{ outcome: string; message?: string }> {
+  ): Promise<{ outcome: string; message?: string; carryOn?: boolean }> {
     const timeout = wait.timeout ?? DEFAULT_TIMEOUT_MS;
 
     const races = wait.any.map(async (branch) => {
-      await this.locator(branch.selector, wait).first().waitFor({ state: "visible", timeout });
+      // `hidden` rather than `detached` for `absent`: an element removed from the DOM and one left in
+      // it but no longer shown are both "gone" to somebody reading the page, and a portal is free to
+      // choose either.
+      await this.locator(branch.selector, wait)
+        .first()
+        .waitFor({ state: branch.state === "absent" ? "hidden" : "visible", timeout });
+
+      const carryOn = branch.continue === true ? { carryOn: true } : {};
 
       if (branch.message === undefined) {
-        return { outcome: branch.outcome };
+        return { outcome: branch.outcome, ...carryOn };
       }
 
       // `exactOptionalPropertyTypes`: an absent explanation is a key that is not there, not a key
       // holding undefined — the two are different to a caller reading the JSON.
       const text = (await this.locator(branch.message, wait).first().textContent())?.trim();
 
-      return text === undefined || text === "" ? { outcome: branch.outcome } : { outcome: branch.outcome, message: text };
+      return text === undefined || text === ""
+        ? { outcome: branch.outcome, ...carryOn }
+        : { outcome: branch.outcome, message: text, ...carryOn };
     });
 
     try {

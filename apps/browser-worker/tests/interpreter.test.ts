@@ -174,4 +174,124 @@ describe("Interpreter", () => {
       /awaiting_challenge/,
     );
   });
+  it("carries on past a waitFor branch marked continue, so a guard can precede what it guards", async () => {
+    // The shape a signed-in check needs: make sure the page is the one we think it is, *then* read it.
+    // Without `continue` the guard has to be its own sequence and the caller joins two round-trips back
+    // together — or, worse, reads the table first and reports an empty login page as an empty inbox.
+    const page = await pageShowing(
+      '<table class="mesaje"><tbody><tr data-id="7"><td class="detalii">o notificare</td></tr></tbody></table>',
+    );
+
+    const book = playbook({
+      inbox: [
+        { goto: "https://example.test/mesaje" },
+        {
+          waitFor: {
+            any: [
+              { selector: "table.mesaje", outcome: "signed_in", continue: true },
+              { selector: "#credentials_table", outcome: "session_lost" },
+            ],
+          },
+        },
+        { extract: { rows: "table.mesaje tbody tr", fields: { id: { attr: "data-id" } }, into: "messages" } },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.inbox ?? []);
+
+    // The guard's own outcome survives, and the step after it ran.
+    assert.equal(result.outcome, "signed_in");
+    assert.deepEqual(result.data.messages, [{ id: "7" }]);
+  });
+
+  it("stops at a branch not marked continue, leaving the steps after it unrun", async () => {
+    const page = await pageShowing('<table id="credentials_table"><tbody><tr><td>Utilizator</td></tr></tbody></table>');
+
+    const book = playbook({
+      inbox: [
+        { goto: "https://example.test/mesaje" },
+        {
+          waitFor: {
+            any: [
+              { selector: "table.mesaje", outcome: "signed_in", continue: true },
+              { selector: "#credentials_table", outcome: "session_lost" },
+            ],
+          },
+        },
+        { extract: { rows: "table.mesaje tbody tr", fields: { id: { attr: "data-id" } }, into: "messages" } },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.inbox ?? []);
+
+    assert.equal(result.outcome, "session_lost");
+    // Nothing was read off the login page. An empty `messages` here would reach a caller as "no new
+    // messages", which is a wrong answer rather than a missing one.
+    assert.equal(result.data.messages, undefined);
+  });
+  it("reads a form going away as the outcome, which is how a sign-in reports success", async () => {
+    // A portal decides for itself where to land after a login. Waiting for a particular page would mean
+    // guessing at it; waiting for the credentials form to go is true wherever it lands.
+    const page = await pageShowing(`
+      <table id="credentials_table"><tbody>
+        <tr><td><input name="password"></td></tr>
+        <tr id="submit_row"><td><button type="button" onclick="document.getElementById('credentials_table').remove()">Autentificare</button></td></tr>
+      </tbody></table>
+    `);
+
+    const book = playbook({
+      challenge: [
+        { goto: "https://example.test/my.policy" },
+        { click: { selector: "button" } },
+        {
+          waitFor: {
+            any: [
+              { selector: "#credentials_table", state: "absent", outcome: "authenticated" },
+              { selector: "#credentials_table_postheader font[color=\"red\"]", outcome: "failed" },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.challenge ?? []);
+
+    assert.equal(result.outcome, "authenticated");
+  });
+
+  it("does not read a form that is still there as gone, which is what a refusal looks like", async () => {
+    // The form re-renders with an error and the fields intact. If `absent` matched here, a wrong code
+    // would be reported as a successful sign-in.
+    const page = await pageShowing(`
+      <table id="credentials_table"><tbody>
+        <tr><td id="credentials_table_postheader"><font color="red">Utilizatorul sau parola nu sunt corecte.</font></td></tr>
+        <tr><td><input name="password"></td></tr>
+        <tr id="submit_row"><td><button type="button">Autentificare</button></td></tr>
+      </tbody></table>
+    `);
+
+    const book = playbook({
+      challenge: [
+        { goto: "https://example.test/my.policy" },
+        { click: { selector: "button" } },
+        {
+          waitFor: {
+            any: [
+              { selector: "#credentials_table", state: "absent", outcome: "authenticated" },
+              {
+                selector: '#credentials_table_postheader font[color="red"]',
+                outcome: "failed",
+                message: "#credentials_table_postheader",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.challenge ?? []);
+
+    assert.equal(result.outcome, "failed");
+    assert.equal(result.message, "Utilizatorul sau parola nu sunt corecte.");
+  });
 });

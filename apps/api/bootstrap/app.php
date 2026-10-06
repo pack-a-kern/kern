@@ -20,6 +20,7 @@ use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
+use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -190,6 +191,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
             403,
+        ));
+
+        /*
+         * Reading the inbox needs a signed-in browser and there is not one — nobody signed in, the
+         * sitting expired, or ANAF let it go mid-session.
+         *
+         * 409 rather than 403: nothing about the request was forbidden, the state is simply not one the
+         * request makes sense in, and it is the person's to change. The same choice
+         * `RequireVerifiedEmail` makes for an unverified address, for the same reason.
+         */
+        $exceptions->render(fn (SpvSignInRequiredException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'SPV_SIGN_IN_REQUIRED'],
+            409,
         ));
 
         // The browser worker is unreachable, unconfigured, or answered something this does not

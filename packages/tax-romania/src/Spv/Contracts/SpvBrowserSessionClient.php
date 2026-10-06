@@ -46,5 +46,21 @@ interface SpvBrowserSessionClient
      *                                                  portal navigation has been observed)
      * @throws SpvWorkerUnavailableException
      */
-    public function requestSync(string $browserSessionRef): void;
+    /**
+     * Reads the inbox in a browser that is already signed in, and returns the rows the portal showed.
+     *
+     * Takes a session reference rather than opening one: the login lives in a running browser, and a
+     * fresh browser would be a fresh login — which, for a portal that emails a one-time code, means no
+     * unattended sync is possible at all. Reusing the session is the whole reason sessions exist here.
+     *
+     * @return list<array<string, string|null>> the portal's own rows, unmapped
+     *
+     * @throws \Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException when the portal answered with
+     *                                                                     its login form
+     * @throws SpvWorkerUnavailableException                                the worker could not be
+     *                                                                     reached, or answered with
+     *                                                                     something this does not
+     *                                                                     understand
+     */
+    public function fetchInbox(string $browserSessionRef): array;
 }

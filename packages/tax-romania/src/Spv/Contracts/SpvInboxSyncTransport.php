@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Spv\Contracts;
 
+use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSyncUnavailableException;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
 
@@ -28,7 +29,12 @@ interface SpvInboxSyncTransport
     /**
      * @return list<\Kern\TaxRomania\Spv\DataTransferObjects\SpvInboxMessage>
      *
-     * @throws SpvSyncUnavailableException
+     * @throws SpvSyncUnavailableException     the machinery failed — try again later
+     * @throws SpvSignInRequiredException     this transport needs a signed-in browser and there is not
+     *                                        one. A different kind of answer: nothing is broken, and a
+     *                                        person has to sign in. Only the browser transport raises
+     *                                        it; a certificate authenticates every request on its own
+     *                                        and has no sitting to lose.
      */
     public function fetchMessages(SpvConnection $connection): array;
 }

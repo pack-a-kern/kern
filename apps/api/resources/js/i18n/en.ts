@@ -632,6 +632,7 @@ export const en = {
                 'The browser worker is not reachable. Check that it is running, and that BROWSER_WORKER_URL points at it.',
             // Only reached when the dialog that asks for the code is dismissed, or when none is
             // mounted: the interceptor handles this code before any screen sees it.
+            SPV_SIGN_IN_REQUIRED: 'Sign in to SPV again — the portal ended the session.',
             VERIFICATION_REQUIRED: 'This action needs the code from your authenticator app.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',

@@ -95,8 +95,31 @@ export interface WaitForStep {
     readonly any: readonly {
       readonly selector: string;
       readonly outcome: string;
+      /**
+       * What this branch is waiting for the selector to become. `visible` by default.
+       *
+       * `absent` is how "the form is gone" is written, which is the honest signal for a sign-in: a
+       * portal decides for itself where to land afterwards, and a playbook that named the destination
+       * would be guessing at it. Safe to read after a click, because Playwright waits for the
+       * navigation a click triggers before this is evaluated — measured against a stalled server, not
+       * assumed.
+       */
+      readonly state?: "visible" | "absent";
       /** A selector whose text explains the outcome — an error message to pass back. */
       readonly message?: string;
+      /**
+       * True when this branch means "carry on with the sequence" rather than "stop here".
+       *
+       * Without it a `waitFor` is always the last thing a sequence does, which makes a guard
+       * inexpressible: "make sure we are still signed in, *then* read the table" has to become two
+       * sequences and two round-trips, with the caller joining them back together. Worse, the obvious
+       * workaround — extract first and check afterwards — reads an empty table off a login page and
+       * reports it as an empty inbox.
+       *
+       * The branch still names an `outcome`, because a run that ends while waiting on it (a later step
+       * throwing) should still say which way the page went.
+       */
+      readonly continue?: boolean;
     }[];
     readonly timeout?: number;
   } & Scope;

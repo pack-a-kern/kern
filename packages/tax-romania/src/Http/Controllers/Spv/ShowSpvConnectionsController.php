@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Http\Controllers\Spv;
 
 use Illuminate\Http\JsonResponse;
+use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvSession;
 use Kern\TaxRomania\Spv\Models\SpvSyncRun;
 
 /**
@@ -30,6 +32,25 @@ final class ShowSpvConnectionsController
 
         // The newest run per connection, for "last checked" beside each. One query for the page
         // rather than one per row: a taxpayer has a handful of connections and this is a listing.
+        /*
+         * The signed-in browser per connection, if there is one.
+         *
+         * `expires_at` filters here rather than on the client: the worker drops a session at its own TTL
+         * and tells nobody, so a row still saying AUTHENTICATED can describe a browser that is gone.
+         * A screen comparing timestamps itself would be right only until the tab was left open.
+         */
+        $liveSessions = [];
+
+        /** @var SpvSession $session */
+        foreach (SpvSession::query()
+            ->where('state', SpvSessionState::AUTHENTICATED)
+            ->whereNull('destroyed_at')
+            ->where('expires_at', '>', now('UTC'))
+            ->orderByDesc('created_at')
+            ->get() as $session) {
+            $liveSessions[$session->connection_id] ??= $session;
+        }
+
         $latest = [];
         $runCounts = [];
 
@@ -59,6 +80,18 @@ final class ShowSpvConnectionsController
                 // What deleting this would destroy, and therefore which endings the screen offers:
                 // revoking preserves a history, and a connection that never ran has none.
                 'run_count' => $runCounts[$connection->id] ?? 0,
+                /*
+                 * Whether a browser is open and signed in, and until when.
+                 *
+                 * What the screen gates "Check inbox" on: reading the portal happens in the browser the
+                 * sign-in left open, so without one there is nothing to read with and the action should
+                 * not be offered. A certificate connection has no session and needs none — it
+                 * authenticates each request on its own — so this is null there and the screen offers the
+                 * action anyway.
+                 */
+                'session' => array_key_exists($connection->id, $liveSessions)
+                    ? ['expires_at' => $liveSessions[$connection->id]->expires_at->toAtomString()]
+                    : null,
                 'last_run' => $run === null ? null : [
                     'status' => $run->status->value,
                     'started_at' => $run->started_at->toAtomString(),

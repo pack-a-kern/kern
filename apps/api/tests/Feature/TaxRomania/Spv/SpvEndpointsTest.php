@@ -287,3 +287,41 @@ it('does not let a portal message outgrow its column', function (): void {
 
     expect(mb_strlen((string) $connection->last_error_message))->toBe(500);
 });
+
+it('tells the screen whether a signed-in browser is open, which is what gates reading the inbox', function (): void {
+    [$user, $subjectId] = connectedUser();
+
+    $created = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ]);
+
+    $connectionId = jsonString($created, 'id');
+
+    // Nothing open yet: the action is not offered, because there is no browser to read the portal in.
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.session', null);
+
+    $session = SpvSession::create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-live',
+        'expires_at' => now('UTC')->addMinutes(10),
+    ]);
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.session.expires_at', $session->expires_at->toAtomString());
+
+    // Past its expiry the worker has dropped the browser without telling anyone, so the row stops
+    // counting as live here rather than the screen comparing timestamps for ever in an open tab.
+    $session->expires_at = now('UTC')->subMinute();
+    $session->save();
+
+    $this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
+        ->assertJsonPath('connections.0.session', null);
+});

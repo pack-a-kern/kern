@@ -77,8 +77,32 @@ function checkStep(step: unknown, path: string, problems: string[]): void {
     branches.forEach((branch, index) => {
       if (!isRecord(branch) || !text(branch.selector) || !text(branch.outcome)) {
         problems.push(`${path}.waitFor.any[${String(index)}] needs a selector and an outcome`);
+
+        return;
+      }
+
+      if (branch.continue !== undefined && typeof branch.continue !== "boolean") {
+        problems.push(`${path}.waitFor.any[${String(index)}].continue must be true or false`);
+      }
+
+      if (branch.state !== undefined && branch.state !== "visible" && branch.state !== "absent") {
+        problems.push(`${path}.waitFor.any[${String(index)}].state must be "visible" or "absent"`);
+      }
+
+      if (branch.state === "absent" && branch.message !== undefined) {
+        // An explanation is read out of the element the branch matched, and this branch matched by the
+        // element not being there. Refused rather than returning null, so the author learns which half
+        // they meant.
+        problems.push(`${path}.waitFor.any[${String(index)}] cannot read a message from an absent element`);
       }
     });
+
+    if (branches.every((branch) => isRecord(branch) && branch.continue === true)) {
+      // Every branch carrying on makes the step a wait with no decision in it, which is a `waitFor`
+      // the author meant to give an exit and did not. Caught here rather than at run time, where it
+      // would look like a page that never said anything.
+      problems.push(`${path}.waitFor.any must leave at least one branch that ends the sequence`);
+    }
 
     return;
   }

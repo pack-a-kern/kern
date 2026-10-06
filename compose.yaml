@@ -373,6 +373,12 @@ services:
     restart: unless-stopped
 
   browser-worker:
+    # Reaps the browser's children. Node as PID 1 does not: a Chromium that exits gets re-parented to
+    # it and stays a zombie, two per launch, for the life of the container — found by looking at `ps`
+    # after four sign-in attempts and seeing eight. Each one holds a PID, so a long-running worker
+    # eventually cannot start a browser at all. `init` runs tini as PID 1 instead, whose whole job this
+    # is.
+    init: true
     build:
       context: .
       dockerfile: docker/playwright/Dockerfile
