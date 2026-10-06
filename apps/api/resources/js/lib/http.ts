@@ -129,8 +129,8 @@ export function setStepUpPrompt(prompt: StepUpPrompt | null): void {
 /**
  * Whether this failure is the server asking for a code rather than refusing outright.
  *
- * `MFA_ENROLLMENT_REQUIRED` is deliberately **not** included: that account has nothing to prove with,
- * so a dialog would be unanswerable and the screen must show the refusal instead.
+ * Narrow on purpose: 403 alone is not enough, because a tenant refusal is also a 403 and must reach
+ * the screen that asked. Only this one code means "ask them for a code and try again".
  */
 function needsStepUp(error: unknown): boolean {
     return error instanceof ApiError && error.status === 403 && error.reason === 'VERIFICATION_REQUIRED';

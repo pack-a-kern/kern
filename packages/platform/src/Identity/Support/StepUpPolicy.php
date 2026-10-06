@@ -43,10 +43,14 @@ use Kern\Platform\Identity\Models\User;
  * Not recovery codes on their own either: they are the way back in when the factor is lost, and an
  * account whose only factor is a sheet of one-time codes cannot be asked to prove itself routinely.
  *
- * **A passkey is deliberately not accepted here yet**, although it is accepted as a sign-in factor.
- * Not an oversight and not a judgement about passkeys: the step-up endpoint has no assertion path
- * yet, so accepting one as satisfying this would strand a passkey-only account at a dialog it could
- * never answer. The two refusals are told apart in the response for exactly that reason.
+ * **A passkey is deliberately not counted here**, although it is accepted as a sign-in factor: the
+ * step-up endpoint has no assertion path yet, so an account whose only factor is a passkey would be
+ * sent to a dialog it could never answer. Counting it only when it can be asked for keeps `canVerify`
+ * honest about its own name — it means "can be challenged", not "is secure".
+ *
+ * The consequence of that and of the middleware's own rule is the same one, stated once: an account
+ * with no TOTP is not gated. `Kern\Platform\Identity\Http\Middleware\RequiresRecentVerification`
+ * explains why that is the installation owner's choice rather than this code's.
  */
 final class StepUpPolicy
 {

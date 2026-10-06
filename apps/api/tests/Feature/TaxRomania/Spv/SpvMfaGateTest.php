@@ -14,14 +14,17 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
- * `BLUEPRINT.md` §4.7 — "MFA obligatoriu pentru conturi care conectează SPV."
+ * The step-up gate on the SPV routes.
  *
- * The gate used to live inside two actions and ask `exists()`: had this account enrolled a factor,
- * ever. Anybody holding the session passed it without owning one, and `sync` — reading the inbox,
- * which is the thing worth protecting — did not consult it at all.
+ * It used to live inside two actions and ask `exists()`: had this account enrolled a factor, ever.
+ * Anybody holding the session passed it without owning one, and `sync` — reading the inbox, which is
+ * the thing worth protecting — did not consult it at all.
  *
- * These cover what replaced it: proof, recently, on every route that acts, and told apart from having
- * nothing to prove with.
+ * What replaced it asks for proof, recently, on every route that acts, **of an account that has turned
+ * two-factor authentication on**. That last clause is a deliberate departure from `BLUEPRINT.md` §4.7's
+ * "MFA obligatoriu": nothing in this installation forces enrolment, so a gate that refused instead
+ * would be forcing it at the moment somebody tried to use a screen. Whether to require a second factor
+ * is the account's own setting; what this guarantees is that a factor which *is* enabled gets used.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -54,16 +57,18 @@ function member(bool $withTotp = true): array
     return [$user, $subject->id];
 }
 
-it('tells an account with no authenticator to enrol one, rather than offering a dialog it cannot answer', function (): void {
+it('lets an account with no authenticator through, because there is nothing to challenge', function (): void {
     [$user, $subjectId] = member(withTotp: false);
 
+    // The gate exists for an account once that account turns TOTP on. The alternative — demanding
+    // enrolment here — would force a security decision inside a dialog in order to get past a screen,
+    // and the security screen is where it belongs.
     $this->actingAs($user, 'web')
         ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
             'auth_method' => 'USER_PASSWORD_OTP',
             'username' => 'contribuabil.test',
         ])
-        ->assertForbidden()
-        ->assertJsonPath('reason', 'MFA_ENROLLMENT_REQUIRED');
+        ->assertCreated();
 });
 
 it('asks an enrolled account to prove itself, which the enrolment check alone never did', function (): void {

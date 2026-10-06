@@ -194,13 +194,13 @@ describe('step-up verification', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
-    it('does not prompt for an account that has nothing to prove with', async () => {
-        // MFA_ENROLLMENT_REQUIRED is a refusal the screen reports, not a dialog: there is no code to
-        // type, and offering one would be unanswerable.
+    it('leaves another kind of 403 to the screen that asked', async () => {
+        // A tenant refusal is also a 403. Prompting for a code there would ask somebody to prove who
+        // they are in order to reach data that is not theirs, and then fail anyway.
         const fetchMock = vi.fn<typeof fetch>();
         fetchMock.mockImplementation(() =>
             Promise.resolve(
-                new Response(JSON.stringify({ message: 'enrol first', reason: 'MFA_ENROLLMENT_REQUIRED' }), {
+                new Response(JSON.stringify({ message: 'not yours', reason: 'TENANT_FORBIDDEN' }), {
                     status: 403,
                 }),
             ),

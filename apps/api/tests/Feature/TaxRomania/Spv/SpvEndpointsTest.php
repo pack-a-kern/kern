@@ -77,21 +77,20 @@ it('registers a portal connection and lists it back', function (): void {
         ->assertJsonPath('connections.0.status', 'PENDING');
 });
 
-it('refuses to register a connection for a user with no MFA', function (): void {
+it('does not hold up an account that has not turned on two-factor authentication', function (): void {
     [$user, $subjectId] = connectedUser(withMfa: false);
 
-    // §4.7 — MFA is obligatory for an account that connects SPV. Enforced in the action, so it holds
-    // for every caller; a refusal rather than a fault, because the person has to go and enrol and a
-    // 500 would tell them the installation is broken.
+    // Turning TOTP on is what makes the gate exist for an account. Until then there is no factor to
+    // challenge, and demanding enrolment in a dialog to get past a screen would be forcing a security
+    // decision at the worst moment — the security screen is where that choice belongs.
     $this->actingAs($user, 'web')
         ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
             'auth_method' => 'USER_PASSWORD_OTP',
             'username' => 'contribuabil.test',
         ])
-        ->assertForbidden()
-        ->assertJsonPath('reason', 'MFA_ENROLLMENT_REQUIRED');
+        ->assertCreated();
 
-    expect(SpvConnection::query()->withoutGlobalScopes()->count())->toBe(0);
+    expect(SpvConnection::query()->withoutGlobalScopes()->count())->toBe(1);
 });
 
 it('wants a username for the portal and none for a certificate', function (): void {

@@ -633,7 +633,7 @@ export const ro = {
         reasons: {
             SPV_WORKER_UNAVAILABLE:
                 'Serviciul de browser nu poate fi contactat. Verifică dacă rulează și dacă BROWSER_WORKER_URL trimite către el.',
-            MFA_REQUIRED: 'Activează autentificarea în doi pași pe contul tău înainte să îl conectezi la SPV.',
+            VERIFICATION_REQUIRED: 'Această acțiune necesită codul din aplicația de autentificare.',
             GENERAL_SOURCE_UNDELETABLE:
                 'Sursa generală nu poate fi ștearsă: acolo se înregistrează tot ce nu are altă destinație.',
             SOURCE_NOT_EMPTY:

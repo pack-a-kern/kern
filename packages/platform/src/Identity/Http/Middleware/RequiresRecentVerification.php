@@ -24,15 +24,14 @@ use Symfony\Component\HttpFoundation\Response;
  * and should not be contradicted here — a guest must be told to sign in, not to re-verify an account
  * it has not got.
  *
- * ## Two refusals, not one
+ * ## One refusal, and it is always answerable
  *
- * `MFA_ENROLLMENT_REQUIRED` means there is nothing to ask for: the account holds no factor this can
- * challenge, and the person must enrol one first. `VERIFICATION_REQUIRED` means the factor exists and
- * the dialog can proceed. Collapsing them would send somebody with no TOTP method to a dialog that
- * could never succeed, which is the standard way this feature strands people.
+ * `VERIFICATION_REQUIRED` is only ever sent to an account that holds a factor this can challenge, so
+ * the dialog it raises can always be satisfied. There is no second code for "enrol first", because an
+ * account with nothing enrolled is not stopped here at all.
  *
- * Both are 403 and both carry `reason`, the envelope `Kern\Platform\...` renders centrally and
- * `resources/js/lib/http.ts` parses, so a screen can act on the code rather than match on prose.
+ * 403 carrying `reason` — the envelope rendered centrally and parsed by `resources/js/lib/http.ts`,
+ * so a screen acts on the code rather than matching on prose.
  *
  * ## Why no redirect for a browser navigation
  *
@@ -55,11 +54,19 @@ final readonly class RequiresRecentVerification
             return $next($request);
         }
 
+        // An account that has not turned on two-factor authentication is not held up here.
+        //
+        // This is the installation owner's choice to make, and it is the choice they already made on
+        // the security screen: a gate that demanded enrolment at the moment somebody tried to do
+        // something would be forcing a decision at the worst possible time, in a dialog, to get past
+        // a screen. The account's own settings are where that belongs.
+        //
+        // The consequence is stated plainly rather than hidden: a password alone reaches these routes
+        // on an account with no second factor, exactly as it reaches everything else that account can
+        // see. Turning TOTP on is what makes this gate exist, and then it is enforced properly rather
+        // than merely recorded — which is the half that was broken before.
         if (! $this->policy->canVerify($user)) {
-            return response()->json([
-                'message' => 'This account must enroll an authenticator app before performing this action.',
-                'reason' => 'MFA_ENROLLMENT_REQUIRED',
-            ], Response::HTTP_FORBIDDEN);
+            return $next($request);
         }
 
         if (! $this->policy->isRecentlyVerified($request->session())) {

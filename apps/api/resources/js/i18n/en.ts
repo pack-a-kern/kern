@@ -630,7 +630,9 @@ export const en = {
         reasons: {
             SPV_WORKER_UNAVAILABLE:
                 'The browser worker is not reachable. Check that it is running, and that BROWSER_WORKER_URL points at it.',
-            MFA_REQUIRED: 'Enrol two-factor authentication on your account before connecting it to SPV.',
+            // Only reached when the dialog that asks for the code is dismissed, or when none is
+            // mounted: the interceptor handles this code before any screen sees it.
+            VERIFICATION_REQUIRED: 'This action needs the code from your authenticator app.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',
             SOURCE_NOT_EMPTY:
