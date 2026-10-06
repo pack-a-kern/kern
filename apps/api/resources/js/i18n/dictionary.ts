@@ -1434,6 +1434,7 @@ export interface Dictionary {
             deleteTitle: string;
             deleteHint: string;
             deleteRuns: string;
+            signedInUntil: string;
             revokeTitle: string;
             revokeHint: string;
             statusColumn: string;

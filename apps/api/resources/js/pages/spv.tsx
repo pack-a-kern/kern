@@ -445,6 +445,19 @@ export default function Spv(): JSX.Element {
                                         {/* Beneath the badge rather than instead of it: the badge says
                                             what state this is in, and this says why. Romanian whatever
                                             the interface language, because it is a quotation. */}
+                                        {/* The badge is the connection's history — has this ever
+                                            worked. This is whether a browser is signed in *now*, which
+                                            is a different fact and the one that decides what can be
+                                            done: reading the portal happens inside that sitting, and it
+                                            ends on its own. */}
+                                        {connection.session === null ? null : (
+                                            <p className="note mt-1">
+                                                {t((d) => d.pages.spv.signedInUntil).replace(
+                                                    '{time}',
+                                                    formatDateTime(connection.session.expiresAt, locale),
+                                                )}
+                                            </p>
+                                        )}
                                         {connection.lastErrorMessage === null ? null : (
                                             <p className="note text-destructive mt-1" lang="ro">
                                                 {connection.lastErrorMessage}
@@ -455,8 +468,13 @@ export default function Spv(): JSX.Element {
                                         so they take the card's last line on a phone. */}
                                     <td className="col-actions text-right">
                                         <div className="flex flex-wrap justify-end gap-1.5">
+                                            {/* Offered while there is nothing to sign in *with*. A live
+                                                session means a browser is open and signed in, so
+                                                offering it again would start a second sitting and ask
+                                                for a second emailed code to replace one that works. */}
                                             {connection.status === 'REVOKED' ||
-                                            connection.authMethod === 'CERTIFICATE' ? null : (
+                                            connection.authMethod === 'CERTIFICATE' ||
+                                            connection.session !== null ? null : (
                                                 <PanelButton
                                                     disabled={working}
                                                     onClick={() => {

@@ -1596,6 +1596,7 @@ export const ro = {
             deleteTitle: 'Ștergi această conexiune?',
             deleteHint: 'Conexiunea și tot ce a fost înregistrat pentru ea se șterg. Acțiunea nu poate fi anulată.',
             deleteRuns: '{count} înregistrări de sincronizare se vor șterge împreună cu ea.',
+            signedInUntil: 'Autentificat până la {time}',
             revokeTitle: 'Revoci această conexiune?',
             revokeHint:
                 'Nu va mai fi oferită la autentificare. Istoricul rămâne, pentru că rulările și evenimentele de audit trimit la ea.',

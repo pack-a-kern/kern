@@ -220,19 +220,44 @@ return [
          * empty list — which reaches a person as "no new messages" rather than "you are signed out".
          * A wrong answer, not a missing one. `continue` is what lets the check precede what it guards.
          */
+        /*
+         * The inbox, in the browser the sign-in left open.
+         *
+         * Runs against the same session, so the login is reused rather than repeated — the worker keeps
+         * one browser per session id and this sequence is sent to that id.
+         *
+         * **The guard comes before the read, deliberately.** A portal that has dropped the session
+         * answers with its login form, and a table selector that finds nothing there would extract an
+         * empty list — which reaches a person as "no new messages" rather than "you are signed out".
+         * A wrong answer, not a missing one. `continue` is what lets the check precede what it guards.
+         *
+         * ## Observed 2026-10-07
+         *
+         * The message list is a JSF/PrimeFaces screen — `javax.faces.ViewState`, `form_SUBMIT`, and ids
+         * of the form `form:MesajeTable:<column>:filter`. Two things follow from that.
+         *
+         * Its ids contain colons, which are CSS combinators. `[id="form:MesajeTable"]` sidesteps the
+         * escaping entirely; `#form\:MesajeTable` would need a backslash that has to survive this file,
+         * JSON encoding and Playwright, and would fail silently at whichever step dropped it.
+         *
+         * And the columns are not the ones guessed. The real order, from the table's own headers: CIF,
+         * Tip Document, Id Solicitare, Data Afisare, Descarcare document, Detalii, Data
+         * Arhivare/Data afisare SPV. Nothing is called `data`, and `detalii` is sixth rather than first.
+         */
         'inbox' => [
-            /*
-             * UNOBSERVED: nobody has seen the signed-in portal, so the address of the message list is
-             * not known. It is the one thing left before this sequence is real, and it belongs in a
-             * `goto` rather than being inherited from wherever the sign-in happened to land — reading
-             * the inbox is this sequence's job, and it should not depend on the previous one's view.
-             */
-            ['goto' => 'https://pfinternet.anaf.ro/'],
+            // Observed: the message list's own address. The guessed one was the portal root, which with
+            // an authenticated session does not resolve at all — a `goto` that timed out rather than a
+            // page that looked almost right, which is the better way for a guess to fail.
+            ['goto' => 'https://pfinternet.anaf.ro/SNMD/index.xhtml'],
             [
                 'waitFor' => [
                     'any' => [
-                        // UNOBSERVED: the message list itself.
-                        ['selector' => 'table.mesaje', 'outcome' => 'signed_in', 'continue' => true],
+                        // Observed. The table itself, by attribute so its colons need no escaping.
+                        [
+                            'selector' => '[id="form:MesajeTable"]',
+                            'outcome' => 'signed_in',
+                            'continue' => true,
+                        ],
                         /*
                          * Observed. The login form reappearing means the portal has let the session go —
                          * the browser is still open on this side, and nothing in it is signed in any
@@ -248,18 +273,27 @@ return [
             ],
             /*
              * The field names are this application's, not the portal's: `SpvInboxMessage` is what the
-             * import expects, and they match the documented certificate API that
-             * `AnafCertificateApiTransport` already reads, so one shape serves both transports.
+             * import expects, and they are the documented certificate API's own names, so a message means
+             * the same thing whichever transport fetched it.
              *
-             * UNOBSERVED: which cell holds which.
+             * Positions come from the headers the page reported, not from a row's markup — so they are
+             * observed, but one step removed. `tbody tr` rather than `tr` because the filter inputs live
+             * in a second header row, and a row of filter boxes is not a message.
+             *
+             * **`id` is the open question.** The web page shows `Id Solicitare`, which the certificate API
+             * also carries — but that API has a *separate* `id`, and if the two transports disagree about
+             * which is a message's identity then one taxpayer's inbox imported both ways would
+             * deduplicate into two rows. One row's markup settles it: PrimeFaces usually writes a row key
+             * attribute, and if that is the real id it belongs here instead.
              */
             ['extract' => [
-                'rows' => 'table.mesaje tbody tr',
+                'rows' => '[id="form:MesajeTable"] tbody tr',
                 'fields' => [
-                    'id' => ['attr' => 'data-id'],
-                    'detalii' => ['text' => 'td.detalii'],
-                    'cif' => ['text' => 'td.cif'],
-                    'data_creare' => ['text' => 'td.data'],
+                    'id' => ['text' => 'td:nth-child(3)'],
+                    'cif' => ['text' => 'td:nth-child(1)'],
+                    'tip' => ['text' => 'td:nth-child(2)'],
+                    'data_creare' => ['text' => 'td:nth-child(4)'],
+                    'detalii' => ['text' => 'td:nth-child(6)'],
                 ],
                 'into' => 'messages',
             ]],

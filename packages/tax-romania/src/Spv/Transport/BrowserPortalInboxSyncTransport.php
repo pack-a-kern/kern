@@ -118,7 +118,10 @@ final readonly class BrowserPortalInboxSyncTransport implements SpvInboxSyncTran
 
         $metadata = [];
 
-        foreach (['cif'] as $extra) {
+        // The same extras the certificate API's rows carry, so a message keeps the same shape whichever
+        // transport fetched it. Extracted and then dropped would be the worse of the two mistakes: the
+        // playbook would look like it collected something nothing reads.
+        foreach (['cif', 'tip'] as $extra) {
             if (($row[$extra] ?? null) !== null) {
                 $metadata[$extra] = $row[$extra];
             }

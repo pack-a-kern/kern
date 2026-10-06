@@ -1590,6 +1590,7 @@ export const en = {
             deleteTitle: 'Delete this connection?',
             deleteHint: 'The connection and everything recorded against it are removed. This cannot be undone.',
             deleteRuns: '{count} sync records will be deleted with it.',
+            signedInUntil: 'Signed in until {time}',
             revokeTitle: 'Revoke this connection?',
             revokeHint:
                 'It stops being offered for signing in. Its history is kept, because the sync runs and audit events point at it.',
