@@ -27,6 +27,14 @@ const ALLOWED_FIELDS = [
   "durationMs",
   "sessionId",
   "port",
+  /*
+   * Why a run failed, for an operator who would otherwise read "run_failed" and have to reproduce it.
+   *
+   * On the allowlist rather than smuggled in as `message`, which is the log line's own event name. The
+   * value is the same redacted text the response body carries — `Secrets.redact()` has already been over
+   * it, because Playwright quotes a value back in the error it throws and that error is this string.
+   */
+  "failure",
 ] as const;
 
 type AllowedField = (typeof ALLOWED_FIELDS)[number];

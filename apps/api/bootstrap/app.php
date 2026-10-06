@@ -20,6 +20,7 @@ use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
+use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -191,6 +192,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
             403,
+        ));
+
+        /*
+         * The worker ran the playbook and a step did not work out — usually a selector matching nothing
+         * because the portal's HTML has moved.
+         *
+         * 502, because the failure is in a dependency rather than in the request, and its own reason so
+         * the screen does not say "unreachable" about a worker that answered. The worker's explanation
+         * stays in the log: it names a playbook's outcomes, which is for whoever maintains the playbook.
+         */
+        $exceptions->render(fn (SpvRunFailedException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'SPV_RUN_FAILED'],
+            502,
         ));
 
         /*

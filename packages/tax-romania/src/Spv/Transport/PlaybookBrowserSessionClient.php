@@ -14,6 +14,7 @@ use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
 use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
 use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Exceptions\SpvPortalAutomationUnavailableException;
+use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
@@ -227,6 +228,18 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
             // The worker saying a thing is not built, which is not the same fact as the worker
             // being unreachable — and the callers above act on the difference.
             throw SpvPortalAutomationUnavailableException::forAction('run');
+        }
+
+        /*
+         * A run the worker attempted and could not finish, which it explains. Not the same fact as the
+         * worker being unreachable, and reported as such until it cost an evening: the status code was
+         * all that was read, so a timed-out selector arrived as a networking problem.
+         */
+        if ($response->status() === 502) {
+            $body = $response->json();
+            $message = is_array($body) && is_string($body['message'] ?? null) ? $body['message'] : '';
+
+            throw SpvRunFailedException::because($message);
         }
 
         if ($response->failed()) {

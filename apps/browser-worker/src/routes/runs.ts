@@ -214,7 +214,9 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
 
   const message = error instanceof Error ? say(error.message) : "The run failed.";
 
-  logger.error("run_failed", { event: "run_failed" });
+  // The message, not merely the fact. It is redacted by `say()` above, and without it an operator
+  // reads "run_failed" and has to reproduce the run to learn anything.
+  logger.error("run_failed", { event: "run_failed", failure: message });
   res.status(502).json({ error: "run_failed", message });
 }
 

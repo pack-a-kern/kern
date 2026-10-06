@@ -633,6 +633,8 @@ export const ro = {
         reasons: {
             SPV_WORKER_UNAVAILABLE:
                 'Serviciul de browser nu poate fi contactat. Verifică dacă rulează și dacă BROWSER_WORKER_URL trimite către el.',
+            SPV_RUN_FAILED:
+                'Kern nu a putut citi pagina afișată de ANAF. Portalul s-ar putea să fi fost modificat — detaliile sunt în jurnal.',
             SPV_SIGN_IN_REQUIRED: 'Autentifică-te din nou la SPV — portalul a încheiat sesiunea.',
             VERIFICATION_REQUIRED: 'Această acțiune necesită codul din aplicația de autentificare.',
             GENERAL_SOURCE_UNDELETABLE:
