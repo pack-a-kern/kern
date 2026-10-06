@@ -21,8 +21,10 @@ declare(strict_types=1);
  * not to guess at any of this. It is the same URL, the same form, the same submit button — and the
  * field holding the code is `input[name="password"]`, the *same name and id as the password field on
  * the login page*. A sequence that waited for a password field to decide the code had been asked for
- * would match the login page it was still standing on and report success at the wrong moment. The
- * only thing that distinguishes the two pages is their text, so that is what is matched.
+ * would match the login page it was still standing on and report success at the wrong moment.
+ *
+ * What does distinguish them is that the code page has no username row. Read as an absence that is a
+ * race, so it is anchored on a row that parses after the missing one — see `signIn`'s last step.
  *
  * It also confirms a number rather than asserting one: "Acest cod de siguranţă expiră după 300
  * secunde" is where `SPV_CHALLENGE_TTL_SECONDS`'s 300 comes from, and the code is sent from
@@ -98,14 +100,21 @@ return [
              */
             ['click' => ['selector' => 'input[type="submit"]']],
             /*
-             * The code page is recognised by its own words, because nothing else about it differs: same
-             * URL, same form, same `input[name="password"]` as the login page. A match on the field
-             * would resolve against the page the browser has not left yet.
+             * The code page is the credentials table with no username field in it.
              *
-             * Matched without diacritics on purpose. ANAF's text uses `ţ` (t-cedilla, the legacy
-             * Windows-1250 letter) rather than `ț` (t-comma, the correct Romanian one); they are
-             * different codepoints that look alike, and a selector carrying either is one encoding fix
-             * away from silently never matching. `cod de siguran` contains neither.
+             * Structural, not textual — ANAF is free to reword a Romanian sentence and a selector
+             * quoting one would break on a copy edit. The end states differ plainly: the code page drops
+             * the username row, a refused login keeps both fields.
+             *
+             * `:has(#submit_row)` is what makes reading it as an absence safe. A document parses in
+             * order, so a table that already contains its submit row would contain the username row too
+             * if that row were coming; without the anchor, this matches a half-parsed table mid-
+             * navigation and announces the code page while landing on a refusal. Verified against all
+             * three shapes — refused login 0, code page 1, half-parsed table 0 — rather than reasoned
+             * about and hoped for.
+             *
+             * If ANAF ever renames the table or the submit row, this stops matching and the step times
+             * out. A failure, not a wrong answer, which is the right way round.
              *
              * A refusal is a red message in the login table's post-header cell, observed as:
              *
@@ -130,7 +139,10 @@ return [
              */
             ['waitFor' => [
                 'any' => [
-                    ['selector' => 'text=/cod de siguran/i', 'outcome' => 'awaiting_challenge'],
+                    [
+                        'selector' => '#credentials_table:has(#submit_row):not(:has(input[name="username"]))',
+                        'outcome' => 'awaiting_challenge',
+                    ],
                     [
                         'selector' => '#credentials_table_postheader font[color="red"]',
                         'outcome' => 'failed',
