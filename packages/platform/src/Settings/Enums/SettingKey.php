@@ -89,7 +89,7 @@ enum SettingKey: string
     // SPV (BLUEPRINT.md §13).
     case SPV_MESSAGES_WINDOW_DAYS = 'spv.messages_window_days';
     case SPV_CHALLENGE_TTL_SECONDS = 'spv.challenge_ttl_seconds';
-    case SPV_REQUEST_TIMEOUT_SECONDS = 'spv.request_timeout_seconds';
+    case BROWSER_WORKER_TIMEOUT_SECONDS = 'browser_worker.timeout_seconds';
 
     // Authentication (BLUEPRINT.md §4.7).
     /**
@@ -182,8 +182,10 @@ enum SettingKey: string
 
             self::FX_VERIFICATION_TOLERANCE, self::FX_DECIMAL_SCALE => SettingGroup::FX,
 
-            self::SPV_MESSAGES_WINDOW_DAYS, self::SPV_CHALLENGE_TTL_SECONDS,
-            self::SPV_REQUEST_TIMEOUT_SECONDS => SettingGroup::SPV,
+            self::SPV_MESSAGES_WINDOW_DAYS, self::SPV_CHALLENGE_TTL_SECONDS => SettingGroup::SPV,
+            // How long this installation waits on its browser worker. Not an SPV value: the worker
+            // drives whatever a playbook describes, and SPV is one of those things.
+            self::BROWSER_WORKER_TIMEOUT_SECONDS => SettingGroup::SPV,
 
             self::IDENTITY_REGISTRATION_ENABLED, self::IDENTITY_EMAIL_VERIFICATION_REQUIRED,
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
@@ -224,7 +226,7 @@ enum SettingKey: string
             self::FX_DECIMAL_SCALE => 'sources.fx.decimal_scale',
             self::SPV_MESSAGES_WINDOW_DAYS => 'spv.anaf_api.messages_window_days',
             self::SPV_CHALLENGE_TTL_SECONDS => 'spv.challenge_ttl_seconds',
-            self::SPV_REQUEST_TIMEOUT_SECONDS => 'spv.browser_worker.timeout_seconds',
+            self::BROWSER_WORKER_TIMEOUT_SECONDS => 'browser_worker.timeout_seconds',
             self::IDENTITY_REGISTRATION_ENABLED => 'identity.registration.enabled',
             self::IDENTITY_EMAIL_VERIFICATION_REQUIRED => 'identity.verification.required',
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS => 'webauthn.challenge_ttl_seconds',

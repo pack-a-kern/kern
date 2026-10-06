@@ -102,13 +102,13 @@ it('rejects a malformed value and applies nothing else from that group', functio
     $this->actingAs($this->admin)
         ->putJson('/api/v1/settings/group/spv', ['settings' => [
             'spv.messages_window_days' => 'not-a-number',
-            'spv.request_timeout_seconds' => 30,
+            'browser_worker.timeout_seconds' => 30,
         ]])
         ->assertStatus(422);
 
     // The valid sibling must not have been applied — a partly-applied group is harder to reason
     // about than a rejected one.
-    expect(app(SettingsRepository::class)->get(SettingKey::SPV_REQUEST_TIMEOUT_SECONDS))->toBeNull();
+    expect(app(SettingsRepository::class)->get(SettingKey::BROWSER_WORKER_TIMEOUT_SECONDS))->toBeNull();
 });
 
 it('returns 404 for an unknown group rather than silently accepting it', function (): void {

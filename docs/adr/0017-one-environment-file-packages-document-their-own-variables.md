@@ -49,7 +49,7 @@ created with `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD`, MinIO with `AWS_ACCE
 `OPENBAO_DEV_ROOT_TOKEN` are gone as names. Pointing `DB_HOST` or `AWS_ENDPOINT` at a service that
 already exists is then one line, and the container that is no longer wanted is simply not started.
 
-`python-api` and `spv-browser` deliberately do **not** get the file. They sit on networks that carry
+`python-api` and `browser-worker` deliberately do **not** get the file. They sit on networks that carry
 no database or object-storage credentials (BLUEPRINT.md §3.3) and each names the few variables it
 needs; handing them the whole environment would undo that.
 

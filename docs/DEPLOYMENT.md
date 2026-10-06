@@ -25,7 +25,7 @@ own isolated box, that talks to the others over a private network.
 | `scheduler` | Runs `php artisan schedule:work` — fires off timed jobs, like the daily exchange-rate import, at the times configured in `.env`. |
 | `reverb` | A separate small server that keeps a live connection (WebSocket) open to each browser tab, so the UI can be pushed updates (e.g. "your document finished processing") without the page needing to keep asking. |
 | `python-api` | A small Python web service used only by the Laravel app internally. It extracts text from PDFs and (optionally) computes search embeddings for legislation. It never talks to the database directly. |
-| `spv-browser` | A real headless Chrome browser (via Playwright), used to log into ANAF's SPV portal (the Romanian tax authority's online portal) on the taxpayer's behalf and pull down documents. It gets no database password — if it's compromised, it still can't read the database. |
+| `browser-worker` | A real headless Chrome browser (via Playwright) that does what it is told by a *playbook* — URLs, selectors and what each page looks like, sent with the request. It knows no website of its own; logging into ANAF's SPV portal on the taxpayer's behalf is the first thing described to it. It gets no database password — if it's compromised, it still can't read the database. |
 | `clamav` | Antivirus scanner. Every uploaded file is scanned here before the app will use it. |
 | `postgres` | The main database (PostgreSQL). All application data lives here (encrypted where required, see section 4). |
 | `redis` | An in-memory data store used for: the session store, the cache, the background job queues, and real-time broadcasting to `reverb`. |
@@ -62,8 +62,8 @@ override file:
   copy baked into the image, and turns PHP's file-change detection ("opcache") back on so edited PHP
   files are picked up without restarting the container.
 
-**`openbao` and `spv-browser` are not dev-only files** — both are defined in the production-shape
-`compose.yaml` itself and start in a real deployment exactly as they do locally. `spv-browser` is
+**`openbao` and `browser-worker` are not dev-only files** — both are defined in the production-shape
+`compose.yaml` itself and start in a real deployment exactly as they do locally. `browser-worker` is
 configured the same way in both cases and is fine to run as-is. `openbao`, however, is started with
 the command `bao server -dev`, i.e. "OpenBao's own development mode": everything it holds lives only
 in memory and is lost on every restart, and it is unlocked with a single "root token" taken straight
@@ -152,7 +152,7 @@ OpenBao containers are *created* with. That is the same direction throughout: th
 variables are the truth, and the bundled infrastructure is created to match them, which is why
 pointing `DB_HOST` or `AWS_ENDPOINT` at a service you already run needs no second edit anywhere.
 
-`python-api` and `spv-browser` deliberately do **not** get the whole file; each is handed only the few
+`python-api` and `browser-worker` deliberately do **not** get the whole file; each is handed only the few
 variables it needs, because they sit on networks that carry no database or object-storage credentials.
 
 ### Must change — secrets, keys, and addresses

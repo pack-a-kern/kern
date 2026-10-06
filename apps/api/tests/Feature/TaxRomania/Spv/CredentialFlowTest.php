@@ -138,7 +138,9 @@ it('moves a session to AWAITING_USER_CHALLENGE and broadcasts once credentials a
     // needs it. The URL is the generic run route now: which sequence runs is in the body, because
     // the worker is told what to do rather than having a route per portal step.
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'http://spv-browser:8090/v1/sessions/worker-session-2/run'
+        // The path, not the host: where the worker lives is a deployment's choice, and a test that
+        // pins it fails on the rename rather than on the behaviour it is about.
+        return str_ends_with($request->url(), '/v1/sessions/worker-session-2/run')
             && $request['sequence'] === 'signIn'
             && ($request->data()['secrets']['password'] ?? null) === 'the-real-password';
     });

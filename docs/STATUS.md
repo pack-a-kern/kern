@@ -26,7 +26,7 @@ reconciled and verified end-to-end against a live container.
 | M7 | PWA document capture | **complete** | [019](handoff/019-pdf-text-extraction.md) [022](handoff/022-document-pipeline.md) [026](handoff/026-clamav-container-fix.md) [027](handoff/027-contract-reconciliation.md) [030](handoff/030-pwa-frontend.md) |
 | M8 | Rental module | **complete** | [025](handoff/025-rental-module.md) |
 | M9 | D212 | **complete** (real form spec + artifact format still unknown) | [028](handoff/028-d212-declarations.md) |
-| M10 | SPV automation | **scope reduced to document sync** (ADR 0012 — filing removed); portal adapter awaits one observed session | [032](handoff/032-spv-automation.md) |
+| M10 | SPV automation | **scope reduced to document sync** (ADR 0012 — filing removed); endpoints, screen and playbook transport built ([048](handoff/048-browser-worker-playbooks.md), ADR 0019); the playbook's selectors await one observed session | [032](handoff/032-spv-automation.md), [048](handoff/048-browser-worker-playbooks.md) |
 | M11 | RAG assistant | retrieval complete; answer generation awaits provider | [029](handoff/029-hybrid-retrieval.md) |
 | M12 | PFA/SRL extension | in progress | — |
 
@@ -82,4 +82,5 @@ Bugs found outside your own scope. Record, do not silently fix.
 | 2 | D212 output format — **lead found**: artifact is an XFA "PDF inteligent", see `reference/spv-pf-portal-observations.md` | **Narrowed 2026-09-08:** ANAF publishes *no* documented D212 submission API — verified, see `reference/anaf-spv-integration.md`. The portal artifact format still must be observed, never guessed. | 2026-09-07 |
 | 3 | External AI provider | Provider, region and DPA for ADR 0005 document processing. | 2026-09-07 |
 | 4 | ~~PyMuPDF AGPL licence~~ | **RESOLVED 2026-09-08** — switching to permissive pdfplumber/pypdf per owner decision. See ADR 0008. | 2026-09-08 |
+| 6 | SPV portal selectors | One observed sign-in and inbox session. `tools/observe-spv-page.js` collects the structure without reading any field's value; what it prints goes into `packages/tax-romania/config/playbooks/anaf_spv.php`, whose selectors are placeholders until then (`docs/AGENTS.md` §1 rule 1). Everything around it is built. | 2026-10-06 |
 | 5 | ~~BNR FX XML endpoint~~ | **RESOLVED 2026-09-08** — BNR moved the feeds to `curs.bnr.ro`; found by rendering the page with our own Playwright worker. Daily + 2005–2026 archives verified live and configured. See `reference/bnr-fx-endpoints.md`. | 2026-09-08 |

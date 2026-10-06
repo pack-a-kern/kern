@@ -72,6 +72,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         // What to do on a website, as instructions for `apps/browser-worker`. Configuration rather
         // than code, so a portal that changes its HTML is an edit here and nothing else.
         'playbooks/anaf_spv',
+        'browser_worker',
     ];
 
     public function register(): void

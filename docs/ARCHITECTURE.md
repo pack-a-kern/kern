@@ -15,10 +15,10 @@ actually exists right now) → the handoff note of whatever you're extending.
 ```text
 ┌─────────────────────────┐      ┌──────────────────────────┐      ┌───────────────────────┐
 │      Laravel plane       │      │      Python plane         │      │    Browser plane       │
-│   apps/api (PHP 8.5)     │      │  python-api / -worker      │      │    spv-browser          │
+│   apps/api (PHP 8.5)     │      │  python-api / -worker      │      │     browser-worker      │
 │                          │      │  (FastAPI, Python 3.14)    │      │  (Playwright, Chromium) │
-│  ALL business tables.    │◄────►│  Document parsing, OCR,    │      │  ANAF SPV portal only.  │
-│  ALL tax logic.          │ HTTP │  embeddings, LLM calls.    │      │  No DB credentials.     │
+│  ALL business tables.    │◄────►│  Document parsing, OCR,    │      │  Whatever a playbook    │
+│  ALL tax logic.          │ HTTP │  embeddings, LLM calls.    │      │  describes. No DB creds.│
 │  Owns Postgres writes.   │ +    │  No direct DB access to    │      │  Reached only through   │
 │                          │ jobs │  Laravel business tables.  │      │  the internal service   │
 └─────────────────────────┘      └──────────────────────────┘      │  contract (ADR 0003).   │
@@ -63,7 +63,7 @@ is the target shape from `BLUEPRINT.md` §2.1, not a claim that these directorie
 | `TaxKnowledge` | `official_sources`, `source_documents/_versions/_sections`, `fiscal_parameters`, `tax_rules/_versions`, FX rates | Run a calculation |
 | `TaxEngine` | `TaxContext`, rule implementations, `TaxAssessment(Line)`, `CalculationTrace` | Touch HTTP, Eloquent, `now()`, env, randomness, cache (ADR 0004) — the only module allowed to produce a fiscal figure |
 | `Declarations` | `form_definitions/_versions`, `declarations`, submission snapshots | Compute the figures it maps (consumes `TaxAssessment`, never recomputes) |
-| `Spv` | `spv_connections/_sessions/_sync_runs/_messages` | Hold a browser session itself (that's the `spv-browser` container, reached via the contract in ADR 0003) |
+| `Spv` | `spv_connections/_sessions/_sync_runs/_messages` | Hold a browser session itself (that's the `browser-worker` container, reached via the contract in ADR 0003) |
 | `Notifications` | Domain event → user-facing notification, Reverb broadcast payload shaping | Broadcast PII or document text (`BLUEPRINT.md` §16) |
 | `Audit` | `audit_events`, `audit_checkpoints`, hash-chain verification | Get bypassed by another module writing its own audit trail |
 
@@ -138,10 +138,10 @@ edge_net        — nginx only
 app_net         — Laravel, Horizon, Reverb, python-api
 processing_net  — python-worker
 data_net        — postgres, redis, minio  (no outbound internet)
-browser_net     — spv-browser             (no DB credentials)
+browser_net     — browser-worker             (no DB credentials)
 ```
 
-`postgres`, `redis`, and `minio` are never internet-reachable. `python-worker` and `spv-browser`
+`postgres`, `redis`, and `minio` are never internet-reachable. `python-worker` and `browser-worker`
 never receive Laravel DB credentials. No container receives `/var/run/docker.sock`.
 
 ---

@@ -4,7 +4,6 @@ import type { AddressInfo } from "node:net";
 import { describe, it } from "node:test";
 
 import { createApp } from "../src/app.js";
-import { UnimplementedPortalAuthenticator } from "../src/portal/portalAuthenticator.js";
 import { SessionManager } from "../src/sessions/sessionManager.js";
 import { createPlaywrightBrowserContext } from "../src/sessions/browserContextFactory.js";
 
@@ -29,7 +28,7 @@ async function withServer(
 ): Promise<void> {
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext });
   const server: Server = createServer(
-    createApp(manager, new UnimplementedPortalAuthenticator(), {
+    createApp(manager, {
       authMode: options.authMode ?? "token",
       internalAuthToken: TOKEN,
       concurrency: 1,

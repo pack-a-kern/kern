@@ -17,7 +17,7 @@
 #                   clamav
 #   data_net        postgres, redis, app, queue,            — internal
 #                   scheduler, reverb
-#   browser_net     app, spv-browser                        — not internal
+#   browser_net     app, browser-worker                     — not internal
 #
 # Production digest pinning (§3.4 "immutable image tags through digest in
 # production"): this file pins exact tags for reproducible local/dev builds
@@ -71,7 +71,7 @@ x-php-image: &php-image
   # failure that looked like the setting not working. It also meant compose.yaml held application
   # settings of its own, so the file an operator reads was not the file that decided anything.
   #
-  # `python-api` and `spv-browser` do NOT get this file. They are on networks that carry no database
+  # `python-api` and `browser-worker` do NOT get this file. They are on networks that carry no database
   # or object-storage credentials (BLUEPRINT.md §3.3), and handing them the whole environment would
   # undo that; each names the few variables it needs.
   env_file:
@@ -372,12 +372,22 @@ services:
           memory: ${PYTHON_API_MEMORY:-1G}
     restart: unless-stopped
 
-  spv-browser:
+  browser-worker:
     build:
       context: .
       dockerfile: docker/playwright/Dockerfile
+      # Named, not inferred. A Dockerfile's default target is its last stage, so adding the `test`
+      # stage at the end silently made the running service a test runner — which it then was, until
+      # it crashed on the read-only filesystem it is given.
+      target: runtime
     networks:
       - browser_net
+    environment:
+      # The only variable this service receives. Never `env_file`: it sits on a network carrying no
+      # database or object-store credentials, and handing it the whole environment would undo that.
+      # Unset is a working configuration — see `BROWSER_AUTH_MODE` in its own README.
+      BROWSER_AUTH_MODE: "${BROWSER_AUTH_MODE:-network}"
+      BROWSER_AUTH_TOKEN: "${BROWSER_WORKER_TOKEN:-}"
     shm_size: "1gb"
     read_only: true
     tmpfs:

@@ -629,7 +629,7 @@ export const en = {
         rateLimited: 'Too many attempts. Please wait a few minutes before trying again.',
         reasons: {
             SPV_WORKER_UNAVAILABLE:
-                'The SPV browser service is not reachable. Check that it is running and that SPV_BROWSER_AUTH_TOKEN is set.',
+                'The browser worker is not reachable. Check that it is running, and that BROWSER_WORKER_URL points at it.',
             MFA_REQUIRED: 'Enrol two-factor authentication on your account before connecting it to SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',
@@ -2007,7 +2007,7 @@ export const en = {
                 'fx.decimal_scale': 'Rate decimal scale',
                 'spv.messages_window_days': 'Message window',
                 'spv.challenge_ttl_seconds': 'Security code validity',
-                'spv.request_timeout_seconds': 'Request timeout',
+                'browser_worker.timeout_seconds': 'Browser worker timeout',
                 'security.webauthn_challenge_ttl_seconds': 'Passkey challenge validity',
                 'security.webauthn_timeout_ms': 'Passkey timeout',
                 'identity.registration_enabled': 'Account registration open',

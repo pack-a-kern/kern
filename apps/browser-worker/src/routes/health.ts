@@ -4,7 +4,7 @@ export function createHealthRouter(): Router {
   const router = Router();
 
   router.get("/health", (_req: Request, res: Response) => {
-    res.status(200).json({ status: "ok", service: "spv-browser" });
+    res.status(200).json({ status: "ok", service: "browser-worker" });
   });
 
   return router;

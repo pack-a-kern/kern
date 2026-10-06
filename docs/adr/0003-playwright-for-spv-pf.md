@@ -18,7 +18,7 @@ first place.
 1. **Official API/web-service first, always.** Any SPV operation ANAF documents and exposes
    through a stable service is implemented against that service. Playwright is used only for the
    portal-only flows that have no such documented equivalent.
-2. Playwright drives an **ephemeral browser context per session** (`spv-browser` container,
+2. Playwright drives an **ephemeral browser context per session** (`browser-worker` container,
    `browser_net`, no DB credentials — `BLUEPRINT.md` §3.3, §3.4). No Chrome profile is reused across
    tax subjects; download folders are ephemeral; the container/pod is recycled after a sensitive
    session.
@@ -50,7 +50,7 @@ first place.
   mode when ANAF changes something is "the adapter breaks and is fixed," not "declarations
   silently fail or misfile."
 - Ephemeral, credential-isolated browser contexts mean one tax subject's compromised session
-  cannot leak into another's, and a compromised `spv-browser` container has no DB credentials to
+  cannot leak into another's, and a compromised `browser-worker` container has no DB credentials to
   pivot with.
 - No standing password store means there is nothing durable to steal that unlocks a taxpayer's
   ANAF account; the worst case of a worker compromise during an active session is bounded to that

@@ -5,20 +5,6 @@ declare(strict_types=1);
 // Milestone 10 SPV automation — BLUEPRINT.md §13, §6.11, docs/reference/anaf-spv-integration.md.
 return [
 
-    // The apps/spv-browser worker (docs/handoff/004-python-browser-services.md's session
-    // lifecycle, extended by this milestone). Never reachable directly by the browser/PWA —
-    // BLUEPRINT.md §13.4.
-    'browser_worker' => [
-        'base_url' => env('SPV_BROWSER_BASE_URL'),
-        'timeout_seconds' => (int) env('SPV_BROWSER_TIMEOUT_SECONDS', 30),
-
-        // Shared secret sent as `Authorization: Bearer <token>` — must equal the worker's own
-        // `SPV_BROWSER_AUTH_TOKEN`. Empty by default so a missing value fails closed
-        // (SpvWorkerUnavailableException::authenticationNotConfigured()), matching
-        // Kern\Documents\Extraction\HttpTextExtractionGateway's identical precedent.
-        // Never logged (BLUEPRINT.md §4.10).
-        'auth_token' => env('SPV_BROWSER_AUTH_TOKEN', ''),
-    ],
 
     // Engineering default, not a blueprint value — BLUEPRINT.md §3.4 requires an OTP/safety-code
     // TTL but names no number (the same gap docs/handoff/004's Open question #2 records for the

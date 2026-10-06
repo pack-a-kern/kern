@@ -3,12 +3,10 @@ import { correlationIdMiddleware } from "./middleware/correlationId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { createInternalAuthMiddleware } from "./middleware/internalAuth.js";
 import { requestLoggingMiddleware } from "./middleware/requestLogging.js";
-import type { PortalAuthenticator } from "./portal/portalAuthenticator.js";
 import { RunQueue } from "./runs/queue.js";
 import { Stats } from "./runs/stats.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createRunRouter } from "./routes/runs.js";
-import { createSessionsRouter } from "./routes/sessions.js";
 import type { SessionManager } from "./sessions/sessionManager.js";
 
 export interface AppOptions {
@@ -26,11 +24,7 @@ export interface AppOptions {
   readonly maxWaiting: number;
 }
 
-export function createApp(
-  sessionManager: SessionManager,
-  portalAuthenticator: PortalAuthenticator,
-  options: AppOptions,
-): Express {
+export function createApp(sessionManager: SessionManager, options: AppOptions): Express {
   const app = express();
   app.disable("x-powered-by");
   app.use(correlationIdMiddleware);
@@ -45,7 +39,6 @@ export function createApp(
   }
 
   app.use(createRunRouter(sessionManager, new RunQueue(options.concurrency, options.maxWaiting), new Stats()));
-  app.use(createSessionsRouter(sessionManager, portalAuthenticator));
   app.use(errorHandler);
   return app;
 }

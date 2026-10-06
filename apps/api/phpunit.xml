@@ -45,7 +45,7 @@
         <env name="DOCUMENTS_QUARANTINE_DISK" value="quarantine" force="true"/>
         <env name="CLAMAV_HOST" value="clamav" force="true"/>
         <env name="OPENBAO_ADDR" value="http://openbao:8200" force="true"/>
-        <env name="SPV_BROWSER_BASE_URL" value="http://spv-browser:8090" force="true"/>
+        <env name="BROWSER_WORKER_URL" value="http://browser-worker:8090" force="true"/>
         <env name="PROCESSING_URL" value="http://python-api:8000" force="true"/>
         <env name="QUARANTINE_BUCKET" value="kern-quarantine" force="true"/>
         <env name="SOURCES_STORAGE_DISK" value="s3" force="true"/>

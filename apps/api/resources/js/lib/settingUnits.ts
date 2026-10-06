@@ -63,7 +63,7 @@ const UNITS: Record<string, DisplayUnit> = {
     'extraction.timeout_seconds': identity('s'),
     'sources.fetch_timeout_seconds': identity('s'),
     'spv.challenge_ttl_seconds': identity('s'),
-    'spv.request_timeout_seconds': identity('s'),
+    'browser_worker.timeout_seconds': identity('s'),
     'security.webauthn_challenge_ttl_seconds': identity('s'),
     'security.webauthn_timeout_ms': identity('ms'),
     'security.session_lifetime_minutes': identity('min'),

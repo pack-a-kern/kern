@@ -632,7 +632,7 @@ export const ro = {
         rateLimited: 'Prea multe încercări. Așteptați câteva minute înainte de a reîncerca.',
         reasons: {
             SPV_WORKER_UNAVAILABLE:
-                'Serviciul de browser SPV nu poate fi contactat. Verifică dacă rulează și dacă SPV_BROWSER_AUTH_TOKEN este setat.',
+                'Serviciul de browser nu poate fi contactat. Verifică dacă rulează și dacă BROWSER_WORKER_URL trimite către el.',
             MFA_REQUIRED: 'Activează autentificarea în doi pași pe contul tău înainte să îl conectezi la SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'Sursa generală nu poate fi ștearsă: acolo se înregistrează tot ce nu are altă destinație.',
@@ -2027,7 +2027,7 @@ export const ro = {
                 'fx.decimal_scale': 'Precizie zecimală curs',
                 'spv.messages_window_days': 'Fereastră mesaje',
                 'spv.challenge_ttl_seconds': 'Valabilitate cod de siguranță',
-                'spv.request_timeout_seconds': 'Timp maxim cerere',
+                'browser_worker.timeout_seconds': 'Timp maxim pentru browser',
                 'security.webauthn_challenge_ttl_seconds': 'Valabilitate provocare passkey',
                 'security.webauthn_timeout_ms': 'Timp maxim passkey',
                 'identity.registration_enabled': 'Înregistrarea conturilor este deschisă',
