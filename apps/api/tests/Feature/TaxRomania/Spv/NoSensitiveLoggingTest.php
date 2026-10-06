@@ -47,10 +47,16 @@ it('never writes the submitted password or challenge code to the log, across suc
     config(['logging.channels.spv_capture' => ['driver' => 'single', 'path' => $logPath, 'level' => 'debug']]);
     config(['logging.default' => 'spv_capture']);
 
+    // Both steps post to the one run route now — the sequence is in the body — so the two answers
+    // come back in order rather than from two stubs.
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'log-test-session', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/log-test-session/credentials' => Http::response(['status' => 'awaiting_challenge']),
-        '*/v1/spv/sessions/log-test-session/challenge' => Http::response(['status' => 'failed', 'reason' => 'invalid_code']),
+        '*/v1/sessions' => Http::response(
+            ['session_id' => 'log-test-session', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()],
+            201,
+        ),
+        '*/run' => Http::sequence()
+            ->push(['outcome' => 'awaiting_challenge', 'data' => []])
+            ->push(['outcome' => 'failed', 'message' => 'invalid_code', 'data' => []]),
     ]);
 
     $user = User::factory()->create();

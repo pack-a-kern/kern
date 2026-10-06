@@ -128,9 +128,15 @@ it('fails closed with no configured certificate, never attempting an unauthentic
 
 it('routes a USER_PASSWORD_OTP connection through the browser transport, which fails today with no observed portal', function (): void {
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-sync-session', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-sync-session/actions/sync' => Http::response(['error' => 'not_implemented', 'action' => 'sync', 'message' => 'nope'], 501),
-        '*/v1/spv/sessions/worker-sync-session' => Http::response(null, 204),
+        '*/v1/sessions' => Http::response(
+            ['session_id' => 'worker-sync-session', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()],
+            201,
+        ),
+        // A worker that answers 501 is saying the thing asked for is not built, which stays a
+        // different fact from the worker being unreachable.
+        '*/run' => Http::response(['error' => 'not_implemented'], 501),
+        // The teardown, which this test counts: a session is destroyed even when the sync failed.
+        '*/v1/sessions/*' => Http::response(['destroyed' => true]),
     ]);
 
     $subject = TaxSubject::factory()->create();

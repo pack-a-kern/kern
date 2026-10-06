@@ -38,6 +38,7 @@ use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
 use Kern\TaxRomania\Http\Controllers\Spv\DestroySpvSessionController;
 use Kern\TaxRomania\Http\Controllers\Spv\RegisterSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\ShowSpvConnectionsController;
+use Kern\TaxRomania\Http\Controllers\Spv\RevokeSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\StartSpvSignInController;
 use Kern\TaxRomania\Http\Controllers\Spv\SubmitSpvChallengeCodeController;
 use Kern\TaxRomania\Http\Controllers\Spv\SubmitSpvCredentialsController;
@@ -207,6 +208,8 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      */
     Route::get('spv/connections', ShowSpvConnectionsController::class);
     Route::post('spv/connections', RegisterSpvConnectionController::class);
+    Route::delete('spv/connections/{connection}', RevokeSpvConnectionController::class)
+        ->where('connection', '[0-9a-f-]{36}');
     Route::post('spv/connections/{connection}/session', StartSpvSignInController::class)
         ->where('connection', '[0-9a-f-]{36}');
     Route::post('spv/connections/{connection}/sync', SyncSpvInboxController::class)

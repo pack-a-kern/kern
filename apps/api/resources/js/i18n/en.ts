@@ -628,6 +628,8 @@ export const en = {
         unexpected: 'An unexpected error occurred.',
         rateLimited: 'Too many attempts. Please wait a few minutes before trying again.',
         reasons: {
+            SPV_WORKER_UNAVAILABLE:
+                'The SPV browser service is not reachable. Check that it is running and that SPV_BROWSER_AUTH_TOKEN is set.',
             MFA_REQUIRED: 'Enrol two-factor authentication on your account before connecting it to SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',
@@ -1565,6 +1567,10 @@ export const en = {
             },
         },
         spv: {
+            revoke: 'Revoke',
+            revokeTitle: 'Revoke this connection?',
+            revokeHint:
+                'It stops being offered for signing in. Its history is kept, because the sync runs and audit events point at it.',
             statusColumn: 'Status',
             title: 'SPV',
             description: "Your inbox at ANAF's Virtual Private Space.",

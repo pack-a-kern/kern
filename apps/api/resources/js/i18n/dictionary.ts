@@ -1421,6 +1421,9 @@ export interface Dictionary {
             };
         };
         spv: {
+            revoke: string;
+            revokeTitle: string;
+            revokeHint: string;
             statusColumn: string;
             title: string;
             description: string;

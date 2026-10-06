@@ -631,6 +631,8 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Așteptați câteva minute înainte de a reîncerca.',
         reasons: {
+            SPV_WORKER_UNAVAILABLE:
+                'Serviciul de browser SPV nu poate fi contactat. Verifică dacă rulează și dacă SPV_BROWSER_AUTH_TOKEN este setat.',
             MFA_REQUIRED: 'Activează autentificarea în doi pași pe contul tău înainte să îl conectezi la SPV.',
             GENERAL_SOURCE_UNDELETABLE:
                 'Sursa generală nu poate fi ștearsă: acolo se înregistrează tot ce nu are altă destinație.',
@@ -1579,6 +1581,10 @@ export const ro = {
             },
         },
         spv: {
+            revoke: 'Revocă',
+            revokeTitle: 'Revoci această conexiune?',
+            revokeHint:
+                'Nu va mai fi oferită la autentificare. Istoricul rămâne, pentru că rulările și evenimentele de audit trimit la ea.',
             statusColumn: 'Stare',
             title: 'SPV',
             description: 'Căsuța ta din Spațiul Privat Virtual al ANAF.',

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
 use Kern\Platform\Identity\Exceptions\MfaNotEnrolledException;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
@@ -195,5 +196,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (MfaNotEnrolledException $exception): JsonResponse => response()->json(
             ['message' => $exception->getMessage(), 'reason' => 'MFA_REQUIRED'],
             403,
+        ));
+
+        // The browser worker is unreachable, unconfigured, or answered something this does not
+        // understand. None of those is a fault in the request: a 502 says the dependency is the
+        // problem, which is what a person needs to know before they go looking at their own typing.
+        $exceptions->render(fn (SpvWorkerUnavailableException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'SPV_WORKER_UNAVAILABLE'],
+            502,
         ));
     })->create();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { KeyRound, Link2, Mails, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
+import { KeyRound, Link2, Mails, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AppShell from '../components/AppShell';
@@ -106,6 +106,7 @@ export default function Spv(): JSX.Element {
     const [code, setCode] = useState('');
     const [working, setWorking] = useState(false);
     const errors = useFormErrors();
+    const [revoking, setRevoking] = useState<Connection | null>(null);
 
     const base = subjectId === null ? null : `/v1/subjects/${encodeURIComponent(subjectId)}/spv`;
 
@@ -275,6 +276,24 @@ export default function Spv(): JSX.Element {
         }
     };
 
+    const revoke = async (connection: Connection): Promise<void> => {
+        if (base === null) {
+            return;
+        }
+
+        setWorking(true);
+
+        try {
+            await apiRequest(`${base}/connections/${encodeURIComponent(connection.id)}`, { method: 'DELETE' });
+            setRevoking(null);
+            reload();
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
+        } finally {
+            setWorking(false);
+        }
+    };
+
     const register = async (): Promise<void> => {
         if (base === null) {
             return;
@@ -379,8 +398,9 @@ export default function Spv(): JSX.Element {
                                     {/* Two labelled buttons do not fit the corner a pinned cell gets,
                                         so they take the card's last line on a phone. */}
                                     <td className="col-actions text-right">
-                                        <div className="flex justify-end gap-1.5">
-                                            {connection.authMethod === 'CERTIFICATE' ? null : (
+                                        <div className="flex flex-wrap justify-end gap-1.5">
+                                            {connection.status === 'REVOKED' ||
+                                            connection.authMethod === 'CERTIFICATE' ? null : (
                                                 <PanelButton
                                                     disabled={working}
                                                     onClick={() => {
@@ -391,15 +411,28 @@ export default function Spv(): JSX.Element {
                                                     {t((d) => d.pages.spv.signIn)}
                                                 </PanelButton>
                                             )}
-                                            <PanelButton
-                                                disabled={working}
-                                                onClick={() => {
-                                                    void sync(connection);
-                                                }}
-                                            >
-                                                <RefreshCw className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.spv.sync)}
-                                            </PanelButton>
+                                            {connection.status === 'REVOKED' ? null : (
+                                                <PanelButton
+                                                    disabled={working}
+                                                    onClick={() => {
+                                                        void sync(connection);
+                                                    }}
+                                                >
+                                                    <RefreshCw className="size-3.5" aria-hidden="true" />
+                                                    {t((d) => d.pages.spv.sync)}
+                                                </PanelButton>
+                                            )}
+                                            {connection.status === 'REVOKED' ? null : (
+                                                <PanelButton
+                                                    disabled={working}
+                                                    onClick={() => {
+                                                        setRevoking(connection);
+                                                    }}
+                                                >
+                                                    <Trash2 className="text-destructive size-3.5" aria-hidden="true" />
+                                                    {t((d) => d.pages.spv.revoke)}
+                                                </PanelButton>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -474,6 +507,42 @@ export default function Spv(): JSX.Element {
                         </Field>
                     )}
                 </FieldGrid>
+            </PanelDialog>
+
+            <PanelDialog
+                open={revoking !== null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        setRevoking(null);
+                    }
+                }}
+                title={t((d) => d.pages.spv.revokeTitle)}
+                description={t((d) => d.pages.spv.revokeHint)}
+                size="sm"
+                actions={
+                    <>
+                        <PanelButton
+                            onClick={() => {
+                                setRevoking(null);
+                            }}
+                        >
+                            {t((d) => d.pages.spv.cancel)}
+                        </PanelButton>
+                        <PanelButton
+                            primary
+                            disabled={working}
+                            onClick={() => {
+                                if (revoking !== null) {
+                                    void revoke(revoking);
+                                }
+                            }}
+                        >
+                            {t((d) => d.pages.spv.revoke)}
+                        </PanelButton>
+                    </>
+                }
+            >
+                <p className="note">{revoking?.username ?? ''}</p>
             </PanelDialog>
 
             {/* One dialog for both steps: it is one sitting, and the browser on the worker stays open

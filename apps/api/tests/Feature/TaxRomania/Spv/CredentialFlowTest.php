@@ -95,12 +95,7 @@ function activateSpvSubject(User $user, TaxSubject $subject): void
 
 it('initiates a session against the worker and records an audit event', function (): void {
     Http::fake([
-        '*/v1/spv/sessions' => Http::response([
-            'id' => 'worker-session-1',
-            'status' => 'created',
-            'createdAt' => now('UTC')->toIso8601String(),
-            'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String(),
-        ], 201),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-1', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
     ]);
 
     $user = spvUserWithMfa();
@@ -119,8 +114,8 @@ it('initiates a session against the worker and records an audit event', function
 it('moves a session to AWAITING_USER_CHALLENGE and broadcasts once credentials are accepted, never persisting the password', function (): void {
     Event::fake([SpvAuthChallengeRequired::class]);
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-2', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-2/credentials' => Http::response(['status' => 'awaiting_challenge']),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-2', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/run' => Http::response(['outcome' => 'awaiting_challenge', 'data' => []]),
     ]);
 
     $user = spvUserWithMfa();
@@ -139,9 +134,13 @@ it('moves a session to AWAITING_USER_CHALLENGE and broadcasts once credentials a
     expect($updated->state)->toBe(SpvSessionState::AWAITING_USER_CHALLENGE)
         ->and($updated->challenge_requested_at)->not->toBeNull();
 
+    // The password reaches the worker as the secret the playbook named, in the one request that
+    // needs it. The URL is the generic run route now: which sequence runs is in the body, because
+    // the worker is told what to do rather than having a route per portal step.
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'http://spv-browser:8090/v1/spv/sessions/worker-session-2/credentials'
-            && $request['password'] === 'the-real-password';
+        return $request->url() === 'http://spv-browser:8090/v1/sessions/worker-session-2/run'
+            && $request['sequence'] === 'signIn'
+            && ($request->data()['secrets']['password'] ?? null) === 'the-real-password';
     });
 
     Event::assertDispatched(SpvAuthChallengeRequired::class, fn (SpvAuthChallengeRequired $event): bool => $event->sessionId === $session->id);
@@ -157,8 +156,8 @@ it('moves a session to AWAITING_USER_CHALLENGE and broadcasts once credentials a
 
 it('rejects submitting credentials to a session that already moved past CREATED', function (): void {
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-3', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-3/credentials' => Http::response(['status' => 'awaiting_challenge']),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-3', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/run' => Http::response(['outcome' => 'awaiting_challenge', 'data' => []]),
     ]);
 
     $user = spvUserWithMfa();
@@ -176,9 +175,10 @@ it('rejects submitting credentials to a session that already moved past CREATED'
 it('reaches AUTHENTICATED and activates the connection once the challenge code is accepted', function (): void {
     Event::fake([SpvAuthenticated::class]);
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-4', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-4/credentials' => Http::response(['status' => 'awaiting_challenge']),
-        '*/v1/spv/sessions/worker-session-4/challenge' => Http::response(['status' => 'authenticated']),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-4', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/run' => Http::sequence()
+            ->push(['outcome' => 'awaiting_challenge', 'data' => []])
+            ->push(['outcome' => 'authenticated', 'data' => []]),
     ]);
 
     $user = spvUserWithMfa();
@@ -198,15 +198,19 @@ it('reaches AUTHENTICATED and activates the connection once the challenge code i
 
     Event::assertDispatched(SpvAuthenticated::class);
 
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/challenge') && $request['code'] === '123456');
+    // The code is the secret the `challenge` sequence names, sent to the one run route. Every
+    // request sent is offered to this closure, including the one that opened the session — which
+    // carries no sequence at all.
+    Http::assertSent(fn (Request $request): bool => ($request->data()['sequence'] ?? null) === 'challenge'
+        && ($request->data()['secrets']['code'] ?? null) === '123456');
 });
 
 it('expires an unanswered challenge past its TTL, never forwarding the code to the worker', function (): void {
     config(['spv.challenge_ttl_seconds' => 1]);
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-5', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-5/credentials' => Http::response(['status' => 'awaiting_challenge']),
-        '*/v1/spv/sessions/worker-session-5' => Http::response(null, 204),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-5', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/run' => Http::response(['outcome' => 'awaiting_challenge', 'data' => []]),
+        '*/v1/sessions/*' => Http::response(['destroyed' => true]),
     ]);
 
     $user = spvUserWithMfa();
@@ -236,8 +240,8 @@ it('expires an unanswered challenge past its TTL, never forwarding the code to t
 
 it('translates a 501 not_implemented worker response into a distinct, non-retried exception and still records an audit event', function (): void {
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-6', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-6/credentials' => Http::response(['error' => 'not_implemented', 'action' => 'credentials', 'message' => 'nope'], 501),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-6', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/run' => Http::response(['error' => 'not_implemented'], 501),
     ]);
 
     $user = spvUserWithMfa();
@@ -257,8 +261,8 @@ it('translates a 501 not_implemented worker response into a distinct, non-retrie
 
 it('destroys a session idempotently', function (): void {
     Http::fake([
-        '*/v1/spv/sessions' => Http::response(['id' => 'worker-session-7', 'expiresAt' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
-        '*/v1/spv/sessions/worker-session-7' => Http::response(null, 204),
+        '*/v1/sessions' => Http::response(['session_id' => 'worker-session-7', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+        '*/v1/sessions/*' => Http::response(['destroyed' => true]),
     ]);
 
     $user = spvUserWithMfa();
