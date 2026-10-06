@@ -1,5 +1,5 @@
 {
-  "name": "spv-browser",
+  "name": "browser-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "pretest": "tsc -p tsconfig.test.json",
-    "test": "node --test dist-test/tests",
+    "test": "node --test \"dist-test/tests/**/*.test.js\"",
     "start": "node dist/server.js"
   },
   "dependencies": {

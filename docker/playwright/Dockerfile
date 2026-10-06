@@ -13,7 +13,7 @@
 # work lands — see "What is NOT done" in the handoff note.
 #
 # The image's `playwright` npm package version must match this image tag
-# exactly (v1.63.0) once apps/spv-browser/package.json exists — a mismatch
+# exactly (v1.63.0) once apps/browser-worker/package.json exists — a mismatch
 # between the Node package and the pre-installed browser binaries is a
 # common, hard-to-diagnose Playwright failure mode. Record this as a
 # constraint for whoever writes that package.json.
@@ -26,9 +26,9 @@
 FROM mcr.microsoft.com/playwright:v1.63.0-noble AS build
 
 WORKDIR /app
-COPY apps/spv-browser/package.json apps/spv-browser/package-lock.json ./
+COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
 RUN npm ci
-COPY apps/spv-browser/ .
+COPY apps/browser-worker/ .
 RUN npm run build
 
 # ---------------------------------------------------------------------------
@@ -44,12 +44,12 @@ RUN npm run build
 FROM mcr.microsoft.com/playwright:v1.63.0-noble AS runtime
 
 WORKDIR /app
-COPY apps/spv-browser/package.json apps/spv-browser/package-lock.json ./
+COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
 # `--omit=dev` alone does not clear the CVE this stage exists to fix: our own
 # app's devDependencies were never the only source of it. Trivy resolves it
 # to /usr/lib/node_modules/npm/node_modules/brace-expansion — npm's *own*
 # globally-installed CLI, vendored inside the base image, unrelated to
-# anything in apps/spv-browser/package.json (confirmed: the same finding,
+# anything in apps/browser-worker/package.json (confirmed: the same finding,
 # at the same path, appears in a scan of the base image before this
 # Dockerfile even runs `npm ci`). The base image also ships two further HIGH
 # CVEs the same way (ip-address, tar — see docs/handoff/009-cve-remediation.md).
@@ -74,3 +74,24 @@ USER pwuser
 
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
+
+# ---------------------------------------------------------------------------
+# Stage: test — dev dependencies and the sources, for `make check-browser`.
+#
+# The browser tests drive a real Chromium, which lives in this base image and
+# nowhere on a developer's host. Running them here rather than locally is the
+# same arrangement `docker/python/Dockerfile`'s own `test` stage makes, and for
+# the same reason: the thing under test needs the runtime the image provides.
+#
+# Never used as a runtime image.
+# ---------------------------------------------------------------------------
+FROM mcr.microsoft.com/playwright:v1.63.0-noble AS test
+
+WORKDIR /app
+
+COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
+RUN npm ci
+
+COPY apps/browser-worker/ .
+
+CMD ["npm", "test"]

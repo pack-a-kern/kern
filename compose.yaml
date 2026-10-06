@@ -391,7 +391,7 @@ services:
       # Probed with node rather than curl: node is the one binary this image is
       # guaranteed to keep (curl comes from the Playwright base and is not ours to rely on),
       # matching python-api's `python -c` convention. Port/path must track
-      # apps/spv-browser/src/server.ts (PORT, default 8090) and routes/health.ts (/health).
+      # apps/browser-worker/src/server.ts (PORT, default 8090) and routes/health.ts (/health).
       # Verified live: returns 200.
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 15s

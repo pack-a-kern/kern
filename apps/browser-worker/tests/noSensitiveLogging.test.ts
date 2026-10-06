@@ -32,7 +32,7 @@ async function withSpiedConsole(fn: (baseUrl: string) => Promise<void>): Promise
   const { factory } = createFakeBrowserContextFactory();
   const { authenticator } = createFakePortalAuthenticator();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory });
-  const server: Server = createServer(createApp(manager, authenticator, TEST_TOKEN));
+  const server: Server = createServer(createApp(manager, authenticator, { authMode: "token", internalAuthToken: TEST_TOKEN, concurrency: 1, maxWaiting: 4 }));
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const address = server.address() as AddressInfo;
 

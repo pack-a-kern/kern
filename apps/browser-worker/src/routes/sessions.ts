@@ -6,13 +6,13 @@ import {
   type PortalAuthOutcome,
 } from "../portal/portalAuthenticator.js";
 import type { SessionManager } from "../sessions/sessionManager.js";
-import type { SpvSession, SpvSessionStatus } from "../sessions/types.js";
+import type { BrowserSession, SessionStatus } from "../sessions/types.js";
 
 function notFoundPayload(id: string): { error: "not_found"; message: string } {
   return { error: "not_found", message: `no SPV session ${id}` };
 }
 
-function invalidStatePayload(expected: SpvSessionStatus, actual: SpvSessionStatus): {
+function invalidStatePayload(expected: SessionStatus, actual: SessionStatus): {
   error: "invalid_state";
   message: string;
 } {
@@ -59,7 +59,7 @@ function notImplementedHandler(action: string): (req: Request, res: Response) =>
   };
 }
 
-function sessionOrNotFound(sessionManager: SessionManager, req: Request, res: Response): SpvSession | undefined {
+function sessionOrNotFound(sessionManager: SessionManager, req: Request, res: Response): BrowserSession | undefined {
   const id = sessionIdParam(req);
   const session = id !== undefined ? sessionManager.get(id) : undefined;
   if (session === undefined) {

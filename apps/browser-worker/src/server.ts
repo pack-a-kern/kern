@@ -8,15 +8,33 @@ import { SessionManager } from "./sessions/sessionManager.js";
 const DEFAULT_PORT = 8090;
 const DEFAULT_SESSION_TTL_MS = 15 * 60 * 1000;
 
+const DEFAULT_CONCURRENCY = 1;
+const DEFAULT_MAX_WAITING = 8;
+
 const port = Number(process.env.PORT ?? DEFAULT_PORT);
-const sessionTtlMs = Number(process.env.SPV_SESSION_TTL_MS ?? DEFAULT_SESSION_TTL_MS);
+const sessionTtlMs = Number(process.env.BROWSER_SESSION_TTL_MS ?? process.env.SPV_SESSION_TTL_MS ?? DEFAULT_SESSION_TTL_MS);
+
+/*
+ * `token` unless the deployment says otherwise.
+ *
+ * Defaulting the other way would mean a missing variable silently removes the only thing standing
+ * in front of a browser — and a mistake that opens something should never be the quiet one.
+ */
+const authMode = process.env.BROWSER_AUTH_MODE === "network" ? "network" : "token";
 
 const sessionManager = new SessionManager({
   ttlMs: sessionTtlMs,
   createBrowserContext: createPlaywrightBrowserContext,
 });
 
-const app = createApp(sessionManager, new UnimplementedPortalAuthenticator(), process.env.SPV_BROWSER_AUTH_TOKEN);
+const app = createApp(sessionManager, new UnimplementedPortalAuthenticator(), {
+  authMode,
+  internalAuthToken: process.env.BROWSER_AUTH_TOKEN ?? process.env.SPV_BROWSER_AUTH_TOKEN,
+  // One browser at a time by default: each holds a Chromium and several hundred megabytes, and a
+  // worker that accepts more than it can run is slower than one that says so.
+  concurrency: Number(process.env.BROWSER_CONCURRENCY ?? DEFAULT_CONCURRENCY),
+  maxWaiting: Number(process.env.BROWSER_MAX_WAITING ?? DEFAULT_MAX_WAITING),
+});
 const server = createServer(app);
 
 server.listen(port, () => {

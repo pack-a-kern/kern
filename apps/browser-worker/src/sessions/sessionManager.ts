@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { logger } from "../logger.js";
+import type { RunContext } from "../playbook/types.js";
 import type { BrowserContextFactory, BrowserContextHandle } from "./browserContextFactory.js";
-import type { SpvSession, SpvSessionStatus } from "./types.js";
+import type { BrowserSession, SessionStatus } from "./types.js";
 
 export interface SessionManagerOptions {
   readonly ttlMs: number;
@@ -9,7 +10,7 @@ export interface SessionManagerOptions {
 }
 
 interface TrackedSession {
-  readonly session: SpvSession;
+  readonly session: BrowserSession;
   readonly handle: BrowserContextHandle;
 }
 
@@ -37,10 +38,10 @@ export class SessionManager {
     this.sweepTimer.unref();
   }
 
-  async create(): Promise<SpvSession> {
-    const handle = await this.createBrowserContext();
+  async create(context?: RunContext): Promise<BrowserSession> {
+    const handle = await this.createBrowserContext(context);
     const createdAt = new Date();
-    const session: SpvSession = {
+    const session: BrowserSession = {
       id: randomUUID(),
       status: "created",
       createdAt,
@@ -48,12 +49,27 @@ export class SessionManager {
       downloadsDir: handle.downloadsDir,
     };
     this.sessions.set(session.id, { session, handle });
-    logger.info("spv_session_created", { event: "spv_session_created", sessionId: session.id });
+    logger.info("session_created", { event: "session_created", sessionId: session.id });
     return session;
   }
 
-  get(id: string): SpvSession | undefined {
+  get(id: string): BrowserSession | undefined {
     return this.sessions.get(id)?.session;
+  }
+
+  /**
+   * The browser behind a session, for whoever is driving it.
+   *
+   * Separate from `get` because the two answer different questions — "does this session exist and
+   * when does it expire" is something a route may say out loud, and the context is not.
+   */
+  handleOf(id: string): BrowserContextHandle | undefined {
+    return this.sessions.get(id)?.handle;
+  }
+
+  /** What is open, for a screen that asks. Never the contexts, only what they are. */
+  list(): readonly BrowserSession[] {
+    return [...this.sessions.values()].map((tracked) => tracked.session);
   }
 
   /**
@@ -62,12 +78,12 @@ export class SessionManager {
    * unknown or was destroyed/expired concurrently — a caller who already validated `get(id)`
    * immediately before still re-checks this return value rather than assuming success.
    */
-  updateStatus(id: string, status: SpvSessionStatus): SpvSession | undefined {
+  updateStatus(id: string, status: SessionStatus): BrowserSession | undefined {
     const tracked = this.sessions.get(id);
     if (tracked === undefined) {
       return undefined;
     }
-    const updated: SpvSession = { ...tracked.session, status };
+    const updated: BrowserSession = { ...tracked.session, status };
     this.sessions.set(id, { session: updated, handle: tracked.handle });
     return updated;
   }
@@ -79,7 +95,7 @@ export class SessionManager {
     }
     this.sessions.delete(id);
     await tracked.handle.close();
-    logger.info("spv_session_destroyed", { event: "spv_session_destroyed", sessionId: id });
+    logger.info("session_destroyed", { event: "session_destroyed", sessionId: id });
     return true;
   }
 

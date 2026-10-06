@@ -48,6 +48,8 @@ test:
 	docker run --rm -e APP_KEY=$${APP_KEY:-base64:0000000000000000000000000000000000000000=} kern-php-test:local vendor/bin/pest
 	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
 	docker run --rm kern-python-test:local pytest
+	docker build -f docker/playwright/Dockerfile --target test -t kern-browser-test:local .
+	docker run --rm --shm-size=1gb kern-browser-test:local npm test
 
 ## Run the PHP (Pint + PHPStan) and Python (ruff + pyright) linters.
 lint:
@@ -57,6 +59,9 @@ lint:
 	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
 	docker run --rm kern-python-test:local ruff check src tests
 	docker run --rm kern-python-test:local pyright
+	docker build -f docker/playwright/Dockerfile --target test -t kern-browser-test:local .
+	docker run --rm kern-browser-test:local npm run lint
+	docker run --rm kern-browser-test:local npm run typecheck
 
 ## Everything that must pass before a change is done, run against the ALREADY RUNNING stack.
 ##
