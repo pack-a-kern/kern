@@ -35,17 +35,32 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * fiscal mapping in code, so this applies the rate to what it is given and nothing else. Adding the
  * exemption is a parameter to approve and two lines here — not a literal somebody remembers.
  */
-#[TaxRuleAttribute(code: 'RO.PF.INCOME_TAX.CRYPTO_GAIN', version: '2026.1')]
+#[TaxRuleAttribute(
+    code: 'RO.PF.INCOME_TAX.CRYPTO_GAIN',
+    version: '2026.1',
+    parameters: ['RO.INCOME_TAX.RATE'],
+)]
 final class CryptoGainIncomeTaxRule implements TaxRuleContract
 {
+    private const string CATEGORY = 'CRYPTO_GAIN';
+
+
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
         $rate = $input->parameters->get('RO.INCOME_TAX.RATE')->asDecimalRate();
 
+        // Only crypto gains. The assessor hands every rule the whole year, for `CassOtherIncomeRule`'s
+        // sake; a rule about one category has to pick its own out, or it taxes a dividend as a crypto gain.
         $gains = Money::zero('RON');
+        $counted = 0;
 
         foreach ($input->facts as $fact) {
+            if ($fact->categoryCode !== self::CATEGORY) {
+                continue;
+            }
+
             $gains = $gains->add($fact->grossAmountRon);
+            $counted++;
         }
 
         /*
@@ -67,7 +82,7 @@ final class CryptoGainIncomeTaxRule implements TaxRuleContract
             steps: [
                 new CalculationStep(
                     operation: 'sum_gains',
-                    detail: ['fact_count' => (string) count($input->facts)],
+                    detail: ['fact_count' => (string) $counted],
                     result: $gains->toString(),
                 ),
                 new CalculationStep(
@@ -87,7 +102,7 @@ final class CryptoGainIncomeTaxRule implements TaxRuleContract
 
         return new TaxRuleOutcome(
             taxCode: $input->ruleVersion->taxCode,
-            categoryCode: 'CRYPTO_GAIN',
+            categoryCode: self::CATEGORY,
             taxableBase: $base,
             rate: $rate,
             tax: $tax,

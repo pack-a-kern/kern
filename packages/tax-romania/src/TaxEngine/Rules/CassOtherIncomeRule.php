@@ -43,7 +43,11 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * `RO.CASS.RATE` the percentage — each resolved for the date being assessed. A year that changes its
  * thresholds changes them in the database.
  */
-#[TaxRuleAttribute(code: 'RO.PF.CASS.OTHER_INCOME', version: '2026.1')]
+#[TaxRuleAttribute(
+    code: 'RO.PF.CASS.OTHER_INCOME',
+    version: '2026.1',
+    parameters: ['RO.MIN_WAGE', 'RO.CASS.RATE', 'RO.CASS.OTHER_INCOME_BANDS_WAGES'],
+)]
 final class CassOtherIncomeRule implements TaxRuleContract
 {
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
@@ -52,6 +56,12 @@ final class CassOtherIncomeRule implements TaxRuleContract
         $rate = $input->parameters->get('RO.CASS.RATE')->asDecimalRate();
         $wageMultiples = $this->wageMultiples($input);
 
+        /*
+         * Every fact, deliberately — unlike the income-tax rules beside it, which filter to their own
+         * category. The thresholds apply to the sum of qualifying income, so narrowing here would be the
+         * bug rather than the fix. What qualifies was already decided upstream: the producer excludes salary
+         * and pension, which an employer withholds and declares.
+         */
         $income = Money::zero('RON');
 
         foreach ($input->facts as $fact) {

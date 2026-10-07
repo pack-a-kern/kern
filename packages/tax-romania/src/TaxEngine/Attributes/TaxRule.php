@@ -23,6 +23,21 @@ final readonly class TaxRule
     public function __construct(
         public string $code,
         public string $version,
+        /**
+         * The fiscal parameters this rule reads, by code.
+         *
+         * A rule receives only what was resolved for it — `ParameterResolver` works from
+         * `tax_rule_versions.config_json.parameter_references`, and asking for anything absent throws. So
+         * the list has to exist somewhere, and the class that reads them is the honest place to say so:
+         * `kern:tax:register-rules` copies it onto the row, which stays the authority the engine trusts.
+         *
+         * Declared here rather than only on the row because the two must agree, and a class that reads a
+         * parameter it did not declare should fail the moment it is registered rather than the moment
+         * somebody assesses a year.
+         *
+         * @var list<string>
+         */
+        public array $parameters = [],
     ) {
     }
 }

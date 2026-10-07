@@ -179,3 +179,40 @@ it('nets gains against losses before taxing', function (): void {
     expect($outcome->taxableBase->toString())->toBe('5000.00 RON')
         ->and($outcome->tax->toString())->toBe('500.00 RON');
 });
+
+it('taxes only its own category, out of everything the assessor hands it', function (): void {
+    /*
+     * The bug this file exists to prevent, found by running an assessment against real data: the assessor
+     * gives every rule the whole year's facts, because `CassOtherIncomeRule` needs the sum across categories.
+     * Summing blindly produced a confident rent figure for somebody who owns no property, from a dividend.
+     */
+    $mixed = incomeTaxInput('RENT', [1200000], RentIncomeTaxRule::class, 'RO.PF.INCOME_TAX.RENT');
+
+    $withIntruders = new TaxRuleInput(
+        fiscalYear: $mixed->fiscalYear,
+        asOf: $mixed->asOf,
+        facts: [
+            ...$mixed->facts,
+            ...incomeTaxInput('DIVIDENDS_INTEREST', [9900000], RentIncomeTaxRule::class, 'RO.PF.INCOME_TAX.RENT')->facts,
+            ...incomeTaxInput('CRYPTO_GAIN', [5000000], RentIncomeTaxRule::class, 'RO.PF.INCOME_TAX.RENT')->facts,
+        ],
+        parameters: $mixed->parameters,
+        ruleVersion: $mixed->ruleVersion,
+    );
+
+    // The rent is still 12,000, and the 99,000 dividend and 50,000 crypto gain are not rent.
+    $outcome = (new RentIncomeTaxRule())->evaluate($withIntruders);
+
+    expect($outcome->taxableBase->toString())->toBe('9600.00 RON')
+        ->and($outcome->tax->toString())->toBe('960.00 RON')
+        ->and($outcome->trace->steps[0]->detail['fact_count'])->toBe('1');
+});
+
+it('counts no crypto gain in a year of dividends', function (): void {
+    $input = incomeTaxInput('DIVIDENDS_INTEREST', [9900000], CryptoGainIncomeTaxRule::class, 'RO.PF.INCOME_TAX.CRYPTO_GAIN');
+
+    $outcome = (new CryptoGainIncomeTaxRule())->evaluate($input);
+
+    expect($outcome->tax->isZero())->toBeTrue()
+        ->and($outcome->trace->steps[0]->detail['fact_count'])->toBe('0');
+});

@@ -29,18 +29,39 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * deduction for this regime, and adding both would deduct the same costs twice. A landlord who itemises
  * instead is a different regime and would be a different rule, not a branch in this one.
  */
-#[TaxRuleAttribute(code: 'RO.PF.INCOME_TAX.RENT', version: '2026.1')]
+#[TaxRuleAttribute(
+    code: 'RO.PF.INCOME_TAX.RENT',
+    version: '2026.1',
+    parameters: ['RO.INCOME_TAX.RATE', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA'],
+)]
 final class RentIncomeTaxRule implements TaxRuleContract
 {
+    private const string CATEGORY = 'RENT';
+
+
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
         $quota = $input->parameters->get('RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->asDecimalRate();
         $rate = $input->parameters->get('RO.INCOME_TAX.RATE')->asDecimalRate();
 
+        /*
+         * Only rent, out of everything handed over.
+         *
+         * The assessor gives every rule the whole year's facts, because `CassOtherIncomeRule` needs the sum
+         * across categories to compare against its thresholds. A rule about one category therefore has to
+         * say so — summing blindly taxed a dividend as rent the first time this ran against real data, and
+         * produced a confident figure for a landlord who owns nothing.
+         */
         $gross = Money::zero('RON');
+        $counted = 0;
 
         foreach ($input->facts as $fact) {
+            if ($fact->categoryCode !== self::CATEGORY) {
+                continue;
+            }
+
             $gross = $gross->add($fact->grossAmountRon);
+            $counted++;
         }
 
         /*
@@ -63,7 +84,7 @@ final class RentIncomeTaxRule implements TaxRuleContract
             steps: [
                 new CalculationStep(
                     operation: 'sum_gross_rent',
-                    detail: ['fact_count' => (string) count($input->facts)],
+                    detail: ['fact_count' => (string) $counted],
                     result: $gross->toString(),
                 ),
                 new CalculationStep(
@@ -83,7 +104,7 @@ final class RentIncomeTaxRule implements TaxRuleContract
 
         return new TaxRuleOutcome(
             taxCode: $input->ruleVersion->taxCode,
-            categoryCode: 'RENT',
+            categoryCode: self::CATEGORY,
             taxableBase: $base,
             rate: $rate,
             tax: $tax,

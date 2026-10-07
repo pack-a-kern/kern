@@ -9,7 +9,10 @@ use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Routing\PackageRoutes;
+use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
+use Kern\TaxRomania\Wallet\Providers\EloquentLedgerIncomeProvider;
 use Kern\TaxRomania\Console\Commands\Spv\CloseExpiredSpvSessionsCommand;
+use Kern\TaxRomania\Console\Commands\TaxEngine\RegisterTaxRulesCommand;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
 use Kern\TaxRomania\Console\Commands\Fx\BackfillBnrYearCommand;
@@ -82,6 +85,15 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
             $this->mergeConfigFrom(__DIR__ . "/../config/{$file}.php", str_replace('/', '.', $file));
         }
 
+        /*
+         * The ledger behind the tax engine's income port.
+         *
+         * Bound here rather than in a Wallet provider because Wallet has none — and the direction is the one
+         * ADR 0010 requires either way: `TaxEngine` states the abstraction, `Wallet` implements it, and the
+         * engine never learns that transaction splits exist.
+         */
+        $this->app->bind(LedgerIncomeProvider::class, EloquentLedgerIncomeProvider::class);
+
         $this->app->register(SubjectsServiceProvider::class);
         $this->app->register(FiscalParametersServiceProvider::class);
         $this->app->register(FxServiceProvider::class);
@@ -144,6 +156,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 BackfillCounterpartiesCommand::class,
                 ClassifyCounterpartiesCommand::class,
                 CloseExpiredSpvSessionsCommand::class,
+                RegisterTaxRulesCommand::class,
                 IndexCounterpartiesCommand::class,
                 PostDepositInterestCommand::class,
             ]);

@@ -128,7 +128,12 @@ return static function (DeptracConfig $config): void {
             // record is a figure a tax return is computed from; an edit nobody recorded is
             // indistinguishable from an edit that never happened. Wallet never touches an Audit
             // Eloquent model, only the service that owns the chain's invariants.
-            Ruleset::forLayer($wallet)->accesses($subjects, $fx),
+            // Wallet -> TaxEngine is the same inversion FiscalParameters uses above, not a new liberty:
+            // Wallet implements `TaxEngine\Contracts\LedgerIncomeProvider` so that the engine can read a
+            // year's categorised income without knowing that transaction splits exist. The grant is for
+            // Wallet to see the engine's *abstractions*; the engine still has no access to Wallet, which is
+            // what the refused first attempt at that producer tried to take.
+            Ruleset::forLayer($wallet)->accesses($subjects, $fx, $taxEngine),
             // TaxEngine -> Subjects: Kern\TaxRomania\TaxEngine\Models\{TaxFact,TaxAssessment} use
             // Kern\Platform\Tenancy\ScopedToTenant (a trait, not a model import) and
             // Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository references
