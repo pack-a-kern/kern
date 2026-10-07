@@ -24,6 +24,17 @@ interface Line {
     rateDecimal: string | null;
     taxMinor: number;
     explanationKey: string;
+    /**
+     * What the rule summed before anything else — the income this figure came from.
+     *
+     * Shown because the first version of this screen displayed a base of 103,800 and nothing about the 475,690
+     * behind it, so a contribution the rule describes as "a percentage of the threshold, not of what you
+     * earned" appeared with no sign of what was earned. Already formatted with its currency by the engine's own
+     * `Money`, so it is printed rather than reformatted.
+     */
+    income: string | null;
+    /** How the rule got from that income to the base, as the step recorded it. */
+    baseReached: Record<string, string> | null;
 }
 
 interface Assessment {
@@ -60,6 +71,10 @@ function parse(payload: unknown): Assessment {
                 rateDecimal: typeof row.rate_decimal === 'string' ? row.rate_decimal : null,
                 taxMinor: int(row, 'tax_minor'),
                 explanationKey: str(row, 'explanation_key'),
+                income: typeof row.income === 'string' ? row.income : null,
+                baseReached: typeof row.base_reached === 'object' && row.base_reached !== null
+                    ? (row.base_reached as Record<string, string>)
+                    : null,
             };
         }),
     };
@@ -158,6 +173,7 @@ export default function TaxesOverview(): JSX.Element {
                                     <>
                                         <th>{t((d) => d.pages.taxes.columnTax)}</th>
                                         <th>{t((d) => d.pages.taxes.columnCategory)}</th>
+                                        <th className="col-figure">{t((d) => d.pages.taxes.columnIncome)}</th>
                                         <th className="col-figure">{t((d) => d.pages.taxes.columnBase)}</th>
                                         <th className="col-figure">{t((d) => d.pages.taxes.columnRate)}</th>
                                         <th className="col-figure">{t((d) => d.pages.taxes.columnOwed)}</th>
@@ -177,8 +193,31 @@ export default function TaxesOverview(): JSX.Element {
                                                     line.explanationKey}
                                             </p>
                                         </td>
+                                        <td className="col-figure" data-label={t((d) => d.pages.taxes.columnIncome)}>
+                                            {line.income ?? '—'}
+                                        </td>
                                         <td className="col-figure" data-label={t((d) => d.pages.taxes.columnBase)}>
                                             {formatAmount(line.taxableBaseMinor / 100, 'RON', locale)}
+                                            {/* Why the base is not the income. For the contribution that is
+                                                which threshold was reached — the step people most want to see,
+                                                and the reason two different incomes can owe the same. */}
+                                            {line.baseReached?.threshold_in_wages !== undefined &&
+                                            line.baseReached.threshold_in_wages !== 'none' ? (
+                                                <p className="note mt-0.5">
+                                                    {t((d) => d.pages.taxes.thresholdReached).replace(
+                                                        '{wages}',
+                                                        line.baseReached.threshold_in_wages,
+                                                    )}
+                                                </p>
+                                            ) : null}
+                                            {line.baseReached?.quota !== undefined ? (
+                                                <p className="note mt-0.5">
+                                                    {t((d) => d.pages.taxes.quotaDeducted).replace(
+                                                        '{deducted}',
+                                                        line.baseReached.deducted ?? '',
+                                                    )}
+                                                </p>
+                                            ) : null}
                                         </td>
                                         <td className="col-figure" data-label={t((d) => d.pages.taxes.columnRate)}>
                                             {line.rateDecimal === null

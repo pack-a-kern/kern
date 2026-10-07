@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use Illuminate\Support\Collection;
 use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\FiscalParameters\ParameterReadOutcome;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterRead;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
@@ -76,5 +78,21 @@ final readonly class EloquentFiscalParameterProvider implements FiscalParameterP
             sourceSectionId: $version->source_section_id,
             status: EngineApprovalStatus::from($version->status->value),
         );
+    }
+
+    public function readFoundNoValueFor(string $parameterCode, int $year): bool
+    {
+        $parameter = FiscalParameter::query()->where('code', $parameterCode)->first();
+
+        if (! $parameter instanceof FiscalParameter) {
+            // A parameter this installation has never heard of. Not "the law says nothing" — nobody has asked.
+            return false;
+        }
+
+        return FiscalParameterRead::query()
+            ->where('fiscal_parameter_id', $parameter->id)
+            ->where('year', $year)
+            ->where('outcome', ParameterReadOutcome::NOT_IN_LAW->value)
+            ->exists();
     }
 }

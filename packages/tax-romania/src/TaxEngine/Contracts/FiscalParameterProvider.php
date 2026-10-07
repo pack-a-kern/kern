@@ -28,4 +28,18 @@ interface FiscalParameterProvider
      * @throws AmbiguousFiscalParameterVersionException more than one version's effective range covers the date
      */
     public function versionInForceOn(string $parameterCode, DateTimeImmutable $date): ResolvedFiscalParameter;
+
+    /**
+     * Whether that year's law was read for this parameter and found to state no value.
+     *
+     * The distinction this exists for: "nobody has read 2023 yet" and "2023's law was read and sets no rent
+     * expense allowance" are different facts, and only the second is an answer. `fiscal_parameter_reads` records
+     * which it is — the screen already draws a dash for one and an empty cell for the other — and the engine was
+     * consulting neither, so a year the law deliberately left blank failed as though the dataset were
+     * incomplete.
+     *
+     * False therefore means *unknown*, not *present*: a caller that has already failed to find a version and
+     * gets false here is looking at a genuine gap and must still refuse.
+     */
+    public function readFoundNoValueFor(string $parameterCode, int $year): bool;
 }

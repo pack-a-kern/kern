@@ -6,12 +6,12 @@ namespace Tests\Feature\TaxRomania\TaxEngine\AssessFiscalYearTest;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
-use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -21,11 +21,12 @@ use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
-use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
+use Kern\TaxRomania\TaxRules\TaxRuleSource;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 
 /**
  * The ledger to a recorded assessment, end to end.
@@ -49,10 +50,28 @@ beforeEach(function (): void {
  * The scope is the thing that keeps one taxpayer's figures away from another's, so a test that bypassed it
  * would be testing a query no request can make.
  */
+/**
+ * The owner of the subject under test, remembered so nothing has to guess at it.
+ *
+ * `User::query()->firstOrFail()` used to stand in for this, and `insertApprovedFiscalParameterVersion` creates a
+ * user of its own for `approved_by` — five of them — so the test authenticated as whichever row came back first.
+ * On sqlite that happened to be the owner; on Postgres it was not, so a test asserting the step-up gate refuses
+ * instead found a user with no authenticator and watched the request sail through. It passed alone and failed in
+ * the suite, which is the worst shape a test failure takes.
+ */
+function subjectOwner(): User
+{
+    /** @var User $user */
+    $user = User::query()->findOrFail($GLOBALS['assessableOwnerId']);
+
+    return $user;
+}
+
 function assessableSubject(): TaxSubject
 {
     $subject = TaxSubject::factory()->create();
     $user = User::factory()->create();
+    $GLOBALS['assessableOwnerId'] = $user->id;
 
     SubjectMembership::create([
         'subject_id' => $subject->id,
@@ -84,19 +103,31 @@ function seedRuleParameters(): void
         'RO.CASS.OTHER_INCOME_BANDS_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [6, 12, 24]]],
         'RO.INCOME_TAX.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.10']],
         'RO.INCOME_TAX.RENT_EXPENSE_QUOTA' => [FiscalParameterValueType::DECIMAL, ['value' => '0.20']],
+        // Independent activity owes two contributions on the same income, computed two different ways: the
+        // pension one steps up at thresholds, the health one sits between a floor and a cap.
+        'RO.CAS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.25']],
+        'RO.CAS.BASE_MIN_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [12, 24]]],
+        'RO.CASS.INDEPENDENT_BASE_WAGES' => [FiscalParameterValueType::JSON, ['floor' => 6, 'cap' => 72]],
     ];
 
     foreach ($values as $code => [$valueType, $valueJson]) {
         $parameter = FiscalParameter::factory()->create(['code' => $code, 'value_type' => $valueType->value]);
 
-        FiscalParameterVersion::factory()->create([
-            'fiscal_parameter_id' => $parameter->id,
-            'valid_from' => '2026-01-01',
-            'value_json' => $valueJson,
-            // CANDIDATE, matching the rule versions: a draft assessment accepts both, and a final one accepts
-            // neither, which is the gate being relied on rather than worked around.
-            'status' => RuleApprovalStatus::CANDIDATE->value,
-        ]);
+        /*
+         * Through the suite's own helper, which inserts the row directly.
+         *
+         * Setting APPROVED through the model is refused — `AgentApprovalNotPermittedException`, because
+         * approving a fiscal value is a human act and application code may not perform it. A test needs an
+         * approved value as a *precondition* rather than as an action, and the helper exists for exactly that.
+         *
+         * Approved matters here beyond realism: only an approved version's source section may be cited by a
+         * rule, since a candidate's is a section nobody has agreed on yet.
+         */
+        insertApprovedFiscalParameterVersion(
+            $parameter->id,
+            SourceSection::factory()->create()->id,
+            ['valid_from' => '2026-01-01', 'value_json' => json_encode($valueJson, JSON_THROW_ON_ERROR)],
+        );
     }
 }
 
@@ -261,7 +292,7 @@ it('computes a year over HTTP, behind the gate that guards sensitive acts', func
         new LedgerIncomeEntry('01a0ec10-0000-7000-8000-000000000001', 'RENT', 1200000, 'RON', new DateTimeImmutable('2026-06-01')),
     ]);
 
-    $user = User::query()->firstOrFail();
+    $user = subjectOwner();
 
     UserMfaMethod::create([
         'user_id' => $user->id,
@@ -270,7 +301,10 @@ it('computes a year over HTTP, behind the gate that guards sensitive acts', func
         'confirmed_at' => now('UTC'),
     ]);
 
-    // Enrolled but not recently proved: the gate should stop this before anything is computed.
+    // Enrolled but not recently proved: the gate should stop this before anything is computed. Withdrawn
+    // explicitly, because the session store carries a marker an earlier test may have written.
+    forgetVerification();
+
     $this->actingAs($user, 'web')
         ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 2026])
         ->assertForbidden()
@@ -304,7 +338,7 @@ it('computes a year over HTTP, behind the gate that guards sensitive acts', func
 
 it('refuses a year outside the fiscal dataset rather than failing deep in the resolver', function (): void {
     $subject = assessableSubject();
-    $user = User::query()->firstOrFail();
+    $user = subjectOwner();
 
     UserMfaMethod::create([
         'user_id' => $user->id,
@@ -319,4 +353,111 @@ it('refuses a year outside the fiscal dataset rather than failing deep in the re
         ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 1200])
         ->assertStatus(422)
         ->assertJsonValidationErrors('fiscal_year');
+});
+
+/**
+ * Which threshold the contribution reached, out of a response body typed `mixed`.
+ *
+ * Narrowed in one place rather than indexed through, so the assertion reads as the thing being checked instead
+ * of as three guards around it.
+ *
+ * @param  array<string, mixed>|null  $line
+ */
+function cassThreshold(?array $line): ?string
+{
+    $reached = $line === null ? null : ($line['base_reached'] ?? null);
+    $wages = is_array($reached) ? ($reached['threshold_in_wages'] ?? null) : null;
+
+    return is_string($wages) ? $wages : null;
+}
+
+it('shows what was earned beside what was taxed, which the first screen did not', function (): void {
+    /*
+     * The contribution is a percentage of a threshold rather than of income, and the first version of this
+     * response carried only the threshold — so a screen built on it displayed 103,800 with no sign of the
+     * 475,690 behind it, while the explanation said "not of what you earned".
+     */
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+
+    fakeLedger([
+        new LedgerIncomeEntry('01a0ec10-0000-7000-8000-000000000001', 'DIVIDENDS_INTEREST', 3000000, 'RON', new DateTimeImmutable('2026-03-01')),
+    ]);
+
+    $user = subjectOwner();
+
+    UserMfaMethod::create([
+        'user_id' => $user->id,
+        'type' => MfaMethodType::TOTP,
+        'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
+        'confirmed_at' => now('UTC'),
+    ]);
+
+    verifySession();
+
+    $response = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 2026])
+        ->assertCreated();
+
+    /** @var list<array<string, mixed>> $lines */
+    $lines = $response->json('lines');
+    $cass = null;
+
+    foreach ($lines as $line) {
+        if (($line['tax_code'] ?? null) === 'CASS') {
+            $cass = $line;
+        }
+    }
+
+    // 30,000 of income reaches the 24-wage threshold at 1,000 per wage, so the base is 24,000 and the
+    // contribution 2,400 — and the income is on the line rather than only inside the trace.
+    expect($cass['income'] ?? null)->toBe('30000.00 RON')
+        ->and($cass['taxable_base_minor'] ?? null)->toBe(2400000)
+        ->and($cass['tax_minor'] ?? null)->toBe(240000)
+        ->and(cassThreshold($cass))->toBe('24');
+});
+
+it('cites the law its parameters were approved against, rather than citing nothing', function (): void {
+    /*
+     * `source_refs: []` on every trace meant a figure arrived citing no law at all — the provenance chain broken
+     * at its last link, which `BLUEPRINT.md` §30 and ADR 0004 make mandatory.
+     *
+     * Which article a rule *implements* is a legal determination nothing here may invent. But every approved
+     * parameter version already names a section somebody approved, and a rule declares the parameters it reads,
+     * so the sections behind its values are derivable from approvals that exist.
+     */
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+
+    fakeLedger([
+        new LedgerIncomeEntry('01a0ec10-0000-7000-8000-000000000001', 'RENT', 1200000, 'RON', new DateTimeImmutable('2026-06-01')),
+    ]);
+
+    $assessment = app(AssessFiscalYear::class)($subject->id, 2026);
+
+    /** @var TaxAssessmentLine $rent */
+    $rent = TaxAssessmentLine::query()
+        ->where('assessment_id', $assessment->id)
+        ->where('category_code', 'RENT')
+        ->firstOrFail();
+
+    // Two parameters, one approved version each in this test, so two sections.
+    expect($rent->calculation_trace_json['source_refs'] ?? [])->toHaveCount(2);
+});
+
+it('leaves an already-recorded rule version alone while filling in citations it lacks', function (): void {
+    // A version may not be repointed at new code — `tax_assessment_lines` holds a foreign key to it, and replay
+    // is the reason versions exist. Adding the citations it never had takes nothing away.
+    assessableSubject();
+    seedRuleParameters();
+
+    Artisan::call('kern:tax:register-rules');
+    $before = TaxRuleVersion::query()->count();
+
+    Artisan::call('kern:tax:register-rules');
+
+    expect(TaxRuleVersion::query()->count())->toBe($before)
+        ->and(TaxRuleSource::query()->count())->toBeGreaterThan(0);
 });

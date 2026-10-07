@@ -14,8 +14,6 @@ export const ro = {
         rentals: 'Chirii',
         taxesGroup: 'Impozite',
         taxes: 'Impozite',
-        taxesExplain: 'De ce atât?',
-        declarations: 'Declarații',
         legislation: 'Legislație',
         spv: 'SPV',
         accountGroup: 'Contul meu',
@@ -98,11 +96,6 @@ export const ro = {
         searchSubjects: 'Caută contribuabili…',
         noSubjectsFound: 'Niciun contribuabil găsit.',
         manageSubjects: 'Gestionează contribuabilii',
-    },
-    placeholder: {
-        badge: 'Încă neconstruit',
-        blockedOnLabel: 'Blocat de',
-        backToDashboard: 'Înapoi la panou',
     },
     common: {
         loading: 'Se încarcă…',
@@ -635,6 +628,14 @@ export const ro = {
                 'Serviciul de browser nu poate fi contactat. Verifică dacă rulează și dacă BROWSER_WORKER_URL trimite către el.',
             SPV_RUN_FAILED:
                 'Kern nu a putut citi pagina afișată de ANAF. Portalul s-ar putea să fi fost modificat — detaliile sunt în jurnal.',
+            AMBIGUOUS_RULE_VERSION:
+                'Două versiuni ale aceleiași reguli fiscale se aplică pentru acea dată, deci nu poate fi calculat până când una este retrasă.',
+            FISCAL_PARAMETER_MISSING:
+                'Lipsește o valoare fiscală pentru acel an, deci nu poate fi calculat. Aprob-o pe ecranul de reguli fiscale și încearcă din nou.',
+            FX_RATE_MISSING:
+                'Lipsește un curs de schimb pentru acea dată, deci suma nu poate fi convertită în lei. Importă cursurile acelui an și încearcă din nou.',
+            NO_RULES_FOR_YEAR: 'Încă nu există reguli fiscale pentru acel an, deci nu poate fi calculat.',
+            NO_RULES_REGISTERED: 'Pe această instalare nu este înregistrată încă nicio regulă fiscală.',
             SPV_SIGN_IN_REQUIRED: 'Autentifică-te din nou la SPV — portalul a încheiat sesiunea.',
             VERIFICATION_REQUIRED: 'Această acțiune necesită codul din aplicația de autentificare.',
             GENERAL_SOURCE_UNDELETABLE:
@@ -691,10 +692,26 @@ export const ro = {
         cancel: 'Anulează',
     },
     taxExplanations: {
+        'tax.ro.pf.cas.independent.threshold_reached':
+            'Venitul din activități independente a depășit un plafon de pensie, deci contribuția este un procent din acel plafon — nu din cât ai câștigat.',
+        'tax.ro.pf.cas.independent.below_threshold':
+            'Venitul din activități independente a rămas sub primul plafon de pensie, deci nu datorezi contribuție de pensie.',
+        'tax.ro.pf.cass.independent.on_income':
+            'Contribuția de sănătate pe venitul din activități independente, care s-a încadrat între baza minimă și cea maximă anuală.',
+        'tax.ro.pf.cass.independent.at_floor':
+            'Venitul din activități independente a fost sub baza minimă anuală, deci contribuția se calculează la acea bază minimă.',
+        'tax.ro.pf.cass.independent.at_cap':
+            'Venitul din activități independente a fost peste baza maximă anuală, deci contribuția este plafonată acolo.',
+        'tax.ro.pf.cass.independent.no_income': 'Nu există venit din activități independente, deci nu datorezi contribuție de sănătate.',
+        'tax.ro.pf.income_tax.freelance': 'Venitul independent mai puțin cheltuielile înregistrate pentru el, impozitat la cota de impozit pe venit.',
+        'tax.ro.pf.income_tax.freelance.no_expenses':
+            'Venitul independent impozitat integral la cota de impozit pe venit: încă nu sunt înregistrate cheltuieli deductibile pentru el.',
         'tax.ro.pf.cass.other_income.threshold_reached':
             'Venitul tău a depășit un plafon de contribuție, deci contribuția este un procent din acel plafon — nu din cât ai câștigat.',
         'tax.ro.pf.cass.other_income.below_threshold':
             'Venitul tău a rămas sub primul plafon de contribuție, deci nu datorezi contribuție de sănătate.',
+        'tax.ro.pf.income_tax.rent.no_allowance':
+            'Chiria impozitată pe suma întreagă: legea acelui an nu prevedea nicio cotă forfetară de cheltuieli.',
         'tax.ro.pf.income_tax.rent': 'Chiria, mai puțin cota forfetară de cheltuieli, impozitată la cota de impozit pe venit.',
         'tax.ro.pf.income_tax.crypto_gain': 'Câștigurile din monedă virtuală, impozitate la cota de impozit pe venit.',
     },
@@ -1418,6 +1435,9 @@ export const ro = {
             },
         },
         taxes: {
+            columnIncome: 'Venitul tău',
+            thresholdReached: 'A atins plafonul de {wages} salarii minime',
+            quotaDeducted: 'Cotă de cheltuieli de {deducted} scăzută',
             assessTitle: 'Cât iese pentru un an',
             assessHint: 'Citește venitul pe care l-ai categorizat într-un an și aplică toate regulile fiscale înregistrate.',
             assess: 'Calculează anul',
@@ -1434,17 +1454,6 @@ export const ro = {
             description: 'Calculele fiscale determinate pe baza datelor dumneavoastră financiare.',
             blockedOn:
                 'Un endpoint de evaluare fiscală (`TaxAssessment`) accesibil din interfață, care nu există încă.',
-        },
-        taxesExplain: {
-            title: 'De ce atât?',
-            description: 'Explicația pas cu pas a unui calcul fiscal, cu sursele oficiale citate pentru fiecare cifră.',
-            blockedOn:
-                'Setul de date fiscale istorice 2020–2026 (Milestone 4) și aprobarea sa umană — ecranul „far” al produsului, dar nu poate afișa nimic real până când acel set de date este aprobat.',
-        },
-        declarations: {
-            title: 'Declarații',
-            description: 'Declarațiile fiscale generate (D212) și starea lor de depunere.',
-            blockedOn: 'Motorul de declarații D212 (Milestone 9), aflat în lucru pe backend.',
         },
         legislation: {
             title: 'Legislație',

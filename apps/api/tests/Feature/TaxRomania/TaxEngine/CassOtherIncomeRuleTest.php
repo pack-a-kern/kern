@@ -179,3 +179,49 @@ it('records the rule version and the sources the figure came from', function ():
         ->and($outcome->trace->sourceRefs)->toBe(['section-bands'])
         ->and($outcome->trace->result)->toBe('600.00 RON');
 });
+
+it('leaves independent activity out, because that has its own base entirely', function (): void {
+    /*
+     * `RO.CASS.INDEPENDENT_BASE_WAGES` is `{"floor": 6, "cap": 72}` — a band the income sits inside — while these
+     * thresholds are steps the income is rounded up to. Two mechanisms, and this rule implements one.
+     *
+     * Summing freelance income here inflated this base and produced a figure under a regime this class does not
+     * implement, which is what `CassIndependentRule` is for. Found by adding a freelance transaction and getting
+     * a confident answer.
+     */
+    $input = cassInput([700000]);
+
+    $withFreelance = new TaxRuleInput(
+        fiscalYear: $input->fiscalYear,
+        asOf: $input->asOf,
+        facts: [
+            ...$input->facts,
+            new TaxFactSnapshot(
+                id: 'freelance-fact',
+                categoryCode: 'FREELANCE',
+                subtypeCode: null,
+                recognitionDate: new DateTimeImmutable('2026-06-01'),
+                cashDate: null,
+                earnedAt: null,
+                receivedAt: null,
+                paidAt: null,
+                distributedAt: null,
+                contractDate: null,
+                transactionDate: null,
+                grossAmountRon: Money::ofMinorUnits(9900000, 'RON'),
+                deductibleAmountRon: null,
+                withheldTaxRon: null,
+                status: TaxFactStatus::CONFIRMED,
+            ),
+        ],
+        parameters: $input->parameters,
+        ruleVersion: $input->ruleVersion,
+    );
+
+    $outcome = (new CassOtherIncomeRule())->evaluate($withFreelance);
+
+    // The 99,000 of freelance income is not here: 7,000 still reaches only the 6-wage threshold.
+    expect($outcome->trace->inputs['qualifying_income'])->toBe('7000.00 RON')
+        ->and($outcome->tax->toString())->toBe('600.00 RON')
+        ->and($outcome->trace->steps[0]->detail['fact_count'])->toBe('1');
+});

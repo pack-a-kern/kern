@@ -31,18 +31,38 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  */
 #[TaxRuleAttribute(
     code: 'RO.PF.INCOME_TAX.RENT',
-    version: '2026.1',
-    parameters: ['RO.INCOME_TAX.RATE', 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA'],
+    version: '1.0.0',
+    categories: [RentIncomeTaxRule::CATEGORY],
+    parameters: [RentIncomeTaxRule::RATE, RentIncomeTaxRule::QUOTA],
 )]
 final class RentIncomeTaxRule implements TaxRuleContract
 {
-    private const string CATEGORY = 'RENT';
+    public const string CATEGORY = 'RENT';
+
+    public const string RATE = 'RO.INCOME_TAX.RATE';
+
+    public const string QUOTA = 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA';
 
 
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
-        $quota = $input->parameters->get('RO.INCOME_TAX.RENT_EXPENSE_QUOTA')->asDecimalRate();
-        $rate = $input->parameters->get('RO.INCOME_TAX.RATE')->asDecimalRate();
+        $rate = $input->parameters->get(self::RATE)->asDecimalRate();
+
+        /*
+         * A year whose law sets no expense allowance deducts nothing.
+         *
+         * 2023 is such a year: Romania's rent expense quota was 40% through 2022 and 20% from 2024, and the 2023
+         * law states none — a fact somebody read and recorded, which the screen shows as a dash. The engine used
+         * to fail that year as though the value were merely unloaded.
+         *
+         * Decided here rather than in the resolver because it is a question about *this* tax: no allowance means
+         * the whole rent is taxable, and the same absence on a rate would mean something else entirely. A rule
+         * that cannot proceed without a parameter the law omits should still refuse, which `get()` does.
+         */
+        $quotaStatedByNoLaw = ! $input->parameters->has(self::QUOTA)
+            && $input->parameters->statedByNoLaw(self::QUOTA);
+
+        $quota = $quotaStatedByNoLaw ? null : $input->parameters->get(self::QUOTA)->asDecimalRate();
 
         /*
          * Only rent, out of everything handed over.
@@ -69,7 +89,9 @@ final class RentIncomeTaxRule implements TaxRuleContract
          * where the law leaves a choice — and stated here rather than left to a default, because a
          * rounding mode nobody chose is a figure nobody can reproduce.
          */
-        $deduction = $gross->multipliedByDecimal($quota, RoundingMode::HALF_UP);
+        $deduction = $quota === null
+            ? Money::zero('RON')
+            : $gross->multipliedByDecimal($quota, RoundingMode::HALF_UP);
         $base = $gross->subtract($deduction);
         $tax = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);
 
@@ -78,7 +100,9 @@ final class RentIncomeTaxRule implements TaxRuleContract
             ruleVersion: $input->ruleVersion->semanticVersion,
             inputs: [
                 'gross_rent' => $gross->toString(),
-                'expense_quota' => $quota->toString(),
+                // Named as what it is when the law sets none, rather than printed as a zero somebody might read
+                // as a rate that happened to be nil.
+                'expense_quota' => $quota === null ? 'not in law' : $quota->toString(),
                 'rate' => $rate->toString(),
             ],
             steps: [
@@ -89,7 +113,10 @@ final class RentIncomeTaxRule implements TaxRuleContract
                 ),
                 new CalculationStep(
                     operation: 'apply_expense_quota',
-                    detail: ['quota' => $quota->toString(), 'deducted' => $deduction->toString()],
+                    detail: [
+                        'quota' => $quota === null ? 'not in law' : $quota->toString(),
+                        'deducted' => $deduction->toString(),
+                    ],
                     result: $base->toString(),
                 ),
                 new CalculationStep(
@@ -108,7 +135,9 @@ final class RentIncomeTaxRule implements TaxRuleContract
             taxableBase: $base,
             rate: $rate,
             tax: $tax,
-            explanationKey: 'tax.ro.pf.income_tax.rent',
+            explanationKey: $quota === null
+                ? 'tax.ro.pf.income_tax.rent.no_allowance'
+                : 'tax.ro.pf.income_tax.rent',
             trace: $trace,
         );
     }

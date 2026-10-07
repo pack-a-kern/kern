@@ -23,6 +23,11 @@ use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
 use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
+use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
+use Kern\TaxRomania\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 
@@ -205,6 +210,58 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (SpvRunFailedException $exception): JsonResponse => response()->json(
             ['message' => $exception->getMessage(), 'reason' => 'SPV_RUN_FAILED'],
             502,
+        ));
+
+        /*
+         * A year cannot be assessed because an exchange rate is missing, or because no rule version covers it.
+         *
+         * Both arrived as 500s, which is wrong twice over: nothing failed, and the two have different answers.
+         * A missing rate is a gap in this installation's data and importing that year fixes it; a year with no
+         * rule version is waiting for somebody to write the rules for it, and no amount of retrying helps.
+         *
+         * 409 for each: the request was fine and the state it asks about is not one it can be answered in.
+         * The exception's own message carries the specifics — which currency, which date, which rule — because
+         * a translated sentence cannot name them and the person needs them to know what to import.
+         */
+        $exceptions->render(fn (FxRateUnavailableWithinLookbackException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'FX_RATE_MISSING'],
+            409,
+        ));
+
+        $exceptions->render(fn (NoTaxRuleVersionInForceException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'NO_RULES_FOR_YEAR'],
+            409,
+        ));
+
+        /*
+         * A year the fiscal dataset does not cover — a parameter with no version in force on the date being
+         * assessed. Found because `RO.INCOME_TAX.RENT_EXPENSE_QUOTA` has a version for every year but 2023, and
+         * each is closed at its year's end, so 2023 has a real hole.
+         *
+         * The engine refusing is right: an expense quota it does not hold is one it must not guess. But the
+         * message names the parameter and the date, which is exactly what somebody needs in order to go and
+         * approve it, and a 500 threw that away.
+         */
+        $exceptions->render(fn (NoFiscalParameterVersionInForceException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'FISCAL_PARAMETER_MISSING'],
+            409,
+        ));
+
+        /*
+         * Two rule versions in force on the same date. The resolver refuses rather than picking one, which is
+         * right — an assessment that quietly chose between two readings of the law would be unexplainable.
+         *
+         * 409 and the ids, because fixing it means retiring one of them and somebody has to know which two.
+         * Reached for real when a rule's version label was renamed and the old row kept its dates.
+         */
+        $exceptions->render(fn (AmbiguousTaxRuleVersionException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'AMBIGUOUS_RULE_VERSION'],
+            409,
+        ));
+
+        $exceptions->render(fn (NoTaxRulesRegisteredException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'NO_RULES_REGISTERED'],
+            409,
         ));
 
         /*

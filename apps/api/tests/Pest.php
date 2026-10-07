@@ -126,6 +126,19 @@ function verifySession(): void
 }
 
 /**
+ * Withdraws this session's step-up verification, so a test can assert the gate refusing.
+ *
+ * Needed because the session Store is a container singleton that keeps its attributes across calls within one
+ * test — and, in a full-suite run, a marker written by an earlier test reaches a later one. A test asserting
+ * `VERIFICATION_REQUIRED` then passed alone and failed in the suite, which is the worst way for this to be
+ * wrong.
+ */
+function forgetVerification(): void
+{
+    testSessionStore()->forget('auth.step_up_verified_at');
+}
+
+/**
  * The session Store behind the `session()` manager, typed.
  *
  * `session()` returns the manager, whose `driver()` is documented as returning a `Session` but is

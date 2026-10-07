@@ -12,6 +12,7 @@ use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleInput;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleOutcome;
 use Kern\TaxRomania\TaxEngine\Enums\RoundingMode;
 use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
+use Kern\TaxRomania\TaxEngine\ValueObjects\WageThresholds;
 
 /**
  * Health contribution on income other than salary.
@@ -45,47 +46,68 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  */
 #[TaxRuleAttribute(
     code: 'RO.PF.CASS.OTHER_INCOME',
-    version: '2026.1',
-    parameters: ['RO.MIN_WAGE', 'RO.CASS.RATE', 'RO.CASS.OTHER_INCOME_BANDS_WAGES'],
+    version: '1.0.0',
+    // Every category it is given except independent activity, which has its own base entirely — see the
+    // class docblock. Listed rather than left empty so the one exclusion is stated where it can be checked.
+    categories: [
+        'DIVIDENDS_INTEREST',
+        'CAPITAL_GAIN',
+        'CRYPTO_GAIN',
+        'OTHER_INCOME',
+        'RENT',
+    ],
+    parameters: [
+        CassOtherIncomeRule::MINIMUM_WAGE,
+        CassOtherIncomeRule::RATE,
+        CassOtherIncomeRule::BANDS,
+    ],
 )]
 final class CassOtherIncomeRule implements TaxRuleContract
 {
+    public const string MINIMUM_WAGE = 'RO.MIN_WAGE';
+
+    public const string RATE = 'RO.CASS.RATE';
+
+    public const string BANDS = 'RO.CASS.OTHER_INCOME_BANDS_WAGES';
+
+    /**
+     * Independent activity is not "other income" and is excluded here.
+     *
+     * Its contribution has a different mechanism altogether — `RO.CASS.INDEPENDENT_BASE_WAGES` is
+     * `{"floor": 6, "cap": 72}`, a band the income itself sits inside, not a step it is rounded up to. Summing
+     * freelance income into these thresholds inflated this base and produced a figure for a regime this rule
+     * does not implement, which is what {@see CassIndependentRule} is for.
+     */
+    private const string EXCLUDED_CATEGORY = 'FREELANCE';
+
+    /** What the resulting line is about: a contribution across categories, not any single one of them. */
+    private const string OUTCOME_CATEGORY = 'OTHER_INCOME';
+
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
-        $minimumWage = $input->parameters->get('RO.MIN_WAGE')->asMoney('RON');
-        $rate = $input->parameters->get('RO.CASS.RATE')->asDecimalRate();
-        $wageMultiples = $this->wageMultiples($input);
+        $minimumWage = $input->parameters->get(self::MINIMUM_WAGE)->asMoney('RON');
+        $rate = $input->parameters->get(self::RATE)->asDecimalRate();
+        $wageMultiples = WageThresholds::ascendingFrom($input->parameters->get(self::BANDS)->asJson());
 
         /*
-         * Every fact, deliberately — unlike the income-tax rules beside it, which filter to their own
-         * category. The thresholds apply to the sum of qualifying income, so narrowing here would be the
-         * bug rather than the fix. What qualifies was already decided upstream: the producer excludes salary
-         * and pension, which an employer withholds and declares.
+         * Every fact, deliberately — unlike the income-tax rules beside it, which filter to their own category.
+         * The thresholds apply to the *sum* of qualifying income, so narrowing here would be the bug rather than
+         * the fix. What qualifies was already decided upstream: the producer excludes salary and pension, which
+         * an employer withholds and declares.
          */
         $income = Money::zero('RON');
+        $counted = 0;
 
         foreach ($input->facts as $fact) {
-            $income = $income->add($fact->grossAmountRon);
-        }
-
-        /*
-         * The highest threshold the income reaches, as money. Ascending, so the last one that fits wins —
-         * and none fitting means no contribution, which is a real outcome rather than a failure to find
-         * one.
-         */
-        $base = Money::zero('RON');
-        $reached = null;
-        $thresholds = [];
-
-        foreach ($wageMultiples as $multiple) {
-            $threshold = $this->wagesToMoney($minimumWage, $multiple);
-            $thresholds['wages_' . $multiple] = $threshold->toString();
-
-            if (! $income->isLessThan($threshold)) {
-                $base = $threshold;
-                $reached = $multiple;
+            if ($fact->categoryCode === self::EXCLUDED_CATEGORY) {
+                continue;
             }
+
+            $income = $income->add($fact->grossAmountRon);
+            $counted++;
         }
+
+        [$base, $reached, $thresholds] = WageThresholds::reach($income, $minimumWage, $wageMultiples);
 
         $contribution = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);
 
@@ -101,7 +123,7 @@ final class CassOtherIncomeRule implements TaxRuleContract
             steps: [
                 new CalculationStep(
                     operation: 'sum_qualifying_income',
-                    detail: ['fact_count' => (string) count($input->facts)],
+                    detail: ['fact_count' => (string) $counted],
                     result: $income->toString(),
                 ),
                 new CalculationStep(
@@ -126,7 +148,7 @@ final class CassOtherIncomeRule implements TaxRuleContract
 
         return new TaxRuleOutcome(
             taxCode: $input->ruleVersion->taxCode,
-            categoryCode: 'OTHER_INCOME',
+            categoryCode: self::OUTCOME_CATEGORY,
             taxableBase: $base,
             rate: $rate,
             tax: $contribution,
@@ -137,46 +159,4 @@ final class CassOtherIncomeRule implements TaxRuleContract
         );
     }
 
-    /**
-     * The thresholds, in minimum wages, ascending.
-     *
-     * Sorted rather than trusted: the parameter is a JSON array somebody approved, and "the last one that
-     * fits" is only the highest if the list is in order.
-     *
-     * @return list<int>
-     */
-    private function wageMultiples(TaxRuleInput $input): array
-    {
-        $value = $input->parameters->get('RO.CASS.OTHER_INCOME_BANDS_WAGES')->asJson();
-        $wages = $value['wages'] ?? [];
-        $multiples = [];
-
-        foreach (is_array($wages) ? $wages : [] as $wage) {
-            if (is_int($wage) && $wage > 0) {
-                $multiples[] = $wage;
-            }
-        }
-
-        sort($multiples);
-
-        return $multiples;
-    }
-
-    /**
-     * A whole number of minimum wages as money.
-     *
-     * By repeated addition rather than by a decimal multiplication: the multiple is a count, the wage is
-     * an exact amount in minor units, and their product is exact — so there is no rounding decision to
-     * make and none should be implied by asking for one.
-     */
-    private function wagesToMoney(Money $minimumWage, int $multiple): Money
-    {
-        $total = Money::zero('RON');
-
-        for ($i = 0; $i < $multiple; $i++) {
-            $total = $total->add($minimumWage);
-        }
-
-        return $total;
-    }
 }

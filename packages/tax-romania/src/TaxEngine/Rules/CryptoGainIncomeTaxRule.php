@@ -37,17 +37,20 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  */
 #[TaxRuleAttribute(
     code: 'RO.PF.INCOME_TAX.CRYPTO_GAIN',
-    version: '2026.1',
-    parameters: ['RO.INCOME_TAX.RATE'],
+    version: '1.0.0',
+    categories: [CryptoGainIncomeTaxRule::CATEGORY],
+    parameters: [CryptoGainIncomeTaxRule::RATE],
 )]
 final class CryptoGainIncomeTaxRule implements TaxRuleContract
 {
-    private const string CATEGORY = 'CRYPTO_GAIN';
+    public const string CATEGORY = 'CRYPTO_GAIN';
+
+    public const string RATE = 'RO.INCOME_TAX.RATE';
 
 
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
-        $rate = $input->parameters->get('RO.INCOME_TAX.RATE')->asDecimalRate();
+        $rate = $input->parameters->get(self::RATE)->asDecimalRate();
 
         // Only crypto gains. The assessor hands every rule the whole year, for `CassOtherIncomeRule`'s
         // sake; a rule about one category has to pick its own out, or it taxes a dividend as a crypto gain.

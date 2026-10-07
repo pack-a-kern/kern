@@ -23,8 +23,6 @@ export interface Dictionary {
         rentals: string;
         taxesGroup: string;
         taxes: string;
-        taxesExplain: string;
-        declarations: string;
         legislation: string;
         spv: string;
         accountGroup: string;
@@ -82,11 +80,6 @@ export interface Dictionary {
         searchSubjects: string;
         noSubjectsFound: string;
         manageSubjects: string;
-    };
-    placeholder: {
-        badge: string;
-        blockedOnLabel: string;
-        backToDashboard: string;
     };
     common: {
         loading: string;
@@ -1254,6 +1247,9 @@ export interface Dictionary {
             };
         };
         taxes: {
+            columnIncome: string;
+            thresholdReached: string;
+            quotaDeducted: string;
             title: string;
             description: string;
             /** Kept: the screen no longer shows it, and `/taxes/explain` beside it still does. */
@@ -1271,8 +1267,6 @@ export interface Dictionary {
             columnOwed: string;
             totalOwed: string;
         };
-        taxesExplain: { title: string; description: string; blockedOn: string };
-        declarations: { title: string; description: string; blockedOn: string };
         legislation: {
             title: string;
             description: string;

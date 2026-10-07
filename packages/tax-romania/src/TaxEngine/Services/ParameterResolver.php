@@ -32,8 +32,26 @@ final readonly class ParameterResolver
     public function resolve(array $parameterCodes, DateTimeImmutable $asOf, AssessmentStatus $assessmentStatus): ResolvedParameterSet
     {
         $resolved = [];
+        $statedByNoLaw = [];
 
         foreach ($parameterCodes as $parameterCode) {
+            /*
+             * A year whose law was read and states no value is an answer, not a gap.
+             *
+             * `versionInForceOn` throws when there is no version, which conflated the two: the rent expense
+             * allowance has versions for every year but 2023, because 2023's law sets none — and asking for 2023
+             * failed as though nobody had loaded it. `fiscal_parameter_reads` knows the difference, the screen
+             * already draws a dash for one and an empty cell for the other, and nothing here was asking.
+             *
+             * Asked before resolving rather than caught after the throw, because an exception used for control
+             * flow hides which of the two happened from everything above it.
+             */
+            if ($this->provider->readFoundNoValueFor($parameterCode, (int) $asOf->format('Y'))) {
+                $statedByNoLaw[] = $parameterCode;
+
+                continue;
+            }
+
             $parameter = $this->provider->versionInForceOn($parameterCode, $asOf);
 
             if ($assessmentStatus === AssessmentStatus::FINAL && $parameter->status !== RuleApprovalStatus::APPROVED) {
@@ -47,6 +65,6 @@ final readonly class ParameterResolver
             $resolved[$parameterCode] = $parameter;
         }
 
-        return new ResolvedParameterSet($resolved);
+        return new ResolvedParameterSet($resolved, $statedByNoLaw);
     }
 }

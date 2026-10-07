@@ -10,6 +10,7 @@ use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleInput;
 use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\MissingRequiredParameterException;
 use Kern\TaxRomania\TaxEngine\Rules\CryptoGainIncomeTaxRule;
 use Kern\TaxRomania\TaxEngine\Rules\RentIncomeTaxRule;
 use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
@@ -215,4 +216,53 @@ it('counts no crypto gain in a year of dividends', function (): void {
 
     expect($outcome->tax->isZero())->toBeTrue()
         ->and($outcome->trace->steps[0]->detail['fact_count'])->toBe('0');
+});
+
+it('taxes the whole rent in a year whose law allowed no expense deduction', function (): void {
+    /*
+     * 2023 is such a year: the allowance was 40% through 2022 and 20% from 2024, and 2023's law sets none. That
+     * is a fact somebody read and recorded — `fiscal_parameter_reads` holds `NOT_IN_LAW` for it, and the fiscal
+     * parameters screen draws a dash rather than an empty cell.
+     *
+     * The engine used to fail that year as though the value were merely unloaded, because the resolver knew only
+     * "present" or "missing" and the difference lived in a table it never read.
+     */
+    $input = rentInput([1200000]);
+
+    $withoutQuota = new TaxRuleInput(
+        fiscalYear: $input->fiscalYear,
+        asOf: $input->asOf,
+        facts: $input->facts,
+        // The rate resolved; the quota's year was read and states none.
+        parameters: new ResolvedParameterSet(
+            [RentIncomeTaxRule::RATE => $input->parameters->get(RentIncomeTaxRule::RATE)],
+            [RentIncomeTaxRule::QUOTA],
+        ),
+        ruleVersion: $input->ruleVersion,
+    );
+
+    $outcome = (new RentIncomeTaxRule())->evaluate($withoutQuota);
+
+    // The whole 12,000 is taxable, at 10%.
+    expect($outcome->taxableBase->toString())->toBe('12000.00 RON')
+        ->and($outcome->tax->toString())->toBe('1200.00 RON')
+        ->and($outcome->explanationKey)->toBe('tax.ro.pf.income_tax.rent.no_allowance')
+        // Named rather than printed as a zero, which a reader could take for a rate that happened to be nil.
+        ->and($outcome->trace->inputs['expense_quota'])->toBe('not in law');
+});
+
+it('still refuses a parameter that is simply missing, rather than treating it as absent by law', function (): void {
+    // The distinction is the whole point: a year nobody has loaded must not quietly compute tax on gross.
+    $input = rentInput([1200000]);
+
+    $withNothing = new TaxRuleInput(
+        fiscalYear: $input->fiscalYear,
+        asOf: $input->asOf,
+        facts: $input->facts,
+        parameters: new ResolvedParameterSet([RentIncomeTaxRule::RATE => $input->parameters->get(RentIncomeTaxRule::RATE)]),
+        ruleVersion: $input->ruleVersion,
+    );
+
+    expect(fn () => (new RentIncomeTaxRule())->evaluate($withNothing))
+        ->toThrow(MissingRequiredParameterException::class);
 });

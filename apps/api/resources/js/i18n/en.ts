@@ -14,8 +14,6 @@ export const en = {
         rentals: 'Rentals',
         taxesGroup: 'Taxes',
         taxes: 'Taxes',
-        taxesExplain: 'Why so much?',
-        declarations: 'Declarations',
         legislation: 'Legislation',
         spv: 'SPV',
         accountGroup: 'My account',
@@ -98,11 +96,6 @@ export const en = {
         searchSubjects: 'Search taxpayers…',
         noSubjectsFound: 'No taxpayers found.',
         manageSubjects: 'Manage taxpayers',
-    },
-    placeholder: {
-        badge: 'Not built yet',
-        blockedOnLabel: 'Blocked on',
-        backToDashboard: 'Back to dashboard',
     },
     common: {
         loading: 'Loading…',
@@ -634,6 +627,14 @@ export const en = {
             // mounted: the interceptor handles this code before any screen sees it.
             SPV_RUN_FAILED:
                 'Kern could not read the page ANAF showed. The portal may have changed — the details are in the log.',
+            AMBIGUOUS_RULE_VERSION:
+                'Two versions of the same tax rule apply to that date, so it cannot be assessed until one is retired.',
+            FISCAL_PARAMETER_MISSING:
+                'A fiscal value is missing for that year, so it cannot be assessed. Approve it on the tax rules screen and try again.',
+            FX_RATE_MISSING:
+                'An exchange rate is missing for that date, so the amount cannot be converted to lei. Import that year\u2019s rates and try again.',
+            NO_RULES_FOR_YEAR: 'No tax rules cover that year yet, so it cannot be assessed.',
+            NO_RULES_REGISTERED: 'No tax rules are registered on this installation yet.',
             SPV_SIGN_IN_REQUIRED: 'Sign in to SPV again — the portal ended the session.',
             VERIFICATION_REQUIRED: 'This action needs the code from your authenticator app.',
             GENERAL_SOURCE_UNDELETABLE:
@@ -702,10 +703,26 @@ export const en = {
      * for income that reached none, and the rule decides which it means.
      */
     taxExplanations: {
+        'tax.ro.pf.cas.independent.threshold_reached':
+            'Your independent income passed a pension threshold, so the contribution is a percentage of that threshold — not of what you earned.',
+        'tax.ro.pf.cas.independent.below_threshold':
+            'Your independent income stayed below the first pension threshold, so no pension contribution is owed.',
+        'tax.ro.pf.cass.independent.on_income':
+            'Health contribution on your independent income itself, which fell between the yearly minimum and maximum base.',
+        'tax.ro.pf.cass.independent.at_floor':
+            'Your independent income was below the yearly minimum base, so the contribution is calculated on that minimum.',
+        'tax.ro.pf.cass.independent.at_cap':
+            'Your independent income was above the yearly maximum base, so the contribution is capped there.',
+        'tax.ro.pf.cass.independent.no_income': 'No income from independent activity, so no health contribution is owed.',
+        'tax.ro.pf.income_tax.freelance': 'Independent income less the expenses recorded against it, taxed at the income tax rate.',
+        'tax.ro.pf.income_tax.freelance.no_expenses':
+            'Independent income taxed in full at the income tax rate: no deductible expenses are recorded against it yet.',
         'tax.ro.pf.cass.other_income.threshold_reached':
             'Your income passed a contribution threshold, so the contribution is a percentage of that threshold — not of what you earned.',
         'tax.ro.pf.cass.other_income.below_threshold':
             'Your income stayed below the first contribution threshold, so no health contribution is owed.',
+        'tax.ro.pf.income_tax.rent.no_allowance':
+            'Rent taxed on the full amount: the law of that year allowed no flat expense deduction.',
         'tax.ro.pf.income_tax.rent': 'Rent, less the flat expense allowance, taxed at the income tax rate.',
         'tax.ro.pf.income_tax.crypto_gain': 'Gains from virtual currency, taxed at the income tax rate.',
     },
@@ -1420,6 +1437,9 @@ export const en = {
             },
         },
         taxes: {
+            columnIncome: 'Your income',
+            thresholdReached: 'Reached the {wages}-minimum-wage threshold',
+            quotaDeducted: 'Expense allowance of {deducted} deducted',
             assessTitle: 'What a year comes to',
             assessHint: 'Reads the income you have categorised for a year and runs every registered tax rule over it.',
             assess: 'Assess the year',
@@ -1435,18 +1455,6 @@ export const en = {
             title: 'Taxes',
             description: 'The tax calculations determined from your financial data.',
             blockedOn: 'A tax-assessment endpoint reachable from the UI, which does not exist yet.',
-        },
-        taxesExplain: {
-            title: 'Why so much?',
-            description:
-                'A step-by-step explanation of a tax calculation, citing the official sources for every figure.',
-            blockedOn:
-                "The 2020–2026 historical fiscal dataset (Milestone 4) and its human approval — the product's flagship screen, but it cannot show anything real until that dataset is approved.",
-        },
-        declarations: {
-            title: 'Declarations',
-            description: 'Your generated tax declarations (D212) and their filing status.',
-            blockedOn: 'The D212 declarations engine (Milestone 9), currently in progress on the backend.',
         },
         legislation: {
             title: 'Legislation',

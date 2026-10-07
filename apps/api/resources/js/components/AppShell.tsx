@@ -7,8 +7,6 @@ import {
     CalendarClock,
     ChartColumn,
     ChevronDown,
-    CircleHelp,
-    FileCheck2,
     FileSpreadsheet,
     Files,
     Gavel,
@@ -74,7 +72,7 @@ interface NavLink {
 /**
  * The single source of truth for the sidebar's structure. Every route here has a matching entry in
  * `routes/web.php` (`docs/handoff/040-ui-foundation.md` "Routes"), either a real screen or
- * `PlaceholderPage` — nothing in this list is a dead link. `Documente` keeps the pre-existing,
+ * Nothing in this list is a dead link. `Documente` keeps the pre-existing,
  * already-verified `/documents` English slug rather than a `/documente` duplicate.
  *
  * Documents sits *inside* Portofel rather than beside it. A receipt is a transaction, a bank
@@ -109,8 +107,6 @@ const MAIN_ITEMS: NavLink[] = [
         label: (d) => d.nav.taxes,
         icon: Calculator,
         children: [
-            { href: '/taxes/explain', label: (d) => d.nav.taxesExplain, icon: CircleHelp },
-            { href: '/declarations', label: (d) => d.nav.declarations, icon: FileCheck2 },
             { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
         ],
     },
