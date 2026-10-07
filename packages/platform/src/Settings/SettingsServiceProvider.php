@@ -9,6 +9,7 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Routing\PackageRoutes;
+use Kern\Platform\Settings\Services\StoredSettingsOverlay;
 use Kern\Platform\Settings\Infrastructure\SystemDekRepository;
 use Kern\Platform\Settings\Support\SystemSecretCipher;
 
@@ -51,5 +52,14 @@ final class SettingsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         PackageRoutes::load(__DIR__ . '/../../routes/settings.php');
+
+        /*
+         * Before anything reads a configuration value, and after every package's own config has been
+         * merged — which is what `boot` guarantees and `register` does not.
+         *
+         * Without this the screen wrote rows nobody read: see `StoredSettingsOverlay` for how thirty-one
+         * of thirty-eight settings came to be decorative.
+         */
+        $this->app->make(StoredSettingsOverlay::class)->apply();
     }
 }

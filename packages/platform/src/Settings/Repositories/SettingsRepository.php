@@ -7,6 +7,7 @@ namespace Kern\Platform\Settings\Repositories;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Services\StoredSettingsOverlay;
 use Kern\Platform\Settings\Support\SystemSecretCipher;
 
 /**
@@ -89,6 +90,11 @@ final readonly class SettingsRepository
 
             DB::table('settings')->insert(['key' => $key->value, 'created_at' => $now, ...$values]);
         });
+
+        // The overlay that puts these in front of `.env` is cached, and somebody who saves a setting
+        // watches for it to take effect. Forgotten after the transaction, so a failed write leaves the
+        // cache describing what is actually stored.
+        StoredSettingsOverlay::forget();
     }
 
     /**
@@ -104,6 +110,8 @@ final readonly class SettingsRepository
             'updated_by' => $updatedBy,
             'updated_at' => CarbonImmutable::now('UTC')->format(self::TIMESTAMP_FORMAT),
         ]);
+
+        StoredSettingsOverlay::forget();
     }
 
     /**
