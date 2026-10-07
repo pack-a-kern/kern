@@ -694,6 +694,21 @@ export const en = {
         confirm: 'Confirm',
         cancel: 'Cancel',
     },
+    /**
+     * What a rule's `explanationKey` renders as.
+     *
+     * Keyed by the rule's own string rather than by its tax code, because two rules of the same tax can
+     * reach different conclusions — the contribution has one wording for a threshold reached and another
+     * for income that reached none, and the rule decides which it means.
+     */
+    taxExplanations: {
+        'tax.ro.pf.cass.other_income.threshold_reached':
+            'Your income passed a contribution threshold, so the contribution is a percentage of that threshold — not of what you earned.',
+        'tax.ro.pf.cass.other_income.below_threshold':
+            'Your income stayed below the first contribution threshold, so no health contribution is owed.',
+        'tax.ro.pf.income_tax.rent': 'Rent, less the flat expense allowance, taxed at the income tax rate.',
+        'tax.ro.pf.income_tax.crypto_gain': 'Gains from virtual currency, taxed at the income tax rate.',
+    },
     pages: {
         wallet: {
             noSubject: 'Choose a taxpayer to see the wallet.',
@@ -1405,6 +1420,18 @@ export const en = {
             },
         },
         taxes: {
+            assessTitle: 'What a year comes to',
+            assessHint: 'Reads the income you have categorised for a year and runs every registered tax rule over it.',
+            assess: 'Assess the year',
+            notAssessedYet: 'Choose a year and assess it to see what is owed, and why.',
+            draft: 'Draft',
+            draftHint: 'Computed from income you categorised, using rule versions nobody has approved yet. Not a filing.',
+            columnTax: 'Tax',
+            columnCategory: 'On',
+            columnBase: 'Taxed on',
+            columnRate: 'Rate',
+            columnOwed: 'Owed',
+            totalOwed: 'Total owed for the year:',
             title: 'Taxes',
             description: 'The tax calculations determined from your financial data.',
             blockedOn: 'A tax-assessment endpoint reachable from the UI, which does not exist yet.',

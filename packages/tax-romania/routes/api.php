@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
@@ -247,6 +248,19 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
 // The values a tax is computed from, as read from the official texts: seen by those who may view
 // them, decided — approved, rejected, a new year proposed — by those who may approve them. Reading
 // them is the `fiscal.parameters.read` task, run through the operations routes.
+/*
+ * Computing a draft assessment for a fiscal year.
+ *
+ * Inside the tenant-scoped group's shape — `{subject}` is the taxpayer whose ledger is read — and behind
+ * `verify-recent`: an assessment reads a year of somebody's finances and writes figures they may file, which
+ * is the kind of act that gate exists for.
+ */
+Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax-subject'])->group(function (): void {
+    Route::post('tax/assessments', AssessFiscalYearController::class)
+        ->middleware('verify-recent')
+        ->whereUuid('subject');
+});
+
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
     Route::get('/', ShowFiscalParameterBoardController::class)->middleware('permission:fiscal.parameters.view');
 

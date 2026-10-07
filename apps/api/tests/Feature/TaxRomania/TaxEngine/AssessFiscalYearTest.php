@@ -6,7 +6,9 @@ namespace Tests\Feature\TaxRomania\TaxEngine\AssessFiscalYearTest;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -244,4 +246,77 @@ it('turns a year of real income into figures, through every step at once', funct
         // No crypto in the ledger, so a zero line rather than a missing one: "you owe nothing, and here is the
         // arithmetic" is an answer, and a missing line cannot be told from a rule nobody ran.
         ->and($byCategory['CRYPTO_GAIN'])->toBe([0, 0]);
+});
+
+it('computes a year over HTTP, behind the gate that guards sensitive acts', function (): void {
+    /*
+     * The endpoint, which is what made the action more than a tested orphan. Behind `verify-recent` because
+     * assessing reads a year of somebody's finances and writes figures they may file.
+     */
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+
+    fakeLedger([
+        new LedgerIncomeEntry('01a0ec10-0000-7000-8000-000000000001', 'RENT', 1200000, 'RON', new DateTimeImmutable('2026-06-01')),
+    ]);
+
+    $user = User::query()->firstOrFail();
+
+    UserMfaMethod::create([
+        'user_id' => $user->id,
+        'type' => MfaMethodType::TOTP,
+        'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
+        'confirmed_at' => now('UTC'),
+    ]);
+
+    // Enrolled but not recently proved: the gate should stop this before anything is computed.
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 2026])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'VERIFICATION_REQUIRED');
+
+    verifySession();
+
+    $response = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 2026])
+        ->assertCreated()
+        ->assertJsonPath('status', 'DRAFT')
+        ->assertJsonPath('fiscal_year', 2026);
+
+    /** @var list<array<string, mixed>> $lines */
+    $lines = $response->json('lines');
+    $rent = null;
+
+    foreach ($lines as $line) {
+        if (($line['category_code'] ?? null) === 'RENT') {
+            $rent = $line;
+        }
+    }
+
+    // 12,000 less the 20% quota, at 10%. And the explanation key travels with it, because a figure without its
+    // reasoning is what this engine exists not to produce.
+    expect($rent['taxable_base_minor'] ?? null)->toBe(960000)
+        ->and($rent['tax_minor'] ?? null)->toBe(96000)
+        ->and($rent['explanation_key'] ?? null)->toBe('tax.ro.pf.income_tax.rent')
+        ->and($rent['trace'] ?? null)->toBeArray();
+});
+
+it('refuses a year outside the fiscal dataset rather than failing deep in the resolver', function (): void {
+    $subject = assessableSubject();
+    $user = User::query()->firstOrFail();
+
+    UserMfaMethod::create([
+        'user_id' => $user->id,
+        'type' => MfaMethodType::TOTP,
+        'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
+        'confirmed_at' => now('UTC'),
+    ]);
+
+    verifySession();
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subject->id}/tax/assessments", ['fiscal_year' => 1200])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('fiscal_year');
 });

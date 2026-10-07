@@ -550,6 +550,13 @@ export interface Dictionary {
         confirm: string;
         cancel: string;
     };
+    /**
+     * What a rule's `explanationKey` renders as.
+     *
+     * Top level rather than under a page, because the keys belong to the rules: a figure and its reasoning
+     * travel together wherever they are shown, and `/taxes/explain` will want the same strings.
+     */
+    taxExplanations: Record<string, string | undefined>;
     pages: {
         wallet: {
             /** Shared by all three wallet screens. */
@@ -1246,7 +1253,24 @@ export interface Dictionary {
                 effectiveFrom: string;
             };
         };
-        taxes: { title: string; description: string; blockedOn: string };
+        taxes: {
+            title: string;
+            description: string;
+            /** Kept: the screen no longer shows it, and `/taxes/explain` beside it still does. */
+            blockedOn: string;
+            assessTitle: string;
+            assessHint: string;
+            assess: string;
+            notAssessedYet: string;
+            draft: string;
+            draftHint: string;
+            columnTax: string;
+            columnCategory: string;
+            columnBase: string;
+            columnRate: string;
+            columnOwed: string;
+            totalOwed: string;
+        };
         taxesExplain: { title: string; description: string; blockedOn: string };
         declarations: { title: string; description: string; blockedOn: string };
         legislation: {

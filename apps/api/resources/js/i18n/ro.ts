@@ -690,6 +690,14 @@ export const ro = {
         confirm: 'Confirmă',
         cancel: 'Anulează',
     },
+    taxExplanations: {
+        'tax.ro.pf.cass.other_income.threshold_reached':
+            'Venitul tău a depășit un plafon de contribuție, deci contribuția este un procent din acel plafon — nu din cât ai câștigat.',
+        'tax.ro.pf.cass.other_income.below_threshold':
+            'Venitul tău a rămas sub primul plafon de contribuție, deci nu datorezi contribuție de sănătate.',
+        'tax.ro.pf.income_tax.rent': 'Chiria, mai puțin cota forfetară de cheltuieli, impozitată la cota de impozit pe venit.',
+        'tax.ro.pf.income_tax.crypto_gain': 'Câștigurile din monedă virtuală, impozitate la cota de impozit pe venit.',
+    },
     pages: {
         wallet: {
             noSubject: 'Alegeți un contribuabil pentru a vedea portofelul.',
@@ -1410,6 +1418,18 @@ export const ro = {
             },
         },
         taxes: {
+            assessTitle: 'Cât iese pentru un an',
+            assessHint: 'Citește venitul pe care l-ai categorizat într-un an și aplică toate regulile fiscale înregistrate.',
+            assess: 'Calculează anul',
+            notAssessedYet: 'Alege un an și calculează-l ca să vezi cât datorezi și de ce.',
+            draft: 'Ciornă',
+            draftHint: 'Calculat din venitul pe care l-ai categorizat, cu versiuni de reguli neaprobate încă. Nu este o declarație.',
+            columnTax: 'Impozit',
+            columnCategory: 'Pentru',
+            columnBase: 'Bază',
+            columnRate: 'Cotă',
+            columnOwed: 'Datorat',
+            totalOwed: 'Total datorat pentru an:',
             title: 'Impozite',
             description: 'Calculele fiscale determinate pe baza datelor dumneavoastră financiare.',
             blockedOn:
