@@ -304,11 +304,11 @@ return [
              * observed, but one step removed. `tbody tr` rather than `tr` because the filter inputs live
              * in a second header row, and a row of filter boxes is not a message.
              *
-             * **`id` is the open question.** The web page shows `Id Solicitare`, which the certificate API
-             * also carries — but that API has a *separate* `id`, and if the two transports disagree about
-             * which is a message's identity then one taxpayer's inbox imported both ways would
-             * deduplicate into two rows. One row's markup settles it: PrimeFaces usually writes a row key
-             * attribute, and if that is the real id it belongs here instead.
+             * **The page names no message, and that was measured.** Across a real inbox of twenty:
+             * `Id Solicitare` is blank on three of them, no row carries `data-rk` or an `id`, and the
+             * download link is `submitForm('form','form:MesajeTable:0:j_id…')` whose only varying part is
+             * the row index. So `id` here is `Id Solicitare` as information, not as identity — the
+             * identity is derived in `BrowserPortalInboxSyncTransport`, which explains why.
              */
             ['extract' => [
                 'rows' => '[id="form:MesajeTable"] tbody tr',

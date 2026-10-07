@@ -11,6 +11,18 @@ return [
     // browser session TTL itself). A code older than this is never forwarded to the worker; the
     // session is failed and destroyed instead. Needs a deliberate decision before production,
     // not a silent carry-forward — see this milestone's handoff note.
+    /*
+     * The timezone the portal's own screens render dates in.
+     *
+     * ANAF prints "15.09.2026 20:49:40" with no offset, and reading that as UTC puts every message two
+     * or three hours late — harmless until a document shown late on 31 December lands in the following
+     * tax year, which is the kind of silent error the provenance chain exists to prevent.
+     *
+     * Configurable because it is a statement about a remote system that could be wrong, not because an
+     * installation would want a different answer.
+     */
+    'portal_timezone' => env('SPV_PORTAL_TIMEZONE', 'Europe/Bucharest'),
+
     'challenge_ttl_seconds' => (int) env('SPV_CHALLENGE_TTL_SECONDS', 300),
 
     // ANAF's documented certificate-authenticated web service

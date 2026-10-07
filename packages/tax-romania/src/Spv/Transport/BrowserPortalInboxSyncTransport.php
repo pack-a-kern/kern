@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Spv\Transport;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\Contracts\SpvInboxSyncTransport;
 use Kern\TaxRomania\Spv\DataTransferObjects\SpvInboxMessage;
@@ -92,46 +93,127 @@ final readonly class BrowserPortalInboxSyncTransport implements SpvInboxSyncTran
     /**
      * One portal row as an `SpvInboxMessage`, or null when it is not one.
      *
-     * The same three fields the certificate API's rows carry, because the playbook extracts into ANAF's
-     * own names — so a message means the same thing whichever transport fetched it. A row missing its id
-     * or its date is skipped rather than guessed at: a message with no identity cannot be deduplicated,
-     * and one with no date cannot be placed in a tax year.
+     * ## The identity is derived, because the page has none
+     *
+     * Measured rather than assumed, against a real inbox of twenty messages: `Id Solicitare` is blank on
+     * three of them — messages ANAF sent rather than answered — so keying on it silently dropped those
+     * three. And nothing else on the row identifies it either. PrimeFaces emits no `data-rk` here, the
+     * rows carry no `id`, and the download link is `submitForm('form','form:MesajeTable:0:j_id…')` whose
+     * only distinguishing part is the row *index*, which shifts as messages arrive.
+     *
+     * So the identity is a fingerprint of the fields that describe the message. The date carries seconds,
+     * which makes collisions between genuinely different messages implausible, and the whole tuple is
+     * stable for as long as ANAF leaves the row alone. If ANAF ever edits a description the message will
+     * look new — which is wrong in principle and arguably right in practice, since the row changed.
+     *
+     * **Prefixed `web:` deliberately.** The certificate API returns real ids, and
+     * {@see AnafCertificateApiTransport} uses them. Two transports cannot agree on an identity when only
+     * one of them is given one, so a taxpayer who switched from a password to a certificate would import
+     * the same message twice. The prefix makes that visible as two obviously different keys rather than a
+     * coincidence nobody notices.
      *
      * @param  array<string, string|null>  $row
      */
     private function toMessage(array $row): ?SpvInboxMessage
     {
-        $id = $row['id'] ?? null;
-        $detail = $row['detalii'] ?? null;
-        $createdAt = $row['data_creare'] ?? null;
+        $detail = $this->trimmed($row, 'detalii');
+        $renderedDate = $this->trimmed($row, 'data_creare');
 
-        if ($id === null || $id === '' || $detail === null || $createdAt === null) {
+        if ($detail === null || $renderedDate === null) {
             return null;
         }
 
-        try {
-            $receivedAt = new DateTimeImmutable($createdAt);
-        } catch (\Exception) {
-            // The portal rendered a date this cannot read. Skipped for the same reason as a missing one.
+        $receivedAt = $this->parsePortalDate($renderedDate);
+
+        if ($receivedAt === null) {
             return null;
         }
 
         $metadata = [];
 
-        // The same extras the certificate API's rows carry, so a message keeps the same shape whichever
-        // transport fetched it. Extracted and then dropped would be the worse of the two mistakes: the
-        // playbook would look like it collected something nothing reads.
         foreach (['cif', 'tip'] as $extra) {
-            if (($row[$extra] ?? null) !== null) {
-                $metadata[$extra] = $row[$extra];
+            $value = $this->trimmed($row, $extra);
+
+            if ($value !== null) {
+                $metadata[$extra] = $value;
             }
         }
 
+        // Kept because it is useful and because it is what a person reading ANAF's own screen sees, even
+        // though it cannot be the identity.
+        $solicitare = $this->trimmed($row, 'id');
+
+        if ($solicitare !== null) {
+            $metadata['id_solicitare'] = $solicitare;
+        }
+
         return new SpvInboxMessage(
-            externalId: $id,
+            externalId: $this->fingerprint($renderedDate, $detail, $metadata),
             title: $detail,
             receivedAt: $receivedAt,
             metadata: $metadata,
         );
+    }
+
+    /**
+     * The portal's date, in the portal's timezone.
+     *
+     * An exact format rather than `new DateTimeImmutable($value)`: handed "15.09.2026" that constructor
+     * reads a European date correctly and handed "09/15/2026" it would read an American one, and neither
+     * announces which it chose. `createFromFormat` fails instead, and a row whose date cannot be read is
+     * skipped rather than filed in a year nobody chose.
+     *
+     * Seconds are optional because a portal is free to render either, and `!` resets the unspecified
+     * fields so a date-only value becomes midnight rather than the time this code happened to run.
+     */
+    private function parsePortalDate(string $rendered): ?DateTimeImmutable
+    {
+        $configured = config('spv.portal_timezone');
+        $timezone = new DateTimeZone(is_string($configured) && $configured !== '' ? $configured : 'Europe/Bucharest');
+
+        foreach (['d.m.Y H:i:s', 'd.m.Y H:i', '!d.m.Y'] as $format) {
+            $parsed = DateTimeImmutable::createFromFormat($format, $rendered, $timezone);
+
+            if ($parsed !== false) {
+                /*
+                 * Converted to UTC here, not left carrying `+02:00`.
+                 *
+                 * Postgres `timestamptz` would honour the offset; sqlite has no such type and stores
+                 * whatever string the model formats, then reads it back as UTC — so the same message
+                 * lands three hours apart on the suite's two lanes, and the one that is wrong is the
+                 * one that looks fine. An instant has no timezone; only its rendering does.
+                 */
+                return $parsed->setTimezone(new DateTimeZone('UTC'));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A stable key for a message the portal does not name.
+     *
+     * Over the rendered date and the description, plus the metadata that distinguishes two otherwise
+     * identical rows — the taxpayer the message is about, and what kind of document it is. Hashed rather
+     * than concatenated so the key has one length whatever the description, and so a description is not
+     * sitting in a column the blind index is computed over.
+     *
+     * @param  array<string, string>  $metadata
+     */
+    private function fingerprint(string $renderedDate, string $detail, array $metadata): string
+    {
+        ksort($metadata);
+
+        $material = implode('|', [$renderedDate, $detail, ...array_values($metadata)]);
+
+        return 'web:' . hash('sha256', $material);
+    }
+
+    /** @param array<string, string|null> $row */
+    private function trimmed(array $row, string $key): ?string
+    {
+        $value = trim((string) ($row[$key] ?? ''));
+
+        return $value === '' ? null : $value;
     }
 }

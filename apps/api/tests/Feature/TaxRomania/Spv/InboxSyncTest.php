@@ -259,3 +259,146 @@ it('will not read the inbox through a session the worker has already expired', f
 
     Http::assertNothingSent();
 });
+
+it('keeps a message the portal never gave an id, which the first attempt silently dropped', function (): void {
+    // Measured against a real inbox: three of twenty rows have no `Id Solicitare` — messages ANAF sent
+    // rather than answered. Keying on it lost exactly those three, and nothing said so.
+    Http::fake([
+        '*/run' => Http::response([
+            'outcome' => 'signed_in',
+            'data' => ['messages' => [
+                ['id' => '123456789', 'cif' => '1234567890', 'tip' => 'DEC', 'data_creare' => '15.09.2026 20:49:40', 'detalii' => 'Decizie de impunere'],
+                ['id' => '', 'cif' => '1234567890', 'tip' => 'NOTIF', 'data_creare' => '30.08.2019 04:26:48', 'detalii' => 'Notificare'],
+            ]],
+        ]),
+    ]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-both-kinds',
+        'expires_at' => now('UTC')->addMinutes(10),
+    ]);
+
+    $run = app(SyncSpvInbox::class)($connection->id, null);
+
+    expect($run->status)->toBe(SpvSyncRunStatus::SUCCEEDED)
+        ->and(SpvMessage::query()->where('tax_subject_id', $subject->id)->count())->toBe(2);
+});
+
+it('reads the portal date in the portal timezone, not as UTC', function (): void {
+    // ANAF prints "15.09.2026 20:49:40" with no offset. Read as UTC that is three hours late in summer —
+    // which only matters until a document shown late on 31 December lands in the next tax year.
+    Http::fake([
+        '*/run' => Http::response([
+            'outcome' => 'signed_in',
+            'data' => ['messages' => [
+                ['id' => '1', 'data_creare' => '31.12.2026 23:30:00', 'detalii' => 'Ultima zi'],
+            ]],
+        ]),
+    ]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-newyear',
+        'expires_at' => now('UTC')->addMinutes(10),
+    ]);
+
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    /** @var SpvMessage $message */
+    $message = SpvMessage::query()->where('tax_subject_id', $subject->id)->firstOrFail();
+
+    // Bucharest is UTC+2 on 31 December, so 23:30 local is 21:30 UTC — and still 2026, which is the point.
+    expect($message->received_at->toIso8601String())->toBe('2026-12-31T21:30:00+00:00');
+});
+
+it('refuses a date it cannot read rather than filing it in a year nobody chose', function (): void {
+    Http::fake([
+        '*/run' => Http::response([
+            'outcome' => 'signed_in',
+            'data' => ['messages' => [
+                ['id' => '1', 'data_creare' => 'cine știe', 'detalii' => 'Nelizibil'],
+            ]],
+        ]),
+    ]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-baddate',
+        'expires_at' => now('UTC')->addMinutes(10),
+    ]);
+
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    expect(SpvMessage::query()->where('tax_subject_id', $subject->id)->count())->toBe(0);
+});
+
+it('gives the same message the same identity on a second sync, so nothing doubles', function (): void {
+    $row = ['id' => '', 'cif' => '1234567890', 'tip' => 'NOTIF', 'data_creare' => '30.08.2019 04:26:48', 'detalii' => 'Notificare'];
+
+    Http::fake(['*/run' => Http::response(['outcome' => 'signed_in', 'data' => ['messages' => [$row]]])]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-twice',
+        'expires_at' => now('UTC')->addMinutes(10),
+    ]);
+
+    app(SyncSpvInbox::class)($connection->id, null);
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    // A derived identity is only useful if it is derived the same way twice.
+    expect(SpvMessage::query()->where('tax_subject_id', $subject->id)->count())->toBe(1);
+});
