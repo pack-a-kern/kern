@@ -23,6 +23,7 @@ use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
 use Kern\TaxRomania\TaxRules\TaxRuleSource;
@@ -460,4 +461,59 @@ it('leaves an already-recorded rule version alone while filling in citations it 
 
     expect(TaxRuleVersion::query()->count())->toBe($before)
         ->and(TaxRuleSource::query()->count())->toBeGreaterThan(0);
+});
+
+it('keeps one draft per year, replacing the previous one', function (): void {
+    /*
+     * A draft is a working document. Pressing the button again means something changed, so the earlier answer is
+     * wrong — and keeping it produced fifty-two rows for eight years with nothing marking which was current.
+     */
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+    fakeLedger([]);
+
+    app(AssessFiscalYear::class)($subject->id, 2026);
+    app(AssessFiscalYear::class)($subject->id, 2026);
+    app(AssessFiscalYear::class)($subject->id, 2026);
+
+    expect(TaxAssessment::query()->where('fiscal_year', 2026)->count())->toBe(1)
+        // The lines of the discarded drafts go with them; nothing is left pointing at an assessment that is gone.
+        ->and(TaxAssessmentLine::query()->count())->toBe(
+            TaxAssessmentLine::query()
+                ->whereIn('assessment_id', TaxAssessment::query()->select('id'))
+                ->count(),
+        );
+});
+
+it('keeps a draft per year rather than one draft overall', function (): void {
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+    fakeLedger([]);
+
+    // Two years this fixture's parameters cover — they start in 2026 with no end, so 2025 has no rule in force
+    // and would fail for an unrelated reason.
+    app(AssessFiscalYear::class)($subject->id, 2026);
+    app(AssessFiscalYear::class)($subject->id, 2027);
+
+    expect(TaxAssessment::query()->count())->toBe(2);
+});
+
+it('leaves a final assessment alone, and lets the new draft sit beside it', function (): void {
+    // A filing rests on a FINAL assessment, so a recomputation must never discard one — and having both is the
+    // comparison somebody would actually want.
+    $subject = assessableSubject();
+    seedRuleParameters();
+    Artisan::call('kern:tax:register-rules');
+    fakeLedger([]);
+
+    $draft = app(AssessFiscalYear::class)($subject->id, 2026);
+    $draft->status = AssessmentStatus::FINAL;
+    $draft->save();
+
+    app(AssessFiscalYear::class)($subject->id, 2026);
+
+    expect(TaxAssessment::query()->where('fiscal_year', 2026)->count())->toBe(2)
+        ->and(TaxAssessment::query()->where('status', AssessmentStatus::FINAL->value)->count())->toBe(1);
 });

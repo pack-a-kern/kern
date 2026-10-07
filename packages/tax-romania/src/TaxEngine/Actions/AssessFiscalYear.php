@@ -6,7 +6,9 @@ namespace Kern\TaxRomania\TaxEngine\Actions;
 
 use DateTimeImmutable;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
+use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
@@ -89,7 +91,44 @@ final readonly class AssessFiscalYear
             ->withFacts($snapshots)
             ->draft();
 
+        $this->discardEarlierDraftFor($taxSubjectId, $fiscalYear);
+
         return $this->recorder->record($this->assessor->assess($context));
+    }
+
+    /**
+     * Removes the draft this one replaces, so a taxpayer has one draft per year rather than a pile.
+     *
+     * A draft is a working document, not a record. Pressing the button again means something changed — a
+     * transaction recategorised, a parameter approved — and the previous answer is then simply wrong. Keeping it
+     * produced fifty-two rows for eight years with no reader and nothing marking which was current.
+     *
+     * The history that matters is kept elsewhere and deliberately: `audit_events` records who computed what and
+     * when, and a draft that becomes something fileable is snapshotted into `declarations`, which is immutable by
+     * design — a changed ruleset makes a new draft or a rectificative, never a quiet edit of what was filed.
+     *
+     * Only drafts. A `FINAL` assessment is the thing a filing rests on and is never discarded by a recomputation;
+     * if one exists for a year, this leaves it alone and the new draft sits beside it, which is exactly the
+     * comparison somebody would want.
+     */
+    private function discardEarlierDraftFor(string $taxSubjectId, int $fiscalYear): void
+    {
+        $earlier = TaxAssessment::query()
+            ->where('tax_subject_id', $taxSubjectId)
+            ->where('fiscal_year', $fiscalYear)
+            ->where('status', AssessmentStatus::DRAFT->value)
+            ->pluck('id');
+
+        if ($earlier->isEmpty()) {
+            return;
+        }
+
+        /*
+         * Lines first, then the assessment. `tax_assessment_lines` has no cascade — deliberately, so a figure
+         * cannot be orphaned by a careless delete — which means the order here is the thing that makes it work.
+         */
+        TaxAssessmentLine::query()->whereIn('assessment_id', $earlier)->delete();
+        TaxAssessment::query()->whereIn('id', $earlier)->delete();
     }
 
     /** @return list<string> */
