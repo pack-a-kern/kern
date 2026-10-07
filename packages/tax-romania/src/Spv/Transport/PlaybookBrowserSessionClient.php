@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Spv\Transport;
 
 use DateTimeImmutable;
+use Exception;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -122,7 +123,7 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
             $messages[] = $fields;
         }
 
-        return $messages;
+        return ['rows' => $messages, 'expires_at' => $this->sessionExpiryIn($payload)];
     }
 
     /**
@@ -140,12 +141,14 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
         $outcome = is_string($payload['outcome'] ?? null) ? $payload['outcome'] : '';
         $message = is_string($payload['message'] ?? null) ? $payload['message'] : null;
 
+        $expiresAt = $this->sessionExpiryIn($payload);
+
         return match ($outcome) {
-            'awaiting_challenge' => new PortalAuthResult(SpvSessionState::AWAITING_USER_CHALLENGE, null),
-            'authenticated', 'completed' => new PortalAuthResult(SpvSessionState::AUTHENTICATED, null),
+            'awaiting_challenge' => new PortalAuthResult(SpvSessionState::AWAITING_USER_CHALLENGE, null, $expiresAt),
+            'authenticated', 'completed' => new PortalAuthResult(SpvSessionState::AUTHENTICATED, null, $expiresAt),
             // Everything else is a refusal the portal made, carrying whatever it said. Never the
             // worker's own error text: that can name a host, and a reason belongs to the portal.
-            default => new PortalAuthResult(SpvSessionState::FAILED, $message),
+            default => new PortalAuthResult(SpvSessionState::FAILED, $message, $expiresAt),
         };
     }
 
@@ -160,11 +163,49 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
      */
     private function run(string $sessionRef, string $sequence, array $secrets): array
     {
-        return $this->post('/v1/sessions/' . rawurlencode($sessionRef) . '/run', [
+        $response = $this->dispatch('post', '/v1/sessions/' . rawurlencode($sessionRef) . '/run', [
             'playbook' => $this->playbook(),
             'sequence' => $sequence,
             'secrets' => $secrets,
         ]);
+
+        /*
+         * The worker has no such session: it expired at its own TTL, or the worker was restarted and lost
+         * every browser it held. Either way the sitting is over and somebody signs in again — the same
+         * answer as the portal dropping the session, reached a different way, and better than the
+         * "not reachable" a restarted worker used to produce about a worker that had just answered.
+         *
+         * Here rather than in `decode()`, because the same status means something else on the way out: a
+         * 404 from `destroySession` is a browser already gone, which is what that call wanted.
+         */
+        if ($response->status() === 404) {
+            throw SpvSignInRequiredException::sessionLost();
+        }
+
+        return $this->decode($response);
+    }
+
+    /**
+     * The sitting's renewed expiry, as the worker reported it.
+     *
+     * Null rather than a guess when it is absent or unreadable: the alternative is this side inventing a
+     * deadline the worker does not share, and a screen hiding an action for a browser that is still there.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function sessionExpiryIn(array $payload): ?DateTimeImmutable
+    {
+        $raw = $payload['session_expires_at'] ?? null;
+
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($raw);
+        } catch (Exception) {
+            return null;
+        }
     }
 
     /** @return array<string, mixed> */
@@ -195,6 +236,20 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
      */
     private function send(string $method, string $path, array $body): array
     {
+        return $this->decode($this->dispatch($method, $path, $body));
+    }
+
+    /**
+     * The worker's answer, undecoded.
+     *
+     * Separate because one status means different things depending on what was asked: a 404 from a run is
+     * a sitting that no longer exists, and a 404 from a teardown is a browser already gone — which is what
+     * the teardown wanted. `decode()` cannot tell them apart and should not try.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    private function dispatch(string $method, string $path, array $body): Response
+    {
         if ($this->baseUrl === '') {
             throw SpvWorkerUnavailableException::authenticationNotConfigured();
         }
@@ -218,7 +273,7 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
             throw SpvWorkerUnavailableException::requestFailed($exception);
         }
 
-        return $this->decode($response);
+        return $response;
     }
 
     /** @return array<string, mixed> */

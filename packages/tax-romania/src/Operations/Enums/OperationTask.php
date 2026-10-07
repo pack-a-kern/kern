@@ -79,6 +79,21 @@ enum OperationTask: string
     case COUNTERPARTIES_CLASSIFY = 'counterparties.classify';
 
     /**
+     * Close the SPV sessions whose browsers the worker has already thrown away.
+     *
+     * A sitting lives in a running Chromium, and the worker expires it at its own TTL without telling
+     * anybody. So a row kept saying AUTHENTICATED with `destroyed_at` null for a browser that had been
+     * gone for an hour — and three separate readers had to filter on `expires_at > now()` to avoid
+     * believing it. A filter repeated in three places to work around a record nobody closes is the
+     * record's problem, not the readers'.
+     *
+     * Every few minutes, because the only cost of being late is a listing that still offers to read an
+     * inbox it cannot reach — and the screen, which asks the same question, is the one place that finds
+     * out immediately.
+     */
+    case SPV_CLOSE_EXPIRED_SESSIONS = 'spv.close_expired_sessions';
+
+    /**
      * Read the fiscal values — the minimum-wage decisions and ANAF's D212 structure files — and
      * propose those the law says, for a person to approve. Started from the tax rules screen.
      */
@@ -96,6 +111,7 @@ enum OperationTask: string
             self::BANKS_IMPORT => 'kern:banks:import',
             self::BANKS_BACKFILL => 'kern:banks:backfill',
             self::COUNTERPARTIES_CLASSIFY => 'kern:counterparties:classify',
+            self::SPV_CLOSE_EXPIRED_SESSIONS => 'kern:spv:close-expired-sessions',
         };
     }
 
@@ -114,6 +130,7 @@ enum OperationTask: string
             self::BANKS_IMPORT,
             self::LEGISLATION_SYNC,
             self::COUNTERPARTIES_CLASSIFY,
+            self::SPV_CLOSE_EXPIRED_SESSIONS,
         ], true);
     }
 

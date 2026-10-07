@@ -66,7 +66,17 @@ export function createRunRouter(
       return;
     }
 
-    await execute(req, res, handle, queue, stats, null);
+    /*
+     * Renewed before the run, not after.
+     *
+     * A sequence can take most of a minute — the portal's message list does — and a sweep landing in the
+     * middle of one would close the browser the run is holding. Pushing the expiry out first means the
+     * clock measures idleness from the moment work started, which is also the moment the caller cares
+     * about.
+     */
+    const renewed = id === undefined ? undefined : sessions.renew(id);
+
+    await execute(req, res, handle, queue, stats, null, renewed?.expiresAt);
   });
 
   router.delete("/v1/sessions/:id", async (req: Request, res: Response): Promise<void> => {
@@ -130,6 +140,9 @@ async function execute(
   queue: RunQueue,
   stats: Stats,
   known: Playbook | null,
+  // When this session's browser will be dropped if nothing else happens. The caller mirrors it, so that a
+  // screen offering to use a sitting and the worker holding it agree about when it ends.
+  expiresAt?: Date,
 ): Promise<void> {
   const body = asRecord(req.body);
   let playbook: Playbook;
@@ -164,6 +177,7 @@ async function execute(
       ...(result.message === undefined ? {} : { message: secrets.redact(result.message) }),
       data: result.data,
       timing_ms: result.timingMs,
+      ...(expiresAt === undefined ? {} : { session_expires_at: expiresAt.toISOString() }),
     });
   } catch (error) {
     stats.recordFailure();

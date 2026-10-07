@@ -402,3 +402,72 @@ it('gives the same message the same identity on a second sync, so nothing double
     // A derived identity is only useful if it is derived the same way twice.
     expect(SpvMessage::query()->where('tax_subject_id', $subject->id)->count())->toBe(1);
 });
+
+it('pushes the sitting forward when the inbox is read, because reading is use', function (): void {
+    // The TTL is idleness, not age. Somebody checking every ten minutes should not watch the action
+    // disappear under them halfway through looking at their own messages.
+    $renewed = now('UTC')->addMinutes(15);
+
+    Http::fake([
+        '*/run' => Http::response([
+            'outcome' => 'signed_in',
+            'data' => ['messages' => []],
+            'session_expires_at' => $renewed->toIso8601String(),
+        ]),
+    ]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    $session = SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-renewing',
+        // About to expire, which is the case that matters: the read itself should save it.
+        'expires_at' => now('UTC')->addMinute(),
+    ]);
+
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    expect($session->refresh()->expires_at->toIso8601String())->toBe($renewed->toIso8601String());
+});
+
+it('leaves the recorded expiry alone when the worker did not report one', function (): void {
+    // Rather than inventing a deadline this side does not know: a shorter one would hide the action for a
+    // browser that is still open.
+    $original = now('UTC')->addMinutes(9);
+
+    Http::fake(['*/run' => Http::response(['outcome' => 'signed_in', 'data' => ['messages' => []]])]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::USER_PASSWORD_OTP,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'username_ciphertext' => 'owner@example.test',
+        'status' => SpvConnectionStatus::ACTIVE,
+    ]);
+
+    $session = SpvSession::create([
+        'tax_subject_id' => $subject->id,
+        'connection_id' => $connection->id,
+        'state' => SpvSessionState::AUTHENTICATED,
+        'browser_session_ref' => 'worker-silent',
+        'expires_at' => $original,
+    ]);
+
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    expect($session->refresh()->expires_at->toIso8601String())->toBe($original->toIso8601String());
+});

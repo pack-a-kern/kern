@@ -58,6 +58,9 @@ return [
              * with, since one call takes minutes rather than seconds.
              */
             'counterparties.classify' => env('OPERATIONS_CRON_COUNTERPARTIES_CLASSIFY', '*/10 * * * *'),
+            // Often, because the cost of being late is a listing that offers to read an inbox whose
+            // browser is gone. Cheap: one UPDATE over rows that are almost always none.
+            'spv.close_expired_sessions' => env('OPERATIONS_CRON_SPV_CLOSE_EXPIRED_SESSIONS', '*/5 * * * *'),
         ],
     ],
 

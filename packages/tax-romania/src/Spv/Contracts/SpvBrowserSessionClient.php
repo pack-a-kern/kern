@@ -53,7 +53,10 @@ interface SpvBrowserSessionClient
      * fresh browser would be a fresh login — which, for a portal that emails a one-time code, means no
      * unattended sync is possible at all. Reusing the session is the whole reason sessions exist here.
      *
-     * @return list<array<string, string|null>> the portal's own rows, unmapped
+     * Returns the rows *and* the sitting's renewed expiry, because reading the inbox is itself use: a
+     * person checking every ten minutes should not lose the browser they are checking with.
+     *
+     * @return array{rows: list<array<string, string|null>>, expires_at: \DateTimeImmutable|null}
      *
      * @throws \Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException when the portal answered with
      *                                                                     its login form

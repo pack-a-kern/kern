@@ -63,6 +63,30 @@ export class SessionManager {
   }
 
   /**
+   * Pushes a session's expiry forward, because it has just been used.
+   *
+   * The TTL is idleness, not age. A sitting that dies fifteen minutes after it began would end in the
+   * middle of somebody's work however recently they acted; one that dies fifteen minutes after its last
+   * use ends when they stop. Nothing is kept alive by being looked at — only by being driven.
+   *
+   * No absolute cap, deliberately. A session renewed indefinitely is still only as good as the portal
+   * behind it, and the portal ending its own session is a case the playbook already recognises and
+   * reports as `session_lost`. A second clock here would mostly cut sittings short for no gain.
+   */
+  renew(id: string): BrowserSession | undefined {
+    const tracked = this.sessions.get(id);
+
+    if (tracked === undefined) {
+      return undefined;
+    }
+
+    const renewed: BrowserSession = { ...tracked.session, expiresAt: new Date(Date.now() + this.ttlMs) };
+    this.sessions.set(id, { session: renewed, handle: tracked.handle });
+
+    return renewed;
+  }
+
+  /**
    * The browser behind a session, for whoever is driving it.
    *
    * Separate from `get` because the two answer different questions — "does this session exist and

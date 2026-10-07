@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Spv\Transport;
 
+use Illuminate\Support\Carbon;
 use DateTimeImmutable;
 use DateTimeZone;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
@@ -47,14 +48,29 @@ final readonly class BrowserPortalInboxSyncTransport implements SpvInboxSyncTran
         $session = $this->liveSessionFor($connection);
 
         try {
-            $rows = $this->client->fetchInbox($session->browser_session_ref);
+            $page = $this->client->fetchInbox($session->browser_session_ref);
         } catch (SpvWorkerUnavailableException $exception) {
             throw SpvSyncUnavailableException::wrapping($exception);
+        } catch (SpvSignInRequiredException $exception) {
+            // Closed as we learn of it, rather than waiting for the scheduled sweep: the next thing the
+            // person does is look at the screen, and it should already know the sitting ended.
+            $session->destroyed_at = now('UTC');
+            $session->state = SpvSessionState::FAILED;
+            $session->save();
+
+            throw $exception;
+        }
+
+        // Reading the inbox is use, so the sitting has been pushed forward and the row has to be told.
+        // Otherwise a person checking every ten minutes watches the action disappear under them.
+        if ($page['expires_at'] !== null) {
+            $session->expires_at = Carbon::instance($page['expires_at']);
+            $session->save();
         }
 
         $messages = [];
 
-        foreach ($rows as $row) {
+        foreach ($page['rows'] as $row) {
             $message = $this->toMessage($row);
 
             if ($message !== null) {

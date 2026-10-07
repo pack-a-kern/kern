@@ -9,6 +9,7 @@ use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
 use Kern\Platform\Routing\PackageRoutes;
+use Kern\TaxRomania\Console\Commands\Spv\CloseExpiredSpvSessionsCommand;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
 use Kern\TaxRomania\Console\Commands\Fx\BackfillBnrYearCommand;
@@ -142,6 +143,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 BackfillBnrYearCommand::class,
                 BackfillCounterpartiesCommand::class,
                 ClassifyCounterpartiesCommand::class,
+                CloseExpiredSpvSessionsCommand::class,
                 IndexCounterpartiesCommand::class,
                 PostDepositInterestCommand::class,
             ]);

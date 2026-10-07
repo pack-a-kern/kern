@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Spv\Services;
 
+use Illuminate\Support\Carbon;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
@@ -32,6 +33,16 @@ final readonly class ApplyPortalAuthResult
     public function __invoke(SpvSession $session, SpvConnection $connection, PortalAuthResult $result): void
     {
         $session->state = $result->state;
+
+        /*
+         * Mirrored from the worker, which pushes it forward on every run because the TTL measures
+         * idleness rather than age. Not recomputed here: this side does not know the worker's TTL, and
+         * guessing it would mean a screen hiding an action for a browser that is still open.
+         */
+        if ($result->sessionExpiresAt !== null) {
+            // Through Carbon because that is the cast's type; the instant is unchanged.
+            $session->expires_at = Carbon::instance($result->sessionExpiresAt);
+        }
 
         if ($result->state === SpvSessionState::AWAITING_USER_CHALLENGE) {
             $session->challenge_requested_at = now('UTC');
