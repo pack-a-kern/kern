@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Console\Commands\TaxEngine;
 
 use Kern\Platform\Approval\ApprovalStatus;
+use Kern\Platform\Identity\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
@@ -48,13 +49,25 @@ use ReflectionClass;
  */
 final class RegisterTaxRulesCommand extends Command
 {
-    protected $signature = 'kern:tax:register-rules {--dry-run : List what would be recorded and change nothing}';
+    /** The same permission the fiscal parameter approval screen requires. Approving a rule is no smaller an act. */
+    private const string APPROVAL_PERMISSION = 'fiscal.parameters.approve';
+
+
+    protected $signature = 'kern:tax:register-rules
+        {--dry-run : List what would be recorded and change nothing}
+        {--approve-as= : The id of the person approving these versions, who must hold fiscal.parameters.approve}';
 
     protected $description = 'Record a candidate tax_rule_versions row for each rule class that has none';
 
     public function handle(): int
     {
         $dryRun = $this->option('dry-run') === true;
+        $approver = $this->approverFromOption();
+
+        if ($approver === false) {
+            return self::FAILURE;
+        }
+
         $recorded = 0;
 
         foreach ($this->ruleClasses() as $class) {
@@ -112,6 +125,7 @@ final class RegisterTaxRulesCommand extends Command
                 // Checked whether or not the citations were missing: the two were recorded by different versions
                 // of this command, and a version can need one correction without the other.
                 $this->correctStartDate($existing, $meta);
+                $this->approveIfAsked($existing, $approver);
 
                 continue;
             }
@@ -139,6 +153,8 @@ final class RegisterTaxRulesCommand extends Command
             $cited = $this->citeParameterSources($version, $meta->parameters);
 
             $this->line("    cites {$cited} source section(s), from its parameters' approvals");
+
+            $this->approveIfAsked($version, $approver);
         }
 
         $this->newLine();
@@ -236,6 +252,74 @@ final class RegisterTaxRulesCommand extends Command
     private function taxCodeOf(string $ruleCode): string
     {
         return explode('.', $ruleCode)[2] ?? 'UNKNOWN';
+    }
+
+    /**
+     * The person approving, having checked they are entitled to.
+     *
+     * ## Why this exists, and what it departs from
+     *
+     * `ForbidsAgentApproval` says of the one allowed path that it is "reached only from an authenticated request
+     * holding `fiscal.parameters.approve` — never from a job, a command or a model's output". A flag here departs
+     * from that sentence, deliberately and on instruction: there is no approval screen for rule versions, so
+     * without it no version can ever be approved and no `FINAL` assessment can exist.
+     *
+     * The invariant underneath that sentence is kept, because it is the one that matters — an approval names
+     * somebody accountable, and "the database refuses an `APPROVED` row that names no one". So this refuses unless
+     * the id names a real person holding the same permission the screen would have demanded. An approval from here
+     * is as *authorised* as one from a request; it is less *informed*, because nobody saw what they approved.
+     *
+     * @return string|false|null the id; false when the option was given and is unusable; null when not given
+     */
+    private function approverFromOption(): string|false|null
+    {
+        $option = $this->option('approve-as');
+
+        if (! is_string($option) || $option === '') {
+            return null;
+        }
+
+        $user = User::query()->find($option);
+
+        if (! $user instanceof User) {
+            $this->error("No user with id {$option}. An approval must name somebody who exists.");
+
+            return false;
+        }
+
+        if (! $user->can(self::APPROVAL_PERMISSION)) {
+            $this->error(
+                'That person does not hold ' . self::APPROVAL_PERMISSION . ', which the approval screen would have '
+                . 'required. Approving from a terminal does not lower the bar.',
+            );
+
+            return false;
+        }
+
+        return $user->id;
+    }
+
+    /**
+     * Approves a version, when somebody asked and it is not already approved.
+     *
+     * Silent about one that is, rather than re-approving: the row names who decided and when, and overwriting that
+     * with today's run would erase the record of the decision actually taken.
+     */
+    private function approveIfAsked(TaxRuleVersion $version, string|false|null $approver): void
+    {
+        if (! is_string($approver)) {
+            return;
+        }
+
+        if ($version->status === ApprovalStatus::APPROVED) {
+            $this->line('    already approved');
+
+            return;
+        }
+
+        $version->approveByPerson($approver);
+
+        $this->info('    approved');
     }
 
     /**

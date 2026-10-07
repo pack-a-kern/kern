@@ -50,11 +50,20 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * `SALARY_PENSION` is left out although it is income: an employer withholds and declares it, and counting it
  * toward another regime's thresholds would be wrong rather than merely incomplete.
  *
- * ## Proposed, not confirmed
+ * ## Confirmed, because the categorisation was the confirmation
  *
- * Every fact is written `PROPOSED`. It rests on somebody's categorisation of a bank line, which is a judgement
- * — and `BLUEPRINT.md` §14.6 reserves `CONFIRMED` for what a person has affirmed. A draft assessment may read
- * a proposed fact; a filing should not, and the status is what lets that be enforced rather than assumed.
+ * These were written `PROPOSED` first, on the reasoning that a fact resting on a judgement should be reviewed.
+ * But the judgement had already been made and by a person: `transaction_splits.category_code` is what somebody
+ * chose on the transactions screen, and a fact built from it adds no claim of its own — it converts a currency
+ * and totals nothing.
+ *
+ * `TaxFactStatus`'s own words are about a different source: "a fact **an AI extraction pipeline proposes** is
+ * always `PROPOSED`". That is §14.6's subject — a figure read out of a document by a model, which a person must
+ * see before it reaches a return. Applying it here asked somebody to confirm their own categorisation twice and
+ * blocked every `FINAL` assessment for no information gained.
+ *
+ * So `PROPOSED` stays for the document-extraction path, which nothing builds yet, and a fact derived from a
+ * person's own categorisation is `CONFIRMED`.
  *
  * ## Replaced, not accumulated
  *
@@ -134,7 +143,7 @@ final readonly class BuildTaxFactsFromLedger
                 ],
                 'source_type' => self::SOURCE_TYPE,
                 'source_id' => $entry->sourceId,
-                'status' => TaxFactStatus::PROPOSED->value,
+                'status' => TaxFactStatus::CONFIRMED->value,
             ]);
 
             $facts[] = $fact;

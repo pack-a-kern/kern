@@ -6,12 +6,10 @@ namespace Tests\Feature\TaxRomania\TaxEngine\AssessFiscalYearTest;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
-use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -20,7 +18,6 @@ use Kern\TaxRomania\TaxEngine\Actions\BuildTaxFactsFromLedger;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
-use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
@@ -87,50 +84,6 @@ function assessableSubject(): TaxSubject
     return $subject;
 }
 
-/**
- * The parameters the three real rules read, with values this test chose.
- *
- * Real rows rather than a stub, because `ParameterResolver` is part of what is under test here — it is the
- * step that turns "this rule needs RO.MIN_WAGE" into a value valid on a date. The numbers are the test's own:
- * 1,000 per minimum wage makes the thresholds 6,000 / 12,000 / 24,000 and keeps every assertion checkable.
- */
-function seedRuleParameters(): void
-{
-    // The type is on the parameter, not the version, and the accessors check it — asking a MONEY parameter for
-    // a decimal rate is refused rather than coerced, which is why each one states its own.
-    $values = [
-        'RO.MIN_WAGE' => [FiscalParameterValueType::MONEY, ['amount_minor' => 100000, 'currency' => 'RON']],
-        'RO.CASS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.10']],
-        'RO.CASS.OTHER_INCOME_BANDS_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [6, 12, 24]]],
-        'RO.INCOME_TAX.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.10']],
-        'RO.INCOME_TAX.RENT_EXPENSE_QUOTA' => [FiscalParameterValueType::DECIMAL, ['value' => '0.20']],
-        // Independent activity owes two contributions on the same income, computed two different ways: the
-        // pension one steps up at thresholds, the health one sits between a floor and a cap.
-        'RO.CAS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.25']],
-        'RO.CAS.BASE_MIN_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [12, 24]]],
-        'RO.CASS.INDEPENDENT_BASE_WAGES' => [FiscalParameterValueType::JSON, ['floor' => 6, 'cap' => 72]],
-    ];
-
-    foreach ($values as $code => [$valueType, $valueJson]) {
-        $parameter = FiscalParameter::factory()->create(['code' => $code, 'value_type' => $valueType->value]);
-
-        /*
-         * Through the suite's own helper, which inserts the row directly.
-         *
-         * Setting APPROVED through the model is refused — `AgentApprovalNotPermittedException`, because
-         * approving a fiscal value is a human act and application code may not perform it. A test needs an
-         * approved value as a *precondition* rather than as an action, and the helper exists for exactly that.
-         *
-         * Approved matters here beyond realism: only an approved version's source section may be cited by a
-         * rule, since a candidate's is a section nobody has agreed on yet.
-         */
-        insertApprovedFiscalParameterVersion(
-            $parameter->id,
-            SourceSection::factory()->create()->id,
-            ['valid_from' => '2026-01-01', 'value_json' => json_encode($valueJson, JSON_THROW_ON_ERROR)],
-        );
-    }
-}
 
 /** @param list<LedgerIncomeEntry> $entries */
 function fakeLedger(array $entries): void
@@ -168,9 +121,13 @@ it('builds a fact per ledger entry, proposed rather than confirmed', function ()
     $categories = TaxFact::query()->where('fiscal_year', 2026)->pluck('category_code')->sort()->values()->all();
 
     expect($categories)->toBe(['DIVIDENDS_INTEREST', 'RENT'])
-        // Proposed, because it rests on somebody's categorisation of a bank line. §14.6 reserves CONFIRMED
-        // for what a person has affirmed, and a filing should be able to tell the difference.
-        ->and(TaxFact::query()->where('status', TaxFactStatus::PROPOSED->value)->count())->toBe(2);
+        /*
+         * Confirmed, because the confirmation already happened: `category_code` is what a person chose on the
+         * transactions screen, and this adds no claim of its own. `PROPOSED` belongs to the source §14.6 is
+         * about — a figure a model read out of a document — and applying it here asked somebody to confirm their
+         * own categorisation twice while blocking every FINAL assessment.
+         */
+        ->and(TaxFact::query()->where('status', TaxFactStatus::CONFIRMED->value)->count())->toBe(2);
 });
 
 it('leaves salary alone, because an employer already withheld and declared it', function (): void {

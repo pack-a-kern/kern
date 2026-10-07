@@ -25,6 +25,7 @@ use Kern\TaxRomania\Database\Factories\TaxRuleVersionFactory;
  * @property array<string, mixed> $config_json
  * @property ApprovalStatus $status
  * @property string|null $source_hash
+ * @property string|null $approved_by
  * @property \Illuminate\Support\Carbon|null $approved_at
  */
 #[UseFactory(TaxRuleVersionFactory::class)]
@@ -45,6 +46,7 @@ final class TaxRuleVersion extends Model
         'config_json',
         'status',
         'source_hash',
+        'approved_by',
         'approved_at',
     ];
 
@@ -56,4 +58,17 @@ final class TaxRuleVersion extends Model
         'status' => ApprovalStatus::class,
         'approved_at' => 'datetime',
     ];
+
+    /**
+     * Marks this version approved by a named person — the one way an `APPROVED` row is written.
+     *
+     * Mirrors `FiscalParameterVersion::approveByPerson()`, and exists for the same reason: `ForbidsAgentApproval`
+     * refuses the status from anywhere else, so that approving a fiscal decision always records whose decision it
+     * was. This model had the trait and no such method, and the table had no `approved_by` to put a name in — so
+     * no rule version could be approved at all, by anybody, and every assessment was stuck as a draft.
+     */
+    public function approveByPerson(string $userId): void
+    {
+        $this->savedAsApprovedByPerson(['approved_by' => $userId, 'approved_at' => now('UTC')]);
+    }
 }

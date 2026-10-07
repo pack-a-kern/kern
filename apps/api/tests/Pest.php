@@ -6,11 +6,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -409,4 +412,49 @@ function packageRoot(string $class): string
 function fixtureFromPackage(string $class, string $path): string
 {
     return packageRoot($class) . '/tests/Fixtures/' . ltrim($path, '/');
+}
+
+/**
+ * The parameters the three real rules read, with values this test chose.
+ *
+ * Real rows rather than a stub, because `ParameterResolver` is part of what is under test here — it is the
+ * step that turns "this rule needs RO.MIN_WAGE" into a value valid on a date. The numbers are the test's own:
+ * 1,000 per minimum wage makes the thresholds 6,000 / 12,000 / 24,000 and keeps every assertion checkable.
+ */
+function seedRuleParameters(): void
+{
+    // The type is on the parameter, not the version, and the accessors check it — asking a MONEY parameter for
+    // a decimal rate is refused rather than coerced, which is why each one states its own.
+    $values = [
+        'RO.MIN_WAGE' => [FiscalParameterValueType::MONEY, ['amount_minor' => 100000, 'currency' => 'RON']],
+        'RO.CASS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.10']],
+        'RO.CASS.OTHER_INCOME_BANDS_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [6, 12, 24]]],
+        'RO.INCOME_TAX.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.10']],
+        'RO.INCOME_TAX.RENT_EXPENSE_QUOTA' => [FiscalParameterValueType::DECIMAL, ['value' => '0.20']],
+        // Independent activity owes two contributions on the same income, computed two different ways: the
+        // pension one steps up at thresholds, the health one sits between a floor and a cap.
+        'RO.CAS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.25']],
+        'RO.CAS.BASE_MIN_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [12, 24]]],
+        'RO.CASS.INDEPENDENT_BASE_WAGES' => [FiscalParameterValueType::JSON, ['floor' => 6, 'cap' => 72]],
+    ];
+
+    foreach ($values as $code => [$valueType, $valueJson]) {
+        $parameter = FiscalParameter::factory()->create(['code' => $code, 'value_type' => $valueType->value]);
+
+        /*
+         * Through the suite's own helper, which inserts the row directly.
+         *
+         * Setting APPROVED through the model is refused — `AgentApprovalNotPermittedException`, because
+         * approving a fiscal value is a human act and application code may not perform it. A test needs an
+         * approved value as a *precondition* rather than as an action, and the helper exists for exactly that.
+         *
+         * Approved matters here beyond realism: only an approved version's source section may be cited by a
+         * rule, since a candidate's is a section nobody has agreed on yet.
+         */
+        insertApprovedFiscalParameterVersion(
+            $parameter->id,
+            SourceSection::factory()->create()->id,
+            ['valid_from' => '2026-01-01', 'value_json' => json_encode($valueJson, JSON_THROW_ON_ERROR)],
+        );
+    }
 }
