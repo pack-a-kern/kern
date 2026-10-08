@@ -1815,8 +1815,51 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 10px;
+    /* Wraps rather than truncating: at phone width the name, its code and the total do not share a line, and
+       the half that gets cut is the name — the one part a reader cannot reconstruct from the others. */
+    flex-wrap: wrap;
+    gap: 4px 10px;
     margin-bottom: 8px;
+}
+
+.tax-group-head > strong {
+    margin-left: auto;
+}
+
+/*
+ * One component of a tax: which income, why, and what it comes to.
+ *
+ * A row rather than a table cell. Five columns plus a sentence of reasoning cannot share a line — the prose
+ * sets the first column's width, pushes rate and total past the edge, and on a phone the stacked cell puts a
+ * label and a paragraph side by side. The reasoning is the point of this engine, so the layout gives it a line
+ * of its own instead of a column it will always overflow.
+ */
+.tax-component {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border-top: 1px solid var(--border);
+}
+
+.tax-component:first-child {
+    border-top: 0;
+    padding-top: 2px;
+}
+
+/* The figures behind the total, on their own line: each is a short pair, and they wrap rather than truncate. */
+.tax-figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 5px;
+}
+
+.tax-figures b {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
 }
 
 /* The tax's own code, kept beside its name: short, fixed, and what the law and every export call it. */

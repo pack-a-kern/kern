@@ -61,7 +61,7 @@ final class AssessFiscalYearController
                  * percentage of the threshold, not of what you earned" was displayed without what was earned
                  * anywhere on it. The figure the whole rule is about was the one figure missing.
                  */
-                'income' => $this->summedIncome($line),
+                'income_minor' => $this->summedIncomeMinor($line),
                 'base_reached' => $this->baseStep($line),
                 'trace' => $line->calculation_trace_json,
             ])
@@ -131,13 +131,34 @@ final class AssessFiscalYearController
      * position rather than operation name keeps this from having to know which rules exist, and a rule that
      * broke the convention would show no income rather than a wrong one.
      */
-    private function summedIncome(TaxAssessmentLine $line): ?string
+    private function summedIncomeMinor(TaxAssessmentLine $line): ?int
     {
         $steps = $line->calculation_trace_json['steps'] ?? null;
         $first = is_array($steps) ? ($steps[0] ?? null) : null;
         $result = is_array($first) ? ($first['result'] ?? null) : null;
 
-        return is_string($result) ? $result : null;
+        return is_string($result) ? $this->minorUnitsOf($result) : null;
+    }
+
+    /**
+     * A `Money` as it appears in a trace, back to minor units.
+     *
+     * `Money::toString()` writes a fixed machine form — sign, digits, a dot, two places, the currency — which is
+     * right for a trace that has to read the same in five years, and wrong on a screen: it put `2177598.46 RON`
+     * beside `2.177.598,46 RON` in the same row, the second being the reader's own locale.
+     *
+     * So the figure travels as an integer and the screen formats it, which is how every other amount on that page
+     * already works. Parsing a formatted string is usually a mistake; here the format is fixed by the class two
+     * files away and asserted by a test, and the alternative — a second representation in every rule's trace —
+     * changes six rules to fix a display bug.
+     */
+    private function minorUnitsOf(string $money): ?int
+    {
+        if (preg_match('/^(-?)(\d+)\.(\d{2}) [A-Z]{3}$/', $money, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) ($matches[1] . $matches[2] . $matches[3]);
     }
 
     /**
@@ -162,9 +183,22 @@ final class AssessFiscalYearController
         $out = ['operation' => is_string($operation) ? $operation : ''];
 
         foreach (is_array($detail) ? $detail : [] as $key => $value) {
-            if (is_string($key) && is_string($value)) {
-                $out[$key] = $value;
+            if (! is_string($key) || ! is_string($value)) {
+                continue;
             }
+
+            /*
+             * An amount in the detail is sent as minor units under `<key>_minor`, for the same reason as the
+             * income above: the trace's own form is not the reader's. The string stays too, because a detail
+             * this screen has not been taught about must still be printable.
+             */
+            $minor = $this->minorUnitsOf($value);
+
+            if ($minor !== null) {
+                $out[$key . '_minor'] = (string) $minor;
+            }
+
+            $out[$key] = $value;
         }
 
         return $out;

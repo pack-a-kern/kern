@@ -1256,13 +1256,11 @@ export interface Dictionary {
             assess: string;
             notAssessedYet: string;
             draftHint: string;
-            columnCategory: string;
-            columnBase: string;
-            columnRate: string;
-            columnOwed: string;
             /** How many rule outputs the year produced, and the heading over the ring. */
             rulesApplied: string;
             composition: string;
+            /** Under the ring's percentage. Short, because the hole it sits in is 66px across. */
+            ofTotal: string;
             totalOwedLabel: string;
             incomeAssessed: string;
             assessmentStatus: string;

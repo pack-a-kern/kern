@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
 import {
-    DataTable,
     DonutTile,
     Page,
     Panel,
@@ -48,10 +47,13 @@ interface Line {
      *
      * Shown because the first version of this screen displayed a base of 103,800 and nothing about the 475,690
      * behind it, so a contribution the rule describes as "a percentage of the threshold, not of what you
-     * earned" appeared with no sign of what was earned. Already formatted with its currency by the engine's own
-     * `Money`, so it is printed rather than reformatted.
+     * earned" appeared with no sign of what was earned.
+     *
+     * Minor units, formatted here like every other amount. It used to arrive pre-formatted by the engine's
+     * `Money`, which writes a fixed machine form — so the row read `2177598.46 RON` next to `2.177.598,46 RON`,
+     * the same currency written two ways on one line.
      */
-    income: string | null;
+    incomeMinor: number | null;
     /** How the rule got from that income to the base, as the step recorded it. */
     baseReached: Record<string, string> | null;
 }
@@ -162,7 +164,7 @@ function parse(payload: unknown): Assessment {
                 rateDecimal: typeof row.rate_decimal === 'string' ? row.rate_decimal : null,
                 taxMinor: int(row, 'tax_minor'),
                 explanationKey: str(row, 'explanation_key'),
-                income: typeof row.income === 'string' ? row.income : null,
+                incomeMinor: typeof row.income_minor === 'number' ? row.income_minor : null,
                 baseReached: typeof row.base_reached === 'object' && row.base_reached !== null
                     ? (row.base_reached as Record<string, string>)
                     : null,
@@ -395,8 +397,12 @@ export default function TaxesOverview(): JSX.Element {
                                 <div className="mb-4">
                                     <DonutTile
                                         config={compositionConfig}
-                                        centre={formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
-                                        centreNote={t((d) => d.pages.taxes.totalOwedLabel)}
+                                        /* The hole is 66px across. A formatted sum does not fit it and sat on
+                                           top of the label beside it; the share the ring is drawing does. */
+                                        centre={`${String(
+                                            Math.round((largest.minor / totalOwedMinor(assessment)) * 100),
+                                        )}%`}
+                                        centreNote={t((d) => d.pages.taxes.ofTotal)}
                                         label={t((d) => d.pages.taxes.composition)}
                                         value={taxName(largest.taxCode, t)}
                                         note={`${formatAmount(largest.minor / 100, 'RON', locale)} · ${String(
@@ -420,7 +426,7 @@ export default function TaxesOverview(): JSX.Element {
                                     <div className="tax-group-head">
                                         <div className="flex min-w-0 items-center gap-2">
                                             <span className="text-muted-foreground">{taxIcon(group.taxCode)}</span>
-                                            <h3 className="truncate text-sm font-semibold">
+                                            <h3 className="text-sm font-semibold">
                                                 {taxName(group.taxCode, t)}
                                             </h3>
                                             {/* The code the law and every export use, kept beside the name
@@ -432,51 +438,56 @@ export default function TaxesOverview(): JSX.Element {
                                         </strong>
                                     </div>
 
-                                    <DataTable
-                                        stacked
-                                        head={
-                                            <>
-                                                <th>{t((d) => d.pages.taxes.columnCategory)}</th>
-                                                <th className="col-figure">
-                                                    {t((d) => d.pages.taxes.componentIncome)}
-                                                </th>
-                                                <th className="col-figure">
-                                                    {t((d) => d.pages.taxes.componentBase)}
-                                                </th>
-                                                <th className="col-figure">{t((d) => d.pages.taxes.columnRate)}</th>
-                                                <th className="col-figure">{t((d) => d.pages.taxes.columnOwed)}</th>
-                                            </>
-                                        }
-                                    >
+                                    <div>
                                         {group.components.map((line) => (
-                                            <tr key={`${line.taxCode}-${line.categoryCode}`}>
-                                                <td data-label={t((d) => d.pages.taxes.columnCategory)}>
-                                                    {line.categoryCode}
+                                            <div className="tax-component" key={`${line.taxCode}-${line.categoryCode}`}>
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-semibold">{line.categoryCode}</p>
+
                                                     {/* The rule's own words for what it concluded. The point of
                                                         the engine is that a figure arrives with its reasoning,
-                                                        so the reasoning sits with the figure. */}
-                                                    <p className="note mt-0.5">
+                                                        so the reasoning gets a line rather than a column. */}
+                                                    <p className="note mt-1">
                                                         {t((d) => d.taxExplanations)[line.explanationKey] ??
                                                             line.explanationKey}
                                                     </p>
-                                                </td>
-                                                <td
-                                                    className="col-figure"
-                                                    data-label={t((d) => d.pages.taxes.componentIncome)}
-                                                >
-                                                    {line.income ?? '—'}
-                                                </td>
-                                                <td
-                                                    className="col-figure"
-                                                    data-label={t((d) => d.pages.taxes.componentBase)}
-                                                >
-                                                    {formatAmount(line.taxableBaseMinor / 100, 'RON', locale)}
+
+                                                    <p className="note tax-figures">
+                                                        <span>
+                                                            {t((d) => d.pages.taxes.componentIncome)}{' '}
+                                                            <b>
+                                                                {line.incomeMinor === null
+                                                                    ? '—'
+                                                                    : formatAmount(
+                                                                          line.incomeMinor / 100,
+                                                                          'RON',
+                                                                          locale,
+                                                                      )}
+                                                            </b>
+                                                        </span>
+                                                        <span>
+                                                            {t((d) => d.pages.taxes.componentBase)}{' '}
+                                                            <b>
+                                                                {formatAmount(
+                                                                    line.taxableBaseMinor / 100,
+                                                                    'RON',
+                                                                    locale,
+                                                                )}
+                                                            </b>
+                                                        </span>
+                                                        {line.rateDecimal === null ? null : (
+                                                            <span>
+                                                                <b>{formatPercent(Number(line.rateDecimal), locale)}</b>
+                                                            </span>
+                                                        )}
+                                                    </p>
+
                                                     {/* Why the base is not the income — the step people most
                                                         want to see, and the reason two different incomes can
                                                         owe the same. */}
                                                     {line.baseReached?.threshold_in_wages !== undefined &&
                                                     line.baseReached.threshold_in_wages !== 'none' ? (
-                                                        <p className="note mt-0.5">
+                                                        <p className="note mt-1">
                                                             {t((d) => d.pages.taxes.thresholdReached).replace(
                                                                 '{wages}',
                                                                 line.baseReached.threshold_in_wages,
@@ -484,31 +495,27 @@ export default function TaxesOverview(): JSX.Element {
                                                         </p>
                                                     ) : null}
                                                     {line.baseReached?.quota !== undefined ? (
-                                                        <p className="note mt-0.5">
+                                                        <p className="note mt-1">
                                                             {t((d) => d.pages.taxes.quotaDeducted).replace(
                                                                 '{deducted}',
-                                                                line.baseReached.deducted ?? '',
+                                                                line.baseReached.deducted_minor === undefined
+                                                                    ? (line.baseReached.deducted ?? '')
+                                                                    : formatAmount(
+                                                                          Number(line.baseReached.deducted_minor) / 100,
+                                                                          'RON',
+                                                                          locale,
+                                                                      ),
                                                             )}
                                                         </p>
                                                     ) : null}
-                                                </td>
-                                                <td
-                                                    className="col-figure"
-                                                    data-label={t((d) => d.pages.taxes.columnRate)}
-                                                >
-                                                    {line.rateDecimal === null
-                                                        ? '—'
-                                                        : formatPercent(Number(line.rateDecimal), locale)}
-                                                </td>
-                                                <td
-                                                    className="col-figure"
-                                                    data-label={t((d) => d.pages.taxes.columnOwed)}
-                                                >
+                                                </div>
+
+                                                <strong className="shrink-0 text-sm tabular-nums">
                                                     {formatAmount(line.taxMinor / 100, 'RON', locale)}
-                                                </td>
-                                            </tr>
+                                                </strong>
+                                            </div>
                                         ))}
-                                    </DataTable>
+                                    </div>
                                 </section>
                             ))}
 

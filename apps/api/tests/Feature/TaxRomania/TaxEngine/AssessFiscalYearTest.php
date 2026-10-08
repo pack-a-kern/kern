@@ -368,9 +368,14 @@ it('shows what was earned beside what was taxed, which the first screen did not'
         }
     }
 
-    // 30,000 of income reaches the 24-wage threshold at 1,000 per wage, so the base is 24,000 and the
-    // contribution 2,400 — and the income is on the line rather than only inside the trace.
-    expect($cass['income'] ?? null)->toBe('30000.00 RON')
+    /*
+     * 30,000 of income reaches the 24-wage threshold at 1,000 per wage, so the base is 24,000 and the
+     * contribution 2,400 — and the income is on the line rather than only inside the trace.
+     *
+     * Minor units, not `Money`'s own string: that form is fixed for a record that must read the same in five
+     * years, and putting it on a screen printed `30000.00 RON` beside `2.177.598,46 RON` in one row.
+     */
+    expect($cass['income_minor'] ?? null)->toBe(3000000)
         ->and($cass['taxable_base_minor'] ?? null)->toBe(2400000)
         ->and($cass['tax_minor'] ?? null)->toBe(240000)
         ->and(cassThreshold($cass))->toBe('24');
