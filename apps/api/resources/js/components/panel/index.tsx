@@ -98,7 +98,12 @@ export function Panel(props: {
                 {props.aside !== undefined && <div className="flex shrink-0 items-center gap-2">{props.aside}</div>}
             </div>
 
-            <div className="panel-body">{props.children}</div>
+            {/* No body when there is nothing in it. A card whose children render to nothing — a hint shown
+                only before an action, a list that is empty — otherwise draws an empty padded strip under its
+                head, which reads as something that failed to load. */}
+            {props.children === null || props.children === undefined || props.children === false ? null : (
+                <div className="panel-body">{props.children}</div>
+            )}
 
             {hasFoot && (
                 <div className="panel-foot">
@@ -1231,5 +1236,48 @@ export function PanelButton(props: {
         >
             {props.children}
         </Button>
+    );
+}
+
+/**
+ * The figure tiles a page leads with, and the mark that says what each is about.
+ *
+ * Moved out of the dashboard, which had them, when the taxes screen needed the same row. Two pages showing the
+ * same kind of figure should show it the same way — the alternative was a second tile with the mark on the
+ * other side of the label, which is how an application stops looking like one application.
+ */
+/** The colour an icon badge carries: what kind of figure sits beside it, never how good it is. */
+export type Tone = 'brand' | 'success' | 'amber' | 'info';
+
+const TONE_CLASS: Record<Tone, string> = {
+    brand: 'bg-accent text-accent-foreground',
+    success: 'bg-success/10 text-success',
+    amber: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    info: 'bg-info/10 text-info',
+};
+
+export function IconBadge({ tone, children }: { tone: Tone; children: ReactNode }): JSX.Element {
+    return (
+        <span className={cn('grid size-8 shrink-0 place-items-center rounded-lg', TONE_CLASS[tone])}>{children}</span>
+    );
+}
+
+/** One figure beside the headline: a coloured mark saying what kind it is, the value, and its detail. */
+export function Kpi(props: {
+    tone: Tone;
+    icon: ReactNode;
+    label: string;
+    value: string;
+    sub?: string | undefined;
+}): JSX.Element {
+    return (
+        <div className="border-border bg-card shadow-hair rounded-xl border p-4">
+            <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
+                <IconBadge tone={props.tone}>{props.icon}</IconBadge>
+                {props.label}
+            </div>
+            <div className="mt-3 text-xl font-bold tracking-tight tabular-nums">{props.value}</div>
+            {props.sub === undefined || props.sub === '' ? null : <div className="note mt-1">{props.sub}</div>}
+        </div>
     );
 }

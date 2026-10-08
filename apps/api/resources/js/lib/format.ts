@@ -60,16 +60,6 @@ export function formatAmount(amount: number, currency: string, locale: string): 
     return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 }
 
-/**
- * A bare figure in the reader's conventions, for a place too narrow to repeat its currency — "285.229,85".
- *
- * The caller must state the currency beside it. Meant for a chart's hole and nothing else: an amount without
- * its denomination is a bug waiting to happen everywhere a page shows more than one currency.
- */
-export function formatFigure(amount: number, locale: string): string {
-    return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-}
-
 /** A rate given as a fraction — `0.1` — as a percent, "10%". */
 export function formatPercent(fraction: number, locale: string): string {
     return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(fraction);
