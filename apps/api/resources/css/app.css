@@ -1765,6 +1765,73 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }
+/*
+ * The one figure a page is about, set apart from the figures that explain it.
+ *
+ * A modifier on `.stat` rather than a second tile: the layout, padding and radius are already right, and the
+ * only thing that changes is which figure the eye lands on first. The gradient leans on `--primary` through
+ * `color-mix`, so it follows a retheme instead of pinning two hex values that would drift from everything else.
+ */
+.stat-primary {
+    background: linear-gradient(
+        118deg,
+        var(--primary),
+        color-mix(in srgb, var(--primary) 72%, var(--info))
+    );
+    border-color: transparent;
+    color: var(--primary-foreground);
+    box-shadow: var(--elevation-float);
+}
+
+/* Inside it the muted tokens would vanish, so label and note are the foreground held back instead. */
+.stat-primary .stat-label,
+.stat-primary .stat-sub,
+.stat-primary .note {
+    color: color-mix(in srgb, var(--primary-foreground) 76%, transparent);
+}
+
+.stat-primary .stat-mark {
+    background: color-mix(in srgb, var(--primary-foreground) 16%, transparent);
+    color: var(--primary-foreground);
+}
+
+/* The figure the tile exists for: larger than a `.stat-value`, and fluid so a seven-digit sum still fits a
+   phone without the tile growing a scrollbar. */
+.stat-value-lead {
+    font-size: clamp(1.35rem, 5.2vw, 1.85rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+/*
+ * One tax's heading: what it is, and what it comes to.
+ *
+ * A baseline-aligned pair rather than a table row, because the total belongs to the whole group and reading it
+ * as another figure in the column underneath would be wrong.
+ */
+.tax-group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+/* The tax's own code, kept beside its name: short, fixed, and what the law and every export call it. */
+.tax-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 3px 6px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    white-space: nowrap;
+}
+
 .stat-sub {
     font-size: 10.5px;
     color: var(--muted-foreground);

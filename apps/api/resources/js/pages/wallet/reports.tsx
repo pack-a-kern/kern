@@ -27,8 +27,8 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 
 import { apiRequest } from '../../lib/http';
 import AppShell from '../../components/AppShell';
-import { DataTable, Page, Panel, PanelButton, PanelSelect, Pill, Stat, StatGrid, Tabs } from '../../components/panel';
 import { Chart } from '../../components/Chart';
+import { DataTable, DonutTile, Page, Panel, PanelButton, PanelSelect, Pill, Stat, StatGrid, Tabs } from '../../components/panel';
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
@@ -1264,34 +1264,6 @@ function Change(props: { percent: number | null; note: string; invert?: boolean 
     );
 }
 
-/** A ring with its headline in the hole, and the reading spelled out beside it. */
-function DonutTile(props: {
-    config: ChartConfiguration;
-    centre: string;
-    centreNote: string;
-    label: string;
-    value: string;
-    note: string;
-}): JSX.Element {
-    return (
-        <div className="border-border flex items-center gap-4 rounded-xl border p-3">
-            <div className="chart-donut">
-                <Chart config={props.config} label={props.label} />
-                <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                    <div>
-                        <p className="text-base font-semibold">{props.centre}</p>
-                        <p className="note donut-note">{props.centreNote}</p>
-                    </div>
-                </div>
-            </div>
-            <div className="min-w-0">
-                <p className="metric-label">{props.label}</p>
-                <p className="mt-1 truncate text-sm font-semibold">{props.value}</p>
-                <p className="note mt-1">{props.note}</p>
-            </div>
-        </div>
-    );
-}
 
 /** One thing to go and fix, as a row that goes there. */
 function AttentionRow(props: {

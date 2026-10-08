@@ -1247,25 +1247,40 @@ export interface Dictionary {
             };
         };
         taxes: {
-            columnIncome: string;
             thresholdReached: string;
             quotaDeducted: string;
             title: string;
             description: string;
-            /** Kept: the screen no longer shows it, and `/taxes/explain` beside it still does. */
-            blockedOn: string;
             assessTitle: string;
             assessHint: string;
             assess: string;
             notAssessedYet: string;
-            draft: string;
             draftHint: string;
-            columnTax: string;
             columnCategory: string;
             columnBase: string;
             columnRate: string;
             columnOwed: string;
-            totalOwed: string;
+            /** How many rule outputs the year produced, and the heading over the ring. */
+            rulesApplied: string;
+            composition: string;
+            totalOwedLabel: string;
+            incomeAssessed: string;
+            assessmentStatus: string;
+            statusDraft: string;
+            statusFinal: string;
+            /** A component's own income and base, inside a tax group — "Your income", "Taxed on". */
+            componentIncome: string;
+            componentBase: string;
+            nothingOwed: string;
+            /** A tax's name in the reader's language; the code is the fallback, never the label. */
+            taxCasTitle: string;
+            taxCassTitle: string;
+            taxIncomeTaxTitle: string;
+            /** What a figure here does not yet account for, each of which changes what is owed. */
+            beforeFinalising: string;
+            caveatExpenses: string;
+            caveatCategorisation: string;
+            caveatNotFiling: string;
         };
         legislation: {
             title: string;

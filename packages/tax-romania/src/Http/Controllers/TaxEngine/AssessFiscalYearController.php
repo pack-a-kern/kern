@@ -7,6 +7,8 @@ namespace Kern\TaxRomania\Http\Controllers\TaxEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\TaxRomania\TaxEngine\Actions\AssessFiscalYear;
+use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Models\TaxFact;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 
 /**
@@ -70,7 +72,55 @@ final class AssessFiscalYearController
             'fiscal_year' => $assessment->fiscal_year,
             'status' => $assessment->status->value,
             'lines' => $lines,
+            /*
+             * The engine's own totals, not a sum the screen performs.
+             *
+             * A screen that adds money is a second place money is decided, and the two drift. These come from
+             * `tax_assessments.totals_json`, which the recorder wrote from the lines it had just recorded, so what
+             * a person reads as "what you owe" is the figure the assessment itself holds.
+             */
+            'totals' => $this->totalsByTax($assessment),
+            /*
+             * What the year's income comes to, read from the facts rather than added up from the lines.
+             *
+             * The same arithmetic trap as above, one level up: a screen summing the six lines' incomes would
+             * report two and a half times what was earned. The facts are the one place each income exists once,
+             * so the total is taken there and the screen only prints it.
+             */
+            'income_assessed_minor' => (int) TaxFact::query()
+                ->where('tax_subject_id', $subject)
+                ->where('fiscal_year', $assessment->fiscal_year)
+                ->sum('ron_amount_minor'),
         ], 201);
+    }
+
+    /**
+     * What each tax comes to, as the assessment recorded it.
+     *
+     * Read from the row rather than summed from the lines: a controller that adds money is a second place money
+     * is decided, and the two drift. `totals_json` is what the recorder wrote from the lines it had just
+     * recorded, so the screen and the assessment cannot disagree.
+     *
+     * @return array<string, array{minor_units: int, currency: string}>
+     */
+    private function totalsByTax(TaxAssessment $assessment): array
+    {
+        $out = [];
+
+        foreach ($assessment->totals_json as $taxCode => $total) {
+            if (! is_array($total)) {
+                continue;
+            }
+
+            $minor = $total['minor_units'] ?? null;
+            $currency = $total['currency'] ?? null;
+
+            if (is_int($minor) && is_string($currency)) {
+                $out[$taxCode] = ['minor_units' => $minor, 'currency' => $currency];
+            }
+        }
+
+        return $out;
     }
 
     /**
