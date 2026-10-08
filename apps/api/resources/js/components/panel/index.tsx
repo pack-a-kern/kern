@@ -235,7 +235,13 @@ export function Page(props: { title: string; lede?: string; actions?: ReactNode;
 
     return (
         <div className="page-stack">
-            {props.actions !== undefined && <header className="page-head justify-end">{props.actions}</header>}
+            {/* A flex row, as a card's own `aside` is. Without it the children are block-level and a select
+                stretches to the page's full width with the button stranded underneath. */}
+            {props.actions !== undefined && (
+                <header className="page-head page-head-actions">
+                    <div className="flex flex-wrap items-center gap-2">{props.actions}</div>
+                </header>
+            )}
 
             {props.children}
         </div>

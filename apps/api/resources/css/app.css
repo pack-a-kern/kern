@@ -2544,6 +2544,24 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     gap: 12px;
 }
 
+/*
+ * A head holding only actions puts them at the end.
+ *
+ * Not a `justify-end` utility on the element: Tailwind v4 emits utilities into `@layer utilities`, which loses
+ * to unlayered rules like the one above, so the class was present in the markup and did nothing — with one
+ * child, `space-between` leaves it at the start. The same layering silently beat a `w-28` on a select trigger
+ * whose own rule sets `width: 100%`.
+ */
+.page-head-actions {
+    justify-content: flex-end;
+}
+
+/* A control sized to its content rather than to the row. `.select-trigger` is `width: 100%` with a 155px
+   floor, so the width has to come from a wrapper and cannot go below that floor. */
+.page-head-actions .ctl-narrow {
+    width: 10rem;
+}
+
 /* A right-hand detail drawer. One width for all of them, so they read as the same object. */
 .drawer {
     width: 100%;

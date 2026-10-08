@@ -1,6 +1,7 @@
 import { useState, type JSX } from 'react';
 import {
     Calculator,
+    ChartPie,
     FileText,
     HeartPulse,
     Landmark,
@@ -13,14 +14,7 @@ import {
 import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
-import {
-    IconBadge,
-    Kpi,
-    Page,
-    Panel,
-    PanelButton,
-    PanelSelect,
-} from '../../components/panel';
+import { IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatAmount, formatPercent } from '../../lib/format';
@@ -237,14 +231,14 @@ function assessableYears(): number[] {
  * Declared once because the legend's dots read the same list: two lists would drift, and a dot that does not
  * match its slice is worse than no dot — it names the wrong figure with confidence.
  *
- * Tints of the *foreground*, because the bar is drawn on the lead card whose background is `--primary` itself.
- * Shades of the primary were invisible there: the same colour as what they sat on.
+ * Tints of `--primary` on an ordinary card. Worth stating because it has been wrong in both directions: on the
+ * lead card, whose background *is* `--primary`, these same values drew a bar the colour of what it sat on.
  */
 const SLICE_TINTS: [string, number][] = [
-    ['--primary-foreground', 0.95],
-    ['--primary-foreground', 0.62],
-    ['--primary-foreground', 0.38],
-    ['--primary-foreground', 0.22],
+    ['--primary', 0.95],
+    ['--primary', 0.6],
+    ['--primary', 0.35],
+    ['--primary', 0.2],
 ];
 
 /** A tax's share of the bill, for the bar's width and the percentage beside its name. */
@@ -256,7 +250,7 @@ function shareOf(minor: number, assessment: Assessment): number {
 
 /** The tint for a slice, falling back to the last one so an unexpected fourth tax still gets a dot. */
 function sliceTint(index: number): string {
-    const [token, alpha] = SLICE_TINTS[index] ?? ['--primary-foreground', 0.22];
+    const [token, alpha] = SLICE_TINTS[index] ?? ['--muted-foreground', 0.3];
 
     return themeColor(token, alpha);
 }
@@ -311,111 +305,63 @@ export default function TaxesOverview(): JSX.Element {
 
     return (
         <AppShell>
-            <Page title={t((d) => d.pages.taxes.title)} lede={t((d) => d.pages.taxes.description)}>
-                <Panel
-                    title={t((d) => d.pages.taxes.assessTitle)}
-                    description={t((d) => d.pages.taxes.assessHint)}
-                    icon={<Calculator className="size-4" />}
-                    aside={
-                        <>
-                            <PanelSelect
-                                id="assess-year"
-                                value={year}
-                                onValueChange={setYear}
-                                options={assessableYears().map((value) => ({
-                                    value: String(value),
-                                    label: String(value),
-                                }))}
-                            />
-                            <PanelButton
-                                primary
-                                disabled={working || subjectId === null}
-                                onClick={() => {
-                                    void assess();
-                                }}
-                            >
-                                <Calculator className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.taxes.assess)}
-                            </PanelButton>
-                        </>
-                    }
-                >
-                    {/* Only until there is something to read. Afterwards it tells somebody to do the thing
-                        they have just done, directly above the answer. */}
-                    {assessment === null ? (
-                        <p className="note">{t((d) => d.pages.taxes.notAssessedYet)}</p>
-                    ) : null}
-                </Panel>
-
-                {assessment === null ? null : (
+            <Page
+                title={t((d) => d.pages.taxes.title)}
+                lede={t((d) => d.pages.taxes.description)}
+                actions={
+                    <>
+                        <PanelSelect
+                            id="assess-year"
+                            /* A year is four characters; left at its own width the control takes the row and
+                               strands the button on the line below. `ctl-narrow` is a rule in the stylesheet
+                               rather than a utility, because a utility loses to the trigger's own `width`. */
+                            className="ctl-narrow"
+                            value={year}
+                            onValueChange={setYear}
+                            options={assessableYears().map((value) => ({
+                                value: String(value),
+                                label: String(value),
+                            }))}
+                        />
+                        <PanelButton
+                            primary
+                            disabled={working || subjectId === null}
+                            onClick={() => {
+                                void assess();
+                            }}
+                        >
+                            <Calculator className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.taxes.assess)}
+                        </PanelButton>
+                    </>
+                }
+            >
+                {assessment === null ? (
+                    <p className="note">{t((d) => d.pages.taxes.notAssessedYet)}</p>
+                ) : (
                     <>
                         {/*
-                            The bill, and what it is made of, in one card — the shape the dashboard uses for net
-                            worth. A bar rather than a ring: it needs no hole to put a total in, it reads at any
-                            width, and the three shares are compared along one line instead of around a circle.
+                            Three figures in one row, the bill first and widest. Auto-fit below that width, so
+                            the tiles choose their own columns rather than meeting a breakpoint I guessed.
                         */}
-                        <section className="stat-primary shadow-float rounded-xl border p-5">
-                            <div className="flex items-center gap-2.5 text-xs">
-                                <IconBadge tone="brand">
-                                    <Receipt className="size-4" />
-                                </IconBadge>
-                                {t((d) => d.pages.taxes.totalOwedLabel)}
-                            </div>
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3 lg:grid-cols-[1.45fr_1fr_1fr]">
+                            <section className="stat-primary shadow-float rounded-xl border p-5">
+                                <div className="flex items-center gap-2.5 text-xs">
+                                    <IconBadge tone="brand">
+                                        <Receipt className="size-4" />
+                                    </IconBadge>
+                                    {t((d) => d.pages.taxes.totalOwedLabel)}
+                                </div>
+                                <div className="stat-value-lead mt-4">
+                                    {formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
+                                </div>
+                                <div className="note mt-1">
+                                    {assessment.status === 'FINAL'
+                                        ? t((d) => d.pages.taxes.statusFinal)
+                                        : t((d) => d.pages.taxes.statusDraft)}
+                                </div>
+                            </section>
 
-                            <div className="stat-value-lead mt-3">
-                                {formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
-                            </div>
-                            <div className="note mt-1">
-                                {assessment.status === 'FINAL'
-                                    ? t((d) => d.pages.taxes.statusFinal)
-                                    : t((d) => d.pages.taxes.statusDraft)}
-                            </div>
-
-                            {composition.length > 1 ? (
-                                <>
-                                    <div
-                                        className="mt-5 flex h-2.5 gap-0.5 overflow-hidden rounded-full"
-                                        aria-hidden="true"
-                                    >
-                                        {composition.map((slice, index) => (
-                                            <div
-                                                key={slice.taxCode}
-                                                className="h-full"
-                                                style={{
-                                                    width: `${String(shareOf(slice.minor, assessment) * 100)}%`,
-                                                    background: sliceTint(index),
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    {/* Every slice named, with the mark that identifies it in the bar. */}
-                                    <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-                                        {composition.map((slice, index) => (
-                                            <div className="min-w-0" key={slice.taxCode}>
-                                                <dt className="flex items-center gap-2 text-xs">
-                                                    <span
-                                                        className="size-2.5 shrink-0 rounded-full"
-                                                        style={{ background: sliceTint(index) }}
-                                                    />
-                                                    {taxName(slice.taxCode, t)}
-                                                    <span className="ml-auto tabular-nums">
-                                                        {formatPercent(shareOf(slice.minor, assessment), locale)}
-                                                    </span>
-                                                </dt>
-                                                <dd className="mt-1 text-sm font-semibold tabular-nums">
-                                                    {formatAmount(slice.minor / 100, 'RON', locale)}
-                                                </dd>
-                                            </div>
-                                        ))}
-                                    </dl>
-                                </>
-                            ) : null}
-                        </section>
-
-                        {/* Auto-fit, as on the dashboard: the tiles choose their own number of columns from the
-                            width they are given, so there is no breakpoint to get wrong on a phone. */}
-                        <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3">
                             <Kpi
                                 tone="info"
                                 icon={<Wallet className="size-4" />}
@@ -436,124 +382,204 @@ export default function TaxesOverview(): JSX.Element {
                             />
                         </div>
 
-                        {/* A year with no assessable income would otherwise render three groups of zeroes,
+                        {/* A year with no assessable income would otherwise render three cards of zeroes,
                             which reads as a failure rather than as an answer. */}
                         {totalOwedMinor(assessment) === 0 && assessment.incomeAssessedMinor === 0 ? (
                             <p className="note">{t((d) => d.pages.taxes.nothingOwed)}</p>
                         ) : null}
 
-                        {grouped(assessment).map((group) => (
-                            <Panel
-                                key={group.taxCode}
-                                title={taxName(group.taxCode, t)}
-                                icon={taxIcon(group.taxCode)}
-                                aside={
-                                    <strong className="text-sm tabular-nums">
-                                        {formatAmount(group.totalMinor / 100, 'RON', locale)}
-                                    </strong>
-                                }
-                            >
-                                {group.components.map((line) => (
-                                    <div className="tax-component" key={`${line.taxCode}-${line.categoryCode}`}>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold">{line.categoryCode}</p>
+                        {/*
+                            The figures left, what explains them right. Siblings in a grid rather than nested —
+                            a card inside a card draws three borders around one fact — and one column below the
+                            width where a sidebar would be narrower than the sentences in it.
+                        */}
+                        <div className="grid items-start gap-4 xl:grid-cols-[1.7fr_1fr]">
+                            <div className="flex min-w-0 flex-col gap-4">
+                                {grouped(assessment).map((group) => (
+                                    <Panel
+                                        key={group.taxCode}
+                                        title={taxName(group.taxCode, t)}
+                                        icon={taxIcon(group.taxCode)}
+                                        aside={
+                                            <strong className="text-sm tabular-nums">
+                                                {formatAmount(group.totalMinor / 100, 'RON', locale)}
+                                            </strong>
+                                        }
+                                    >
+                                        {group.components.map((line) => (
+                                            <div
+                                                className="tax-component"
+                                                key={`${line.taxCode}-${line.categoryCode}`}
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-semibold">{line.categoryCode}</p>
 
-                                            {/* The rule's own words for what it concluded. The point of the
-                                                engine is that a figure arrives with its reasoning, so the
-                                                reasoning gets a line rather than a column. */}
-                                            <p className="note mt-1">
-                                                {t((d) => d.taxExplanations)[line.explanationKey] ??
-                                                    line.explanationKey}
-                                            </p>
+                                                    {/* The rule's own words for what it concluded. The point of
+                                                        the engine is that a figure arrives with its reasoning,
+                                                        so the reasoning gets a line rather than a column. */}
+                                                    <p className="note mt-1">
+                                                        {t((d) => d.taxExplanations)[line.explanationKey] ??
+                                                            line.explanationKey}
+                                                    </p>
 
-                                            <p className="note tax-figures">
-                                                <span>
-                                                    {t((d) => d.pages.taxes.componentIncome)}{' '}
-                                                    <b>
-                                                        {line.incomeMinor === null
-                                                            ? '—'
-                                                            : formatAmount(line.incomeMinor / 100, 'RON', locale)}
-                                                    </b>
-                                                </span>
-                                                <span>
-                                                    {t((d) => d.pages.taxes.componentBase)}{' '}
-                                                    <b>{formatAmount(line.taxableBaseMinor / 100, 'RON', locale)}</b>
-                                                </span>
-                                                {line.rateDecimal === null ? null : (
-                                                    <span>
-                                                        <b>{formatPercent(Number(line.rateDecimal), locale)}</b>
-                                                    </span>
-                                                )}
-                                            </p>
+                                                    <p className="note tax-figures">
+                                                        <span>
+                                                            {t((d) => d.pages.taxes.componentIncome)}{' '}
+                                                            <b>
+                                                                {line.incomeMinor === null
+                                                                    ? '—'
+                                                                    : formatAmount(
+                                                                          line.incomeMinor / 100,
+                                                                          'RON',
+                                                                          locale,
+                                                                      )}
+                                                            </b>
+                                                        </span>
+                                                        <span>
+                                                            {t((d) => d.pages.taxes.componentBase)}{' '}
+                                                            <b>
+                                                                {formatAmount(
+                                                                    line.taxableBaseMinor / 100,
+                                                                    'RON',
+                                                                    locale,
+                                                                )}
+                                                            </b>
+                                                        </span>
+                                                        {line.rateDecimal === null ? null : (
+                                                            <span>
+                                                                <b>
+                                                                    {formatPercent(
+                                                                        Number(line.rateDecimal),
+                                                                        locale,
+                                                                    )}
+                                                                </b>
+                                                            </span>
+                                                        )}
+                                                    </p>
 
-                                            {/* Why the base is not the income — the step people most want to
-                                                see, and the reason two different incomes can owe the same. */}
-                                            {line.baseReached?.threshold_in_wages !== undefined &&
-                                            line.baseReached.threshold_in_wages !== 'none' ? (
-                                                <p className="note mt-1">
-                                                    {t((d) => d.pages.taxes.thresholdReached).replace(
-                                                        '{wages}',
-                                                        line.baseReached.threshold_in_wages,
-                                                    )}
-                                                </p>
-                                            ) : null}
-                                            {line.baseReached?.quota !== undefined ? (
-                                                <p className="note mt-1">
-                                                    {t((d) => d.pages.taxes.quotaDeducted).replace(
-                                                        '{deducted}',
-                                                        line.baseReached.deducted_minor === undefined
-                                                            ? (line.baseReached.deducted ?? '')
-                                                            : formatAmount(
-                                                                  Number(line.baseReached.deducted_minor) / 100,
-                                                                  'RON',
-                                                                  locale,
-                                                              ),
-                                                    )}
-                                                </p>
-                                            ) : null}
+                                                    {/* Why the base is not the income — the step people most
+                                                        want to see, and the reason two different incomes can
+                                                        owe the same. */}
+                                                    {line.baseReached?.threshold_in_wages !== undefined &&
+                                                    line.baseReached.threshold_in_wages !== 'none' ? (
+                                                        <p className="note mt-1">
+                                                            {t((d) => d.pages.taxes.thresholdReached).replace(
+                                                                '{wages}',
+                                                                line.baseReached.threshold_in_wages,
+                                                            )}
+                                                        </p>
+                                                    ) : null}
+                                                    {line.baseReached?.quota !== undefined ? (
+                                                        <p className="note mt-1">
+                                                            {t((d) => d.pages.taxes.quotaDeducted).replace(
+                                                                '{deducted}',
+                                                                line.baseReached.deducted_minor === undefined
+                                                                    ? (line.baseReached.deducted ?? '')
+                                                                    : formatAmount(
+                                                                          Number(line.baseReached.deducted_minor) /
+                                                                              100,
+                                                                          'RON',
+                                                                          locale,
+                                                                      ),
+                                                            )}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+
+                                                <strong className="shrink-0 text-sm tabular-nums">
+                                                    {formatAmount(line.taxMinor / 100, 'RON', locale)}
+                                                </strong>
+                                            </div>
+                                        ))}
+                                    </Panel>
+                                ))}
+                            </div>
+
+                            <div className="flex min-w-0 flex-col gap-4">
+                                {composition.length > 1 ? (
+                                    <Panel
+                                        title={t((d) => d.pages.taxes.composition)}
+                                        icon={<ChartPie className="size-4" />}
+                                    >
+                                        {/* A bar, not a ring: no hole to fit a total into, it reads at any
+                                            width, and three shares compare along a line more easily than
+                                            around a circle. */}
+                                        <div
+                                            className="bg-muted flex h-2.5 gap-0.5 overflow-hidden rounded-full"
+                                            aria-hidden="true"
+                                        >
+                                            {composition.map((slice, index) => (
+                                                <div
+                                                    key={slice.taxCode}
+                                                    className="h-full"
+                                                    style={{
+                                                        width: `${String(shareOf(slice.minor, assessment) * 100)}%`,
+                                                        background: sliceTint(index),
+                                                    }}
+                                                />
+                                            ))}
                                         </div>
 
-                                        <strong className="shrink-0 text-sm tabular-nums">
-                                            {formatAmount(line.taxMinor / 100, 'RON', locale)}
-                                        </strong>
-                                    </div>
-                                ))}
-                            </Panel>
-                        ))}
+                                        <dl className="mt-4 grid gap-3">
+                                            {composition.map((slice, index) => (
+                                                <div className="min-w-0" key={slice.taxCode}>
+                                                    <dt className="flex items-center gap-2 text-xs">
+                                                        <span
+                                                            className="size-2.5 shrink-0 rounded-full"
+                                                            style={{ background: sliceTint(index) }}
+                                                        />
+                                                        {taxName(slice.taxCode, t)}
+                                                        <span className="text-muted-foreground ml-auto tabular-nums">
+                                                            {formatPercent(
+                                                                shareOf(slice.minor, assessment),
+                                                                locale,
+                                                            )}
+                                                        </span>
+                                                    </dt>
+                                                    <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                                                        {formatAmount(slice.minor / 100, 'RON', locale)}
+                                                    </dd>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    </Panel>
+                                ) : null}
 
-                        {/* What a figure here does not yet account for. Each is a heading and the reason it
-                            matters, because "no deductible expenses are recorded" is not a caveat somebody acts
-                            on without being told what it means for them. */}
-                        <Panel
-                            title={t((d) => d.pages.taxes.beforeFinalising)}
-                            icon={<TriangleAlert className="size-4" />}
-                        >
-                            {[
-                                {
-                                    icon: <Wallet className="size-3.5" aria-hidden="true" />,
-                                    title: t((d) => d.pages.taxes.checkExpensesTitle),
-                                    body: t((d) => d.pages.taxes.caveatExpenses),
-                                },
-                                {
-                                    icon: <Tags className="size-3.5" aria-hidden="true" />,
-                                    title: t((d) => d.pages.taxes.checkCategoriesTitle),
-                                    body: t((d) => d.pages.taxes.caveatCategorisation),
-                                },
-                                {
-                                    icon: <FileText className="size-3.5" aria-hidden="true" />,
-                                    title: t((d) => d.pages.taxes.checkFilingTitle),
-                                    body: t((d) => d.pages.taxes.caveatNotFiling),
-                                },
-                            ].map((check) => (
-                                <div className="tax-check" key={check.title}>
-                                    <span className="tax-check-mark">{check.icon}</span>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-semibold">{check.title}</p>
-                                        <p className="note mt-0.5">{check.body}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </Panel>
+                                {/* What a figure here does not yet account for. Each is a heading and the
+                                    reason it matters, because "no deductible expenses are recorded" is not a
+                                    caveat somebody acts on without being told what it means for them. */}
+                                <Panel
+                                    title={t((d) => d.pages.taxes.beforeFinalising)}
+                                    icon={<TriangleAlert className="size-4" />}
+                                >
+                                    {[
+                                        {
+                                            icon: <Wallet className="size-3.5" aria-hidden="true" />,
+                                            title: t((d) => d.pages.taxes.checkExpensesTitle),
+                                            body: t((d) => d.pages.taxes.caveatExpenses),
+                                        },
+                                        {
+                                            icon: <Tags className="size-3.5" aria-hidden="true" />,
+                                            title: t((d) => d.pages.taxes.checkCategoriesTitle),
+                                            body: t((d) => d.pages.taxes.caveatCategorisation),
+                                        },
+                                        {
+                                            icon: <FileText className="size-3.5" aria-hidden="true" />,
+                                            title: t((d) => d.pages.taxes.checkFilingTitle),
+                                            body: t((d) => d.pages.taxes.caveatNotFiling),
+                                        },
+                                    ].map((check) => (
+                                        <div className="tax-check" key={check.title}>
+                                            <span className="tax-check-mark">{check.icon}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold">{check.title}</p>
+                                                <p className="note mt-0.5">{check.body}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </Panel>
+                            </div>
+                        </div>
                     </>
                 )}
             </Page>
