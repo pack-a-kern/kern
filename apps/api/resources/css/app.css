@@ -1760,10 +1760,16 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     flex: none;
 }
 .stat-value {
-    font-size: 19px;
+    /* Fluid, because two of these sit side by side at phone width where a seven-digit sum at a fixed size
+       runs past the tile. `Intl.NumberFormat` joins figure and currency with a non-breaking space, so the line
+       cannot wrap between them however the wrapping is set — it has to fit. */
+    font-size: clamp(13px, 3.6vw, 19px);
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
+    /* A last resort for a figure longer than any seen here; the size above is what keeps real ones on one
+       line. Not `anywhere`, which splits the currency itself — "2.653.288,46 R / ON". */
+    overflow-wrap: break-word;
 }
 /*
  * The one figure a page is about, set apart from the figures that explain it.
@@ -1824,6 +1830,56 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 
 .tax-group-head > strong {
     margin-left: auto;
+}
+
+/* A ring large enough to carry a total in its hole — the 92px one could not, which is why the figure inside
+   it had to shrink to a percentage. */
+.chart-donut-mid {
+    position: relative;
+    flex: none;
+    width: 132px;
+    height: 132px;
+}
+
+/* Every slice named, with the mark that identifies it in the ring. A ring that names only its largest slice
+   leaves the rest of itself unexplained. */
+.chart-legend {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.chart-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    margin-top: 5px;
+    flex: none;
+}
+
+/* One check somebody should make before trusting the figures: what it is, and why it matters. */
+.tax-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+}
+
+.tax-check:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.tax-check-mark {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+    color: var(--muted-foreground);
+    flex: none;
 }
 
 /*

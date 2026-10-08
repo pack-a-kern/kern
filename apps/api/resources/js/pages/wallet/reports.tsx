@@ -28,7 +28,7 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import { apiRequest } from '../../lib/http';
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
-import { DataTable, DonutTile, Page, Panel, PanelButton, PanelSelect, Pill, Stat, StatGrid, Tabs } from '../../components/panel';
+import { DataTable, Page, Panel, PanelButton, PanelSelect, Pill, Stat, StatGrid, Tabs } from '../../components/panel';
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
@@ -1294,5 +1294,40 @@ function AttentionRow(props: {
             </span>
             <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
         </button>
+    );
+}
+
+/**
+ * A ring with the figure it is a share of in the hole, and a label beside it.
+ *
+ * Local to this screen, which is its only reader. It was briefly shared on the assumption the taxes screen
+ * wanted the same tile; that screen needed a ring with a legend of every slice instead, so sharing this one
+ * left a component in the common set with a single consumer.
+ */
+function DonutTile(props: {
+    config: ChartConfiguration;
+    centre: string;
+    centreNote: string;
+    label: string;
+    value: string;
+    note: string;
+}): JSX.Element {
+    return (
+        <div className="border-border flex items-center gap-4 rounded-xl border p-3">
+            <div className="chart-donut">
+                <Chart config={props.config} label={props.label} />
+                <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                    <div>
+                        <p className="text-base font-semibold">{props.centre}</p>
+                        <p className="note donut-note">{props.centreNote}</p>
+                    </div>
+                </div>
+            </div>
+            <div className="min-w-0">
+                <p className="metric-label">{props.label}</p>
+                <p className="mt-1 truncate text-sm font-semibold">{props.value}</p>
+                <p className="note mt-1">{props.note}</p>
+            </div>
+        </div>
     );
 }

@@ -2,10 +2,13 @@ import { useMemo, useState, type JSX } from 'react';
 import type { ChartConfiguration } from 'chart.js';
 import {
     Calculator,
+    ChartPie,
+    FileText,
     HeartPulse,
     Landmark,
     PiggyBank,
     Receipt,
+    Tags,
     TriangleAlert,
     Wallet,
 } from 'lucide-react';
@@ -13,7 +16,6 @@ import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
 import {
-    DonutTile,
     Page,
     Panel,
     PanelButton,
@@ -23,8 +25,9 @@ import {
 } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { formatAmount, formatPercent } from '../../lib/format';
+import { formatAmount, formatFigure, formatPercent } from '../../lib/format';
 import { apiRequest } from '../../lib/http';
+import { Chart } from '../../components/Chart';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { themeColor } from '../../lib/themeColor';
 
@@ -232,6 +235,27 @@ function assessableYears(): number[] {
  * approves them, so nothing here is fileable and the screen should not imply otherwise.
  */
 /**
+ * The ring's colours, in slice order.
+ *
+ * Declared once because the legend reads the same list: two lists would drift, and a legend whose dot does not
+ * match its slice is worse than no legend — it names the wrong figure with confidence. Shades of one hue, since
+ * the slices are parts of one bill rather than unrelated things.
+ */
+const SLICE_TINTS: [string, number][] = [
+    ['--primary', 0.95],
+    ['--primary', 0.6],
+    ['--primary', 0.32],
+    ['--muted-foreground', 0.25],
+];
+
+/** The tint for a slice, falling back to the last one so an unexpected fourth tax still gets a dot. */
+function sliceTint(index: number): string {
+    const [token, alpha] = SLICE_TINTS[index] ?? ['--muted-foreground', 0.25];
+
+    return themeColor(token, alpha);
+}
+
+/**
  * What the bill is made of: one slice per tax, largest first.
  *
  * The taxes rather than the income categories, because this sits beside "total owed" and answers the question
@@ -256,8 +280,6 @@ export default function TaxesOverview(): JSX.Element {
     const [working, setWorking] = useState(false);
 
     const composition = compositionOf(assessment);
-    /** The biggest slice, which the tile names beside the ring. */
-    const largest = composition[0];
 
     /*
      * One ring, shades of a single hue rather than three unrelated colours: the slices are parts of one bill,
@@ -272,12 +294,7 @@ export default function TaxesOverview(): JSX.Element {
                 datasets: [
                     {
                         data: composition.map((slice) => slice.minor / 100),
-                        backgroundColor: [
-                            themeColor('--primary', 0.95),
-                            themeColor('--primary', 0.6),
-                            themeColor('--primary', 0.32),
-                            themeColor('--muted-foreground', 0.25),
-                        ],
+                        backgroundColor: SLICE_TINTS.map((_tint, index) => sliceTint(index)),
                         borderWidth: 0,
                     },
                 ],
@@ -353,9 +370,9 @@ export default function TaxesOverview(): JSX.Element {
                                 whether it counts for anything yet. The first is set apart because it is the one
                                 figure the page exists to produce; the other two explain it.
                             */}
-                            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr]">
+                            <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_1fr_1fr]">
                                 <Stat
-                                    className="stat-primary"
+                                    className="stat-primary col-span-2 lg:col-span-1"
                                     label={t((d) => d.pages.taxes.totalOwedLabel)}
                                     icon={<Receipt className="size-4" aria-hidden="true" />}
                                     value={
@@ -390,34 +407,14 @@ export default function TaxesOverview(): JSX.Element {
                                 />
                             </div>
 
-                            {/* Which of the three taxes is most of the bill — the question the total provokes,
-                                answered beside it rather than worked out from the groups below. Drawn only when
-                                there is something to compare: a ring that is always 100% of itself says nothing. */}
-                            {largest !== undefined && composition.length > 1 ? (
-                                <div className="mb-4">
-                                    <DonutTile
-                                        config={compositionConfig}
-                                        /* The hole is 66px across. A formatted sum does not fit it and sat on
-                                           top of the label beside it; the share the ring is drawing does. */
-                                        centre={`${String(
-                                            Math.round((largest.minor / totalOwedMinor(assessment)) * 100),
-                                        )}%`}
-                                        centreNote={t((d) => d.pages.taxes.ofTotal)}
-                                        label={t((d) => d.pages.taxes.composition)}
-                                        value={taxName(largest.taxCode, t)}
-                                        note={`${formatAmount(largest.minor / 100, 'RON', locale)} · ${String(
-                                            Math.round((largest.minor / totalOwedMinor(assessment)) * 100),
-                                        )}%`}
-                                    />
-                                </div>
-                            ) : null}
-
                             {/* A year with no assessable income would otherwise render three tables of
                                 zeroes, which reads as a failure rather than as an answer. */}
                             {totalOwedMinor(assessment) === 0 && assessment.incomeAssessedMinor === 0 ? (
                                 <p className="note">{t((d) => d.pages.taxes.nothingOwed)}</p>
                             ) : null}
 
+                            <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
+                                <div className="min-w-0">
                             {grouped(assessment).map((group) => (
                                 <section key={group.taxCode} className="mb-5">
                                     {/* The tax, its total, and then its parts. A taxpayer owes three taxes, not
@@ -519,19 +516,113 @@ export default function TaxesOverview(): JSX.Element {
                                 </section>
                             ))}
 
-                            {/* What a figure on this screen does not yet account for. Below the numbers, because
-                                somebody came here for a number — but on the page rather than in a tooltip,
-                                because each of these changes what is owed. */}
-                            <Panel
-                                title={t((d) => d.pages.taxes.beforeFinalising)}
-                                icon={<TriangleAlert className="size-4" />}
-                            >
-                                <ul className="note list-disc space-y-1 pl-4">
-                                    <li>{t((d) => d.pages.taxes.caveatExpenses)}</li>
-                                    <li>{t((d) => d.pages.taxes.caveatCategorisation)}</li>
-                                    <li>{t((d) => d.pages.taxes.caveatNotFiling)}</li>
-                                </ul>
-                            </Panel>
+                                </div>
+
+                                {/*
+                                    Beside the figures rather than under them: what the bill is made of and what
+                                    it does not yet account for are both read while looking at the numbers, and
+                                    at the foot of a long column neither would be.
+                                */}
+                                <div className="flex min-w-0 flex-col gap-4">
+                                    {composition.length > 1 ? (
+                                        <Panel
+                                            title={t((d) => d.pages.taxes.composition)}
+                                            icon={<ChartPie className="size-4" />}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="chart-donut-mid">
+                                                    <Chart
+                                                        config={compositionConfig}
+                                                        label={t((d) => d.pages.taxes.composition)}
+                                                    />
+                                                    <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                                                        <div>
+                                                            {/* The figure without its currency, which is on
+                                                                the line below: the hole is 95px and the two
+                                                                together overflowed it onto the legend. */}
+                                                            <p className="text-sm font-semibold tabular-nums">
+                                                                {formatFigure(
+                                                                    totalOwedMinor(assessment) / 100,
+                                                                    locale,
+                                                                )}
+                                                            </p>
+                                                            <p className="note donut-note">RON</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Every slice named. A ring that labels only its largest leaves
+                                                    the rest of itself unexplained. */}
+                                                <div className="chart-legend">
+                                                    {composition.map((slice, index) => (
+                                                        <div className="flex gap-2" key={slice.taxCode}>
+                                                            <span
+                                                                className="chart-legend-dot"
+                                                                style={{
+                                                                    background: sliceTint(index),
+                                                                }}
+                                                                aria-hidden="true"
+                                                            />
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-semibold">
+                                                                    {taxName(slice.taxCode, t)}
+                                                                </p>
+                                                                <p className="note">
+                                                                    {formatAmount(slice.minor / 100, 'RON', locale)} ·{' '}
+                                                                    {String(
+                                                                        Math.round(
+                                                                            (slice.minor /
+                                                                                totalOwedMinor(assessment)) *
+                                                                                100,
+                                                                        ),
+                                                                    )}
+                                                                    %
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </Panel>
+                                    ) : null}
+
+                                    {/* What a figure here does not yet account for. Each is a heading and the
+                                        reason it matters, because "no deductible expenses are recorded" is not
+                                        a caveat somebody acts on without being told what to do about it. */}
+                                    <Panel
+                                        title={t((d) => d.pages.taxes.beforeFinalising)}
+                                        icon={<TriangleAlert className="size-4" />}
+                                    >
+                                        <div>
+                                            {[
+                                                {
+                                                    icon: <Wallet className="size-3.5" aria-hidden="true" />,
+                                                    title: t((d) => d.pages.taxes.checkExpensesTitle),
+                                                    body: t((d) => d.pages.taxes.caveatExpenses),
+                                                },
+                                                {
+                                                    icon: <Tags className="size-3.5" aria-hidden="true" />,
+                                                    title: t((d) => d.pages.taxes.checkCategoriesTitle),
+                                                    body: t((d) => d.pages.taxes.caveatCategorisation),
+                                                },
+                                                {
+                                                    icon: <FileText className="size-3.5" aria-hidden="true" />,
+                                                    title: t((d) => d.pages.taxes.checkFilingTitle),
+                                                    body: t((d) => d.pages.taxes.caveatNotFiling),
+                                                },
+                                            ].map((check) => (
+                                                <div className="tax-check" key={check.title}>
+                                                    <span className="tax-check-mark">{check.icon}</span>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-semibold">{check.title}</p>
+                                                        <p className="note mt-0.5">{check.body}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Panel>
+                                </div>
+                            </div>
                         </>
                     )}
                 </Panel>

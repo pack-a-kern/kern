@@ -1276,6 +1276,10 @@ export interface Dictionary {
             taxIncomeTaxTitle: string;
             /** What a figure here does not yet account for, each of which changes what is owed. */
             beforeFinalising: string;
+            /** A check's own heading; the caveat below it is the reason it matters. */
+            checkExpensesTitle: string;
+            checkCategoriesTitle: string;
+            checkFilingTitle: string;
             caveatExpenses: string;
             caveatCategorisation: string;
             caveatNotFiling: string;

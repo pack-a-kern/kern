@@ -7,8 +7,6 @@ import { cloneElement, isValidElement, type MouseEvent, useEffect } from 'react'
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
 import { CheckIcon, CircleHelp, Plus, SearchIcon, X } from 'lucide-react';
 
-import type { ChartConfiguration } from 'chart.js';
-import { Chart } from '../Chart';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -1233,39 +1231,5 @@ export function PanelButton(props: {
         >
             {props.children}
         </Button>
-    );
-}
-
-/**
- * A ring with the figure it is a share of in the hole, and a label beside it.
- *
- * Shared rather than copied: the taxes screen wants the same tile the reports screen already had, and a second
- * implementation would be the same chart with a different hole size within a release or two.
- */
-export function DonutTile(props: {
-    config: ChartConfiguration;
-    centre: string;
-    centreNote: string;
-    label: string;
-    value: string;
-    note: string;
-}): JSX.Element {
-    return (
-        <div className="border-border flex items-center gap-4 rounded-xl border p-3">
-            <div className="chart-donut">
-                <Chart config={props.config} label={props.label} />
-                <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                    <div>
-                        <p className="text-base font-semibold">{props.centre}</p>
-                        <p className="note donut-note">{props.centreNote}</p>
-                    </div>
-                </div>
-            </div>
-            <div className="min-w-0">
-                <p className="metric-label">{props.label}</p>
-                <p className="mt-1 truncate text-sm font-semibold">{props.value}</p>
-                <p className="note mt-1">{props.note}</p>
-            </div>
-        </div>
     );
 }
