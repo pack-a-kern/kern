@@ -881,9 +881,20 @@ export function PanelDialog(props: {
      * upload in progress, say: dismissing it silently is how a person concludes something finished
      * when it did not. The dialog still closes, through whatever control the screen provides.
      *
-     * A click outside never closes a dialog, whatever this says. See the handler below.
+     * A click outside closes this only when `dismissOnOutsideClick` says so. See the handler below.
      */
     dismissable?: boolean;
+    /**
+     * Whether clicking the page behind closes this.
+     *
+     * `false` by default, and that default is the important half: most dialogs here hold a form — a
+     * transaction being split, a task being run with arguments — and a stray click is not a decision to
+     * throw that away.
+     *
+     * `true` for a dialog that only *shows* something. A history, a preview, a detail panel: there is
+     * nothing to lose, and refusing to close is then just a dialog that will not go away.
+     */
+    dismissOnOutsideClick?: boolean;
 }): JSX.Element {
     const dismissable = props.dismissable !== false;
 
@@ -892,15 +903,18 @@ export function PanelDialog(props: {
             <DialogContent
                 className={cn('dialog-panel', `dialog-${props.size ?? 'md'}`)}
                 /*
-                 * A click outside never closes a dialog.
+                 * A click outside closes nothing unless the dialog asked for it.
                  *
-                 * These hold forms — a transaction being split, a party being merged, a task being
-                 * run with arguments — and a stray click on the page behind is not a decision to
-                 * throw that away. Escape and the close control are: one is a key pressed on
-                 * purpose, the other is a button that says what it does.
+                 * Most of these hold forms — a transaction being split, a party being merged, a task
+                 * being run with arguments — and a stray click on the page behind is not a decision to
+                 * throw that away. Escape and the close control are: one is a key pressed on purpose,
+                 * the other is a button that says what it does. A dialog that only shows something has
+                 * nothing to lose and opts in.
                  */
                 onPointerDownOutside={(event) => {
-                    event.preventDefault();
+                    if (props.dismissOnOutsideClick !== true) {
+                        event.preventDefault();
+                    }
                 }}
                 onEscapeKeyDown={(event) => {
                     if (!dismissable) {

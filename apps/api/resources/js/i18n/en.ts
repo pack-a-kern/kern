@@ -2444,7 +2444,7 @@ export const en = {
                 enableFailed: 'The task state could not be changed.',
                 names: {
                     'fx.import_daily': 'BNR daily rate import',
-                    'fx.backfill_year': 'BNR yearly backfill',
+                    'fx.backfill_year': 'BNR backfill from a year',
                     'legislation.ingest': 'Ingest legislation',
                     'legislation.sync': 'Update legislation',
                     'legislation.reindex': 'Legislation reindex',
@@ -2457,21 +2457,8 @@ export const en = {
                 },
                 descriptions: {
                     'fx.import_daily': 'BNR reference rates for today.',
-                    'fx.backfill_year': 'One whole year from the BNR yearly archive — a recovery action.',
-                    'legislation.ingest':
-                        'Find an act on legislatie.just.ro by type, number and year, and read every consolidation it has had, dated and parsed.',
-                    'legislation.sync': 'Read the new consolidations of every law already ingested.',
-                    'legislation.reindex': 'Rebuild sections and the retrieval index from already-stored documents.',
-                    'audit.verify_chains': 'Recompute every hash in every audit chain.',
-                    'access.sync': 'Project `config/access.php` onto the permission tables.',
-                    'deposit.post_interest':
-                        'Post interest for periods that have closed, and close matured deposits by returning their money to the account that funded them.',
-                    'banks.import':
-                        'The ECB list of banks for the configured countries, with each bank’s code from GLEIF.',
-                    'banks.backfill':
-                        'Adds the banks that closed or merged before the first import, from the ECB’s archived lists back to 2017. Run once, after the first import.',
-                    'fiscal.parameters.read':
-                        'Reads the minimum-wage decisions and ANAF’s D212 files, and proposes each value the law says for approval.',
+                    'fx.backfill_year':
+                        'Every year from the one you give to the present, out of the BNR yearly archives — a recovery action.',
                 },
                 details: 'History',
                 detailsTitle: 'Run history',

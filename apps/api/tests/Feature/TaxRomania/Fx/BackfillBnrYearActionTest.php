@@ -12,7 +12,6 @@ use Kern\TaxRomania\Fx\Actions\BackfillBnrYear;
 use Kern\TaxRomania\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use Kern\TaxRomania\Fx\Models\FxRate;
 use Kern\TaxRomania\Fx\Models\FxRateAnomaly;
-use RuntimeException;
 
 /**
  * `bnr-fixture.test` — see `ImportBnrDailyRatesActionTest`'s docblock: synthetic, test-only,
@@ -28,16 +27,6 @@ beforeEach(function (): void {
     ]);
 });
 
-function yearlyFixture(string $name): string
-{
-    $contents = file_get_contents(fixtureFromPackage(FxRate::class, 'Fx/Bnr/' . $name));
-
-    if ($contents === false) {
-        throw new RuntimeException("Missing test fixture: {$name}");
-    }
-
-    return $contents;
-}
 
 it('substitutes {year} into the configured template and imports every banking day in the archive', function (): void {
     Http::fake(['https://bnr-fixture.test/years/2026.xml' => Http::response(yearlyFixture('synthetic-yearly.xml'), 200, ['Content-Type' => 'application/xml'])]);

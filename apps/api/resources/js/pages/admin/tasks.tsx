@@ -208,164 +208,170 @@ function AdminOperationsBody(): JSX.Element {
     const taskName = (key: string): string => t((d) => d.pages.adminOperations.tasks.names[key] ?? key);
 
     return (
+        /*
+         * No `page-stack` of its own: `Page` is one, and this body renders inside it. The second was a stack
+         * nested in a stack, which spaces its children twice and is why this screen's cards sat further apart
+         * than every other screen's.
+         *
+         * The dialogs below are siblings rather than nested: both render through a portal, so they take no
+         * space in the flow and the gap does not count them.
+         */
         <>
-            <div className="page-stack">
-                <Panel
-                    title={t((d) => d.pages.adminOperations.tasks.title)}
-                    description={t((d) => d.pages.adminOperations.tasks.description)}
-                    icon={<CalendarClock className="size-4" />}
-                    flush
-                >
-                    {overview === null ? (
-                        <TableSkeleton />
-                    ) : (
-                        <DataTable
-                            // Stacked on a phone: six columns of cron expressions and timestamps
-                            // would otherwise scroll the switch and the run button out of reach.
-                            stacked
-                            head={
-                                <>
-                                    <th>{t((d) => d.pages.adminOperations.tasks.columns.task)}</th>
-                                    <th>{t((d) => d.pages.adminOperations.tasks.columns.schedule)}</th>
-                                    <th>{t((d) => d.pages.adminOperations.tasks.columns.lastRun)}</th>
-                                    <th>{t((d) => d.pages.adminOperations.tasks.columns.state)}</th>
-                                    <th />
-                                </>
-                            }
-                        >
-                            {overview.tasks.map((task) => (
-                                <tr key={task.key}>
-                                    <td className="col-primary">
-                                        {/* The description explains the task once; it does not need
-                                            restating under every row it belongs to. Six of them down
-                                            the first column pushed the schedule, the last run and the
-                                            two controls into a table that had to be scrolled to be
-                                            used. On the mark it is one hover away, and still readable
-                                            to a screen reader, which the row text was not doing any
-                                            better. */}
-                                        <span className="flex items-center gap-1.5">
-                                            <span className="font-semibold">{taskName(task.key)}</span>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
-                                                        <CircleHelp className="size-3.5" />
-                                                        <span className="sr-only">{taskHelp(task, t)}</span>
-                                                    </span>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="top" className="max-w-72">
-                                                    {taskHelp(task, t)}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </span>
-                                    </td>
-                                    <td
-                                        className="whitespace-nowrap"
-                                        data-label={t((d) => d.pages.adminOperations.tasks.columns.schedule)}
-                                    >
-                                        {task.schedulable ? (
-                                            /* One element, not two: a stacked row lays a labelled cell out
-                                               as a flex row, so loose siblings here become columns beside
-                                               the label rather than lines under each other.
+        <Panel
+                title={t((d) => d.pages.adminOperations.tasks.title)}
+                description={t((d) => d.pages.adminOperations.tasks.description)}
+                icon={<CalendarClock className="size-4" />}
+                flush
+            >
+                {overview === null ? (
+                    <TableSkeleton />
+                ) : (
+                    <DataTable
+                        // Stacked on a phone: six columns of cron expressions and timestamps
+                        // would otherwise scroll the switch and the run button out of reach.
+                        stacked
+                        head={
+                            <>
+                                <th>{t((d) => d.pages.adminOperations.tasks.columns.task)}</th>
+                                <th>{t((d) => d.pages.adminOperations.tasks.columns.schedule)}</th>
+                                <th>{t((d) => d.pages.adminOperations.tasks.columns.lastRun)}</th>
+                                <th>{t((d) => d.pages.adminOperations.tasks.columns.state)}</th>
+                                <th />
+                            </>
+                        }
+                    >
+                        {overview.tasks.map((task) => (
+                            <tr key={task.key}>
+                                <td className="col-primary">
+                                    {/* The description explains the task once; it does not need
+                                        restating under every row it belongs to. Six of them down
+                                        the first column pushed the schedule, the last run and the
+                                        two controls into a table that had to be scrolled to be
+                                        used. On the mark it is one hover away, and still readable
+                                        to a screen reader, which the row text was not doing any
+                                        better. */}
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="font-semibold">{taskName(task.key)}</span>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
+                                                    <CircleHelp className="size-3.5" />
+                                                    <span className="sr-only">{taskHelp(task, t)}</span>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-72">
+                                                {taskHelp(task, t)}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </span>
+                                </td>
+                                <td
+                                    className="whitespace-nowrap"
+                                    data-label={t((d) => d.pages.adminOperations.tasks.columns.schedule)}
+                                >
+                                    {task.schedulable ? (
+                                        /* One element, not two: a stacked row lays a labelled cell out
+                                           as a flex row, so loose siblings here become columns beside
+                                           the label rather than lines under each other.
 
-                                               The reading first, the expression under it. `0 14 * * 1-5` is
-                                               what an operator would change and so it stays on the screen,
-                                               but it is not what anybody reads to answer "does this run
-                                               often enough". Where the shape is one `describeCron` does not
-                                               read with certainty, the expression stands alone rather than
-                                               carrying a guess above it. */
-                                            <div className="min-w-0 text-right sm:text-left">
-                                                {describeCron(task.cronExpression, t) === null ? null : (
-                                                    <div>{describeCron(task.cronExpression, t)}</div>
-                                                )}
-                                                <div className="note">
-                                                    <span className="mono">{task.cronExpression}</span>
-                                                    {` · ${task.timezone}`}
-                                                </div>
+                                           The reading first, the expression under it. `0 14 * * 1-5` is
+                                           what an operator would change and so it stays on the screen,
+                                           but it is not what anybody reads to answer "does this run
+                                           often enough". Where the shape is one `describeCron` does not
+                                           read with certainty, the expression stands alone rather than
+                                           carrying a guess above it. */
+                                        <div className="min-w-0 text-right sm:text-left">
+                                            {describeCron(task.cronExpression, t) === null ? null : (
+                                                <div>{describeCron(task.cronExpression, t)}</div>
+                                            )}
+                                            <div className="note">
+                                                <span className="mono">{task.cronExpression}</span>
+                                                {` · ${task.timezone}`}
                                             </div>
-                                        ) : (
-                                            <Pill>{t((d) => d.pages.adminOperations.tasks.manualOnly)}</Pill>
-                                        )}
-                                    </td>
-                                    <td
-                                        className="whitespace-nowrap"
-                                        data-label={t((d) => d.pages.adminOperations.tasks.columns.lastRun)}
-                                    >
-                                        {task.lastRun === null ? (
-                                            <span className="note">
-                                                {t((d) => d.pages.adminOperations.tasks.never)}
-                                            </span>
-                                        ) : (
-                                            <div className="min-w-0 text-right sm:text-left">
-                                                <Status tone={runTone(task.lastRun.status)}>
-                                                    {t(
-                                                        (d) =>
-                                                            d.pages.adminOperations.tasks.statuses[
-                                                                task.lastRun?.status ?? ''
-                                                            ] ??
-                                                            task.lastRun?.status ??
-                                                            '',
-                                                    )}
-                                                </Status>
-                                                <div className="note">
-                                                    {new Date(task.lastRun.startedAt).toLocaleString()}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td data-label={t((d) => d.pages.adminOperations.tasks.columns.state)}>
-                                        {task.running ? (
-                                            <Status tone="warn">
-                                                {t((d) => d.pages.adminOperations.tasks.running)}
-                                            </Status>
-                                        ) : task.schedulable && !task.enabled ? (
-                                            <Status tone="idle">
-                                                {t((d) => d.pages.adminOperations.tasks.paused)}
-                                            </Status>
-                                        ) : (
-                                            <Pill tone={task.readOnly ? 'neutral' : 'accent'}>
-                                                {task.readOnly
-                                                    ? t((d) => d.pages.adminOperations.tasks.readOnly)
-                                                    : t((d) => d.pages.adminOperations.tasks.writes)}
-                                            </Pill>
-                                        )}
-                                    </td>
-                                    <td className="col-actions col-actions-split">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {task.schedulable ? (
-                                                <Switch
-                                                    aria-label={t((d) => d.pages.adminOperations.tasks.enabled)}
-                                                    checked={task.enabled}
-                                                    onCheckedChange={(checked) => {
-                                                        void toggleTask(task, checked);
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <PanelButton
-                                                onClick={() => {
-                                                    setHistory(task);
-                                                }}
-                                            >
-                                                <History className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.adminOperations.tasks.details)}
-                                            </PanelButton>
-                                            <PanelButton
-                                                disabled={task.running}
-                                                onClick={() => {
-                                                    setTaskArguments({});
-                                                    setTaskToRun(task);
-                                                }}
-                                            >
-                                                <Play className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.adminOperations.tasks.run)}
-                                            </PanelButton>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </DataTable>
-                    )}
-                </Panel>
-            </div>
+                                    ) : (
+                                        <Pill>{t((d) => d.pages.adminOperations.tasks.manualOnly)}</Pill>
+                                    )}
+                                </td>
+                                <td
+                                    className="whitespace-nowrap"
+                                    data-label={t((d) => d.pages.adminOperations.tasks.columns.lastRun)}
+                                >
+                                    {task.lastRun === null ? (
+                                        <span className="note">
+                                            {t((d) => d.pages.adminOperations.tasks.never)}
+                                        </span>
+                                    ) : (
+                                        <div className="min-w-0 text-right sm:text-left">
+                                            <Status tone={runTone(task.lastRun.status)}>
+                                                {t(
+                                                    (d) =>
+                                                        d.pages.adminOperations.tasks.statuses[
+                                                            task.lastRun?.status ?? ''
+                                                        ] ??
+                                                        task.lastRun?.status ??
+                                                        '',
+                                                )}
+                                            </Status>
+                                            <div className="note">
+                                                {new Date(task.lastRun.startedAt).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </td>
+                                <td data-label={t((d) => d.pages.adminOperations.tasks.columns.state)}>
+                                    {task.running ? (
+                                        <Status tone="warn">
+                                            {t((d) => d.pages.adminOperations.tasks.running)}
+                                        </Status>
+                                    ) : task.schedulable && !task.enabled ? (
+                                        <Status tone="idle">
+                                            {t((d) => d.pages.adminOperations.tasks.paused)}
+                                        </Status>
+                                    ) : (
+                                        <Pill tone={task.readOnly ? 'neutral' : 'accent'}>
+                                            {task.readOnly
+                                                ? t((d) => d.pages.adminOperations.tasks.readOnly)
+                                                : t((d) => d.pages.adminOperations.tasks.writes)}
+                                        </Pill>
+                                    )}
+                                </td>
+                                <td className="col-actions col-actions-split">
+                                    <div className="flex items-center justify-end gap-2">
+                                        {task.schedulable ? (
+                                            <Switch
+                                                aria-label={t((d) => d.pages.adminOperations.tasks.enabled)}
+                                                checked={task.enabled}
+                                                onCheckedChange={(checked) => {
+                                                    void toggleTask(task, checked);
+                                                }}
+                                            />
+                                        ) : null}
+                                        <PanelButton
+                                            onClick={() => {
+                                                setHistory(task);
+                                            }}
+                                        >
+                                            <History className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.adminOperations.tasks.details)}
+                                        </PanelButton>
+                                        <PanelButton
+                                            disabled={task.running}
+                                            onClick={() => {
+                                                setTaskArguments({});
+                                                setTaskToRun(task);
+                                            }}
+                                        >
+                                            <Play className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.adminOperations.tasks.run)}
+                                        </PanelButton>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </DataTable>
+                )}
+            </Panel>
 
             <PanelDialog
                 open={taskToRun !== null}
@@ -548,6 +554,8 @@ function TaskHistoryDialog(props: {
 
     return (
         <PanelDialog
+            // Nothing here is being filled in; clicking away is a way out like any other.
+            dismissOnOutsideClick
             open={props.task !== null}
             onOpenChange={(open) => {
                 if (!open) {
@@ -648,17 +656,19 @@ function TaskHistoryDialog(props: {
                                 <RunOutput run={runs.find((candidate) => candidate.id === expanded) ?? null} />
                             )}
 
-                            <Pagination
-                                page={page}
-                                pageSize={pageSize}
-                                total={total}
-                                unit={t((d) => d.pages.adminOperations.tasks.unit)}
-                                onPageChange={setPage}
-                                onPageSizeChange={(size) => {
-                                    setPageSize(size);
-                                    setPage(1);
-                                }}
-                            />
+                            <div className="pager-standalone">
+                                <Pagination
+                                    page={page}
+                                    pageSize={pageSize}
+                                    total={total}
+                                    unit={t((d) => d.pages.adminOperations.tasks.unit)}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={(size) => {
+                                        setPageSize(size);
+                                        setPage(1);
+                                    }}
+                                />
+                            </div>
                         </>
                     )}
                 </div>

@@ -2456,7 +2456,7 @@ export const ro = {
                 enableFailed: 'Starea sarcinii nu a putut fi schimbată.',
                 names: {
                     'fx.import_daily': 'Import curs BNR zilnic',
-                    'fx.backfill_year': 'Recuperare curs BNR pe un an',
+                    'fx.backfill_year': 'Recuperare curs BNR dintr-un an',
                     'legislation.ingest': 'Adaugă legislație',
                     'legislation.sync': 'Actualizează legislația',
                     'legislation.reindex': 'Reindexare legislație',
@@ -2469,21 +2469,8 @@ export const ro = {
                 },
                 descriptions: {
                     'fx.import_daily': 'Cursurile de referință BNR pentru ziua curentă.',
-                    'fx.backfill_year': 'Un an întreg din arhiva anuală BNR — acțiune de recuperare.',
-                    'legislation.ingest':
-                        'Găsește un act pe legislatie.just.ro după tip, număr și an, și citește toate consolidările lui, datate și structurate.',
-                    'legislation.sync': 'Citește consolidările noi ale fiecărei legi deja adăugate.',
-                    'legislation.reindex':
-                        'Reconstruiește secțiunile și indexul de regăsire din documentele deja stocate.',
-                    'audit.verify_chains': 'Recalculează fiecare hash din fiecare lanț de audit.',
-                    'access.sync': 'Proiectează `config/access.php` în tabelele de permisiuni.',
-                    'deposit.post_interest':
-                        'Înregistrează dobânda perioadelor încheiate și închide depozitele ajunse la scadență, întorcând banii în contul din care au fost finanțate.',
-                    'banks.import': 'Lista BCE a băncilor din țările configurate, cu codul fiecărei bănci de la GLEIF.',
-                    'banks.backfill':
-                        'Adaugă băncile închise sau fuzionate înainte de primul import, din listele arhivate ale BCE începând cu 2017. Se rulează o dată, după primul import.',
-                    'fiscal.parameters.read':
-                        'Citește hotărârile privind salariul minim și fișierele D212 ale ANAF și propune spre aprobare fiecare valoare pe care o spune legea.',
+                    'fx.backfill_year':
+                        'Fiecare an de la cel pe care îl dai până în prezent, din arhivele anuale BNR — o acțiune de recuperare.',
                 },
                 details: 'Istoric',
                 detailsTitle: 'Istoricul rulărilor',

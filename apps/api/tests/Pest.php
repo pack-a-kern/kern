@@ -15,6 +15,7 @@ use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\Fx\Models\FxRate;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -552,4 +553,21 @@ function approveRegisteredRules(): void
     foreach (TaxRuleVersion::query()->withoutGlobalScopes()->get() as $version) {
         $version->approveByPerson($approver->id);
     }
+}
+
+/**
+ * A BNR yearly archive from the package's own fixtures.
+ *
+ * Shared because two files drive the same archive now — the action's test and the command's, which exercises
+ * the loop around it.
+ */
+function yearlyFixture(string $name): string
+{
+    $contents = file_get_contents(fixtureFromPackage(FxRate::class, 'Fx/Bnr/' . $name));
+
+    if ($contents === false) {
+        throw new RuntimeException("Missing test fixture: {$name}");
+    }
+
+    return $contents;
 }

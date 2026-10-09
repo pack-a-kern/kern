@@ -20,11 +20,11 @@ final class BackfillBnrYearCommand extends Command
 {
     /** @var string */
     protected $signature = 'kern:fx:backfill
-        {year : Fiscal year to backfill, e.g. 2025 — BNR archives are available for 2005-2026 (docs/reference/bnr-fx-endpoints.md)}
+        {year : The first year to backfill — every year from it to the current one is fetched. BNR archives run from 2005 (docs/reference/bnr-fx-endpoints.md)}
         {--dry-run : Validate the configured BNR yearly endpoint and allowlist without fetching or writing anything}';
 
     /** @var string */
-    protected $description = "Backfill one year's BNR exchange rates from the yearly archive (BLUEPRINT.md §7.3).";
+    protected $description = 'Backfill BNR exchange rates from a given year to the present (BLUEPRINT.md §7.3).';
 
     public function handle(ConfigRepository $config, OfficialSourceRegistry $registry, BackfillBnrYear $action): int
     {
@@ -53,27 +53,60 @@ final class BackfillBnrYearCommand extends Command
             return $this->dryRun($registry, $year, $url);
         }
 
-        try {
-            $summary = $action($year);
-        } catch (Throwable $exception) {
-            $this->components->error("BNR backfill for {$year} failed: " . $exception->getMessage());
+        /*
+         * The year given is where to start, not the only year to fetch.
+         *
+         * An operator asking to backfill 2023 is saying "the rates from 2023 are missing or wrong", and the
+         * years after it are missing or wrong for the same reason — a gap discovered in 2023 was never a gap
+         * in 2023 alone. Fetching only the year typed left the operator to type each following year in turn
+         * and to notice when they had finished.
+         *
+         * Safe to repeat: the action reports created against unchanged, and a year already correct adds
+         * nothing. That is what makes "from here to now" a reasonable default rather than a lot of work.
+         */
+        $through = (int) now('UTC')->format('Y');
+        $created = 0;
+        $unchanged = 0;
+        $anomalies = 0;
+        $days = 0;
 
-            return self::FAILURE;
+        foreach (range($year, max($year, $through)) as $each) {
+            try {
+                $summary = $action($each);
+            } catch (Throwable $exception) {
+                /*
+                 * The years already done are kept. A failure in 2025 does not undo 2023 and 2024, and
+                 * saying which year broke is the difference between a retry and a reread of the logs.
+                 */
+                $this->components->error("BNR backfill for {$each} failed: " . $exception->getMessage());
+
+                return self::FAILURE;
+            }
+
+            $days += $summary->daysProcessed;
+            $created += $summary->created;
+            $unchanged += $summary->unchanged;
+            $anomalies += $summary->anomalies;
+
+            $this->components->twoColumnDetail(
+                (string) $each,
+                sprintf('%d day(s), %d created, %d unchanged', $summary->daysProcessed, $summary->created, $summary->unchanged),
+            );
         }
 
         $this->components->info(sprintf(
-            'BNR backfill %d complete: %d banking day(s) processed, %d rate(s) created, %d unchanged, %d anomaly(ies), document version %s.',
+            'BNR backfill %d-%d complete: %d banking day(s) processed, %d rate(s) created, %d unchanged, %d anomaly(ies).',
             $year,
-            $summary->daysProcessed,
-            $summary->created,
-            $summary->unchanged,
-            $summary->anomalies,
-            $summary->wasNewDocumentVersion ? 'new' : 'unchanged',
+            $through,
+            $days,
+            $created,
+            $unchanged,
+            $anomalies,
         ));
 
-        if ($summary->anomalies > 0) {
+        if ($anomalies > 0) {
             $this->components->warn(
-                "{$summary->anomalies} anomaly/anomalies recorded in ext_fx_rate_anomalies — review before trusting the affected date(s).",
+                "{$anomalies} anomaly/anomalies recorded in ext_fx_rate_anomalies — review before trusting the affected date(s).",
             );
         }
 

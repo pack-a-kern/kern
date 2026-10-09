@@ -2387,6 +2387,22 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         padding: 10px 12px;
         border-bottom: 1px solid var(--border);
     }
+
+    /*
+     * The row takes the hover, not its cells.
+     *
+     * `.data-table tbody tr:hover td` paints each cell, which is right for a real table: the cells tile the
+     * row edge to edge and the result is one band. A stacked row is a flex container with an 8px gap and its
+     * own padding, so painting the cells lights a handful of disconnected blocks with gaps between them and
+     * a margin of unpainted row around the outside.
+     */
+    .data-table-stack tbody tr:hover {
+        background: color-mix(in oklab, var(--muted) 45%, transparent);
+    }
+
+    .data-table-stack tbody tr:hover td {
+        background: transparent;
+    }
     .data-table-stack tbody tr:last-child {
         border-bottom: 0;
     }
@@ -3031,6 +3047,30 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  * Prev, the numbers and next share a single border with hairlines between them, so the control
  * reads as one thing you move through. As separate boxes they read as three decisions, and the
  * gap between the numbers and the arrows was the easiest place to click nothing at all. */
+/*
+ * A pager that is not in a card's foot.
+ *
+ * `Pagination` renders two siblings — the "1–10 of 42" reading and the page controls — as a fragment, so it
+ * can be dropped straight into `.panel-foot`, which is the flex row that puts one at each end. Used anywhere
+ * else the two have no row to sit in and stack, which is how a dialog ended up with its count on one line and
+ * its arrows on the next.
+ *
+ * The same shape as the foot, minus the card's border and padding.
+ */
+.pager-standalone {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+@media (width >= 40rem) {
+    .pager-standalone {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
 .pager-nav {
     display: flex;
     min-width: 0;
