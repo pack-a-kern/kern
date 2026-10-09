@@ -1251,7 +1251,7 @@ export interface Dictionary {
             /** The one card holding every tax, and the count in its head. */
             /** The two files a year can be downloaded as. */
             /** The icon-only trigger's label, since its name is a picture. */
-            exportMenu: string;
+            actionsMenu: string;
             exportFigures: string;
             exportEvidence: string;
             /** The one act the assessment's state allows, and why there is none when there is none. */
@@ -1266,8 +1266,6 @@ export interface Dictionary {
             title: string;
             description: string;
             assess: string;
-            /** The control's second wording, once a year already has an assessment on file. */
-            reassess: string;
             computedAt: string;
             loadingSaved: string;
             /** The screen with nothing on it yet: what is absent, and what pressing the button will give. */

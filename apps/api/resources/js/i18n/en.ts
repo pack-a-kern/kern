@@ -1441,7 +1441,7 @@ export const en = {
         },
         taxes: {
             thresholdReached: 'Reached the {wages}-minimum-wage threshold',
-            exportMenu: 'Download',
+            actionsMenu: 'Actions',
             exportFigures: 'Figures',
             exportEvidence: 'Evidence',
             markFinal: 'Mark as final',
@@ -1453,7 +1453,6 @@ export const en = {
             entryCount: '{count} entries',
             quotaDeducted: 'Expense allowance of {deducted} deducted',
             assess: 'Assess the year',
-            reassess: 'Recalculate',
             computedAt: 'computed {when}',
             loadingSaved: 'Looking for this year…',
             emptyTitle: 'No calculation for {year} yet',

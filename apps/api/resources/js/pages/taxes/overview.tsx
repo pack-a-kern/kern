@@ -507,92 +507,101 @@ export default function TaxesOverview(): JSX.Element {
                 }
                 actions={
                     <>
-                        {assessment === null ? null : (
-                            <>
-                                {/*
-                                    Side by side where there is room; one menu where there is not. At phone
-                                    width three buttons wrap onto their own line and push the figures below
-                                    the fold, and an export is not what somebody opened this screen for.
-                                */}
-                                <div className="hidden items-center gap-2 sm:flex">
-                                    <PanelButton
-                                        variant="ghost"
-                                        className="text-info"
-                                        onClick={() => {
+                        {/*
+                            Every action, side by side where there is room and in one menu where there is not.
+                            At phone width three controls wrapped onto their own line and pushed the figures
+                            below the fold.
+                        */}
+                        <div className="hidden items-center gap-2 sm:flex">
+                            {/*
+                                Disabled rather than unmounted while a year loads. Hiding them made the row
+                                rebuild itself on every change of year — buttons vanishing and returning, the
+                                ones beside them jumping sideways — which is a worse answer to "there is
+                                nothing to export yet" than a control that is plainly not available.
+                            */}
+                            <PanelButton
+                                disabled={loading || assessment === null}
+                                onClick={() => {
+                                    void exportCsv('figures');
+                                }}
+                            >
+                                <Download className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.taxes.exportFigures)}
+                            </PanelButton>
+                            <PanelButton
+                                disabled={loading || assessment === null}
+                                onClick={() => {
+                                    void exportCsv('evidence');
+                                }}
+                            >
+                                <Download className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.taxes.exportEvidence)}
+                            </PanelButton>
+
+                            {/* Disabled on a final year rather than removed, for the same reason: the engine
+                                refuses to recompute one, and the row should not rearrange itself to say so. */}
+                            <PanelButton
+                                primary
+                                disabled={working || loading || subjectId === null || assessment?.status === 'FINAL'}
+                                onClick={() => {
+                                    void assess();
+                                }}
+                            >
+                                <Calculator className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.taxes.assess)}
+                            </PanelButton>
+                        </div>
+
+                        {/*
+                            Hidden by a wrapper, not by `sm:hidden` on the control: `.shell-control` sets its
+                            own `display`, and a Tailwind utility sits in `@layer utilities` where an unlayered
+                            rule outranks it — so the class was on the button and the menu showed everywhere.
+                        */}
+                        <div className="sm:hidden">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="shell-control"
+                                        aria-label={t((d) => d.pages.taxes.actionsMenu)}
+                                    >
+                                        <EllipsisVertical className="size-4" aria-hidden="true" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                    <DropdownMenuItem
+                                        disabled={
+                                            working || loading || subjectId === null ||
+                                            assessment?.status === 'FINAL'
+                                        }
+                                        onSelect={() => {
+                                            void assess();
+                                        }}
+                                    >
+                                        <Calculator className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.taxes.assess)}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        disabled={loading || assessment === null}
+                                        onSelect={() => {
                                             void exportCsv('figures');
                                         }}
                                     >
                                         <Download className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.taxes.exportFigures)}
-                                    </PanelButton>
-                                    <PanelButton
-                                        variant="ghost"
-                                        className="text-info"
-                                        onClick={() => {
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        disabled={loading || assessment === null}
+                                        onSelect={() => {
                                             void exportCsv('evidence');
                                         }}
                                     >
                                         <Download className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.taxes.exportEvidence)}
-                                    </PanelButton>
-                                </div>
-
-                                {/*
-                                    Hidden by a wrapper, not by `sm:hidden` on the control itself:
-                                    `.shell-control` sets its own `display`, and a Tailwind utility sits in
-                                    `@layer utilities` where an unlayered rule outranks it — so the class was
-                                    on the button and the menu showed at every width.
-                                */}
-                                <div className="sm:hidden">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="shell-control"
-                                                aria-label={t((d) => d.pages.taxes.exportMenu)}
-                                            >
-                                                <EllipsisVertical className="size-4" aria-hidden="true" />
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-52">
-                                            <DropdownMenuItem
-                                                onSelect={() => {
-                                                    void exportCsv('figures');
-                                                }}
-                                            >
-                                                <Download className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.taxes.exportFigures)}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onSelect={() => {
-                                                    void exportCsv('evidence');
-                                                }}
-                                            >
-                                                <Download className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.taxes.exportEvidence)}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                            </>
-                        )}
-
-                    {/* Not offered on a final year: the engine refuses to recompute one, and a button that
-                        cannot work is worse than no button. Unlock first — that is its own deliberate act. */}
-                    {assessment?.status === 'FINAL' ? null : (
-                        <PanelButton
-                            primary
-                            disabled={working || subjectId === null}
-                            onClick={() => {
-                                void assess();
-                            }}
-                        >
-                            <Calculator className="size-3.5" aria-hidden="true" />
-                            {assessment === null
-                                ? t((d) => d.pages.taxes.assess)
-                                : t((d) => d.pages.taxes.reassess)}
-                        </PanelButton>
-                    )}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </>
                 }
             >

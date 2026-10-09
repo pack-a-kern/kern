@@ -1439,7 +1439,7 @@ export const ro = {
         },
         taxes: {
             thresholdReached: 'A atins plafonul de {wages} salarii minime',
-            exportMenu: 'Descarcă',
+            actionsMenu: 'Acțiuni',
             exportFigures: 'Cifrele',
             exportEvidence: 'Documentația',
             markFinal: 'Marchează finală',
@@ -1451,7 +1451,6 @@ export const ro = {
             entryCount: '{count} rânduri',
             quotaDeducted: 'Cotă de cheltuieli de {deducted} scăzută',
             assess: 'Calculează anul',
-            reassess: 'Recalculează',
             computedAt: 'calculată {when}',
             loadingSaved: 'Se caută anul…',
             emptyTitle: 'Niciun calcul pentru {year}',
