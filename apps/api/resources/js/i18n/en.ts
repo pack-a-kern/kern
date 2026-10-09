@@ -621,6 +621,8 @@ export const en = {
         unexpected: 'An unexpected error occurred.',
         rateLimited: 'Too many attempts. Please wait a few minutes before trying again.',
         reasons: {
+            FAILED_JOB_NOT_REPLAYABLE:
+                'Only the queue monitor still has this failure; the job itself was not kept, so there is nothing to re-run. Discard it to clear it from the list.',
             FISCAL_YEAR_IS_FINAL:
                 'That year has been marked final. Unlock it on the Taxes screen before changing its transactions.',
             FISCAL_YEAR_NOT_CLOSED: 'A year can only be marked final once it has ended.',
@@ -2491,6 +2493,8 @@ export const en = {
                 'What the machine is doing right now, read live from Horizon: work waiting, work finished, and work that failed and can be tried again.',
             forbidden: 'You do not have administrator access to the queue.',
             loadFailed: 'The queue could not be loaded.',
+            emptyHint: 'Either nothing has run in the window this filter covers, or nothing matches it. The counters above read the whole queue.',
+            unavailableTitle: 'The queue monitor is not answering',
             unavailable: 'Horizon cannot be reached. The counters are unknown, not zero.',
             queue: {
                 pending: 'Pending',

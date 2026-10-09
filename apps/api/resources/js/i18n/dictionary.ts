@@ -2162,6 +2162,9 @@ export interface Dictionary {
             description: string;
             forbidden: string;
             loadFailed: string;
+            /** What an empty list means here, and the difference between empty and unanswered. */
+            emptyHint: string;
+            unavailableTitle: string;
             unavailable: string;
             queue: {
                 pending: string;

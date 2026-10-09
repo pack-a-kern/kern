@@ -1,12 +1,29 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { Check, Eye, Filter, ListChecks, RotateCcw, Trash2, X } from 'lucide-react';
+import {
+    Activity,
+    Check,
+    Clock,
+    Eye,
+    Filter,
+    Gauge,
+    Hourglass,
+    ListChecks,
+    RotateCcw,
+    Timer,
+    Trash2,
+    TriangleAlert,
+    Unplug,
+    X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { forgetFailedJob, listQueueJobs, retryFailedJob } from '../../api/operationsApi';
 import {
+    CellLabel,
     DataTable,
     Detail,
     DetailList,
+    EmptyState,
     Page,
     Panel,
     PanelButton,
@@ -188,6 +205,8 @@ function AdminJobsBody(): JSX.Element {
             <div className="page-stack">
                 <StatGrid>
                     <Stat
+                        icon={<Hourglass className="size-4" />}
+                        tone="accent"
                         label={t((d) => d.pages.adminJobs.queue.pending)}
                         value={count(queue?.pending)}
                         sub={
@@ -200,11 +219,17 @@ function AdminJobsBody(): JSX.Element {
                         — see `ReadQueueJobs::retrievableTotal()`. The sub-line states the window it
                         covers rather than repeating the figure. */}
                     <Stat
+                        icon={<TriangleAlert className="size-4" />}
+                        /* The one tile whose figure is bad news when it is not zero, and neutral when it is:
+                           a permanent red zero teaches a reader to stop seeing the colour. */
+                        tone={typeof queue?.failed === 'number' && queue.failed > 0 ? 'destructive' : 'neutral'}
                         label={t((d) => d.pages.adminJobs.queue.failed)}
                         value={count(queue?.failed)}
                         sub={t((d) => d.pages.adminJobs.queue.failedWindow)}
                     />
                     <Stat
+                        icon={<Timer className="size-4" />}
+                        tone="neutral"
                         label={t((d) => d.pages.adminJobs.queue.longestWait)}
                         value={
                             typeof queue?.maxWaitSeconds === 'number'
@@ -217,6 +242,8 @@ function AdminJobsBody(): JSX.Element {
                         its own: zero pending is equally consistent with "caught up" and "nothing
                         was dispatched all day", and those call for opposite reactions. */}
                     <Stat
+                        icon={<Gauge className="size-4" />}
+                        tone="success"
                         label={t((d) => d.pages.adminJobs.queue.throughput)}
                         value={
                             typeof queue?.throughput === 'number'
@@ -271,9 +298,19 @@ function AdminJobsBody(): JSX.Element {
                             ))}
                         </div>
                     ) : !page.available ? (
-                        <p className="note p-4">{t((d) => d.pages.adminJobs.unavailable)}</p>
+                        /* Not an empty list — an unanswered question. The distinction is the whole point of
+                           this branch, so it gets its own mark and does not borrow the empty one's. */
+                        <EmptyState
+                            icon={<Unplug className="size-5" />}
+                            title={t((d) => d.pages.adminJobs.unavailableTitle)}
+                            description={t((d) => d.pages.adminJobs.unavailable)}
+                        />
                     ) : page.jobs.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.adminJobs.empty)}</p>
+                        <EmptyState
+                            icon={<ListChecks className="size-5" />}
+                            title={t((d) => d.pages.adminJobs.empty)}
+                            description={t((d) => d.pages.adminJobs.emptyHint)}
+                        />
                     ) : (
                         <DataTable
                             // Stacked on a phone: the class name takes the first line and the queue,
@@ -297,18 +334,24 @@ function AdminJobsBody(): JSX.Element {
                                         <div className="font-semibold break-all">{shortClass(job.name)}</div>
                                         {job.retried ? <Pill>{t((d) => d.pages.adminJobs.retriedPill)}</Pill> : null}
                                     </td>
+                                    {/* The queue as a badge: it is a category every row belongs to one of,
+                                        and set as plain monospace it read as a second identifier beside the
+                                        class name rather than as the bucket it is. */}
                                     <td className="col-hide">
-                                        <span className="mono">{job.queue}</span>
+                                        <Pill>{job.queue}</Pill>
                                     </td>
-                                    <td data-label={t((d) => d.pages.adminJobs.columns.status)}>
+                                    <td>
+                                        <CellLabel icon={<Activity className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.adminJobs.columns.status)}
+                                        </CellLabel>
                                         <Status tone={jobTone(job.status)}>
                                             {t((d) => d.pages.adminJobs.statuses[job.status] ?? job.status)}
                                         </Status>
                                     </td>
-                                    <td
-                                        className="whitespace-nowrap tabular-nums"
-                                        data-label={t((d) => d.pages.adminJobs.columns.when)}
-                                    >
+                                    <td className="whitespace-nowrap tabular-nums">
+                                        <CellLabel icon={<Clock className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.adminJobs.columns.when)}
+                                        </CellLabel>
                                         {occurredAt(job) === null
                                             ? '—'
                                             : new Date(occurredAt(job) ?? '').toLocaleString()}
@@ -358,6 +401,8 @@ function AdminJobsBody(): JSX.Element {
             </div>
 
             <PanelDialog
+                // Nothing here is being filled in; clicking away is a way out like any other.
+                dismissOnOutsideClick
                 open={selected !== null}
                 onOpenChange={(open) => {
                     if (!open) {

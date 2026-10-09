@@ -624,6 +624,8 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Așteptați câteva minute înainte de a reîncerca.',
         reasons: {
+            FAILED_JOB_NOT_REPLAYABLE:
+                'Doar monitorul cozii mai are această eroare; jobul în sine nu a fost păstrat, deci nu există ce să fie rulat din nou. Renunță la ea ca să dispară din listă.',
             FISCAL_YEAR_IS_FINAL:
                 'Anul acela este marcat final. Deblochează-l din pagina Impozite înainte să îi modifici tranzacțiile.',
             FISCAL_YEAR_NOT_CLOSED: 'Un an poate fi marcat final abia după ce s-a încheiat.',
@@ -2503,6 +2505,8 @@ export const ro = {
                 'Ce face mașina chiar acum, citit live din Horizon: lucru în așteptare, lucru terminat și lucru care a eșuat și poate fi reîncercat.',
             forbidden: 'Nu aveți drepturi de administrare pentru coada de lucru.',
             loadFailed: 'Coada de lucru nu a putut fi încărcată.',
+            emptyHint: 'Ori nu a rulat nimic în intervalul acoperit de filtru, ori nimic nu se potrivește cu el. Contoarele de sus citesc toată coada.',
+            unavailableTitle: 'Monitorul cozii nu răspunde',
             unavailable: 'Horizon nu poate fi interogat. Contoarele sunt necunoscute, nu zero.',
             queue: {
                 pending: 'În așteptare',

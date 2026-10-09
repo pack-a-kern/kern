@@ -28,6 +28,22 @@ final class RetryFailedJobController
     ): JsonResponse {
         abort_unless($failed->exists($uuid), 404);
 
+        /*
+         * A failure the screen lists is not always one that can be re-run.
+         *
+         * Horizon's record is a description of what happened; `queue:retry` rebuilds the job from the
+         * `failed_jobs` row, and when a previous retry or a `queue:flush` removed that row the payload is
+         * gone with it. Without this the request 404'd — "not found", for a failure plainly on screen —
+         * and the reader was left to guess which of the two things was missing.
+         */
+        if (! $failed->isRetryable($uuid)) {
+            return response()->json([
+                'message' => 'This failure is only in the queue monitor\'s history; the job itself was not '
+                    . 'kept, so there is nothing to re-run. Discard it to clear it from the list.',
+                'reason' => 'FAILED_JOB_NOT_REPLAYABLE',
+            ], 409);
+        }
+
         $failed->retry($uuid);
 
         $actorKey = $request->user()?->getKey();
