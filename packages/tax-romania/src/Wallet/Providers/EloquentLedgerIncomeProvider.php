@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Providers;
 
+use Illuminate\Support\Facades\DB;
 use DateTimeImmutable;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
@@ -56,5 +57,43 @@ final readonly class EloquentLedgerIncomeProvider implements LedgerIncomeProvide
         }
 
         return $entries;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function yearsWithActivity(string $taxSubjectId): array
+    {
+        /*
+         * The distinct years, not the range between the first and the last.
+         *
+         * A range offers every year in between, and a taxpayer with one transaction in 2018 and one in 2026
+         * gets nine options where two are real — the opposite of what this list is for.
+         *
+         * The expression is chosen per driver because the two disagree and the suite runs on both:
+         * `extract(year from …)` is what `WalletReports` uses and is Postgres-only, which does not fail
+         * loudly — it throws in the sqlite lane and passes in the other. Naming both here is the whole reason
+         * that query could not simply be reused.
+         */
+        $year = DB::connection()->getDriverName() === 'sqlite'
+            ? "cast(strftime('%Y', booked_at) as integer)"
+            : 'extract(year from booked_at)';
+
+        $rows = FinancialTransaction::query()
+            ->withoutGlobalScopes()
+            ->where('tax_subject_id', $taxSubjectId)
+            ->distinct()
+            ->orderByRaw("{$year} desc")
+            ->pluck(DB::raw("{$year} as year"));
+
+        $years = [];
+
+        foreach ($rows->all() as $value) {
+            if (is_int($value) || is_string($value) || is_float($value)) {
+                $years[] = (int) $value;
+            }
+        }
+
+        return $years;
     }
 }

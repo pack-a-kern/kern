@@ -1787,6 +1787,20 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     border-color: transparent;
     color: var(--primary-foreground);
     box-shadow: var(--elevation-float);
+    /* Light falling across it, as the mockup had. Two very low-contrast radials rather than an image: a flat
+       rectangle of one colour reads as a block, and this reads as a surface without becoming decoration. */
+    background-image:
+        radial-gradient(
+            120% 120% at 88% -20%,
+            color-mix(in srgb, var(--primary-foreground) 13%, transparent),
+            transparent 60%
+        ),
+        radial-gradient(
+            90% 90% at 8% 120%,
+            color-mix(in srgb, var(--primary-foreground) 7%, transparent),
+            transparent 55%
+        ),
+        linear-gradient(118deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--info)));
 }
 
 /* Inside it the muted tokens would vanish, so label and note are the foreground held back instead. */
@@ -1834,6 +1848,44 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     background: var(--muted);
     color: var(--muted-foreground);
     flex: none;
+}
+
+/* A ring with room for the figure its slices are shares of — the 92px one's hole could not hold a sum. */
+.chart-donut-mid {
+    position: relative;
+    flex: none;
+    width: 124px;
+    height: 124px;
+}
+
+/*
+ * A figure as a badge.
+ *
+ * Money set as plain bold text sat in a column of plain bold text and read as another label. A ground behind
+ * it marks it as a figure, and taking the ground from the tax's own colour ties a card's total to its slice of
+ * the ring without adding a second legend.
+ */
+.money-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* A component inside a card, which is a part of that card's total rather than a second headline. */
+.money-badge-quiet {
+    background: var(--muted);
+    color: var(--foreground);
+}
+
+/* Nothing owed. Still a figure, still aligned, but it should not be the first thing the eye lands on. */
+.money-badge-nil {
+    background: transparent;
+    color: var(--muted-foreground);
+    padding-inline: 0;
 }
 
 /*

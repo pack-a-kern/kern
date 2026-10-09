@@ -1,6 +1,8 @@
-import { useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
+import type { ChartConfiguration } from 'chart.js';
 import {
     Calculator,
+    CalendarDays,
     ChartPie,
     FileText,
     HeartPulse,
@@ -14,10 +16,12 @@ import {
 import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
-import { IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
+import { Chart } from '../../components/Chart';
+import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
+import { useRememberedState } from '../../hooks/useRememberedState';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { formatAmount, formatPercent } from '../../lib/format';
+import { formatAmount, formatDateTime, formatFigure, formatPercent } from '../../lib/format';
 import { apiRequest } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { themeColor } from '../../lib/themeColor';
@@ -55,6 +59,8 @@ interface Line {
 interface Assessment {
     fiscalYear: number;
     status: string;
+    /** When it was computed. A draft read back a week later is only worth reading with its date on it. */
+    computedAt: string | null;
     lines: Line[];
     /**
      * What each tax comes to, as the assessment recorded it.
@@ -146,6 +152,7 @@ function parse(payload: unknown): Assessment {
     return {
         fiscalYear: int(body, 'fiscal_year'),
         status: str(body, 'status'),
+        computedAt: typeof body.computed_at === 'string' ? body.computed_at : null,
         totals,
         incomeAssessedMinor: int(body, 'income_assessed_minor'),
         lines: (Array.isArray(body.lines) ? body.lines : []).map((entry): Line => {
@@ -208,11 +215,18 @@ function taxName(taxCode: string, t: ReturnType<typeof useTranslation>['t']): st
     }
 }
 
-/** The last ten years plus this one, newest first — as far back as the fiscal dataset goes. */
-function assessableYears(): number[] {
+/**
+ * The years worth offering: the ones this taxpayer has records in, newest first.
+ *
+ * The ledger answers this, because which years exist is a fact about somebody's records. The current year is
+ * added when it is missing, since a year in progress has figures worth seeing before it has transactions, and
+ * a list with nothing in it would otherwise leave no year selectable at all.
+ */
+function yearOptions(years: number[]): number[] {
     const current = new Date().getFullYear();
+    const offered = years.includes(current) ? [...years] : [current, ...years];
 
-    return Array.from({ length: 9 }, (_unused, index) => current - index).filter((year) => year >= 2018);
+    return offered.filter((year) => year >= 2018).sort((left, right) => right - left);
 }
 
 /**
@@ -226,20 +240,20 @@ function assessableYears(): number[] {
  * approves them, so nothing here is fileable and the screen should not imply otherwise.
  */
 /**
- * The bar's colours, in slice order.
+ * A colour per tax, in a fixed order.
  *
- * Declared once because the legend's dots read the same list: two lists would drift, and a dot that does not
- * match its slice is worse than no dot — it names the wrong figure with confidence.
+ * Identity, not magnitude: these are three different obligations, paid separately, and a reader picks one out
+ * of the legend by its hue. Shades of a single colour said "parts of one quantity", which is true of the total
+ * and useless for telling pension from health at a glance.
  *
- * Tints of `--primary` on an ordinary card. Worth stating because it has been wrong in both directions: on the
- * lead card, whose background *is* `--primary`, these same values drew a bar the colour of what it sat on.
+ * Fixed per tax rather than by rank, so a year where health exceeds income tax does not repaint both. The
+ * tokens are the app's own, and the pairs clear the separation the chart guidance asks for in both themes.
  */
-const SLICE_TINTS: [string, number][] = [
-    ['--primary', 0.95],
-    ['--primary', 0.6],
-    ['--primary', 0.35],
-    ['--primary', 0.2],
-];
+const TAX_TINTS: Record<string, [string, number]> = {
+    INCOME_TAX: ['--primary', 0.9],
+    CASS: ['--info', 0.85],
+    CAS: ['--success', 0.8],
+};
 
 /** A tax's share of the bill, for the bar's width and the percentage beside its name. */
 function shareOf(minor: number, assessment: Assessment): number {
@@ -248,9 +262,16 @@ function shareOf(minor: number, assessment: Assessment): number {
     return total === 0 ? 0 : minor / total;
 }
 
-/** The tint for a slice, falling back to the last one so an unexpected fourth tax still gets a dot. */
-function sliceTint(index: number): string {
-    const [token, alpha] = SLICE_TINTS[index] ?? ['--muted-foreground', 0.3];
+/** A tax's colour as a badge: its hue for the text, the same hue held well back for the ground. */
+function taxBadgeStyle(taxCode: string): { background: string; color: string } {
+    const [token] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
+
+    return { background: themeColor(token, 0.12), color: themeColor(token) };
+}
+
+/** A tax's colour, with a neutral for one this screen has not been taught about. */
+function sliceTint(taxCode: string): string {
+    const [token, alpha] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
 
     return themeColor(token, alpha);
 }
@@ -275,12 +296,102 @@ function compositionOf(assessment: Assessment | null): { taxCode: string; minor:
 export default function TaxesOverview(): JSX.Element {
     const { t, locale } = useTranslation();
     const [subjectId] = useState(() => getActiveSubjectId());
-    const [year, setYear] = useState(() => String(new Date().getFullYear()));
-    const [assessment, setAssessment] = useState<Assessment | null>(null);
+    /** Remembered per taxpayer, as the reports screen remembers its period: a year chosen is a year being read. */
+    const [year, setYear] = useRememberedState<string>('taxes.assessment.year', String(new Date().getFullYear()), {
+        perSubject: true,
+        isValid: (value: string) => /^\d{4}$/.test(value),
+    });
+    /**
+     * What was found for a year, with the year it was found for.
+     *
+     * The pair rather than two states: whether the screen is still looking is *derived* from whether what it
+     * holds is for the year now selected. Setting a loading flag inside the effect is a synchronous set during
+     * render, and it also leaves a window where last year's figures are on screen under this year's heading.
+     */
+    const [loaded, setLoaded] = useState<{
+        year: string;
+        assessment: Assessment | null;
+        years: number[];
+    } | null>(null);
     const [working, setWorking] = useState(false);
+
+    const assessment = loaded !== null && loaded.year === year ? loaded.assessment : null;
+    const loading = subjectId !== null && (loaded === null || loaded.year !== year);
 
     const composition = compositionOf(assessment);
 
+
+    /*
+     * The assessment already on file for this year.
+     *
+     * A draft is saved, so returning to the screen should show it rather than ask for it to be recomputed —
+     * which would also replace it, making last week's figures unreachable by the act of looking for them.
+     */
+    useEffect(() => {
+        if (subjectId === null) {
+            return;
+        }
+
+        let current = true;
+
+        void apiRequest(
+            `/v1/subjects/${encodeURIComponent(subjectId)}/tax/assessments?fiscal_year=${encodeURIComponent(year)}`,
+        )
+            .then((text) => {
+                if (current) {
+                    // 204 and an empty body for a year never assessed: nothing is missing, it has not been
+                    // done yet, and a screen that treats that as an error shows a failure instead of a button.
+                    const body = obj(JSON.parse(text));
+
+                    setLoaded({
+                        year,
+                        assessment: body.assessment === null ? null : parse(body.assessment),
+                        years: (Array.isArray(body.years) ? body.years : []).filter(
+                            (value): value is number => typeof value === 'number',
+                        ),
+                    });
+                }
+            })
+            .catch(() => {
+                if (current) {
+                    setLoaded({ year, assessment: null, years: [] });
+                }
+            });
+
+        return () => {
+            current = false;
+        };
+    }, [subjectId, year]);
+
+    /*
+     * Rebuilt only when the figures change — Chart.js keeps the object it is handed, so a new one on every
+     * render redraws continuously.
+     */
+    const compositionConfig = useMemo<ChartConfiguration>(
+        () => ({
+            type: 'doughnut',
+            data: {
+                labels: composition.map((slice) => slice.taxCode),
+                datasets: [
+                    {
+                        data: composition.map((slice) => slice.minor / 100),
+                        backgroundColor: composition.map((slice) => sliceTint(slice.taxCode)),
+                        // A ring of the surface between slices, so two shares read as two rather than as one
+                        // wide one where their edges meet.
+                        borderColor: themeColor('--card'),
+                        borderWidth: 2,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            },
+        }),
+        [assessment],
+    );
 
     const assess = async (): Promise<void> => {
         if (subjectId === null) {
@@ -295,7 +406,7 @@ export default function TaxesOverview(): JSX.Element {
                 body: { fiscal_year: Number(year) },
             });
 
-            setAssessment(parse(JSON.parse(text)));
+            setLoaded({ year, assessment: parse(JSON.parse(text)), years: loaded?.years ?? [] });
         } catch (cause: unknown) {
             toast.error(describeApiFailure(cause, t));
         } finally {
@@ -318,7 +429,8 @@ export default function TaxesOverview(): JSX.Element {
                             className="ctl-narrow"
                             value={year}
                             onValueChange={setYear}
-                            options={assessableYears().map((value) => ({
+                            icon={<CalendarDays className="size-3.5" aria-hidden="true" />}
+                            options={yearOptions(loaded?.years ?? []).map((value) => ({
                                 value: String(value),
                                 label: String(value),
                             }))}
@@ -331,13 +443,35 @@ export default function TaxesOverview(): JSX.Element {
                             }}
                         >
                             <Calculator className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.taxes.assess)}
+                            {assessment === null
+                                ? t((d) => d.pages.taxes.assess)
+                                : t((d) => d.pages.taxes.reassess)}
                         </PanelButton>
                     </>
                 }
             >
-                {assessment === null ? (
-                    <p className="note">{t((d) => d.pages.taxes.notAssessedYet)}</p>
+                {loading ? (
+                    <p className="note">{t((d) => d.pages.taxes.loadingSaved)}</p>
+                ) : assessment === null ? (
+                    /* The action is inside the empty state, not only in the page's head: somebody who has
+                       nothing on screen should not have to find the one control that changes that. */
+                    <EmptyState
+                        icon={<Calculator className="size-5" />}
+                        title={t((d) => d.pages.taxes.emptyTitle).replace('{year}', year)}
+                        description={t((d) => d.pages.taxes.emptyHint)}
+                        action={
+                            <PanelButton
+                                primary
+                                disabled={working || subjectId === null}
+                                onClick={() => {
+                                    void assess();
+                                }}
+                            >
+                                <Calculator className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.taxes.assess)}
+                            </PanelButton>
+                        }
+                    />
                 ) : (
                     <>
                         {/*
@@ -359,6 +493,12 @@ export default function TaxesOverview(): JSX.Element {
                                     {assessment.status === 'FINAL'
                                         ? t((d) => d.pages.taxes.statusFinal)
                                         : t((d) => d.pages.taxes.statusDraft)}
+                                    {assessment.computedAt === null
+                                        ? null
+                                        : ` · ${t((d) => d.pages.taxes.computedAt).replace(
+                                              '{when}',
+                                              formatDateTime(assessment.computedAt, locale),
+                                          )}`}
                                 </div>
                             </section>
 
@@ -401,9 +541,11 @@ export default function TaxesOverview(): JSX.Element {
                                         title={taxName(group.taxCode, t)}
                                         icon={taxIcon(group.taxCode)}
                                         aside={
-                                            <strong className="text-sm tabular-nums">
+                                            /* A badge in the tax's own colour, so the card's total is read as
+                                               a figure and tied to its slice of the ring. */
+                                            <span className="money-badge" style={taxBadgeStyle(group.taxCode)}>
                                                 {formatAmount(group.totalMinor / 100, 'RON', locale)}
-                                            </strong>
+                                            </span>
                                         }
                                     >
                                         {group.components.map((line) => (
@@ -486,9 +628,18 @@ export default function TaxesOverview(): JSX.Element {
                                                     ) : null}
                                                 </div>
 
-                                                <strong className="shrink-0 text-sm tabular-nums">
+                                                {/* Quiet beside the group's badge: a component is a part of
+                                                    that total, not a second headline. Zero is muted, because
+                                                    a line owing nothing should not draw the eye first. */}
+                                                <span
+                                                    className={
+                                                        line.taxMinor === 0
+                                                            ? 'money-badge money-badge-nil'
+                                                            : 'money-badge money-badge-quiet'
+                                                    }
+                                                >
                                                     {formatAmount(line.taxMinor / 100, 'RON', locale)}
-                                                </strong>
+                                                </span>
                                             </div>
                                         ))}
                                     </Panel>
@@ -501,47 +652,53 @@ export default function TaxesOverview(): JSX.Element {
                                         title={t((d) => d.pages.taxes.composition)}
                                         icon={<ChartPie className="size-4" />}
                                     >
-                                        {/* A bar, not a ring: no hole to fit a total into, it reads at any
-                                            width, and three shares compare along a line more easily than
-                                            around a circle. */}
-                                        <div
-                                            className="bg-muted flex h-2.5 gap-0.5 overflow-hidden rounded-full"
-                                            aria-hidden="true"
-                                        >
-                                            {composition.map((slice, index) => (
-                                                <div
-                                                    key={slice.taxCode}
-                                                    className="h-full"
-                                                    style={{
-                                                        width: `${String(shareOf(slice.minor, assessment) * 100)}%`,
-                                                        background: sliceTint(index),
-                                                    }}
+                                        {/*
+                                            A ring, with every slice named beside it. Three parts of one sum
+                                            is what a ring is for, and the hole carries the figure the slices
+                                            are shares of — which is why the total is not repeated in the list.
+                                        */}
+                                        <div className="flex items-center gap-4">
+                                            <div className="chart-donut-mid">
+                                                <Chart
+                                                    config={compositionConfig}
+                                                    label={t((d) => d.pages.taxes.composition)}
                                                 />
-                                            ))}
+                                                <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                                                    <div>
+                                                        <p className="text-sm font-semibold tabular-nums">
+                                                            {formatFigure(totalOwedMinor(assessment) / 100, locale)}
+                                                        </p>
+                                                        <p className="note donut-note">RON</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <dl className="grid min-w-0 flex-1 gap-3">
+                                                {composition.map((slice) => (
+                                                    <div className="min-w-0" key={slice.taxCode}>
+                                                        <dt className="flex items-center gap-2 text-xs">
+                                                            <span
+                                                                className="size-2.5 shrink-0 rounded-full"
+                                                                style={{ background: sliceTint(slice.taxCode) }}
+                                                            />
+                                                            <span className="truncate">
+                                                                {taxName(slice.taxCode, t)}
+                                                            </span>
+                                                            <span className="text-muted-foreground ml-auto tabular-nums">
+                                                                {formatPercent(
+                                                                    shareOf(slice.minor, assessment),
+                                                                    locale,
+                                                                )}
+                                                            </span>
+                                                        </dt>
+                                                        <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                                                            {formatAmount(slice.minor / 100, 'RON', locale)}
+                                                        </dd>
+                                                    </div>
+                                                ))}
+                                            </dl>
                                         </div>
 
-                                        <dl className="mt-4 grid gap-3">
-                                            {composition.map((slice, index) => (
-                                                <div className="min-w-0" key={slice.taxCode}>
-                                                    <dt className="flex items-center gap-2 text-xs">
-                                                        <span
-                                                            className="size-2.5 shrink-0 rounded-full"
-                                                            style={{ background: sliceTint(index) }}
-                                                        />
-                                                        {taxName(slice.taxCode, t)}
-                                                        <span className="text-muted-foreground ml-auto tabular-nums">
-                                                            {formatPercent(
-                                                                shareOf(slice.minor, assessment),
-                                                                locale,
-                                                            )}
-                                                        </span>
-                                                    </dt>
-                                                    <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                                                        {formatAmount(slice.minor / 100, 'RON', locale)}
-                                                    </dd>
-                                                </div>
-                                            ))}
-                                        </dl>
                                     </Panel>
                                 ) : null}
 

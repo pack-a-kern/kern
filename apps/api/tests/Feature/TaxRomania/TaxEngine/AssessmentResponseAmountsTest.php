@@ -7,7 +7,7 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 /**
  * Amounts leave the assessment endpoint as minor units.
  *
- * The controller reads them out of a trace, where they are `Money::toString()` — a fixed machine form that is
+ * The presenter reads them out of a trace, where they are `Money::toString()` — a fixed machine form that is
  * right for a record read in five years and wrong on a screen, which put `2177598.46 RON` beside
  * `2.177.598,46 RON` on one row. Parsing a formatted string is usually a mistake; this one is defended by
  * asserting against `Money`'s own output rather than against a string somebody typed, so a change to that
@@ -17,11 +17,11 @@ it('reads back every shape Money writes', function (int $minor, string $currency
     $written = (string) Money::ofMinorUnits($minor, $currency);
 
     $parse = new ReflectionMethod(
-        Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController::class,
+        Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter::class,
         'minorUnitsOf',
     );
 
-    expect($parse->invoke(app(Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController::class), $written))
+    expect($parse->invoke(app(Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter::class), $written))
         ->toBe($minor);
 })->with([
     'zero' => [0, 'RON'],
@@ -34,11 +34,11 @@ it('reads back every shape Money writes', function (int $minor, string $currency
 
 it('returns nothing for a string that is not an amount', function (string $notMoney): void {
     $parse = new ReflectionMethod(
-        Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController::class,
+        Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter::class,
         'minorUnitsOf',
     );
 
-    expect($parse->invoke(app(Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController::class), $notMoney))
+    expect($parse->invoke(app(Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter::class), $notMoney))
         ->toBeNull();
 })->with([
     'a threshold count' => ['24'],

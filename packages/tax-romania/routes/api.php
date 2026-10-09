@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController;
+use Kern\TaxRomania\Http\Controllers\TaxEngine\ShowFiscalYearAssessmentController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
@@ -256,6 +257,12 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
  * is the kind of act that gate exists for.
  */
 Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax-subject'])->group(function (): void {
+    /*
+     * Reading the year's assessment back needs no step-up: it returns figures already recorded, which the
+     * taxpayer's own screens show anyway. Computing one does, because it writes.
+     */
+    Route::get('tax/assessments', ShowFiscalYearAssessmentController::class)->whereUuid('subject');
+
     Route::post('tax/assessments', AssessFiscalYearController::class)
         ->middleware('verify-recent')
         ->whereUuid('subject');

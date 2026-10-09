@@ -1251,10 +1251,14 @@ export interface Dictionary {
             quotaDeducted: string;
             title: string;
             description: string;
-            assessTitle: string;
-            assessHint: string;
             assess: string;
-            notAssessedYet: string;
+            /** The control's second wording, once a year already has an assessment on file. */
+            reassess: string;
+            computedAt: string;
+            loadingSaved: string;
+            /** The screen with nothing on it yet: what is absent, and what pressing the button will give. */
+            emptyTitle: string;
+            emptyHint: string;
             draftHint: string;
             /** How many rule outputs the year produced, and the heading over the ring. */
             rulesApplied: string;

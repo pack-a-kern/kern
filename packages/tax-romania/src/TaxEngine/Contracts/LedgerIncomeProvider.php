@@ -25,4 +25,15 @@ interface LedgerIncomeProvider
      * @return list<LedgerIncomeEntry>
      */
     public function incomeIn(string $taxSubjectId, int $fiscalYear, array $categoryCodes): array;
+
+    /**
+     * The years this taxpayer has any recorded activity in, newest first.
+     *
+     * Asked of the ledger rather than worked out by the caller: which years exist is a fact about somebody's
+     * records, and the one place that knows is the side holding them. A screen offering every year since 2018
+     * invites a person to assess eight years they have no transactions in and read eight pages of zeroes.
+     *
+     * @return list<int>
+     */
+    public function yearsWithActivity(string $taxSubjectId): array;
 }

@@ -11,9 +11,15 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -457,4 +463,75 @@ function seedRuleParameters(): void
             ['valid_from' => '2026-01-01', 'value_json' => json_encode($valueJson, JSON_THROW_ON_ERROR)],
         );
     }
+}
+
+/**
+ * A subject with a tenant bound, because every table here is tenant-scoped.
+ *
+ * The scope is the thing that keeps one taxpayer's figures away from another's, so a test that bypassed it
+ * would be testing a query no request can make.
+ */
+/**
+ * The owner of the subject under test, remembered so nothing has to guess at it.
+ *
+ * `User::query()->firstOrFail()` used to stand in for this, and `insertApprovedFiscalParameterVersion` creates a
+ * user of its own for `approved_by` — five of them — so the test authenticated as whichever row came back first.
+ * On sqlite that happened to be the owner; on Postgres it was not, so a test asserting the step-up gate refuses
+ * instead found a user with no authenticator and watched the request sail through. It passed alone and failed in
+ * the suite, which is the worst shape a test failure takes.
+ */
+function subjectOwner(): User
+{
+    /** @var User $user */
+    $user = User::query()->findOrFail($GLOBALS['assessableOwnerId']);
+
+    return $user;
+}
+
+function assessableSubject(): TaxSubject
+{
+    $subject = TaxSubject::factory()->create();
+    $user = User::factory()->create();
+    $GLOBALS['assessableOwnerId'] = $user->id;
+
+    SubjectMembership::create([
+        'subject_id' => $subject->id,
+        'user_id' => $user->id,
+        'role' => MembershipRole::OWNER,
+        'permissions_json' => [],
+        'valid_from' => now('UTC'),
+    ]);
+
+    app(TenantContext::class)->authorizeAndActivate($user->id, $subject->id);
+
+    return $subject;
+}
+
+/** @param list<LedgerIncomeEntry> $entries */
+function fakeLedger(array $entries): void
+{
+    app()->instance(LedgerIncomeProvider::class, new class ($entries) implements LedgerIncomeProvider {
+        /** @param list<LedgerIncomeEntry> $entries */
+        public function __construct(private array $entries)
+        {
+        }
+
+        /** @return list<int> */
+        public function yearsWithActivity(string $taxSubjectId): array
+        {
+            // The fake holds entries, not transactions, so the years it can offer are the years it was given.
+            return array_values(array_unique(array_map(
+                static fn (LedgerIncomeEntry $entry): int => (int) $entry->bookedAt->format('Y'),
+                $this->entries,
+            )));
+        }
+
+        public function incomeIn(string $taxSubjectId, int $fiscalYear, array $categoryCodes): array
+        {
+            return array_values(array_filter(
+                $this->entries,
+                static fn (LedgerIncomeEntry $entry): bool => in_array($entry->categoryCode, $categoryCodes, true),
+            ));
+        }
+    });
 }
