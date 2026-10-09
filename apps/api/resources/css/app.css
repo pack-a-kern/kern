@@ -1928,6 +1928,26 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     margin-bottom: 10px;
 }
 
+/*
+ * The tax's mark — the same tile a card's own head wears.
+ *
+ * Geometry and ground from `.panel-head-icon`: 2rem at `radius-xl` on `--secondary`. This rule was deleted by
+ * accident when the collapsing was taken out, which left the icon with an inline background and no size,
+ * radius or centering — a tinted square drawn around a glyph, which is exactly what it looked like.
+ *
+ * Only the glyph takes the tax's colour, and that is what ties it to its slice of the ring. The coloured
+ * ground belongs to the money badge beside it, where a figure wants the weight.
+ */
+.tax-group-mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-xl);
+    background: var(--secondary);
+    flex: none;
+}
+
 /* The total sits at the end of the head, with the chevron after it, whatever the name's length. */
 .tax-group-head > .money-badge {
     margin-left: auto;

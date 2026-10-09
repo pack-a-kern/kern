@@ -273,6 +273,13 @@ function shareOf(minor: number, assessment: Assessment): number {
     return total === 0 ? 0 : minor / total;
 }
 
+/** A tax's colour for its mark's glyph. The ground comes from the stylesheet, as every other mark's does. */
+function taxMarkStyle(taxCode: string): { color: string } {
+    const [token] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
+
+    return { color: themeColor(token) };
+}
+
 /** A tax's colour as a badge: its hue for the text, the same hue held well back for the ground. */
 function taxBadgeStyle(taxCode: string): { background: string; color: string } {
     const [token] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
@@ -693,11 +700,39 @@ export default function TaxesOverview(): JSX.Element {
                                 neither, and says why rather than showing a button that refuses.
                             */}
                             <section className="border-border bg-card shadow-hair flex flex-col rounded-xl border p-4">
-                                <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
+                                {/* The act sits on the label's line, where a reader is already looking at
+                                    what the year's state is — not under a paragraph explaining it. */}
+                                <div className="flex items-center gap-2.5">
                                     <IconBadge tone={assessment.status === 'FINAL' ? 'success' : 'amber'}>
                                         <FileText className="size-4" />
                                     </IconBadge>
-                                    {t((d) => d.pages.taxes.assessmentStatus)}
+                                    <span className="text-muted-foreground text-xs">
+                                        {t((d) => d.pages.taxes.assessmentStatus)}
+                                    </span>
+
+                                    {assessment.status === 'FINAL' ? (
+                                        <PanelButton
+                                            className="ml-auto"
+                                            disabled={working}
+                                            onClick={() => {
+                                                void run('/unlock');
+                                            }}
+                                        >
+                                            <LockOpen className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.taxes.unlock)}
+                                        </PanelButton>
+                                    ) : yearHasClosed ? (
+                                        <PanelButton
+                                            className="ml-auto"
+                                            disabled={working}
+                                            onClick={() => {
+                                                void run('/final');
+                                            }}
+                                        >
+                                            <Lock className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.taxes.markFinal)}
+                                        </PanelButton>
+                                    ) : null}
                                 </div>
 
                                 <div className="mt-3 text-xl font-bold tracking-tight">
@@ -714,29 +749,6 @@ export default function TaxesOverview(): JSX.Element {
                                           : t((d) => d.pages.taxes.yearStillOpen).replace('{year}', year)}
                                 </p>
 
-                                {assessment.status === 'FINAL' ? (
-                                    <PanelButton
-                                        className="mt-3 self-start"
-                                        disabled={working}
-                                        onClick={() => {
-                                            void run('/unlock');
-                                        }}
-                                    >
-                                        <LockOpen className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.taxes.unlock)}
-                                    </PanelButton>
-                                ) : yearHasClosed ? (
-                                    <PanelButton
-                                        className="mt-3 self-start"
-                                        disabled={working}
-                                        onClick={() => {
-                                            void run('/final');
-                                        }}
-                                    >
-                                        <Lock className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.taxes.markFinal)}
-                                    </PanelButton>
-                                ) : null}
                             </section>
                         </div>
 
@@ -776,7 +788,7 @@ export default function TaxesOverview(): JSX.Element {
                                             <div className="tax-group-head">
                                                 <span
                                                     className="tax-group-mark"
-                                                    style={taxBadgeStyle(group.taxCode)}
+                                                    style={taxMarkStyle(group.taxCode)}
                                                     aria-hidden="true"
                                                 >
                                                     {taxIcon(group.taxCode)}
