@@ -1441,6 +1441,7 @@ export const en = {
         },
         taxes: {
             thresholdReached: 'Reached the {wages}-minimum-wage threshold',
+            exportMenu: 'Download',
             exportFigures: 'Figures',
             exportEvidence: 'Evidence',
             markFinal: 'Mark as final',

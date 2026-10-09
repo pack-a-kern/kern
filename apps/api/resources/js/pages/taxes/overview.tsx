@@ -4,8 +4,8 @@ import {
     Calculator,
     CalendarDays,
     ChartPie,
-    ChevronDown,
     Download,
+    EllipsisVertical,
     FileText,
     HeartPulse,
     Landmark,
@@ -21,6 +21,12 @@ import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
 import { useRememberedState } from '../../hooks/useRememberedState';
@@ -503,24 +509,74 @@ export default function TaxesOverview(): JSX.Element {
                     <>
                         {assessment === null ? null : (
                             <>
-                                <PanelButton
-                                    onClick={() => {
-                                        void exportCsv('figures');
-                                    }}
-                                >
-                                    <Download className="size-3.5" aria-hidden="true" />
-                                    {t((d) => d.pages.taxes.exportFigures)}
-                                </PanelButton>
-                                <PanelButton
-                                    onClick={() => {
-                                        void exportCsv('evidence');
-                                    }}
-                                >
-                                    <Download className="size-3.5" aria-hidden="true" />
-                                    {t((d) => d.pages.taxes.exportEvidence)}
-                                </PanelButton>
+                                {/*
+                                    Side by side where there is room; one menu where there is not. At phone
+                                    width three buttons wrap onto their own line and push the figures below
+                                    the fold, and an export is not what somebody opened this screen for.
+                                */}
+                                <div className="hidden items-center gap-2 sm:flex">
+                                    <PanelButton
+                                        variant="ghost"
+                                        className="text-info"
+                                        onClick={() => {
+                                            void exportCsv('figures');
+                                        }}
+                                    >
+                                        <Download className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.taxes.exportFigures)}
+                                    </PanelButton>
+                                    <PanelButton
+                                        variant="ghost"
+                                        className="text-info"
+                                        onClick={() => {
+                                            void exportCsv('evidence');
+                                        }}
+                                    >
+                                        <Download className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.taxes.exportEvidence)}
+                                    </PanelButton>
+                                </div>
+
+                                {/*
+                                    Hidden by a wrapper, not by `sm:hidden` on the control itself:
+                                    `.shell-control` sets its own `display`, and a Tailwind utility sits in
+                                    `@layer utilities` where an unlayered rule outranks it — so the class was
+                                    on the button and the menu showed at every width.
+                                */}
+                                <div className="sm:hidden">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="shell-control"
+                                                aria-label={t((d) => d.pages.taxes.exportMenu)}
+                                            >
+                                                <EllipsisVertical className="size-4" aria-hidden="true" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-52">
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    void exportCsv('figures');
+                                                }}
+                                            >
+                                                <Download className="size-3.5" aria-hidden="true" />
+                                                {t((d) => d.pages.taxes.exportFigures)}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    void exportCsv('evidence');
+                                                }}
+                                            >
+                                                <Download className="size-3.5" aria-hidden="true" />
+                                                {t((d) => d.pages.taxes.exportEvidence)}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
                             </>
                         )}
+
                     {/* Not offered on a final year: the engine refuses to recompute one, and a button that
                         cannot work is worse than no button. Unlock first — that is its own deliberate act. */}
                     {assessment?.status === 'FINAL' ? null : (
@@ -706,42 +762,23 @@ export default function TaxesOverview(): JSX.Element {
                                         </span>
                                     }
                                 >
-                                    {grouped(assessment).map((group, index) => (
+                                    {grouped(assessment).map((group) => (
                                         <section className="tax-group" key={group.taxCode}>
-                                            {/*
-                                                A `<details>` rather than state: the browser handles the open
-                                                and closed, keyboard and screen reader included, and the first
-                                                one is open so the page is never a row of closed drawers.
-                                            */}
-                                            {/*
-                                                A shared `name` makes these an accordion: the browser closes
-                                                the others when one opens, with no state to keep and no two
-                                                sections able to disagree about which is showing. Where a
-                                                browser does not know the attribute they simply toggle
-                                                independently, which is the old behaviour and not a break.
-                                            */}
-                                            <details name="tax-group" open={index === 0}>
-                                                <summary className="tax-group-head">
-                                                    <span
-                                                        className="tax-group-mark"
-                                                        style={taxBadgeStyle(group.taxCode)}
-                                                        aria-hidden="true"
-                                                    >
-                                                        {taxIcon(group.taxCode)}
-                                                    </span>
-                                                    <h3 className="text-xs font-semibold">
-                                                        {taxName(group.taxCode, t)}
-                                                    </h3>
-                                                    <span
-                                                        className="money-badge"
-                                                        style={taxBadgeStyle(group.taxCode)}
-                                                    >
-                                                        {formatAmount(group.totalMinor / 100, 'RON', locale)}
-                                                    </span>
-                                                    <span className="tax-group-toggle" aria-hidden="true">
-                                                        <ChevronDown className="size-3.5" />
-                                                    </span>
-                                                </summary>
+                                            <div className="tax-group-head">
+                                                <span
+                                                    className="tax-group-mark"
+                                                    style={taxBadgeStyle(group.taxCode)}
+                                                    aria-hidden="true"
+                                                >
+                                                    {taxIcon(group.taxCode)}
+                                                </span>
+                                                <h3 className="text-xs font-semibold">
+                                                    {taxName(group.taxCode, t)}
+                                                </h3>
+                                                <span className="money-badge" style={taxBadgeStyle(group.taxCode)}>
+                                                    {formatAmount(group.totalMinor / 100, 'RON', locale)}
+                                                </span>
+                                                </div>
 
                                             {group.components.map((line) => (
                                                 <div
@@ -840,7 +877,6 @@ export default function TaxesOverview(): JSX.Element {
                                                     </span>
                                                 </div>
                                             ))}
-                                            </details>
                                         </section>
                                     ))}
                                 </Panel>

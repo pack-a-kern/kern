@@ -1439,6 +1439,7 @@ export const ro = {
         },
         taxes: {
             thresholdReached: 'A atins plafonul de {wages} salarii minime',
+            exportMenu: 'Descarcă',
             exportFigures: 'Cifrele',
             exportEvidence: 'Documentația',
             markFinal: 'Marchează finală',

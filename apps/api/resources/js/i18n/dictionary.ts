@@ -1250,6 +1250,8 @@ export interface Dictionary {
             thresholdReached: string;
             /** The one card holding every tax, and the count in its head. */
             /** The two files a year can be downloaded as. */
+            /** The icon-only trigger's label, since its name is a picture. */
+            exportMenu: string;
             exportFigures: string;
             exportEvidence: string;
             /** The one act the assessment's state allows, and why there is none when there is none. */
