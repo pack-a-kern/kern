@@ -2501,7 +2501,8 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
     /* A labelled cell reads as one thing: the header row is gone on a phone, so the label travels
        with its control instead of sitting above it and leaving the column ragged. */
-    .data-table-stack td[data-label] {
+    .data-table-stack td[data-label],
+    .data-table-stack td:has(> .cell-label) {
         display: flex;
         flex-basis: 100%;
         align-items: baseline;
@@ -2512,9 +2513,34 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
     /* Dashed, and only between the labelled pairs: the solid line already means "next row", and a
        second solid one inside a card would read as the start of another. */
-    .data-table-stack td[data-label] + td[data-label] {
+    .data-table-stack td[data-label] + td[data-label],
+    .data-table-stack td:has(> .cell-label) + td:has(> .cell-label) {
         margin-top: -2px;
     }
+    /*
+     * The mark a `CellLabel` draws, where `data-label` would have put its words.
+     *
+     * `flex: none` and a top alignment, because the value beside it may be two lines — a schedule reads as
+     * its own sentence above the cron that produced it — and a mark centred against that floats in the
+     * middle of nothing.
+     */
+    .data-table-stack .cell-label {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        /* The value beside it may be two lines — a schedule reads as a sentence above the cron that
+           produced it — and a label centred against that floats in the middle of nothing. */
+        align-self: flex-start;
+        gap: 6px;
+        /* The same small capitals `data-label` draws, so a table using one and a table using the other do
+           not look like two different tables. */
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+    }
+
     .data-table-stack td[data-label]::before {
         content: attr(data-label);
         flex: none;
@@ -2524,6 +2550,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         text-transform: uppercase;
         color: var(--muted-foreground);
     }
+}
+
+/* A cell label is for the stacked layout only — a wide table names its columns once, in its head. */
+.cell-label {
+    display: none;
 }
 
 /* Tall enough that twelve months of paired bars are read as a shape rather than a row of ticks. */

@@ -1316,3 +1316,22 @@ export function Kpi(props: {
         </div>
     );
 }
+
+/**
+ * A stacked row's label: the column's name, with a mark in front of it.
+ *
+ * `data-label` draws the name alone, in small capitals, and a phone full of them reads as a wall of words.
+ * The mark gives each row something to find it by at a glance — a clock for a duration, a pulse for a state
+ * — while the name stays, because an icon on its own is not a label, it is a picture of one.
+ *
+ * Shows only where the table is stacked. On a wide screen the column heading already says this, and a second
+ * copy in every cell is what the stacked layout exists to avoid.
+ */
+export function CellLabel({ icon, children }: { icon: ReactNode; children: string }): JSX.Element {
+    return (
+        <span className="cell-label">
+            {icon}
+            {children}
+        </span>
+    );
+}

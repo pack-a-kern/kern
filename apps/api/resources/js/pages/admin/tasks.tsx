@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import AppShell from '../../components/AppShell';
-import { CalendarClock, CircleHelp, History, Play, X } from 'lucide-react';
+import {
+    Activity,
+    CalendarClock,
+    CircleHelp,
+    History,
+    Play,
+    Timer,
+    X,
+    Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -9,21 +18,7 @@ import {
     runOperationTask,
     setScheduledTaskEnabled,
 } from '../../api/operationsApi';
-import {
-    DataTable,
-    Detail,
-    DetailList,
-    Field,
-    Page,
-    Panel,
-    PanelButton,
-    PanelDialog,
-    PanelInput,
-    PanelSelect,
-    Pill,
-    Status,
-    type StatusTone,
-} from '../../components/panel';
+import { CellLabel, DataTable, Detail, DetailList, Field, Page, Panel, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill, Status, type StatusTone } from '../../components/panel';
 import Pagination, { PAGE_SIZES } from '../../components/Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { describeCron } from '../../lib/cron';
@@ -265,10 +260,10 @@ function AdminOperationsBody(): JSX.Element {
                                         </Tooltip>
                                     </span>
                                 </td>
-                                <td
-                                    className="whitespace-nowrap"
-                                    data-label={t((d) => d.pages.adminOperations.tasks.columns.schedule)}
-                                >
+                                <td className="whitespace-nowrap">
+                                    <CellLabel icon={<CalendarClock className="size-3.5" aria-hidden="true" />}>
+                                        {t((d) => d.pages.adminOperations.tasks.columns.schedule)}
+                                    </CellLabel>
                                     {task.schedulable ? (
                                         /* One element, not two: a stacked row lays a labelled cell out
                                            as a flex row, so loose siblings here become columns beside
@@ -293,10 +288,10 @@ function AdminOperationsBody(): JSX.Element {
                                         <Pill>{t((d) => d.pages.adminOperations.tasks.manualOnly)}</Pill>
                                     )}
                                 </td>
-                                <td
-                                    className="whitespace-nowrap"
-                                    data-label={t((d) => d.pages.adminOperations.tasks.columns.lastRun)}
-                                >
+                                <td className="whitespace-nowrap">
+                                    <CellLabel icon={<History className="size-3.5" aria-hidden="true" />}>
+                                        {t((d) => d.pages.adminOperations.tasks.columns.lastRun)}
+                                    </CellLabel>
                                     {task.lastRun === null ? (
                                         <span className="note">
                                             {t((d) => d.pages.adminOperations.tasks.never)}
@@ -319,7 +314,10 @@ function AdminOperationsBody(): JSX.Element {
                                         </div>
                                     )}
                                 </td>
-                                <td data-label={t((d) => d.pages.adminOperations.tasks.columns.state)}>
+                                <td>
+                                    <CellLabel icon={<Activity className="size-3.5" aria-hidden="true" />}>
+                                        {t((d) => d.pages.adminOperations.tasks.columns.state)}
+                                    </CellLabel>
                                     {task.running ? (
                                         <Status tone="warn">
                                             {t((d) => d.pages.adminOperations.tasks.running)}
@@ -612,7 +610,10 @@ function TaskHistoryDialog(props: {
                                         <td className="col-primary whitespace-nowrap tabular-nums">
                                             {new Date(run.startedAt).toLocaleString()}
                                         </td>
-                                        <td data-label={t((d) => d.pages.adminOperations.tasks.trigger)}>
+                                        <td>
+                                            <CellLabel icon={<Zap className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.adminOperations.tasks.trigger)}
+                                            </CellLabel>
                                             <Pill>
                                                 {t(
                                                     (d) =>
@@ -621,7 +622,10 @@ function TaskHistoryDialog(props: {
                                                 )}
                                             </Pill>
                                         </td>
-                                        <td data-label={t((d) => d.pages.adminOperations.tasks.columns.state)}>
+                                        <td>
+                                            <CellLabel icon={<Activity className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.adminOperations.tasks.columns.state)}
+                                            </CellLabel>
                                             <Status tone={runTone(run.status)}>
                                                 {t(
                                                     (d) =>
@@ -630,13 +634,17 @@ function TaskHistoryDialog(props: {
                                                 )}
                                             </Status>
                                         </td>
-                                        <td
-                                            className="tabular-nums"
-                                            data-label={t((d) => d.pages.adminOperations.tasks.duration)}
-                                        >
+                                        <td className="tabular-nums">
+                                            <CellLabel icon={<Timer className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.adminOperations.tasks.duration)}
+                                            </CellLabel>
                                             {run.durationSeconds === null ? '—' : `${String(run.durationSeconds)}s`}
                                         </td>
-                                        <td className="col-end text-right">
+                                        {/* `col-actions`, not `col-end`: the corner reserves 80px and this
+                                            button is a labelled one nearly three times that, so pinned there
+                                            it sat across the run's own timestamp. A line of its own at the
+                                            foot of the row, which is what that class exists for. */}
+                                        <td className="col-actions text-right">
                                             <PanelButton
                                                 onClick={() => {
                                                     setExpanded(expanded === run.id ? null : run.id);
