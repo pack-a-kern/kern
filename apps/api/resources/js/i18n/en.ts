@@ -768,8 +768,7 @@ export const en = {
         },
         walletOverview: {
             assumedOpening: 'Before these records',
-            assumedOpeningHint:
-                'Money that must already have been there: your records show it leaving before anything arrived.',
+            assumedOpeningHint: 'Recorded as leaving before anything arrived',
             netWorth: 'What you have',
             netWorthRate: 'BNR rate {date}',
             netWorthDirect: 'no conversion needed',

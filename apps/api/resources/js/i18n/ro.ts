@@ -757,8 +757,7 @@ export const ro = {
         },
         walletOverview: {
             assumedOpening: 'Înainte de aceste înregistrări',
-            assumedOpeningHint:
-                'Bani care trebuie să fi existat deja: înregistrările arată că au ieșit înainte să intre ceva.',
+            assumedOpeningHint: 'Înregistrați ca ieșiri înainte de orice intrare',
             netWorth: 'Ce ai',
             netWorthRate: 'curs BNR {date}',
             netWorthDirect: 'fără conversie',
