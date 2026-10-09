@@ -616,6 +616,24 @@ export interface Dictionary {
             viewAccounts: string;
             maturingTitle: string;
             maturingHint: string;
+            /** What would be here, and — for maturities — that empty is good news rather than missing data. */
+            /** The four things somebody opens the dashboard to start. */
+            quickTitle: string;
+            quickHint: string;
+            quickUpload: string;
+            quickTransaction: string;
+            quickAssess: string;
+            quickSpv: string;
+            /** The published BNR line: its controls, its footer reading, and what it says with no data. */
+            fxTitle: string;
+            fxHint: string;
+            fxWindow: string;
+            fxLatest: string;
+            fxEmpty: string;
+            fxEmptyHint: string;
+            noDepositsHint: string;
+            nothingMaturing: string;
+            nothingMaturingHint: string;
             noDeposits: string;
         };
         walletCounterparties: {

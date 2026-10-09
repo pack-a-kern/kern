@@ -1,14 +1,35 @@
 import { Head, router } from '@inertiajs/react';
-import { Banknote, CalendarClock, CircleHelp, Info, HandCoins, Landmark, PiggyBank, TrendingUp, Wallet } from 'lucide-react';
-import { useEffect, useState, type JSX } from 'react';
+import {
+    Banknote,
+    Calculator,
+    CalendarClock,
+    ChartLine,
+    CircleHelp,
+    HandCoins,
+    Info,
+    Landmark,
+    PiggyBank,
+    Plus,
+    RefreshCw,
+    TrendingUp,
+    Upload,
+    Wallet,
+    Zap,
+} from 'lucide-react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
+import type { ChartConfiguration } from 'chart.js';
 
 import { getWalletOverview } from '../api/walletApi';
+import { apiRequest } from '../lib/http';
 import AppShell from '../components/AppShell';
-import { IconBadge, Kpi, Page, Panel, PanelButton, Pill } from '../components/panel';
+import { Chart } from '../components/Chart';
+import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect, Pill } from '../components/panel';
 import { Skeleton } from '../components/ui/skeleton';
+import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
 import { formatDate } from '../lib/format';
 import { getActiveSubjectId } from '../lib/subjectStore';
+import { themeColor } from '../lib/themeColor';
 import { cn } from '../lib/utils';
 import {
     addHoldings,
@@ -20,6 +41,16 @@ import {
 
 /** Mirrors `routes/web.php`'s named route, so the path appears once on this screen. */
 const ACCOUNTS_PATH = '/wallet/accounts';
+const DOCUMENTS_PATH = '/documents';
+const TRANSACTIONS_PATH = '/wallet/transactions';
+const TAXES_PATH = '/taxes';
+const SPV_PATH = '/spv';
+
+/** The currencies worth offering: what a Romanian taxpayer is most likely to hold or be paid in. */
+const FX_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'];
+
+/** Three months to five years, as whole months, matching what the endpoint accepts. */
+const FX_WINDOWS = ['3', '6', '12', '60'];
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
@@ -379,7 +410,14 @@ export default function Dashboard(): JSX.Element {
                         {loading ? (
                             <ListSkeleton />
                         ) : overview === null || overview.banks.length === 0 ? (
-                            <p className="note">{t((d) => d.pages.walletOverview.noDeposits)}</p>
+                            <EmptyState
+                                icon={<Landmark className="size-5" />}
+                                title={t((d) => d.pages.walletOverview.noDeposits)}
+                                description={t((d) => d.pages.walletOverview.noDepositsHint)}
+                                /* No action of its own: the card's foot already carries this exact button,
+                                   whether the list is empty or not, and offering it twice reads as two
+                                   different things that happen to share a name. */
+                            />
                         ) : (
                             <ul className="divide-border divide-y">
                                 {overview.banks.map((bank) => {
@@ -451,6 +489,8 @@ export default function Dashboard(): JSX.Element {
                         )}
                     </Panel>
 
+                    {/* Its own empty words: this card being empty means nothing is *due*, which is a
+                        different thing from owning no deposits and reads as good news rather than absence. */}
                     <Panel
                         title={t((d) => d.pages.walletOverview.maturingTitle)}
                         description={t((d) => d.pages.walletOverview.maturingHint)}
@@ -469,7 +509,11 @@ export default function Dashboard(): JSX.Element {
                         {loading ? (
                             <ListSkeleton />
                         ) : overview === null || overview.maturing.length === 0 ? (
-                            <p className="note">{t((d) => d.pages.walletOverview.noDeposits)}</p>
+                            <EmptyState
+                                icon={<CalendarClock className="size-5" />}
+                                title={t((d) => d.pages.walletOverview.nothingMaturing)}
+                                description={t((d) => d.pages.walletOverview.nothingMaturingHint)}
+                            />
                         ) : (
                             <ul className="divide-border divide-y">
                                 {overview.maturing.map((deposit) => (
@@ -500,7 +544,7 @@ export default function Dashboard(): JSX.Element {
                                                 <div className="note">
                                                     {t((d) => d.pages.walletOverview.principalLabel)}
                                                 </div>
-                                                <div className="mt-0.5 text-sm font-semibold">
+                                                <div className="mt-0.5 text-xs font-semibold">
                                                     {formatMinor(
                                                         deposit.principalMinor,
                                                         deposit.currencyCode,
@@ -513,7 +557,7 @@ export default function Dashboard(): JSX.Element {
                                                     <div className="note">
                                                         {t((d) => d.pages.walletOverview.grossInterestLabel)}
                                                     </div>
-                                                    <div className="text-success mt-0.5 text-sm font-semibold">
+                                                    <div className="text-success mt-0.5 text-xs font-semibold">
                                                         {t((d) => d.pages.walletOverview.plusInterest).replace(
                                                             '{amount}',
                                                             formatMinor(
@@ -534,6 +578,58 @@ export default function Dashboard(): JSX.Element {
                             </ul>
                         )}
                     </Panel>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                    {/*
+                        The four things somebody opens this screen to start. Your mockup's fourth was "New
+                        declaration", which is a page that no longer exists — assessing a year is the act that
+                        replaced it, and it is the one a dashboard can actually lead to today.
+                    */}
+                    <Panel
+                        title={t((d) => d.pages.walletOverview.quickTitle)}
+                        description={t((d) => d.pages.walletOverview.quickHint)}
+                        icon={<Zap className="size-4" />}
+                    >
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {[
+                                {
+                                    icon: <Upload className="size-3.5" aria-hidden="true" />,
+                                    label: t((d) => d.pages.walletOverview.quickUpload),
+                                    path: DOCUMENTS_PATH,
+                                },
+                                {
+                                    icon: <Plus className="size-3.5" aria-hidden="true" />,
+                                    label: t((d) => d.pages.walletOverview.quickTransaction),
+                                    path: TRANSACTIONS_PATH,
+                                },
+                                {
+                                    icon: <Calculator className="size-3.5" aria-hidden="true" />,
+                                    label: t((d) => d.pages.walletOverview.quickAssess),
+                                    path: TAXES_PATH,
+                                },
+                                {
+                                    icon: <RefreshCw className="size-3.5" aria-hidden="true" />,
+                                    label: t((d) => d.pages.walletOverview.quickSpv),
+                                    path: SPV_PATH,
+                                },
+                            ].map((action) => (
+                                <button
+                                    key={action.path}
+                                    type="button"
+                                    className="quick-action"
+                                    onClick={() => {
+                                        router.visit(action.path);
+                                    }}
+                                >
+                                    <span className="quick-action-mark">{action.icon}</span>
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+                    </Panel>
+
+                    <FxHistoryCard locale={locale} />
                 </div>
             </Page>
         </AppShell>
@@ -603,4 +699,152 @@ function netWorthNote(netWorth: NetWorth, t: Translate): string {
     return newest === undefined
         ? t((d) => d.pages.walletOverview.netWorthDirect)
         : t((d) => d.pages.walletOverview.netWorthRate).replace('{date}', newest);
+}
+
+/**
+ * What a currency has been worth, as a line.
+ *
+ * Its own component because it fetches on its own schedule — a currency and a window the reader chooses, not
+ * the dashboard's one payload. Folding it into the page's state would reload the whole overview every time
+ * somebody switched from EUR to USD.
+ *
+ * The rates are published BNR figures and belong to no taxpayer, which is why this asks `/v1/fx` rather than
+ * anything under `{subject}`.
+ */
+function FxHistoryCard({ locale }: { locale: string }): JSX.Element {
+    const { t } = useTranslation();
+    const [currency, setCurrency] = useRememberedState<string>('dashboard.fx.currency', 'EUR', {
+        isValid: (value: string) => FX_CURRENCIES.includes(value),
+    });
+    const [months, setMonths] = useRememberedState<string>('dashboard.fx.months', '3', {
+        isValid: (value: string) => FX_WINDOWS.includes(value),
+    });
+    const [points, setPoints] = useState<{ date: string; rate: number }[] | null>(null);
+
+    useEffect(() => {
+        let current = true;
+
+        void apiRequest(
+            `/v1/fx/rates/history?currency=${encodeURIComponent(currency)}&months=${encodeURIComponent(months)}`,
+        )
+            .then((text) => {
+                const body: unknown = JSON.parse(text);
+                const raw = typeof body === 'object' && body !== null ? (body as { points?: unknown }).points : null;
+
+                if (current) {
+                    setPoints(
+                        (Array.isArray(raw) ? raw : []).flatMap((entry): { date: string; rate: number }[] => {
+                            const row = entry as { date?: unknown; rate?: unknown };
+
+                            return typeof row.date === 'string' && typeof row.rate === 'string'
+                                ? [{ date: row.date, rate: Number(row.rate) }]
+                                : [];
+                        }),
+                    );
+                }
+            })
+            .catch(() => {
+                if (current) {
+                    setPoints([]);
+                }
+            });
+
+        return () => {
+            current = false;
+        };
+    }, [currency, months]);
+
+    const config = useMemo<ChartConfiguration>(
+        () => ({
+            type: 'line',
+            data: {
+                labels: (points ?? []).map((point) => point.date),
+                datasets: [
+                    {
+                        data: (points ?? []).map((point) => point.rate),
+                        borderColor: themeColor('--primary'),
+                        // A fill under the line, held well back: it says "this is a quantity over time"
+                        // without competing with the line for the reader's eye.
+                        backgroundColor: themeColor('--primary', 0.08),
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 0,
+                        // The last point marked, because "where it is now" is the one value a reader is
+                        // looking for in a line they are glancing at.
+                        pointHoverRadius: 4,
+                        tension: 0.25,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        // Not from zero: a rate that moves between 4.97 and 5.06 is a flat line above a
+                        // zero axis, which hides the only thing the chart is for.
+                        beginAtZero: false,
+                        grid: { color: themeColor('--border', 0.6) },
+                        ticks: { color: themeColor('--muted-foreground'), font: { size: 10 }, maxTicksLimit: 3 },
+                    },
+                },
+            },
+        }),
+        [points],
+    );
+
+    const latest = points?.at(-1) ?? null;
+
+    return (
+        <Panel
+            title={t((d) => d.pages.walletOverview.fxTitle)}
+            description={t((d) => d.pages.walletOverview.fxHint)}
+            icon={<ChartLine className="size-4" />}
+            aside={
+                <>
+                    <PanelSelect
+                        className="ctl-narrow"
+                        value={currency}
+                        onValueChange={setCurrency}
+                        options={FX_CURRENCIES.map((code) => ({ value: code, label: code }))}
+                    />
+                    <PanelSelect
+                        className="ctl-narrow"
+                        value={months}
+                        onValueChange={setMonths}
+                        options={FX_WINDOWS.map((value) => ({
+                            value,
+                            label: t((d) => d.pages.walletOverview.fxWindow).replace('{months}', value),
+                        }))}
+                    />
+                </>
+            }
+            footNote={
+                latest === null ? undefined : (
+                    <span className="note">
+                        {t((d) => d.pages.walletOverview.fxLatest)
+                            .replace('{currency}', currency)
+                            .replace('{rate}', latest.rate.toFixed(4))
+                            .replace('{date}', formatDate(latest.date, locale))}
+                    </span>
+                )
+            }
+        >
+            {points === null ? (
+                <Skeleton className="h-40 w-full" />
+            ) : points.length === 0 ? (
+                <EmptyState
+                    icon={<ChartLine className="size-5" />}
+                    title={t((d) => d.pages.walletOverview.fxEmpty)}
+                    description={t((d) => d.pages.walletOverview.fxEmptyHint)}
+                />
+            ) : (
+                <div className="chart-line-sm">
+                    <Chart config={config} label={t((d) => d.pages.walletOverview.fxTitle)} />
+                </div>
+            )}
+        </Panel>
+    );
 }

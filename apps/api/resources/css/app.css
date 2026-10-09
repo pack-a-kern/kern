@@ -1771,6 +1771,61 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
        line. Not `anywhere`, which splits the currency itself — "2.653.288,46 R / ON". */
     overflow-wrap: break-word;
 }
+/* A line chart in a card: tall enough to show a shape, short enough that the card is still a card. */
+.chart-line-sm {
+    position: relative;
+    height: 10rem;
+}
+
+/*
+ * One of the four things a dashboard leads to.
+ *
+ * A button rather than a link styled as one, because it navigates on click like every other control here, and
+ * sized to the row rather than to its text so the four read as a set.
+ */
+.quick-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+}
+
+.quick-action:hover {
+    background: var(--muted);
+}
+
+.quick-action:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+/* The same tile every other mark in the app wears, at the size a row this height can hold. */
+.quick-action-mark {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-lg);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+    flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quick-action {
+        transition: none;
+    }
+}
+
 /*
  * The dashboard's headline figure — the largest number in the application.
  *

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController;
+use Kern\TaxRomania\Http\Controllers\Fx\ShowFxRateHistoryController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\ExportAssessmentController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\FinaliseFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\ShowFiscalYearAssessmentController;
@@ -288,6 +289,14 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax
     Route::post('tax/assessments/unlock', UnlockFiscalYearController::class)
         ->middleware('verify-recent')
         ->whereUuid('subject');
+});
+
+/*
+ * Published reference rates, which belong to no taxpayer: behind `auth:web` so a stranger cannot read them
+ * from this installation, and outside `{subject}` because scoping them would imply they differ per subject.
+ */
+Route::prefix('v1/fx')->middleware('auth:web')->group(function (): void {
+    Route::get('rates/history', ShowFxRateHistoryController::class);
 });
 
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
