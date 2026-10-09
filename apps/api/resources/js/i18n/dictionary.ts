@@ -598,8 +598,11 @@ export interface Dictionary {
             /** Lent and not yet paid back — shown beside what the subject has, never added to it. */
             owedToMe: string;
             owedToMeHint: string;
-            recognisedIncome: string;
-            recognisedHint: string;
+            /** The count in each card's head, and the two columns a maturity is read as. */
+            activeCount: string;
+            upcomingCount: string;
+            principalLabel: string;
+            grossInterestLabel: string;
             byBankTitle: string;
             byBankHint: string;
             noBank: string;

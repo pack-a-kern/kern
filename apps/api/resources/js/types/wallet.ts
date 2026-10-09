@@ -359,8 +359,6 @@ export interface WalletTotals {
      * person expects can say why, instead of leaving them to find the day their history starts.
      */
     assumedOpening: Holding;
-    /** Safe to show as one number: already converted at the BNR rate for each accrual date. */
-    recognisedRonMinor: number | null;
 }
 
 /** The running deposits at one bank. */
@@ -819,7 +817,6 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
             interestReceived: parseHolding(totals.interest_received),
             owedToMe: parseHolding(totals.owed_to_me),
             assumedOpening: parseHolding(totals.assumed_opening),
-            recognisedRonMinor: nullableNum(totals, 'recognised_ron_minor'),
         },
         banks: (Array.isArray(body.banks) ? body.banks : []).map((entry): BankDeposits => {
             const row = obj(entry);

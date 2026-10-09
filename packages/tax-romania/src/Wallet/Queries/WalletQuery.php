@@ -653,7 +653,6 @@ final readonly class WalletQuery
             // What a tax return would actually see. `ron_equivalent_minor` is written by
             // `DepositInterestFxAnnotator` at the BNR rate for the accrual date, with the source
             // document version recorded beside it — so this one may legitimately be a single number.
-            'recognised_ron_minor' => $this->recognisedRon(),
         ];
     }
 
@@ -916,28 +915,6 @@ final readonly class WalletQuery
         return is_string($configured) && $configured !== '' ? strtoupper($configured) : 'RON';
     }
 
-    /**
-     * Interest recognised in RON, summed across every deposit.
-     *
-     * Safe to total, unlike a balance: each row's `ron_equivalent_minor` was converted at the BNR
-     * rate for its own accrual date and carries the source document version that rate came from.
-     * Null when nothing has been annotated — never zero, which would claim income of zero rather
-     * than no computed income.
-     */
-    private function recognisedRon(): ?int
-    {
-        // Through the model, so its tenancy scope applies: read at the table, this summed every
-        // taxpayer's interest into the one on screen.
-        $annotated = DepositInterestEvent::query()->whereNotNull('ron_equivalent_minor');
-
-        // `sum()` answers 0 for "no rows", which is exactly the ambiguity this method exists to
-        // avoid — so absence is detected by counting rows, not by the sum being zero.
-        if (! $annotated->exists()) {
-            return null;
-        }
-
-        return (int) $annotated->sum('ron_equivalent_minor');
-    }
 
     /**
      * The bank name behind each `bank_id` on the page, in one query.

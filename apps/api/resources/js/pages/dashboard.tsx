@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Banknote, CircleHelp, Info, HandCoins, Landmark, PiggyBank, Receipt, TrendingUp, Wallet } from 'lucide-react';
+import { Banknote, CalendarClock, CircleHelp, Info, HandCoins, Landmark, PiggyBank, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 
 import { getWalletOverview } from '../api/walletApi';
@@ -17,12 +17,6 @@ import {
     type NetWorth,
     type WalletOverview as Overview,
 } from '../types/wallet';
-
-/**
- * Not a configurable choice: `deposit_interest_events.ron_equivalent_minor` is RON by definition —
- * the column exists because the value was converted at the BNR rate for its accrual date.
- */
-const RECOGNISED_CURRENCY = 'RON';
 
 /** Mirrors `routes/web.php`'s named route, so the path appears once on this screen. */
 const ACCOUNTS_PATH = '/wallet/accounts';
@@ -353,18 +347,6 @@ export default function Dashboard(): JSX.Element {
                             perCurrency,
                         )}
                     />
-                    <Kpi
-                        tone="info"
-                        icon={<Receipt className="size-4" />}
-                        label={t((d) => d.pages.walletOverview.recognisedIncome)}
-                        // A dash, never zero, while nothing is computed: zero would claim income of zero.
-                        value={
-                            totals === null || totals.recognisedRonMinor === null
-                                ? '—'
-                                : formatMinor(totals.recognisedRonMinor, RECOGNISED_CURRENCY, locale)
-                        }
-                        sub={t((d) => d.pages.walletOverview.recognisedHint)}
-                    />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -372,6 +354,18 @@ export default function Dashboard(): JSX.Element {
                         title={t((d) => d.pages.walletOverview.byBankTitle)}
                         description={t((d) => d.pages.walletOverview.byBankHint)}
                         icon={<Landmark className="size-4" />}
+                        /* How many, in the head — the first question a grouped list raises, answered before
+                           the list is read rather than by counting its rows. */
+                        aside={
+                            overview === null || overview.banks.length === 0 ? undefined : (
+                                <Pill>
+                                    {t((d) => d.pages.walletOverview.activeCount).replace(
+                                        '{count}',
+                                        String(totals?.depositCount ?? overview.banks.length),
+                                    )}
+                                </Pill>
+                            )
+                        }
                         footActions={
                             <PanelButton
                                 onClick={() => {
@@ -460,6 +454,17 @@ export default function Dashboard(): JSX.Element {
                     <Panel
                         title={t((d) => d.pages.walletOverview.maturingTitle)}
                         description={t((d) => d.pages.walletOverview.maturingHint)}
+                        icon={<CalendarClock className="size-4" />}
+                        aside={
+                            overview === null || overview.maturing.length === 0 ? undefined : (
+                                <Pill>
+                                    {t((d) => d.pages.walletOverview.upcomingCount).replace(
+                                        '{count}',
+                                        String(overview.maturing.length),
+                                    )}
+                                </Pill>
+                            )
+                        }
                     >
                         {loading ? (
                             <ListSkeleton />
@@ -487,21 +492,40 @@ export default function Dashboard(): JSX.Element {
                                                 ].join(' · ')}
                                             </div>
                                         </div>
-                                        <div className="shrink-0 text-right tabular-nums">
-                                            <div className="text-sm font-semibold">
-                                                {formatMinor(deposit.principalMinor, deposit.currencyCode, locale)}
+                                        {/* Two figures, each under its own name. Stacked with the interest as
+                                            a footnote, the smaller number read as a qualifier of the larger
+                                            one rather than as the other half of what comes back. */}
+                                        <div className="flex shrink-0 gap-5 text-right tabular-nums">
+                                            <div>
+                                                <div className="note">
+                                                    {t((d) => d.pages.walletOverview.principalLabel)}
+                                                </div>
+                                                <div className="mt-0.5 text-sm font-semibold">
+                                                    {formatMinor(
+                                                        deposit.principalMinor,
+                                                        deposit.currencyCode,
+                                                        locale,
+                                                    )}
+                                                </div>
                                             </div>
                                             {deposit.interestAtMaturityMinor === null ? null : (
-                                                <div className="text-success note-xs">
-                                                    {t((d) => d.pages.walletOverview.plusInterest).replace(
-                                                        '{amount}',
-                                                        formatMinor(
-                                                            deposit.interestAtMaturityMinor,
-                                                            deposit.currencyCode,
-                                                            locale,
-                                                        ),
-                                                    )}
-                                                    {deposit.annualRate === null ? '' : ` · ${deposit.annualRate}%`}
+                                                <div>
+                                                    <div className="note">
+                                                        {t((d) => d.pages.walletOverview.grossInterestLabel)}
+                                                    </div>
+                                                    <div className="text-success mt-0.5 text-sm font-semibold">
+                                                        {t((d) => d.pages.walletOverview.plusInterest).replace(
+                                                            '{amount}',
+                                                            formatMinor(
+                                                                deposit.interestAtMaturityMinor,
+                                                                deposit.currencyCode,
+                                                                locale,
+                                                            ),
+                                                        )}
+                                                        {deposit.annualRate === null
+                                                            ? ''
+                                                            : ` · ${deposit.annualRate}%`}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
