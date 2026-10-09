@@ -20,6 +20,7 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
+use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -534,4 +535,21 @@ function fakeLedger(array $entries): void
             ));
         }
     });
+}
+
+/**
+ * Approves every registered rule version, as a person would.
+ *
+ * A `FINAL` assessment refuses a candidate rule, which is the point of the status — so a test about final
+ * assessments has to get past it the way the application does, through `approveByPerson`. Setting `APPROVED`
+ * directly is refused by `ForbidsAgentApproval`, and rightly: the one way a row becomes approved names who
+ * decided it.
+ */
+function approveRegisteredRules(): void
+{
+    $approver = settingsAdminUser();
+
+    foreach (TaxRuleVersion::query()->withoutGlobalScopes()->get() as $version) {
+        $version->approveByPerson($approver->id);
+    }
 }

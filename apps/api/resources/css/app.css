@@ -1787,20 +1787,41 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     border-color: transparent;
     color: var(--primary-foreground);
     box-shadow: var(--elevation-float);
-    /* Light falling across it, as the mockup had. Two very low-contrast radials rather than an image: a flat
-       rectangle of one colour reads as a block, and this reads as a surface without becoming decoration. */
-    background-image:
-        radial-gradient(
-            120% 120% at 88% -20%,
-            color-mix(in srgb, var(--primary-foreground) 13%, transparent),
-            transparent 60%
-        ),
-        radial-gradient(
-            90% 90% at 8% 120%,
-            color-mix(in srgb, var(--primary-foreground) 7%, transparent),
-            transparent 55%
-        ),
-        linear-gradient(118deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--info)));
+    background-image: linear-gradient(118deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--info)));
+    /* The rings below are drawn outside the card and clipped by it. */
+    position: relative;
+    overflow: hidden;
+}
+
+/*
+ * Concentric rings bleeding off the top-right corner.
+ *
+ * A hairline circle and two very wide, very faint shadows of it, pushed mostly outside the card and cut off by
+ * its own overflow. It is the one thing that makes this read as a surface with light on it rather than a
+ * rectangle of colour, and it is cheap: no image, no second element, nothing to load.
+ *
+ * The whites are `color-mix` of the foreground rather than literal `#ffffff1c`, so the card keeps its light
+ * when the theme changes the ink. Hidden from assistive technology by being a pseudo-element with no content.
+ */
+.stat-primary::after {
+    content: '';
+    position: absolute;
+    top: -97px;
+    right: -54px;
+    width: 290px;
+    height: 290px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--primary-foreground) 11%, transparent);
+    box-shadow:
+        0 0 0 40px color-mix(in srgb, var(--primary-foreground) 3%, transparent),
+        0 0 0 90px color-mix(in srgb, var(--primary-foreground) 2%, transparent);
+    pointer-events: none;
+}
+
+/* The card's own content sits above the rings. */
+.stat-primary > * {
+    position: relative;
+    z-index: 1;
 }
 
 /* Inside it the muted tokens would vanish, so label and note are the foreground held back instead. */
@@ -1886,6 +1907,102 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     background: transparent;
     color: var(--muted-foreground);
     padding-inline: 0;
+}
+
+/*
+ * One tax inside the breakdown card.
+ *
+ * A section rather than a card of its own: three cards for three taxes put a border around each figure and
+ * read as three unrelated screens, when the whole point is that they are one bill with three parts.
+ */
+.tax-group + .tax-group {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.tax-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    /* The browser's own disclosure triangle, replaced by the chevron at the end of the row. */
+    list-style: none;
+}
+
+.tax-group-head::-webkit-details-marker {
+    display: none;
+}
+
+/*
+ * The control that says the row opens.
+ *
+ * A bare chevron was not read as a button — it looked like punctuation at the end of a line. A bordered tile
+ * is the same shape as every other control in the app, so a reader recognises it without being told, and the
+ * whole row lights on hover so the target is the row rather than the 14 pixels of arrow.
+ */
+.tax-group-toggle {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    color: var(--muted-foreground);
+    flex: none;
+    transition:
+        transform 150ms ease,
+        background-color 150ms ease;
+}
+
+.tax-group-head:hover {
+    background: var(--muted);
+}
+
+.tax-group-head:hover .tax-group-toggle {
+    background: var(--background);
+    color: var(--foreground);
+}
+
+/* The row's own hover ground reaches past the card's padding, so it reads as one band rather than a stripe. */
+.tax-group-head {
+    margin-inline: -6px;
+    padding-inline: 6px;
+    border-radius: var(--radius-lg);
+}
+
+/* Points down when open, right when closed — the direction a reader expects of a thing that unfolds. */
+details:not([open]) > .tax-group-head > .tax-group-toggle {
+    transform: rotate(-90deg);
+}
+
+.tax-group-head:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tax-group-toggle {
+        transition: none;
+    }
+}
+
+/* The tax's mark, in its own colour — the same colour as its slice of the ring, so the two tie together
+   without a second legend. */
+.tax-group-mark {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-lg);
+    flex: none;
+}
+
+/* The total sits at the end of the head, with the chevron after it, whatever the name's length. */
+.tax-group-head > .money-badge {
+    margin-left: auto;
 }
 
 /*
@@ -2597,20 +2714,13 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
- * A head holding only actions puts them at the end.
+ * A control sized to its content rather than to the row.
  *
- * Not a `justify-end` utility on the element: Tailwind v4 emits utilities into `@layer utilities`, which loses
- * to unlayered rules like the one above, so the class was present in the markup and did nothing — with one
- * child, `space-between` leaves it at the start. The same layering silently beat a `w-28` on a select trigger
- * whose own rule sets `width: 100%`.
+ * Not a `w-40` utility: Tailwind v4 emits utilities into `@layer utilities`, which loses to unlayered rules —
+ * and `.select-trigger` sets `width: 100%` with a 155px floor, so the class was present in the markup and did
+ * nothing. The width has to come from a rule at this level and cannot go below that floor.
  */
-.page-head-actions {
-    justify-content: flex-end;
-}
-
-/* A control sized to its content rather than to the row. `.select-trigger` is `width: 100%` with a 155px
-   floor, so the width has to come from a wrapper and cannot go below that floor. */
-.page-head-actions .ctl-narrow {
+.ctl-narrow {
     width: 10rem;
 }
 

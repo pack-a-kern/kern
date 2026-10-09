@@ -24,6 +24,8 @@ use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
+use Kern\TaxRomania\TaxEngine\Exceptions\FiscalYearIsFinalException;
+use Kern\TaxRomania\TaxEngine\Exceptions\FiscalYearNotClosedException;
 use Kern\TaxRomania\TaxEngine\Exceptions\FxRateUnavailableWithinLookbackException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
@@ -261,6 +263,31 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(fn (NoTaxRulesRegisteredException $exception): JsonResponse => response()->json(
             ['message' => $exception->getMessage(), 'reason' => 'NO_RULES_REGISTERED'],
+            409,
+        ));
+
+        /*
+         * A change to a transaction in a year somebody marked final.
+         *
+         * 409 rather than 403: the caller is entitled to do this, the resource is in a state that refuses it,
+         * and the difference matters to a screen deciding between "you may not" and "unlock the year first".
+         * The year travels in the body so that screen can name it without parsing the sentence.
+         */
+        $exceptions->render(fn (FiscalYearIsFinalException $exception): JsonResponse => response()->json(
+            [
+                'message' => $exception->getMessage(),
+                'reason' => 'FISCAL_YEAR_IS_FINAL',
+                'fiscal_year' => $exception->fiscalYear,
+            ],
+            409,
+        ));
+
+        /*
+         * Finalising a year that has not ended. 409 for the same reason: a request against a state, not a
+         * permission, and one that becomes valid on its own on 1 January.
+         */
+        $exceptions->render(fn (FiscalYearNotClosedException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'FISCAL_YEAR_NOT_CLOSED'],
             409,
         ));
 

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController;
+use Kern\TaxRomania\Http\Controllers\TaxEngine\ExportAssessmentController;
+use Kern\TaxRomania\Http\Controllers\TaxEngine\FinaliseFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\ShowFiscalYearAssessmentController;
+use Kern\TaxRomania\Http\Controllers\TaxEngine\UnlockFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
@@ -263,7 +266,26 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax
      */
     Route::get('tax/assessments', ShowFiscalYearAssessmentController::class)->whereUuid('subject');
 
+    /*
+     * The same figures as a file. No step-up: it returns what the screen above already shows, and nothing in
+     * it is decrypted — the evidence names splits by id rather than carrying counterparties. The download is
+     * recorded in the audit chain regardless.
+     */
+    Route::get('tax/assessments/export', ExportAssessmentController::class)->whereUuid('subject');
+
     Route::post('tax/assessments', AssessFiscalYearController::class)
+        ->middleware('verify-recent')
+        ->whereUuid('subject');
+
+    /*
+     * Marking a year final and taking it back. Both behind `verify-recent`: the first locks a year's
+     * transactions against every path that could change them, and the second unlocks them again.
+     */
+    Route::post('tax/assessments/final', FinaliseFiscalYearController::class)
+        ->middleware('verify-recent')
+        ->whereUuid('subject');
+
+    Route::post('tax/assessments/unlock', UnlockFiscalYearController::class)
         ->middleware('verify-recent')
         ->whereUuid('subject');
 });

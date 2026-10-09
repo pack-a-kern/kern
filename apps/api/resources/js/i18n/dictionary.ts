@@ -1248,6 +1248,18 @@ export interface Dictionary {
         };
         taxes: {
             thresholdReached: string;
+            /** The one card holding every tax, and the count in its head. */
+            /** The two files a year can be downloaded as. */
+            exportFigures: string;
+            exportEvidence: string;
+            /** The one act the assessment's state allows, and why there is none when there is none. */
+            markFinal: string;
+            unlock: string;
+            finalHint: string;
+            yearStillOpen: string;
+            breakdownTitle: string;
+            breakdownHint: string;
+            entryCount: string;
             quotaDeducted: string;
             title: string;
             description: string;

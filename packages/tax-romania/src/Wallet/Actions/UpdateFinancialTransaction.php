@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Actions;
 
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
@@ -37,6 +39,7 @@ final readonly class UpdateFinancialTransaction
     public function __construct(
         private WalletAudit $audit,
         private CounterpartyDirectory $rules,
+        private FinalYearGuard $finalYears,
     ) {
     }
 
@@ -54,6 +57,17 @@ final readonly class UpdateFinancialTransaction
         ?string $bankId = null,
         ?array $tagIds = null,
     ): FinancialTransaction {
+        /*
+         * Both years, when the date moves: taking a transaction out of a finalised year changes what that
+         * year was computed from just as surely as deleting it, and dropping one into a finalised year adds
+         * income nobody assessed.
+         */
+        $this->finalYears->assertYearIsOpen($transaction->tax_subject_id, $transaction->booked_at);
+
+        if ($bookedAt !== null) {
+            $this->finalYears->assertYearIsOpen($transaction->tax_subject_id, new DateTimeImmutable($bookedAt));
+        }
+
         // Produced from a deposit's terms. The change belongs on the deposit, which rewrites it.
         if ($transaction->source === RecordSource::SYSTEM) {
             throw SystemTransactionException::forTransaction($transaction->id);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\Wallet\DataTransferObjects\TransactionSplitInput;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
@@ -45,6 +46,7 @@ final readonly class ClassifyTransaction
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
         private CounterpartyDirectory $rules,
+        private FinalYearGuard $finalYears,
     ) {
     }
 
@@ -56,6 +58,12 @@ final readonly class ClassifyTransaction
         array $splits,
         ?string $actorId = null,
     ): FinancialTransaction {
+        /*
+         * Recategorising is not a smaller change than deleting: it moves the money from one rule to another,
+         * and the final assessment was computed from the categories as they were.
+         */
+        $this->finalYears->assertYearIsOpen($transaction->tax_subject_id, $transaction->booked_at);
+
         // Produced from a deposit's terms. The change belongs on the deposit, which rewrites it.
         if ($transaction->source === RecordSource::SYSTEM) {
             throw SystemTransactionException::forTransaction($transaction->id);

@@ -221,7 +221,18 @@ export function ActionGroup(props: {
 }
 
 /** The outer wrapper every screen uses: a vertical rhythm plus the page heading. */
-export function Page(props: { title: string; lede?: string; actions?: ReactNode; children: ReactNode }): JSX.Element {
+export function Page(props: {
+    title: string;
+    lede?: string;
+    /**
+     * What narrows the view — a year, a period, a search. Left of the row, because a reader chooses what they
+     * are looking at before they do anything to it.
+     */
+    filters?: ReactNode;
+    /** What acts on it. Right of the row, where every screen in the app puts its verbs. */
+    actions?: ReactNode;
+    children: ReactNode;
+}): JSX.Element {
     // The title and lede are published to the shell's topbar rather than drawn here — one heading
     // per screen, in the same place on every screen. `actions` stay with the content, where they
     // act on what is below them.
@@ -235,10 +246,14 @@ export function Page(props: { title: string; lede?: string; actions?: ReactNode;
 
     return (
         <div className="page-stack">
-            {/* A flex row, as a card's own `aside` is. Without it the children are block-level and a select
-                stretches to the page's full width with the button stranded underneath. */}
-            {props.actions !== undefined && (
-                <header className="page-head page-head-actions">
+            {/*
+                One toolbar, filters left and actions right, so a reader finds the same two things in the same
+                two places on every screen. Each side is its own flex row: without that the children are
+                block-level and a select stretches to the page's full width with the button stranded below it.
+            */}
+            {(props.filters !== undefined || props.actions !== undefined) && (
+                <header className="page-head">
+                    <div className="flex flex-wrap items-center gap-2">{props.filters}</div>
                     <div className="flex flex-wrap items-center gap-2">{props.actions}</div>
                 </header>
             )}

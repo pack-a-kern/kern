@@ -395,20 +395,23 @@ it('keeps a draft per year rather than one draft overall', function (): void {
     expect(TaxAssessment::query()->count())->toBe(2);
 });
 
-it('leaves a final assessment alone, and lets the new draft sit beside it', function (): void {
-    // A filing rests on a FINAL assessment, so a recomputation must never discard one — and having both is the
-    // comparison somebody would actually want.
+it('keeps one row per year, whether it is a draft or final', function (): void {
+    /*
+     * No version history, by decision: a year has one answer and the screen shows it. A final assessment is
+     * reached by recomputing — which replaces the draft it was computed from — and unlocking flips that same
+     * row back. There is never a moment when a year has two.
+     */
     $subject = assessableSubject();
     seedRuleParameters();
     Artisan::call('kern:tax:register-rules');
     fakeLedger([]);
 
-    $draft = app(AssessFiscalYear::class)($subject->id, 2026);
-    $draft->status = AssessmentStatus::FINAL;
-    $draft->save();
-
     app(AssessFiscalYear::class)($subject->id, 2026);
+    approveRegisteredRules();
+    $final = app(AssessFiscalYear::class)($subject->id, 2026, null, AssessmentStatus::FINAL);
 
-    expect(TaxAssessment::query()->where('fiscal_year', 2026)->count())->toBe(2)
-        ->and(TaxAssessment::query()->where('status', AssessmentStatus::FINAL->value)->count())->toBe(1);
+    expect(TaxAssessment::query()->where('fiscal_year', 2026)->count())->toBe(1)
+        ->and($final->status)->toBe(AssessmentStatus::FINAL)
+        // The replaced draft's lines went with it; nothing points at an assessment that is gone.
+        ->and(TaxAssessmentLine::query()->whereNotIn('assessment_id', [$final->id])->count())->toBe(0);
 });

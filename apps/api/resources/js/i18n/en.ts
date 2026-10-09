@@ -621,6 +621,9 @@ export const en = {
         unexpected: 'An unexpected error occurred.',
         rateLimited: 'Too many attempts. Please wait a few minutes before trying again.',
         reasons: {
+            FISCAL_YEAR_IS_FINAL:
+                'That year has been marked final. Unlock it on the Taxes screen before changing its transactions.',
+            FISCAL_YEAR_NOT_CLOSED: 'A year can only be marked final once it has ended.',
             SPV_WORKER_UNAVAILABLE:
                 'The browser worker is not reachable. Check that it is running, and that BROWSER_WORKER_URL points at it.',
             // Only reached when the dialog that asks for the code is dismissed, or when none is
@@ -1438,6 +1441,15 @@ export const en = {
         },
         taxes: {
             thresholdReached: 'Reached the {wages}-minimum-wage threshold',
+            exportFigures: 'Figures',
+            exportEvidence: 'Evidence',
+            markFinal: 'Mark as final',
+            unlock: 'Unlock',
+            finalHint: 'The figures are frozen and this year\'s transactions cannot be changed. Unlock to edit them.',
+            yearStillOpen: '{year} is still running. A year can be marked final from 1 January of the year after it.',
+            breakdownTitle: 'Your tax breakdown',
+            breakdownHint: 'Every rule that applied, and the income it read',
+            entryCount: '{count} entries',
             quotaDeducted: 'Expense allowance of {deducted} deducted',
             assess: 'Assess the year',
             reassess: 'Recalculate',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
 use Kern\TaxRomania\Wallet\Exceptions\SystemTransactionException;
@@ -25,8 +26,10 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  */
 final readonly class DeleteFinancialTransaction
 {
-    public function __construct(private WalletAudit $audit)
-    {
+    public function __construct(
+        private WalletAudit $audit,
+        private FinalYearGuard $finalYears,
+    ) {
     }
 
     public function __invoke(FinancialTransaction $transaction, ?string $actorId = null): void
@@ -35,6 +38,13 @@ final readonly class DeleteFinancialTransaction
         if ($transaction->source === RecordSource::SYSTEM) {
             throw SystemTransactionException::forTransaction($transaction->id);
         }
+
+        /*
+         * A year marked final cannot lose a transaction its figures were computed from. Here rather than in
+         * the controller, because an importer and the duplicate-merge both reach this action without passing
+         * through one.
+         */
+        $this->finalYears->assertYearIsOpen($transaction->tax_subject_id, $transaction->booked_at);
 
         // Read before deleting: afterwards the audit entry is the only trace left.
         $subjectId = $transaction->tax_subject_id;

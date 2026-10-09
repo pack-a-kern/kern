@@ -4,9 +4,13 @@ import {
     Calculator,
     CalendarDays,
     ChartPie,
+    ChevronDown,
+    Download,
     FileText,
     HeartPulse,
     Landmark,
+    Lock,
+    LockOpen,
     PiggyBank,
     Receipt,
     Tags,
@@ -17,12 +21,13 @@ import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
 import { useRememberedState } from '../../hooks/useRememberedState';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { formatAmount, formatDateTime, formatFigure, formatPercent } from '../../lib/format';
-import { apiRequest } from '../../lib/http';
+import { formatAmount, formatCompact, formatDateTime, formatPercent } from '../../lib/format';
+import { apiRequest, apiRequestBinary } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { themeColor } from '../../lib/themeColor';
 
@@ -393,6 +398,63 @@ export default function TaxesOverview(): JSX.Element {
         [assessment],
     );
 
+    /** A year that has ended. 2026 cannot be final while income may still arrive in it. */
+    const yearHasClosed = Number(year) < new Date().getFullYear();
+
+    /**
+     * One request, one outcome, the same error handling.
+     *
+     * Three buttons do the same three things — ask the server, replace what is held, say so if it refused —
+     * and three copies of that would be three places for a failure to be swallowed differently.
+     */
+    const run = async (path: string): Promise<void> => {
+        if (subjectId === null) {
+            return;
+        }
+
+        setWorking(true);
+
+        try {
+            // `apiRequest` already carries the step-up retry; wrapping it again would ask twice.
+            const text = await apiRequest(
+                `/v1/subjects/${encodeURIComponent(subjectId)}/tax/assessments${path}`,
+                { method: 'POST', body: { fiscal_year: Number(year) } },
+            );
+
+            setLoaded({ year, assessment: parse(JSON.parse(text)), years: loaded?.years ?? [] });
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
+        } finally {
+            setWorking(false);
+        }
+    };
+
+    /** The figures as a file. A download, so it is fetched as bytes rather than parsed. */
+    const exportCsv = async (part: 'figures' | 'evidence'): Promise<void> => {
+        if (subjectId === null) {
+            return;
+        }
+
+        try {
+            const blob = await apiRequestBinary(
+                `/v1/subjects/${encodeURIComponent(subjectId)}/tax/assessments/export` +
+                    `?fiscal_year=${encodeURIComponent(year)}&part=${part}`,
+            );
+            const url = URL.createObjectURL(blob);
+            const link = window.document.createElement('a');
+
+            link.href = url;
+            link.download = `kern-${year}-${part}.csv`;
+            link.click();
+
+            window.setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 0);
+        } catch (cause: unknown) {
+            toast.error(describeApiFailure(cause, t));
+        }
+    };
+
     const assess = async (): Promise<void> => {
         if (subjectId === null) {
             return;
@@ -419,7 +481,7 @@ export default function TaxesOverview(): JSX.Element {
             <Page
                 title={t((d) => d.pages.taxes.title)}
                 lede={t((d) => d.pages.taxes.description)}
-                actions={
+                filters={
                     <>
                         <PanelSelect
                             id="assess-year"
@@ -435,6 +497,33 @@ export default function TaxesOverview(): JSX.Element {
                                 label: String(value),
                             }))}
                         />
+                    </>
+                }
+                actions={
+                    <>
+                        {assessment === null ? null : (
+                            <>
+                                <PanelButton
+                                    onClick={() => {
+                                        void exportCsv('figures');
+                                    }}
+                                >
+                                    <Download className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.taxes.exportFigures)}
+                                </PanelButton>
+                                <PanelButton
+                                    onClick={() => {
+                                        void exportCsv('evidence');
+                                    }}
+                                >
+                                    <Download className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.taxes.exportEvidence)}
+                                </PanelButton>
+                            </>
+                        )}
+                    {/* Not offered on a final year: the engine refuses to recompute one, and a button that
+                        cannot work is worse than no button. Unlock first — that is its own deliberate act. */}
+                    {assessment?.status === 'FINAL' ? null : (
                         <PanelButton
                             primary
                             disabled={working || subjectId === null}
@@ -447,6 +536,7 @@ export default function TaxesOverview(): JSX.Element {
                                 ? t((d) => d.pages.taxes.assess)
                                 : t((d) => d.pages.taxes.reassess)}
                         </PanelButton>
+                    )}
                     </>
                 }
             >
@@ -455,23 +545,25 @@ export default function TaxesOverview(): JSX.Element {
                 ) : assessment === null ? (
                     /* The action is inside the empty state, not only in the page's head: somebody who has
                        nothing on screen should not have to find the one control that changes that. */
-                    <EmptyState
-                        icon={<Calculator className="size-5" />}
-                        title={t((d) => d.pages.taxes.emptyTitle).replace('{year}', year)}
-                        description={t((d) => d.pages.taxes.emptyHint)}
-                        action={
-                            <PanelButton
-                                primary
-                                disabled={working || subjectId === null}
-                                onClick={() => {
-                                    void assess();
-                                }}
-                            >
-                                <Calculator className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.taxes.assess)}
-                            </PanelButton>
-                        }
-                    />
+                    <Panel title={t((d) => d.pages.taxes.breakdownTitle)} icon={<Receipt className="size-4" />}>
+                        <EmptyState
+                            icon={<Calculator className="size-5" />}
+                            title={t((d) => d.pages.taxes.emptyTitle).replace('{year}', year)}
+                            description={t((d) => d.pages.taxes.emptyHint)}
+                            action={
+                                <PanelButton
+                                    primary
+                                    disabled={working || subjectId === null}
+                                    onClick={() => {
+                                        void assess();
+                                    }}
+                                >
+                                    <Calculator className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.taxes.assess)}
+                                </PanelButton>
+                            }
+                        />
+                    </Panel>
                 ) : (
                     <>
                         {/*
@@ -486,9 +578,30 @@ export default function TaxesOverview(): JSX.Element {
                                     </IconBadge>
                                     {t((d) => d.pages.taxes.totalOwedLabel)}
                                 </div>
-                                <div className="stat-value-lead mt-4">
-                                    {formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
-                                </div>
+                                {/*
+                                    Shortened, with the exact figure in the app's own tooltip rather than a
+                                    `title`: a native tooltip is unstyled, takes a second to appear and never
+                                    shows on a touch screen, which is three ways for the real number to be
+                                    unreachable. The one place here an amount owed is abbreviated — it is the
+                                    headline, and the breakdown below states it exactly.
+                                */}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className="stat-value-lead mt-4 w-fit cursor-default"
+                                            aria-label={formatAmount(
+                                                totalOwedMinor(assessment) / 100,
+                                                'RON',
+                                                locale,
+                                            )}
+                                        >
+                                            {formatCompact(totalOwedMinor(assessment) / 100, locale)} RON
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                        {formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
+                                    </TooltipContent>
+                                </Tooltip>
                                 <div className="note mt-1">
                                     {assessment.status === 'FINAL'
                                         ? t((d) => d.pages.taxes.statusFinal)
@@ -506,20 +619,60 @@ export default function TaxesOverview(): JSX.Element {
                                 tone="info"
                                 icon={<Wallet className="size-4" />}
                                 label={t((d) => d.pages.taxes.incomeAssessed)}
-                                value={formatAmount(assessment.incomeAssessedMinor / 100, 'RON', locale)}
+                                value={`${formatCompact(assessment.incomeAssessedMinor / 100, locale)} RON`}
                                 sub={`${String(assessment.fiscalYear)} · ${String(assessment.lines.length)} ${t((d) => d.pages.taxes.rulesApplied)}`}
                             />
-                            <Kpi
-                                tone={assessment.status === 'FINAL' ? 'success' : 'amber'}
-                                icon={<FileText className="size-4" />}
-                                label={t((d) => d.pages.taxes.assessmentStatus)}
-                                value={
-                                    assessment.status === 'FINAL'
+                            {/*
+                                The status, and the one act its state allows. A draft on a closed year can be
+                                made final; a final can be unlocked; a draft on a year still running can be
+                                neither, and says why rather than showing a button that refuses.
+                            */}
+                            <section className="border-border bg-card shadow-hair flex flex-col rounded-xl border p-4">
+                                <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
+                                    <IconBadge tone={assessment.status === 'FINAL' ? 'success' : 'amber'}>
+                                        <FileText className="size-4" />
+                                    </IconBadge>
+                                    {t((d) => d.pages.taxes.assessmentStatus)}
+                                </div>
+
+                                <div className="mt-3 text-xl font-bold tracking-tight">
+                                    {assessment.status === 'FINAL'
                                         ? t((d) => d.pages.taxes.statusFinal)
-                                        : t((d) => d.pages.taxes.statusDraft)
-                                }
-                                sub={t((d) => d.pages.taxes.draftHint)}
-                            />
+                                        : t((d) => d.pages.taxes.statusDraft)}
+                                </div>
+
+                                <p className="note mt-1">
+                                    {assessment.status === 'FINAL'
+                                        ? t((d) => d.pages.taxes.finalHint)
+                                        : yearHasClosed
+                                          ? t((d) => d.pages.taxes.draftHint)
+                                          : t((d) => d.pages.taxes.yearStillOpen).replace('{year}', year)}
+                                </p>
+
+                                {assessment.status === 'FINAL' ? (
+                                    <PanelButton
+                                        className="mt-3 self-start"
+                                        disabled={working}
+                                        onClick={() => {
+                                            void run('/unlock');
+                                        }}
+                                    >
+                                        <LockOpen className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.taxes.unlock)}
+                                    </PanelButton>
+                                ) : yearHasClosed ? (
+                                    <PanelButton
+                                        className="mt-3 self-start"
+                                        disabled={working}
+                                        onClick={() => {
+                                            void run('/final');
+                                        }}
+                                    >
+                                        <Lock className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.taxes.markFinal)}
+                                    </PanelButton>
+                                ) : null}
+                            </section>
                         </div>
 
                         {/* A year with no assessable income would otherwise render three cards of zeroes,
@@ -535,123 +688,171 @@ export default function TaxesOverview(): JSX.Element {
                         */}
                         <div className="grid items-start gap-4 xl:grid-cols-[1.7fr_1fr]">
                             <div className="flex min-w-0 flex-col gap-4">
-                                {grouped(assessment).map((group) => (
-                                    <Panel
-                                        key={group.taxCode}
-                                        title={taxName(group.taxCode, t)}
-                                        icon={taxIcon(group.taxCode)}
-                                        aside={
-                                            /* A badge in the tax's own colour, so the card's total is read as
-                                               a figure and tied to its slice of the ring. */
-                                            <span className="money-badge" style={taxBadgeStyle(group.taxCode)}>
-                                                {formatAmount(group.totalMinor / 100, 'RON', locale)}
-                                            </span>
-                                        }
-                                    >
-                                        {group.components.map((line) => (
-                                            <div
-                                                className="tax-component"
-                                                key={`${line.taxCode}-${line.categoryCode}`}
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-semibold">{line.categoryCode}</p>
+                                {/*
+                                    One card, the taxes as sections inside it. Three cards for three taxes put
+                                    a border around each figure and read as three unrelated screens; the
+                                    grouping is the point, and a section heading carries it without a frame.
+                                */}
+                                <Panel
+                                    title={t((d) => d.pages.taxes.breakdownTitle)}
+                                    description={t((d) => d.pages.taxes.breakdownHint)}
+                                    icon={<Receipt className="size-4" />}
+                                    aside={
+                                        <span className="note">
+                                            {t((d) => d.pages.taxes.entryCount).replace(
+                                                '{count}',
+                                                String(assessment.lines.length),
+                                            )}
+                                        </span>
+                                    }
+                                >
+                                    {grouped(assessment).map((group, index) => (
+                                        <section className="tax-group" key={group.taxCode}>
+                                            {/*
+                                                A `<details>` rather than state: the browser handles the open
+                                                and closed, keyboard and screen reader included, and the first
+                                                one is open so the page is never a row of closed drawers.
+                                            */}
+                                            {/*
+                                                A shared `name` makes these an accordion: the browser closes
+                                                the others when one opens, with no state to keep and no two
+                                                sections able to disagree about which is showing. Where a
+                                                browser does not know the attribute they simply toggle
+                                                independently, which is the old behaviour and not a break.
+                                            */}
+                                            <details name="tax-group" open={index === 0}>
+                                                <summary className="tax-group-head">
+                                                    <span
+                                                        className="tax-group-mark"
+                                                        style={taxBadgeStyle(group.taxCode)}
+                                                        aria-hidden="true"
+                                                    >
+                                                        {taxIcon(group.taxCode)}
+                                                    </span>
+                                                    <h3 className="text-xs font-semibold">
+                                                        {taxName(group.taxCode, t)}
+                                                    </h3>
+                                                    <span
+                                                        className="money-badge"
+                                                        style={taxBadgeStyle(group.taxCode)}
+                                                    >
+                                                        {formatAmount(group.totalMinor / 100, 'RON', locale)}
+                                                    </span>
+                                                    <span className="tax-group-toggle" aria-hidden="true">
+                                                        <ChevronDown className="size-3.5" />
+                                                    </span>
+                                                </summary>
 
-                                                    {/* The rule's own words for what it concluded. The point of
-                                                        the engine is that a figure arrives with its reasoning,
-                                                        so the reasoning gets a line rather than a column. */}
-                                                    <p className="note mt-1">
-                                                        {t((d) => d.taxExplanations)[line.explanationKey] ??
-                                                            line.explanationKey}
-                                                    </p>
+                                            {group.components.map((line) => (
+                                                <div
+                                                    className="tax-component"
+                                                    key={`${line.taxCode}-${line.categoryCode}`}
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-semibold">
+                                                            {line.categoryCode}
+                                                        </p>
 
-                                                    <p className="note tax-figures">
-                                                        <span>
-                                                            {t((d) => d.pages.taxes.componentIncome)}{' '}
-                                                            <b>
-                                                                {line.incomeMinor === null
-                                                                    ? '—'
-                                                                    : formatAmount(
-                                                                          line.incomeMinor / 100,
-                                                                          'RON',
-                                                                          locale,
-                                                                      )}
-                                                            </b>
-                                                        </span>
-                                                        <span>
-                                                            {t((d) => d.pages.taxes.componentBase)}{' '}
-                                                            <b>
-                                                                {formatAmount(
-                                                                    line.taxableBaseMinor / 100,
-                                                                    'RON',
-                                                                    locale,
-                                                                )}
-                                                            </b>
-                                                        </span>
-                                                        {line.rateDecimal === null ? null : (
+                                                        {/* The rule's own words for what it concluded. A figure
+                                                            arriving with its reasoning is the point of this
+                                                            engine, so the reasoning gets a line of its own. */}
+                                                        <p className="note mt-1">
+                                                            {t((d) => d.taxExplanations)[line.explanationKey] ??
+                                                                line.explanationKey}
+                                                        </p>
+
+                                                        <p className="note tax-figures">
                                                             <span>
+                                                                {t((d) => d.pages.taxes.componentIncome)}{' '}
                                                                 <b>
-                                                                    {formatPercent(
-                                                                        Number(line.rateDecimal),
+                                                                    {line.incomeMinor === null
+                                                                        ? '—'
+                                                                        : formatAmount(
+                                                                              line.incomeMinor / 100,
+                                                                              'RON',
+                                                                              locale,
+                                                                          )}
+                                                                </b>
+                                                            </span>
+                                                            <span>
+                                                                {t((d) => d.pages.taxes.componentBase)}{' '}
+                                                                <b>
+                                                                    {formatAmount(
+                                                                        line.taxableBaseMinor / 100,
+                                                                        'RON',
                                                                         locale,
                                                                     )}
                                                                 </b>
                                                             </span>
-                                                        )}
-                                                    </p>
+                                                            {line.rateDecimal === null ? null : (
+                                                                <span>
+                                                                    <b>
+                                                                        {formatPercent(
+                                                                            Number(line.rateDecimal),
+                                                                            locale,
+                                                                        )}
+                                                                    </b>
+                                                                </span>
+                                                            )}
+                                                        </p>
 
-                                                    {/* Why the base is not the income — the step people most
-                                                        want to see, and the reason two different incomes can
-                                                        owe the same. */}
-                                                    {line.baseReached?.threshold_in_wages !== undefined &&
-                                                    line.baseReached.threshold_in_wages !== 'none' ? (
-                                                        <p className="note mt-1">
-                                                            {t((d) => d.pages.taxes.thresholdReached).replace(
-                                                                '{wages}',
-                                                                line.baseReached.threshold_in_wages,
-                                                            )}
-                                                        </p>
-                                                    ) : null}
-                                                    {line.baseReached?.quota !== undefined ? (
-                                                        <p className="note mt-1">
-                                                            {t((d) => d.pages.taxes.quotaDeducted).replace(
-                                                                '{deducted}',
-                                                                line.baseReached.deducted_minor === undefined
-                                                                    ? (line.baseReached.deducted ?? '')
-                                                                    : formatAmount(
-                                                                          Number(line.baseReached.deducted_minor) /
-                                                                              100,
-                                                                          'RON',
-                                                                          locale,
-                                                                      ),
-                                                            )}
-                                                        </p>
-                                                    ) : null}
+                                                        {/* Why the base is not the income — the step people
+                                                            most want to see, and the reason two different
+                                                            incomes can owe the same. */}
+                                                        {line.baseReached?.threshold_in_wages !== undefined &&
+                                                        line.baseReached.threshold_in_wages !== 'none' ? (
+                                                            <p className="note mt-1">
+                                                                {t((d) => d.pages.taxes.thresholdReached).replace(
+                                                                    '{wages}',
+                                                                    line.baseReached.threshold_in_wages,
+                                                                )}
+                                                            </p>
+                                                        ) : null}
+                                                        {line.baseReached?.quota !== undefined ? (
+                                                            <p className="note mt-1">
+                                                                {t((d) => d.pages.taxes.quotaDeducted).replace(
+                                                                    '{deducted}',
+                                                                    line.baseReached.deducted_minor === undefined
+                                                                        ? (line.baseReached.deducted ?? '')
+                                                                        : formatAmount(
+                                                                              Number(
+                                                                                  line.baseReached.deducted_minor,
+                                                                              ) / 100,
+                                                                              'RON',
+                                                                              locale,
+                                                                          ),
+                                                                )}
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+
+                                                    {/* Quiet beside the section's badge: a component is part
+                                                        of that total, not a second headline. A nil is muted,
+                                                        because a line owing nothing should not draw the eye. */}
+                                                    <span
+                                                        className={
+                                                            line.taxMinor === 0
+                                                                ? 'money-badge money-badge-nil'
+                                                                : 'money-badge money-badge-quiet'
+                                                        }
+                                                    >
+                                                        {formatAmount(line.taxMinor / 100, 'RON', locale)}
+                                                    </span>
                                                 </div>
-
-                                                {/* Quiet beside the group's badge: a component is a part of
-                                                    that total, not a second headline. Zero is muted, because
-                                                    a line owing nothing should not draw the eye first. */}
-                                                <span
-                                                    className={
-                                                        line.taxMinor === 0
-                                                            ? 'money-badge money-badge-nil'
-                                                            : 'money-badge money-badge-quiet'
-                                                    }
-                                                >
-                                                    {formatAmount(line.taxMinor / 100, 'RON', locale)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </Panel>
-                                ))}
+                                            ))}
+                                            </details>
+                                        </section>
+                                    ))}
+                                </Panel>
                             </div>
 
                             <div className="flex min-w-0 flex-col gap-4">
-                                {composition.length > 1 ? (
-                                    <Panel
-                                        title={t((d) => d.pages.taxes.composition)}
-                                        icon={<ChartPie className="size-4" />}
-                                    >
+                                {/* Always, including a year that owes nothing: a card that disappears makes
+                                    the page jump and leaves the reader wondering what they did. */}
+                                <Panel
+                                    title={t((d) => d.pages.taxes.composition)}
+                                    icon={<ChartPie className="size-4" />}
+                                >
                                         {/*
                                             A ring, with every slice named beside it. Three parts of one sum
                                             is what a ring is for, and the hole carries the figure the slices
@@ -665,8 +866,11 @@ export default function TaxesOverview(): JSX.Element {
                                                 />
                                                 <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
                                                     <div>
+                                                        {/* Context, not an amount to act on, and the hole is
+                                                            95px — so it may be shortened, with the exact
+                                                            figure a hover away. */}
                                                         <p className="text-sm font-semibold tabular-nums">
-                                                            {formatFigure(totalOwedMinor(assessment) / 100, locale)}
+                                                            {formatCompact(totalOwedMinor(assessment) / 100, locale)}
                                                         </p>
                                                         <p className="note donut-note">RON</p>
                                                     </div>
@@ -691,16 +895,28 @@ export default function TaxesOverview(): JSX.Element {
                                                                 )}
                                                             </span>
                                                         </dt>
-                                                        <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                                                            {formatAmount(slice.minor / 100, 'RON', locale)}
-                                                        </dd>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <dd
+                                                                    className="mt-0.5 w-fit cursor-default text-sm font-semibold tabular-nums"
+                                                                    aria-label={formatAmount(
+                                                                        slice.minor / 100,
+                                                                        'RON',
+                                                                        locale,
+                                                                    )}
+                                                                >
+                                                                    {formatCompact(slice.minor / 100, locale)} RON
+                                                                </dd>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="left">
+                                                                {formatAmount(slice.minor / 100, 'RON', locale)}
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     </div>
                                                 ))}
                                             </dl>
                                         </div>
-
-                                    </Panel>
-                                ) : null}
+                                </Panel>
 
                                 {/* What a figure here does not yet account for. Each is a heading and the
                                     reason it matters, because "no deductible expenses are recorded" is not a

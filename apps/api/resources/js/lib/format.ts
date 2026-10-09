@@ -61,13 +61,25 @@ export function formatAmount(amount: number, currency: string, locale: string): 
 }
 
 /**
- * A bare figure in the reader's conventions, for a place too narrow to repeat its currency — "285.229,85".
+ * A figure shortened for somewhere a reader glances rather than reads — "933,9 K", "2,7 M".
  *
- * The caller must state the currency beside it. Meant for a chart's hole and nothing else: an amount without
- * its denomination is a bug waiting to happen on any page that shows more than one currency.
+ * ## Where this is allowed
+ *
+ * Only where the figure is *context*: a chart's hole, a legend, a tile that explains the number beside it.
+ * **Never for an amount somebody acts on.** `113,2 K RON` on a tax bill is a figure nobody can pay, file or
+ * check, and rounding what is owed to three significant digits loses hundreds of lei to save eight characters.
+ *
+ * Callers pair it with the exact value in a `title`, so the full figure is always one hover away.
+ *
+ * Below 10,000 it returns the ordinary formatting: "9.450" is already short, and "9,5 K" is both longer to read
+ * and less precise.
  */
-export function formatFigure(amount: number, locale: string): string {
-    return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+export function formatCompact(amount: number, locale: string): string {
+    if (Math.abs(amount) < 10000) {
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(amount);
+    }
+
+    return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(amount);
 }
 
 /** A rate given as a fraction — `0.1` — as a percent, "10%". */

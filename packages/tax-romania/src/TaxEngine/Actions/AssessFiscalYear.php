@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
@@ -24,13 +25,15 @@ use Kern\TaxRomania\TaxRules\TaxRule;
  * Four steps, in this order, and the order matters: build the facts from the ledger, read them back as
  * snapshots, run every registered rule over them, record the result with its trace.
  *
- * ## Draft, always
+ * ## Draft unless a person asks for final
  *
- * `AssessmentStatus::DRAFT`, and this action offers no way to ask for anything else. A final assessment may
- * only use approved rule versions and confirmed facts — `RuleResolver` and `ParameterResolver` both throw
- * `CandidateNotAllowedInFinalAssessmentException` otherwise — and the facts this builds are `PROPOSED` by
- * construction, because they rest on somebody's categorisation of a bank line. Producing a final assessment is
- * a separate deliberate act once a person has read the draft, not a flag on the thing that computes it.
+ * `AssessmentStatus::DRAFT` by default. A caller may ask for `FINAL`, and then `RuleResolver` and
+ * `ParameterResolver` refuse any rule version or parameter nobody has approved — so a final assessment is not
+ * a status written onto a draft, it is a figure recomputed under rules that forbid the unapproved. Flipping a
+ * draft's status would assert something the computation never checked.
+ *
+ * Asking for `FINAL` is `FinaliseFiscalYear`'s job, not a thing a screen does directly: a year still running
+ * cannot be final, and that is a rule about the calendar rather than about arithmetic.
  *
  * ## Every registered rule, not a chosen few
  *
@@ -46,11 +49,30 @@ final readonly class AssessFiscalYear
         private TaxFactRepository $facts,
         private TaxAssessor $assessor,
         private TaxAssessmentRecorder $recorder,
+        private FinalYearGuard $finalYears,
     ) {
     }
 
-    public function __invoke(string $taxSubjectId, int $fiscalYear, ?DateTimeImmutable $asOf = null): TaxAssessment
+    public function __invoke(
+        string $taxSubjectId,
+        int $fiscalYear,
+        ?DateTimeImmutable $asOf = null,
+        AssessmentStatus $status = AssessmentStatus::DRAFT,
+    ): TaxAssessment
     {
+        /*
+         * A final year is not recomputed, by any caller.
+         *
+         * The screen hides the button, but a screen is not a rule: recalculating a final year silently wrote
+         * a draft over it, which unlocked a year's transactions without anybody deciding to. The same guard
+         * that refuses to delete a transaction in a final year refuses to recompute it, and for the same
+         * reason — unlocking is a deliberate act with its own button.
+         *
+         * Finalising passes through here while the year is still a draft, so it is not caught by its own
+         * guard; finalising a year that is already final is caught, and should be.
+         */
+        $this->finalYears->assertFiscalYearIsOpen($taxSubjectId, $fiscalYear);
+
         $built = ($this->buildFacts)($taxSubjectId, $fiscalYear);
 
         /*
@@ -88,35 +110,36 @@ final readonly class AssessFiscalYear
             ->fiscalYear($fiscalYear)
             ->asOf($asOf)
             ->forRules($ruleCodes)
-            ->withFacts($snapshots)
-            ->draft();
+            ->withFacts($snapshots);
 
-        $this->discardEarlierDraftFor($taxSubjectId, $fiscalYear);
+        $context = $status === AssessmentStatus::FINAL ? $context->final() : $context->draft();
+
+        $this->discardEarlierFor($taxSubjectId, $fiscalYear);
 
         return $this->recorder->record($this->assessor->assess($context));
     }
 
     /**
-     * Removes the draft this one replaces, so a taxpayer has one draft per year rather than a pile.
+     * Removes the assessment this one replaces, so a taxpayer has one row per year rather than a pile.
      *
-     * A draft is a working document, not a record. Pressing the button again means something changed — a
-     * transaction recategorised, a parameter approved — and the previous answer is then simply wrong. Keeping it
-     * produced fifty-two rows for eight years with no reader and nothing marking which was current.
+     * One assessment per year, ever, and it is a draft or it is final. Pressing the button again means
+     * something changed — a transaction recategorised, a parameter approved — and the previous answer is then
+     * simply wrong. Keeping them produced fifty-two rows for eight years with no reader and nothing marking
+     * which was current.
      *
-     * The history that matters is kept elsewhere and deliberately: `audit_events` records who computed what and
-     * when, and a draft that becomes something fileable is snapshotted into `declarations`, which is immutable by
-     * design — a changed ruleset makes a new draft or a rectificative, never a quiet edit of what was filed.
+     * No version history, by decision: a year has one answer and the screen shows it. The record of who
+     * computed what and when lives in `audit_events`, which is append-only and cannot be confused with the
+     * figure a person is reading.
      *
-     * Only drafts. A `FINAL` assessment is the thing a filing rests on and is never discarded by a recomputation;
-     * if one exists for a year, this leaves it alone and the new draft sits beside it, which is exactly the
-     * comparison somebody would want.
+     * **A final assessment reaches here only through unlocking.** Finalising recomputes, so the row it
+     * replaces is the draft it was computed from; a recomputation cannot reach a year that is still final,
+     * because the transactions behind it are locked and the screen offers no such button.
      */
-    private function discardEarlierDraftFor(string $taxSubjectId, int $fiscalYear): void
+    private function discardEarlierFor(string $taxSubjectId, int $fiscalYear): void
     {
         $earlier = TaxAssessment::query()
             ->where('tax_subject_id', $taxSubjectId)
             ->where('fiscal_year', $fiscalYear)
-            ->where('status', AssessmentStatus::DRAFT->value)
             ->pluck('id');
 
         if ($earlier->isEmpty()) {

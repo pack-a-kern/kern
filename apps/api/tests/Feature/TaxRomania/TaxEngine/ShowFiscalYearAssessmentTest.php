@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\TaxRomania\Database\Factories\FinancialAccountFactory;
-use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\TaxEngine\Actions\AssessFiscalYear;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Providers\EloquentLedgerIncomeProvider;
 
 /**
@@ -53,14 +53,12 @@ it('says nothing is there, rather than failing, for a year never assessed', func
         ->assertJsonStructure(['assessment', 'years']);
 });
 
-it('prefers a final assessment to a draft of the same year', function (): void {
-    // A filing rests on the final one, so where both exist that is what the year is.
+it('returns the year\'s one row, final or draft', function (): void {
+    // There is never a choice to make: finalising replaces the draft, so a year holds exactly one assessment.
     $subject = assessableSubject();
-    $final = app(AssessFiscalYear::class)($subject->id, 2026);
-    $final->status = AssessmentStatus::FINAL;
-    $final->save();
-
     app(AssessFiscalYear::class)($subject->id, 2026);
+    approveRegisteredRules();
+    $final = app(AssessFiscalYear::class)($subject->id, 2026, null, AssessmentStatus::FINAL);
 
     $this->actingAs(subjectOwner())
         ->getJson("/api/v1/subjects/{$subject->id}/tax/assessments?fiscal_year=2026")

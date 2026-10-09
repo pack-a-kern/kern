@@ -8,7 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
-use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 /**
@@ -18,9 +17,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
  * recompute what is already recorded. Without this the page was blank on every visit and the only way to see
  * last week's figures was to produce new ones — which also replaced them, so the old draft could not be
  * compared against the new even in principle.
- *
- * `FINAL` first, then the draft. A filing rests on a final assessment, so where both exist the final one is
- * what the year *is*; the draft beside it is working toward the next version.
  *
  * A year never assessed is `{"assessment": null}` rather than a 404. Nothing is missing — it has not been done
  * yet, and a screen reading that as an error shows a failure where it should show a button. It is a 200 because
@@ -39,12 +35,14 @@ final class ShowFiscalYearAssessmentController
             'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
         ]);
 
+        /*
+         * One row. A year has a single assessment and it is either a draft or final — finalising recomputes
+         * and replaces, unlocking flips the status in place, and neither ever leaves two rows for a year. An
+         * ordering here would be choosing between rows that cannot both exist.
+         */
         $assessment = TaxAssessment::query()
             ->where('tax_subject_id', $subject)
             ->where('fiscal_year', (int) $data['fiscal_year'])
-            // `FINAL` sorts after `DRAFT` alphabetically, so the order is stated rather than relied upon.
-            ->orderByRaw("case when status = ? then 0 else 1 end", [AssessmentStatus::FINAL->value])
-            ->orderByDesc('created_at')
             ->first();
 
         /*

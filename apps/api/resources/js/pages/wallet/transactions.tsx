@@ -1329,7 +1329,12 @@ export default function WalletTransactions(): JSX.Element {
                             setDeleting(null);
                             setReloadKey((current) => current + 1);
                         } catch (cause: unknown) {
-                            toast.error(t((d) => d.common.deleteFailed));
+                            // The reason as well as the failure, as the bulk delete beside it already does.
+                            // "The deletion failed" alone sent somebody to the network tab to find out that
+                            // the year was locked — which the server had said plainly.
+                            toast.error(t((d) => d.common.deleteFailed), {
+                                description: describeApiFailure(cause, t),
+                            });
 
                             throw cause;
                         }

@@ -624,6 +624,9 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Așteptați câteva minute înainte de a reîncerca.',
         reasons: {
+            FISCAL_YEAR_IS_FINAL:
+                'Anul acela este marcat final. Deblochează-l din pagina Impozite înainte să îi modifici tranzacțiile.',
+            FISCAL_YEAR_NOT_CLOSED: 'Un an poate fi marcat final abia după ce s-a încheiat.',
             SPV_WORKER_UNAVAILABLE:
                 'Serviciul de browser nu poate fi contactat. Verifică dacă rulează și dacă BROWSER_WORKER_URL trimite către el.',
             SPV_RUN_FAILED:
@@ -1436,6 +1439,15 @@ export const ro = {
         },
         taxes: {
             thresholdReached: 'A atins plafonul de {wages} salarii minime',
+            exportFigures: 'Cifrele',
+            exportEvidence: 'Documentația',
+            markFinal: 'Marchează finală',
+            unlock: 'Deblochează',
+            finalHint: 'Cifrele sunt înghețate, iar tranzacțiile acestui an nu pot fi modificate. Deblochează pentru a le edita.',
+            yearStillOpen: '{year} este încă în curs. Un an poate fi marcat final de la 1 ianuarie a anului următor.',
+            breakdownTitle: 'Detalierea impozitelor',
+            breakdownHint: 'Fiecare regulă aplicată și venitul pe care l-a citit',
+            entryCount: '{count} rânduri',
             quotaDeducted: 'Cotă de cheltuieli de {deducted} scăzută',
             assess: 'Calculează anul',
             reassess: 'Recalculează',

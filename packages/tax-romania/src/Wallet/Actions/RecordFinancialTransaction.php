@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Actions;
 
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
@@ -38,6 +40,7 @@ final readonly class RecordFinancialTransaction
         private WalletAudit $audit,
         private TaxCategoryCatalogue $categories,
         private CounterpartyDirectory $rules,
+        private FinalYearGuard $finalYears,
     ) {
     }
 
@@ -48,6 +51,13 @@ final readonly class RecordFinancialTransaction
         if ($input->amountMinor === 0) {
             throw ZeroAmountTransactionException::forTransaction();
         }
+
+        /*
+         * Adding to a finalised year is the path people forget, because nothing is being changed — only
+         * introduced. Income arriving after a year was called final makes that figure wrong in exactly the
+         * way deleting one does.
+         */
+        $this->finalYears->assertYearIsOpen($input->taxSubjectId, new DateTimeImmutable($input->bookedAt));
 
         $this->assertSourceAcceptsTransactions($input->accountId);
 
