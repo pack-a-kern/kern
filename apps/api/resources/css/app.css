@@ -1772,6 +1772,33 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     overflow-wrap: break-word;
 }
 /*
+ * The dashboard's headline figure — the largest number in the application.
+ *
+ * Its own class rather than `.stat-value-lead`: that one sits in a tile beside two others and is sized to
+ * share a row with them, where this one owns the left half of a card and is the first thing anybody reads.
+ * Fluid, because a nine-digit total in a currency with a three-letter code is wider than a phone.
+ */
+.overview-total {
+    font-size: clamp(1.6rem, 4vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The hero's left column, where the figure and its provenance sit.
+ *
+ * Just under two fifths, so the allocation beside it has room for a label, a share and an amount on one line.
+ * Only from `xl`: below that the two stack and the width would be a column of one.
+ */
+@media (width >= 80rem) {
+    .overview-figure {
+        width: 39%;
+    }
+}
+
+/*
  * The one figure a page is about, set apart from the figures that explain it.
  *
  * A modifier on `.stat` rather than a second tile: the layout, padding and radius are already right, and the

@@ -572,6 +572,13 @@ export interface Dictionary {
             netWorth: string;
             netWorthRate: string;
             netWorthDirect: string;
+            /** The hero's left half: what the figure covers, and whether it is the whole of it. */
+            netWorthScope: string;
+            netWorthRecorded: string;
+            netWorthIncomplete: string;
+            /** Its right half: the allocation, and the caption above the list. */
+            whereItSits: string;
+            allocationOf: string;
             netWorthPartial: string;
             /** General and cash together — what can be spent today. */
             available: string;

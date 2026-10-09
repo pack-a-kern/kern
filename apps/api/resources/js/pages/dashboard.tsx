@@ -1,10 +1,10 @@
 import { Head, router } from '@inertiajs/react';
-import { Banknote, CircleHelp, HandCoins, Landmark, PiggyBank, Receipt, TrendingUp, Wallet } from 'lucide-react';
+import { Banknote, CircleHelp, Info, HandCoins, Landmark, PiggyBank, Receipt, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 
 import { getWalletOverview } from '../api/walletApi';
 import AppShell from '../components/AppShell';
-import { IconBadge, Kpi, Page, Panel, PanelButton } from '../components/panel';
+import { IconBadge, Kpi, Page, Panel, PanelButton, Pill } from '../components/panel';
 import { Skeleton } from '../components/ui/skeleton';
 import { useTranslation } from '../i18n';
 import { formatDate } from '../lib/format';
@@ -161,69 +161,119 @@ export default function Dashboard(): JSX.Element {
             <Page title={t((d) => d.dashboard.title)} lede={t((d) => d.dashboard.lede)}>
                 {failed ? <p className="note">{t((d) => d.pages.wallet.loadFailed)}</p> : null}
 
-                <section className="border-border bg-card shadow-float rounded-xl border p-5">
-                    <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
-                        <IconBadge tone="brand">
-                            <Wallet className="size-4" />
-                        </IconBadge>
-                        {t((d) => d.pages.walletOverview.netWorth)}
-                    </div>
-                    <div className="mt-3 text-3xl font-bold tracking-tight tabular-nums">
-                        {totals === null ? (
-                            loading ? (
-                                <Skeleton className="h-9 w-64" />
-                            ) : (
-                                '—'
-                            )
-                        ) : (
-                            converted(totals.netWorth)
-                        )}
-                    </div>
-                    {totals === null ? null : <div className="note mt-1">{netWorthNote(totals.netWorth, t)}</div>}
-
-                    {/* Where it is, as one bar: the question the four separate figures used to leave the
-                        reader to work out by comparing numbers. */}
-                    <div className="bg-muted mt-5 flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
-                        {groups.map((group) =>
-                            shareOf(group.holding) === 0 ? null : (
-                                <div
-                                    key={group.key}
-                                    className={cn('h-full', group.swatch)}
-                                    style={{ width: `${String(shareOf(group.holding) * 100)}%` }}
-                                />
-                            ),
-                        )}
-                    </div>
-
-                    <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {groups.map((group) => (
-                            <div key={group.key} className="min-w-0">
-                                <dt className="text-muted-foreground flex items-center gap-2 text-xs">
-                                    <span className={cn('size-2.5 shrink-0 rounded-full', group.swatch)} />
-                                    {t((d) => d.pages.walletOverview[group.key])}
-                                    <span className="ml-auto tabular-nums">{percent(shareOf(group.holding))}</span>
-                                </dt>
-                                <dd className="mt-1 text-sm font-semibold tabular-nums">
-                                    {holdingValue(group.holding)}
-                                </dd>
-                                <dd className="note mt-0.5">
-                                    {[
-                                        group.key === 'deposits' && totals !== null
-                                            ? t((d) => d.pages.walletOverview.depositCount).replace(
-                                                  '{count}',
-                                                  String(totals.depositCount),
-                                              )
-                                            : '',
-                                        perCurrency(group.holding.amounts),
-                                    ]
-                                        .filter((part) => part !== '')
-                                        .join(' · ')}
-                                </dd>
+                {/*
+                    What there is, and where it sits — side by side rather than stacked.
+                    The figure and its provenance occupy the left; the allocation reads as a list on the right,
+                    one row per holding with the amount in its own column. Stacked under a full-width bar, the
+                    four amounts were four columns a reader had to scan across to compare; down a column they
+                    compare themselves.
+                */}
+                <section className="border-border bg-card shadow-float overflow-hidden rounded-xl border">
+                    <div className="flex flex-col gap-5 p-5 xl:flex-row xl:gap-8">
+                        <div className="border-border overview-figure min-w-0 xl:border-r xl:pr-8">
+                            <div className="flex items-center gap-2.5">
+                                <IconBadge tone="brand">
+                                    <Wallet className="size-4" />
+                                </IconBadge>
+                                <div className="min-w-0">
+                                    <div className="text-xs font-semibold">
+                                        {t((d) => d.pages.walletOverview.netWorth)}
+                                    </div>
+                                    <div className="note">{t((d) => d.pages.walletOverview.netWorthScope)}</div>
+                                </div>
                             </div>
-                        ))}
-                    </dl>
 
-                    <p className="note border-border mt-4 border-t pt-3">
+                            <div className="overview-total mt-5">
+                                {totals === null ? (
+                                    loading ? (
+                                        <Skeleton className="h-9 w-64" />
+                                    ) : (
+                                        '—'
+                                    )
+                                ) : (
+                                    converted(totals.netWorth)
+                                )}
+                            </div>
+
+                            {/* Where the figure came from, as a mark rather than a sentence: a partial total
+                                is a different kind of number from a complete one, and that reads faster as a
+                                state than as prose a reader has to finish. */}
+                            {totals === null ? null : (
+                                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                                    <Pill tone={totals.netWorth.complete ? 'accent' : 'locked'}>
+                                        {t((d) =>
+                                            totals.netWorth.complete
+                                                ? d.pages.walletOverview.netWorthRecorded
+                                                : d.pages.walletOverview.netWorthIncomplete,
+                                        )}
+                                    </Pill>
+                                    <span className="note">{netWorthNote(totals.netWorth, t)}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="text-xs font-semibold">
+                                    {t((d) => d.pages.walletOverview.whereItSits)}
+                                </div>
+                                <span className="note">{t((d) => d.pages.walletOverview.allocationOf)}</span>
+                            </div>
+
+                            <div
+                                className="bg-muted mt-3.5 flex h-2.5 gap-0.5 overflow-hidden rounded-full"
+                                aria-hidden="true"
+                            >
+                                {groups.map((group) =>
+                                    shareOf(group.holding) === 0 ? null : (
+                                        <div
+                                            key={group.key}
+                                            className={cn('h-full', group.swatch)}
+                                            style={{ width: `${String(shareOf(group.holding) * 100)}%` }}
+                                        />
+                                    ),
+                                )}
+                            </div>
+
+                            <dl className="divide-border mt-3 divide-y">
+                                {groups.map((group) => (
+                                    <div
+                                        key={group.key}
+                                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0"
+                                    >
+                                        <dt className="flex min-w-0 items-center gap-2 text-xs font-medium">
+                                            <span className={cn('size-2 shrink-0 rounded-full', group.swatch)} />
+                                            <span className="truncate">
+                                                {t((d) => d.pages.walletOverview[group.key])}
+                                            </span>
+                                            <span className="note">
+                                                {[
+                                                    percent(shareOf(group.holding)),
+                                                    group.key === 'deposits' && totals !== null
+                                                        ? t((d) => d.pages.walletOverview.depositCount).replace(
+                                                              '{count}',
+                                                              String(totals.depositCount),
+                                                          )
+                                                        : '',
+                                                    perCurrency(group.holding.amounts),
+                                                ]
+                                                    .filter((part) => part !== '')
+                                                    .join(' · ')}
+                                            </span>
+                                        </dt>
+                                        <dd className="text-sm font-semibold tabular-nums">
+                                            {holdingValue(group.holding)}
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        </div>
+                    </div>
+
+                    {/* The caveat runs the width of the card on its own ground: it qualifies every figure
+                        above it, not the one it happens to sit under. */}
+                    <p className="border-border bg-muted/40 note flex items-start gap-2 border-t px-5 py-3">
+                        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                         {t((d) => d.pages.walletOverview.generalNote)}
                     </p>
                 </section>
