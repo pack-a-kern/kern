@@ -1302,8 +1302,20 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     gap: 0.625rem;
 }
 
-/* The head's leading tile: a quiet square holding the card's icon, so a page of cards scans by
-   shape before it is read. */
+/*
+ * The head's leading tile: a square holding the card's icon, so a page of cards scans by shape
+ * before it is read.
+ *
+ * Brand-washed rather than grey, which is the colour a head gets instead of a band. A tint across
+ * the whole head was tried and taken out — it competed with the card it sat on and, at this
+ * palette's lightnesses, could not be told from the page behind it. A 32px mark has the opposite
+ * problem to a full-width band: it is small enough that colour on it reads as a mark rather than as
+ * a surface, so it can be the brand's own wash without any of that.
+ *
+ * `--accent`/`--accent-foreground` is the pair `IconBadge`'s own `brand` tone uses for the figure
+ * tiles above these cards. Same wash, so a page's heads and its tiles agree rather than offering two
+ * different ideas of what the brand's quiet colour is.
+ */
 .panel-head-icon {
     display: grid;
     place-items: center;
@@ -1311,8 +1323,8 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2rem;
     flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background: var(--secondary);
-    color: var(--muted-foreground);
+    background: var(--accent);
+    color: var(--accent-foreground);
 }
 
 .panel-title {
@@ -1828,6 +1840,15 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     margin-bottom: 7px;
 }
 
+/* A step further on a phone, where these four tiles are most of the first screen and there is no
+   figure beside them to hold the hierarchy. A label is two or three words and has no width to run
+   out of, so unlike the figure above it this needs no arithmetic. */
+@media (width < 40rem) {
+    .stat-label {
+        font-size: 12.5px;
+    }
+}
+
 /* With a mark, the label shares a line with it and the spacing moves to the row. */
 .stat-head {
     display: flex;
@@ -1850,13 +1871,25 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     flex: none;
 }
 .stat-value {
-    /* Fluid, because two of these sit side by side at phone width where a seven-digit sum at a fixed size
-       runs past the tile. `Intl.NumberFormat` joins figure and currency with a non-breaking space, so the line
-       cannot wrap between them however the wrapping is set — it has to fit. */
-    /* The floor and the ceiling move; the 3.6vw between them does not. That coefficient is what keeps
-       a seven-digit sum inside a half-width tile at phone sizes, and raising it is what would push one
-       back out. */
-    font-size: clamp(14px, 3.6vw, 21px);
+    /*
+     * Fluid, because two of these sit side by side at phone width where a seven-digit sum at a fixed size
+     * runs past the tile. `Intl.NumberFormat` joins figure and currency with a non-breaking space, so the
+     * line cannot wrap between them however the wrapping is set — it has to fit.
+     *
+     * The slope carries the growth, not the floor. 3.6vw left a 390px phone at the 14px floor, which is
+     * where this read smaller than the table underneath it; 4.4vw gives it 17px there and 19px on a 430px
+     * phone, and the cap still holds every screen from 500px up.
+     *
+     * Checked against the widest value any of these tiles actually holds — `-2.653.288,46 RON`, from the
+     * wallet report's three totals, which measures about 8.44em in a bold tabular face. Text room in one
+     * tile is the viewport less `main`'s padding, the grid's gap and `.stat`'s own, so the largest size
+     * that fits is `room / 8.44`: 15.9px at 360, 17.7px at 390, 20.0px at 430. The slope sits under each.
+     *
+     * 320px is the exception and was already one before this: the ceiling there is 13.5px against a 14px
+     * floor. A floor that low is the wrong tool for the narrowest phone in use, and `overflow-wrap` below
+     * is what catches it — the same half-pixel of overflow as before, not a new one.
+     */
+    font-size: clamp(14px, 4.4vw, 22px);
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
@@ -2106,7 +2139,9 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /*
  * The tax's mark — the same tile a card's own head wears.
  *
- * Geometry and ground from `.panel-head-icon`: 2rem at `radius-xl` on `--secondary`. This rule was deleted by
+ * Geometry from `.panel-head-icon`: 2rem at `radius-xl`. The ground is `--secondary` and stays grey, while
+ * that tile now carries the brand wash — because only the glyph here takes the tax's own colour, and a
+ * brand-washed ground under a coloured glyph would be two colours arguing in 32px. This rule was deleted by
  * accident when the collapsing was taken out, which left the icon with an inline background and no size,
  * radius or centering — a tinted square drawn around a glyph, which is exactly what it looked like.
  *
