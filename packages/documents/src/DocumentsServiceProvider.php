@@ -25,8 +25,10 @@ use Kern\Documents\ObjectStore\EncryptedObjectStore;
 use Kern\Documents\ObjectStore\ObjectStoreServiceProvider;
 use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Documents\Scanning\ClamdVirusScanner;
+use Kern\Documents\Scanning\ScannerBackedUploadScanner;
 use Kern\Documents\Scanning\VirusScanner;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 use Kern\Platform\Tenancy\TenantContext;
@@ -64,6 +66,17 @@ final class DocumentsServiceProvider extends ServiceProvider
                 $config->integer('documents.max_text_bytes'),
                 $config->integer('documents.max_image_pixels'),
             );
+        });
+
+        /*
+         * The platform's uploads scan through this package's clamd.
+         *
+         * `kern/platform` binds this port to a scanner that refuses everything, because it has no way to
+         * reach one — it cannot import from here without making the dependency circular. This overrides
+         * that default with the real thing, and is the only reason an avatar can be accepted at all.
+         */
+        $this->app->bind(UploadScanner::class, static function (Application $app): UploadScanner {
+            return new ScannerBackedUploadScanner($app->make(VirusScanner::class));
         });
 
         $this->app->bind(VirusScanner::class, static function (Application $app): VirusScanner {

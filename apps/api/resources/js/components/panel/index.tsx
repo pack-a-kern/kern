@@ -3,7 +3,7 @@ import { useTranslation } from '../../i18n';
 import { Link } from '@inertiajs/react';
 import { setPageHeader } from '../../lib/pageHeader';
 import { iconForInputType } from '../../lib/inputIcons';
-import { cloneElement, isValidElement, type MouseEvent, useEffect } from 'react';
+import { cloneElement, isValidElement, type MouseEvent, useEffect, useState } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
 import { CheckIcon, CircleHelp, Info, Plus, SearchIcon, X } from 'lucide-react';
 
@@ -1140,17 +1140,74 @@ export function Detail(props: { label: string; children: ReactNode; icon?: React
 }
 
 /** Initials disc plus a name and a secondary line — the identity cell in a listing. */
-export function Identity(props: { initials: string; name: string; sub?: string }): JSX.Element {
+export function Identity(props: {
+    initials: string;
+    name: string;
+    sub?: string;
+    /**
+     * A picture to show instead of the initials. Absent, or failing to load, leaves the letters.
+     *
+     * Explicitly `| undefined` because `exactOptionalPropertyTypes` is on: callers compute this from a
+     * nullable timestamp, so they pass `undefined` rather than omitting the prop.
+     */
+    avatar?: string | undefined;
+}): JSX.Element {
     return (
         <div className="identity">
-            <span className="avatar" aria-hidden="true">
-                {props.initials}
-            </span>
+            <Avatar initials={props.initials} src={props.avatar} />
             <div className="min-w-0">
                 <div className="identity-name truncate">{props.name}</div>
                 {props.sub !== undefined ? <div className="identity-sub truncate">{props.sub}</div> : null}
             </div>
         </div>
+    );
+}
+
+/**
+ * Somebody's face, or their initials when there is no face to show.
+ *
+ * The letters are not a placeholder that the image covers — they are the resting state, and the image
+ * replaces them only once it has actually loaded. A broken `src` therefore degrades to initials rather
+ * than to a torn-image glyph, which matters because the avatar route 404s for an account whose file is
+ * missing, and because `onError` is the only signal a page gets for that.
+ *
+ * `aria-hidden` either way: the name is right beside it in the same component, and a screen reader
+ * announcing "SL" before "sandu laurentiu" is reading the decoration twice.
+ */
+export function Avatar(props: {
+    initials: string;
+    src?: string | undefined;
+    className?: string | undefined;
+}): JSX.Element {
+    /*
+     * Which `src` failed, rather than a boolean saying one did.
+     *
+     * A boolean has to be cleared when the picture changes, and clearing it from an effect is a
+     * cascading render the lint rule rejects — correctly, since the state is derivable. Holding the URL
+     * makes "this one is broken" true only of that URL: upload a new picture and the comparison is
+     * false again with nothing to reset.
+     */
+    const [failedSrc, setFailedSrc] = useState<string | null>(null);
+    const src = props.src;
+    const broken = src !== undefined && failedSrc === src;
+
+    return (
+        <span className={cn('avatar', props.className)} aria-hidden="true">
+            {src === undefined || broken ? (
+                props.initials
+            ) : (
+                <img
+                    className="avatar-image"
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => {
+                        setFailedSrc(src);
+                    }}
+                />
+            )}
+        </span>
     );
 }
 

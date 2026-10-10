@@ -58,6 +58,15 @@ final readonly class AdminUserDirectory
                 'last_seen_at' => $lastSeen[$id] ?? null,
                 'memberships' => $memberships[$id] ?? [],
                 'roles' => $platformRoles[$id] ?? [],
+                /*
+                 * The timestamp, not a URL.
+                 *
+                 * Null means initials; anything else means there is a picture, and the value is what
+                 * makes each new upload a new URL so a browser stops showing the old one. Building the
+                 * URL here would bake this package's route prefix into a payload, which is the screen's
+                 * business rather than the directory's.
+                 */
+                'avatar_updated_at' => $user->avatar_updated_at?->toIso8601String(),
             ];
         })->values()->all();
 

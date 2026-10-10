@@ -27,6 +27,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq-dev=17.11-0+deb13u1 \
         libicu-dev=76.1-4 \
+        libjpeg62-turbo-dev=1:2.1.5-4 \
+        libpng-dev=1.6.48-1+deb13u6 \
+        libwebp-dev=1.5.0-0.1 \
     && rm -rf /var/lib/apt/lists/*
 
 # pecl redis pinned to the latest stable release verified 2026-09-07
@@ -40,7 +43,14 @@ RUN apt-get update \
 # supervision, confirmed by `composer install` failing without it
 # (see docs/handoff/001-docker-topology.md "Key decisions"). It ships in the
 # PHP source tree like bcmath, so needs no extra apt package or pin.
-RUN docker-php-ext-install -j"$(nproc)" pdo_pgsql bcmath intl pcntl \
+# gd is configured before it is built: without --with-jpeg/--with-webp it compiles to a PNG-only
+# extension that reports no error, and imagecreatefromjpeg() is then simply an undefined function at
+# runtime. Avatars decode whatever a phone or a desktop produces, so all three codecs are required.
+#
+# No --with-freetype: that is for rendering text into an image, which nothing here does. Avatar
+# processing decodes, crops, resamples and re-encodes — the font stack would be surface for nothing.
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql bcmath intl pcntl gd \
     && pecl install redis-6.3.0 \
     && docker-php-ext-enable redis
 
@@ -95,6 +105,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq5=17.11-0+deb13u1 \
         libicu76=76.1-4 \
+        libjpeg62-turbo=1:2.1.5-4 \
+        libpng16-16t64=1.6.48-1+deb13u6 \
+        libwebp7=1.5.0-0.1 \
         libfcgi-bin=2.4.5-0.1 \
     && rm -rf /var/lib/apt/lists/*
 

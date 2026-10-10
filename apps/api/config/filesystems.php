@@ -53,6 +53,26 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Profile pictures. A local disk, not the encrypted object store and not `public`.
+         *
+         * Not the object store because an avatar is not a tax document: it carries no counterparty, no
+         * amount and no declaration, so wrapping it in a tenant DEK would buy nothing and would tie a
+         * face to a subject it does not belong to — a user is one person across every tenant they can
+         * act for.
+         *
+         * Not `public` because that disk is served by the web server straight off a symlink, with no
+         * middleware in the path. Every face would then sit behind a URL that works for anybody who
+         * guesses it. These are read through a controller that checks who is asking.
+         */
+        'avatars' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/avatars'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         // A physically separate bucket from 's3' — Kern\Documents\Quarantine\
         // QuarantineObjectStore (docs/handoff/022-document-pipeline.md) relies on this being a
         // disk the rest of the application never reads documents from, so an unscanned upload is

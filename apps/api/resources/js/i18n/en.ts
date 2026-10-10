@@ -2397,6 +2397,22 @@ export const en = {
                 yes: 'Enforced',
                 no: 'Not enforced',
             },
+            avatar: {
+                choose: 'Add a picture',
+                replace: 'Change picture',
+                remove: 'Remove',
+                uploading: 'Uploading…',
+                reasons: {
+                    infected: 'The virus scanner rejected this file. Choose a different picture.',
+                    scanner_unavailable:
+                        'The file could not be scanned, so it was not kept. Try again shortly.',
+                    too_large: 'That file is too large. Pictures are accepted up to 4 MB.',
+                    not_an_image: 'That file is not a JPEG, PNG or WebP image.',
+                    dimensions_too_large: 'That image is too big to process. Up to 8000 pixels a side.',
+                    undecodable: 'That file could not be read as the image it claims to be.',
+                    unencodable: 'The picture could not be processed. Try a different file.',
+                },
+            },
             enforced: {
                 active: 'Active',
                 planned: 'Planned',

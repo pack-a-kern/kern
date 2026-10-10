@@ -2407,6 +2407,23 @@ export const ro = {
                 yes: 'Aplicate',
                 no: 'Neaplicate',
             },
+            avatar: {
+                choose: 'Adaugă o poză',
+                replace: 'Schimbă poza',
+                remove: 'Elimină',
+                uploading: 'Se încarcă…',
+                reasons: {
+                    infected: 'Scanerul antivirus a respins acest fișier. Alege altă poză.',
+                    scanner_unavailable:
+                        'Fișierul nu a putut fi scanat, așa că nu a fost păstrat. Încearcă din nou în scurt timp.',
+                    too_large: 'Fișierul este prea mare. Se acceptă poze de până la 4 MB.',
+                    not_an_image: 'Fișierul nu este o imagine JPEG, PNG sau WebP.',
+                    dimensions_too_large:
+                        'Imaginea este prea mare pentru a fi procesată. Maximum 8000 de pixeli pe latură.',
+                    undecodable: 'Fișierul nu a putut fi citit ca imaginea pe care o declară.',
+                    unencodable: 'Poza nu a putut fi procesată. Încearcă alt fișier.',
+                },
+            },
             enforced: {
                 active: 'Activ',
                 planned: 'Planificat',

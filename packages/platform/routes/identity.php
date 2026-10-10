@@ -9,8 +9,10 @@ use Kern\Platform\Http\Controllers\Admin\CreateUserController;
 use Kern\Platform\Http\Controllers\Admin\EraseUserController;
 use Kern\Platform\Http\Controllers\Admin\ImpersonationController;
 use Kern\Platform\Http\Controllers\Admin\ShowAccessCatalogueController;
+use Kern\Platform\Http\Controllers\Admin\UpdateUserAvatarController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserRolesController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserStatusController;
+use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 use Kern\Platform\Http\Controllers\Auth\DisableTotpController;
 use Kern\Platform\Http\Controllers\Auth\EmailVerificationController;
 use Kern\Platform\Http\Controllers\Auth\LoginController;
@@ -139,6 +141,8 @@ Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
 
     Route::middleware('permission:users.manage')->group(function (): void {
         Route::post('users', CreateUserController::class);
+        Route::post('users/{user}/avatar', [UpdateUserAvatarController::class, 'store']);
+        Route::delete('users/{user}/avatar', [UpdateUserAvatarController::class, 'destroy']);
         Route::put('users/{user}/roles', UpdateUserRolesController::class);
         Route::put('users/{user}/status', UpdateUserStatusController::class);
         // Erasing a person and acting as one are not role changes: both check SUPER_ADMIN
@@ -147,6 +151,16 @@ Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
         Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start']);
     });
 });
+
+/*
+ * A user's picture, read by the screens that list people.
+ *
+ * Outside the `v1/admin` group on purpose: everybody can see their own, which is the common case and
+ * needs no administrative permission at all. The controller decides — your own always, anybody else's
+ * with `users.view` — because the rule depends on which user is being asked for, and route middleware
+ * cannot see that.
+ */
+Route::get('v1/users/{user}/avatar', ShowUserAvatarController::class)->middleware('auth:web');
 
 // The signed-in user's own account. No permission beyond being authenticated: everything here is
 // scoped to `$request->user()` and can only ever read or change that one account.

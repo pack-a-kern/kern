@@ -2833,6 +2833,31 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     color: var(--foreground);
     font-size: 10px;
     font-weight: 700;
+    /* The image is round because the frame clips it, so a square upload needs nothing done to it. */
+    overflow: hidden;
+}
+
+/* The picture beside its controls at the head of the edit dialog, where it is the subject rather
+   than a label — 64px, against 28px in a list row. */
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+    font-size: 18px;
+}
+
+.avatar-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+}
+
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    /* Stored square already, so this changes nothing today — it is here so that a differently shaped
+       image from some future source is cropped rather than squashed. */
+    object-fit: cover;
+    display: block;
 }
 .identity-name {
     font-weight: 600;

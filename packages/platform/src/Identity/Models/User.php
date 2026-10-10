@@ -58,6 +58,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $dek_kek_version
  * @property UserStatus $status
  * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property string|null $avatar_path
+ * @property \Illuminate\Support\Carbon|null $avatar_updated_at
  */
 #[UseFactory(UserFactory::class)]
 final class User extends Model implements AuthenticatableContract, EncryptsWithSubjectDek, AuthorizableContract
@@ -114,7 +116,17 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
         'email_ciphertext' => Encrypted::class,
         'status' => UserStatus::class,
         'email_verified_at' => 'datetime',
+        'avatar_updated_at' => 'datetime',
     ];
+
+    /**
+     * The avatar columns are deliberately absent from `$fillable`.
+     *
+     * They are only ever written by {@see \Kern\Platform\Identity\Avatars\SetUserAvatar} and
+     * {@see \Kern\Platform\Identity\Avatars\RemoveUserAvatar}, which set them as properties after
+     * the bytes have been scanned, rebuilt and stored. Mass-assignable, a `fill()` anywhere in the
+     * codebase could point a user's avatar at a path on disk that no upload ever produced.
+     */
 
     /**
      * Exact-match lookup by email without ever decrypting a row to find it (`BLUEPRINT.md` §4.4).

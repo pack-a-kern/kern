@@ -2088,6 +2088,24 @@ export interface Dictionary {
                 yes: string;
                 no: string;
             };
+            /** A user's profile picture: the control in the edit dialog, and why one was refused. */
+            avatar: {
+                choose: string;
+                replace: string;
+                remove: string;
+                uploading: string;
+                /** Keyed by the `reason` a 422 carries — see `UploadRejectedException`. */
+                reasons: Record<
+                    | 'infected'
+                    | 'scanner_unavailable'
+                    | 'too_large'
+                    | 'not_an_image'
+                    | 'dimensions_too_large'
+                    | 'undecodable'
+                    | 'unencodable',
+                    string
+                >;
+            };
             enforced: {
                 active: string;
                 planned: string;

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Kern\Platform\Identity;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Access\Services\AccessCatalogue;
 use Kern\Platform\Console\Commands\Access\GrantPlatformRoleCommand;
 use Kern\Platform\Console\Commands\Access\SyncAccessCatalogueCommand;
@@ -19,6 +22,8 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Crypto\BlindIndex\EloquentColumnReindexer;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Identity\Avatars\AvatarStore;
+use Kern\Platform\Identity\Avatars\SetUserAvatar;
 use Kern\Platform\Identity\Contracts\VerificationSender;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
@@ -28,6 +33,9 @@ use Kern\Platform\Identity\Support\Webauthn\PasskeyManager;
 use Kern\Platform\Identity\Support\Webauthn\WebauthnCredentialRepository;
 use Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer;
 use Kern\Platform\Routing\PackageRoutes;
+use Kern\Platform\Uploads\Contracts\UploadScanner;
+use Kern\Platform\Uploads\RefusingUploadScanner;
+use Kern\Platform\Uploads\SquareImageNormaliser;
 
 /**
  * Wires the WebAuthn support classes (`Support\Webauthn\*`, all stateless or request-scoped-safe —
@@ -56,6 +64,7 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../../config/identity.php', 'identity');
         $this->mergeConfigFrom(__DIR__ . '/../../config/webauthn.php', 'webauthn');
         $this->mergeConfigFrom(__DIR__ . '/../../config/access.php', 'access');
+        $this->mergeConfigFrom(__DIR__ . '/../../config/avatars.php', 'avatars');
 
         $this->app->singleton(AccessCatalogue::class);
         $this->app->singleton(WebauthnSerializer::class);
@@ -63,6 +72,7 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->singleton(WebauthnCredentialRepository::class);
         $this->app->singleton(PasskeyManager::class);
 
+        $this->registerAvatars();
         $this->registerBlindIndexReindexer();
 
         /*
@@ -83,6 +93,55 @@ final class IdentityServiceProvider extends ServiceProvider
      * account, whose blind index is deliberately a hash of a UUID and belongs to no address any more
      * (`Actions\EraseUser`) — so it is skipped rather than counted as a failure to recompute.
      */
+    /**
+     * The avatar pipeline: a scanner, an image rebuilder, and somewhere to put the result.
+     *
+     * {@see UploadScanner} falls back to {@see RefusingUploadScanner}, which refuses everything. That is
+     * the safe default rather than the useful one: `kern/documents` binds it to the adapter in front of
+     * clamd, and an installation without that package — or with it misconfigured — cannot accept uploads
+     * instead of accepting unscanned ones.
+     *
+     * **`bindIf`, not `bind`, and the difference is the whole guarantee.** Both providers are discovered
+     * from their packages, and Composer registers `kern/documents` before `kern/platform`, so a plain
+     * `bind` here overwrites the real scanner with the refusing one — which was the first thing this did,
+     * and it failed closed loudly enough to be caught. `bindIf` leaves a binding that already exists
+     * alone, so the answer is the same whichever provider runs first.
+     */
+    private function registerAvatars(): void
+    {
+        $this->app->bindIf(UploadScanner::class, RefusingUploadScanner::class);
+
+        $this->app->singleton(SquareImageNormaliser::class, static function (Application $app): SquareImageNormaliser {
+            $config = $app->make(ConfigRepository::class);
+
+            return new SquareImageNormaliser(
+                $config->integer('avatars.side'),
+                $config->integer('avatars.max_side'),
+                $config->integer('avatars.quality'),
+            );
+        });
+
+        $this->app->singleton(AvatarStore::class, static function (Application $app): AvatarStore {
+            $config = $app->make(ConfigRepository::class);
+
+            return new AvatarStore(
+                $app->make(FilesystemFactory::class)->disk($config->string('avatars.disk')),
+            );
+        });
+
+        $this->app->bind(SetUserAvatar::class, static function (Application $app): SetUserAvatar {
+            $config = $app->make(ConfigRepository::class);
+
+            return new SetUserAvatar(
+                $app->make(UploadScanner::class),
+                $app->make(SquareImageNormaliser::class),
+                $app->make(AvatarStore::class),
+                $app->make(AuditChainService::class),
+                $config->integer('avatars.max_bytes'),
+            );
+        });
+    }
+
     private function registerBlindIndexReindexer(): void
     {
         $this->app->bind(self::USERS_EMAIL_REINDEXER, static function (Application $app): EloquentColumnReindexer {

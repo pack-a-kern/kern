@@ -11,6 +11,13 @@ export interface AdminUser {
     memberships: string[];
     /** Platform roles from `config/access.php` — what this user may do to the installation. */
     roles: string[];
+    /**
+     * When this account's picture was last changed, or null for an account showing its initials.
+     *
+     * The timestamp rather than a URL, and it is both the flag and the cache key: the stored file keeps
+     * one name per user, so this is what makes each new upload a different URL for the browser.
+     */
+    avatarUpdatedAt: string | null;
 }
 
 export interface RoleCount {
@@ -79,6 +86,7 @@ export function parseAdminDirectory(payload: unknown): AdminDirectory {
                 passkeys: num(row, 'passkeys'),
                 totp: row.totp === true,
                 lastSeenAt: nullableStr(row, 'last_seen_at'),
+                avatarUpdatedAt: nullableStr(row, 'avatar_updated_at'),
                 memberships: Array.isArray(row.memberships)
                     ? row.memberships.filter((value): value is string => typeof value === 'string')
                     : [],
