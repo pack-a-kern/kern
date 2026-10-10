@@ -2141,9 +2141,14 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin: 12px -0.75rem -0.75rem;
+    /*
+     * No negative margins. They were sized to a padding this does not control: a card's body pads itself by
+     * 0.875rem, or by nothing at all when it is `flush`, and pulling against the wrong one left the note
+     * hanging past the card's own border. It spans whatever contains it and pads itself instead, which is
+     * right for a flush card and for a section that pads its other children individually.
+     */
     border-top: 1px solid var(--border);
-    padding: 10px 0.75rem;
+    padding: 10px 0.875rem;
     background: color-mix(in oklab, var(--muted) 40%, transparent);
     font-size: 11px;
     line-height: 1.55;
@@ -2152,7 +2157,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 
 @media (width >= 40rem) {
     .panel-note {
-        margin-inline: -1rem;
         padding-inline: 1rem;
     }
 }
@@ -2805,15 +2809,17 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /* Role cards. */
+/*
+ * One card per role, as many across as the width allows.
+ *
+ * `auto-fit` rather than a breakpoint at two columns: a role card holds a name, a count and a handful of
+ * permission chips, and half a desktop each left them mostly empty. This gives three at full width, two on a
+ * tablet and one on a phone without naming any of those sizes — the same arrangement the figure tiles use.
+ */
 .roles-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
     gap: 14px;
-}
-@media (width >= 64rem) {
-    .roles-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 .role-title {
     font-size: 14px;
@@ -2868,6 +2874,24 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     text-transform: uppercase;
     color: var(--muted-foreground);
     background: var(--muted);
+}
+
+/*
+ * The band belongs to the row, not to its one cell.
+ *
+ * Stacked, the row is a flex container with its own padding, so a background on the cell painted the words
+ * and left the rest of the band unpainted — a heading that looked like a highlighted phrase rather than the
+ * start of a section. On a table row the cells tile it edge to edge and painting them is the same thing,
+ * which is why this only shows up on a phone.
+ */
+@media (width < 40rem) {
+    .data-table-stack tbody tr.matrix-group {
+        background: var(--muted);
+    }
+
+    .data-table-stack tbody tr.matrix-group td {
+        background: transparent;
+    }
 }
 
 /* Page scaffolding — the outer rhythm every screen shares. */

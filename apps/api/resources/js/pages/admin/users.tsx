@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import {
     Check as CheckIcon,
+    Calculator,
     CircleDot,
+    Eye,
     EllipsisVertical,
     Fingerprint,
     FilterX,
@@ -9,6 +11,7 @@ import {
     LogIn,
     Pencil,
     Plus,
+    RotateCcw,
     Shield,
     ShieldCheck,
     Trash2,
@@ -86,6 +89,25 @@ function initialsFor(email: string): string {
  * yet renders outlined instead of filled — see `Check` — because a matrix that ticks an unenforced
  * permission is worse than one that omits it.
  */
+/**
+ * A mark for each role, so the four cards are told apart before their names are read.
+ *
+ * A role this screen has not been taught about gets the generic shield rather than nothing: an unmarked card
+ * beside four marked ones reads as broken, where a neutral mark reads as "new".
+ */
+function roleIcon(role: string): JSX.Element {
+    switch (role) {
+        case 'SUPER_ADMIN':
+            return <ShieldCheck className="size-4" />;
+        case 'ACCOUNTANT':
+            return <Calculator className="size-4" />;
+        case 'VIEWER':
+            return <Eye className="size-4" />;
+        default:
+            return <Shield className="size-4" />;
+    }
+}
+
 export default function AdminUsers(): JSX.Element {
     const { t } = useTranslation();
 
@@ -438,6 +460,7 @@ export default function AdminUsers(): JSX.Element {
                                         setPage(1);
                                     }}
                                 >
+                                    <RotateCcw className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.adminUsers.reset)}
                                 </PanelButton>
                             </Toolbar>
@@ -625,6 +648,7 @@ export default function AdminUsers(): JSX.Element {
                             return (
                                 <Panel
                                     key={role}
+                                    icon={roleIcon(role)}
                                     title={t((d) => d.pages.adminUsers.roles[role] ?? role)}
                                     description={t((d) => d.pages.adminUsers.roleHints[role] ?? '')}
                                     aside={
@@ -653,6 +677,7 @@ export default function AdminUsers(): JSX.Element {
 
                 {tab === 'permissions' ? (
                     <Panel
+                        icon={<KeyRound className="size-4" />}
                         title={t((d) => d.pages.adminUsers.matrixTitle)}
                         description={t((d) => d.pages.adminUsers.matrixDescription)}
                         flush
