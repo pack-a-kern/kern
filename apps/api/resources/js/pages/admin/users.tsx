@@ -387,9 +387,11 @@ export default function AdminUsers(): JSX.Element {
                             icon={<UsersIcon className="size-4" />}
                             flush
                             aside={
+                                /* No `inline`: it opts the button out of `.ctl-action` and into a form
+                                   control's height, which is taller than every other card action. The
+                                   add-law button beside legislation's title is the size this should be. */
                                 <PanelButton
                                     primary
-                                    inline
                                     onClick={() => {
                                         setCreatingUser(true);
                                     }}
