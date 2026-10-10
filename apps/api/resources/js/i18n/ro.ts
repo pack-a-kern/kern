@@ -1810,6 +1810,7 @@ export const ro = {
             noSessions: 'Nicio sesiune activă.',
             thisDevice: 'acest dispozitiv',
             unknownDevice: 'Dispozitiv necunoscut',
+            deviceOn: '{browser} pe {platform}',
             revoke: 'Încheie',
             revokeOthers: 'Încheie celelalte sesiuni',
             sessionRevoked: 'Sesiune încheiată',

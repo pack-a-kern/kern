@@ -83,13 +83,33 @@ export function parseRecoveryCodes(text: string): string[] {
     return parseJson(text, vObject({ recovery_codes: vArray(vString) })).recovery_codes;
 }
 
+/**
+ * What the server reads out of a session's user agent, for the device list to draw.
+ *
+ * Decoration only. The string it comes from is chosen by the client and so cannot be concluded from
+ * — `Kern\Platform\Identity\Enums\DeviceKind` carries that warning on the other side.
+ */
+export type DeviceKind = 'desktop' | 'mobile' | 'tablet' | 'robot' | 'unknown';
+
 export interface SessionSummary {
     id: string;
     ipAddress: string | null;
     userAgent: string | null;
+    /** Widened from the server's string: an installation ahead of this build could send a kind this one has never heard of. */
+    deviceKind: DeviceKind;
+    /** Null where the agent could not be read. The raw `userAgent` is still there to fall back on. */
+    deviceBrowser: string | null;
+    devicePlatform: string | null;
     lastUsedAt: string;
     createdAt: string;
     isCurrent: boolean;
+}
+
+const DEVICE_KINDS: readonly DeviceKind[] = ['desktop', 'mobile', 'tablet', 'robot', 'unknown'];
+
+/** An unrecognised kind reads as `unknown`, which is what the screen draws when it has nothing. */
+function asDeviceKind(value: string): DeviceKind {
+    return (DEVICE_KINDS as readonly string[]).includes(value) ? (value as DeviceKind) : 'unknown';
 }
 
 export function parseSessionList(text: string): SessionSummary[] {
@@ -101,6 +121,9 @@ export function parseSessionList(text: string): SessionSummary[] {
                     id: vString,
                     ip_address: vNullable(vString),
                     user_agent: vNullable(vString),
+                    device_kind: vString,
+                    device_browser: vNullable(vString),
+                    device_platform: vNullable(vString),
                     last_used_at: vString,
                     created_at: vString,
                     is_current: vBoolean,
@@ -113,6 +136,9 @@ export function parseSessionList(text: string): SessionSummary[] {
         id: session.id,
         ipAddress: session.ip_address,
         userAgent: session.user_agent,
+        deviceKind: asDeviceKind(session.device_kind),
+        deviceBrowser: session.device_browser,
+        devicePlatform: session.device_platform,
         lastUsedAt: session.last_used_at,
         createdAt: session.created_at,
         isCurrent: session.is_current,

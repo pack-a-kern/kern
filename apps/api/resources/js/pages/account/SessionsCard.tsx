@@ -1,12 +1,60 @@
 import { useState, type JSX } from 'react';
-import { LogOutIcon, MonitorSmartphoneIcon } from 'lucide-react';
+import { Bot, Clock, Globe, LogOutIcon, Monitor, MonitorSmartphoneIcon, Smartphone, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
-import { DataTable, EventTime, Panel, PanelButton, Pill } from '../../components/panel';
+import { CellLabel, DataTable, EventTime, Panel, PanelButton, Pill } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
-import type { SessionSummary } from '../../types/auth';
+import type { Dictionary } from '../../i18n/dictionary';
+import type { DeviceKind, SessionSummary } from '../../types/auth';
+
+/**
+ * The mark for what a session was opened from.
+ *
+ * Decoration, and deliberately so: the kind is read out of a string the client chose, so nothing is
+ * decided from it — see `Kern\Platform\Identity\Enums\DeviceKind`. A robot gets its own mark
+ * rather than a laptop's, because a session opened by one is either this installation's own tooling
+ * or something worth a second look, and a laptop icon would say neither.
+ */
+function deviceIcon(kind: DeviceKind): JSX.Element {
+    const className = 'text-muted-foreground size-4 shrink-0';
+
+    switch (kind) {
+        case 'mobile':
+            return <Smartphone className={className} aria-hidden="true" />;
+        case 'tablet':
+            return <Tablet className={className} aria-hidden="true" />;
+        case 'desktop':
+            return <Monitor className={className} aria-hidden="true" />;
+        case 'robot':
+            return <Bot className={className} aria-hidden="true" />;
+        default:
+            return <MonitorSmartphoneIcon className={className} aria-hidden="true" />;
+    }
+}
+
+/**
+ * What to call the device, in the reader's language.
+ *
+ * The server sends the browser and the platform as separate fields and never the sentence joining
+ * them — "Chrome on Windows" is English, and the word between them is this dictionary's to choose.
+ *
+ * Falls back through what it has: both parts, then whichever one was read, then the raw agent, then
+ * a translated shrug. The raw string is kept as the last resort rather than dropped, because an
+ * agent this build has never seen is still something its owner may recognise.
+ */
+function deviceName(session: SessionSummary, t: <T>(select: (dictionary: Dictionary) => T) => T): string {
+    const { deviceBrowser: browser, devicePlatform: platform } = session;
+
+    if (browser !== null && platform !== null) {
+        return t((d) => d.pages.settingsSecurity.deviceOn)
+            .replace('{browser}', browser)
+            .replace('{platform}', platform);
+    }
+
+    return browser ?? platform ?? session.userAgent ?? t((d) => d.pages.settingsSecurity.unknownDevice);
+}
 
 /**
  * What is signed in as me right now, and how to end it.
@@ -89,6 +137,7 @@ export default function SessionsCard(props: {
                 <p className="note p-4">{t((d) => d.pages.settingsSecurity.noSessions)}</p>
             ) : (
                 <DataTable
+                    stacked
                     head={
                         <>
                             <th>{t((d) => d.pages.settingsSecurity.columns.device)}</th>
@@ -100,19 +149,28 @@ export default function SessionsCard(props: {
                 >
                     {props.sessions.map((session) => (
                         <tr key={session.id}>
-                            <td>
-                                <div className="identity-name">
-                                    {session.userAgent ?? t((d) => d.pages.settingsSecurity.unknownDevice)}
+                            <td className="col-primary">
+                                <div className="flex items-center gap-2">
+                                    {deviceIcon(session.deviceKind)}
+                                    <span className="identity-name">{deviceName(session, t)}</span>
+                                    {session.isCurrent ? (
+                                        <Pill tone="accent">{t((d) => d.pages.settingsSecurity.thisDevice)}</Pill>
+                                    ) : null}
                                 </div>
-                                {session.isCurrent ? (
-                                    <Pill tone="accent">{t((d) => d.pages.settingsSecurity.thisDevice)}</Pill>
-                                ) : null}
                             </td>
-                            <td className="mono">{session.ipAddress ?? '—'}</td>
+                            <td className="mono">
+                                <CellLabel icon={<Globe className="size-3.5" aria-hidden="true" />}>
+                                    {t((d) => d.pages.settingsSecurity.columns.ip)}
+                                </CellLabel>
+                                {session.ipAddress ?? '—'}
+                            </td>
                             <td className="whitespace-nowrap">
+                                <CellLabel icon={<Clock className="size-3.5" aria-hidden="true" />}>
+                                    {t((d) => d.pages.settingsSecurity.columns.lastUsed)}
+                                </CellLabel>
                                 <EventTime iso={session.lastUsedAt} />
                             </td>
-                            <td className="text-right">
+                            <td className="col-actions text-right">
                                 {session.isCurrent ? null : (
                                     <PanelButton
                                         disabled={busy}

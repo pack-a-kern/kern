@@ -1809,6 +1809,7 @@ export const en = {
             noSessions: 'No active sessions.',
             thisDevice: 'this device',
             unknownDevice: 'Unknown device',
+            deviceOn: '{browser} on {platform}',
             revoke: 'End',
             revokeOthers: 'End other sessions',
             sessionRevoked: 'Session ended',

@@ -1648,6 +1648,8 @@ export interface Dictionary {
             noSessions: string;
             thisDevice: string;
             unknownDevice: string;
+            /** `{browser}` and `{platform}` are substituted. The server sends the two parts; this joins them. */
+            deviceOn: string;
             revoke: string;
             revokeOthers: string;
             sessionRevoked: string;

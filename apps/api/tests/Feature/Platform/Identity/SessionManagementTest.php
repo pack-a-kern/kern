@@ -48,6 +48,61 @@ it('lists the current session, marked as current', function (): void {
     expect($sessions[0])->toHaveKeys(['id', 'ip_address', 'user_agent', 'last_used_at', 'created_at']);
 });
 
+/*
+ * The reading the list draws its marks from.
+ *
+ * The raw agent stays in the payload beside it: the reading is deliberately partial — an agent this
+ * build has never seen comes back as nulls rather than as a guess — and the screen falls back to the
+ * string itself rather than to nothing. `DeviceSummaryTest` in the platform package covers the
+ * parsing; what matters here is that it reaches the wire.
+ */
+it('describes each session well enough for the list to draw it', function (): void {
+    $user = loggedInUser($this);
+
+    UserSession::query()->create([
+        'id' => 'a-phone',
+        'user_id' => $user->id,
+        'ip_address' => '10.0.0.3',
+        'user_agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 '
+            . '(KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1',
+        'last_used_at' => now('UTC'),
+        'created_at' => now('UTC'),
+    ]);
+
+    /** @var list<array<string, mixed>> $sessions */
+    $sessions = carryCookiesFrom($this->getJson('/api/v1/auth/sessions')->assertOk())->json('sessions');
+    $phone = collect($sessions)->firstWhere('id', 'a-phone');
+
+    expect($phone)->toBeArray();
+    expect($phone['device_kind'] ?? null)->toBe('mobile')
+        ->and($phone['device_browser'] ?? null)->toBe('Safari')
+        ->and($phone['device_platform'] ?? null)->toBe('iOS')
+        ->and($phone['user_agent'] ?? null)->toBeString();
+});
+
+it('says it does not know, rather than guessing, for an agent it cannot read', function (): void {
+    $user = loggedInUser($this);
+
+    UserSession::query()->create([
+        'id' => 'something-new',
+        'user_id' => $user->id,
+        'ip_address' => '10.0.0.4',
+        'user_agent' => 'Kern-Future-Client/4.0',
+        'last_used_at' => now('UTC'),
+        'created_at' => now('UTC'),
+    ]);
+
+    /** @var list<array<string, mixed>> $sessions */
+    $sessions = carryCookiesFrom($this->getJson('/api/v1/auth/sessions')->assertOk())->json('sessions');
+    $row = collect($sessions)->firstWhere('id', 'something-new');
+
+    expect($row['device_kind'] ?? null)->toBe('unknown')
+        ->and($row['device_browser'] ?? null)->toBeNull()
+        ->and($row['device_platform'] ?? null)->toBeNull()
+        // Kept, so the screen has something true to fall back to.
+        ->and($row['user_agent'] ?? null)->toBe('Kern-Future-Client/4.0');
+});
+
 it('revokes a specific session by id, destroying its underlying session data', function (): void {
     loggedInUser($this);
 

@@ -382,12 +382,25 @@ export function RowList({ children }: { children: ReactNode }): JSX.Element {
 
 export function Row(props: { title: string; subtitle?: string; children: ReactNode }): JSX.Element {
     return (
-        <div className="flex items-center justify-between gap-3 py-[9px] first:pt-0 last:pb-0">
-            <div className="min-w-0">
+        /*
+         * Wraps, and the name is what claims the width.
+         *
+         * The controls used to be `shrink-0` beside a title block that could shrink to nothing, so a
+         * narrow card squeezed the name — the thing the row is *about* — down a letter at a time
+         * while a state pill and a labelled button sat at full width beside it. `flex: 1 1 14rem`
+         * inverts that: the name keeps a readable minimum and the controls take their own line
+         * underneath when both will not fit, which on a phone is most of them.
+         *
+         * `ml-auto` is what keeps them at the right edge on the line they land on, whichever that is.
+         * `items-start` rather than `items-center`, because once a subtitle runs to two lines a
+         * centred control floats in the middle of nothing.
+         */
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-[9px] first:pt-0 last:pb-0">
+            <div className="min-w-0 flex-[1_1_14rem]">
                 <div className="text-xs font-semibold">{props.title}</div>
                 {props.subtitle !== undefined ? <div className="note mt-0.5">{props.subtitle}</div> : null}
             </div>
-            <div className="shrink-0">{props.children}</div>
+            <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">{props.children}</div>
         </div>
     );
 }

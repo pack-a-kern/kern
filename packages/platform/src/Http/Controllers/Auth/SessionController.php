@@ -11,6 +11,7 @@ use Kern\Platform\Identity\Actions\RevokeAllSessions;
 use Kern\Platform\Identity\Actions\RevokeSession;
 use Kern\Platform\Identity\Exceptions\SessionNotFoundException;
 use Kern\Platform\Identity\Models\UserSession;
+use Kern\Platform\Identity\Support\DeviceSummary;
 
 /**
  * `GET /api/v1/auth/sessions`, `DELETE /api/v1/auth/sessions/{id}`,
@@ -30,14 +31,29 @@ final class SessionController
             ->whereNull('revoked_at')
             ->orderByDesc('last_used_at')
             ->get()
-            ->map(static fn (UserSession $session): array => [
-                'id' => $session->id,
-                'ip_address' => $session->ip_address,
-                'user_agent' => $session->user_agent,
-                'last_used_at' => $session->last_used_at->toIso8601String(),
-                'created_at' => $session->created_at->toIso8601String(),
-                'is_current' => $session->id === $currentId,
-            ]);
+            ->map(static function (UserSession $session) use ($currentId): array {
+                /*
+                 * Read for the reader, not for a decision.
+                 *
+                 * A user agent is a string the client picks, so nothing may be concluded from it —
+                 * `DeviceSummary` carries that warning and this is its only caller. The raw string
+                 * stays in the payload beside the reading: when the reading comes back empty, which
+                 * it will for an agent nobody has seen before, the screen still has something to show.
+                 */
+                $device = DeviceSummary::read($session->user_agent);
+
+                return [
+                    'id' => $session->id,
+                    'ip_address' => $session->ip_address,
+                    'user_agent' => $session->user_agent,
+                    'device_kind' => $device->kind->value,
+                    'device_browser' => $device->browser,
+                    'device_platform' => $device->platform,
+                    'last_used_at' => $session->last_used_at->toIso8601String(),
+                    'created_at' => $session->created_at->toIso8601String(),
+                    'is_current' => $session->id === $currentId,
+                ];
+            });
 
         return response()->json(['sessions' => $sessions]);
     }

@@ -169,61 +169,57 @@ export default function SignInMethods(props: {
                         title={t((d) => d.pages.settingsSecurity.passkeys)}
                         subtitle={t((d) => d.pages.settingsSecurity.passkeysHint)}
                     >
-                        <div className="flex items-center gap-2">
-                            {mfa !== null && mfa.passkeysCount > 0 ? (
-                                <Status tone="ok">
-                                    {t((d) => d.pages.settingsSecurity.registered).replace(
-                                        '{count}',
-                                        String(mfa.passkeysCount),
-                                    )}
-                                </Status>
-                            ) : (
-                                <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
-                            )}
-                            <PanelButton
-                                disabled={busy}
-                                onClick={() => {
-                                    void addPasskey();
-                                }}
-                            >
-                                <Plus className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.settingsSecurity.addPasskey)}
-                            </PanelButton>
-                        </div>
+                        {mfa !== null && mfa.passkeysCount > 0 ? (
+                            <Status tone="ok">
+                                {t((d) => d.pages.settingsSecurity.registered).replace(
+                                    '{count}',
+                                    String(mfa.passkeysCount),
+                                )}
+                            </Status>
+                        ) : (
+                            <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
+                        )}
+                        <PanelButton
+                            disabled={busy}
+                            onClick={() => {
+                                void addPasskey();
+                            }}
+                        >
+                            <Plus className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.settingsSecurity.addPasskey)}
+                        </PanelButton>
                     </Row>
                     <Row
                         title={t((d) => d.pages.settingsSecurity.totp)}
                         subtitle={t((d) => d.pages.settingsSecurity.totpHint)}
                     >
-                        <div className="flex items-center gap-2">
-                            {mfa?.totpEnrolled === true ? (
-                                <>
-                                    <Status tone="ok">{t((d) => d.pages.settingsSecurity.active)}</Status>
-                                    <PanelButton
-                                        disabled={busy}
-                                        onClick={() => {
-                                            setDisabling(true);
-                                        }}
-                                    >
-                                        <ShieldOff className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.settingsSecurity.disable)}
-                                    </PanelButton>
-                                </>
-                            ) : (
-                                <>
-                                    <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
-                                    <PanelButton
-                                        disabled={busy}
-                                        onClick={() => {
-                                            void enrolTotp();
-                                        }}
-                                    >
-                                        <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.settingsSecurity.enableTotp)}
-                                    </PanelButton>
-                                </>
-                            )}
-                        </div>
+                        {mfa?.totpEnrolled === true ? (
+                            <>
+                                <Status tone="ok">{t((d) => d.pages.settingsSecurity.active)}</Status>
+                                <PanelButton
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setDisabling(true);
+                                    }}
+                                >
+                                    <ShieldOff className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.settingsSecurity.disable)}
+                                </PanelButton>
+                            </>
+                        ) : (
+                            <>
+                                <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
+                                <PanelButton
+                                    disabled={busy}
+                                    onClick={() => {
+                                        void enrolTotp();
+                                    }}
+                                >
+                                    <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.settingsSecurity.enableTotp)}
+                                </PanelButton>
+                            </>
+                        )}
                     </Row>
                     <Row
                         title={t((d) => d.pages.settingsSecurity.recoveryCodes)}
@@ -233,27 +229,25 @@ export default function SignInMethods(props: {
                                 : t((d) => d.pages.settingsSecurity.recoveryCodesLocked)
                         }
                     >
-                        <div className="flex items-center gap-2">
-                            <Pill tone={mfa !== null && mfa.recoveryCodesRemaining > 0 ? 'neutral' : 'locked'}>
-                                {t((d) => d.pages.settingsSecurity.remaining).replace(
-                                    '{count}',
-                                    String(mfa?.recoveryCodesRemaining ?? 0),
-                                )}
-                            </Pill>
-                            {/* Recovery codes exist only alongside an authenticator app: the
+                        <Pill tone={mfa !== null && mfa.recoveryCodesRemaining > 0 ? 'neutral' : 'locked'}>
+                            {t((d) => d.pages.settingsSecurity.remaining).replace(
+                                '{count}',
+                                String(mfa?.recoveryCodesRemaining ?? 0),
+                            )}
+                        </Pill>
+                        {/* Recovery codes exist only alongside an authenticator app: the
                                 server issues them when TOTP is confirmed and refuses to
                                 regenerate them otherwise. Offering the button regardless
                                 produced a 422 that read as a bug. */}
-                            <PanelButton
-                                disabled={busy || mfa?.totpEnrolled !== true}
-                                onClick={() => {
-                                    void newRecoveryCodes();
-                                }}
-                            >
-                                <RefreshCw className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.settingsSecurity.regenerate)}
-                            </PanelButton>
-                        </div>
+                        <PanelButton
+                            disabled={busy || mfa?.totpEnrolled !== true}
+                            onClick={() => {
+                                void newRecoveryCodes();
+                            }}
+                        >
+                            <RefreshCw className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.settingsSecurity.regenerate)}
+                        </PanelButton>
                     </Row>
                 </RowList>
             </Panel>
