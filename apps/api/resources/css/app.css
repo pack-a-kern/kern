@@ -3023,6 +3023,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 10rem;
 }
 
+/*
+ * A control that gives up its floor so whatever sits beside it fits.
+ *
+ * `.select-trigger` carries `min-width: 155px` — right for a filter row, where a select collapsed to
+ * the width of "All" is unusable — and wrong wherever the control shares a line with a button in a
+ * narrow column, because the button is what gets pushed off the edge.
+ *
+ * A class in the stylesheet rather than Tailwind's `min-w-0 flex-1`: those live in `@layer utilities`
+ * and lose to any unlayered rule setting the same property, which is exactly what `.select-trigger`
+ * is. The utility is applied, it just never wins — the fourth time this has caught me.
+ */
+.ctl-fluid {
+    /*
+     * A floor of 9rem rather than `.select-trigger`'s 155px, and rather than none at all.
+     *
+     * None at all was the first attempt and it is worse than the bug: the control beside it takes its
+     * natural width, this one absorbs every pixel of the shortfall, and a model picker reading "qw…"
+     * is less use than one that overflows. With a floor, a row that cannot hold both wraps instead.
+     */
+    flex: 1 1 9rem;
+    min-width: 9rem;
+}
+
 /* A right-hand detail drawer. One width for all of them, so they read as the same object. */
 .drawer {
     width: 100%;

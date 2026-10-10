@@ -52,6 +52,9 @@ import {
     LinkIcon,
     LockIcon,
     PencilIcon,
+    PlugZap,
+    RefreshCw,
+    RotateCcw,
     ScanLineIcon,
     ServerIcon,
     ShieldCheckIcon,
@@ -353,6 +356,7 @@ export default function AdminSettings(): JSX.Element {
                                 setReloadToken((token) => token + 1);
                             }}
                         >
+                            <RotateCcw className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.adminSettings.retry)}
                         </PanelButton>
                     ) : undefined
@@ -433,10 +437,12 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
         <>
             {props.dirty ? (
                 <PanelButton variant="ghost" onClick={props.onDiscard} disabled={props.saving}>
+                    <RotateCcw className="size-3.5" aria-hidden="true" />
                     {t((d) => d.pages.adminSettings.reset)}
                 </PanelButton>
             ) : null}
             <PanelButton primary onClick={props.onSave} disabled={!props.dirty || props.saving}>
+                <Check className="size-3.5" aria-hidden="true" />
                 {props.saving ? t((d) => d.pages.adminSettings.saving) : t((d) => d.pages.adminSettings.save)}
             </PanelButton>
         </>
@@ -531,6 +537,7 @@ function UploadLimitsPanel(props: {
                             setOpen(true);
                         }}
                     >
+                        <PencilIcon className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.adminSettings.editLimits)}
                     </PanelButton>
                 }
@@ -793,6 +800,7 @@ function AiPanel(props: {
                                 void runTest();
                             }}
                         >
+                            <PlugZap className="size-3.5" aria-hidden="true" />
                             {testing
                                 ? t((d) => d.pages.adminSettings.testing)
                                 : t((d) => d.pages.adminSettings.testConnection)}
@@ -833,10 +841,17 @@ function AiPanel(props: {
                         label={t((d) => d.pages.adminSettings.settingLabels['ai.model'] ?? 'ai.model')}
                         mark={modelSetting ? <SourceMark setting={modelSetting} /> : null}
                     >
-                        <div className="flex gap-1.5">
+                        {/* Wraps: this field is half a column, and a select with a usable width plus
+                            a button with its label does not fit on one line there. Wrapping puts the
+                            button underneath at the narrow sizes and leaves it inline at the wide ones. */}
+                        <div className="flex flex-wrap gap-1.5">
                             {modelOptions.length > 0 ? (
                                 <PanelSelect
                                     id="ai.model"
+                                    /* Gives up `.select-trigger`'s 155px floor, which otherwise keeps
+                                       this select at the width of its longest model name and pushes
+                                       the Load button past the card's edge. */
+                                    className="ctl-fluid"
                                     value={valueOf('ai.model')}
                                     onValueChange={(value) => {
                                         props.onDraft('ai.model', value);
@@ -848,7 +863,7 @@ function AiPanel(props: {
                                 <PanelInput
                                     id="ai.model"
                                     icon={iconForSetting('ai.model', 'string')}
-                                    className="min-w-0 flex-1"
+                                    className="ctl-fluid"
                                     value={valueOf('ai.model')}
                                     onChange={(event) => {
                                         props.onDraft('ai.model', event.target.value);
@@ -864,6 +879,7 @@ function AiPanel(props: {
                                         void loadModels();
                                     }}
                                 >
+                                    <RefreshCw className="size-3.5" aria-hidden="true" />
                                     {loadingModels
                                         ? t((d) => d.pages.adminSettings.ai.loadingModels)
                                         : t((d) => d.pages.adminSettings.ai.loadModels)}
@@ -949,6 +965,7 @@ function AiPanel(props: {
                                             setKeyDialogOpen(true);
                                         }}
                                     >
+                                        <KeyRound className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.adminSettings.ai.replaceKey)}
                                     </PanelButton>
                                 }
@@ -1204,7 +1221,12 @@ function SystemStatusPanel({
             {...(health === 'failed'
                 ? {
                       footNote: t((d) => d.pages.adminSettings.health.unavailable),
-                      footActions: <PanelButton onClick={onRetry}>{t((d) => d.pages.adminSettings.retry)}</PanelButton>,
+                      footActions: (
+                          <PanelButton onClick={onRetry}>
+                              <RotateCcw className="size-3.5" aria-hidden="true" />
+                              {t((d) => d.pages.adminSettings.retry)}
+                          </PanelButton>
+                      ),
                   }
                 : {})}
         >
