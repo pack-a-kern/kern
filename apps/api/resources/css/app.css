@@ -196,9 +196,11 @@
     --primary-foreground: #ffffff;
     --secondary: #f1f4f7;
     --secondary-foreground: #344054;
-    /* The table header's own ground. It is not `--secondary`: in dark that value is the hover
-       grey, one step lighter, and a header lit like a hovered row reads as one. */
-    --table-head: #f1f4f7;
+    /* The ground under a header band — a table's column row and a card's head, which do the same
+       job and so take the same colour rather than two tokens that drift apart.
+       It is not `--secondary`: in dark that value is the hover grey, one step lighter, and a header
+       lit like a hovered row reads as one. */
+    --head: #f1f4f7;
     --muted: #f1f4f7;
     /*
      * Secondary text follows the palette's own `support` colour — that is what a per-palette
@@ -257,7 +259,7 @@
     --primary-foreground: #ffffff;
     --secondary: #33363b;
     --secondary-foreground: #e2e4e7;
-    --table-head: #2f3135;
+    --head: #2f3135;
     --muted: #33363b;
     /* Lifted toward white rather than the ground: on a dark surface `support` neat is too close to
        the background to read at all, which is the opposite failure from the light theme's — and the
@@ -1257,6 +1259,18 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     max-height: 75vh;
 }
 
+/*
+ * A head is a band, and now it is coloured like one.
+ *
+ * It was the card's own white with a rule under it, which on a phone — where a screen is a single
+ * column of cards and nothing else — gave a page with no horizontal structure at all: title, rule,
+ * content, title, rule, content, in one flat white. The same ground a table's column row wears
+ * (`--head`) separates them, and costs no extra ink on a wide screen where the cards already sit
+ * side by side.
+ *
+ * The rule stays. The tint says "this is a head"; the rule says where it ends, and against a tinted
+ * band it is what keeps the edge crisp on a low-contrast display.
+ */
 .panel-head {
     display: flex;
     /* Wraps on a narrow screen: a head is a title beside an action, and on a phone there is room
@@ -1266,8 +1280,14 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    background: var(--head);
     border-bottom: 1px solid var(--border);
     padding: 0.875rem;
+    /* The card's own corners, less its 1px border, so a coloured head does not square off the two
+       corners the card rounds. `overflow: hidden` on `.panel` would do it in one line and would
+       also clip every dropdown and tooltip opened from inside a card, which is not worth two
+       corners. */
+    border-radius: calc(var(--radius-2xl) - 1px) calc(var(--radius-2xl) - 1px) 0 0;
 }
 
 @media (width >= 40rem) {
@@ -1297,6 +1317,9 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     gap: 0.625rem;
 }
 
+/* The card's own white, not `--secondary`: in the light theme `--secondary` and `--head` are the
+   same grey, so once the head was tinted the tile vanished into it. Inverted instead — a light
+   square on the band in light, a darker one in dark — which reads either way round. */
 .panel-head-icon {
     display: grid;
     place-items: center;
@@ -1304,7 +1327,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2rem;
     flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background: var(--secondary);
+    background: var(--card);
     color: var(--muted-foreground);
 }
 
@@ -1813,8 +1836,10 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     padding: 13px 14px;
     background: var(--card);
 }
+/* 11.5px, the size a `.note` is set at, rather than the 10.5px this was: a tile is the first thing
+   read on a page, and its label was smaller than the supporting text in the rows beneath it. */
 .stat-label {
-    font-size: 10.5px;
+    font-size: 11.5px;
     color: var(--muted-foreground);
     margin-bottom: 7px;
 }
@@ -1844,7 +1869,10 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     /* Fluid, because two of these sit side by side at phone width where a seven-digit sum at a fixed size
        runs past the tile. `Intl.NumberFormat` joins figure and currency with a non-breaking space, so the line
        cannot wrap between them however the wrapping is set — it has to fit. */
-    font-size: clamp(13px, 3.6vw, 19px);
+    /* The floor and the ceiling move; the 3.6vw between them does not. That coefficient is what keeps
+       a seven-digit sum inside a half-width tile at phone sizes, and raising it is what would push one
+       back out. */
+    font-size: clamp(14px, 3.6vw, 21px);
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
@@ -2094,9 +2122,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /*
  * The tax's mark — the same tile a card's own head wears.
  *
- * Geometry and ground from `.panel-head-icon`: 2rem at `radius-xl` on `--secondary`. This rule was deleted by
- * accident when the collapsing was taken out, which left the icon with an inline background and no size,
- * radius or centering — a tinted square drawn around a glyph, which is exactly what it looked like.
+ * Geometry from `.panel-head-icon`: 2rem at `radius-xl`. The ground parts company with it — that tile sits
+ * on the head's tint and so wears the card's white, while this one sits on the card body and keeps
+ * `--secondary`, which is the same inversion read from the other side. This rule was deleted by accident
+ * when the collapsing was taken out, which left the icon with an inline background and no size, radius or
+ * centering — a tinted square drawn around a glyph, which is exactly what it looked like.
  *
  * Only the glyph takes the tax's colour, and that is what ties it to its slice of the ring. The coloured
  * ground belongs to the money badge beside it, where a figure wants the weight.
@@ -2474,7 +2504,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     text-align: left;
     color: var(--secondary-foreground);
     font-weight: 700;
-    background: var(--table-head);
+    background: var(--head);
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
@@ -2565,15 +2595,35 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
 
     /*
+     * Alternating grounds, which a stacked row needs and a real table does not.
+     *
+     * A wide table separates its rows with columns: the eye follows a line of cells that all start at the
+     * same x, and the rule under each row only confirms where it ended. Stacked, there are no columns —
+     * every row is a paragraph of wrapped label/value pairs, two or three lines tall, and a 1px rule
+     * between two of them is the only thing saying which line belongs to which record. On a phone, which
+     * is where this layout is the only layout, that is not enough.
+     *
+     * Before `:hover` on purpose. The two carry the same weight, so the later rule wins, and hovering a
+     * tinted row must still show it is hovered.
+     */
+    .data-table-stack tbody tr:nth-child(even) {
+        background: color-mix(in oklab, var(--muted) 60%, transparent);
+    }
+
+    /*
      * The row takes the hover, not its cells.
      *
      * `.data-table tbody tr:hover td` paints each cell, which is right for a real table: the cells tile the
      * row edge to edge and the result is one band. A stacked row is a flex container with an 8px gap and its
      * own padding, so painting the cells lights a handful of disconnected blocks with gaps between them and
      * a margin of unpainted row around the outside.
+     *
+     * Full strength rather than the 45% it was, so it reads as hovered on a striped row as well as a plain
+     * one. Only a pointer ever sees this — the layout it belongs to appears below 40rem, where there is
+     * usually a finger instead — but a desktop window dragged narrow is still a real window.
      */
     .data-table-stack tbody tr:hover {
-        background: color-mix(in oklab, var(--muted) 45%, transparent);
+        background: var(--muted);
     }
 
     .data-table-stack tbody tr:hover td {
@@ -3596,6 +3646,27 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
    the active-row treatment elsewhere. */
 .data-table tbody tr.row-selected td {
     background: color-mix(in srgb, var(--brand-500) 5%, var(--card));
+}
+
+/*
+ * The same selection, on a stacked row, for the reason hover is painted there too: a stacked row's
+ * cells do not tile it, so painting them lights disconnected blocks with unpainted gaps between.
+ *
+ * Here rather than up in the stacking block, which comes earlier in this file: the rule above and
+ * this one carry identical weight, so whichever is written last wins, and the override has to be
+ * the one that is.
+ *
+ * Stronger than the 5% a wide table uses, because this row may be a striped one — at 5% a selected
+ * even row would come out paler than its unselected neighbours and read as the less important of
+ * the two.
+ */
+@media (width < 40rem) {
+    .data-table-stack tbody tr.row-selected {
+        background: color-mix(in srgb, var(--brand-500) 12%, var(--card));
+    }
+    .data-table-stack tbody tr.row-selected td {
+        background: transparent;
+    }
 }
 
 .dark .data-table tbody tr.row-selected td {

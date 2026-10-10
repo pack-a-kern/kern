@@ -1442,11 +1442,14 @@ export function Kpi(props: {
 }): JSX.Element {
     return (
         <div className="border-border bg-card shadow-hair rounded-xl border p-4">
-            <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
+            {/* A step up from `text-xs`: these tiles are the first thing read on a page and were set
+                at the size of a table's supporting text, which made the label harder to read than
+                the rows underneath it. */}
+            <div className="text-muted-foreground flex items-center gap-2.5 text-[13px]">
                 <IconBadge tone={props.tone}>{props.icon}</IconBadge>
                 {props.label}
             </div>
-            <div className="mt-3 text-xl font-bold tracking-tight tabular-nums">{props.value}</div>
+            <div className="mt-3 text-2xl font-bold tracking-tight tabular-nums">{props.value}</div>
             {props.sub === undefined || props.sub === '' ? null : <div className="note mt-1">{props.sub}</div>}
         </div>
     );
