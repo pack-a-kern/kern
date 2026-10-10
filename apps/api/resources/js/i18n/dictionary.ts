@@ -12,7 +12,6 @@ import type { PaletteName } from '../lib/palette';
 export interface Dictionary {
     nav: {
         dashboard: string;
-        walletGroup: string;
         wallet: string;
         walletAccounts: string;
         walletTransactions: string;
@@ -21,7 +20,7 @@ export interface Dictionary {
         walletImports: string;
         walletReports: string;
         rentals: string;
-        taxesGroup: string;
+        analysis: string;
         taxes: string;
         legislation: string;
         spv: string;
@@ -34,6 +33,8 @@ export interface Dictionary {
         adminOperations: string;
         adminJobs: string;
         adminAudit: string;
+        /** The bands the sidebar groups its destinations into. */
+        sections: { records: string; fiscal: string; connections: string; system: string };
     };
     shell: {
         appTagline: string;

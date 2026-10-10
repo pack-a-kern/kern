@@ -25,7 +25,7 @@ import {
     UsersRound,
     Wallet,
 } from 'lucide-react';
-import { useEffect, useState, type JSX, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type JSX, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { logout } from '../api/authApi';
 import { listNotifications, markAllNotificationsRead } from '../api/notificationsApi';
@@ -70,49 +70,86 @@ interface NavLink {
 }
 
 /**
- * The single source of truth for the sidebar's structure. Every route here has a matching entry in
- * `routes/web.php` (`docs/handoff/040-ui-foundation.md` "Routes"), either a real screen or
- * Nothing in this list is a dead link. `Documente` keeps the pre-existing,
- * already-verified `/documents` English slug rather than a `/documente` duplicate.
+ * The sidebar's structure, as the destinations it is assembled from. `NAV_SECTIONS` further down
+ * puts them in order; these say what each one holds and why.
  *
- * Documents sits *inside* Portofel rather than beside it. A receipt is a transaction, a bank
- * statement is a page of transactions, a deposit contract is an account — a document is evidence
- * for a wallet record, not a parallel filing cabinet, and putting it a level up made the two look
- * like unrelated features (which is exactly how they had been built).
+ * Every route named here has a matching entry in `routes/web.php`
+ * (`docs/handoff/040-ui-foundation.md` "Routes"), so nothing in the menu is a dead link. `Documente`
+ * keeps the pre-existing, already-verified `/documents` English slug rather than adding a
+ * `/documente` duplicate.
  *
- * There is no `Capturare` entry any more. Adding a document is an action taken from the list you
- * are already looking at, so it is a button and a dialog on `/documents`, not a separate
- * destination you navigate to and then navigate back from.
+ * The one row that is not a kind of work, and so belongs to no band.
  */
-const MAIN_ITEMS: NavLink[] = [
-    { href: '/dashboard', label: (d) => d.nav.dashboard, icon: LayoutDashboard },
-    {
-        id: 'wallet',
-        label: (d) => d.nav.wallet,
-        icon: Wallet,
-        children: [
-            { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
-            { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
-            { href: '/wallet/counterparties', label: (d) => d.nav.walletCounterparties, icon: UsersRound },
-            { href: '/wallet/imports', label: (d) => d.nav.walletImports, icon: FileSpreadsheet },
-            { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
-            { href: '/documents', label: (d) => d.nav.documents, icon: Files },
-        ],
-    },
-    { href: '/rentals', label: (d) => d.nav.rentals, icon: Building2 },
-    // Everything about the tax in one place: what is owed, why, the declaration it goes on, and the
-    // rules — the values from the law — it is computed from.
-    {
-        href: '/taxes',
-        label: (d) => d.nav.taxes,
-        icon: Calculator,
-        children: [
-            { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
-        ],
-    },
-    { href: '/legislation', label: (d) => d.nav.legislation, icon: Gavel },
-    { href: '/spv', label: (d) => d.nav.spv, icon: Landmark },
-];
+const DASHBOARD_ITEM: NavLink = { href: '/dashboard', label: (d) => d.nav.dashboard, icon: LayoutDashboard };
+
+/**
+ * What the taxpayer has: the sources, what moved through them, and the paper behind it.
+ *
+ * Rentals belongs here rather than beside it. A rental is a source of income with a contract — the
+ * same kind of thing as an account, read the same way — and standing it at the top level implied the
+ * product had two parallel ideas of where money comes from.
+ *
+ * Documents sits inside for the same reason. A receipt is a transaction, a bank statement is a page
+ * of transactions, a deposit contract is an account — a document is evidence for a record, not a
+ * parallel filing cabinet, and putting it a level up made the two look like unrelated features
+ * (which is exactly how they had been built).
+ *
+ * There is no `Capturare` entry. Adding a document is an action taken from the list you are already
+ * looking at, so it is a button and a dialog on `/documents`, not a destination you navigate to and
+ * then navigate back from.
+ */
+const RECORDS_GROUP: NavLink = {
+    id: 'wallet',
+    label: (d) => d.nav.wallet,
+    icon: Wallet,
+    children: [
+        { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
+        { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
+        { href: '/wallet/counterparties', label: (d) => d.nav.walletCounterparties, icon: UsersRound },
+        { href: '/wallet/imports', label: (d) => d.nav.walletImports, icon: FileSpreadsheet },
+        { href: '/rentals', label: (d) => d.nav.rentals, icon: Building2 },
+        { href: '/documents', label: (d) => d.nav.documents, icon: Files },
+    ],
+};
+
+/**
+ * What those records add up to: the tax, and the figures it is read against.
+ *
+ * The reports moved out of the wallet to sit here. They answer "is this complete enough to compute
+ * from" — data quality, completeness, what needs attention — which is a question about the tax, not
+ * about bookkeeping, and the answer is worth nothing on the other side of the menu from the number
+ * it qualifies.
+ */
+const ANALYSIS_GROUP: NavLink = {
+    id: 'analysis',
+    label: (d) => d.nav.analysis,
+    icon: ChartColumn,
+    children: [
+        { href: '/taxes', label: (d) => d.nav.taxes, icon: Calculator },
+        { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
+    ],
+};
+
+/**
+ * The law, and the numbers it sets.
+ *
+ * The rules used to hang off `Impozite`, one level away from the texts they are read out of. They
+ * are the same subject: an act says 10%, the rule holds 10%, and changing one without the other is
+ * the mistake this pairing is meant to make obvious. The address stays `/taxes/rules` — a menu is
+ * free to disagree with a URL, and moving it would break every link already written down.
+ */
+const LEGISLATION_GROUP: NavLink = {
+    href: '/legislation',
+    label: (d) => d.nav.legislation,
+    icon: Gavel,
+    children: [
+        { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
+    ],
+};
+
+/* Everything the installation talks to on the taxpayer's behalf. SPV is the only one today, and the
+   page's own words are already these: it speaks of a connection, of revoking one, of its sync runs. */
+const CONNECTION_ITEMS: NavLink[] = [{ href: '/spv', label: (d) => d.nav.spv, icon: Landmark }];
 
 /* The account has a page of its own *and* a child, the way `Impozite` does: taxpayers belong to an
    account, so the row navigates and the chevron folds the child in. */
@@ -150,6 +187,23 @@ const ADMIN_GROUP: NavLink = {
         },
     ],
 };
+
+/**
+ * The sidebar in bands, each named for the question it answers.
+ *
+ * TEST — this replaces a deliberately flat list. The note that stood here said headings had made
+ * the sidebar "a page of its own to read", which is the thing to judge: whether three words of
+ * grey earn their line, or whether the folds alone were already enough. Revert is one commit.
+ *
+ * The dashboard leads with no heading of its own: it is the one row that is not a kind of work.
+ */
+const NAV_SECTIONS: Array<{ id: string; heading?: (d: Dictionary) => string; items: NavLink[] }> = [
+    { id: 'home', items: [DASHBOARD_ITEM] },
+    { id: 'records', heading: (d) => d.nav.sections.records, items: [RECORDS_GROUP] },
+    { id: 'fiscal', heading: (d) => d.nav.sections.fiscal, items: [ANALYSIS_GROUP, LEGISLATION_GROUP] },
+    { id: 'connections', heading: (d) => d.nav.sections.connections, items: CONNECTION_ITEMS },
+    { id: 'system', heading: (d) => d.nav.sections.system, items: [ACCOUNT_GROUP, AUDIT_ITEM, ADMIN_GROUP] },
+];
 
 function isActive(currentUrl: string, href: string): boolean {
     return currentUrl === href || currentUrl.startsWith(`${href}/`);
@@ -435,7 +489,10 @@ function NavRow({
                 link
             )}
             {!collapsed && open && hasChildren && (
-                <ul className="mt-0.5 space-y-0.5 pl-6">
+                /* A rail down the children, so a fold reads as one branch rather than four rows that
+                   happen to be indented. The indent is the rail's offset plus `pl-3`, which is what
+                   the active child's mark is positioned against in `app.css`. */
+                <ul className="border-border mt-0.5 ml-[1.125rem] space-y-0.5 border-l pl-3">
                     {children.map((child) => {
                         const childActive = isActive(currentUrl, child.href);
                         const ChildIcon = child.icon;
@@ -517,16 +574,23 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
     const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
     const permissions = useSharedAuth()?.user.permissions ?? [];
-    const items = [...MAIN_ITEMS, ACCOUNT_GROUP, AUDIT_ITEM, ...(ADMIN_UI_ENABLED ? [ADMIN_GROUP] : [])].map((item) =>
-        item.children === undefined
+
+    /** What this account may actually open — a child it has no permission for is not drawn at all. */
+    function visible(item: NavLink): NavLink {
+        return item.children === undefined
             ? item
             : {
                   ...item,
                   children: item.children.filter(
                       (child) => child.permission === undefined || permissions.includes(child.permission),
                   ),
-              },
-    );
+              };
+    }
+
+    const sections = NAV_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED).map(visible),
+    })).filter((section) => section.items.length > 0);
 
     function isOpen(item: NavLink): boolean {
         const key = groupKey(item);
@@ -545,26 +609,88 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
             aria-label={t((d) => d.nav.dashboard)}
             className="scroll-hairline flex flex-1 flex-col overflow-y-auto px-2.5 pt-1 pb-3"
         >
-            {/* One list, no section headings. The sidebar holds every destination in the app, and
-                headings made it a page of its own to read; collapsing instead means only the part
-                you are working in is expanded, and the rest is four rows rather than fourteen. */}
-            <ul className="space-y-0.5">
-                {items.map((item) => (
-                    <NavRow
-                        key={groupKey(item)}
-                        item={item}
-                        collapsed={collapsed}
-                        currentUrl={currentUrl}
-                        open={isOpen(item)}
-                        onToggle={() => {
-                            const key = groupKey(item);
+            {sections.map((section) => (
+                <Fragment key={section.id}>
+                    {/* A dashed rule, which is what this interface already means by "these belong
+                        apart but not to different pages" — the stacked tables draw the same line
+                        between a card's labelled pairs. Solid would read as the end of something.
 
-                            setOverrides((current) => ({ ...current, [key]: !isOpen(item) }));
-                        }}
-                    />
-                ))}
-            </ul>
+                        The first band is the dashboard alone and needs neither line nor name. A
+                        rail-collapsed sidebar keeps the line and drops the words: at 64px there is
+                        no room to read one, and the rule alone still groups the icons. */}
+                    {section.heading !== undefined && (
+                        <div
+                            className={cn(
+                                'border-border text-ink-400 mt-3 border-t border-dashed px-2.5 text-[10px] font-bold tracking-[0.12em] uppercase',
+                                collapsed ? 'mb-1' : 'pt-2 pb-1',
+                            )}
+                        >
+                            {!collapsed && t(section.heading)}
+                        </div>
+                    )}
+                    <ul className="space-y-0.5">
+                        {section.items.map((item) => (
+                            <NavRow
+                                key={groupKey(item)}
+                                item={item}
+                                collapsed={collapsed}
+                                currentUrl={currentUrl}
+                                open={isOpen(item)}
+                                onToggle={() => {
+                                    const key = groupKey(item);
+
+                                    setOverrides((current) => ({ ...current, [key]: !isOpen(item) }));
+                                }}
+                            />
+                        ))}
+                    </ul>
+                </Fragment>
+            ))}
         </nav>
+    );
+}
+
+/** The product's mark and name, as the sidebar and the phone drawer both open with. */
+function SidebarBrand(): JSX.Element {
+    const { t } = useTranslation();
+    const appName = useAppName();
+
+    return (
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="bg-ink-950 dark:bg-white dark:text-ink-950 grid size-8 shrink-0 place-items-center rounded-[10px] text-[11px] font-bold text-white shadow-sm">
+                T
+            </div>
+            <div className="min-w-0">
+                <div className="truncate text-[13px] font-semibold tracking-[-.02em]">{appName}</div>
+                <div className="text-ink-400 truncate text-[10px]">{t((d) => d.shell.appTagline)}</div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Everything under the sidebar's header: where you can go, what is due, and whose affairs you are
+ * looking at.
+ *
+ * One component because the phone drawer is the same sidebar, not a reduced copy of it. It used to
+ * be a copy, and the copy had drifted: the drawer held the navigation alone, so a phone had no way
+ * to change taxpayer at all — the control exists once, here, and the aside that held it is hidden
+ * below 1024px. A card of empty white under the last menu row was the visible half of that.
+ */
+function SidebarBody({ collapsed, currentUrl }: { collapsed: boolean; currentUrl: string }): JSX.Element {
+    return (
+        <>
+            <SidebarNav collapsed={collapsed} currentUrl={currentUrl} />
+
+            {/* The subject switcher lives at the foot of the sidebar, not in the header. Which
+                taxpayer you are working on frames everything on the page, so it belongs with the
+                navigation it scopes rather than among the appearance controls. */}
+            {!collapsed && <FiscalSnapshot />}
+
+            <div className={cn('border-border border-t', collapsed ? 'p-2' : 'p-2.5')}>
+                <SubjectSwitcher collapsed={collapsed} />
+            </div>
+        </>
     );
 }
 
@@ -641,21 +767,7 @@ export default function AppShell({
                     )}
                 >
                     <div className="flex h-14 items-center gap-2 px-3">
-                        {!collapsed && (
-                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                                <div className="bg-ink-950 dark:bg-white dark:text-ink-950 grid size-8 shrink-0 place-items-center rounded-[10px] text-[11px] font-bold text-white shadow-sm">
-                                    T
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="truncate text-[13px] font-semibold tracking-[-.02em]">
-                                        {appName}
-                                    </div>
-                                    <div className="text-ink-400 truncate text-[10px]">
-                                        {t((d) => d.shell.appTagline)}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {!collapsed && <SidebarBrand />}
                         <button
                             type="button"
                             className="focus-ring border-border dark:bg-card ml-auto grid size-8 place-items-center rounded-lg border bg-white text-slate-500 hover:bg-slate-50 dark:hover:bg-[#33363B]"
@@ -666,16 +778,7 @@ export default function AppShell({
                         </button>
                     </div>
 
-                    <SidebarNav collapsed={collapsed} currentUrl={url} />
-
-                    {/* The subject switcher lives at the foot of the sidebar, not in the header. Which
-                    taxpayer you are working on frames everything on the page, so it belongs with the
-                    navigation it scopes rather than among the appearance controls. */}
-                    {!collapsed && <FiscalSnapshot />}
-
-                    <div className={cn('border-border border-t', collapsed ? 'p-2' : 'p-2.5')}>
-                        <SubjectSwitcher collapsed={collapsed} />
-                    </div>
+                    <SidebarBody collapsed={collapsed} currentUrl={url} />
                 </aside>
 
                 {/* `min-w-0` is load-bearing: this is a flex item on a horizontal main axis, so its default
@@ -694,11 +797,24 @@ export default function AppShell({
                                     <Menu className="size-5" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-72 p-0">
-                                <SheetHeader className="h-[58px] justify-center border-b border-border">
-                                    <SheetTitle>{appName}</SheetTitle>
+                            {/* `gap-0`: the sheet spaces its children by default, which left a band of
+                                nothing between the header's rule and the first menu row. The parts
+                                below carry their own spacing, as they do in the sidebar. */}
+                            {/* The sidebar's own width, so the drawer is that sidebar and not a wider
+                                relative of it. Stated through the same `data-[side=left]:` variant the
+                                sheet uses for its default `w-3/4`: a plain `w-[272px]` is one class
+                                against a class *and* an attribute, so it loses and never applied — on
+                                a tablet that default is 615px of menu over the page it belongs to. */}
+                            <SheetContent side="left" className="shell-surface gap-0 p-0 data-[side=left]:w-[272px]">
+                                {/* The same height as the sidebar's header and the page's, so the
+                                    drawer's rule continues the topbar's instead of cutting across it.
+                                    The title is the accessible name Radix requires; the mark beside
+                                    it is what the eye reads, so the words are not drawn twice. */}
+                                <SheetHeader className="border-border h-14 justify-center border-b p-0 px-3">
+                                    <SheetTitle className="sr-only">{appName}</SheetTitle>
+                                    <SidebarBrand />
                                 </SheetHeader>
-                                <SidebarNav collapsed={false} currentUrl={url} />
+                                <SidebarBody collapsed={false} currentUrl={url} />
                             </SheetContent>
                         </Sheet>
 

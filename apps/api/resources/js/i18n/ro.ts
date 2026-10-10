@@ -3,7 +3,6 @@ import type { Dictionary } from './dictionary';
 export const ro = {
     nav: {
         dashboard: 'Panou',
-        walletGroup: 'Portofel',
         wallet: 'Portofel',
         walletAccounts: 'Conturi',
         walletTransactions: 'Tranzacții',
@@ -12,7 +11,7 @@ export const ro = {
         walletImports: 'Import extrase',
         walletReports: 'Rapoarte',
         rentals: 'Chirii',
-        taxesGroup: 'Impozite',
+        analysis: 'Analiză',
         taxes: 'Impozite',
         legislation: 'Legislație',
         spv: 'SPV',
@@ -25,6 +24,12 @@ export const ro = {
         adminOperations: 'Sarcini programate',
         adminJobs: 'Coadă',
         adminAudit: 'Audit',
+        sections: {
+            records: 'Evidență',
+            fiscal: 'Fiscal',
+            connections: 'Conexiuni',
+            system: 'Cont și sistem',
+        },
     },
     shell: {
         appTagline: 'Sistem de operare fiscal',

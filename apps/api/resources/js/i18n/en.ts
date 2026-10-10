@@ -3,7 +3,6 @@ import type { Dictionary } from './dictionary';
 export const en = {
     nav: {
         dashboard: 'Dashboard',
-        walletGroup: 'Wallet',
         wallet: 'Wallet',
         walletAccounts: 'Accounts',
         walletTransactions: 'Transactions',
@@ -12,7 +11,7 @@ export const en = {
         walletImports: 'Statement imports',
         walletReports: 'Reports',
         rentals: 'Rentals',
-        taxesGroup: 'Taxes',
+        analysis: 'Analysis',
         taxes: 'Taxes',
         legislation: 'Legislation',
         spv: 'SPV',
@@ -25,6 +24,12 @@ export const en = {
         adminOperations: 'Scheduled tasks',
         adminJobs: 'Queue',
         adminAudit: 'Audit',
+        sections: {
+            records: 'Records',
+            fiscal: 'Tax',
+            connections: 'Connections',
+            system: 'Account & system',
+        },
     },
     shell: {
         appTagline: 'Fiscal operating system',

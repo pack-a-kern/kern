@@ -1090,6 +1090,20 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     font-size: 13px;
 }
 
+/*
+ * The active child's mark sits *on* the rail its list is drawn against, rather than in a gutter of
+ * its own a few pixels to the left of its fill.
+ *
+ * At the shared `-0.25rem` it landed between the rail and the row — touching neither, reading as a
+ * tick someone had left behind instead of as this row being the one you are on. The offset is the
+ * child list's own left padding, so the two line up by construction: change the indent and the mark
+ * follows it.
+ */
+.nav-item.nav-item-child[aria-current='page']::before {
+    left: calc(-0.75rem - 1px);
+    height: 1.375rem;
+}
+
 /* A header control: the language, palette, theme and account buttons. A bordered 32px tile on the
    shell surface rather than a bare ghost button, so the cluster reads as one group of controls. */
 .shell-control {
