@@ -331,8 +331,14 @@ export default function SubjectsPage(): JSX.Element {
                                         {/* Saved on change: one value, nothing to validate it
                                             against, and a Save button beside a single select is
                                             ceremony. Only an owner may change it. */}
+                                        {/* `select-compact`, not a width. A width here was doing
+                                            nothing: `.select-trigger` sets `width: 100%` unlayered,
+                                            and an unlayered rule beats a Tailwind utility whatever
+                                            the specificity — so `w-24` never applied and the select
+                                            filled the stacked row. `.select-compact` is the class
+                                            written for this, and its comment names a currency. */}
                                         <PanelSelect
-                                            className="w-24 sm:w-28"
+                                            className="select-compact"
                                             aria-label={t((d) => d.pages.settingsSubjects.columns.currency)}
                                             value={subject.displayCurrency}
                                             disabled={
