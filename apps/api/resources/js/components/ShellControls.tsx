@@ -97,7 +97,7 @@ export function PaletteMenu(): JSX.Element {
                                 <span className="block truncate font-medium">
                                     {t((d) => d.shell.paletteNames)[name]}
                                 </span>
-                                <span className="text-muted-foreground block truncate text-[10px]">
+                                <span className="text-muted-foreground block truncate text-2xs">
                                     {t((d) => d.shell.paletteDescriptions)[name]}
                                 </span>
                             </span>

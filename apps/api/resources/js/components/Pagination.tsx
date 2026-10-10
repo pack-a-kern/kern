@@ -73,7 +73,7 @@ export default function Pagination(props: {
 
     return (
         <>
-            <div className="text-muted-foreground flex items-center justify-between gap-3 text-[10px] sm:justify-start">
+            <div className="text-muted-foreground flex items-center justify-between gap-3 text-2xs sm:justify-start">
                 <span className="tabular-nums">
                     {t((d) => d.pagination.range)
                         .replace('{first}', format(first))
@@ -94,7 +94,7 @@ export default function Pagination(props: {
                                 onChange={(event) => {
                                     props.onPageSizeChange?.(Number(event.target.value));
                                 }}
-                                className="border-border bg-card text-muted-foreground h-7 rounded-lg border px-2 text-[10px] font-semibold"
+                                className="border-border bg-card text-muted-foreground h-7 rounded-lg border px-2 text-2xs font-semibold"
                             >
                                 {PAGE_SIZES.map((size) => (
                                     <option key={size} value={size}>

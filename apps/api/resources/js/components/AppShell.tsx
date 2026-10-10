@@ -330,7 +330,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                     {unread > 0 && (
                         <button
                             type="button"
-                            className="text-accent-600 hover:text-accent-700 text-[11px] font-semibold"
+                            className="text-accent-600 hover:text-accent-700 text-xs font-semibold"
                             onClick={markAllRead}
                         >
                             {t((d) => d.shell.markAllRead)}
@@ -339,7 +339,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                 </div>
                 <div className="max-h-[360px] overflow-y-auto p-1.5">
                     {notices.length === 0 && (
-                        <p className="text-ink-400 px-2 py-3 text-[11px] leading-4">
+                        <p className="text-ink-400 px-2 py-3 text-xs leading-4">
                             {failed ? t((d) => d.shell.notificationsFailed) : t((d) => d.shell.notificationsEmpty)}
                         </p>
                     )}
@@ -367,9 +367,9 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                                 />
                                 <span className="min-w-0">
                                     <span className="block text-xs font-semibold">{text.title}</span>
-                                    <span className="text-ink-400 mt-0.5 block text-[11px] leading-4">{text.body}</span>
+                                    <span className="text-ink-400 mt-0.5 block text-xs leading-4">{text.body}</span>
                                     {notice.createdAt !== null && (
-                                        <span className="text-ink-400 mt-0.5 block text-[10px] tabular-nums">
+                                        <span className="text-ink-400 mt-0.5 block text-2xs tabular-nums">
                                             {formatDateTime(notice.createdAt, locale)}
                                         </span>
                                     )}
@@ -390,7 +390,7 @@ function UserMenu(): JSX.Element {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button type="button" className="shell-control px-1.5 pr-2" aria-label={t((d) => d.shell.account)}>
-                    <span className="bg-secondary text-secondary-foreground grid size-6 place-items-center rounded-lg text-[10px] font-bold">
+                    <span className="bg-secondary text-secondary-foreground grid size-6 place-items-center rounded-lg text-2xs font-bold">
                         <Users className="size-3.5" aria-hidden="true" />
                     </span>
                     <ChevronDown className="text-muted-foreground size-3" aria-hidden="true" />
@@ -532,10 +532,10 @@ function FiscalSnapshot(): JSX.Element {
     return (
         <div className="border-border mx-2.5 mt-4 mb-3 rounded-xl border bg-[#F8FAFC] p-2.5 dark:bg-[#2A2C30]">
             <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground text-[9px] font-bold tracking-[0.12em] uppercase">
+                <span className="text-muted-foreground text-2xs font-bold tracking-[0.12em] uppercase">
                     {t((d) => d.shell.fiscalSnapshot)}
                 </span>
-                <span className="shadow-hair text-ink-500 dark:text-ink-400 rounded-md bg-white px-1.5 py-0.5 text-[9px] font-semibold dark:bg-[#202225]">
+                <span className="shadow-hair text-ink-500 dark:text-ink-400 rounded-md bg-white px-1.5 py-0.5 text-2xs font-semibold dark:bg-[#202225]">
                     {SNAPSHOT_PLACEHOLDER.period}
                 </span>
             </div>
@@ -544,7 +544,7 @@ function FiscalSnapshot(): JSX.Element {
                     <div className="text-xs font-semibold">
                         {t((d) => d.shell.obligationCount).replace('{count}', String(SNAPSHOT_PLACEHOLDER.obligations))}
                     </div>
-                    <div className="text-muted-foreground mt-0.5 text-[10px]">
+                    <div className="text-muted-foreground mt-0.5 text-2xs">
                         {t((d) => d.shell.nextDeadline).replace('{date}', SNAPSHOT_PLACEHOLDER.nextDeadline)}
                     </div>
                 </div>
@@ -621,7 +621,7 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
                     {section.heading !== undefined && (
                         <div
                             className={cn(
-                                'border-border text-ink-400 mt-3 border-t border-dashed px-2.5 text-[10px] font-bold tracking-[0.12em] uppercase',
+                                'border-border text-ink-400 mt-3 border-t border-dashed px-2.5 text-2xs font-bold tracking-[0.12em] uppercase',
                                 collapsed ? 'mb-1' : 'pt-2 pb-1',
                             )}
                         >
@@ -657,12 +657,12 @@ function SidebarBrand(): JSX.Element {
 
     return (
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div className="bg-ink-950 dark:bg-white dark:text-ink-950 grid size-8 shrink-0 place-items-center rounded-[10px] text-[11px] font-bold text-white shadow-sm">
+            <div className="bg-ink-950 dark:bg-white dark:text-ink-950 grid size-8 shrink-0 place-items-center rounded-[10px] text-xs font-bold text-white shadow-sm">
                 T
             </div>
             <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold tracking-[-.02em]">{appName}</div>
-                <div className="text-ink-400 truncate text-[10px]">{t((d) => d.shell.appTagline)}</div>
+                <div className="truncate text-sm font-semibold tracking-[-.02em]">{appName}</div>
+                <div className="text-ink-400 truncate text-2xs">{t((d) => d.shell.appTagline)}</div>
             </div>
         </div>
     );
@@ -821,11 +821,11 @@ export default function AppShell({
                         {/* The page says what it is; the shell does not repeat the product name on every
                         screen. */}
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-ink-950 truncate text-[16px] leading-5 font-semibold tracking-[-0.035em] sm:text-[18px] dark:text-white">
+                            <h1 className="text-ink-950 truncate text-base leading-5 font-semibold tracking-[-0.035em] sm:text-lg dark:text-white">
                                 {header?.title ?? title ?? appName}
                             </h1>
                             {(header?.description ?? description) !== undefined && (
-                                <p className="mt-0.5 hidden truncate text-[11px] leading-4 font-medium text-[#7C8592] sm:block dark:text-[#B5B9C0]">
+                                <p className="mt-0.5 hidden truncate text-xs leading-4 font-medium text-[#7C8592] sm:block dark:text-[#B5B9C0]">
                                     {header?.description ?? description}
                                 </p>
                             )}

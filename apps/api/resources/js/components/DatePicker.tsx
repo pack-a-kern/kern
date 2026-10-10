@@ -523,7 +523,7 @@ export function DatePicker(props: DatePickerProps) {
                                         onClick={clear}
                                         className={[
                                             'font-semibold text-accent-600 hover:text-accent-700',
-                                            'text-[10px]',
+                                            'text-2xs',
                                         ].join(' ')}
                                     >
                                         Clear
@@ -543,11 +543,11 @@ export function DatePicker(props: DatePickerProps) {
                                             className={[
                                                 'flex w-full items-center justify-between gap-3 rounded-lg text-left font-semibold',
                                                 'text-ink-700 hover:bg-secondary',
-                                                'px-2.5 py-2 text-[10px]',
+                                                'px-2.5 py-2 text-2xs',
                                             ].join(' ')}
                                         >
                                             <span>{preset.label}</span>
-                                            <span className="text-[9px] font-medium text-ink-400">
+                                            <span className="text-2xs font-medium text-ink-400">
                                                 {typeof preset.description === 'function'
                                                     ? preset.description(today)
                                                     : (preset.description ?? presetDescription(preset, today, locale))}
@@ -639,7 +639,7 @@ export function DatePicker(props: DatePickerProps) {
                                                 key={day}
                                                 className={[
                                                     'grid place-items-center font-bold uppercase text-ink-400',
-                                                    'h-6 text-[9px]',
+                                                    'h-6 text-2xs',
                                                 ].join(' ')}
                                             >
                                                 {day}
@@ -678,7 +678,7 @@ export function DatePicker(props: DatePickerProps) {
                                                     }}
                                                     className={[
                                                         'relative grid place-items-center font-medium transition-colors',
-                                                        'h-[34px] rounded-[9px] text-[11px]',
+                                                        'h-[34px] rounded-[9px] text-xs',
                                                         day.inCurrentMonth ? 'text-ink-700' : 'text-ink-400',
                                                         /*
                                                          * An end of the range is *also* inside it, so it used to
@@ -758,7 +758,7 @@ export function DatePicker(props: DatePickerProps) {
                                 'px-3 py-2.5',
                             ].join(' ')}
                         >
-                            <span className={'text-[10px] text-ink-500'}>
+                            <span className={'text-2xs text-ink-500'}>
                                 {draftFormatted ||
                                     (props.mode === 'range' ? 'No date range selected' : 'No date selected')}
                             </span>
@@ -928,7 +928,7 @@ function MonthGrid({
 function selectorClass(active: boolean, allowed: boolean) {
     return [
         'rounded-[10px] font-semibold transition-colors',
-        'h-[38px] text-[11px]',
+        'h-[38px] text-xs',
         active ? 'bg-secondary text-accent-700' : 'text-ink-500',
         !active && allowed ? 'hover:bg-secondary hover:text-foreground' : '',
         !allowed ? 'cursor-not-allowed opacity-25' : '',
@@ -960,8 +960,8 @@ function DateField({
             ].join(' ')}
         >
             <span className="min-w-0">
-                <span className={'block text-[9px] uppercase tracking-[.08em] text-ink-400'}>{label}</span>
-                <span className={'mt-0.5 block truncate text-[11px] font-semibold'}>
+                <span className={'block text-2xs uppercase tracking-[.08em] text-ink-400'}>{label}</span>
+                <span className={'mt-0.5 block truncate text-xs font-semibold'}>
                     {formatDate(value, locale) || 'Select date'}
                 </span>
             </span>

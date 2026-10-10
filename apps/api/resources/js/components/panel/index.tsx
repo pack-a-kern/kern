@@ -121,7 +121,7 @@ export function Panel(props: {
                 <div className="panel-foot">
                     {props.foot ?? (
                         <>
-                            <div className="text-muted-foreground min-w-0 text-[10px]">{props.footNote}</div>
+                            <div className="text-muted-foreground min-w-0 text-2xs">{props.footNote}</div>
                             <div className="flex shrink-0 items-center gap-2">{props.footActions}</div>
                         </>
                     )}
@@ -831,7 +831,7 @@ export function PanelMultiSelect(props: {
                                     fields the order is the instruction, and a number that reads as
                                     part of the label is a number nobody sees. */}
                                 {ordered ? (
-                                    <span className="bg-background text-muted-foreground border-border rounded border px-1 text-[10px] leading-4 font-normal tabular-nums">
+                                    <span className="bg-background text-muted-foreground border-border rounded border px-1 text-2xs leading-4 font-normal tabular-nums">
                                         {index + 1}
                                     </span>
                                 ) : null}
@@ -1445,7 +1445,7 @@ export function Kpi(props: {
             {/* A step up from `text-xs`: these tiles are the first thing read on a page and were set
                 at the size of a table's supporting text, which made the label harder to read than
                 the rows underneath it. */}
-            <div className="text-muted-foreground flex items-center gap-2.5 text-sm sm:text-[13px]">
+            <div className="text-muted-foreground flex items-center gap-2.5 text-sm sm:text-sm">
                 <IconBadge tone={props.tone}>{props.icon}</IconBadge>
                 {props.label}
             </div>

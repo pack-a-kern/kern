@@ -205,10 +205,10 @@ export default function Login(): JSX.Element {
                                 T
                             </span>
                             <span>
-                                <span className="block text-[13px] font-semibold tracking-tight">
+                                <span className="block text-sm font-semibold tracking-tight">
                                     {appName}
                                 </span>
-                                <span className="text-muted-foreground block text-[10px]">
+                                <span className="text-muted-foreground block text-2xs">
                                     {t((d) => d.shell.appTagline)}
                                 </span>
                             </span>
@@ -319,7 +319,7 @@ export default function Login(): JSX.Element {
                                         <>
                                             <div className="flex items-center gap-3 py-1">
                                                 <span className="bg-border h-px flex-1" />
-                                                <span className="text-muted-foreground text-[10px]">
+                                                <span className="text-muted-foreground text-2xs">
                                                     {t((d) => d.auth.orSeparator)}
                                                 </span>
                                                 <span className="bg-border h-px flex-1" />
@@ -347,10 +347,10 @@ export default function Login(): JSX.Element {
                                             <ShieldCheck className="size-4" aria-hidden="true" />
                                         </span>
                                         <span>
-                                            <span className="block text-[11px] font-semibold">
+                                            <span className="block text-xs font-semibold">
                                                 {t((d) => d.auth.mfaPanelTitle)}
                                             </span>
-                                            <span className="text-muted-foreground mt-0.5 block text-[10px] leading-4">
+                                            <span className="text-muted-foreground mt-0.5 block text-2xs leading-4">
                                                 {t((d) =>
                                                     mode === 'mfa' ? d.auth.mfaPanelBody : d.auth.recoveryCodeHint,
                                                 )}
@@ -387,7 +387,7 @@ export default function Login(): JSX.Element {
                                                 {t((d) => d.auth.mfaVerify)}
                                             </Button>
 
-                                            <div className="flex items-center justify-between text-[10px]">
+                                            <div className="flex items-center justify-between text-2xs">
                                                 <button
                                                     type="button"
                                                     className="text-accent-700 font-semibold"
@@ -492,13 +492,13 @@ export default function Login(): JSX.Element {
                                 </Button>
                             )}
 
-                            <p className="text-muted-foreground mt-7 text-center text-[10px] leading-4">
+                            <p className="text-muted-foreground mt-7 text-center text-2xs leading-4">
                                 {t((d) => d.auth.legalNote).replace('{appName}', appName)}
                             </p>
                         </section>
                     </div>
 
-                    <footer className="border-border text-muted-foreground flex min-h-12 items-center justify-between gap-3 border-t px-5 text-[10px] sm:px-8">
+                    <footer className="border-border text-muted-foreground flex min-h-12 items-center justify-between gap-3 border-t px-5 text-2xs sm:px-8">
                         <span>{t((d) => d.auth.footerCopyright).replace('{appName}', appName)}</span>
                     </footer>
                 </main>
@@ -632,7 +632,7 @@ function AuthAside(): JSX.Element {
                     <h2 className="mt-5 max-w-[520px] text-[34px] leading-[1.08] font-semibold tracking-[-0.05em] xl:text-[40px]">
                         {t((d) => d.auth.asideTitle)}
                     </h2>
-                    <p className="text-muted-foreground mt-4 max-w-[480px] text-[13px] leading-6">
+                    <p className="text-muted-foreground mt-4 max-w-[480px] text-sm leading-6">
                         {t((d) => d.auth.asideBody)}
                     </p>
                 </div>
@@ -644,8 +644,8 @@ function AuthAside(): JSX.Element {
                                 <span className="bg-accent-50 text-accent-700 grid size-8 place-items-center rounded-xl">
                                     <card.icon className="size-4" aria-hidden="true" />
                                 </span>
-                                <span className="mt-3 block text-[11px] font-semibold">{card.title}</span>
-                                <span className="text-muted-foreground mt-1 block text-[10px] leading-4">
+                                <span className="mt-3 block text-xs font-semibold">{card.title}</span>
+                                <span className="text-muted-foreground mt-1 block text-2xs leading-4">
                                     {card.body}
                                 </span>
                             </div>

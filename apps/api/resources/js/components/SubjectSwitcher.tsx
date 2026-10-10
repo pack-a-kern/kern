@@ -103,12 +103,12 @@ export default function SubjectSwitcher({
 
     const tile = (
         <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
-            <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-[10px] font-bold">
+            <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold">
                 {initials(active ? active.displayName : '?')}
             </span>
             {!collapsed && (
                 <span className="min-w-0 flex-1">
-                    <span className="text-muted-foreground block text-[9px] tracking-[0.08em] uppercase">
+                    <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
                         {t((d) => d.shell.taxSubject)}
                     </span>
                     <span className="text-foreground block truncate text-xs font-semibold">
@@ -133,13 +133,13 @@ export default function SubjectSwitcher({
                     type="button"
                     className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
                 >
-                    <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-[10px] font-bold">
+                    <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold">
                         {initials(active ? active.displayName : '?')}
                     </span>
                     {!collapsed && (
                         <>
                             <span className="min-w-0 flex-1">
-                                <span className="text-muted-foreground block text-[9px] tracking-[0.08em] uppercase">
+                                <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
                                     {t((d) => d.shell.taxSubject)}
                                 </span>
                                 <span className="text-foreground block truncate text-xs font-semibold">
@@ -186,14 +186,14 @@ export default function SubjectSwitcher({
 
                 <div className="max-h-64 overflow-y-auto p-1.5">
                     {matches.length === 0 && (
-                        <p className="text-muted-foreground px-3 py-7 text-center text-[11px]">
+                        <p className="text-muted-foreground px-3 py-7 text-center text-xs">
                             {t((d) => d.shell.noSubjectsFound)}
                         </p>
                     )}
                     {matches.map((subject) => (
                         <DropdownMenuItem
                             key={subject.id}
-                            className="gap-2.5 text-[13px]"
+                            className="gap-2.5 text-sm"
                             onSelect={() => {
                                 activate(subject.id);
                             }}
@@ -201,15 +201,15 @@ export default function SubjectSwitcher({
                             <span
                                 className={
                                     subject.id === resolvedId
-                                        ? 'bg-accent text-accent-foreground grid size-8 shrink-0 place-items-center rounded-xl text-[10px] font-bold'
-                                        : 'bg-secondary text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-xl text-[10px] font-bold'
+                                        ? 'bg-accent text-accent-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
+                                        : 'bg-secondary text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
                                 }
                             >
                                 {initials(subject.displayName)}
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate text-xs font-semibold">{subject.displayName}</span>
-                                <span className="text-muted-foreground block truncate text-[10px]">
+                                <span className="text-muted-foreground block truncate text-2xs">
                                     {t((d) => d.subjectType)[subject.type as keyof Dictionary['subjectType']]}
                                 </span>
                             </span>

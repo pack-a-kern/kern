@@ -109,7 +109,7 @@ export default function VerifyEmail(): JSX.Element {
             <div className="bg-background min-h-dvh">
                 <main className="bg-card flex min-h-dvh flex-col">
                     <header className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
-                        <span className="text-[13px] font-semibold tracking-tight">{appName}</span>
+                        <span className="text-sm font-semibold tracking-tight">{appName}</span>
                         <div className="flex items-center gap-1.5">
                             <LanguageMenu />
                             <PaletteMenu />
