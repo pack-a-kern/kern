@@ -223,9 +223,12 @@ export default function SubjectsPage(): JSX.Element {
                     // In the card's head, where the documents list keeps its own: the button acts
                     // on what is below it, and a page-level action implies it acts on the page.
                     aside={
+                        // Not `inline`: that exists to match a 34px control the button stands beside,
+                        // and this one stands alone in a card head. `.ctl-action`'s 30px is the size
+                        // every other action in this card — the row menus, the reactivate button —
+                        // already is.
                         <PanelButton
                             primary
-                            inline
                             onClick={() => {
                                 setAdding(true);
                             }}
