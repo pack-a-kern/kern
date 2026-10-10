@@ -2818,8 +2818,27 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  */
 .roles-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    grid-template-columns: 1fr;
     gap: 14px;
+}
+
+/*
+ * Two across, then three, and never more.
+ *
+ * `auto-fit` was wrong here: with four roles and a wide enough monitor it put all four on one line, each
+ * squeezed to a quarter — the opposite of the complaint it was meant to fix. The count is small and known,
+ * so the steps are stated rather than inferred.
+ */
+@media (width >= 48rem) {
+    .roles-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (width >= 72rem) {
+    .roles-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 .role-title {
     font-size: 14px;
