@@ -49,6 +49,15 @@ export function Panel(props: {
     help?: string;
     /** The body reaches the card's edges — for a table or a toolbar, which draw their own rules. */
     flush?: boolean;
+    /**
+     * A remark qualifying everything in the card, across its foot.
+     *
+     * A slot rather than a child, because it has to sit *outside* the body: passed as a child it lands
+     * inside the body's padding, and a note that qualifies the whole card then floats above the card's own
+     * edge with a band of nothing beneath it. Pulling it back out with negative margins means guessing a
+     * padding that changes with `flush` and with the viewport, which is how it ended up glued to the border.
+     */
+    note?: ReactNode;
     /** Right-hand side of the card head — an action, a switch, a status. */
     aside?: ReactNode;
     children: ReactNode;
@@ -70,7 +79,7 @@ export function Panel(props: {
     return (
         <Card className={cn('panel gap-0 break-inside-avoid', props.flush === true && 'panel-flush', props.className)}>
             <div className="panel-head">
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="panel-head-main">
                     {props.icon !== undefined && <div className="panel-head-icon">{props.icon}</div>}
                     <div className="min-w-0">
                         <span className="flex min-w-0 items-center gap-1.5">
@@ -104,6 +113,8 @@ export function Panel(props: {
             {props.children === null || props.children === undefined || props.children === false ? null : (
                 <div className="panel-body">{props.children}</div>
             )}
+
+            {props.note === undefined ? null : <PanelNote>{props.note}</PanelNote>}
 
             {hasFoot && (
                 <div className="panel-foot">
@@ -989,7 +1000,16 @@ export function Stat(props: {
                 <div className={cn('stat-value', props.tone === 'destructive' && 'text-destructive')}>
                     {props.value}
                 </div>
-                {props.sub !== undefined ? <div className="stat-sub">{props.sub}</div> : null}
+                {props.sub !== undefined ? (
+                    <div
+                        className="stat-sub"
+                        /* The whole of it on hover, since the line is cut to keep the tiles one height.
+                           Only when it is a string — a `title` cannot hold markup. */
+                        title={typeof props.sub === 'string' ? props.sub : undefined}
+                    >
+                        {props.sub}
+                    </div>
+                ) : null}
             </div>
         </div>
     );
@@ -1360,6 +1380,10 @@ export function CellLabel({ icon, children }: { icon: ReactNode; children: strin
  * Its own ground and an `info` mark, because it is not the last row of the content — it applies to all of
  * it. Set as a plain paragraph under the final row it reads as a comment on that row, which is how a legend
  * for a whole matrix ends up looking like a footnote to its bottom-right cell.
+ *
+ * Inside a `Panel`, reach it through that component's `note` slot rather than passing this as a child: the
+ * slot renders it outside the body, where it can span the card. This is exported for the places that are
+ * not a `Panel` — the dashboard's headline section builds its own frame.
  */
 export function PanelNote({ children }: { children: ReactNode }): JSX.Element {
     return (

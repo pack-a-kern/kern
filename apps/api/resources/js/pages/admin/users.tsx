@@ -41,7 +41,6 @@ import {
     Panel,
     PanelButton,
     PanelDialog,
-    PanelNote,
     PanelSelect,
     Pill,
     SearchInput,
@@ -656,7 +655,7 @@ export default function AdminUsers(): JSX.Element {
                                             {t((d) => d.pages.adminUsers.members).replace('{count}', String(members))}
                                         </Pill>
                                     }
-                                    footNote={t((d) => d.pages.adminUsers.systemRole)}
+                                    note={t((d) => d.pages.adminUsers.systemRole)}
                                 >
                                     <div className="flex flex-wrap gap-1.5">
                                         {held.length === 0 ? (
@@ -681,6 +680,7 @@ export default function AdminUsers(): JSX.Element {
                         title={t((d) => d.pages.adminUsers.matrixTitle)}
                         description={t((d) => d.pages.adminUsers.matrixDescription)}
                         flush
+                        note={t((d) => d.pages.adminUsers.matrixLegend)}
                     >
                         {access === null ? (
                             <div className="space-y-2 p-3">
@@ -741,7 +741,6 @@ export default function AdminUsers(): JSX.Element {
                                         </>
                                     ))}
                                 </DataTable>
-                                <PanelNote>{t((d) => d.pages.adminUsers.matrixLegend)}</PanelNote>
                             </>
                         )}
                     </Panel>

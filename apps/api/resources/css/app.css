@@ -1248,6 +1248,24 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /* The head's leading tile: a quiet square holding the card's icon, so a page of cards scans by
    shape before it is read. */
 /* Not on `--ctl-h`: decoration sized to the heading beside it, not a control on a row with one. */
+/*
+ * The title side of a head, taking whatever the aside leaves.
+ *
+ * Sized to its content it was as wide as its longest description, which pushed a small aside — a count, a
+ * status pill — onto its own line on a phone. Growing instead means the description wraps under the title
+ * and the pill keeps its place at the right, where it is on every wider screen.
+ *
+ * The basis is a floor, not a width: a head whose aside is a row of buttons still wraps, which is what
+ * `.panel-head`'s own `flex-wrap` was added for.
+ */
+.panel-head-main {
+    display: flex;
+    flex: 1 1 12rem;
+    min-width: 0;
+    align-items: center;
+    gap: 0.625rem;
+}
+
 .panel-head-icon {
     display: grid;
     place-items: center;
@@ -1516,19 +1534,28 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
- * A tray that takes the width it is given, its tabs sharing it equally.
+ * A tray for tabs that are a page's primary navigation.
  *
- * For a page whose tabs are its primary navigation: at phone width three of them pushed together on the
- * left read as a control somebody has to aim at, where a full-width row reads as the page's own sections.
+ * Each keeps the width of its own label — splitting the row equally gave a one-word tab the same space as a
+ * three-word one and made the tray read as a segmented control rather than as navigation. When they no
+ * longer fit, the tray scrolls sideways, which is what a row of navigation does on a phone.
+ *
+ * `scrollbar-width: none` rather than a hairline: this is a short row somebody swipes, and a scrollbar under
+ * three tabs is more furniture than signal. The overflow is still reachable by wheel, swipe and keyboard.
  */
 .tabs-fill {
     display: flex;
-    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tabs-fill::-webkit-scrollbar {
+    display: none;
 }
 
 .tabs-fill > .tab {
-    flex: 1;
-    justify-content: center;
+    flex: none;
 }
 
 .tab {
@@ -2163,14 +2190,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 
 .stat-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: 2px 10px;
+    gap: 10px;
 }
 
+/* The figure is why the tile exists; it never gives up room. */
+.stat-row > .stat-value {
+    flex: none;
+}
+
+/*
+ * The qualifier takes what is left and ends in an ellipsis.
+ *
+ * Wrapping was the first answer and it made every tile a different height, so a row of four looked like
+ * four different components. One line, cut where it runs out — and the full text stays reachable through
+ * the `title` the component sets, because a qualifier that cannot be read is not a qualifier.
+ */
 .stat-row > .stat-sub {
+    min-width: 0;
     margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     text-align: right;
 }
 
@@ -2822,23 +2864,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     gap: 14px;
 }
 
-/*
- * Two across, then three, and never more.
- *
- * `auto-fit` was wrong here: with four roles and a wide enough monitor it put all four on one line, each
- * squeezed to a quarter — the opposite of the complaint it was meant to fix. The count is small and known,
- * so the steps are stated rather than inferred.
- */
-@media (width >= 48rem) {
+@media (width >= 64rem) {
     .roles-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (width >= 72rem) {
-    .roles-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+/*
+ * A role card's footnote sits at the card's foot, not at the end of its content.
+ *
+ * The grid stretches every card to the tallest in its row — which is right, a ragged row of cards reads as
+ * a mistake — so a card with three permissions has space below its last chip. Without this the note stopped
+ * where the content did and left a band of nothing under it.
+ *
+ * Scoped to this grid: it is the only place cards are stretched, and making every `.panel` a flex column to
+ * serve it would change the layout of screens nobody has looked at.
+ */
+.roles-grid > .panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.roles-grid > .panel > .panel-note {
+    margin-top: auto;
 }
 .role-title {
     font-size: 14px;
