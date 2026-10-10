@@ -2773,8 +2773,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 10.5px;
+    /* Quieter than the text around it, because an id is read only when it is being checked against
+       something — it is never the sentence. Assumes a card beneath it, which is why the tooltip
+       below has to say otherwise. */
     color: var(--muted-foreground);
     word-break: break-all;
+}
+
+/*
+ * A tooltip is the one dark surface this interface has — `bg-foreground` carrying `text-background`
+ * — and `.mono`'s grey was picked against a card. Grey on near-black is the single place that colour
+ * cannot be read.
+ *
+ * Both selectors, because the class lands either way: on the content element when a caller styles
+ * the tooltip itself, inside it when the id is wrapped in a span. The first spelling of this rule
+ * only had the descendant and so matched neither of the two real cases.
+ *
+ * The value is stated, not inherited. `text-background` is a Tailwind utility and utilities lose to
+ * unlayered rules like this one, so the tooltip's own colour is not something `.mono` can be asked
+ * to fall back to — naming it is what makes the rule hold.
+ */
+[data-slot='tooltip-content'].mono,
+[data-slot='tooltip-content'] .mono {
+    color: var(--background);
 }
 
 /* Key/value pairs in a detail drawer. */
