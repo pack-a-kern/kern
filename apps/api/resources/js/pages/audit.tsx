@@ -31,8 +31,10 @@ import {
     Status,
     Toolbar,
     CellLabel,
+    EventTime,
 } from '../components/panel';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
+import { formatDateTime } from '../lib/format';
 import AppShell from '../components/AppShell';
 import Pagination from '../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedState';
@@ -65,7 +67,7 @@ const RANGES: Array<{ key: string; hours: number | null }> = [
  * hash on request. A tamper-evidence indicator that reads a stored flag is evidence of nothing.
  */
 function AdminAuditBody(): JSX.Element {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
 
     const [summary, setSummary] = useState<AuditSummary | null>(null);
     const [events, setEvents] = useState<AuditEvent[] | null>(null);
@@ -346,8 +348,8 @@ function AdminAuditBody(): JSX.Element {
                                         in app.css. Time leads the row; the actor is the one column that
                                         is nothing but a UUID, so it is the one a phone drops — the
                                         drawer shows it in full. */}
-                                    <td className="col-primary whitespace-nowrap tabular-nums">
-                                        {new Date(event.occurredAt).toLocaleString()}
+                                    <td className="col-primary whitespace-nowrap">
+                                        <EventTime iso={event.occurredAt} />
                                     </td>
                                     <td className="font-semibold">
                                         <CellLabel icon={<Shapes className="size-3.5" aria-hidden="true" />}>
@@ -429,8 +431,10 @@ function AdminAuditBody(): JSX.Element {
                                 <Detail label={t((d) => d.pages.adminAudit.columns.event)}>
                                     <span className="font-semibold">{selected.eventType}</span>
                                 </Detail>
+                                {/* The exact instant, not the relative phrase the list carries: the
+                                    drawer is where a chain is checked against something else. */}
                                 <Detail label={t((d) => d.pages.adminAudit.columns.time)}>
-                                    {new Date(selected.occurredAt).toLocaleString()}
+                                    {formatDateTime(selected.occurredAt, locale)}
                                 </Detail>
                                 <Detail label={t((d) => d.pages.adminAudit.columns.resource)}>
                                     {selected.resourceType}

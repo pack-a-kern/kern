@@ -24,6 +24,7 @@ import {
     Detail,
     DetailList,
     EmptyState,
+    EventTime,
     Page,
     Panel,
     PanelButton,
@@ -41,6 +42,7 @@ import { useRememberedPaging, useRememberedState } from '../../hooks/useRemember
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
+import { formatDateTime } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import type { QueueJob, QueueJobsPage } from '../../types/operations';
 
@@ -76,7 +78,7 @@ const STATUSES = ['all', 'pending', 'completed', 'failed'] as const;
  * and its history lives on the Tasks tab.
  */
 function AdminJobsBody(): JSX.Element {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
 
     const [page, setPage] = useState<QueueJobsPage | null>(null);
     const [forbidden, setForbidden] = useState(false);
@@ -352,9 +354,7 @@ function AdminJobsBody(): JSX.Element {
                                         <CellLabel icon={<Clock className="size-3.5" aria-hidden="true" />}>
                                             {t((d) => d.pages.adminJobs.columns.when)}
                                         </CellLabel>
-                                        {occurredAt(job) === null
-                                            ? '—'
-                                            : new Date(occurredAt(job) ?? '').toLocaleString()}
+                                        {occurredAt(job) === null ? '—' : <EventTime iso={occurredAt(job) ?? ''} />}
                                     </td>
                                     {/* Not pinned to the corner: a failed job carries three buttons, and
                                         `.col-end` reserves 80px for them. They take the card's last
@@ -440,17 +440,17 @@ function AdminJobsBody(): JSX.Element {
                             </Detail>
                             {selected.queuedAt === null ? null : (
                                 <Detail label={t((d) => d.pages.adminJobs.queuedAt)}>
-                                    {new Date(selected.queuedAt).toLocaleString()}
+                                    {formatDateTime(selected.queuedAt, locale)}
                                 </Detail>
                             )}
                             {selected.completedAt === null ? null : (
                                 <Detail label={t((d) => d.pages.adminJobs.completedAt)}>
-                                    {new Date(selected.completedAt).toLocaleString()}
+                                    {formatDateTime(selected.completedAt, locale)}
                                 </Detail>
                             )}
                             {selected.failedAt === null ? null : (
                                 <Detail label={t((d) => d.pages.adminJobs.failedAt)}>
-                                    {new Date(selected.failedAt).toLocaleString()}
+                                    {formatDateTime(selected.failedAt, locale)}
                                 </Detail>
                             )}
                         </DetailList>

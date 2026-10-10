@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { UserRoundIcon } from 'lucide-react';
 
 import { Detail, DetailList, Panel, Pill, Status } from '../../components/panel';
+import { formatDateTime } from '../../lib/format';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import type { Profile } from '../../types/account';
@@ -14,7 +15,7 @@ import type { Profile } from '../../types/account';
  * exists rather than leaving someone hunting for a name field that will never be on this card.
  */
 export default function AccountCard({ profile }: { profile: Profile | null }): JSX.Element {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
 
     return (
         <Panel
@@ -59,7 +60,11 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
                         )}
                     </Detail>
                     <Detail label={t((d) => d.pages.settingsProfile.created)}>
-                        {profile.createdAt === null ? '—' : new Date(profile.createdAt).toLocaleDateString()}
+                        {/* The instant, not "3 months ago": a detail row is read for the record, and
+                            `formatDateTime` keeps it in the reader's own zone — slicing an instant to
+                            its UTC date lands on the wrong day for anyone who signed up in the
+                            evening west of Greenwich. */}
+                        {profile.createdAt === null ? '—' : formatDateTime(profile.createdAt, locale)}
                     </Detail>
                 </DetailList>
             )}

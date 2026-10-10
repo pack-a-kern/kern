@@ -3,6 +3,7 @@ import { useTranslation } from '../../i18n';
 import { Link } from '@inertiajs/react';
 import { setPageHeader } from '../../lib/pageHeader';
 import { iconForInputType } from '../../lib/inputIcons';
+import { formatDateTime, formatWhen } from '../../lib/format';
 import { cloneElement, isValidElement, type MouseEvent, useEffect, useState } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
 import { CheckIcon, CircleHelp, Info, Plus, SearchIcon, X } from 'lucide-react';
@@ -1428,6 +1429,34 @@ export function CellLabel({ icon, children }: { icon: ReactNode; children: strin
             {icon}
             {children}
         </span>
+    );
+}
+
+/**
+ * When something happened, phrased the way it is asked about, with the instant itself one hover away.
+ *
+ * These lists are read for recency — whether the queue is moving, when an account was last seen, what
+ * the chain recorded a minute ago — and a timestamp makes the reader do the subtraction. The exact
+ * value is still the record, so it stays reachable rather than being thrown away.
+ *
+ * A `<time>` element, so the machine-readable instant is in the markup and not only in a tooltip that
+ * a touch screen cannot open. That matters here: hover is a pointer's gesture, and on a phone this
+ * component shows the relative phrase alone. Where the exact moment is part of the work rather than a
+ * detail, the row's drawer prints it in full.
+ */
+export function EventTime({ iso }: { iso: string }): JSX.Element {
+    const { locale } = useTranslation();
+    const exact = formatDateTime(iso, locale);
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <time className="whitespace-nowrap" dateTime={iso}>
+                    {formatWhen(iso, locale)}
+                </time>
+            </TooltipTrigger>
+            <TooltipContent>{exact}</TooltipContent>
+        </Tooltip>
     );
 }
 

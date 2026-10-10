@@ -39,6 +39,7 @@ import {
     Check,
     DataTable,
     EmptyState,
+    EventTime,
     Field,
     FieldGrid,
     Identity,
@@ -592,9 +593,11 @@ export default function AdminUsers(): JSX.Element {
                                             </td>
                                             <td className="col-hide tabular-nums">{user.memberships.length}</td>
                                             <td className="col-hide whitespace-nowrap">
-                                                {user.lastSeenAt === null
-                                                    ? t((d) => d.pages.adminUsers.never)
-                                                    : new Date(user.lastSeenAt).toLocaleString()}
+                                                {user.lastSeenAt === null ? (
+                                                    t((d) => d.pages.adminUsers.never)
+                                                ) : (
+                                                    <EventTime iso={user.lastSeenAt} />
+                                                )}
                                             </td>
                                             <td className="col-end">
                                                 <div className="flex justify-end">

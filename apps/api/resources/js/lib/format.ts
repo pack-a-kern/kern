@@ -16,6 +16,63 @@ export function formatDateTime(iso: string, locale: string): string {
     }
 }
 
+const MINUTE = 60;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** Past this, "27 days ago" is arithmetic dressed as a sentence, and a date is the shorter answer. */
+const RELATIVE_HORIZON = 7 * DAY;
+
+/**
+ * When something happened, as a reader asks it: "2 hours ago", not a timestamp to subtract from now.
+ *
+ * For the screens whose question is recency — what the queue just did, when an account was last
+ * seen, what the audit chain recorded a moment ago. A calendar date that is data rather than an
+ * event (a contract's start, a law's validity) stays {@link formatDate}: "3 months ago" is the wrong
+ * thing to say about a rule that took effect in July.
+ *
+ * Beyond a week it returns the date instead. Relative phrasing stops earning its place about there —
+ * nobody counts in 23-day units — and the exact instant is a hover away wherever this is shown.
+ *
+ * `numeric: 'auto'` so the languages that have a word for it use it: `ieri`, not `acum 1 zi`.
+ *
+ * It reads the clock, so it is only correct at the moment it runs. Every screen using it recomputes
+ * on reload and on any filter change, which is where these lists are read; a page left open
+ * overnight will say "5 hours ago" until something touches it.
+ */
+export function formatWhen(iso: string, locale: string): string {
+    try {
+        const moment = new Date(iso);
+        const seconds = (moment.getTime() - Date.now()) / 1000;
+        const distance = Math.abs(seconds);
+
+        if (distance >= RELATIVE_HORIZON) {
+            return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(moment);
+        }
+
+        const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+
+        if (distance < MINUTE) {
+            return relative.format(Math.round(seconds), 'second');
+        }
+
+        if (distance < HOUR) {
+            return relative.format(Math.round(seconds / MINUTE), 'minute');
+        }
+
+        if (distance < DAY) {
+            return relative.format(Math.round(seconds / HOUR), 'hour');
+        }
+
+        return relative.format(Math.round(seconds / DAY), 'day');
+    } catch {
+        /* An unparseable value gives `NaN`, which every comparison above answers `false` to and
+           `RelativeTimeFormat` then throws on — so a bad timestamp arrives here rather than rendering
+           as "NaN days ago". */
+        return iso;
+    }
+}
+
 /**
  * A calendar date (`YYYY-MM-DD`), with no time and no timezone.
  *

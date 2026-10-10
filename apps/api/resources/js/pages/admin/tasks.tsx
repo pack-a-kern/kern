@@ -18,7 +18,7 @@ import {
     runOperationTask,
     setScheduledTaskEnabled,
 } from '../../api/operationsApi';
-import { CellLabel, DataTable, Detail, DetailList, Field, Page, Panel, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill, Status, type StatusTone } from '../../components/panel';
+import { CellLabel, DataTable, Detail, DetailList, EventTime, Field, Page, Panel, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill, Status, type StatusTone } from '../../components/panel';
 import Pagination, { PAGE_SIZES } from '../../components/Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { describeCron } from '../../lib/cron';
@@ -309,7 +309,7 @@ function AdminOperationsBody(): JSX.Element {
                                                 )}
                                             </Status>
                                             <div className="note">
-                                                {new Date(task.lastRun.startedAt).toLocaleString()}
+                                                <EventTime iso={task.lastRun.startedAt} />
                                             </div>
                                         </div>
                                     )}
@@ -607,8 +607,8 @@ function TaskHistoryDialog(props: {
                             >
                                 {runs.map((run) => (
                                     <tr key={run.id}>
-                                        <td className="col-primary whitespace-nowrap tabular-nums">
-                                            {new Date(run.startedAt).toLocaleString()}
+                                        <td className="col-primary whitespace-nowrap">
+                                            <EventTime iso={run.startedAt} />
                                         </td>
                                         <td>
                                             <CellLabel icon={<Zap className="size-3.5" aria-hidden="true" />}>

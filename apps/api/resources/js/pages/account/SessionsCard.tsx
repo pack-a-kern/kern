@@ -3,7 +3,7 @@ import { MonitorSmartphoneIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
-import { DataTable, Panel, PanelButton, Pill } from '../../components/panel';
+import { DataTable, EventTime, Panel, PanelButton, Pill } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import type { SessionSummary } from '../../types/auth';
@@ -108,7 +108,9 @@ export default function SessionsCard(props: {
                                 ) : null}
                             </td>
                             <td className="mono">{session.ipAddress ?? '—'}</td>
-                            <td className="whitespace-nowrap">{new Date(session.lastUsedAt).toLocaleString()}</td>
+                            <td className="whitespace-nowrap">
+                                <EventTime iso={session.lastUsedAt} />
+                            </td>
                             <td className="text-right">
                                 {session.isCurrent ? null : (
                                     <PanelButton
