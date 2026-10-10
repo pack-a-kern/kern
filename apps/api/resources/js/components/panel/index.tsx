@@ -5,7 +5,7 @@ import { setPageHeader } from '../../lib/pageHeader';
 import { iconForInputType } from '../../lib/inputIcons';
 import { cloneElement, isValidElement, type MouseEvent, useEffect } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
-import { CheckIcon, CircleHelp, Plus, SearchIcon, X } from 'lucide-react';
+import { CheckIcon, CircleHelp, Info, Plus, SearchIcon, X } from 'lucide-react';
 
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -951,8 +951,13 @@ export function Stat(props: {
     className?: string;
     /** A mark for what the figure is about, set against the label rather than beside the number. */
     icon?: ReactNode;
-    /** Colours the mark only — the figure itself stays in the text colour, because a green number
-     *  and a green tile would say the same thing twice and leave nothing for a bad one to say. */
+    /**
+     * Colours the mark, and — for `destructive` alone — the figure as well.
+     *
+     * Only that one, which is the point. A green number beside a green tile says the same thing twice and
+     * leaves nothing for a bad one to say; reserving the coloured figure for the tone that means "something
+     * is wrong" is what makes a red figure mean it.
+     */
     tone?: 'success' | 'destructive' | 'accent' | 'neutral';
 }): JSX.Element {
     return (
@@ -975,8 +980,17 @@ export function Stat(props: {
                     </span>
                 </div>
             )}
-            <div className="stat-value">{props.value}</div>
-            {props.sub !== undefined ? <div className="stat-sub">{props.sub}</div> : null}
+            {/*
+                The figure and what qualifies it share a line, the qualifier at the far end, and it drops
+                below only when the two will not fit. Stacked unconditionally they left a tile two-thirds
+                empty with a short number alone at the top of it.
+            */}
+            <div className="stat-row">
+                <div className={cn('stat-value', props.tone === 'destructive' && 'text-destructive')}>
+                    {props.value}
+                </div>
+                {props.sub !== undefined ? <div className="stat-sub">{props.sub}</div> : null}
+            </div>
         </div>
     );
 }
@@ -1070,11 +1084,15 @@ export function DataTable(props: {
      * `col-end` (see `app.css`).
      */
     stacked?: boolean;
+    /** A modifier for a table whose columns need a rule of their own — the permission matrix, say. */
+    className?: string;
     children: ReactNode;
 }): JSX.Element {
     return (
         <div className="table-wrap">
-            <table className={cn('data-table', props.stacked === true && 'data-table-stack')}>
+            <table
+                className={cn('data-table', props.stacked === true && 'data-table-stack', props.className)}
+            >
                 <thead>
                     <tr>{props.head}</tr>
                 </thead>
@@ -1333,5 +1351,21 @@ export function CellLabel({ icon, children }: { icon: ReactNode; children: strin
             {icon}
             {children}
         </span>
+    );
+}
+
+/**
+ * A note that qualifies everything in a card, across the foot of it.
+ *
+ * Its own ground and an `info` mark, because it is not the last row of the content — it applies to all of
+ * it. Set as a plain paragraph under the final row it reads as a comment on that row, which is how a legend
+ * for a whole matrix ends up looking like a footnote to its bottom-right cell.
+ */
+export function PanelNote({ children }: { children: ReactNode }): JSX.Element {
+    return (
+        <p className="panel-note">
+            <Info className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>{children}</span>
+        </p>
     );
 }

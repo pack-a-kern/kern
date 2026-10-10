@@ -1,5 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { Check as CheckIcon, EllipsisVertical, LogIn, Pencil, Plus, Trash2, UsersIcon, X } from 'lucide-react';
+import {
+    Check as CheckIcon,
+    CircleDot,
+    EllipsisVertical,
+    Fingerprint,
+    FilterX,
+    KeyRound,
+    LogIn,
+    Pencil,
+    Plus,
+    Shield,
+    ShieldCheck,
+    Trash2,
+    UserSearch,
+    UsersIcon,
+    X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -14,6 +30,7 @@ import AppShell from '../../components/AppShell';
 import {
     Check,
     DataTable,
+    EmptyState,
     Field,
     FieldGrid,
     Identity,
@@ -21,13 +38,14 @@ import {
     Panel,
     PanelButton,
     PanelDialog,
+    PanelNote,
     PanelSelect,
     Pill,
     SearchInput,
     Stat,
     StatGrid,
     Status,
-    TabRail,
+    Tabs,
     Toolbar,
 } from '../../components/panel';
 import {
@@ -267,13 +285,30 @@ export default function AdminUsers(): JSX.Element {
                     ) : undefined
                 }
             >
-                <TabRail
+                {/*
+                    `Tabs`, as the reports screen uses: a tray with a mark on each, which at phone width reads
+                    as one control rather than three words with an underline somewhere beneath them.
+                */}
+                <Tabs
+                    className="tabs-fill"
                     value={tab}
                     onChange={setTab}
-                    tabs={[
-                        { value: 'users', label: t((d) => d.pages.adminUsers.tabs.users) },
-                        { value: 'roles', label: t((d) => d.pages.adminUsers.tabs.roles) },
-                        { value: 'permissions', label: t((d) => d.pages.adminUsers.tabs.permissions) },
+                    options={[
+                        {
+                            value: 'users',
+                            label: t((d) => d.pages.adminUsers.tabs.users),
+                            icon: <UsersIcon className="size-3.5" aria-hidden="true" />,
+                        },
+                        {
+                            value: 'roles',
+                            label: t((d) => d.pages.adminUsers.tabs.roles),
+                            icon: <Shield className="size-3.5" aria-hidden="true" />,
+                        },
+                        {
+                            value: 'permissions',
+                            label: t((d) => d.pages.adminUsers.tabs.permissions),
+                            icon: <KeyRound className="size-3.5" aria-hidden="true" />,
+                        },
                     ]}
                 />
 
@@ -281,15 +316,23 @@ export default function AdminUsers(): JSX.Element {
                     <div className="page-stack">
                         <StatGrid>
                             <Stat
+                                icon={<UsersIcon className="size-4" />}
+                                tone="accent"
                                 label={t((d) => d.pages.adminUsers.stats.users)}
                                 value={directory === null ? '—' : total}
                             />
                             <Stat
+                                icon={<ShieldCheck className="size-4" />}
+                                tone="neutral"
                                 label={t((d) => d.pages.adminUsers.stats.admins)}
                                 value={directory === null ? '—' : admins}
                                 sub={t((d) => d.pages.adminUsers.stats.adminsSub)}
                             />
                             <Stat
+                                icon={<Fingerprint className="size-4" />}
+                                /* Good news only when everybody is covered: a green 40% would congratulate
+                                   the installation on most of its accounts being unprotected. */
+                                tone={directory !== null && total > 0 && withMfa === total ? 'success' : 'neutral'}
                                 label={t((d) => d.pages.adminUsers.stats.mfa)}
                                 value={
                                     directory === null || total === 0
@@ -305,6 +348,8 @@ export default function AdminUsers(): JSX.Element {
                                 }
                             />
                             <Stat
+                                icon={<KeyRound className="size-4" />}
+                                tone="neutral"
                                 label={t((d) => d.pages.adminUsers.stats.permissions)}
                                 value={
                                     access === null
@@ -357,6 +402,7 @@ export default function AdminUsers(): JSX.Element {
                                 />
                                 <PanelSelect
                                     className="filter-select"
+                                    icon={<Shield className="size-3.5" aria-hidden="true" />}
                                     value={roleFilter}
                                     onValueChange={(next) => {
                                         setRoleFilter(next);
@@ -371,6 +417,7 @@ export default function AdminUsers(): JSX.Element {
                                 />
                                 <PanelSelect
                                     className="filter-select"
+                                    icon={<CircleDot className="size-3.5" aria-hidden="true" />}
                                     value={statusFilter}
                                     onValueChange={(next) => {
                                         setStatusFilter(next);
@@ -402,7 +449,24 @@ export default function AdminUsers(): JSX.Element {
                                     ))}
                                 </div>
                             ) : visible.length === 0 ? (
-                                <p className="note p-4">{t((d) => d.pages.adminUsers.empty)}</p>
+                                <EmptyState
+                                    icon={<UserSearch className="size-5" />}
+                                    title={t((d) => d.pages.adminUsers.empty)}
+                                    description={t((d) => d.pages.adminUsers.emptyHint)}
+                                    action={
+                                        <PanelButton
+                                            onClick={() => {
+                                                setSearch('');
+                                                setRoleFilter('');
+                                                setStatusFilter('');
+                                                setPage(1);
+                                            }}
+                                        >
+                                            <FilterX className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.adminUsers.clearFilters)}
+                                        </PanelButton>
+                                    }
+                                />
                             ) : (
                                 <DataTable
                                     // Stacked on a phone: the identity takes the first line and the
@@ -602,6 +666,7 @@ export default function AdminUsers(): JSX.Element {
                         ) : (
                             <>
                                 <DataTable
+                                    className="perm-matrix"
                                     // Stacked on a phone: the identity takes the first line and the
                                     // rest flows under it, rather than scrolling six columns
                                     // sideways out of reach.
@@ -651,7 +716,7 @@ export default function AdminUsers(): JSX.Element {
                                         </>
                                     ))}
                                 </DataTable>
-                                <p className="note border-t p-3">{t((d) => d.pages.adminUsers.matrixLegend)}</p>
+                                <PanelNote>{t((d) => d.pages.adminUsers.matrixLegend)}</PanelNote>
                             </>
                         )}
                     </Panel>

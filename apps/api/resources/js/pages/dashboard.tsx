@@ -6,7 +6,6 @@ import {
     ChartLine,
     CircleHelp,
     HandCoins,
-    Info,
     Landmark,
     PiggyBank,
     Plus,
@@ -23,7 +22,17 @@ import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
 import AppShell from '../components/AppShell';
 import { Chart } from '../components/Chart';
-import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect, Pill } from '../components/panel';
+import {
+    EmptyState,
+    IconBadge,
+    Kpi,
+    Page,
+    Panel,
+    PanelButton,
+    PanelNote,
+    PanelSelect,
+    Pill,
+} from '../components/panel';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
@@ -295,12 +304,9 @@ export default function Dashboard(): JSX.Element {
                         </div>
                     </div>
 
-                    {/* The caveat runs the width of the card on its own ground: it qualifies every figure
-                        above it, not the one it happens to sit under. */}
-                    <p className="border-border bg-muted/40 note flex items-start gap-2 border-t px-5 py-3">
-                        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                        {t((d) => d.pages.walletOverview.generalNote)}
-                    </p>
+                    {/* The same footnote the permission matrix wears: it qualifies every figure above it,
+                        not the one it happens to sit under. */}
+                    <PanelNote>{t((d) => d.pages.walletOverview.generalNote)}</PanelNote>
                 </section>
 
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3">

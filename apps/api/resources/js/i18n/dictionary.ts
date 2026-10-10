@@ -2000,6 +2000,9 @@ export interface Dictionary {
             loadFailed: string;
             retry: string;
             reset: string;
+            /** Why the list is empty when the accounts are not, and the way back. */
+            emptyHint: string;
+            clearFilters: string;
             empty: string;
             never: string;
             truncated: string;

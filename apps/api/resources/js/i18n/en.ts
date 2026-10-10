@@ -2281,6 +2281,8 @@ export const en = {
             loadFailed: 'The user list could not be loaded.',
             retry: 'Retry',
             reset: 'Reset',
+            emptyHint: 'Every account is still there — the search, the role or the status is hiding them.',
+            clearFilters: 'Clear filters',
             empty: 'No users match these filters.',
             never: 'Never',
             truncated:

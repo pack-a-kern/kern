@@ -2290,6 +2290,8 @@ export const ro = {
             loadFailed: 'Lista de utilizatori nu a putut fi încărcată.',
             retry: 'Reîncearcă',
             reset: 'Resetează',
+            emptyHint: 'Toate conturile sunt acolo — căutarea, rolul sau starea le ascunde.',
+            clearFilters: 'Șterge filtrele',
             empty: 'Niciun utilizator pentru filtrele alese.',
             never: 'Niciodată',
             truncated:

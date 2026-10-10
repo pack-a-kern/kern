@@ -1507,9 +1507,28 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     display: inline-flex;
     width: fit-content;
     gap: 2px;
-    padding: 3px;
+    /* Room between the tray's edge and the tabs inside it, so the selected one reads as sitting in a
+       groove rather than filling it to the rim. */
+    padding: 4px;
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--muted);
+}
+
+/*
+ * A tray that takes the width it is given, its tabs sharing it equally.
+ *
+ * For a page whose tabs are its primary navigation: at phone width three of them pushed together on the
+ * left read as a control somebody has to aim at, where a full-width row reads as the page's own sections.
+ */
+.tabs-fill {
+    display: flex;
+    width: 100%;
+}
+
+.tabs-fill > .tab {
+    flex: 1;
+    justify-content: center;
 }
 
 .tab {
@@ -1535,7 +1554,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 .tab[aria-selected='true'] {
     background: var(--card);
     color: var(--foreground);
-    box-shadow: 0 1px 2px rgb(16 24 40 / 0.08);
+    /* The hairline is a shadow rather than a border: a real one would add a pixel to the selected tab and
+       nudge its neighbours every time the selection moved. */
+    box-shadow:
+        0 0 0 1px var(--border),
+        0 1px 2px rgb(16 24 40 / 0.08);
 }
 
 /* Where you are in a wizard: dots and chevrons, with the step you are on wearing its name.
@@ -2069,6 +2092,82 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
+}
+
+/*
+ * A figure and the line that qualifies it, on one row.
+ *
+ * `flex-wrap` and `margin-left: auto` on the qualifier: it sits at the far end while it fits and takes the
+ * next line when it does not, which is the only safe arrangement when the text is a translation nobody has
+ * measured — a sub that is three words in English is often six in Romanian.
+ */
+/*
+ * The permission matrix on a phone.
+ *
+ * It is a real table rather than a stacked one — four roles against one permission is a grid, and stacking
+ * it would print the role's name four times per row. But a table sizes its columns to their content, so the
+ * permission name took what it needed and the four ticks trailed it with the rest of the screen empty to
+ * their right.
+ *
+ * Giving the first column all the spare width pushes the ticks to the edge, where the eye can run down them.
+ * Only on a phone: on a wide screen the ticks sit under the role names that label them, and moving them
+ * would separate a column from its own heading.
+ */
+@media (width < 40rem) {
+    /*
+     * The stacked row is a flex container, so the name grows to absorb the slack and the ticks are carried
+     * to the far edge. `width: 100%` here instead takes the whole line and drops the ticks beneath — the
+     * row is flex, not a table row, whatever the element says.
+     */
+    .perm-matrix tbody td:first-child {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* Even spacing under one another, so the eye can run down a role's column. */
+    .perm-matrix tbody td:not(:first-child) {
+        min-width: 1.75rem;
+        text-align: center;
+    }
+}
+
+/*
+ * A card's footnote: what qualifies everything above it.
+ *
+ * Full width on its own ground, so it reads as a remark about the card rather than about the row it happens
+ * to sit under. Negative insets because a card's body is already padded and this runs to the edges.
+ */
+.panel-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px -0.75rem -0.75rem;
+    border-top: 1px solid var(--border);
+    padding: 10px 0.75rem;
+    background: color-mix(in oklab, var(--muted) 40%, transparent);
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+}
+
+@media (width >= 40rem) {
+    .panel-note {
+        margin-inline: -1rem;
+        padding-inline: 1rem;
+    }
+}
+
+.stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 10px;
+}
+
+.stat-row > .stat-sub {
+    margin-left: auto;
+    text-align: right;
 }
 
 .stat-sub {
