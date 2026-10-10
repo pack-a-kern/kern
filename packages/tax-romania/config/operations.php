@@ -61,6 +61,10 @@ return [
             // Often, because the cost of being late is a listing that offers to read an inbox whose
             // browser is gone. Cheap: one UPDATE over rows that are almost always none.
             'spv.close_expired_sessions' => env('OPERATIONS_CRON_SPV_CLOSE_EXPIRED_SESSIONS', '*/5 * * * *'),
+            // Hourly, at a quiet minute. A row whose session has expired is already unusable, so the
+            // only thing being bought is a device list that stops naming it — and an hour of a stale
+            // name misleads nobody into anything.
+            'identity.prune_sessions' => env('OPERATIONS_CRON_IDENTITY_PRUNE_SESSIONS', '40 * * * *'),
         ],
     ],
 

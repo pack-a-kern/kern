@@ -94,6 +94,19 @@ enum OperationTask: string
     case SPV_CLOSE_EXPIRED_SESSIONS = 'spv.close_expired_sessions';
 
     /**
+     * Remove the session ledger rows whose session has expired.
+     *
+     * The same shape of problem as the SPV one above, one layer down: nothing closes a
+     * `user_sessions` row when a session simply times out, so the device list on the account page
+     * kept offering to end devices that had been gone for weeks, and the table grew by a row per
+     * sign-in with nothing ever taking one away.
+     *
+     * Hourly. The cost of being late is a list naming a device nobody is using, which is misleading
+     * rather than harmful, and the delete is bounded by how often anyone signs in.
+     */
+    case IDENTITY_PRUNE_SESSIONS = 'identity.prune_sessions';
+
+    /**
      * Read the fiscal values — the minimum-wage decisions and ANAF's D212 structure files — and
      * propose those the law says, for a person to approve. Started from the tax rules screen.
      */
@@ -112,6 +125,7 @@ enum OperationTask: string
             self::BANKS_BACKFILL => 'kern:banks:backfill',
             self::COUNTERPARTIES_CLASSIFY => 'kern:counterparties:classify',
             self::SPV_CLOSE_EXPIRED_SESSIONS => 'kern:spv:close-expired-sessions',
+            self::IDENTITY_PRUNE_SESSIONS => 'kern:identity:prune-sessions',
         };
     }
 
@@ -131,6 +145,7 @@ enum OperationTask: string
             self::LEGISLATION_SYNC,
             self::COUNTERPARTIES_CLASSIFY,
             self::SPV_CLOSE_EXPIRED_SESSIONS,
+            self::IDENTITY_PRUNE_SESSIONS,
         ], true);
     }
 

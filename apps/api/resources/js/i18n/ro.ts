@@ -2497,9 +2497,12 @@ export const ro = {
                     'banks.import': 'Import listă bănci',
                     'banks.backfill': 'Completare istoric bănci',
                     'fiscal.parameters.read': 'Citire valori fiscale',
+                    'identity.prune_sessions': 'Curățare sesiuni expirate',
                 },
                 descriptions: {
                     'fx.import_daily': 'Cursurile de referință BNR pentru ziua curentă.',
+                    'identity.prune_sessions':
+                        'Șterge din listă dispozitivele a căror sesiune a expirat. Nimic nu le închide de la sine, așa că rămâneau afișate ca active.',
                     'fx.backfill_year':
                         'Fiecare an de la cel pe care îl dai până în prezent, din arhivele anuale BNR — o acțiune de recuperare.',
                 },

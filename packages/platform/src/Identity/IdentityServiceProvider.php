@@ -17,6 +17,7 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Access\Services\AccessCatalogue;
 use Kern\Platform\Console\Commands\Access\GrantPlatformRoleCommand;
 use Kern\Platform\Console\Commands\Access\SyncAccessCatalogueCommand;
+use Kern\Platform\Console\Commands\Identity\PruneExpiredSessionsCommand;
 use Kern\Platform\Console\Commands\Identity\VerifyUserEmailCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
@@ -172,6 +173,7 @@ final class IdentityServiceProvider extends ServiceProvider
                 SyncAccessCatalogueCommand::class,
                 GrantPlatformRoleCommand::class,
                 VerifyUserEmailCommand::class,
+                PruneExpiredSessionsCommand::class,
             ]);
         }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
-import { KeyRound, LockKeyhole } from 'lucide-react';
+import { Check, KeyRound, LockKeyhole, X } from 'lucide-react';
 
 import { Field, PanelButton, PanelDialog, PanelInput } from './panel';
 import { useTranslation } from '../i18n';
@@ -82,7 +82,7 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
         setError(null);
 
         try {
-            await apiRequest('/auth/step-up', { method: 'POST', body: { [field]: code } });
+            await apiRequest('/v1/auth/step-up', { method: 'POST', body: { [field]: code } });
             settle(true);
         } catch (cause: unknown) {
             /*
@@ -123,6 +123,7 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
                                 settle(false);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.stepUp.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -132,6 +133,7 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
                                 void submit();
                             }}
                         >
+                            <Check className="size-3.5" aria-hidden="true" />
                             {t((d) => d.stepUp.confirm)}
                         </PanelButton>
                     </>

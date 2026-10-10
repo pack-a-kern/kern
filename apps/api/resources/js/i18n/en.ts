@@ -2484,9 +2484,12 @@ export const en = {
                     'banks.import': 'Bank list import',
                     'banks.backfill': 'Bank list backfill',
                     'fiscal.parameters.read': 'Read fiscal values',
+                    'identity.prune_sessions': 'Expired session cleanup',
                 },
                 descriptions: {
                     'fx.import_daily': 'BNR reference rates for today.',
+                    'identity.prune_sessions':
+                        'Drops the devices whose session has expired. Nothing closes those on its own, so they kept being listed as signed in.',
                     'fx.backfill_year':
                         'Every year from the one you give to the present, out of the BNR yearly archives — a recovery action.',
                 },

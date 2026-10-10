@@ -114,6 +114,23 @@ return [
     ],
 
     /*
+     * How long a session ledger row outlives the session it describes.
+     *
+     * `user_sessions` is the device list, and nothing closes a row when a session simply times out —
+     * only signing out and ending a device do that. So the row of every expired session stays,
+     * unrevoked, and the list reports it as a device still signed in. `kern:identity:prune-sessions`
+     * removes them.
+     *
+     * This is a *margin*, not the cutoff: the cutoff is `session.lifetime` — the number that actually
+     * decides when a session died — plus this. Slack for clock skew between containers, and for a
+     * lifetime lengthened while rows written under the old one are still in the table. Short, because
+     * every minute of it is a minute the device list keeps naming a device that is already gone.
+     */
+    'sessions' => [
+        'prune_grace_minutes' => (int) env('IDENTITY_SESSION_PRUNE_GRACE_MINUTES', 60),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Rate limits (BLUEPRINT.md §4.7 — every auth endpoint is rate limited)
     |--------------------------------------------------------------------------
