@@ -7,7 +7,6 @@ namespace Kern\Platform\Identity\Avatars;
 use Illuminate\Support\Carbon;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
-use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
 use Kern\Platform\Uploads\SquareImageNormaliser;
@@ -30,7 +29,7 @@ use Kern\Platform\Uploads\SquareImageNormaliser;
  *
  * A failure at any step throws, and nothing has been written at the point any of them can.
  */
-final readonly class SetUserAvatar
+final readonly class SetAvatar
 {
     public function __construct(
         private UploadScanner $scanner,
@@ -47,7 +46,7 @@ final readonly class SetUserAvatar
      *
      * @throws UploadRejectedException
      */
-    public function __invoke(User $user, string $bytes, ?string $actorId): User
+    public function __invoke(HasAvatar $owner, string $bytes, ?string $actorId): HasAvatar
     {
         $length = strlen($bytes);
 
@@ -63,25 +62,23 @@ final readonly class SetUserAvatar
 
         $image = $this->normaliser->normalise($bytes);
 
-        $userKey = $user->getKey();
-        $userId = is_scalar($userKey) ? (string) $userKey : '';
+        $ownerId = $owner->avatarOwnerId();
+        $ownerType = $owner->avatarOwnerType();
 
-        $user->avatar_path = $this->store->put($userId, $image);
-        $user->avatar_updated_at = Carbon::now();
-        $user->save();
+        $owner->saveAvatar($this->store->put($ownerId, $image), Carbon::now());
 
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: null,
             actorId: $actorId,
-            eventType: 'USER_AVATAR_SET',
-            resourceType: 'user',
-            resourceId: $userId,
+            eventType: strtoupper($ownerType) . '_AVATAR_SET',
+            resourceType: $ownerType,
+            resourceId: $ownerId,
             // The size, not the image and not its name. A filename is attacker-supplied text and the
             // bytes are a face; neither belongs in a chain anybody with audit access can read.
             payloadHash: $this->audit->hashPayload(['bytes' => strlen($image)]),
         ));
 
-        return $user;
+        return $owner;
     }
 
     /** @return resource */

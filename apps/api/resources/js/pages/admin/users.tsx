@@ -15,7 +15,6 @@ import {
     Shield,
     ShieldCheck,
     Trash2,
-    Upload,
     UserSearch,
     UsersIcon,
     X,
@@ -33,9 +32,9 @@ import {
     updateUserStatus,
     uploadUserAvatar,
 } from '../../api/adminApi';
+import AvatarField from '../../components/AvatarField';
 import AppShell from '../../components/AppShell';
 import {
-    Avatar,
     Check,
     DataTable,
     EmptyState,
@@ -851,134 +850,6 @@ export default function AdminUsers(): JSX.Element {
  * It was a right-hand drawer, which is a different shape for the same job — a short form with two
  * choices and two buttons. One modal vocabulary means a person learns where Cancel lives once.
  */
-/**
- * The picture on somebody's account, and the two things you can do to it.
- *
- * ## It uploads immediately, and the dialog's Save button does not apply to it
- *
- * Every other field here is a draft until saved; this one is not, and that is deliberate rather than an
- * oversight. Holding a file until Save would mean the image is validated, scanned and rebuilt during a
- * request the person thinks is saving a role — so a refusal would surface as "save failed", with a role
- * change that may or may not have gone through. Uploading on choice keeps the two outcomes separate:
- * the picture succeeds or is refused on its own, and Save stays about the fields beside it.
- *
- * ## The file input is hidden behind a button
- *
- * A bare `<input type="file">` cannot be styled, and renders as a grey rectangle the browser owns. The
- * real input is present and focusable — the label wraps it — so keyboard and assistive technology reach
- * it exactly as they would any other; only the browser's own chrome is replaced.
- */
-function AvatarField(props: {
-    user: AdminUser;
-    onChange: (userId: string, version: string | null) => void;
-}): JSX.Element {
-    const { t } = useTranslation();
-    const user = props.user;
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const version = user.avatarUpdatedAt;
-
-    async function choose(file: File | undefined): Promise<void> {
-        if (file === undefined) {
-            return;
-        }
-
-        setBusy(true);
-        setError(null);
-
-        try {
-            props.onChange(user.id, await uploadUserAvatar(user.id, file));
-        } catch (failure) {
-            setError(avatarFailureMessage(failure, t));
-        } finally {
-            setBusy(false);
-        }
-    }
-
-    return (
-        <div className="avatar-field">
-            <Avatar
-                className="avatar-lg"
-                initials={initialsFor(user.email)}
-                src={version === null ? undefined : avatarUrl(user.id, version)}
-            />
-
-            <div className="min-w-0 flex-1">
-                <div className="identity-name truncate">{user.email.split('@')[0] ?? user.email}</div>
-                <div className="identity-sub truncate">{user.email}</div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <label className="ctl-action-link" aria-busy={busy}>
-                        <Upload className="size-3.5" aria-hidden="true" />
-                        {busy
-                            ? t((d) => d.pages.adminUsers.avatar.uploading)
-                            : version === null
-                              ? t((d) => d.pages.adminUsers.avatar.choose)
-                              : t((d) => d.pages.adminUsers.avatar.replace)}
-                        <input
-                            type="file"
-                            className="sr-only"
-                            accept="image/jpeg,image/png,image/webp"
-                            disabled={busy}
-                            onChange={(event) => {
-                                void choose(event.target.files?.[0]);
-                                // Cleared so choosing the same file twice fires `change` again, which
-                                // it otherwise does not — the value would be unchanged.
-                                event.target.value = '';
-                            }}
-                        />
-                    </label>
-
-                    {version === null ? null : (
-                        <PanelButton
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => {
-                                setBusy(true);
-                                setError(null);
-                                void removeUserAvatar(user.id)
-                                    .then(() => {
-                                        props.onChange(user.id, null);
-                                    })
-                                    .catch((failure: unknown) => {
-                                        setError(avatarFailureMessage(failure, t));
-                                    })
-                                    .finally(() => {
-                                        setBusy(false);
-                                    });
-                            }}
-                        >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.adminUsers.avatar.remove)}
-                        </PanelButton>
-                    )}
-                </div>
-
-                {error === null ? null : <p className="note text-destructive mt-1.5">{error}</p>}
-            </div>
-        </div>
-    );
-}
-
-/**
- * Turns a refusal into a sentence that says what to do about it.
- *
- * The server answers 422 with a `reason` — a key, not prose, so the wording lives in the language files
- * like everything else. An unrecognised reason falls back to the generic failure description, which is
- * what a future reason added server-side will read as until it gets its own sentence.
- */
-function avatarFailureMessage(failure: unknown, t: ReturnType<typeof useTranslation>['t']): string {
-    if (failure instanceof ApiError && failure.reason !== undefined) {
-        const known = t((d) => d.pages.adminUsers.avatar.reasons);
-
-        if (failure.reason in known) {
-            return known[failure.reason as keyof typeof known];
-        }
-    }
-
-    return describeApiFailure(failure, t);
-}
 
 function EditUserDialog(props: {
     user: AdminUser | null;
@@ -1060,7 +931,17 @@ function EditUserForm(props: {
 
     return (
         <div className="space-y-4">
-            <AvatarField user={user} onChange={props.onAvatarChange} />
+            <AvatarField
+                        initials={initialsFor(user.email)}
+                        name={user.email.split('@')[0] ?? user.email}
+                        sub={user.email}
+                        src={user.avatarUpdatedAt === null ? undefined : avatarUrl(user.id, user.avatarUpdatedAt)}
+                        onUpload={(file) => uploadUserAvatar(user.id, file)}
+                        onRemove={() => removeUserAvatar(user.id)}
+                        onChange={(version) => {
+                            props.onAvatarChange(user.id, version);
+                        }}
+                    />
 
             <FieldGrid>
                 <Field label={t((d) => d.pages.adminUsers.columns.role)}>

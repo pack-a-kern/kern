@@ -7,9 +7,11 @@ namespace Kern\TaxRomania\Subjects\Models;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Kern\Platform\Crypto\Casts\Encrypted;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
+use Kern\Platform\Identity\Avatars\HasAvatar;
 use Kern\TaxRomania\Database\Factories\TaxSubjectFactory;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
@@ -47,7 +49,7 @@ use RuntimeException;
  * @property SubjectStatus $status
  */
 #[UseFactory(TaxSubjectFactory::class)]
-final class TaxSubject extends Model implements EncryptsWithSubjectDek
+final class TaxSubject extends Model implements EncryptsWithSubjectDek, HasAvatar
 {
     /** @use HasFactory<\Kern\TaxRomania\Database\Factories\TaxSubjectFactory> */
     use HasFactory;
@@ -65,8 +67,15 @@ final class TaxSubject extends Model implements EncryptsWithSubjectDek
         'display_currency',
     ];
 
+    /*
+     * The avatar columns are deliberately absent from `$fillable`, exactly as they are on `User`: a
+     * path is written by `SetAvatar` after it has produced the file, and nothing that mass-assigns a
+     * taxpayer should be able to point one at a path no upload ever produced.
+     */
+
     /** @var array<string, string> */
     protected $casts = [
+        'avatar_updated_at' => 'datetime',
         'type' => SubjectType::class,
         'status' => SubjectStatus::class,
         'display_name_ciphertext' => Encrypted::class,
@@ -83,5 +92,38 @@ final class TaxSubject extends Model implements EncryptsWithSubjectDek
         }
 
         return $value;
+    }
+
+    public function avatarPath(): ?string
+    {
+        $value = $this->getAttribute('avatar_path');
+
+        return is_string($value) ? $value : null;
+    }
+
+    public function saveAvatar(?string $path, ?Carbon $at): void
+    {
+        $this->setAttribute('avatar_path', $path);
+        $this->setAttribute('avatar_updated_at', $at);
+        $this->save();
+    }
+
+    /** The cache key an image URL carries, as the wire shape wants it, or null when there is none. */
+    public function avatarUpdatedAt(): ?string
+    {
+        $value = $this->getAttribute('avatar_updated_at');
+
+        return $value instanceof Carbon ? $value->toIso8601String() : null;
+    }
+
+    public function avatarOwnerId(): string
+    {
+        return $this->encryptionSubjectId();
+    }
+
+    /* What an auditor reads. The table's name, so the row says which kind of thing changed. */
+    public function avatarOwnerType(): string
+    {
+        return 'tax_subject';
     }
 }

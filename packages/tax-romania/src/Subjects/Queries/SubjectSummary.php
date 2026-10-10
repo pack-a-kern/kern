@@ -24,11 +24,18 @@ final readonly class SubjectSummary
         public MembershipRole $role,
         /** The currency this subject's wallet totals are added up in — a display preference. */
         public string $displayCurrency,
+        /**
+         * When the picture last changed, or null for a taxpayer showing its initials.
+         *
+         * The timestamp rather than a path: it is the cache key the image URL carries, and a path is
+         * where a file sits on this installation's disk, which is nothing a browser should be told.
+         */
+        public ?string $avatarUpdatedAt = null,
     ) {
     }
 
     /**
-     * @return array{id: string, type: string, display_name: string, status: string, role: string}
+     * @return array{id: string, type: string, display_name: string, status: string, role: string, display_currency: string, avatar_updated_at: string|null}
      */
     public function toArray(): array
     {
@@ -39,6 +46,7 @@ final readonly class SubjectSummary
             'status' => $this->status->value,
             'role' => $this->role->value,
             'display_currency' => $this->displayCurrency,
+            'avatar_updated_at' => $this->avatarUpdatedAt,
         ];
     }
 }

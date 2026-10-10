@@ -28,7 +28,7 @@ export function useAppName(): string {
 export interface SharedAuth {
     /** `permissions` only decides what is drawn; every route checks its own. */
     user: { id: string; email: string | null; roles: string[]; permissions: string[] };
-    subjects: { id: string; displayName: string; status: string; type: string }[];
+    subjects: { id: string; displayName: string; status: string; type: string; avatarUpdatedAt: string | null }[];
     /** True while an administrator is acting as this account. */
     impersonated: boolean;
 }
@@ -72,6 +72,7 @@ export function useSharedAuth(): SharedAuth | null {
                 displayName: asString(row.display_name),
                 status: asString(row.status),
                 type: asString(row.type),
+                avatarUpdatedAt: typeof row.avatar_updated_at === 'string' ? row.avatar_updated_at : null,
             };
         }),
     };

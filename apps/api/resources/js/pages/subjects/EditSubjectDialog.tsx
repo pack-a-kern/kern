@@ -8,6 +8,9 @@ import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useCounties } from './useCounties';
 import type { TaxSubject } from '../../types/account';
+import AvatarField from '../../components/AvatarField';
+import { removeSubjectAvatar, subjectAvatarUrl, uploadSubjectAvatar } from '../../api/accountApi';
+import { initialsFor } from '../../lib/initials';
 
 /**
  * Correcting a taxpayer.
@@ -27,6 +30,8 @@ export default function EditSubjectDialog(props: {
     subject: TaxSubject;
     onClose: () => void;
     onSaved: () => void;
+    /** Told the new version, or null once the picture is gone, so the list behind can redraw. */
+    onAvatarChange: (subjectId: string, version: string | null) => void;
     describeFailure: (cause: unknown) => string;
 }): JSX.Element {
     const { t } = useTranslation();
@@ -111,6 +116,30 @@ export default function EditSubjectDialog(props: {
                 </>
             }
         >
+            {/* Above the fields and uploaded on its own, like a user's: a refusal from the scanner
+                belongs to the picture, not to a Save the person thought was about a name. Only the
+                owner may change it, and the server says so too — this is the screen being honest
+                rather than the screen deciding. */}
+            {props.subject.role !== 'OWNER' ? null : (
+                <div className="mb-4">
+                    <AvatarField
+                        initials={initialsFor(props.subject.displayName)}
+                        name={props.subject.displayName}
+                        sub={t((d) => d.pages.settingsSubjects.types[props.subject.type] ?? props.subject.type)}
+                        src={
+                            props.subject.avatarUpdatedAt === null
+                                ? undefined
+                                : subjectAvatarUrl(props.subject.id, props.subject.avatarUpdatedAt)
+                        }
+                        onUpload={(file) => uploadSubjectAvatar(props.subject.id, file)}
+                        onRemove={() => removeSubjectAvatar(props.subject.id)}
+                        onChange={(version) => {
+                            props.onAvatarChange(props.subject.id, version);
+                        }}
+                    />
+                </div>
+            )}
+
             <FieldGrid>
                 <FieldSpan>
                     <Field

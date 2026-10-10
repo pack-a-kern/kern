@@ -40,7 +40,9 @@ use Kern\TaxRomania\Http\Controllers\Subjects\ChangeSubjectStatusController;
 use Kern\TaxRomania\Http\Controllers\Subjects\InspectCnpController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController;
+use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectAvatarController;
 use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
+use Kern\TaxRomania\Http\Controllers\Subjects\UpdateSubjectAvatarController;
 use Kern\TaxRomania\Http\Controllers\Spv\DestroySpvSessionController;
 use Kern\TaxRomania\Http\Controllers\Spv\RegisterSpvConnectionController;
 use Kern\TaxRomania\Http\Controllers\Spv\ShowSpvConnectionsController;
@@ -99,6 +101,15 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     // check ownership themselves.
     Route::patch('{subject}', UpdatePfSubjectController::class);
     Route::put('{subject}/status', ChangeSubjectStatusController::class);
+    /*
+     * A taxpayer's picture, here for the same reason the two above are: these act *on* a taxpayer
+     * rather than within one, so binding a tenant context to change that tenant's own card reads the
+     * wrong way round. Both controllers check membership themselves — reading needs any live
+     * membership, writing needs the owner, exactly as the status change does.
+     */
+    Route::get('{subject}/avatar', ShowSubjectAvatarController::class);
+    Route::post('{subject}/avatar', [UpdateSubjectAvatarController::class, 'store']);
+    Route::delete('{subject}/avatar', [UpdateSubjectAvatarController::class, 'destroy']);
 });
 
 /*

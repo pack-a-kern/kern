@@ -1,4 +1,4 @@
-import { apiRequest } from '../lib/http';
+import { apiRequest, apiUpload } from '../lib/http';
 import { type Profile, type SubjectsPage, parseProfile, parseSubjectsPage } from '../types/account';
 
 /** `GET /api/v1/me` — the signed-in account. */
@@ -158,4 +158,39 @@ export async function inspectCnp(cnp: string): Promise<CnpDetails> {
         countyCode: typeof row.county_code === 'string' ? row.county_code : '',
         locality: typeof row.locality === 'string' ? row.locality : null,
     };
+}
+
+/**
+ * `GET /api/v1/subjects/{id}/avatar` — the URL a taxpayer's picture is read from.
+ *
+ * Not a request: this builds the `src` an `<img>` fetches itself, which is why the timestamp is in
+ * the query string. The file keeps one name per taxpayer and is overwritten on each upload, so
+ * without the version a browser would hold the previous picture for as long as the cache header says
+ * — a year. Same shape as `avatarUrl` in `adminApi`, pointing at the other owner.
+ */
+export function subjectAvatarUrl(subjectId: string, version: string): string {
+    return `/api/v1/subjects/${encodeURIComponent(subjectId)}/avatar?v=${encodeURIComponent(version)}`;
+}
+
+/** `POST /api/v1/subjects/{id}/avatar` — gives a taxpayer a picture. Owner only. */
+export async function uploadSubjectAvatar(subjectId: string, file: File): Promise<string | null> {
+    const body = new FormData();
+    body.append('avatar', file);
+
+    const response: unknown = JSON.parse(
+        await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/avatar`, body),
+    );
+
+    if (typeof response !== 'object' || response === null) {
+        return null;
+    }
+
+    const updated = (response as Record<string, unknown>).avatar_updated_at;
+
+    return typeof updated === 'string' ? updated : null;
+}
+
+/** `DELETE /api/v1/subjects/{id}/avatar` — puts the initials back. */
+export async function removeSubjectAvatar(subjectId: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/avatar`, { method: 'DELETE' });
 }

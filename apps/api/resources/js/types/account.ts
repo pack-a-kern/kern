@@ -23,6 +23,8 @@ export interface TaxSubject {
     role: string;
     /** Which currency this subject's wallet totals are added up in. A display preference only. */
     displayCurrency: string;
+    /** When the picture last changed, or null for a taxpayer showing its initials. */
+    avatarUpdatedAt: string | null;
 }
 
 function str(row: Record<string, unknown>, key: string): string {
@@ -92,6 +94,7 @@ export function parseSubjectsPage(payload: unknown): SubjectsPage {
             // Empty when an older response omits it; the card falls back to RON rather than showing
             // a blank select.
             displayCurrency: str(row, 'display_currency'),
+            avatarUpdatedAt: nullableStr(row, 'avatar_updated_at'),
         };
     });
 

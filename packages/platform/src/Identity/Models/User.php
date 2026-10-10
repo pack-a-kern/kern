@@ -17,12 +17,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Crypto\Casts\Encrypted;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use Kern\Platform\Database\Factories\UserFactory;
+use Kern\Platform\Identity\Avatars\HasAvatar;
 use Kern\Platform\Identity\Enums\UserStatus;
 use RuntimeException;
 use Spatie\Permission\Traits\HasRoles;
@@ -62,7 +64,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property \Illuminate\Support\Carbon|null $avatar_updated_at
  */
 #[UseFactory(UserFactory::class)]
-final class User extends Model implements AuthenticatableContract, EncryptsWithSubjectDek, AuthorizableContract
+final class User extends Model implements AuthenticatableContract, EncryptsWithSubjectDek, AuthorizableContract, HasAvatar
 {
     /**
      * Platform roles and permissions (`config/access.php`).
@@ -122,8 +124,8 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
     /**
      * The avatar columns are deliberately absent from `$fillable`.
      *
-     * They are only ever written by {@see \Kern\Platform\Identity\Avatars\SetUserAvatar} and
-     * {@see \Kern\Platform\Identity\Avatars\RemoveUserAvatar}, which set them as properties after
+     * They are only ever written by {@see \Kern\Platform\Identity\Avatars\SetAvatar} and
+     * {@see \Kern\Platform\Identity\Avatars\RemoveAvatar}, which set them as properties after
      * the bytes have been scanned, rebuilt and stored. Mass-assignable, a `fill()` anywhere in the
      * codebase could point a user's avatar at a path on disk that no upload ever produced.
      */
@@ -239,5 +241,32 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
     public function receivesBroadcastNotificationsOn(): string
     {
         return 'users.' . $this->id;
+    }
+
+    public function avatarPath(): ?string
+    {
+        return $this->avatar_path;
+    }
+
+    /**
+     * The one place the avatar columns are written, which is why they are not `$fillable` — see the
+     * note above `$casts`. `save()` lives here rather than in the action so the contract that action
+     * takes says nothing about Eloquent.
+     */
+    public function saveAvatar(?string $path, ?Carbon $at): void
+    {
+        $this->avatar_path = $path;
+        $this->avatar_updated_at = $at;
+        $this->save();
+    }
+
+    public function avatarOwnerId(): string
+    {
+        return $this->id;
+    }
+
+    public function avatarOwnerType(): string
+    {
+        return 'user';
     }
 }

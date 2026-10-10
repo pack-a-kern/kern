@@ -1,15 +1,48 @@
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId } from '../lib/subjectStore';
-import { useSharedAuth } from '../lib/sharedProps';
+import { useSharedAuth, type SharedAuth } from '../lib/sharedProps';
+
+/** One row of the shared subject list — what the switcher draws. */
+type SubjectRow = SharedAuth['subjects'][number];
 import { useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
+import { initialsFor } from '../lib/initials';
+import { subjectAvatarUrl } from '../api/accountApi';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+/**
+ * The taxpayer's disc: its picture where there is one, its initials where there is not.
+ *
+ * Three call sites in this file — the static tile, the trigger and every row of the menu — and they
+ * used to differ only in their class string, which is how the rail tile and the menu row came to
+ * disagree about the disc's size. The classes stay the caller's; what is inside it does not.
+ */
+function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; className: string }): JSX.Element {
+    const picture = subject === undefined || subject.avatarUpdatedAt === null
+        ? null
+        : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt);
+
+    if (picture !== null) {
+        return (
+            <img
+                src={picture}
+                alt=""
+                className={`${className} object-cover`}
+                // Decoration beside the name it belongs to: a screen reader that announced the file
+                // would be reading the taxpayer's id out loud.
+                aria-hidden="true"
+            />
+        );
+    }
+
+    return <span className={className}>{initialsFor(subject === undefined ? '?' : subject.displayName)}</span>;
+}
 
 /**
  * The topbar's compact "which tax subject am I working on" switcher — every other page still
@@ -20,29 +53,6 @@ import {
  * `/taxpayers` (`resources/js/pages/settings/subjects.tsx`, linked below), which already
  * paginates.
  */
-/**
- * Up to two letters standing in for a subject, so the switcher still identifies one in rail mode
- * where the name does not fit. Taken from word starts rather than the first two characters —
- * "Popescu Consulting SRL" is PC, not PO.
- */
-function initials(displayName: string): string {
-    const words = displayName.split(/\s+/).filter((word) => word !== '');
-
-    if (words.length === 0) {
-        return '?';
-    }
-
-    // One word gives its first two letters — "ddsfsfsd" is DS. Only a real multi-word name takes
-    // one letter from each, so "Popescu Consulting SRL" is PC rather than PO.
-    if (words.length === 1) {
-        return (words[0] ?? '').slice(0, 2).toUpperCase();
-    }
-
-    return words
-        .slice(0, 2)
-        .map((word) => word.charAt(0).toUpperCase())
-        .join('');
-}
 
 export default function SubjectSwitcher({
     /** Rail mode: the sidebar is collapsed, so only the initials tile fits. */
@@ -103,9 +113,10 @@ export default function SubjectSwitcher({
 
     const tile = (
         <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
-            <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold">
-                {initials(active ? active.displayName : '?')}
-            </span>
+            <SubjectDisc
+                subject={active}
+                className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold"
+            />
             {!collapsed && (
                 <span className="min-w-0 flex-1">
                     <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
@@ -133,9 +144,10 @@ export default function SubjectSwitcher({
                     type="button"
                     className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
                 >
-                    <span className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold">
-                        {initials(active ? active.displayName : '?')}
-                    </span>
+                    <SubjectDisc
+                        subject={active}
+                        className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold"
+                    />
                     {!collapsed && (
                         <>
                             <span className="min-w-0 flex-1">
@@ -198,15 +210,14 @@ export default function SubjectSwitcher({
                                 activate(subject.id);
                             }}
                         >
-                            <span
+                            <SubjectDisc
+                                subject={subject}
                                 className={
                                     subject.id === resolvedId
                                         ? 'bg-accent text-accent-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
                                         : 'bg-secondary text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
                                 }
-                            >
-                                {initials(subject.displayName)}
-                            </span>
+                            />
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate text-xs font-semibold">{subject.displayName}</span>
                                 <span className="text-muted-foreground block truncate text-2xs">

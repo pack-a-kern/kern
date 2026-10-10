@@ -73,6 +73,8 @@ final class ListSubjectsForUser
                 role: $membership->role,
                 // Stored in clear, so no decrypt: it is a preference, not personal data.
                 displayCurrency: $subject->display_currency,
+                // Same: a timestamp, and the cache key for the picture's URL.
+                avatarUpdatedAt: $subject->avatarUpdatedAt(),
             );
         });
     }

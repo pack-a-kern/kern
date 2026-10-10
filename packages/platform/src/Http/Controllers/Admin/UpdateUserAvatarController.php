@@ -8,8 +8,8 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Kern\Platform\Identity\Avatars\RemoveUserAvatar;
-use Kern\Platform\Identity\Avatars\SetUserAvatar;
+use Kern\Platform\Identity\Avatars\RemoveAvatar;
+use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
 
@@ -20,7 +20,7 @@ use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
  * The validation here is the cheap half: a file arrived, and it is not absurdly large. It deliberately
  * does not use Laravel's `image` rule, which trusts the client's MIME type and the extension — both
  * supplied by whoever is uploading. What the file actually is gets decided from its bytes, inside
- * {@see SetUserAvatar}, where refusing it costs nothing that has been written.
+ * {@see SetAvatar}, where refusing it costs nothing that has been written.
  *
  * `max_bytes` is checked twice, and that is intended: once here so an oversized upload is refused with a
  * validation error naming the limit, and once in the action so the limit holds for every caller, not
@@ -31,7 +31,7 @@ final class UpdateUserAvatarController
     public function store(
         Request $request,
         User $user,
-        SetUserAvatar $set,
+        SetAvatar $set,
         ConfigRepository $config,
     ): JsonResponse {
         $maxKilobytes = intdiv($config->integer('avatars.max_bytes'), 1024);
@@ -55,7 +55,9 @@ final class UpdateUserAvatarController
         $actorKey = $request->user()?->getKey();
 
         try {
-            $user = $set($user, $bytes, is_scalar($actorKey) ? (string) $actorKey : null);
+            // Not reassigned: the action returns the owner as the contract it took, and this
+            // controller still wants the `User` it was handed — the action mutated that instance.
+            $set($user, $bytes, is_scalar($actorKey) ? (string) $actorKey : null);
         } catch (UploadRejectedException $e) {
             /*
              * 422 for every refusal, including an unavailable scanner.
@@ -73,7 +75,7 @@ final class UpdateUserAvatarController
         ]);
     }
 
-    public function destroy(Request $request, User $user, RemoveUserAvatar $remove): JsonResponse
+    public function destroy(Request $request, User $user, RemoveAvatar $remove): JsonResponse
     {
         $actorKey = $request->user()?->getKey();
 

@@ -43,15 +43,10 @@ import {
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { initialsFor } from '../../lib/initials';
+import { subjectAvatarUrl } from '../../api/accountApi';
 import AddSubjectDialog from './AddSubjectDialog';
 import EditSubjectDialog from './EditSubjectDialog';
-
-/** Initials for the avatar disc, from a display name rather than an email. */
-function initialsFor(name: string): string {
-    const parts = name.split(/\s+/).filter((part) => part !== '');
-
-    return (parts.length > 1 ? `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}` : name.slice(0, 2)).toUpperCase();
-}
 
 /**
  * The taxpayers this account can act for.
@@ -307,6 +302,11 @@ export default function SubjectsPage(): JSX.Element {
                                             initials={initialsFor(subject.displayName)}
                                             name={subject.displayName}
                                             sub={subject.id}
+                                            avatar={
+                                                subject.avatarUpdatedAt === null
+                                                    ? undefined
+                                                    : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt)
+                                            }
                                         />
                                     </td>
                                     <td className="col-hide">
@@ -446,6 +446,26 @@ export default function SubjectsPage(): JSX.Element {
                     onSaved={() => {
                         setEditing(null);
                         setReloadToken((token) => token + 1);
+                    }}
+                    // In place rather than by refetching, the same way the currency change is: the
+                    // picture is already uploaded and accepted by the time this runs, and a refetch
+                    // would close over the dialog the person is still standing in.
+                    onAvatarChange={(subjectId, version) => {
+                        setPage((current) =>
+                            current === null
+                                ? null
+                                : {
+                                      ...current,
+                                      data: current.data.map((row) =>
+                                          row.id === subjectId ? { ...row, avatarUpdatedAt: version } : row,
+                                      ),
+                                  },
+                        );
+                        setEditing((current) =>
+                            current === null || current.id !== subjectId
+                                ? current
+                                : { ...current, avatarUpdatedAt: version },
+                        );
                     }}
                     describeFailure={describeFailure}
                 />

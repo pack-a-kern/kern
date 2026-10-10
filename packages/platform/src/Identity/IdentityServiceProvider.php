@@ -24,7 +24,7 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Crypto\BlindIndex\EloquentColumnReindexer;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Avatars\AvatarStore;
-use Kern\Platform\Identity\Avatars\SetUserAvatar;
+use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Identity\Contracts\VerificationSender;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
@@ -130,10 +130,10 @@ final class IdentityServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->bind(SetUserAvatar::class, static function (Application $app): SetUserAvatar {
+        $this->app->bind(SetAvatar::class, static function (Application $app): SetAvatar {
             $config = $app->make(ConfigRepository::class);
 
-            return new SetUserAvatar(
+            return new SetAvatar(
                 $app->make(UploadScanner::class),
                 $app->make(SquareImageNormaliser::class),
                 $app->make(AvatarStore::class),

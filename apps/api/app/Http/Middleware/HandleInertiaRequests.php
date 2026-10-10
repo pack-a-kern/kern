@@ -90,6 +90,9 @@ final class HandleInertiaRequests extends Middleware
                         'display_name' => $summary->displayName,
                         'status' => $summary->status->value,
                         'type' => $summary->type->value,
+                        // The switcher draws the taxpayer on every page, so the picture's cache key
+                        // travels with the name rather than costing a request per page load.
+                        'avatar_updated_at' => $summary->avatarUpdatedAt,
                     ],
                     app(ListSubjectsForUser::class)($user->id)->items(),
                 ),

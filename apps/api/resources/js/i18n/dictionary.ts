@@ -508,6 +508,28 @@ export interface Dictionary {
     documentType: Record<DocumentType, string>;
     /** One line saying what each document type is for — shown under its name in a picker. */
     documentTypeHint: Record<DocumentType, string>;
+    /**
+     * A picture and the two controls that change it, for anything that can wear one — an account, a
+     * taxpayer. At the root rather than under a screen because two screens share the component that
+     * reads these, and none of the words was ever about users.
+     */
+    avatar: {
+        choose: string;
+        replace: string;
+        remove: string;
+        uploading: string;
+        /** Keyed by the `reason` a 422 carries — see `UploadRejectedException`. */
+        reasons: Record<
+            | 'infected'
+            | 'scanner_unavailable'
+            | 'too_large'
+            | 'not_an_image'
+            | 'dimensions_too_large'
+            | 'undecodable'
+            | 'unencodable',
+            string
+        >;
+    };
     subjectType: {
         PF: string;
         PFA: string;
@@ -2095,24 +2117,6 @@ export interface Dictionary {
                 rolesEnforcedSub: string;
                 yes: string;
                 no: string;
-            };
-            /** A user's profile picture: the control in the edit dialog, and why one was refused. */
-            avatar: {
-                choose: string;
-                replace: string;
-                remove: string;
-                uploading: string;
-                /** Keyed by the `reason` a 422 carries — see `UploadRejectedException`. */
-                reasons: Record<
-                    | 'infected'
-                    | 'scanner_unavailable'
-                    | 'too_large'
-                    | 'not_an_image'
-                    | 'dimensions_too_large'
-                    | 'undecodable'
-                    | 'unencodable',
-                    string
-                >;
             };
             enforced: {
                 active: string;
