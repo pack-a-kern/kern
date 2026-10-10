@@ -679,19 +679,15 @@
  * width, including a phone.
  *
  * Columns rather than a flex row because `.select-trigger` is 100% wide by design; in a flex row it
- * takes everything and leaves the value a sliver. Its 155px floor is waived here for the same
- * reason — three controls on a 360px screen cannot each keep a floor that wide, and the name is the
- * one that can afford to truncate, since it is chosen from a list rather than read.
+ * takes everything and leaves the value a sliver. The tracks give the name the share it should have,
+ * and `minmax(0, …)` lets it truncate — it is chosen from a list rather than read, so it is the one
+ * of the three that can afford to.
  */
 .field-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
     align-items: center;
     gap: 0.5rem;
-}
-
-.field-row .select-trigger {
-    min-width: 0;
 }
 
 /* On a phone the name takes the larger share: its options are long words ("Număr document"), while
@@ -840,9 +836,18 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  */
 .select-trigger {
     display: flex;
+    /*
+     * Fills the box it is given and sets no floor of its own, so the layout decides how wide a
+     * select is — exactly as it decides how wide an input is, since `.ctl` states no width either.
+     *
+     * It used to carry `min-width: 155px`, which every select in the product then had to live with.
+     * That floor is right in one place only — a row of filters, where a select shrunk to the width
+     * of "Toate" is unreadable — and wherever a select shared a line with anything else the floor
+     * won and the other control was pushed off the edge. Three separate rules had grown to cancel
+     * it one screen at a time, which is three rules arguing about one number. The floor now belongs
+     * to the rows that wanted it, stated once below, and the three cancelling rules are gone.
+     */
     width: 100%;
-    /* The design's own floor, so a filter row does not collapse its controls to their text. */
-    min-width: 155px;
     align-items: center;
     gap: 0.5rem;
     /* `.ctl` sets only `border-color` — it was written for the vendor Input and Button, which
@@ -855,15 +860,27 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     text-align: left;
 }
 
-/* A select whose answer is a word or a number — a year, a currency.
+/*
+ * The floor, where it earns its keep.
  *
- * The 155px floor above exists so a row of filters does not collapse its controls to the width of
- * their own text; a control that only ever holds four digits has no such row to stay in line with,
- * and at the floor it was mostly empty. Stated as a class because that floor is unlayered CSS and a
- * width utility cannot reach past it. */
+ * A toolbar is a run of filters reading "Toate", "2026", "RON". Left to themselves they each take
+ * the width of their own longest word, and a row of six different widths reads as six unrelated
+ * things rather than one set of filters. The floor makes them one set.
+ *
+ * Scoped to the container rather than to a class on each select, because a filter that someone
+ * forgets to label is still in the row and still has to line up with the others. The narrow-screen
+ * rules further down lay a wrapping toolbar out explicitly and waive this — they come later in the
+ * file at the same specificity, which is how they win.
+ */
+.toolbar .select-trigger,
+.toolbar-row .select-trigger {
+    min-width: 155px;
+}
+
+/* A select whose answer is one word or number — a year, a currency. Sized to its content instead of
+   to its box, so it is not a wide control holding four digits. */
 .select-compact.select-trigger {
     width: auto;
-    min-width: 0;
 }
 
 .select-trigger:hover:not(:disabled) {
@@ -3013,37 +3030,14 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
- * A control sized to its content rather than to the row.
+ * A control given a set width rather than the whole row.
  *
- * Not a `w-40` utility: Tailwind v4 emits utilities into `@layer utilities`, which loses to unlayered rules —
- * and `.select-trigger` sets `width: 100%` with a 155px floor, so the class was present in the markup and did
- * nothing. The width has to come from a rule at this level and cannot go below that floor.
+ * Not a `w-40` utility: Tailwind v4 emits utilities into `@layer utilities`, which loses to unlayered
+ * rules, and `.select-trigger` sets `width: 100%` — so the utility was present in the markup and did
+ * nothing. A width that has to beat that one must be stated at this level.
  */
 .ctl-narrow {
     width: 10rem;
-}
-
-/*
- * A control that gives up its floor so whatever sits beside it fits.
- *
- * `.select-trigger` carries `min-width: 155px` — right for a filter row, where a select collapsed to
- * the width of "All" is unusable — and wrong wherever the control shares a line with a button in a
- * narrow column, because the button is what gets pushed off the edge.
- *
- * A class in the stylesheet rather than Tailwind's `min-w-0 flex-1`: those live in `@layer utilities`
- * and lose to any unlayered rule setting the same property, which is exactly what `.select-trigger`
- * is. The utility is applied, it just never wins — the fourth time this has caught me.
- */
-.ctl-fluid {
-    /*
-     * A floor of 9rem rather than `.select-trigger`'s 155px, and rather than none at all.
-     *
-     * None at all was the first attempt and it is worse than the bug: the control beside it takes its
-     * natural width, this one absorbs every pixel of the shortfall, and a model picker reading "qw…"
-     * is less use than one that overflows. With a floor, a row that cannot hold both wraps instead.
-     */
-    flex: 1 1 9rem;
-    min-width: 9rem;
 }
 
 /* A right-hand detail drawer. One width for all of them, so they read as the same object. */

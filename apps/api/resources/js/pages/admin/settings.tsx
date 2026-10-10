@@ -841,17 +841,11 @@ function AiPanel(props: {
                         label={t((d) => d.pages.adminSettings.settingLabels['ai.model'] ?? 'ai.model')}
                         mark={modelSetting ? <SourceMark setting={modelSetting} /> : null}
                     >
-                        {/* Wraps: this field is half a column, and a select with a usable width plus
-                            a button with its label does not fit on one line there. Wrapping puts the
-                            button underneath at the narrow sizes and leaves it inline at the wide ones. */}
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex gap-1.5">
                             {modelOptions.length > 0 ? (
                                 <PanelSelect
                                     id="ai.model"
-                                    /* Gives up `.select-trigger`'s 155px floor, which otherwise keeps
-                                       this select at the width of its longest model name and pushes
-                                       the Load button past the card's edge. */
-                                    className="ctl-fluid"
+                                    className="min-w-0 flex-1"
                                     value={valueOf('ai.model')}
                                     onValueChange={(value) => {
                                         props.onDraft('ai.model', value);
@@ -863,7 +857,7 @@ function AiPanel(props: {
                                 <PanelInput
                                     id="ai.model"
                                     icon={iconForSetting('ai.model', 'string')}
-                                    className="ctl-fluid"
+                                    className="min-w-0 flex-1"
                                     value={valueOf('ai.model')}
                                     onChange={(event) => {
                                         props.onDraft('ai.model', event.target.value);
