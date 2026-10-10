@@ -2822,16 +2822,23 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     align-items: center;
     gap: 9px;
 }
+/*
+ * 34px, not 28px.
+ *
+ * It was sized for two letters, which read fine small. A face does not: at 28px a photograph is a
+ * smudge with a hairstyle, and the thing it is there to do — let somebody recognise a row at a glance —
+ * stops working. The initials go up with it rather than floating in a larger circle.
+ */
 .avatar {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     flex: none;
     border-radius: 50%;
     display: grid;
     place-items: center;
     background: var(--muted);
     color: var(--foreground);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     /* The image is round because the frame clips it, so a square upload needs nothing done to it. */
     overflow: hidden;
