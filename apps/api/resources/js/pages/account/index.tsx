@@ -194,7 +194,7 @@ export default function AccountPage(): JSX.Element {
                     <GuaranteesCard />
                 </div>
 
-                <SessionsCard sessions={sessions} onChanged={reload} describeFailure={describeFailure} />
+                <SessionsCard sessions={sessions} onChanged={reload} />
             </Page>
         </AppShell>
     );

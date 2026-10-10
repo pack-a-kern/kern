@@ -1,5 +1,10 @@
-import { ApiError } from './http';
+import { toast } from 'sonner';
+
+import { ApiError, StepUpCancelled } from './http';
 import type { Dictionary } from '../i18n/dictionary';
+
+/** How a screen reads its own dictionary. Matches `useTranslation()`'s `t`. */
+type Translate = <T>(pick: (d: Dictionary) => T) => T;
 
 /**
  * The per-field messages from a Laravel validation failure, one per field.
@@ -53,7 +58,7 @@ export function isValidationError(cause: unknown): boolean {
  * Field errors also belong *on the field* — see {@link fieldErrors}. This is for the toast that
  * accompanies them, and for the failures no field owns.
  */
-export function describeApiFailure(cause: unknown, t: <T>(pick: (d: Dictionary) => T) => T): string {
+export function describeApiFailure(cause: unknown, t: Translate): string {
     if (!(cause instanceof ApiError)) {
         return t((d) => d.errors.unexpected);
     }
@@ -81,4 +86,41 @@ export function describeApiFailure(cause: unknown, t: <T>(pick: (d: Dictionary) 
     }
 
     return cause.message.trim() === '' ? t((d) => d.errors.unexpected) : cause.message;
+}
+
+/**
+ * Reports a failed request to the person, and says nothing when there was no failure.
+ *
+ * ## Why reporting is shared and not left to each screen
+ *
+ * {@link describeApiFailure} already fixed half of this: the error *message* had been written six
+ * ways on six screens and they disagreed. The toast around it was still written at every call site,
+ * which left the other half open — nothing shared decided *whether* to speak at all.
+ *
+ * That is what a dismissed step-up dialog fell through. A screen's `catch` cannot tell "they closed
+ * the password box" from "the server refused", because both arrive as a rejected promise, so
+ * cancelling "end this session" announced that the session could not be ended. Ten actions behind
+ * that gate, ten screens that each had to know. Now one place knows, and a new gated action inherits
+ * it by calling this.
+ *
+ * `title` is the screen's own line — "the session could not be ended" — with the server's reading
+ * underneath it. Without one, the server's reading is the whole toast: right where the action has no
+ * name worth repeating back.
+ */
+export function reportApiFailure(cause: unknown, t: Translate, title?: string): void {
+    // Nothing failed: the request was refused pending a confirmation, and the confirmation was
+    // declined. The person who closed the dialog knows what they did.
+    if (cause instanceof StepUpCancelled) {
+        return;
+    }
+
+    const description = describeApiFailure(cause, t);
+
+    if (title === undefined) {
+        toast.error(description);
+
+        return;
+    }
+
+    toast.error(title, { description });
 }

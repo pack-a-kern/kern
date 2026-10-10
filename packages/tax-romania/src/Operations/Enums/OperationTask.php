@@ -106,10 +106,6 @@ enum OperationTask: string
      */
     case IDENTITY_PRUNE_SESSIONS = 'identity.prune_sessions';
 
-    /**
-     * Read the fiscal values — the minimum-wage decisions and ANAF's D212 structure files — and
-     * propose those the law says, for a person to approve. Started from the tax rules screen.
-     */
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {

@@ -2483,7 +2483,8 @@ export const en = {
                     'deposit.post_interest': 'Settle deposits',
                     'banks.import': 'Bank list import',
                     'banks.backfill': 'Bank list backfill',
-                    'fiscal.parameters.read': 'Read fiscal values',
+                    'counterparties.classify': 'Counterparty classification',
+                    'spv.close_expired_sessions': 'Expired SPV session close',
                     'identity.prune_sessions': 'Expired session cleanup',
                 },
                 descriptions: {

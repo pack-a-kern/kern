@@ -19,7 +19,7 @@ import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import { formatDateTime } from '../lib/format';
-import { describeApiFailure } from '../lib/apiErrors';
+import { reportApiFailure } from '../lib/apiErrors';
 import { apiRequest } from '../lib/http';
 
 /** What the server says a connection is. Mirrors `ShowSpvConnectionsController`. */
@@ -206,7 +206,7 @@ export default function Spv(): JSX.Element {
                 toast.error(t((d) => d.pages.spv.syncFailed));
             }
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
             reload();
@@ -229,7 +229,7 @@ export default function Spv(): JSX.Element {
             setUsername(connection.username ?? '');
             setSignIn({ step: 'credentials', connection, sessionId: str(body, 'session_id') });
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
         }
@@ -265,7 +265,7 @@ export default function Spv(): JSX.Element {
             }
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(describeApiFailure(cause, t));
+                reportApiFailure(cause, t);
             }
         } finally {
             setWorking(false);
@@ -297,7 +297,7 @@ export default function Spv(): JSX.Element {
             }
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(describeApiFailure(cause, t));
+                reportApiFailure(cause, t);
             }
         } finally {
             setWorking(false);
@@ -318,7 +318,7 @@ export default function Spv(): JSX.Element {
             setRevoking(null);
             reload();
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
         }
@@ -336,7 +336,7 @@ export default function Spv(): JSX.Element {
             setDeleting(null);
             reload();
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
         }
@@ -361,7 +361,7 @@ export default function Spv(): JSX.Element {
             reload();
         } catch (cause: unknown) {
             if (!errors.capture(cause)) {
-                toast.error(describeApiFailure(cause, t));
+                reportApiFailure(cause, t);
             }
         } finally {
             setWorking(false);

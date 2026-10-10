@@ -3,6 +3,7 @@ import { Bot, Clock, Globe, LogOutIcon, Monitor, MonitorSmartphoneIcon, Smartpho
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
+import { reportApiFailure } from '../../lib/apiErrors';
 import { CellLabel, DataTable, EventTime, Panel, PanelButton, Pill } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
@@ -65,7 +66,6 @@ function deviceName(session: SessionSummary, t: <T>(select: (dictionary: Diction
 export default function SessionsCard(props: {
     sessions: SessionSummary[] | null;
     onChanged: () => void;
-    describeFailure: (cause: unknown) => string;
 }): JSX.Element {
     const { t } = useTranslation();
     const [busy, setBusy] = useState(false);
@@ -80,10 +80,7 @@ export default function SessionsCard(props: {
             toast.success(t((d) => d.pages.settingsSecurity.sessionRevoked));
             props.onChanged();
         } catch (cause: unknown) {
-            toast.error(
-                t((d) => d.pages.settingsSecurity.revokeFailed),
-                { description: props.describeFailure(cause) },
-            );
+            reportApiFailure(cause, t, t((d) => d.pages.settingsSecurity.revokeFailed));
         } finally {
             setBusy(false);
         }
@@ -97,10 +94,7 @@ export default function SessionsCard(props: {
             toast.success(t((d) => d.pages.settingsSecurity.othersRevoked).replace('{count}', String(count)));
             props.onChanged();
         } catch (cause: unknown) {
-            toast.error(
-                t((d) => d.pages.settingsSecurity.revokeFailed),
-                { description: props.describeFailure(cause) },
-            );
+            reportApiFailure(cause, t, t((d) => d.pages.settingsSecurity.revokeFailed));
         } finally {
             setBusy(false);
         }

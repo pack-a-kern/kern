@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiRequest, apiRequestBinary, setStepUpPrompt } from './http';
+import { ApiError, apiRequest, apiRequestBinary, setStepUpPrompt, StepUpCancelled } from './http';
 
 function setCsrfMeta(token: string): void {
     document.head.querySelectorAll('meta[name="csrf-token"]').forEach((el) => {
@@ -181,12 +181,35 @@ describe('step-up verification', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    it('gives up and reports the failure when the dialog is dismissed', async () => {
+    /*
+     * A dismissed dialog is not a failure, and must not be reported as one.
+     *
+     * The refusal used to come straight back out, which left the calling screen's `catch` unable to
+     * tell "they closed the password box" from "the server said no" — so cancelling "end this
+     * session" announced that the session could not be ended, on all ten actions behind this gate.
+     * `StepUpCancelled` is what makes the two distinguishable; `reportApiFailure` is what acts on it.
+     */
+    it('raises a cancellation, not the refusal, when the dialog is dismissed', async () => {
         const fetchMock = vi.fn<typeof fetch>();
         fetchMock.mockImplementation(() => Promise.resolve(refusal()));
         vi.stubGlobal('fetch', fetchMock);
 
         setStepUpPrompt(() => Promise.resolve(false));
+
+        await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toThrow(StepUpCancelled);
+        // Not sent a second time: nothing was confirmed, so nothing may be done.
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    /*
+     * With nothing on screen to answer the refusal, it *is* just a refusal — and the screen has to
+     * hear about it, because the person is otherwise left clicking a button that silently does
+     * nothing.
+     */
+    it('reports the refusal itself when no dialog is registered', async () => {
+        const fetchMock = vi.fn<typeof fetch>();
+        fetchMock.mockImplementation(() => Promise.resolve(refusal()));
+        vi.stubGlobal('fetch', fetchMock);
 
         await expect(apiRequest('/v1/x', { method: 'POST' })).rejects.toMatchObject({
             reason: 'VERIFICATION_REQUIRED',

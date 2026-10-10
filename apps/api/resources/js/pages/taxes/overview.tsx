@@ -17,7 +17,6 @@ import {
     TriangleAlert,
     Wallet,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
@@ -31,7 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
 import { useRememberedState } from '../../hooks/useRememberedState';
 import { useTranslation } from '../../i18n';
-import { describeApiFailure } from '../../lib/apiErrors';
+import { reportApiFailure } from '../../lib/apiErrors';
 import { formatAmount, formatCompact, formatDateTime, formatPercent } from '../../lib/format';
 import { apiRequest, apiRequestBinary } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
@@ -436,7 +435,7 @@ export default function TaxesOverview(): JSX.Element {
 
             setLoaded({ year, assessment: parse(JSON.parse(text)), years: loaded?.years ?? [] });
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
         }
@@ -464,7 +463,7 @@ export default function TaxesOverview(): JSX.Element {
                 URL.revokeObjectURL(url);
             }, 0);
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         }
     };
 
@@ -483,7 +482,7 @@ export default function TaxesOverview(): JSX.Element {
 
             setLoaded({ year, assessment: parse(JSON.parse(text)), years: loaded?.years ?? [] });
         } catch (cause: unknown) {
-            toast.error(describeApiFailure(cause, t));
+            reportApiFailure(cause, t);
         } finally {
             setWorking(false);
         }

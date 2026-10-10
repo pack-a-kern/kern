@@ -2496,7 +2496,8 @@ export const ro = {
                     'deposit.post_interest': 'Decontare depozite',
                     'banks.import': 'Import listă bănci',
                     'banks.backfill': 'Completare istoric bănci',
-                    'fiscal.parameters.read': 'Citire valori fiscale',
+                    'counterparties.classify': 'Clasificare contrapărți',
+                    'spv.close_expired_sessions': 'Închidere sesiuni SPV expirate',
                     'identity.prune_sessions': 'Curățare sesiuni expirate',
                 },
                 descriptions: {

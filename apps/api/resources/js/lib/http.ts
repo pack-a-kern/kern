@@ -24,6 +24,26 @@ export class ApiError extends Error {
     }
 }
 
+/**
+ * Thrown when the person dismissed the step-up dialog instead of answering it.
+ *
+ * Not an {@link ApiError}, deliberately: nothing failed. The request was refused pending a
+ * confirmation, the confirmation was declined, and the request was therefore never made a second
+ * time. A screen must not report that as a failure — see `reportApiFailure` in `lib/apiErrors.ts`,
+ * which is the one place that decides what a failure looks like on screen.
+ *
+ * It is still thrown rather than swallowed, because the caller's `await` has to end somehow and the
+ * code after it must not run: the row was not revoked, so nothing may report that it was.
+ */
+export class StepUpCancelled extends Error {
+    constructor() {
+        // Never shown. A screen that reaches for this message has mistaken a cancellation for a
+        // failure, and `BLUEPRINT.md` §19.1 keeps user-facing copy out of code regardless.
+        super('Step-up verification was dismissed.');
+        this.name = 'StepUpCancelled';
+    }
+}
+
 export interface RequestOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     /** A plain object is sent as `application/json`; a `FormData` is sent as-is (multipart). */
@@ -162,8 +182,9 @@ function stepUpFactorFor(error: unknown): StepUpFactor | null {
  * registrations, so a second refusal is thrown rather than prompted again — that is a server-side
  * disagreement, not something the person can fix by typing another code.
  *
- * With no prompt registered, or when the dialog is dismissed, the original error is rethrown and the
- * calling screen reports it as it would any other failure.
+ * With no prompt registered the original error is rethrown, and the calling screen reports it as it
+ * would any other failure — there is nothing on screen to answer it, so a refusal is all it is. A
+ * dialog that was *dismissed* is the other case, and raises {@link StepUpCancelled} instead.
  */
 async function withStepUp<T>(attempt: () => Promise<T>): Promise<T> {
     try {
@@ -178,7 +199,15 @@ async function withStepUp<T>(attempt: () => Promise<T>): Promise<T> {
         const verified = await promptForStepUp(factor);
 
         if (!verified) {
-            throw cause;
+            /*
+             * The refusal is deliberately *not* what comes back out.
+             *
+             * It used to be, and a dismissed dialog then arrived at the calling screen's `catch`
+             * indistinguishable from a real failure — so cancelling "end this session" raised "the
+             * session could not be ended", on all ten actions this gate protects. The person who
+             * closed the dialog already knows what happened; the screen's job is to say nothing.
+             */
+            throw new StepUpCancelled();
         }
 
         return attempt();
