@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { MonitorSmartphoneIcon } from 'lucide-react';
+import { LogOutIcon, MonitorSmartphoneIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
@@ -73,6 +73,7 @@ export default function SessionsCard(props: {
                             void endOthers();
                         }}
                     >
+                        <LogOutIcon className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.settingsSecurity.revokeOthers)}
                     </PanelButton>
                 ) : undefined
@@ -119,6 +120,7 @@ export default function SessionsCard(props: {
                                             void endSession(session);
                                         }}
                                     >
+                                        <LogOutIcon className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.settingsSecurity.revoke)}
                                     </PanelButton>
                                 )}

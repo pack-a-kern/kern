@@ -1124,8 +1124,34 @@ export function DataTable(props: {
 }
 
 /** Key/value pairs in a detail drawer. */
-export function DetailList({ children, wide }: { children: ReactNode; wide?: boolean }): JSX.Element {
-    return <dl className={cn('detail-grid', wide === true && 'detail-grid-wide')}>{children}</dl>;
+export function DetailList(props: {
+    children: ReactNode;
+    wide?: boolean;
+    /**
+     * Values pushed to the far edge, label at the near one.
+     *
+     * For a card whose values are short and of a kind — an address, a state, a date. The reader is
+     * comparing labels down one edge and values down the other, and a ragged right makes the second
+     * of those a hunt. It is the same shape the stacked table rows take, so a card and a phone's
+     * table row read as one idea.
+     *
+     * Opt-in, because it is wrong for the drawers: a payload hash or an error message wraps to
+     * several lines, and right-aligned wrapped prose is harder to read than the straight left edge
+     * it would be giving up.
+     */
+    split?: boolean;
+}): JSX.Element {
+    return (
+        <dl
+            className={cn(
+                'detail-grid',
+                props.wide === true && 'detail-grid-wide',
+                props.split === true && 'detail-grid-split',
+            )}
+        >
+            {props.children}
+        </dl>
+    );
 }
 
 export function Detail(props: { label: string; children: ReactNode; icon?: ReactNode }): JSX.Element {

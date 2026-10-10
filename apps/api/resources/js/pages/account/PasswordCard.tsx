@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { KeyRoundIcon, LockIcon } from 'lucide-react';
+import { CheckIcon, KeyRoundIcon, LockIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { changePassword } from '../../api/accountApi';
@@ -63,6 +63,7 @@ export default function PasswordCard(props: {
                         void submit();
                     }}
                 >
+                    <CheckIcon className="size-3.5" aria-hidden="true" />
                     {saving
                         ? t((d) => d.pages.settingsProfile.saving)
                         : t((d) => d.pages.settingsProfile.changePassword)}

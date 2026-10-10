@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { UserRoundIcon } from 'lucide-react';
+import { CalendarDaysIcon, MailIcon, ShieldCheckIcon, UserRoundIcon, ActivityIcon } from 'lucide-react';
 
 import { Detail, DetailList, Panel, Pill, Status } from '../../components/panel';
 import { formatDateTime } from '../../lib/format';
@@ -22,12 +22,13 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
             title={t((d) => d.pages.settingsProfile.accountTitle)}
             description={t((d) => d.pages.settingsProfile.accountDescription)}
             icon={<UserRoundIcon className="size-4" />}
+            note={t((d) => d.pages.settingsProfile.identityNotice)}
         >
             {profile === null ? (
                 <Skeleton className="tile h-28 w-full" />
             ) : (
-                <DetailList>
-                    <Detail label={t((d) => d.pages.settingsProfile.email)}>
+                <DetailList split>
+                    <Detail label={t((d) => d.pages.settingsProfile.email)} icon={<MailIcon aria-hidden="true" />}>
                         <span className="font-semibold">{profile.email}</span>
                         {profile.emailVerifiedAt === null ? (
                             <div>
@@ -43,14 +44,17 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
                             </div>
                         ) : null}
                     </Detail>
-                    <Detail label={t((d) => d.pages.settingsProfile.status)}>
+                    <Detail label={t((d) => d.pages.settingsProfile.status)} icon={<ActivityIcon aria-hidden="true" />}>
                         <Status tone={profile.status === 'ACTIVE' ? 'ok' : 'warn'}>{profile.status ?? '—'}</Status>
                     </Detail>
-                    <Detail label={t((d) => d.pages.settingsProfile.roles)}>
+                    <Detail
+                        label={t((d) => d.pages.settingsProfile.roles)}
+                        icon={<ShieldCheckIcon aria-hidden="true" />}
+                    >
                         {profile.roles.length === 0 ? (
                             <span className="note">{t((d) => d.pages.settingsProfile.noRoles)}</span>
                         ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap justify-end gap-1">
                                 {profile.roles.map((role) => (
                                     <Pill key={role} tone="accent">
                                         {role}
@@ -59,7 +63,10 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
                             </div>
                         )}
                     </Detail>
-                    <Detail label={t((d) => d.pages.settingsProfile.created)}>
+                    <Detail
+                        label={t((d) => d.pages.settingsProfile.created)}
+                        icon={<CalendarDaysIcon aria-hidden="true" />}
+                    >
                         {/* The instant, not "3 months ago": a detail row is read for the record, and
                             `formatDateTime` keeps it in the reader's own zone — slicing an instant to
                             its UTC date lands on the wrong day for anyone who signed up in the
@@ -68,7 +75,6 @@ export default function AccountCard({ profile }: { profile: Profile | null }): J
                     </Detail>
                 </DetailList>
             )}
-            <p className="note mt-3">{t((d) => d.pages.settingsProfile.identityNotice)}</p>
         </Panel>
     );
 }

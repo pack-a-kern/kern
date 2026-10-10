@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
+import { KeyRoundIcon, MonitorSmartphoneIcon, RotateCcw, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 
 import { getProfile, listDocumentAiConsents, listSubjects } from '../../api/accountApi';
 import { fetchMfaStatus, listSessions } from '../../api/authApi';
@@ -137,6 +138,7 @@ export default function AccountPage(): JSX.Element {
                                 setReloadToken((token) => token + 1);
                             }}
                         >
+                            <RotateCcw className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsProfile.retry)}
                         </PanelButton>
                     ) : undefined
@@ -157,6 +159,10 @@ export default function AccountPage(): JSX.Element {
                             )
                         }
                         sub={t((d) => d.pages.settingsSecurity.stats.mfaSub)}
+                        /* The one tile reporting a verdict rather than a count, so the one that
+                           takes a tone — an unprotected account should read as unprotected. */
+                        icon={<ShieldCheckIcon className="size-3.5" aria-hidden="true" />}
+                        tone={mfa === null ? 'neutral' : protectedAccount ? 'success' : 'destructive'}
                     />
                     <Stat
                         label={t((d) => d.pages.account.stats.signIn)}
@@ -165,16 +171,19 @@ export default function AccountPage(): JSX.Element {
                             '{codes}',
                             String(mfa?.recoveryCodesRemaining ?? 0),
                         )}
+                        icon={<KeyRoundIcon className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.settingsSecurity.stats.sessions)}
                         value={sessions === null ? '—' : sessions.length}
                         sub={t((d) => d.pages.settingsSecurity.stats.sessionsSub)}
+                        icon={<MonitorSmartphoneIcon className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.account.stats.subjects)}
                         value={subjects === null ? '—' : subjects.total}
                         sub={t((d) => d.pages.account.stats.subjectsSub).replace('{count}', String(aiSubjects ?? 0))}
+                        icon={<UsersIcon className="size-3.5" aria-hidden="true" />}
                     />
                 </StatGrid>
 

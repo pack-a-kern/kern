@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { Check, LockIcon, ShieldCheckIcon, ShieldOff, X } from 'lucide-react';
+import { Check, LockIcon, Plus, RefreshCw, ShieldCheckIcon, ShieldOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { startRegistration } from '@simplewebauthn/browser';
 
@@ -162,6 +162,7 @@ export default function SignInMethods(props: {
                 title={t((d) => d.pages.settingsSecurity.factorsTitle)}
                 description={t((d) => d.pages.settingsSecurity.factorsDescription)}
                 icon={<ShieldCheckIcon className="size-4" />}
+                note={t((d) => d.pages.settingsSecurity.enrolNotice)}
             >
                 <RowList>
                     <Row
@@ -185,6 +186,7 @@ export default function SignInMethods(props: {
                                     void addPasskey();
                                 }}
                             >
+                                <Plus className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.settingsSecurity.addPasskey)}
                             </PanelButton>
                         </div>
@@ -203,6 +205,7 @@ export default function SignInMethods(props: {
                                             setDisabling(true);
                                         }}
                                     >
+                                        <ShieldOff className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.settingsSecurity.disable)}
                                     </PanelButton>
                                 </>
@@ -215,6 +218,7 @@ export default function SignInMethods(props: {
                                             void enrolTotp();
                                         }}
                                     >
+                                        <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.settingsSecurity.enableTotp)}
                                     </PanelButton>
                                 </>
@@ -246,12 +250,12 @@ export default function SignInMethods(props: {
                                     void newRecoveryCodes();
                                 }}
                             >
+                                <RefreshCw className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.settingsSecurity.regenerate)}
                             </PanelButton>
                         </div>
                     </Row>
                 </RowList>
-                <p className="note mt-3">{t((d) => d.pages.settingsSecurity.enrolNotice)}</p>
             </Panel>
             <PanelDialog
                 open={totp !== null}

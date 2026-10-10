@@ -2821,6 +2821,21 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
 }
 
+/*
+ * Label at one edge, value at the other.
+ *
+ * The grid already puts them in two columns; this is the second half of the idea — without it the
+ * values sit against the label column and their right edge is ragged, so reading down them means
+ * finding where each one ends. The track widths are the same, so nothing moves but the text.
+ *
+ * A value that is its own flex container — a row of role pills — is not reached by `text-align` and
+ * says `justify-end` where it is written. Stated there rather than guessed at from here: a rule
+ * targeting whatever happens to be inside a `dd` would be a rule about other people's markup.
+ */
+.detail-grid-split dd {
+    text-align: right;
+}
+
 /* The label, with room for the icon that says what kind of value follows. */
 .detail-grid dt {
     display: flex;
