@@ -24,11 +24,17 @@ use Symfony\Component\HttpFoundation\Response;
  * and should not be contradicted here — a guest must be told to sign in, not to re-verify an account
  * it has not got.
  *
- * ## One refusal, and it is always answerable
+ * ## A refusal is always answerable
  *
- * `VERIFICATION_REQUIRED` is only ever sent to an account that holds a factor this can challenge, so
- * the dialog it raises can always be satisfied. There is no second code for "enrol first", because an
- * account with nothing enrolled is not stopped here at all.
+ * The refusal names the factor to ask for — `VERIFICATION_REQUIRED` for a code,
+ * `PASSWORD_CONFIRMATION_REQUIRED` for a password — and is only ever sent to an account that holds
+ * the one it names, so the dialog it raises can always be satisfied. There is no code for "enrol
+ * first", because an account holding nothing to ask for is not stopped here at all.
+ *
+ * It was the code alone once, which meant the gate applied to the accounts that had armed themselves
+ * with an authenticator app and to no others — the ones most in need of it were the ones exempt. A
+ * password is a weaker proof than a code and a far stronger one than the cookie that is already in
+ * hand, which is the whole of what this guards against.
  *
  * 403 carrying `reason` — the envelope rendered centrally and parsed by `resources/js/lib/http.ts`,
  * so a screen acts on the code rather than matching on prose.
@@ -54,28 +60,31 @@ final readonly class RequiresRecentVerification
             return $next($request);
         }
 
-        // An account that has not turned on two-factor authentication is not held up here.
-        //
-        // This is the installation owner's choice to make, and it is the choice they already made on
-        // the security screen: a gate that demanded enrolment at the moment somebody tried to do
-        // something would be forcing a decision at the worst possible time, in a dialog, to get past
-        // a screen. The account's own settings are where that belongs.
-        //
-        // The consequence is stated plainly rather than hidden: a password alone reaches these routes
-        // on an account with no second factor, exactly as it reaches everything else that account can
-        // see. Turning TOTP on is what makes this gate exist, and then it is enforced properly rather
-        // than merely recorded — which is the half that was broken before.
-        if (! $this->policy->canVerify($user)) {
+        /*
+         * The free question first.
+         *
+         * A session already inside the window passes whatever factor the account holds, so asking
+         * which one costs a query whose answer cannot change the outcome. Reading the session is a
+         * key lookup in a payload this request has already loaded; `challengeFor()` is a trip to the
+         * database. Ordering them the other way round — which is how this was written — charged every
+         * request in a verified window for an answer it then ignored, and the SPV screen spends most
+         * of its life inside one.
+         */
+        if ($this->policy->isRecentlyVerified($request->session())) {
             return $next($request);
         }
 
-        if (! $this->policy->isRecentlyVerified($request->session())) {
-            return response()->json([
-                'message' => 'This action needs your authenticator code.',
-                'reason' => 'VERIFICATION_REQUIRED',
-            ], Response::HTTP_FORBIDDEN);
+        $factor = $this->policy->challengeFor($user);
+
+        // Nothing this account can be asked for, so nothing to hold it up with. Today that is only a
+        // passkey-only account; `StepUpFactor` carries the reasoning and the consequence.
+        if ($factor === null) {
+            return $next($request);
         }
 
-        return $next($request);
+        return response()->json([
+            'message' => 'This action needs you to confirm who you are.',
+            'reason' => $factor->refusalReason(),
+        ], Response::HTTP_FORBIDDEN);
     }
 }

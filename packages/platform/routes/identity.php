@@ -105,9 +105,27 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::delete('mfa/totp', DisableTotpController::class);
         Route::post('mfa/recovery-codes/regenerate', [RecoveryCodeController::class, 'regenerate']);
 
+        /*
+         * Listing is open; ending is not.
+         *
+         * Throwing a device off the account is the move somebody makes with a session they have taken
+         * — lock the owner out, keep the one they hold — and it is equally the move the owner makes to
+         * throw *them* off. Both arrive as the same request, and the only thing that separates them is
+         * whether the sender can produce the account's secret. That is exactly what this gate asks.
+         *
+         * It is answerable by every account that exists, which is what made it possible to put here:
+         * before the password factor, an account with no authenticator app would have been refused by
+         * a dialog it could not satisfy, and the way to end a stolen session would have been to enrol
+         * TOTP first, on the compromised session, while being watched.
+         *
+         * Signing yourself out is `POST auth/logout` and stays ungated — leaving must never need a
+         * password, and nothing is taken from anyone by it.
+         */
         Route::get('sessions', [SessionController::class, 'index']);
-        Route::delete('sessions/{sessionId}', [SessionController::class, 'destroy']);
-        Route::delete('sessions', [SessionController::class, 'destroyAll']);
+        Route::delete('sessions/{sessionId}', [SessionController::class, 'destroy'])
+            ->middleware('verify-recent');
+        Route::delete('sessions', [SessionController::class, 'destroyAll'])
+            ->middleware('verify-recent');
     });
 });
 

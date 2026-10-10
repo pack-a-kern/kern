@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\Spv\SpvMfaGateTest;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
@@ -57,18 +58,43 @@ function member(bool $withTotp = true): array
     return [$user, $subject->id];
 }
 
-it('lets an account with no authenticator through, because there is nothing to challenge', function (): void {
+it('lets an account holding neither factor through, because there is nothing to ask it', function (): void {
+    // `User::factory()` leaves `password_hash` null, which is the shape of a passkey-only account —
+    // permitted by the schema, created by nothing today. Such an account is not challenged, because
+    // the step-up endpoint has no assertion ceremony to challenge it with.
     [$user, $subjectId] = member(withTotp: false);
 
-    // The gate exists for an account once that account turns TOTP on. The alternative — demanding
-    // enrolment here — would force a security decision inside a dialog in order to get past a screen,
-    // and the security screen is where it belongs.
+    expect($user->password_hash)->toBeNull();
+
     $this->actingAs($user, 'web')
         ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
             'auth_method' => 'USER_PASSWORD_OTP',
             'username' => 'contribuabil.test',
         ])
         ->assertCreated();
+});
+
+/*
+ * The account this gate used to miss entirely.
+ *
+ * A password and no authenticator app is what most accounts are, and until the password factor
+ * existed every one of them reached these routes unchallenged — the gate applied to the people who
+ * had armed themselves and to nobody else. §4.7 wants MFA of an account that reaches the tax
+ * authority; nothing here forces enrolment, so what this guarantees instead is that *something* is
+ * asked of everybody.
+ */
+it('asks an account with only a password to confirm it', function (): void {
+    [$user, $subjectId] = member(withTotp: false);
+    $user->password_hash = Hash::make('correct-horse-battery-staple');
+    $user->save();
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", [
+            'auth_method' => 'USER_PASSWORD_OTP',
+            'username' => 'contribuabil.test',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'PASSWORD_CONFIRMATION_REQUIRED');
 });
 
 it('asks an enrolled account to prove itself, which the enrolment check alone never did', function (): void {

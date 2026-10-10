@@ -117,7 +117,21 @@ function throwForFailure(status: number, text: string): never {
  * one itself — it is not a component and has no idea what is on screen — and a React context cannot
  * be read from a plain async function, so the two meet here.
  */
-type StepUpPrompt = () => Promise<boolean>;
+type StepUpPrompt = (factor: StepUpFactor) => Promise<boolean>;
+
+/**
+ * Which secret the dialog has to ask for.
+ *
+ * The server chooses — it knows what the account holds, and it accepts only the one it named. This is
+ * carried so the dialog shows the right field, never so the client can pick.
+ */
+export type StepUpFactor = 'totp' | 'password';
+
+/** The refusal each factor arrives as. Two codes, because the two ask for genuinely different things. */
+const STEP_UP_REASONS: Record<string, StepUpFactor> = {
+    VERIFICATION_REQUIRED: 'totp',
+    PASSWORD_CONFIRMATION_REQUIRED: 'password',
+};
 
 let promptForStepUp: StepUpPrompt | null = null;
 
@@ -127,21 +141,26 @@ export function setStepUpPrompt(prompt: StepUpPrompt | null): void {
 }
 
 /**
- * Whether this failure is the server asking for a code rather than refusing outright.
+ * The factor to ask for, when this failure is the server asking rather than refusing outright.
  *
  * Narrow on purpose: 403 alone is not enough, because a tenant refusal is also a 403 and must reach
- * the screen that asked. Only this one code means "ask them for a code and try again".
+ * the screen that asked. Only these two codes mean "ask them to confirm and try again", and which one
+ * arrived says what to put in the dialog.
  */
-function needsStepUp(error: unknown): boolean {
-    return error instanceof ApiError && error.status === 403 && error.reason === 'VERIFICATION_REQUIRED';
+function stepUpFactorFor(error: unknown): StepUpFactor | null {
+    if (!(error instanceof ApiError) || error.status !== 403 || error.reason === undefined) {
+        return null;
+    }
+
+    return STEP_UP_REASONS[error.reason] ?? null;
 }
 
 /**
  * Runs a request, and if the server asks for recent verification, asks the person and runs it once more.
  *
  * **Exactly once.** A retry loop around a non-idempotent POST is how one click becomes two
- * registrations, so a second `VERIFICATION_REQUIRED` is thrown rather than prompted again — that is a
- * server-side disagreement, not something the person can fix by typing another code.
+ * registrations, so a second refusal is thrown rather than prompted again — that is a server-side
+ * disagreement, not something the person can fix by typing another code.
  *
  * With no prompt registered, or when the dialog is dismissed, the original error is rethrown and the
  * calling screen reports it as it would any other failure.
@@ -150,11 +169,13 @@ async function withStepUp<T>(attempt: () => Promise<T>): Promise<T> {
     try {
         return await attempt();
     } catch (cause: unknown) {
-        if (!needsStepUp(cause) || promptForStepUp === null) {
+        const factor = stepUpFactorFor(cause);
+
+        if (factor === null || promptForStepUp === null) {
             throw cause;
         }
 
-        const verified = await promptForStepUp();
+        const verified = await promptForStepUp(factor);
 
         if (!verified) {
             throw cause;

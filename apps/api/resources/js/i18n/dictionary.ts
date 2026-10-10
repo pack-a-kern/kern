@@ -540,7 +540,12 @@ export interface Dictionary {
     stepUp: {
         title: string;
         hint: string;
+        /** Shown instead of `hint` when the account has no authenticator app and confirms by password. */
+        passwordHint: string;
+        /** Shown under the field when the code or password did not match. */
+        incorrect: string;
         code: string;
+        password: string;
         confirm: string;
         cancel: string;
     };

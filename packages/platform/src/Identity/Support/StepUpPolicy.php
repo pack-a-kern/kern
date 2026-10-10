@@ -7,6 +7,7 @@ namespace Kern\Platform\Identity\Support;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Carbon;
 use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Enums\StepUpFactor;
 use Kern\Platform\Identity\Models\User;
 
 /**
@@ -39,18 +40,23 @@ use Kern\Platform\Identity\Models\User;
  *
  * ## What counts as a factor it can ask for
  *
- * A confirmed TOTP method. Not an unconfirmed one — enrolment started and abandoned proves nothing.
- * Not recovery codes on their own either: they are the way back in when the factor is lost, and an
- * account whose only factor is a sheet of one-time codes cannot be asked to prove itself routinely.
+ * A confirmed TOTP method, and failing that the account's own password. Not an unconfirmed TOTP
+ * method — enrolment started and abandoned proves nothing. Not recovery codes on their own either:
+ * they are the way back in when the factor is lost, and an account whose only factor is a sheet of
+ * one-time codes cannot be asked to prove itself routinely. They remain accepted *as* an answer to a
+ * TOTP challenge, which is `CompleteMfaChallenge`'s business rather than this policy's.
  *
- * **A passkey is deliberately not counted here**, although it is accepted as a sign-in factor: the
+ * The password was not always here, and the gate was the poorer for it: an account with no
+ * authenticator app was waved through every guarded route, so the only people it stopped were the
+ * ones who had already armed themselves. A password is the same factor the session was opened with
+ * and proves less than a code does — but what it proves is the thing in question, that whoever is
+ * acting can produce the secret and not merely hold the cookie.
+ *
+ * **A passkey is deliberately not counted**, although it is accepted as a sign-in factor: the
  * step-up endpoint has no assertion path yet, so an account whose only factor is a passkey would be
- * sent to a dialog it could never answer. Counting it only when it can be asked for keeps `canVerify`
- * honest about its own name — it means "can be challenged", not "is secure".
- *
- * The consequence of that and of the middleware's own rule is the same one, stated once: an account
- * with no TOTP is not gated. `Kern\Platform\Identity\Http\Middleware\RequiresRecentVerification`
- * explains why that is the installation owner's choice rather than this code's.
+ * sent to a dialog it could never answer. The consequence is stated rather than hidden — an account
+ * with neither TOTP nor a password is not gated, and the `users` schema permits exactly that shape,
+ * though nothing creates one today. {@see \Kern\Platform\Identity\Enums\StepUpFactor}.
  */
 final class StepUpPolicy
 {
@@ -66,17 +72,32 @@ final class StepUpPolicy
     private const int DEFAULT_WINDOW_SECONDS = 1800;
 
     /**
-     * Whether this account holds a factor the step-up dialog can actually ask for.
+     * What this account should be asked for, or null when there is nothing it can be asked.
      *
-     * False means the person must enrol something before a protected act is possible at all — a
-     * different answer from "verify now", and the caller must not conflate them.
+     * The best factor it holds, never a weaker one it also holds: an account with an authenticator
+     * app is asked for the code, and is not offered its password instead. A gate that accepts either
+     * is worth exactly its weaker half, and losing the phone is already answered — the TOTP path
+     * takes an unused recovery code, so the password is not needed as a way around it.
+     *
+     * Null means the account holds neither, which today is only possible for a passkey-only account
+     * — permitted by the `users` schema, created by nothing. Such a request is not held up, and
+     * {@see \Kern\Platform\Identity\Enums\StepUpFactor} says why that is the honest answer rather
+     * than a dialog nobody could satisfy.
      */
-    public function canVerify(User $user): bool
+    public function challengeFor(User $user): ?StepUpFactor
     {
-        return $user->mfaMethods()
+        $hasTotp = $user->mfaMethods()
             ->where('type', MfaMethodType::TOTP)
             ->whereNotNull('confirmed_at')
             ->exists();
+
+        if ($hasTotp) {
+            return StepUpFactor::TOTP;
+        }
+
+        /* Read from the model rather than queried: `password_hash` is on the row the request already
+           loaded, and an empty string is as absent as a null for this purpose. */
+        return ($user->password_hash ?? '') === '' ? null : StepUpFactor::PASSWORD;
     }
 
     public function markVerified(Session $session): void

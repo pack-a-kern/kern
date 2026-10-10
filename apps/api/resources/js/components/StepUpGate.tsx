@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, LockKeyhole } from 'lucide-react';
 
 import { Field, PanelButton, PanelDialog, PanelInput } from './panel';
 import { useTranslation } from '../i18n';
 import { describeApiFailure } from '../lib/apiErrors';
-import { apiRequest, setStepUpPrompt } from '../lib/http';
+import { apiRequest, setStepUpPrompt, type StepUpFactor } from '../lib/http';
 import { ApiError } from '../lib/http';
 
 /**
@@ -28,9 +28,15 @@ import { ApiError } from '../lib/http';
 export default function StepUpGate({ children }: { children: ReactNode }): JSX.Element {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
+    /** Which secret this prompt is for, as the server's refusal named it. */
+    const [factor, setFactor] = useState<StepUpFactor>('totp');
     const [code, setCode] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [working, setWorking] = useState(false);
+
+    const askingForPassword = factor === 'password';
+    /* The field the server answers against, so a rejection lands under the box it belongs to. */
+    const field = askingForPassword ? 'password' : 'code';
 
     /**
      * The waiting interceptor's `resolve`, held across renders.
@@ -52,13 +58,14 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
 
     useEffect(() => {
         setStepUpPrompt(
-            () =>
+            (next) =>
                 new Promise<boolean>((resolve) => {
                     // A second request arriving while the dialog is already open: the one already
                     // waiting is told no rather than silently dropped, so its caller reports a failure
                     // instead of hanging for ever on a promise nobody will resolve.
                     resolver.current?.(false);
                     resolver.current = resolve;
+                    setFactor(next);
                     setCode('');
                     setError(null);
                     setOpen(true);
@@ -75,15 +82,22 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
         setError(null);
 
         try {
-            await apiRequest('/auth/step-up', { method: 'POST', body: { code } });
+            await apiRequest('/auth/step-up', { method: 'POST', body: { [field]: code } });
             settle(true);
         } catch (cause: unknown) {
-            // A wrong code comes back 422 against `code`, so the dialog stays open and says so. The
-            // person can type again; closing it is the way out.
-            const fieldError =
-                cause instanceof ApiError ? (cause.errors?.['code']?.[0] ?? null) : null;
+            /*
+             * A wrong answer comes back 422 against the field it was sent as, and the dialog stays
+             * open and says so in the reader's language — the server's own message is English prose
+             * and belongs in a log, not under a Romanian input (`BLUEPRINT.md` §19.1).
+             *
+             * Only an error on the field this dialog asked about means "that was not right".
+             * Anything else — a spent budget's 429, an account with nothing to confirm with — is
+             * described by the shared translator, which already knows those.
+             */
+            const wrongAnswer =
+                cause instanceof ApiError && cause.status === 422 && cause.errors?.[field] !== undefined;
 
-            setError(fieldError ?? describeApiFailure(cause, t));
+            setError(wrongAnswer ? t((d) => d.stepUp.incorrect) : describeApiFailure(cause, t));
             setWorking(false);
         }
     };
@@ -100,7 +114,7 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
                     }
                 }}
                 title={t((d) => d.stepUp.title)}
-                description={t((d) => d.stepUp.hint)}
+                description={askingForPassword ? t((d) => d.stepUp.passwordHint) : t((d) => d.stepUp.hint)}
                 size="sm"
                 actions={
                     <>
@@ -123,13 +137,28 @@ export default function StepUpGate({ children }: { children: ReactNode }): JSX.E
                     </>
                 }
             >
-                <Field label={t((d) => d.stepUp.code)} htmlFor="step-up-code" error={error ?? undefined}>
+                <Field
+                    label={askingForPassword ? t((d) => d.stepUp.password) : t((d) => d.stepUp.code)}
+                    htmlFor="step-up-code"
+                    error={error ?? undefined}
+                >
+                    {/* One input for both, keyed on the factor so switching between them starts a
+                        fresh field rather than carrying a half-typed code into a password box — and
+                        so the browser's password manager is offered a box it recognises as new. */}
                     <PanelInput
+                        key={factor}
                         id="step-up-code"
                         value={code}
-                        autoComplete="one-time-code"
-                        inputMode="numeric"
-                        icon={<KeyRound className="size-3.5" aria-hidden="true" />}
+                        type={askingForPassword ? 'password' : 'text'}
+                        autoComplete={askingForPassword ? 'current-password' : 'one-time-code'}
+                        inputMode={askingForPassword ? 'text' : 'numeric'}
+                        icon={
+                            askingForPassword ? (
+                                <LockKeyhole className="size-3.5" aria-hidden="true" />
+                            ) : (
+                                <KeyRound className="size-3.5" aria-hidden="true" />
+                            )
+                        }
                         onChange={(event) => {
                             setCode(event.target.value);
                         }}

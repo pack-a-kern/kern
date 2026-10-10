@@ -136,6 +136,18 @@ return [
         // Step-up, keyed the same way and for the same reason: a six-digit code belongs to one
         // account, so grinding at it from many addresses must still exhaust one budget.
         'step_up_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
+        /*
+         * Confirming a password at the same gate, on a far tighter leash.
+         *
+         * A code is six digits that stop being valid within the minute, so five tries a minute gets a
+         * guesser nowhere. A password does not rotate, and the same five-a-minute spent against one is
+         * a slow oracle running against the account's real secret — on a session that, by the premise
+         * of this gate, may not be the owner's. Five every five minutes keeps a fumbled password
+         * recoverable and makes grinding pointless.
+         *
+         * Counted separately from the code budget above so neither can exhaust the other.
+         */
+        'step_up_password_per_user' => ['max_attempts' => 5, 'decay_seconds' => 300],
         'passkey_ceremony_per_ip' => ['max_attempts' => 20, 'decay_seconds' => 60],
         'register_per_ip' => ['max_attempts' => 10, 'decay_seconds' => 300],
         // Submitting a code, and asking for another. The first stops a six-digit code being guessed;

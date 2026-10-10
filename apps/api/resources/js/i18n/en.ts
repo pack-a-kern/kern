@@ -647,6 +647,7 @@ export const en = {
             NO_RULES_REGISTERED: 'No tax rules are registered on this installation yet.',
             SPV_SIGN_IN_REQUIRED: 'Sign in to SPV again — the portal ended the session.',
             VERIFICATION_REQUIRED: 'This action needs the code from your authenticator app.',
+            PASSWORD_CONFIRMATION_REQUIRED: 'This action needs your password.',
             GENERAL_SOURCE_UNDELETABLE:
                 'The general source cannot be deleted: it is where everything with no other home is recorded.',
             SOURCE_NOT_EMPTY:
@@ -701,7 +702,10 @@ export const en = {
     stepUp: {
         title: 'Confirm it is you',
         hint: 'This action needs the code from your authenticator app.',
+        passwordHint: 'Enter your password to confirm this action.',
+        incorrect: 'That was not right. Try again.',
         code: 'Authenticator code',
+        password: 'Your password',
         confirm: 'Confirm',
         cancel: 'Cancel',
     },

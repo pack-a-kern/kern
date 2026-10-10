@@ -57,6 +57,9 @@ it('revokes a specific session by id, destroying its underlying session data', f
     // afterwards" would be trivially true for the wrong reason.
     expect($this->app['session']->getHandler()->read($sessionId))->not->toBe('');
 
+    // Ending a session is behind `verify-recent`; the dialog is what a person answers to get here.
+    verifySession();
+
     carryCookiesFrom(
         $this->deleteJson("/api/v1/auth/sessions/{$sessionId}")->assertOk()->assertJson(['revoked' => true]),
     );
@@ -94,6 +97,10 @@ it('refuses to revoke a session belonging to another user', function (): void {
     // no separate "new browser" reset is needed.
     loggedInUser($this, 'attacker@example.com', 'another-strong-password');
 
+    // Verified, so the refusal under test is "that is not your session" and not the gate in front
+    // of it — an attacker who had satisfied the gate for their *own* account still gets nowhere.
+    verifySession();
+
     $this->deleteJson('/api/v1/auth/sessions/someone-elses-session-id')->assertStatus(422);
 
     $victimSession = UserSession::query()->findOrFail('someone-elses-session-id');
@@ -114,6 +121,8 @@ it('revokes every other session but keeps the caller logged in when keep_current
         'created_at' => now('UTC'),
     ]);
 
+    verifySession();
+
     $response = carryCookiesFrom($this->deleteJson('/api/v1/auth/sessions?keep_current=1')->assertOk());
 
     expect($response->json('revoked_count'))->toBe(1);
@@ -128,6 +137,8 @@ it('revokes every other session but keeps the caller logged in when keep_current
 it('revokes every session including the current one when keep_current is false', function (): void {
     loggedInUser($this);
     $sessionId = UserSession::query()->sole()->id;
+
+    verifySession();
 
     $response = carryCookiesFrom(
         $this->deleteJson('/api/v1/auth/sessions?keep_current=0')->assertOk(),
@@ -148,4 +159,61 @@ it('logout revokes the current session and clears authentication', function (): 
 
     expect(UserSession::query()->findOrFail($sessionId)->revoked_at)->not->toBeNull();
     $this->getJson('/api/v1/auth/sessions')->assertUnauthorized();
+});
+
+/*
+ * The gate in front of ending a session.
+ *
+ * Throwing a device off the account is what somebody does with a session they have taken — lock the
+ * owner out, keep the one they hold — and equally what the owner does to throw *them* off. Both
+ * arrive as the same request. What separates them is whether the sender can produce the account's
+ * secret, which is the question `verify-recent` asks.
+ *
+ * It is answerable by every account that exists only because the gate takes a password as well as an
+ * authenticator code. Before that, an account with no TOTP would have been waved straight through
+ * here — the stolen session would have had the same free hand as the owner.
+ */
+it('will not end a session until the account has confirmed who it is', function (): void {
+    loggedInUser($this);
+    $sessionId = UserSession::query()->sole()->id;
+
+    forgetVerification();
+
+    $this->deleteJson("/api/v1/auth/sessions/{$sessionId}")
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'PASSWORD_CONFIRMATION_REQUIRED');
+
+    expect(UserSession::query()->findOrFail($sessionId)->revoked_at)->toBeNull();
+});
+
+it('will not end every session until the account has confirmed who it is', function (): void {
+    loggedInUser($this);
+
+    forgetVerification();
+
+    $this->deleteJson('/api/v1/auth/sessions?keep_current=1')
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'PASSWORD_CONFIRMATION_REQUIRED');
+});
+
+it('still lists the devices without asking, because reading takes nothing from anyone', function (): void {
+    loggedInUser($this);
+
+    forgetVerification();
+
+    $this->getJson('/api/v1/auth/sessions')->assertOk();
+});
+
+/*
+ * Leaving is not taking.
+ *
+ * Signing yourself out removes nothing from anybody and must never need a password — a gate on it
+ * would mean a borrowed laptop could not be walked away from.
+ */
+it('lets an account sign itself out with nothing asked', function (): void {
+    loggedInUser($this);
+
+    forgetVerification();
+
+    carryCookiesFrom($this->postJson('/api/v1/auth/logout')->assertOk());
 });

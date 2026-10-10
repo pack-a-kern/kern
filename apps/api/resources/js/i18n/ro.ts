@@ -648,6 +648,7 @@ export const ro = {
             NO_RULES_REGISTERED: 'Pe această instalare nu este înregistrată încă nicio regulă fiscală.',
             SPV_SIGN_IN_REQUIRED: 'Autentifică-te din nou la SPV — portalul a încheiat sesiunea.',
             VERIFICATION_REQUIRED: 'Această acțiune necesită codul din aplicația de autentificare.',
+            PASSWORD_CONFIRMATION_REQUIRED: 'Această acțiune necesită parola dumneavoastră.',
             GENERAL_SOURCE_UNDELETABLE:
                 'Sursa generală nu poate fi ștearsă: acolo se înregistrează tot ce nu are altă destinație.',
             SOURCE_NOT_EMPTY:
@@ -697,7 +698,10 @@ export const ro = {
     stepUp: {
         title: 'Confirmă că ești tu',
         hint: 'Această acțiune necesită codul din aplicația de autentificare.',
+        passwordHint: 'Introduceți parola pentru a confirma această acțiune.',
+        incorrect: 'Nu este corect. Încercați din nou.',
         code: 'Cod de autentificare',
+        password: 'Parola dumneavoastră',
         confirm: 'Confirmă',
         cancel: 'Anulează',
     },
