@@ -8,6 +8,7 @@ import {
     ArrowUpRight,
     CalendarRange,
     ChartColumn,
+    ChartNoAxesColumn,
     ChartPie,
     ChevronRight,
     CircleHelp,
@@ -28,7 +29,18 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import { apiRequest } from '../../lib/http';
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
-import { DataTable, Page, Panel, PanelButton, PanelSelect, Pill, Stat, StatGrid, Tabs } from '../../components/panel';
+import {
+    DataTable,
+    EmptyState,
+    Page,
+    Panel,
+    PanelButton,
+    PanelSelect,
+    Pill,
+    Stat,
+    StatGrid,
+    Tabs,
+} from '../../components/panel';
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
@@ -790,7 +802,10 @@ export default function WalletReports(): JSX.Element {
                                 }
                             >
                                 {months.length === 0 ? (
-                                    <p className="note">{t((d) => d.pages.walletReports.empty)}</p>
+                                    <EmptyState
+                                        icon={<ChartNoAxesColumn className="size-5" />}
+                                        title={t((d) => d.pages.walletReports.empty)}
+                                    />
                                 ) : (
                                     <div className="chart-tall">
                                         <Chart config={flowConfig} label={t((d) => d.pages.walletReports.cashFlow)} />
@@ -891,7 +906,10 @@ export default function WalletReports(): JSX.Element {
                         >
                             {tableView === 'months' ? (
                                 months.length === 0 ? (
-                                    <p className="note p-4">{t((d) => d.pages.walletReports.empty)}</p>
+                                    <EmptyState
+                                        icon={<ChartNoAxesColumn className="size-5" />}
+                                        title={t((d) => d.pages.walletReports.empty)}
+                                    />
                                 ) : (
                                     <DataTable
                                         head={
@@ -950,7 +968,10 @@ export default function WalletReports(): JSX.Element {
                                     </DataTable>
                                 )
                             ) : largest.length === 0 ? (
-                                <p className="note p-4">{t((d) => d.pages.walletReports.empty)}</p>
+                                <EmptyState
+                                    icon={<ChartNoAxesColumn className="size-5" />}
+                                    title={t((d) => d.pages.walletReports.empty)}
+                                />
                             ) : (
                                 <DataTable
                                     head={
@@ -1032,7 +1053,10 @@ export default function WalletReports(): JSX.Element {
                             }
                         >
                             {breakdown.length === 0 ? (
-                                <p className="note">{t((d) => d.pages.walletReports.empty)}</p>
+                                <EmptyState
+                                    icon={<ChartNoAxesColumn className="size-5" />}
+                                    title={t((d) => d.pages.walletReports.empty)}
+                                />
                             ) : (
                                 <div className="grid gap-4 lg:grid-cols-[.75fr_1.25fr]">
                                     <div className="flex items-center justify-center">
@@ -1115,7 +1139,10 @@ export default function WalletReports(): JSX.Element {
                                 }
                             >
                                 {movement.length === 0 ? (
-                                    <p className="note p-4">{t((d) => d.pages.walletReports.empty)}</p>
+                                    <EmptyState
+                                        icon={<ChartNoAxesColumn className="size-5" />}
+                                        title={t((d) => d.pages.walletReports.empty)}
+                                    />
                                 ) : (
                                     <>
                                         {/* The three figures the table below is a breakdown of, so the

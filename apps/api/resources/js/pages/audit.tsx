@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import { CalendarRange, Eye, RotateCcw, ScrollTextIcon, Shapes } from 'lucide-react';
+import {
+    CalendarRange,
+    Eye,
+    RotateCcw,
+    ScrollText,
+    ScrollTextIcon,
+    Shapes,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getAuditSummary, listAuditEvents } from '../api/auditApi';
@@ -7,6 +14,7 @@ import {
     DataTable,
     Detail,
     DetailList,
+    EmptyState,
     Page,
     Panel,
     PanelButton,
@@ -299,7 +307,10 @@ function AdminAuditBody(): JSX.Element {
                             ))}
                         </div>
                     ) : events.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.adminAudit.empty)}</p>
+                        <EmptyState
+                            icon={<ScrollText className="size-5" />}
+                            title={t((d) => d.pages.adminAudit.empty)}
+                        />
                     ) : (
                         <DataTable
                             stacked

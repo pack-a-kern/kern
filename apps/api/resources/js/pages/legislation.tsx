@@ -6,7 +6,17 @@ import { toast } from 'sonner';
 import { deleteLaw, listLaws, searchLegislation } from '../api/legislationApi';
 import AppShell from '../components/AppShell';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { Field, Page, Panel, PanelButton, PanelSelect, Pill, SearchInput, Status } from '../components/panel';
+import {
+    EmptyState,
+    Field,
+    Page,
+    Panel,
+    PanelButton,
+    PanelSelect,
+    Pill,
+    SearchInput,
+    Status,
+} from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
@@ -181,7 +191,10 @@ export default function Legislation({
                         ))}
                     </div>
                 ) : result === null ? null : total === 0 ? (
-                    <p className="note px-1">{t((d) => d.pages.legislation.empty)}</p>
+                    <EmptyState
+                        icon={<Scale className="size-5" />}
+                        title={t((d) => d.pages.legislation.empty)}
+                    />
                 ) : (
                     <>
                         {result.confirmed.length > 0 ? (
@@ -322,7 +335,10 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                     ))}
                 </div>
             ) : laws.length === 0 ? (
-                <p className="note px-1">{t((d) => d.pages.legislation.laws.empty)}</p>
+                <EmptyState
+                    icon={<Scale className="size-5" />}
+                    title={t((d) => d.pages.legislation.laws.empty)}
+                />
             ) : (
                 <div className="grid gap-2.5 lg:grid-cols-2">
                     {laws.map((law) => {

@@ -1,11 +1,31 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { EllipsisVertical, Info, PauseCircle, Pencil, PlayCircle, Plus, UsersIcon, XCircle } from 'lucide-react';
+import {
+    EllipsisVertical,
+    Info,
+    PauseCircle,
+    Pencil,
+    PlayCircle,
+    Plus,
+    Users,
+    UsersIcon,
+    XCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { listDocumentAiConsents, listSubjects, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
 import { setDisplayCurrency } from '../../api/walletApi';
 import AppShell from '../../components/AppShell';
-import { DataTable, Identity, Page, Panel, PanelButton, PanelSelect, Pill, Status } from '../../components/panel';
+import {
+    DataTable,
+    EmptyState,
+    Identity,
+    Page,
+    Panel,
+    PanelButton,
+    PanelSelect,
+    Pill,
+    Status,
+} from '../../components/panel';
 import Pagination from '../../components/Pagination';
 import { Switch } from '../../components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
@@ -237,7 +257,10 @@ export default function SubjectsPage(): JSX.Element {
                             ))}
                         </div>
                     ) : rows.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.settingsSubjects.empty)}</p>
+                        <EmptyState
+                            icon={<Users className="size-5" />}
+                            title={t((d) => d.pages.settingsSubjects.empty)}
+                        />
                     ) : (
                         <DataTable
                             // On a phone the row stacks: the name takes the first line, and the

@@ -4,7 +4,16 @@ import { toast } from 'sonner';
 
 import { approveFiscalParameter, getFiscalParameterBoard, readFiscalYear } from '../../api/fiscalParametersApi';
 import AppShell from '../../components/AppShell';
-import { Field, Page, Panel, PanelButton, PanelDialog, PanelSelect, Status } from '../../components/panel';
+import {
+    EmptyState,
+    Field,
+    Page,
+    Panel,
+    PanelButton,
+    PanelDialog,
+    PanelSelect,
+    Status,
+} from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTranslation } from '../../i18n';
@@ -69,7 +78,10 @@ export default function AdminParameters(): JSX.Element {
                     <Skeleton className="tile h-48" />
                 ) : board.parameters.every((parameter) => parameter.versions.length === 0) ? (
                     <Panel title={t((d) => d.pages.taxRules.valuesTitle)} icon={<Scale className="size-4" />}>
-                        <p className="note">{t((d) => d.pages.taxRules.empty)}</p>
+                        <EmptyState
+                            icon={<Scale className="size-5" />}
+                            title={t((d) => d.pages.taxRules.empty)}
+                        />
                     </Panel>
                 ) : (
                     <div className="flex flex-col gap-3">

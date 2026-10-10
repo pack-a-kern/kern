@@ -1,9 +1,21 @@
-import { Search, X } from 'lucide-react';
+import {
+    Search,
+    SearchX,
+    X,
+} from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { readPortalAct, searchPortal } from '../../api/legislationApi';
-import { Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
+import {
+    EmptyState,
+    Field,
+    PanelButton,
+    PanelDialog,
+    PanelInput,
+    PanelSelect,
+    Pill,
+} from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
@@ -203,7 +215,10 @@ export default function AddLawDialog({
 
             <div className="mt-4 space-y-2" aria-live="polite">
                 {results === null ? null : results.length === 0 ? (
-                    <p className="note">{t((d) => d.pages.legislation.add.none)}</p>
+                    <EmptyState
+                        icon={<SearchX className="size-5" />}
+                        title={t((d) => d.pages.legislation.add.none)}
+                    />
                 ) : (
                     results.map((act) => (
                         <article

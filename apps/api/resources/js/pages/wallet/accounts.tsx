@@ -12,6 +12,7 @@ import {
     Percent,
     PercentIcon,
     PlusIcon,
+    SearchX,
     Shapes,
     TagIcon,
     Trash2,
@@ -538,7 +539,10 @@ export default function WalletAccounts(): JSX.Element {
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.pages.wallet.loadFailed)}</p>
                     ) : listed.length === 0 && kindFilter !== '' ? (
-                        <p className="note p-4">{t((d) => d.pages.walletAccounts.noMatches)}</p>
+                        <EmptyState
+                            icon={<SearchX className="size-5" />}
+                            title={t((d) => d.pages.walletAccounts.noMatches)}
+                        />
                     ) : listed.length === 0 ? (
                         <EmptyState
                             icon={<LandmarkIcon className="size-5" />}
