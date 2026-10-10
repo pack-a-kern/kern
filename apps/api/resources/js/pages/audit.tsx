@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import {
+    Box,
     CalendarRange,
+    Clock,
     Eye,
+    Hash,
     RotateCcw,
     ScrollText,
     ScrollTextIcon,
     Shapes,
+    ShieldCheck,
+    UsersRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,7 +30,9 @@ import {
     StatGrid,
     Status,
     Toolbar,
+    CellLabel,
 } from '../components/panel';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import AppShell from '../components/AppShell';
 import Pagination from '../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedState';
@@ -195,18 +202,26 @@ function AdminAuditBody(): JSX.Element {
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.total)}
                         value={summary === null ? '—' : summary.eventsTotal.toLocaleString()}
+                        icon={<ScrollText className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.last24h)}
                         value={summary === null ? '—' : summary.events24h.toLocaleString()}
+                        icon={<Clock className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.actors)}
                         value={summary === null ? '—' : summary.actors24h.toLocaleString()}
                         sub={t((d) => d.pages.adminAudit.stats.actorsSub)}
+                        icon={<UsersRound className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.integrity)}
+                        /* The one tile that reports a verdict rather than a count, so it is the one
+                           that takes a tone — and `destructive` colours the figure too, which is
+                           what a broken chain should do. */
+                        icon={<ShieldCheck className="size-3.5" aria-hidden="true" />}
+                        tone={summary === null ? 'neutral' : summary.integrity.ok ? 'success' : 'destructive'}
                         value={
                             summary === null ? (
                                 '—'
@@ -328,19 +343,38 @@ function AdminAuditBody(): JSX.Element {
                             {events.map((event) => (
                                 <tr key={event.id}>
                                     {/* Column roles for the stacked phone layout — see `.data-table-stack`
-                                        in app.css. Resource and actor are both full UUIDs: unreadable at
-                                        this width and useless for scanning, and the drawer shows them in
-                                        full. Time leads the row, event and sequence identify it, the
-                                        action stays reachable without scrolling. */}
+                                        in app.css. Time leads the row; the actor is the one column that
+                                        is nothing but a UUID, so it is the one a phone drops — the
+                                        drawer shows it in full. */}
                                     <td className="col-primary whitespace-nowrap tabular-nums">
                                         {new Date(event.occurredAt).toLocaleString()}
                                     </td>
-                                    <td className="font-semibold">{event.eventType}</td>
-                                    <td className="col-hide">
-                                        {event.resourceType}
-                                        {event.resourceId !== null ? (
-                                            <div className="mono">{event.resourceId}</div>
-                                        ) : null}
+                                    <td className="font-semibold">
+                                        <CellLabel icon={<Shapes className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.adminAudit.columns.event)}
+                                        </CellLabel>
+                                        {event.eventType}
+                                    </td>
+                                    {/* What was touched, named rather than numbered. A row of
+                                        `01a11aba-2a3b-70d1-…` is unreadable and nothing is scanned by
+                                        it; the word is what you look for, and the id is one hover away
+                                        for when you need to match it against something. */}
+                                    <td>
+                                        <CellLabel icon={<Box className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.adminAudit.columns.resource)}
+                                        </CellLabel>
+                                        {event.resourceId === null ? (
+                                            event.resourceType
+                                        ) : (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="cursor-help underline decoration-dotted underline-offset-4">
+                                                        {event.resourceType}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="mono">{event.resourceId}</TooltipContent>
+                                            </Tooltip>
+                                        )}
                                     </td>
                                     <td className="col-hide">
                                         {event.actorId === null ? (
@@ -349,10 +383,10 @@ function AdminAuditBody(): JSX.Element {
                                             <span className="mono">{event.actorId}</span>
                                         )}
                                     </td>
-                                    <td
-                                        className="tabular-nums"
-                                        data-label={t((d) => d.pages.adminAudit.columns.sequence)}
-                                    >
+                                    <td className="tabular-nums">
+                                        <CellLabel icon={<Hash className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.adminAudit.columns.sequence)}
+                                        </CellLabel>
                                         {event.sequence}
                                     </td>
                                     {/* The card's last line rather than its corner: `.col-end` reserves
