@@ -416,19 +416,17 @@
     /*
      * Half a step under Tailwind's own `sm` and `base`, which are 14px and 16px.
      *
-     * This is the step body text sits on, and the sidebar, the page lede and a tab — the things a
-     * desktop has the most of on screen at once. At Tailwind's 14px they read a pixel larger than
-     * this interface was drawn for; at the 13px they came from, the prose was too small. 13.5px is
-     * the half-step between, and `base` follows it down so a card title keeps its distance from the
-     * body under it without reaching for two pixels.
+     * `sm` is the step body text sits on, and the sidebar, the page lede and a tab — the things a
+     * desktop has the most of on screen at once. Tailwind's 14px read a pixel larger than this
+     * interface is drawn for, so it is back at the 13px those classes came from: on a desktop the
+     * density is the point, and the phone raises this step to 15px where it is not.
      *
-     * A fractional step is not the vice the old sizes had. That was fifteen values in a five-pixel
-     * range with half a pixel *between neighbouring steps*, which is hierarchy nobody can see. These
-     * are 11, 12, 13.5, 15, 18, 24 — gaps of one and a half pixels and more, and a fraction inside a
-     * gap that size is just where the step happens to fall.
+     * `base` sits a pixel over `sm`, which is the distance a card title had from its body before
+     * any of this — 14px over 13px. Not Tailwind's 16px: at two or three pixels above the paragraph
+     * it introduces, a card title starts reading as a page heading, and the page already has one.
      */
-    --text-sm: 13.5px;
-    --text-base: 15px;
+    --text-sm: 13px;
+    --text-base: 14px;
 }
 
 /*
@@ -448,8 +446,21 @@
         --text-2xs: 12px;
         --text-xs: 13px;
         --text-sm: 15px;
-        /* Restated, not inherited: `sm` is 15px here, so a card title left at the desktop's 15px
-           would be the same size as the paragraph under it. */
+    }
+}
+
+/*
+ * `base` holds at 16px below `md`, which is not this scale's phone step.
+ *
+ * It is the breakpoint `ui/input.tsx` and `ui/textarea.tsx` switch at — they carry
+ * `text-base md:text-sm`, and that pattern exists for one reason: iOS Safari zooms the whole page
+ * when a field it is focusing is set under 16px. So the guarantee has to last exactly as long as
+ * those fields lean on it, which is to 48rem and not to this scale's 40rem.
+ *
+ * Between the two, at 40 to 48rem, it is also what keeps a card title above a 13px body.
+ */
+@media (width < 48rem) {
+    :root {
         --text-base: 16px;
     }
 }
