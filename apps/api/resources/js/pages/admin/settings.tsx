@@ -1504,7 +1504,13 @@ function OfficialSourcesPanel({ platform }: { platform: PlatformData | null }): 
                             >
                                 {source.priority ?? '—'}
                             </td>
-                            <td className="col-end" data-label={t((d) => d.pages.adminSettings.sources.columns.state)}>
+                            {/* A labelled line like its siblings, not `col-end`. The pinned corner
+                                holds a value that speaks for itself and reserves 80px of the row's
+                                name for it; this cell is a word of label plus a pill reading "Never
+                                fetched", which is twice that and landed on top of the source's code.
+                                The same call as `audit.tsx`, `jobs.tsx` and `tasks.tsx` made for
+                                their own rows. */}
+                            <td data-label={t((d) => d.pages.adminSettings.sources.columns.state)}>
                                 {source.mirrored ? (
                                     <Pill>{t((d) => d.pages.adminSettings.sources.inUse)}</Pill>
                                 ) : (
