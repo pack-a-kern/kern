@@ -196,19 +196,10 @@
     --primary-foreground: #ffffff;
     --secondary: #f1f4f7;
     --secondary-foreground: #344054;
-    /*
-     * The ground under a header band — a table's column row and a card's head, which do the same job
-     * and so take the same colour rather than two tokens that drift apart.
-     *
-     * The brand's own quiet step, not a grey. This was `#f1f4f7`, four units from the page's
-     * `#f5f7f9`: in a light theme that lives inside a ten-unit band of near-white, a grey band on a
-     * white card on a near-white page is three surfaces nobody can tell apart, and the card's edge
-     * stops being findable. A hue cannot be confused with any of them however close its lightness is.
-     *
-     * From the ramp, never a literal: `--brand-*` is set per palette on the document element, so a
-     * hex here would be one palette's blue frozen into every other one.
-     */
-    --head: color-mix(in oklab, var(--brand-100) 55%, var(--brand-50));
+    /* The table header's own ground, and only the table's: a card's head was given this too and the
+       tinted band it produced was not wanted. It is not `--secondary`: in dark that value is the
+       hover grey, one step lighter, and a header lit like a hovered row reads as one. */
+    --table-head: #f1f4f7;
     --muted: #f1f4f7;
     /*
      * Secondary text follows the palette's own `support` colour — that is what a per-palette
@@ -267,10 +258,7 @@
     --primary-foreground: #ffffff;
     --secondary: #33363b;
     --secondary-foreground: #e2e4e7;
-    /* Brand-tinted for the reason the light theme's is, but built the other way round: on a
-       near-black ground a band has to be *lifted*, so this is the card's surface with the brand
-       mixed into it rather than a ramp step, which neat would glow. */
-    --head: color-mix(in oklab, var(--brand-500) 14%, #2f3135);
+    --table-head: #2f3135;
     --muted: #33363b;
     /* Lifted toward white rather than the ground: on a dark surface `support` neat is too close to
        the background to read at all, which is the opposite failure from the light theme's — and the
@@ -1270,18 +1258,10 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     max-height: 75vh;
 }
 
-/*
- * A head is a band, and now it is coloured like one.
- *
- * It was the card's own white with a rule under it, which on a phone — where a screen is a single
- * column of cards and nothing else — gave a page with no horizontal structure at all: title, rule,
- * content, title, rule, content, in one flat white. The same ground a table's column row wears
- * (`--head`) separates them, and costs no extra ink on a wide screen where the cards already sit
- * side by side.
- *
- * The rule stays. The tint says "this is a head"; the rule says where it ends, and against a tinted
- * band it is what keeps the edge crisp on a low-contrast display.
- */
+/* No ground of its own: the rule under it is what separates a head from its body.
+   A tint was tried here and taken back out — a coloured band on every card competed with the card
+   itself, and a neutral one at this palette's lightnesses could not be told from the page behind
+   it. The separation a phone needs came from striping the rows instead. */
 .panel-head {
     display: flex;
     /* Wraps on a narrow screen: a head is a title beside an action, and on a phone there is room
@@ -1291,14 +1271,8 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    background: var(--head);
     border-bottom: 1px solid var(--border);
     padding: 0.875rem;
-    /* The card's own corners, less its 1px border, so a coloured head does not square off the two
-       corners the card rounds. `overflow: hidden` on `.panel` would do it in one line and would
-       also clip every dropdown and tooltip opened from inside a card, which is not worth two
-       corners. */
-    border-radius: calc(var(--radius-2xl) - 1px) calc(var(--radius-2xl) - 1px) 0 0;
 }
 
 @media (width >= 40rem) {
@@ -1328,9 +1302,8 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     gap: 0.625rem;
 }
 
-/* The card's own white, not `--secondary`: in the light theme `--secondary` and `--head` are the
-   same grey, so once the head was tinted the tile vanished into it. Inverted instead — a light
-   square on the band in light, a darker one in dark — which reads either way round. */
+/* The head's leading tile: a quiet square holding the card's icon, so a page of cards scans by
+   shape before it is read. */
 .panel-head-icon {
     display: grid;
     place-items: center;
@@ -1338,7 +1311,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2rem;
     flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background: var(--card);
+    background: var(--secondary);
     color: var(--muted-foreground);
 }
 
@@ -2133,11 +2106,9 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /*
  * The tax's mark — the same tile a card's own head wears.
  *
- * Geometry from `.panel-head-icon`: 2rem at `radius-xl`. The ground parts company with it — that tile sits
- * on the head's tint and so wears the card's white, while this one sits on the card body and keeps
- * `--secondary`, which is the same inversion read from the other side. This rule was deleted by accident
- * when the collapsing was taken out, which left the icon with an inline background and no size, radius or
- * centering — a tinted square drawn around a glyph, which is exactly what it looked like.
+ * Geometry and ground from `.panel-head-icon`: 2rem at `radius-xl` on `--secondary`. This rule was deleted by
+ * accident when the collapsing was taken out, which left the icon with an inline background and no size,
+ * radius or centering — a tinted square drawn around a glyph, which is exactly what it looked like.
  *
  * Only the glyph takes the tax's colour, and that is what ties it to its slice of the ring. The coloured
  * ground belongs to the money badge beside it, where a figure wants the weight.
@@ -2515,7 +2486,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     text-align: left;
     color: var(--secondary-foreground);
     font-weight: 700;
-    background: var(--head);
+    background: var(--table-head);
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
