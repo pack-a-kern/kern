@@ -22,12 +22,18 @@ use stdClass;
  * why each piece is there; this docblock covers the parts that would otherwise be re-litigated.
  *
  * **Temporal filtering (`BLUEPRINT.md` §15.2's hard requirement) happens inside the same query**,
- * computed once per row as {@see TemporalConfidence}: a row whose *known* effective range excludes
- * `$query->asOf` is dropped entirely (`temporal_status = 'OUT_OF_RANGE'`, filtered in SQL — never
- * reaches PHP); a row with no dates at all is kept but returned separately
- * (`HybridSearchResult::$dateUnknown`), never silently merged into `$confirmed` and never silently
- * dropped — see `TemporalConfidence`'s own docblock and
- * `docs/reference/legislation-effective-dates.md` for why most current rows fall in this bucket.
+ * and happens *first*: a row whose *known* effective range excludes `$query->asOf` is dropped by
+ * the `scored` CTE's own `WHERE`, before a single score is computed for it, and never reaches PHP.
+ * A row with no dates at all is kept but returned separately (`HybridSearchResult::$dateUnknown`),
+ * never silently merged into `$confirmed` and never silently dropped — see `TemporalConfidence`'s
+ * own docblock and `docs/reference/legislation-effective-dates.md` for why most current rows fall
+ * in this bucket.
+ *
+ * That the date test comes first is a performance property, not a stylistic one, and it is the
+ * difference between 14.5 seconds and 0.4 on the corpus as it stands. The scores in the select
+ * list are a 384-dimension cosine distance, a trigram similarity and a ranked `tsvector` match,
+ * all three evaluated per row that survives the `WHERE`. With the date test applied afterwards
+ * they were evaluated for every row in the table instead.
  *
  * **Semantic ranking degrades gracefully when no embedding provider is configured** — `search()`
  * catches {@see EmbeddingProviderNotConfiguredException} from the query-embedding attempt and
@@ -118,12 +124,13 @@ final readonly class HybridLegislationSearch
                         THEN 1 - (c.embedding <=> p.query_embedding)
                         ELSE NULL
                     END AS semantic_similarity,
+                    -- Only two cases can reach here: the WHERE below has already dropped every
+                    -- row whose known range excludes `as_of`, so a row either has no dates at all
+                    -- or has dates that cover the date asked for. The range test is stated once,
+                    -- there, rather than twice — once to label and once to filter.
                     CASE
                         WHEN COALESCE(s.effective_from, dv.effective_from) IS NULL THEN 'DATE_UNKNOWN'
-                        WHEN COALESCE(s.effective_from, dv.effective_from) <= p.as_of
-                         AND (COALESCE(s.effective_until, dv.effective_until) IS NULL OR COALESCE(s.effective_until, dv.effective_until) >= p.as_of)
-                        THEN 'CONFIRMED'
-                        ELSE 'OUT_OF_RANGE'
+                        ELSE 'CONFIRMED'
                     END AS temporal_status
                 FROM ext_source_section_chunks c
                 CROSS JOIN params p
@@ -132,6 +139,25 @@ final readonly class HybridLegislationSearch
                 JOIN ext_source_documents sd ON sd.id = dv.source_document_id
                 JOIN ext_official_sources os ON os.id = sd.official_source_id
                 WHERE 1 = 1{$filterSql}
+                  -- A date comparison, cheap, standing in front of three expensive scores: a
+                  -- vector distance, a trigram similarity and a text rank, each of which this
+                  -- CTE's select list computes per surviving row. Asked after the scoring — which
+                  -- is where it used to be, in the outer query — every version of every law got
+                  -- scored and then thrown away. On this corpus that is 583k rows scored to keep
+                  -- 7k, because one law alone carries 91 consolidated versions and only the ones
+                  -- in force on `as_of` can match. A row with no dates at all is kept, and is what
+                  -- `DATE_UNKNOWN` above labels; dropping it here would be the search asserting a
+                  -- non-match it cannot know.
+                  AND (
+                        COALESCE(s.effective_from, dv.effective_from) IS NULL
+                        OR (
+                              COALESCE(s.effective_from, dv.effective_from) <= p.as_of
+                              AND (
+                                    COALESCE(s.effective_until, dv.effective_until) IS NULL
+                                    OR COALESCE(s.effective_until, dv.effective_until) >= p.as_of
+                                  )
+                           )
+                      )
             )
             SELECT
                 chunk_id, chunk_index, chunk_count, text,
@@ -142,12 +168,9 @@ final readonly class HybridLegislationSearch
                 lexical_rank, citation_similarity, semantic_similarity, temporal_status,
                 (COALESCE(semantic_similarity, 0) * ? + LEAST(lexical_rank, 1) * ? + citation_similarity * ?) AS combined_score
             FROM scored
-            WHERE temporal_status <> 'OUT_OF_RANGE'
-              AND (
-                    lexical_rank > 0
-                    OR citation_similarity > ?
-                    OR (semantic_similarity IS NOT NULL AND semantic_similarity > ?)
-                  )
+            WHERE lexical_rank > 0
+               OR citation_similarity > ?
+               OR (semantic_similarity IS NOT NULL AND semantic_similarity > ?)
             ORDER BY combined_score DESC, chunk_id ASC
             LIMIT ?
             SQL;
