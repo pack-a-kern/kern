@@ -15,7 +15,11 @@ use Kern\Platform\Identity\Enums\UserStatus;
  * address, a password hash, a status. Names, CNP and addresses live on `pf_profiles`, encrypted
  * with the tax subject's own key, because they are properties of a taxpayer rather than of a login
  * (`BLUEPRINT.md` §4.3, §6.2). So a profile screen here shows the account, and the tax subjects
- * screen shows the people — which is also why there is no avatar and no display name to edit.
+ * screen shows the people — which is why there is no display name to edit here.
+ *
+ * `avatar_updated_at` is the one picture-shaped field, and it is a timestamp rather than a path: it
+ * is the cache key the image URL carries, and where a file sits on this installation's disk is
+ * nothing a browser should be told. The bytes come from `GET v1/users/{user}/avatar`.
  */
 final class ShowProfileController
 {
@@ -42,6 +46,7 @@ final class ShowProfileController
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'created_at' => $user->created_at?->toIso8601String(),
             'has_password' => $user->password_hash !== null,
+            'avatar_updated_at' => $user->avatar_updated_at?->toIso8601String(),
             'roles' => $user->getRoleNames()->all(),
         ]);
     }

@@ -615,6 +615,7 @@ export const ro = {
         choose: 'Adaugă o poză',
         replace: 'Schimbă poza',
         remove: 'Elimină',
+        removePicture: 'Elimină poza',
         uploading: 'Se încarcă…',
         reasons: {
             infected: 'Scanerul antivirus a respins acest fișier. Alege altă poză.',

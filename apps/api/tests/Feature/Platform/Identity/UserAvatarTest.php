@@ -50,7 +50,7 @@ it('stores a square webp and reports when it was set', function (): void {
     $admin = settingsAdminUser();
 
     $response = $this->actingAs($admin)
-        ->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload(900, 300)])
+        ->post('/api/v1/me/avatar', ['avatar' => avatarUpload(900, 300)])
         ->assertOk();
 
     expect($response->json('avatar_updated_at'))->toBeString();
@@ -75,7 +75,7 @@ it('serves the picture to the person it belongs to', function (): void {
     $user = ordinaryUser();
     $admin = settingsAdminUser();
 
-    $this->actingAs($admin)->post('/api/v1/admin/users/' . avatarUserId($user) . '/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($user)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
 
     $this->actingAs($user)
         ->get('/api/v1/users/' . avatarUserId($user) . '/avatar')
@@ -88,7 +88,7 @@ it('refuses to show one account its picture of another without users.view', func
     $admin = settingsAdminUser();
     $stranger = ordinaryUser();
 
-    $this->actingAs($admin)->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($admin)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
 
     $this->actingAs($stranger)
         ->get('/api/v1/users/' . avatarUserId($admin) . '/avatar')
@@ -104,7 +104,7 @@ it('answers 404 for an account that has no picture, so the screen draws initials
 it('answers 404 when the row points at a file the disk no longer has', function (): void {
     $admin = settingsAdminUser();
 
-    $this->actingAs($admin)->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($admin)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
 
     Storage::disk('avatars')->delete($admin->refresh()->avatar_path ?? '');
 
@@ -114,13 +114,13 @@ it('answers 404 when the row points at a file the disk no longer has', function 
 it('puts the initials back, and takes the file with it', function (): void {
     $admin = settingsAdminUser();
 
-    $this->actingAs($admin)->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($admin)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
 
     $path = (string) $admin->refresh()->avatar_path;
 
     expect(Storage::disk('avatars')->exists($path))->toBeTrue();
 
-    $this->actingAs($admin)->delete('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar')->assertOk();
+    $this->actingAs($admin)->delete('/api/v1/me/avatar')->assertOk();
 
     $admin->refresh();
 
@@ -133,7 +133,7 @@ it('refuses a file that is not an image, naming the reason', function (): void {
     $admin = settingsAdminUser();
 
     $this->actingAs($admin)
-        ->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', [
+        ->post('/api/v1/me/avatar', [
             'avatar' => UploadedFile::fake()->createWithContent('shell.png', 'GIF89a<?php echo 1; ?>'),
         ])
         ->assertStatus(422)
@@ -153,7 +153,7 @@ it('keeps nothing when the scanner refuses the bytes', function (): void {
     });
 
     $this->actingAs($admin)
-        ->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload()])
+        ->post('/api/v1/me/avatar', ['avatar' => avatarUpload()])
         ->assertStatus(422)
         ->assertJsonPath('reason', 'infected');
 
@@ -161,18 +161,67 @@ it('keeps nothing when the scanner refuses the bytes', function (): void {
         ->and(Storage::disk('avatars')->allFiles())->toBe([]);
 });
 
-it('will not let an ordinary account change anybody\'s picture', function (): void {
+/*
+ * The point of moving uploads off the administrative route: an ordinary account, holding no
+ * permission at all, can give itself a picture. There is no id in `v1/me/avatar` to aim elsewhere.
+ */
+it('lets any signed-in account set its own picture, with no permission', function (): void {
     $user = ordinaryUser();
 
     $this->actingAs($user)
+        ->post('/api/v1/me/avatar', ['avatar' => avatarUpload()])
+        ->assertOk();
+
+    expect($user->refresh()->avatar_path)->toBe(avatarUserId($user) . '.webp');
+});
+
+/*
+ * Choosing somebody else's face is nobody's job, so the route that allowed it is gone rather than
+ * merely guarded. A POST there must not quietly fall through to some other handler.
+ */
+it('no longer offers an administrative route for uploading somebody else\'s picture', function (): void {
+    $admin = settingsAdminUser();
+    $user = ordinaryUser();
+
+    $this->actingAs($admin)
         ->post('/api/v1/admin/users/' . avatarUserId($user) . '/avatar', ['avatar' => avatarUpload()])
+        ->assertStatus(405);
+});
+
+/*
+ * Removal stays administrative, because taking down something that should not be on the screen is a
+ * real duty — and it is still refused to an account without `users.manage`.
+ */
+it('lets an administrator take somebody else\'s picture down', function (): void {
+    $admin = settingsAdminUser();
+    $user = ordinaryUser();
+
+    $this->actingAs($user)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()])->assertOk();
+
+    $this->actingAs($admin)
+        ->delete('/api/v1/admin/users/' . avatarUserId($user) . '/avatar')
+        ->assertOk();
+
+    expect($user->refresh()->avatar_path)->toBeNull();
+});
+
+it('refuses an ordinary account taking somebody else\'s picture down', function (): void {
+    $user = ordinaryUser();
+    $other = settingsAdminUser();
+
+    $this->actingAs($other)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()])->assertOk();
+
+    $this->actingAs($user)
+        ->delete('/api/v1/admin/users/' . avatarUserId($other) . '/avatar')
         ->assertForbidden();
+
+    expect($other->refresh()->avatar_path)->not->toBeNull();
 });
 
 it('reports the timestamp in the directory, so a list knows which rows have a face', function (): void {
     $admin = settingsAdminUser();
 
-    $this->actingAs($admin)->post('/api/v1/admin/users/' . avatarUserId($admin) . '/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($admin)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
 
     /** @var list<array<string, mixed>> $users */
     $users = $this->actingAs($admin)->getJson('/api/v1/admin/users')->json('users');
@@ -186,8 +235,8 @@ it('records both the setting and the removal in the audit chain', function (): v
     $admin = settingsAdminUser();
     $id = avatarUserId($admin);
 
-    $this->actingAs($admin)->post("/api/v1/admin/users/{$id}/avatar", ['avatar' => avatarUpload()]);
-    $this->actingAs($admin)->delete("/api/v1/admin/users/{$id}/avatar");
+    $this->actingAs($admin)->post('/api/v1/me/avatar', ['avatar' => avatarUpload()]);
+    $this->actingAs($admin)->delete('/api/v1/me/avatar');
 
     $this->assertDatabaseHas('audit_events', [
         'event_type' => 'USER_AVATAR_SET',

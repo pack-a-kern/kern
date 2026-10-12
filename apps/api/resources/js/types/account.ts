@@ -13,6 +13,8 @@ export interface Profile {
     createdAt: string | null;
     hasPassword: boolean;
     roles: string[];
+    /** When the picture last changed, or null for an account showing its initials. */
+    avatarUpdatedAt: string | null;
 }
 
 export interface TaxSubject {
@@ -58,6 +60,7 @@ export function parseProfile(payload: unknown): Profile {
         createdAt: nullableStr(row, 'created_at'),
         hasPassword: row.has_password === true,
         roles: Array.isArray(row.roles) ? row.roles.filter((r): r is string => typeof r === 'string') : [],
+        avatarUpdatedAt: nullableStr(row, 'avatar_updated_at'),
     };
 }
 

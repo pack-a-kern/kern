@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Http\Controllers\Subjects;
 
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
+use Kern\Platform\Identity\Avatars\AvatarUpload;
 use Kern\Platform\Identity\Avatars\RemoveAvatar;
 use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
@@ -35,27 +34,11 @@ final class UpdateSubjectAvatarController
         Request $request,
         TaxSubject $subject,
         SetAvatar $set,
-        ConfigRepository $config,
+        AvatarUpload $upload,
     ): JsonResponse {
         $actorId = $this->ownerId($request, $subject);
 
-        $maxKilobytes = intdiv($config->integer('avatars.max_bytes'), 1024);
-
-        $request->validate([
-            'avatar' => ['required', 'file', "max:{$maxKilobytes}"],
-        ]);
-
-        $file = $request->file('avatar');
-
-        if (! $file instanceof UploadedFile) {
-            abort(422, 'No file was uploaded.');
-        }
-
-        $bytes = file_get_contents($file->getRealPath());
-
-        if ($bytes === false) {
-            abort(422, 'The upload could not be read.');
-        }
+        $bytes = $upload->bytesFrom($request);
 
         try {
             $set($subject, $bytes, $actorId);

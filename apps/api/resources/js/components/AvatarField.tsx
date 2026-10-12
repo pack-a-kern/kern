@@ -11,9 +11,13 @@ import type { Dictionary } from '../i18n/dictionary';
  * A picture, with the two controls that change it, for anything that can wear one.
  *
  * Written for a user and now used by a taxpayer as well, which is the whole reason it is here rather
- * than inside the screen that needed it first. The caller supplies the two lines of text, the URL and
- * the two requests; everything else — what a refusal says, when the file input is cleared, which
- * label the button shows — is the same question whoever is wearing the picture.
+ * than inside the screen that needed it first. The caller supplies the initials, the URL and the two
+ * requests; everything else — what a refusal says, when the file input is cleared, which label the
+ * button shows — is the same question whoever is wearing the picture.
+ *
+ * No name or caption. Both screens that use this already say whose picture it is — the account card
+ * lists the email a line below, the taxpayer dialog names the taxpayer in its own title — so the two
+ * lines this used to draw were the same words twice.
  *
  * ## Uploaded on choice, not on Save
  *
@@ -30,9 +34,6 @@ import type { Dictionary } from '../i18n/dictionary';
 export default function AvatarField(props: {
     /** Drawn when there is no picture, and behind one that has not loaded. */
     initials: string;
-    /** The two lines beside it: what this is, and a detail under it. */
-    name: string;
-    sub: string;
     /** The picture's URL, or undefined for initials. The caller builds it, versioned. */
     src?: string | undefined;
     /** Resolves to the new version string, which the caller stores to rebuild `src`. */
@@ -82,11 +83,8 @@ export default function AvatarField(props: {
         <div className="avatar-field">
             <Avatar className="avatar-lg" initials={props.initials} src={props.src} />
 
-            <div className="min-w-0 flex-1">
-                <div className="identity-name truncate">{props.name}</div>
-                <div className="identity-sub truncate">{props.sub}</div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="avatar-field-actions">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <label className="ctl-action-link" aria-busy={busy}>
                         <Upload className="size-3.5" aria-hidden="true" />
                         {busy
@@ -122,7 +120,7 @@ export default function AvatarField(props: {
                     )}
                 </div>
 
-                {error === null ? null : <p className="note text-destructive mt-1.5">{error}</p>}
+                {error === null ? null : <p className="note text-destructive mt-1.5 text-right">{error}</p>}
             </div>
         </div>
     );

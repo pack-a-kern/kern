@@ -612,6 +612,7 @@ export const en = {
         choose: 'Add a picture',
         replace: 'Change picture',
         remove: 'Remove',
+        removePicture: 'Remove picture',
         uploading: 'Uploading…',
         reasons: {
             infected: 'The virus scanner rejected this file. Choose a different picture.',

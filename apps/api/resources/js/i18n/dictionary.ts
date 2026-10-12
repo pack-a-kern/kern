@@ -517,6 +517,8 @@ export interface Dictionary {
         choose: string;
         replace: string;
         remove: string;
+        /** With the noun, for a menu where "Remove" alone would be ambiguous. */
+        removePicture: string;
         uploading: string;
         /** Keyed by the `reason` a 422 carries — see `UploadRejectedException`. */
         reasons: Record<

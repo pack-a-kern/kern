@@ -121,23 +121,19 @@ export default function EditSubjectDialog(props: {
                 owner may change it, and the server says so too — this is the screen being honest
                 rather than the screen deciding. */}
             {props.subject.role !== 'OWNER' ? null : (
-                <div className="mb-4">
-                    <AvatarField
-                        initials={initialsFor(props.subject.displayName)}
-                        name={props.subject.displayName}
-                        sub={t((d) => d.pages.settingsSubjects.types[props.subject.type] ?? props.subject.type)}
-                        src={
-                            props.subject.avatarUpdatedAt === null
-                                ? undefined
-                                : subjectAvatarUrl(props.subject.id, props.subject.avatarUpdatedAt)
-                        }
-                        onUpload={(file) => uploadSubjectAvatar(props.subject.id, file)}
-                        onRemove={() => removeSubjectAvatar(props.subject.id)}
-                        onChange={(version) => {
-                            props.onAvatarChange(props.subject.id, version);
-                        }}
-                    />
-                </div>
+                <AvatarField
+                    initials={initialsFor(props.subject.displayName)}
+                    src={
+                        props.subject.avatarUpdatedAt === null
+                            ? undefined
+                            : subjectAvatarUrl(props.subject.id, props.subject.avatarUpdatedAt)
+                    }
+                    onUpload={(file) => uploadSubjectAvatar(props.subject.id, file)}
+                    onRemove={() => removeSubjectAvatar(props.subject.id)}
+                    onChange={(version) => {
+                        props.onAvatarChange(props.subject.id, version);
+                    }}
+                />
             )}
 
             <FieldGrid>

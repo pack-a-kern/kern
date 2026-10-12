@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Kern\Platform\Http\Controllers\Account\ShowProfileController;
+use Kern\Platform\Http\Controllers\Account\UpdateOwnAvatarController;
 use Kern\Platform\Http\Controllers\Account\UpdatePasswordController;
 use Kern\Platform\Http\Controllers\Admin\CreateUserController;
 use Kern\Platform\Http\Controllers\Admin\EraseUserController;
 use Kern\Platform\Http\Controllers\Admin\ImpersonationController;
+use Kern\Platform\Http\Controllers\Admin\RemoveUserAvatarController;
 use Kern\Platform\Http\Controllers\Admin\ShowAccessCatalogueController;
-use Kern\Platform\Http\Controllers\Admin\UpdateUserAvatarController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserRolesController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserStatusController;
 use Kern\Platform\Http\Controllers\Auth\DisableTotpController;
@@ -159,8 +160,8 @@ Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
 
     Route::middleware('permission:users.manage')->group(function (): void {
         Route::post('users', CreateUserController::class);
-        Route::post('users/{user}/avatar', [UpdateUserAvatarController::class, 'store']);
-        Route::delete('users/{user}/avatar', [UpdateUserAvatarController::class, 'destroy']);
+        // Removal only — choosing a face is the account holder's own, on `v1/me/avatar` below.
+        Route::delete('users/{user}/avatar', RemoveUserAvatarController::class);
         Route::put('users/{user}/roles', UpdateUserRolesController::class);
         Route::put('users/{user}/status', UpdateUserStatusController::class);
         // Erasing a person and acting as one are not role changes: both check SUPER_ADMIN
@@ -185,4 +186,10 @@ Route::get('v1/users/{user}/avatar', ShowUserAvatarController::class)->middlewar
 Route::prefix('v1/me')->middleware('auth:web')->group(function (): void {
     Route::get('/', ShowProfileController::class);
     Route::put('password', UpdatePasswordController::class);
+    /*
+     * Your own picture. No permission and no id in the path: the route can only ever reach
+     * `$request->user()`, so being signed in is the whole of the authorization.
+     */
+    Route::post('avatar', [UpdateOwnAvatarController::class, 'store']);
+    Route::delete('avatar', [UpdateOwnAvatarController::class, 'destroy']);
 });

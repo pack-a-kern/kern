@@ -4,6 +4,7 @@ import {
     Check as CheckIcon,
     CircleDot,
     EllipsisVertical,
+    ImageOff,
     Eye,
     FilterX,
     Fingerprint,
@@ -22,7 +23,6 @@ import {
 import { toast } from 'sonner';
 
 import {
-    avatarUrl,
     eraseUser,
     getAccessCatalogue,
     getAdminDirectory,
@@ -30,10 +30,9 @@ import {
     removeUserAvatar,
     updateUserRoles,
     updateUserStatus,
-    uploadUserAvatar,
 } from '../../api/adminApi';
-import AvatarField from '../../components/AvatarField';
 import AppShell from '../../components/AppShell';
+import { userAvatarUrl } from '../../api/accountApi';
 import {
     Check,
     DataTable,
@@ -544,7 +543,7 @@ export default function AdminUsers(): JSX.Element {
                                                     avatar={
                                                         user.avatarUpdatedAt === null
                                                             ? undefined
-                                                            : avatarUrl(user.id, user.avatarUpdatedAt)
+                                                            : userAvatarUrl(user.id, user.avatarUpdatedAt)
                                                     }
                                                     name={user.email.split('@')[0] ?? user.email}
                                                     sub={user.email}
@@ -626,6 +625,24 @@ export default function AdminUsers(): JSX.Element {
                                                                     <Pencil className="size-4" />
                                                                     {t((d) => d.pages.adminUsers.edit)}
                                                                 </DropdownMenuItem>
+
+                                                                {/* Removal only, and only when
+                                                                there is one. Choosing a face is the
+                                                                account holder's own, on their
+                                                                account page; taking down one that
+                                                                should not be there is this. */}
+                                                                {user.avatarUpdatedAt === null ? null : (
+                                                                    <DropdownMenuItem
+                                                                        onSelect={() => {
+                                                                            void removeUserAvatar(user.id).then(() => {
+                                                                                applyAvatar(user.id, null);
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <ImageOff className="size-4" />
+                                                                        {t((d) => d.avatar.removePicture)}
+                                                                    </DropdownMenuItem>
+                                                                )}
 
                                                                 {/* Both of these act *as* or *on* a
                                                                 person rather than on a record, so
@@ -797,7 +814,6 @@ export default function AdminUsers(): JSX.Element {
                     setEditing(null);
                 }}
                 onSave={save}
-                onAvatarChange={applyAvatar}
             />
 
             {/* Both say plainly what will happen, because neither is obvious from its name: one
@@ -856,7 +872,6 @@ function EditUserDialog(props: {
     roles: string[];
     onClose: () => void;
     onSave: (user: AdminUser, roles: string[], status: string) => Promise<void>;
-    onAvatarChange: (userId: string, version: string | null) => void;
 }): JSX.Element | null {
     const { t } = useTranslation();
     const user = props.user;
@@ -905,44 +920,27 @@ function EditUserDialog(props: {
                 re-seeding it from an effect, which React flags as a cascading render. */}
             <EditUserForm
                 key={user.id}
-                user={user}
                 roles={props.roles}
                 role={role}
                 status={status}
                 onChange={(next) => {
                     setDraft(next);
                 }}
-                onAvatarChange={props.onAvatarChange}
             />
         </PanelDialog>
     );
 }
 
 function EditUserForm(props: {
-    user: AdminUser;
     roles: string[];
     role: string;
     status: string;
     onChange: (next: { role: string; status: string }) => void;
-    onAvatarChange: (userId: string, version: string | null) => void;
 }): JSX.Element {
     const { t } = useTranslation();
-    const user = props.user;
 
     return (
         <div className="space-y-4">
-            <AvatarField
-                        initials={initialsFor(user.email)}
-                        name={user.email.split('@')[0] ?? user.email}
-                        sub={user.email}
-                        src={user.avatarUpdatedAt === null ? undefined : avatarUrl(user.id, user.avatarUpdatedAt)}
-                        onUpload={(file) => uploadUserAvatar(user.id, file)}
-                        onRemove={() => removeUserAvatar(user.id)}
-                        onChange={(version) => {
-                            props.onAvatarChange(user.id, version);
-                        }}
-                    />
-
             <FieldGrid>
                 <Field label={t((d) => d.pages.adminUsers.columns.role)}>
                     <PanelSelect

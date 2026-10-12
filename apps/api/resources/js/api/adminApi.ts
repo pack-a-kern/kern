@@ -1,4 +1,4 @@
-import { apiRequest, apiUpload } from '../lib/http';
+import { apiRequest } from '../lib/http';
 import { type AccessCatalogue, type AdminDirectory, parseAccessCatalogue, parseAdminDirectory } from '../types/admin';
 
 /** `GET /api/v1/admin/users` — accounts, their MFA posture, memberships, and what is enforced. */
@@ -21,36 +21,10 @@ export async function updateUserStatus(userId: string, status: string): Promise<
     await apiRequest(`/v1/admin/users/${userId}/status`, { method: 'PUT', body: { status } });
 }
 
-/**
- * `GET /api/v1/users/{id}/avatar` — the URL a picture is read from.
- *
- * Not a request: this builds the `src` an `<img>` fetches itself, which is why the timestamp is in the
- * query string. The file keeps one name per user and is overwritten on each upload, so without the
- * version a browser would hold the previous face for as long as the cache header says — a year.
- */
-export function avatarUrl(userId: string, version: string): string {
-    return `/api/v1/users/${encodeURIComponent(userId)}/avatar?v=${encodeURIComponent(version)}`;
-}
 
-/** `POST /api/v1/admin/users/{id}/avatar` — gives an account a picture. */
-export async function uploadUserAvatar(userId: string, file: File): Promise<string | null> {
-    const body = new FormData();
-    body.append('avatar', file);
 
-    const response: unknown = JSON.parse(
-        await apiUpload(`/v1/admin/users/${encodeURIComponent(userId)}/avatar`, body),
-    );
-
-    if (typeof response !== 'object' || response === null) {
-        return null;
-    }
-
-    const updated = (response as Record<string, unknown>).avatar_updated_at;
-
-    return typeof updated === 'string' ? updated : null;
-}
-
-/** `DELETE /api/v1/admin/users/{id}/avatar` — puts the initials back. */
+/** `DELETE /api/v1/admin/users/{id}/avatar` — takes somebody else's picture down. Removal only:
+ *  choosing a face is the account holder's own, through `removeOwnAvatar`'s neighbour in `accountApi`. */
 export async function removeUserAvatar(userId: string): Promise<void> {
     await apiRequest(`/v1/admin/users/${encodeURIComponent(userId)}/avatar`, { method: 'DELETE' });
 }

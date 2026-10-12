@@ -194,3 +194,38 @@ export async function uploadSubjectAvatar(subjectId: string, file: File): Promis
 export async function removeSubjectAvatar(subjectId: string): Promise<void> {
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/avatar`, { method: 'DELETE' });
 }
+
+/**
+ * `GET /api/v1/users/{id}/avatar` — the URL a person's picture is read from.
+ *
+ * Not a request: this builds the `src` an `<img>` fetches itself, which is why the timestamp is in
+ * the query string. The file keeps one name per owner and is overwritten on each upload, so without
+ * the version a browser would hold the previous face for as long as the cache header says — a year.
+ *
+ * Here rather than in `adminApi`, where it used to live: the route is open to any signed-in user for
+ * their own picture, so it was never an administrative call.
+ */
+export function userAvatarUrl(userId: string, version: string): string {
+    return `/api/v1/users/${encodeURIComponent(userId)}/avatar?v=${encodeURIComponent(version)}`;
+}
+
+/** `POST /api/v1/me/avatar` — gives your own account a picture. No id, so no permission. */
+export async function uploadOwnAvatar(file: File): Promise<string | null> {
+    const body = new FormData();
+    body.append('avatar', file);
+
+    const response: unknown = JSON.parse(await apiUpload('/v1/me/avatar', body));
+
+    if (typeof response !== 'object' || response === null) {
+        return null;
+    }
+
+    const updated = (response as Record<string, unknown>).avatar_updated_at;
+
+    return typeof updated === 'string' ? updated : null;
+}
+
+/** `DELETE /api/v1/me/avatar` — puts your initials back. */
+export async function removeOwnAvatar(): Promise<void> {
+    await apiRequest('/v1/me/avatar', { method: 'DELETE' });
+}

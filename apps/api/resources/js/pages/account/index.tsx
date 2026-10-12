@@ -188,7 +188,14 @@ export default function AccountPage(): JSX.Element {
                 </StatGrid>
 
                 <div className="card-columns">
-                    <AccountCard profile={profile} />
+                    <AccountCard
+                        profile={profile}
+                        // In place rather than refetching: the upload is already accepted by the
+                        // time this runs, and the rest of the card has not changed.
+                        onAvatarChange={(version) => {
+                            setProfile((current) => (current === null ? current : { ...current, avatarUpdatedAt: version }));
+                        }}
+                    />
                     <PasswordCard hasPassword={profile?.hasPassword ?? false} describeFailure={describeFailure} />
                     <SignInMethods mfa={mfa} onChanged={reload} describeFailure={describeFailure} />
                     <GuaranteesCard />
