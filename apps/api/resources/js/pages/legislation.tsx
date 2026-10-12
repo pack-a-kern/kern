@@ -1,6 +1,22 @@
 import { Link, router } from '@inertiajs/react';
-import { FileText, Landmark, Plus, Scale, ScrollText, Search, Trash2, type LucideIcon } from 'lucide-react';
-import { useCallback, useEffect, useState, type JSX } from 'react';
+import {
+    BookOpen,
+    CircleCheck,
+    EllipsisVertical,
+    FileText,
+    Gavel,
+    History,
+    Landmark,
+    Newspaper,
+    Plus,
+    Scale,
+    ScrollText,
+    Search,
+    Trash2,
+    X,
+    type LucideIcon,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { deleteLaw, listLaws, searchLegislation } from '../api/legislationApi';
@@ -18,6 +34,12 @@ import {
     Status,
 } from '../components/panel';
 import { PanelDate } from '../components/PanelDatePicker';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
@@ -65,12 +87,54 @@ export default function Legislation({
     const [reload, setReload] = useState(0);
     const canAdd = useSharedAuth()?.user.permissions.includes('operations.run') === true;
 
+    /*
+     * Results hang under the field rather than taking the page.
+     *
+     * Looking for a provision is a detour, not a destination: the laws stay where they were, and the
+     * answer appears over them until it is dismissed or followed. Rendered below the form and
+     * absolutely positioned, so the page behind does not jump as results arrive and nothing has to
+     * scroll back up afterwards.
+     */
+    const [resultsOpen, setResultsOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!resultsOpen) {
+            return;
+        }
+
+        const dismissOutside = (event: PointerEvent): void => {
+            const target = event.target;
+
+            // The form is inside the ref, so pressing Search again — or correcting the query —
+            // leaves the results up. Only a press that lands elsewhere means "I am done with these".
+            if (searchRef.current !== null && target instanceof Node && !searchRef.current.contains(target)) {
+                setResultsOpen(false);
+            }
+        };
+
+        const dismissOnEscape = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') {
+                setResultsOpen(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', dismissOutside);
+        document.addEventListener('keydown', dismissOnEscape);
+
+        return () => {
+            document.removeEventListener('pointerdown', dismissOutside);
+            document.removeEventListener('keydown', dismissOnEscape);
+        };
+    }, [resultsOpen]);
+
     const run = useCallback(async (): Promise<void> => {
         if (query.trim().length < 2) {
             return;
         }
 
         setSearching(true);
+        setResultsOpen(true);
 
         try {
             setResult(
@@ -91,6 +155,10 @@ export default function Legislation({
             }
 
             setResult(null);
+
+            // The toast carries the failure, so the overlay has nothing left to say: leaving it up
+            // would be an empty box claiming zero results for a search that never ran.
+            setResultsOpen(false);
             toast.error(
                 t((d) => d.pages.legislation.searchFailed),
                 {
@@ -122,124 +190,141 @@ export default function Legislation({
         <AppShell>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
                 {/* The search first: most visits look for a provision, not a law. */}
-                <Panel
-                    title={t((d) => d.pages.legislation.searchTitle)}
-                    description={t((d) => d.pages.legislation.searchHint)}
-                    icon={<Search className="size-4" />}
-                    aside={
-                        canAdd ? (
-                            <PanelButton
-                                onClick={() => {
-                                    setAdding(true);
-                                }}
-                            >
-                                <Plus className="size-3.5" />
-                                {t((d) => d.pages.legislation.laws.add)}
-                            </PanelButton>
-                        ) : undefined
-                    }
-                >
-                    <form
-                        className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:items-end"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            void run();
-                        }}
+                <div className="relative" ref={searchRef}>
+                    <Panel
+                        title={t((d) => d.pages.legislation.searchTitle)}
+                        description={t((d) => d.pages.legislation.searchHint)}
+                        icon={<Search className="size-4" />}
+                        aside={
+                            canAdd ? (
+                                <PanelButton
+                                    onClick={() => {
+                                        setAdding(true);
+                                    }}
+                                >
+                                    <Plus className="size-3.5" />
+                                    {t((d) => d.pages.legislation.laws.add)}
+                                </PanelButton>
+                            ) : undefined
+                        }
                     >
-                        <SearchInput
-                            value={query}
-                            placeholder={t((d) => d.pages.legislation.searchPlaceholder)}
-                            onChange={setQuery}
-                        />
-                        <Field label={t((d) => d.pages.legislation.tier)} htmlFor="legislation-tier">
-                            <PanelSelect
-                                id="legislation-tier"
-                                value={tier}
-                                onValueChange={setTier}
-                                placeholder={t((d) => d.pages.legislation.allTiers)}
-                                emptyLabel={t((d) => d.pages.legislation.allTiers)}
-                                options={TIERS.map((value) => ({ value, label: value }))}
-                            />
-                        </Field>
-                        <Field label={t((d) => d.pages.legislation.asOf)} htmlFor="legislation-as-of">
-                            <PanelDate
-                                value={asOf === '' ? null : asOf}
-                                onChange={(next) => {
-                                    setAsOf(next ?? '');
-                                }}
-                            />
-                        </Field>
-                        <PanelButton
-                            primary
-                            inline
-                            disabled={searching || query.trim().length < 2}
-                            onClick={() => {
+                        {/*
+                        Two columns on a phone, four on a desktop. The date and the button share the
+                        last row rather than taking one each: a date picker is half a phone wide and
+                        the button beside it is the thing you press after setting it, so stacking them
+                        spent a row to say nothing. The two wide controls span both columns.
+                    */}
+                        <form
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto]"
+                            onSubmit={(event) => {
+                                event.preventDefault();
                                 void run();
                             }}
                         >
-                            <Search className="size-3.5" />
-                            {t((d) => d.pages.legislation.search)}
-                        </PanelButton>
-                    </form>
-                    <p className="note mt-2">{t((d) => d.pages.legislation.asOfHint)}</p>
-                </Panel>
-
-                {searching ? (
-                    <div className="space-y-2">
-                        {[0, 1, 2].map((index) => (
-                            <Skeleton key={index} className="tile h-20 w-full" />
-                        ))}
-                    </div>
-                ) : result === null ? null : total === 0 ? (
-                    <EmptyState
-                        icon={<Scale className="size-5" />}
-                        title={t((d) => d.pages.legislation.empty)}
-                    />
-                ) : (
-                    <>
-                        {result.confirmed.length > 0 ? (
-                            <Panel
-                                title={t((d) => d.pages.legislation.confirmed)}
-                                description={t((d) => d.pages.legislation.confirmedHint)}
-                                aside={
-                                    <Status tone="ok">
-                                        {t((d) => d.pages.legislation.resultCount).replace(
-                                            '{count}',
-                                            String(result.confirmed.length),
-                                        )}
-                                    </Status>
-                                }
+                            <div className="col-span-2 sm:col-span-1">
+                                <SearchInput
+                                    value={query}
+                                    placeholder={t((d) => d.pages.legislation.searchPlaceholder)}
+                                    onChange={setQuery}
+                                />
+                            </div>
+                            <div className="col-span-2 sm:col-span-1">
+                                <Field label={t((d) => d.pages.legislation.tier)} htmlFor="legislation-tier">
+                                    <PanelSelect
+                                        id="legislation-tier"
+                                        value={tier}
+                                        onValueChange={setTier}
+                                        placeholder={t((d) => d.pages.legislation.allTiers)}
+                                        emptyLabel={t((d) => d.pages.legislation.allTiers)}
+                                        options={TIERS.map((value) => ({ value, label: value }))}
+                                    />
+                                </Field>
+                            </div>
+                            <Field label={t((d) => d.pages.legislation.asOf)} htmlFor="legislation-as-of">
+                                <PanelDate
+                                    value={asOf === '' ? null : asOf}
+                                    onChange={(next) => {
+                                        setAsOf(next ?? '');
+                                    }}
+                                />
+                            </Field>
+                            <PanelButton
+                                primary
+                                disabled={searching || query.trim().length < 2}
+                                onClick={() => {
+                                    void run();
+                                }}
                             >
-                                <div className="space-y-3">
-                                    {result.confirmed.map((hit) => (
-                                        <Hit key={hit.chunkId} hit={hit} asOf={result.asOf} />
+                                <Search className="size-3.5" />
+                                {t((d) => d.pages.legislation.search)}
+                            </PanelButton>
+                        </form>
+                        <p className="note mt-2">{t((d) => d.pages.legislation.asOfHint)}</p>
+                    </Panel>
+
+                    {resultsOpen ? (
+                        <div
+                            className="panel search-results"
+                            role="region"
+                            aria-label={t((d) => d.pages.legislation.searchTitle)}
+                        >
+                            <div className="border-border/70 mb-3 flex items-center justify-between gap-2 border-b pb-2">
+                                <span className="note tabular-nums">
+                                    {searching
+                                        ? t((d) => d.common.loading)
+                                        : t((d) => d.pages.legislation.resultCount).replace('{count}', String(total))}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="row-menu"
+                                    aria-label={t((d) => d.common.close)}
+                                    onClick={() => {
+                                        setResultsOpen(false);
+                                    }}
+                                >
+                                    <X className="size-4" />
+                                </button>
+                            </div>
+
+                            {searching ? (
+                                <div className="space-y-2">
+                                    {[0, 1, 2].map((index) => (
+                                        <Skeleton key={index} className="tile h-20 w-full" />
                                     ))}
                                 </div>
-                            </Panel>
-                        ) : null}
-
-                        {result.dateUnknown.length > 0 ? (
-                            <Panel
-                                title={t((d) => d.pages.legislation.dateUnknown)}
-                                description={t((d) => d.pages.legislation.dateUnknownHint)}
-                                aside={
-                                    <Status tone="warn">
-                                        {t((d) => d.pages.legislation.resultCount).replace(
-                                            '{count}',
-                                            String(result.dateUnknown.length),
-                                        )}
-                                    </Status>
-                                }
-                            >
-                                <div className="space-y-3">
-                                    {result.dateUnknown.map((hit) => (
-                                        <Hit key={hit.chunkId} hit={hit} asOf={result.asOf} />
-                                    ))}
+                            ) : result === null ? null : total === 0 ? (
+                                <EmptyState
+                                    icon={<Scale className="size-5" />}
+                                    title={t((d) => d.pages.legislation.empty)}
+                                />
+                            ) : (
+                                <div className="space-y-4">
+                                    {/*
+                                    Still two groups, still never merged: a text whose effective dates
+                                    cover the date asked for and a text whose dates nobody has
+                                    established are different claims, and sorting them into one list by
+                                    score would erase the only distinction that makes a citation
+                                    defensible. A heading each, inside the one overlay.
+                                */}
+                                    <HitGroup
+                                        hits={result.confirmed}
+                                        asOf={result.asOf}
+                                        title={t((d) => d.pages.legislation.confirmed)}
+                                        hint={t((d) => d.pages.legislation.confirmedHint)}
+                                        tone="ok"
+                                    />
+                                    <HitGroup
+                                        hits={result.dateUnknown}
+                                        asOf={result.asOf}
+                                        title={t((d) => d.pages.legislation.dateUnknown)}
+                                        hint={t((d) => d.pages.legislation.dateUnknownHint)}
+                                        tone="warn"
+                                    />
                                 </div>
-                            </Panel>
-                        ) : null}
-                    </>
-                )}
+                            )}
+                        </div>
+                    ) : null}
+                </div>
 
                 <Laws reload={reload} />
             </Page>
@@ -314,18 +399,6 @@ function Laws({ reload }: { reload: number }): JSX.Element {
 
     return (
         <section>
-            <div className="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
-                <div>
-                    <h2 className="text-sm font-semibold">{t((d) => d.pages.legislation.laws.title)}</h2>
-                    <p className="note">{t((d) => d.pages.legislation.laws.hint)}</p>
-                </div>
-                {laws === null ? null : (
-                    <span className="note tabular-nums">
-                        {t((d) => d.pages.legislation.laws.count).replace('{count}', String(laws.length))}
-                    </span>
-                )}
-            </div>
-
             {failed ? (
                 <p className="note px-1">{t((d) => d.pages.legislation.laws.failed)}</p>
             ) : laws === null ? (
@@ -335,10 +408,7 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                     ))}
                 </div>
             ) : laws.length === 0 ? (
-                <EmptyState
-                    icon={<Scale className="size-5" />}
-                    title={t((d) => d.pages.legislation.laws.empty)}
-                />
+                <EmptyState icon={<Scale className="size-5" />} title={t((d) => d.pages.legislation.laws.empty)} />
             ) : (
                 <div className="grid gap-2.5 lg:grid-cols-2">
                     {laws.map((law) => {
@@ -350,72 +420,168 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                         return (
                             <article
                                 key={law.id}
-                                className="panel panel-pad hover:border-info/40 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+                                /*
+                                    Three columns at every width — mark, name, actions — and two bands
+                                    under them that ignore all three. The bands are what a reader
+                                    compares between cards, so they start at the card's own edge rather
+                                    than in the name's column: indented under the mark they were a third
+                                    of the card wide, which is what wrapped a pill onto its own line and
+                                    clipped "Versiunea curentă" to an ellipsis while the space beneath
+                                    the actions sat empty.
+                                */
+                                className="panel panel-pad hover:border-info/40 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 gap-y-2.5 transition-colors"
                                 onClick={open}
                             >
                                 <div className="bg-muted text-muted-foreground grid size-9 place-items-center rounded-xl">
                                     <Icon className="size-4" />
                                 </div>
-                                <div className="min-w-0">
-                                    <h3 className="text-sm font-semibold text-balance">{law.title ?? law.url}</h3>
-                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                        {law.typeLabel === null ? null : <Pill tone="accent">{law.typeLabel}</Pill>}
-                                        {law.officialJournalNumber === null ? null : (
-                                            <Pill tone="locked">
-                                                {t((d) => d.pages.legislation.laws.journal).replace(
-                                                    '{number}',
-                                                    law.officialJournalNumber,
-                                                )}
-                                            </Pill>
-                                        )}
-                                        <Pill>
-                                            {t((d) => d.pages.legislation.laws.consolidations)
-                                                .replace('{read}', String(law.consolidationsRead))
-                                                .replace('{listed}', String(law.consolidationsListed))}
-                                        </Pill>
-                                        {law.consolidationsFailed === 0 ? null : (
-                                            <Status tone="warn">
-                                                {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(
-                                                    '{count}',
-                                                    String(law.consolidationsFailed),
-                                                )}
-                                            </Status>
-                                        )}
+                                <h3 className="min-w-0 self-center text-sm font-semibold text-balance">
+                                    {law.title ?? law.url}
+                                </h3>
+                                <div className="flex items-start gap-1.5">
+                                    {/*
+                                        One menu on a phone, the actions themselves on a desktop. A row
+                                        of buttons beside the name costs about 290px, which a phone does
+                                        not have to give: they wrapped to a line of their own and pushed
+                                        everything down. The menu is the same control the taxpayer and
+                                        user lists already put at the end of a row.
+                                    */}
+                                    {/*
+                                        `sm:hidden` on a wrapper, not on the button: `.row-menu` is one
+                                        of this stylesheet's unlayered component classes, and an
+                                        unlayered `display: grid` beats a layered `display: none`
+                                        whatever the breakpoint. The menu would have stayed on screen
+                                        beside the buttons it replaces.
+                                    */}
+                                    <div className="sm:hidden">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="row-menu"
+                                                    aria-label={t((d) => d.common.actions)}
+                                                    onClick={(event) => {
+                                                        // The card itself opens the law; the menu must not.
+                                                        event.stopPropagation();
+                                                    }}
+                                                >
+                                                    <EllipsisVertical className="size-4" />
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem onSelect={open}>
+                                                    <BookOpen className="size-4" />
+                                                    {t((d) => d.pages.legislation.laws.open)}
+                                                </DropdownMenuItem>
+                                                {mayRemove ? (
+                                                    <DropdownMenuItem
+                                                        variant="destructive"
+                                                        onSelect={() => {
+                                                            setRemoving(law);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                        {t((d) => d.pages.legislation.laws.remove)}
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
-                                    <dl className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                        {(
-                                            [
-                                                [t((d) => d.pages.legislation.laws.actDate), law.actDate],
-                                                [t((d) => d.pages.legislation.laws.publishedOn), law.publishedOn],
-                                                [t((d) => d.pages.legislation.laws.inForceFrom), law.inForceFrom],
-                                                [
-                                                    t((d) => d.pages.legislation.laws.currentVersion),
-                                                    law.lastConsolidation,
-                                                ],
-                                            ] as const
-                                        ).map(([label, value]) => (
-                                            <div key={label}>
-                                                <dt className="note">{label}</dt>
-                                                <dd className="text-xs font-semibold tabular-nums">{date(value)}</dd>
-                                            </div>
-                                        ))}
-                                    </dl>
-                                </div>
-                                <div className="col-start-2 flex items-start gap-1.5 sm:col-start-auto">
-                                    {mayRemove ? (
-                                        <PanelButton
-                                            onClick={(event) => {
-                                                // The card itself opens the law; this one must not.
-                                                event.stopPropagation();
-                                                setRemoving(law);
-                                            }}
-                                        >
-                                            <Trash2 className="size-3.5" aria-hidden="true" />
-                                            {t((d) => d.pages.legislation.laws.remove)}
+
+                                    <div className="hidden gap-1.5 sm:flex">
+                                        {mayRemove ? (
+                                            <PanelButton
+                                                onClick={(event) => {
+                                                    // The card itself opens the law; this one must not.
+                                                    event.stopPropagation();
+                                                    setRemoving(law);
+                                                }}
+                                            >
+                                                <Trash2 className="size-3.5" aria-hidden="true" />
+                                                {t((d) => d.pages.legislation.laws.remove)}
+                                            </PanelButton>
+                                        ) : null}
+                                        <PanelButton onClick={open}>
+                                            {t((d) => d.pages.legislation.laws.open)}
                                         </PanelButton>
-                                    ) : null}
-                                    <PanelButton onClick={open}>{t((d) => d.pages.legislation.laws.open)}</PanelButton>
+                                    </div>
                                 </div>
+
+                                <div className="col-span-full flex flex-wrap gap-1.5">
+                                    {law.typeLabel === null ? null : <Pill tone="accent">{law.typeLabel}</Pill>}
+                                    {law.officialJournalNumber === null ? null : (
+                                        <Pill tone="locked">
+                                            {t((d) => d.pages.legislation.laws.journal).replace(
+                                                '{number}',
+                                                law.officialJournalNumber,
+                                            )}
+                                        </Pill>
+                                    )}
+                                    <Pill>
+                                        {t((d) => d.pages.legislation.laws.consolidations)
+                                            .replace('{read}', String(law.consolidationsRead))
+                                            .replace('{listed}', String(law.consolidationsListed))}
+                                    </Pill>
+                                    {law.consolidationsFailed === 0 ? null : (
+                                        <Status tone="warn">
+                                            {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(
+                                                '{count}',
+                                                String(law.consolidationsFailed),
+                                            )}
+                                        </Status>
+                                    )}
+                                </div>
+                                {/*
+                                    Across the whole card rather than beside the title, which is where
+                                    the width is: four dates in the title's column left "Current version"
+                                    wrapping under its own label and its value a line below the other
+                                    three. The rule above them separates what the act *is* from when it
+                                    happened — and it is also what fills the space the actions used to
+                                    leave empty beneath them.
+
+                                    Not `DetailList`: that reads label-at-one-edge, value-at-the-other
+                                    down a fixed 110px label track, and "Versiunea curentă" does not fit
+                                    in it. Four figures of one kind read across, not down.
+                                */}
+                                <dl className="border-border/70 col-span-full grid grid-cols-2 gap-x-3 gap-y-2.5 border-t pt-3 sm:grid-cols-4">
+                                    {(
+                                        [
+                                            [
+                                                t((d) => d.pages.legislation.laws.actDate),
+                                                law.actDate,
+                                                // One mark per kind of date, never four calendars: what
+                                                // separates these is the event each one records — the act
+                                                // made, printed, in force, last rewritten — and a calendar
+                                                // beside every one of them would say only "a date", which
+                                                // the value already says.
+                                                <Gavel key="act" className="size-3" aria-hidden="true" />,
+                                            ],
+                                            [
+                                                t((d) => d.pages.legislation.laws.publishedOn),
+                                                law.publishedOn,
+                                                <Newspaper key="pub" className="size-3" aria-hidden="true" />,
+                                            ],
+                                            [
+                                                t((d) => d.pages.legislation.laws.inForceFrom),
+                                                law.inForceFrom,
+                                                <CircleCheck key="force" className="size-3" aria-hidden="true" />,
+                                            ],
+                                            [
+                                                t((d) => d.pages.legislation.laws.currentVersion),
+                                                law.lastConsolidation,
+                                                <History key="version" className="size-3" aria-hidden="true" />,
+                                            ],
+                                        ] as const
+                                    ).map(([label, value, icon]) => (
+                                        <div key={label} className="min-w-0">
+                                            <dt className="note flex items-center gap-1.5">
+                                                <span className="opacity-60">{icon}</span>
+                                                <span className="truncate">{label}</span>
+                                            </dt>
+                                            <dd className="mt-0.5 text-xs font-semibold tabular-nums">{date(value)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
                             </article>
                         );
                     })}
@@ -466,6 +632,47 @@ function Laws({ reload }: { reload: number }): JSX.Element {
 }
 
 /** One retrieved chunk: its citation, its provenance, its text, and how it was matched. */
+/**
+ * One of the two result groups, with its heading and count — or nothing, when it is empty.
+ *
+ * Written once rather than twice: the groups differ in their words and their tone, not in their
+ * shape, and the empty case is the common one (most of this corpus has no effective dates, so a
+ * search often fills one group and leaves the other at zero).
+ */
+function HitGroup(props: {
+    hits: LegislationHit[];
+    asOf: string;
+    title: string;
+    hint: string;
+    tone: 'ok' | 'warn';
+}): JSX.Element | null {
+    const { t } = useTranslation();
+
+    if (props.hits.length === 0) {
+        return null;
+    }
+
+    return (
+        <section>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">{props.title}</h3>
+                    <p className="note">{props.hint}</p>
+                </div>
+                <Status tone={props.tone}>
+                    {t((d) => d.pages.legislation.resultCount).replace('{count}', String(props.hits.length))}
+                </Status>
+            </div>
+
+            <div className="space-y-3">
+                {props.hits.map((hit) => (
+                    <Hit key={hit.chunkId} hit={hit} asOf={props.asOf} />
+                ))}
+            </div>
+        </section>
+    );
+}
+
 function Hit({ hit, asOf }: { hit: LegislationHit; asOf: string }): JSX.Element {
     const { t } = useTranslation();
 

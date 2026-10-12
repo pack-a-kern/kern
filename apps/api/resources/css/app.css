@@ -3188,6 +3188,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     min-width: 240px;
 }
 
+/*
+ * A search's answer, hanging under the field that asked for it.
+ *
+ * Written as `.panel.search-results` rather than a bare modifier, for the reason stated at the top
+ * of this section: `.panel` sets `padding: 0`, and a bare class would win or lose on source order
+ * alone. Two classes beat one wherever it is written.
+ *
+ * The height cap is what makes this an overlay rather than a second page — twenty hits of legal
+ * text are taller than a screen, so the list scrolls inside its own box and the laws behind it stay
+ * where the reader left them. `z-index` sits above the cards it covers and below the dialogs and
+ * menus, which own the layers above.
+ */
+.panel.search-results {
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    z-index: 40;
+    margin-top: 0.5rem;
+    max-height: 32rem;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
 /* Role cards. */
 /*
  * One card per role, as many across as the width allows.

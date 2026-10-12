@@ -623,8 +623,7 @@ export const ro = {
                 'Fișierul nu a putut fi scanat, așa că nu a fost păstrat. Încearcă din nou în scurt timp.',
             too_large: 'Fișierul este prea mare. Se acceptă poze de până la 4 MB.',
             not_an_image: 'Fișierul nu este o imagine JPEG, PNG sau WebP.',
-            dimensions_too_large:
-                'Imaginea este prea mare pentru a fi procesată. Maximum 8000 de pixeli pe latură.',
+            dimensions_too_large: 'Imaginea este prea mare pentru a fi procesată. Maximum 8000 de pixeli pe latură.',
             undecodable: 'Fișierul nu a putut fi citit ca imaginea pe care o declară.',
             unencodable: 'Poza nu a putut fi procesată. Încearcă alt fișier.',
         },
@@ -734,8 +733,10 @@ export const ro = {
             'Venitul din activități independente a fost sub baza minimă anuală, deci contribuția se calculează la acea bază minimă.',
         'tax.ro.pf.cass.independent.at_cap':
             'Venitul din activități independente a fost peste baza maximă anuală, deci contribuția este plafonată acolo.',
-        'tax.ro.pf.cass.independent.no_income': 'Nu există venit din activități independente, deci nu datorezi contribuție de sănătate.',
-        'tax.ro.pf.income_tax.freelance': 'Venitul independent mai puțin cheltuielile înregistrate pentru el, impozitat la cota de impozit pe venit.',
+        'tax.ro.pf.cass.independent.no_income':
+            'Nu există venit din activități independente, deci nu datorezi contribuție de sănătate.',
+        'tax.ro.pf.income_tax.freelance':
+            'Venitul independent mai puțin cheltuielile înregistrate pentru el, impozitat la cota de impozit pe venit.',
         'tax.ro.pf.income_tax.freelance.no_expenses':
             'Venitul independent impozitat integral la cota de impozit pe venit: încă nu sunt înregistrate cheltuieli deductibile pentru el.',
         'tax.ro.pf.cass.other_income.threshold_reached':
@@ -744,7 +745,8 @@ export const ro = {
             'Venitul tău a rămas sub primul plafon de contribuție, deci nu datorezi contribuție de sănătate.',
         'tax.ro.pf.income_tax.rent.no_allowance':
             'Chiria impozitată pe suma întreagă: legea acelui an nu prevedea nicio cotă forfetară de cheltuieli.',
-        'tax.ro.pf.income_tax.rent': 'Chiria, mai puțin cota forfetară de cheltuieli, impozitată la cota de impozit pe venit.',
+        'tax.ro.pf.income_tax.rent':
+            'Chiria, mai puțin cota forfetară de cheltuieli, impozitată la cota de impozit pe venit.',
         'tax.ro.pf.income_tax.crypto_gain': 'Câștigurile din monedă virtuală, impozitate la cota de impozit pe venit.',
     },
     pages: {
@@ -1494,7 +1496,8 @@ export const ro = {
             exportEvidence: 'Documentația',
             markFinal: 'Marchează finală',
             unlock: 'Deblochează',
-            finalHint: 'Cifrele sunt înghețate, iar tranzacțiile acestui an nu pot fi modificate. Deblochează pentru a le edita.',
+            finalHint:
+                'Cifrele sunt înghețate, iar tranzacțiile acestui an nu pot fi modificate. Deblochează pentru a le edita.',
             yearStillOpen: '{year} este încă în curs. Un an poate fi marcat final de la 1 ianuarie a anului următor.',
             breakdownTitle: 'Detalierea impozitelor',
             breakdownHint: 'Fiecare regulă aplicată și venitul pe care l-a citit',
@@ -1504,8 +1507,10 @@ export const ro = {
             computedAt: 'calculată {when}',
             loadingSaved: 'Se caută anul…',
             emptyTitle: 'Niciun calcul pentru {year}',
-            emptyHint: 'Calculează anul ca să vezi cât datorezi, de unde vine fiecare cifră și ce regulă a produs-o. Nu se depune nimic — poți recalcula oricând îți schimbi tranzacțiile.',
-            draftHint: 'Calculat din venitul pe care l-ai categorizat, cu versiuni de reguli neaprobate încă. Nu este o declarație.',
+            emptyHint:
+                'Calculează anul ca să vezi cât datorezi, de unde vine fiecare cifră și ce regulă a produs-o. Nu se depune nimic — poți recalcula oricând îți schimbi tranzacțiile.',
+            draftHint:
+                'Calculat din venitul pe care l-ai categorizat, cu versiuni de reguli neaprobate încă. Nu este o declarație.',
             rulesApplied: 'reguli aplicate',
             composition: 'Din ce se compune suma',
             ofTotal: 'din total',
@@ -1524,7 +1529,8 @@ export const ro = {
             checkExpensesTitle: 'Cheltuieli deductibile',
             checkCategoriesTitle: 'Încadrarea ta',
             checkFilingTitle: 'Nu este o declarație',
-            caveatExpenses: 'Venitul din activități independente este impozitat integral — nu sunt înregistrate cheltuieli deductibile.',
+            caveatExpenses:
+                'Venitul din activități independente este impozitat integral — nu sunt înregistrate cheltuieli deductibile.',
             caveatCategorisation: 'Fiecare cifră se bazează pe felul în care ai încadrat tranzacțiile.',
             caveatNotFiling: 'Aceasta nu este o declarație. Nimic de aici nu a fost depus la ANAF.',
             title: 'Impozite',
@@ -1565,8 +1571,6 @@ export const ro = {
             citationCopied: 'Referința a fost copiată.',
             openInLaw: 'Deschide în lege',
             laws: {
-                title: 'Legi',
-                hint: 'Citite de pe legislatie.just.ro cu toate consolidările, fiecare datată de când se aplică.',
                 add: 'Adaugă un act',
                 empty: 'Nicio lege nu a fost citită încă. Adaug-o cu „Adaugă un act”.',
                 failed: 'Lista legilor nu a putut fi încărcată.',
@@ -1584,7 +1588,6 @@ export const ro = {
                 inForceFrom: 'În vigoare de la',
                 consolidations: '{read} din {listed} consolidări citite',
                 consolidationsFailed: '{count} nu au putut fi citite',
-                count: '{count} acte',
                 currentVersion: 'Versiunea curentă',
             },
             add: {
@@ -2539,7 +2542,8 @@ export const ro = {
                 'Ce face mașina chiar acum, citit live din Horizon: lucru în așteptare, lucru terminat și lucru care a eșuat și poate fi reîncercat.',
             forbidden: 'Nu aveți drepturi de administrare pentru coada de lucru.',
             loadFailed: 'Coada de lucru nu a putut fi încărcată.',
-            emptyHint: 'Ori nu a rulat nimic în intervalul acoperit de filtru, ori nimic nu se potrivește cu el. Contoarele de sus citesc toată coada.',
+            emptyHint:
+                'Ori nu a rulat nimic în intervalul acoperit de filtru, ori nimic nu se potrivește cu el. Contoarele de sus citesc toată coada.',
             unavailableTitle: 'Monitorul cozii nu răspunde',
             unavailable: 'Horizon nu poate fi interogat. Contoarele sunt necunoscute, nu zero.',
             queue: {

@@ -1395,8 +1395,6 @@ export interface Dictionary {
             /** Opens the law a hit is in, at the date searched. */
             openInLaw: string;
             laws: {
-                title: string;
-                hint: string;
                 /** Opens the dialog that finds an act on the portal. */
                 add: string;
                 /** No law read yet — says where to read one. */
@@ -1417,8 +1415,6 @@ export interface Dictionary {
                 consolidations: string;
                 /** `{count}` that could not be read. */
                 consolidationsFailed: string;
-                /** `{count}` laws read. */
-                count: string;
                 /** The consolidation in force now: the latest read. */
                 currentVersion: string;
             };

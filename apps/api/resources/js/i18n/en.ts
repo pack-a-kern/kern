@@ -616,8 +616,7 @@ export const en = {
         uploading: 'Uploading…',
         reasons: {
             infected: 'The virus scanner rejected this file. Choose a different picture.',
-            scanner_unavailable:
-                'The file could not be scanned, so it was not kept. Try again shortly.',
+            scanner_unavailable: 'The file could not be scanned, so it was not kept. Try again shortly.',
             too_large: 'That file is too large. Pictures are accepted up to 4 MB.',
             not_an_image: 'That file is not a JPEG, PNG or WebP image.',
             dimensions_too_large: 'That image is too big to process. Up to 8000 pixels a side.',
@@ -744,8 +743,10 @@ export const en = {
             'Your independent income was below the yearly minimum base, so the contribution is calculated on that minimum.',
         'tax.ro.pf.cass.independent.at_cap':
             'Your independent income was above the yearly maximum base, so the contribution is capped there.',
-        'tax.ro.pf.cass.independent.no_income': 'No income from independent activity, so no health contribution is owed.',
-        'tax.ro.pf.income_tax.freelance': 'Independent income less the expenses recorded against it, taxed at the income tax rate.',
+        'tax.ro.pf.cass.independent.no_income':
+            'No income from independent activity, so no health contribution is owed.',
+        'tax.ro.pf.income_tax.freelance':
+            'Independent income less the expenses recorded against it, taxed at the income tax rate.',
         'tax.ro.pf.income_tax.freelance.no_expenses':
             'Independent income taxed in full at the income tax rate: no deductible expenses are recorded against it yet.',
         'tax.ro.pf.cass.other_income.threshold_reached':
@@ -1495,7 +1496,7 @@ export const en = {
             exportEvidence: 'Evidence',
             markFinal: 'Mark as final',
             unlock: 'Unlock',
-            finalHint: 'The figures are frozen and this year\'s transactions cannot be changed. Unlock to edit them.',
+            finalHint: "The figures are frozen and this year's transactions cannot be changed. Unlock to edit them.",
             yearStillOpen: '{year} is still running. A year can be marked final from 1 January of the year after it.',
             breakdownTitle: 'Your tax breakdown',
             breakdownHint: 'Every rule that applied, and the income it read',
@@ -1505,8 +1506,10 @@ export const en = {
             computedAt: 'computed {when}',
             loadingSaved: 'Looking for this year…',
             emptyTitle: 'No calculation for {year} yet',
-            emptyHint: 'Assess the year to see what is owed, where each figure comes from, and which rule produced it. Nothing is filed — you can recalculate whenever your transactions change.',
-            draftHint: 'Computed from income you categorised, using rule versions nobody has approved yet. Not a filing.',
+            emptyHint:
+                'Assess the year to see what is owed, where each figure comes from, and which rule produced it. Nothing is filed — you can recalculate whenever your transactions change.',
+            draftHint:
+                'Computed from income you categorised, using rule versions nobody has approved yet. Not a filing.',
             rulesApplied: 'rules applied',
             composition: 'What the bill is made of',
             ofTotal: 'of the total',
@@ -1525,7 +1528,8 @@ export const en = {
             checkExpensesTitle: 'Deductible expenses',
             checkCategoriesTitle: 'Your categorisation',
             checkFilingTitle: 'Not a filing',
-            caveatExpenses: 'Freelance income is taxed in full — no deductible business expenses are recorded against it.',
+            caveatExpenses:
+                'Freelance income is taxed in full — no deductible business expenses are recorded against it.',
             caveatCategorisation: 'Every figure rests on how you categorised your transactions.',
             caveatNotFiling: 'This is not a return. Nothing here has been submitted to ANAF.',
             title: 'Taxes',
@@ -1565,8 +1569,6 @@ export const en = {
             citationCopied: 'Citation copied.',
             openInLaw: 'Open in the law',
             laws: {
-                title: 'Laws',
-                hint: 'Read from legislatie.just.ro with every consolidation, each dated from when it applies.',
                 add: 'Add a law',
                 empty: 'No law has been read yet. Add one with "Add a law".',
                 failed: 'The list of laws could not be loaded.',
@@ -1583,7 +1585,6 @@ export const en = {
                 inForceFrom: 'In force from',
                 consolidations: '{read} of {listed} consolidations read',
                 consolidationsFailed: '{count} could not be read',
-                count: '{count} laws',
                 currentVersion: 'Current version',
             },
             add: {
@@ -2526,7 +2527,8 @@ export const en = {
                 'What the machine is doing right now, read live from Horizon: work waiting, work finished, and work that failed and can be tried again.',
             forbidden: 'You do not have administrator access to the queue.',
             loadFailed: 'The queue could not be loaded.',
-            emptyHint: 'Either nothing has run in the window this filter covers, or nothing matches it. The counters above read the whole queue.',
+            emptyHint:
+                'Either nothing has run in the window this filter covers, or nothing matches it. The counters above read the whole queue.',
             unavailableTitle: 'The queue monitor is not answering',
             unavailable: 'Horizon cannot be reached. The counters are unknown, not zero.',
             queue: {
