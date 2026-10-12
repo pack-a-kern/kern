@@ -2832,6 +2832,29 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         flex-basis: 100%;
         min-width: 0;
     }
+
+    /*
+     * The identifying line under a name — usually an id — wraps here instead of ellipsising.
+     *
+     * `Identity` marks it `truncate`, which is `overflow:hidden; text-overflow:ellipsis;
+     * white-space:nowrap`. The nowrap is the problem: it makes the element's *min-content* width
+     * equal its full text width, and a table is always at least as wide as its min-content. So a
+     * 36-character id set the floor for the whole row — measured at 242px of a 365px cell — the
+     * table outgrew the card, and the currency select and the AI switch were carried off the right
+     * edge with a scrollbar under them. The ellipsis never appeared either, because that needs an
+     * ancestor with a definite width and a content-sized table gives it none.
+     *
+     * Letting it wrap drops the min-content to one character, so the table collapses back to the
+     * card. `anywhere` rather than `break-word` because an id has no spaces to break at, and unlike
+     * `break-all` it still prefers a sensible break when one exists. The row grows by a line; the id
+     * stays whole, which matters for the one thing people do with an id — copy it.
+     *
+     * Only below 40rem. The wide table keeps the ellipsis, where there is room for one line.
+     */
+    .data-table-stack .identity-sub {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
     /* A transaction as a phone shows one: what it was and how much, then when, then the one
        decision to make about it.
 
@@ -3113,10 +3136,32 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     font-size: var(--text-lg);
 }
 
+/*
+ * A picture and the two controls that change it: nothing else, at any width.
+ *
+ * It used to carry a name and a caption beside the picture, which said the same words the screen
+ * around it already said — the account card lists the email a line below, the taxpayer dialog names
+ * the taxpayer in its title. With those gone there is no column to stack, so the controls sit on the
+ * picture's line and are pushed to the far edge rather than left floating in the middle of a row
+ * whose content no longer fills it.
+ *
+ * `align-items: center` now that both sides are one object tall; the rule and the space under it
+ * belong here rather than at each call site, so the two screens cannot drift apart on the gap
+ * between this and whatever follows.
+ */
 .avatar-field {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.875rem;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.875rem;
+}
+
+/* Takes the slack, so the buttons end at the right edge on a phone as well as a desktop. */
+.avatar-field-actions {
+    margin-left: auto;
+    min-width: 0;
 }
 
 .avatar-image {
