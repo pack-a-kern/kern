@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\TaxEngine\Actions;
 
 use DateTimeImmutable;
-use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
+use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
-use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
+use Kern\TaxRomania\TaxEngine\Services\FinalYearGuard;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessor;
 use Kern\TaxRomania\TaxEngine\TaxContext;
@@ -58,8 +58,7 @@ final readonly class AssessFiscalYear
         int $fiscalYear,
         ?DateTimeImmutable $asOf = null,
         AssessmentStatus $status = AssessmentStatus::DRAFT,
-    ): TaxAssessment
-    {
+    ): TaxAssessment {
         /*
          * A final year is not recomputed, by any caller.
          *

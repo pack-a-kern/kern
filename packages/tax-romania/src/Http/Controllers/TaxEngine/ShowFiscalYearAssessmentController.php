@@ -29,8 +29,7 @@ final class ShowFiscalYearAssessmentController
         string $subject,
         AssessmentPresenter $presenter,
         LedgerIncomeProvider $ledger,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $data = $request->validate([
             'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
         ]);

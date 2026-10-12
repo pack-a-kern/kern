@@ -28,10 +28,10 @@ use Kern\Documents\Scanning\ClamdVirusScanner;
 use Kern\Documents\Scanning\ScannerBackedUploadScanner;
 use Kern\Documents\Scanning\VirusScanner;
 use Kern\Platform\KeyManagement\SubjectDekService;
-use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\Platform\Uploads\Contracts\UploadScanner;
 
 /**
  * Wires Milestone 7's document pipeline (`docs/handoff/022-document-pipeline.md`). See that

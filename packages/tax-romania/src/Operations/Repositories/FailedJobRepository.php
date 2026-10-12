@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Operations\Repositories;
 
 use Illuminate\Contracts\Console\Kernel;
-use Laravel\Horizon\Contracts\JobRepository;
 use Illuminate\Queue\Failed\FailedJobProviderInterface;
+use Laravel\Horizon\Contracts\JobRepository;
 
 /**
  * Acts on `failed_jobs` through Laravel's own failed-job provider.

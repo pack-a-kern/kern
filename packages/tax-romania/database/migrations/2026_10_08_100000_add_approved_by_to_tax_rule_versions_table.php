@@ -17,8 +17,7 @@ use Illuminate\Support\Facades\Schema;
  * No foreign key, matching `fiscal_parameter_versions.approved_by`: a person who has since been erased must not
  * take a fiscal decision's provenance with them, and `users` is a table a right-to-erasure request empties.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('tax_rule_versions', function (Blueprint $table): void {

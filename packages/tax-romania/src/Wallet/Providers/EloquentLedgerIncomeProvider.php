@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Providers;
 
-use Illuminate\Support\Facades\DB;
 use DateTimeImmutable;
+use Illuminate\Support\Facades\DB;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\LedgerIncomeEntry;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;

@@ -17,8 +17,7 @@ use Illuminate\Support\Facades\Schema;
  * place, so the URL never changes and a browser would hold the old face indefinitely; the timestamp
  * goes in the query string and makes each new upload a different URL.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {

@@ -37,8 +37,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * Nullable because every row imported before this has nothing to fill it with.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('statement_import_rows', function (Blueprint $table): void {

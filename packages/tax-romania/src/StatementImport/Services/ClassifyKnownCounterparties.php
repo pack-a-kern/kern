@@ -10,11 +10,9 @@ use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\ProposalSource;
-use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
 use Kern\TaxRomania\Wallet\Models\Counterparty;
-use Kern\TaxRomania\Wallet\Models\TransactionSplit;
-use Kern\TaxRomania\Wallet\Services\CounterpartyTransactions;
 use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
+use Kern\TaxRomania\Wallet\Services\CounterpartyTransactions;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 

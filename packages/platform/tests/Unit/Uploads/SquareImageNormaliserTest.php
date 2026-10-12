@@ -119,7 +119,7 @@ it('refuses anything that is not a JPEG, PNG or WebP', function (string $bytes):
         ->toThrow(UploadRejectedException::class);
 })->with([
     'plain text' => 'this is not an image',
-    'a PHP file wearing a GIF header' => "GIF89a<?php echo 1; ?>",
+    'a PHP file wearing a GIF header' => 'GIF89a<?php echo 1; ?>',
     'empty' => '',
     'an SVG, which is a document that can carry script' => '<svg xmlns="http://www.w3.org/2000/svg"/>',
 ]);

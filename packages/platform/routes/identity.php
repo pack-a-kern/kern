@@ -12,22 +12,22 @@ use Kern\Platform\Http\Controllers\Admin\ShowAccessCatalogueController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserAvatarController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserRolesController;
 use Kern\Platform\Http\Controllers\Admin\UpdateUserStatusController;
-use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 use Kern\Platform\Http\Controllers\Auth\DisableTotpController;
 use Kern\Platform\Http\Controllers\Auth\EmailVerificationController;
 use Kern\Platform\Http\Controllers\Auth\LoginController;
 use Kern\Platform\Http\Controllers\Auth\LogoutController;
 use Kern\Platform\Http\Controllers\Auth\MfaChallengeController;
-use Kern\Platform\Http\Controllers\Auth\StepUpVerificationController;
 use Kern\Platform\Http\Controllers\Auth\MfaStatusController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyLoginController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyRegistrationController;
 use Kern\Platform\Http\Controllers\Auth\RecoveryCodeController;
 use Kern\Platform\Http\Controllers\Auth\RegistrationController;
 use Kern\Platform\Http\Controllers\Auth\SessionController;
+use Kern\Platform\Http\Controllers\Auth\StepUpVerificationController;
 use Kern\Platform\Http\Controllers\Auth\TotpController;
 use Kern\Platform\Http\Controllers\Notifications\ListNotificationsController;
 use Kern\Platform\Http\Controllers\Notifications\MarkNotificationsReadController;
+use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 
 /*
 |--------------------------------------------------------------------------

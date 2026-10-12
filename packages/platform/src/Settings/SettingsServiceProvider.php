@@ -9,8 +9,8 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Routing\PackageRoutes;
-use Kern\Platform\Settings\Services\StoredSettingsOverlay;
 use Kern\Platform\Settings\Infrastructure\SystemDekRepository;
+use Kern\Platform\Settings\Services\StoredSettingsOverlay;
 use Kern\Platform\Settings\Support\SystemSecretCipher;
 
 /**

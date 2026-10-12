@@ -20,8 +20,7 @@ use Illuminate\Support\Facades\Schema;
  * does not enforce the length at all. A suite that runs on both databases would have gone green on one
  * lane and red on the other, for a message nobody chose the length of.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('spv_connections', function (Blueprint $table): void {

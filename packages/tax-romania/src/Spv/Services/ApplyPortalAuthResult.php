@@ -7,11 +7,11 @@ namespace Kern\TaxRomania\Spv\Services;
 use Illuminate\Support\Carbon;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
-use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\Enums\SpvConnectionStatus;
 use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Events\SpvAuthChallengeRequired;
 use Kern\TaxRomania\Spv\Events\SpvAuthenticated;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
 use Kern\TaxRomania\Spv\Models\SpvSession;
 
