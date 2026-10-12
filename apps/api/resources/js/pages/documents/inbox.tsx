@@ -10,6 +10,7 @@ import {
     FileQuestion,
     FileSignature,
     FileText,
+    FilterX,
     FolderOpen,
     Gavel,
     Image as ImageIcon,
@@ -31,19 +32,19 @@ import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AddDocumentDialog from '../../components/documents/AddDocumentDialog';
 import {
-    DataTable,
-    Page,
     ActionGroup,
-    Panel,
+    DataTable,
     EmptyState,
+    Page,
+    Panel,
     PanelButton,
     PanelSelect,
     Status,
+    TableSkeleton,
     Toolbar,
     type StatusTone,
 } from '../../components/panel';
 import { PanelDateRange } from '../../components/PanelDatePicker';
-import { Skeleton } from '../../components/ui/skeleton';
 import { useCoalescedCallback } from '../../hooks/useCoalescedCallback';
 import { useDocumentsChannel } from '../../hooks/useDocumentsChannel';
 import { useTranslation } from '../../i18n';
@@ -489,7 +490,10 @@ export default function DocumentsInbox(): JSX.Element {
                                 setReceivedTo(next.to ?? '');
                             }}
                         />
-                        <PanelButton onClick={resetFilters}>{t((d) => d.documentsInbox.filters.reset)}</PanelButton>
+                        <PanelButton onClick={resetFilters}>
+                            <FilterX className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.documentsInbox.filters.reset)}
+                        </PanelButton>
 
                         {/* Only once something is ticked. A permanently-present "0 selected" button
                             is a control that does nothing most of the time, and the row it sits in
@@ -520,7 +524,7 @@ export default function DocumentsInbox(): JSX.Element {
                     </Toolbar>
 
                     {documents === null ? (
-                        <TableSkeleton />
+                        <TableSkeleton rows={5} />
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.documentsInbox.loadFailed)}</p>
                     ) : documents.length === 0 ? (
@@ -530,6 +534,7 @@ export default function DocumentsInbox(): JSX.Element {
                                 title={t((d) => d.documentsInbox.emptyFiltered)}
                                 action={
                                     <PanelButton onClick={resetFilters}>
+                                        <FilterX className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.documentsInbox.filters.reset)}
                                     </PanelButton>
                                 }
@@ -847,14 +852,4 @@ function statusToneClass(tone: StatusTone): string {
         bad: 'text-destructive',
         idle: 'text-muted-foreground',
     }[tone];
-}
-
-function TableSkeleton(): JSX.Element {
-    return (
-        <div className="space-y-2 p-3">
-            {[0, 1, 2, 3, 4].map((index) => (
-                <Skeleton key={index} className="tile h-9 w-full" />
-            ))}
-        </div>
-    );
 }

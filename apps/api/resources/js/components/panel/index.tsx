@@ -6,14 +6,16 @@ import { iconForInputType } from '../../lib/inputIcons';
 import { formatDateTime, formatWhen } from '../../lib/format';
 import { cloneElement, isValidElement, type MouseEvent, useEffect, useState } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
-import { CheckIcon, CircleHelp, Info, Plus, SearchIcon, X } from 'lucide-react';
+import { CheckIcon, CircleHelp, EllipsisVertical, Info, Plus, SearchIcon, X } from 'lucide-react';
 
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { cn } from '../../lib/utils';
 
 export { QrCode } from './QrCode';
@@ -195,6 +197,101 @@ export function ActionGroup(props: {
         href?: string;
         disabled?: boolean;
     }>;
+    className?: string;
+    /**
+     * Fold into a single menu on a phone, instead of drawing every button at every width.
+     *
+     * Off by default, because it is not an improvement everywhere: a row whose actions are already
+     * two bare icons is narrow, and a menu holding one or two items is a worse control than the
+     * icons it replaces — a press to open, a press to choose, where there was one press. Worth it
+     * where the buttons carry words: four labelled actions are most of a phone's width, and the row
+     * they belong to has a name and a figure to show as well.
+     *
+     * The menu holds the same actions in the same order, never a shorter set: two widths that
+     * disagree about what can be done to a row is worse than either of them.
+     */
+    collapse?: boolean;
+    /** The accessible name of the phone menu's trigger, where "Actions" is too vague to be useful. */
+    menuLabel?: string;
+}): JSX.Element {
+    const { t } = useTranslation();
+
+    if (props.collapse !== true) {
+        return <ActionButtons {...props} />;
+    }
+
+    return (
+        <>
+            {/*
+                Both wrappers carry the breakpoint, never the controls themselves: `.row-menu` and
+                `.btn-group` are unlayered component classes in `app.css`, and an unlayered `display`
+                beats a layered `hidden` at any width. On the control, both would be on screen at
+                once.
+            */}
+            <div className="sm:hidden">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            className="row-menu"
+                            aria-label={props.menuLabel ?? t((d) => d.common.actions)}
+                        >
+                            <EllipsisVertical className="size-4" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                        {props.actions.map((action) => {
+                            /*
+                             * An icon-only action carries its picture as the `label` and its words as
+                             * the `title`. A menu has room for both, and a menu of pictures would be
+                             * a worse control than the buttons it replaces — so the words come from
+                             * `title` where there is one, and the picture from whichever of the two
+                             * holds it.
+                             */
+                            const words = action.title ?? action.label;
+                            const mark = action.icon ?? (action.title === undefined ? undefined : action.label);
+
+                            return (
+                                <DropdownMenuItem
+                                    key={action.key}
+                                    disabled={action.disabled ?? false}
+                                    {...(action.tone === 'destructive' ? { variant: 'destructive' as const } : {})}
+                                    {...(action.href === undefined
+                                        ? {
+                                              onSelect: () => {
+                                                  action.onClick?.();
+                                              },
+                                          }
+                                        : { asChild: true })}
+                                >
+                                    {action.href === undefined ? (
+                                        <>
+                                            {mark}
+                                            {words}
+                                        </>
+                                    ) : (
+                                        <Link href={action.href}>
+                                            {mark}
+                                            {words}
+                                        </Link>
+                                    )}
+                                </DropdownMenuItem>
+                            );
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+
+            <div className="hidden sm:block">
+                <ActionButtons {...props} />
+            </div>
+        </>
+    );
+}
+
+/** The wide form of {@link ActionGroup}: every action as its own button, joined into one control. */
+function ActionButtons(props: {
+    actions: ComponentProps<typeof ActionGroup>['actions'];
     className?: string;
 }): JSX.Element {
     return (
@@ -1109,6 +1206,24 @@ export function ToolbarRow(props: { label?: string; children: ReactNode; end?: R
  * A listing table. Wide content scrolls inside this wrapper so the page body never scrolls
  * sideways — a table of hashes is always wider than the viewport on a laptop.
  */
+/**
+ * A table's shape while its rows are still coming.
+ *
+ * Five screens had written this out, identically, and differed only in how many bars they drew —
+ * which is the one thing worth saying at the call site: a card that will hold three rentals should
+ * not flash four grey rows and then settle into three. Everything else about it is the same answer
+ * to the same question, so it lives here with the table it stands in for.
+ */
+export function TableSkeleton({ rows = 4 }: { rows?: number }): JSX.Element {
+    return (
+        <div className="space-y-2 p-3">
+            {Array.from({ length: rows }, (_, index) => (
+                <Skeleton key={index} className="tile h-9 w-full" />
+            ))}
+        </div>
+    );
+}
+
 export function DataTable(props: {
     head: ReactNode;
     /**
@@ -1124,9 +1239,7 @@ export function DataTable(props: {
 }): JSX.Element {
     return (
         <div className="table-wrap">
-            <table
-                className={cn('data-table', props.stacked === true && 'data-table-stack', props.className)}
-            >
+            <table className={cn('data-table', props.stacked === true && 'data-table-stack', props.className)}>
                 <thead>
                     <tr>{props.head}</tr>
                 </thead>

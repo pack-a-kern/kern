@@ -44,10 +44,10 @@ import {
     PanelSelect,
     Pill,
     Status,
+    TableSkeleton,
     Toolbar,
 } from '../../components/panel';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
-import { Skeleton } from '../../components/ui/skeleton';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
@@ -1122,15 +1122,5 @@ export default function WalletAccounts(): JSX.Element {
                 </FieldGrid>
             </PanelDialog>
         </AppShell>
-    );
-}
-
-function TableSkeleton(): JSX.Element {
-    return (
-        <div className="space-y-2 p-3">
-            {[0, 1, 2, 3].map((index) => (
-                <Skeleton key={index} className="tile h-9 w-full" />
-            ))}
-        </div>
     );
 }

@@ -26,7 +26,7 @@ export const ro = {
         adminAudit: 'Audit',
         sections: {
             records: 'Evidență',
-            fiscal: 'Fiscal',
+            law: 'Lege',
             connections: 'Conexiuni',
             system: 'Cont și sistem',
         },
@@ -299,7 +299,7 @@ export const ro = {
         emptyFiltered: 'Niciun document nu corespunde acestor filtre.',
         description:
             'Toate documentele contribuabilului activ, indiferent de dispozitivul de pe care au fost încărcate.',
-        newDocument: 'Document nou',
+        newDocument: 'Adaugă document',
         liveNotice:
             'Lista vine de la server și se actualizează în timp real. Starea vine mereu direct de la server, niciodată doar din notificarea live.',
         offline: 'Date locale',
@@ -1446,6 +1446,10 @@ export const ro = {
             deleteTitle: 'Ștergi această chirie?',
             deleteHint:
                 'Pentru o chirie introdusă din greșeală. Anii pentru care era datorată dispar odată cu ea; o închiriere care chiar s-a terminat se încheie, nu se șterge.',
+            actions: {
+                rent: 'Chirie nouă',
+                end: 'Încheie',
+            },
             columns: {
                 property: 'Proprietate',
                 tenant: 'Chiriaș',

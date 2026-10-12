@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import AppShell from '../../components/AppShell';
-import {
-    Activity,
-    CalendarClock,
-    CircleHelp,
-    History,
-    Play,
-    Timer,
-    X,
-    Zap,
-} from 'lucide-react';
+import { Activity, CalendarClock, CircleHelp, History, Play, Timer, X, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -18,7 +9,24 @@ import {
     runOperationTask,
     setScheduledTaskEnabled,
 } from '../../api/operationsApi';
-import { CellLabel, DataTable, Detail, DetailList, EventTime, Field, Page, Panel, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill, Status, type StatusTone } from '../../components/panel';
+import {
+    CellLabel,
+    DataTable,
+    Detail,
+    DetailList,
+    EventTime,
+    Field,
+    Page,
+    Panel,
+    PanelButton,
+    PanelDialog,
+    PanelInput,
+    PanelSelect,
+    Pill,
+    Status,
+    TableSkeleton,
+    type StatusTone,
+} from '../../components/panel';
 import Pagination, { PAGE_SIZES } from '../../components/Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { describeCron } from '../../lib/cron';
@@ -212,7 +220,7 @@ function AdminOperationsBody(): JSX.Element {
          * space in the flow and the gap does not count them.
          */
         <>
-        <Panel
+            <Panel
                 title={t((d) => d.pages.adminOperations.tasks.title)}
                 description={t((d) => d.pages.adminOperations.tasks.description)}
                 icon={<CalendarClock className="size-4" />}
@@ -293,9 +301,7 @@ function AdminOperationsBody(): JSX.Element {
                                         {t((d) => d.pages.adminOperations.tasks.columns.lastRun)}
                                     </CellLabel>
                                     {task.lastRun === null ? (
-                                        <span className="note">
-                                            {t((d) => d.pages.adminOperations.tasks.never)}
-                                        </span>
+                                        <span className="note">{t((d) => d.pages.adminOperations.tasks.never)}</span>
                                     ) : (
                                         <div className="min-w-0 text-right sm:text-left">
                                             <Status tone={runTone(task.lastRun.status)}>
@@ -319,13 +325,9 @@ function AdminOperationsBody(): JSX.Element {
                                         {t((d) => d.pages.adminOperations.tasks.columns.state)}
                                     </CellLabel>
                                     {task.running ? (
-                                        <Status tone="warn">
-                                            {t((d) => d.pages.adminOperations.tasks.running)}
-                                        </Status>
+                                        <Status tone="warn">{t((d) => d.pages.adminOperations.tasks.running)}</Status>
                                     ) : task.schedulable && !task.enabled ? (
-                                        <Status tone="idle">
-                                            {t((d) => d.pages.adminOperations.tasks.paused)}
-                                        </Status>
+                                        <Status tone="idle">{t((d) => d.pages.adminOperations.tasks.paused)}</Status>
                                     ) : (
                                         <Pill tone={task.readOnly ? 'neutral' : 'accent'}>
                                             {task.readOnly
@@ -721,16 +723,6 @@ function runTone(status: string): StatusTone {
     }
 
     return status === 'RUNNING' ? 'warn' : 'idle';
-}
-
-function TableSkeleton(): JSX.Element {
-    return (
-        <div className="space-y-2 p-3">
-            {[0, 1, 2, 3].map((index) => (
-                <Skeleton key={index} className="tile h-9 w-full" />
-            ))}
-        </div>
-    );
 }
 
 /**

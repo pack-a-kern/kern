@@ -35,8 +35,8 @@ import {
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
-    ButtonGroup,
     ActionGroup,
+    ButtonGroup,
     DataTable,
     EmptyState,
     Field,
@@ -47,8 +47,9 @@ import {
     PanelDialog,
     PanelInput,
     PanelSelect,
-    SearchInput,
     Pill,
+    SearchInput,
+    TableSkeleton,
     ToolbarRow,
     ToolbarRows,
 } from '../../components/panel';
@@ -60,7 +61,6 @@ import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
 import { bankOptions } from '../../components/wallet/bankOptions';
 import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
-import { Skeleton } from '../../components/ui/skeleton';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCountries } from './useCountries';
@@ -1334,9 +1334,12 @@ export default function WalletTransactions(): JSX.Element {
                             // The reason as well as the failure, as the bulk delete beside it already does.
                             // "The deletion failed" alone sent somebody to the network tab to find out that
                             // the year was locked — which the server had said plainly.
-                            toast.error(t((d) => d.common.deleteFailed), {
-                                description: describeApiFailure(cause, t),
-                            });
+                            toast.error(
+                                t((d) => d.common.deleteFailed),
+                                {
+                                    description: describeApiFailure(cause, t),
+                                },
+                            );
 
                             throw cause;
                         }
@@ -1743,16 +1746,6 @@ function DuplicateGroups({
                         ))}
                     </DataTable>
                 </section>
-            ))}
-        </div>
-    );
-}
-
-function TableSkeleton(): JSX.Element {
-    return (
-        <div className="space-y-2 p-3">
-            {[0, 1, 2, 3].map((index) => (
-                <Skeleton key={index} className="tile h-9 w-full" />
             ))}
         </div>
     );

@@ -28,6 +28,7 @@ import {
     PanelInput,
     PanelSelect,
     Status,
+    TableSkeleton,
 } from '../components/panel';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
@@ -410,7 +411,10 @@ export default function Spv(): JSX.Element {
                     }
                 >
                     {connections === null ? (
-                        <p className="note p-4">{t((d) => d.common.loading)}</p>
+                        /* The shape of what is coming, like every other list in the app — a line of
+                           grey text that is replaced a moment later reads as a flicker rather than
+                           as loading. Two rows: an account has one SPV connection, rarely two. */
+                        <TableSkeleton rows={2} />
                     ) : connections.length === 0 ? (
                         <EmptyState
                             icon={<Link2Off className="size-5" />}

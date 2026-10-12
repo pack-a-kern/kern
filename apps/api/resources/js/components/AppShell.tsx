@@ -65,7 +65,13 @@ interface NavLink {
     icon: typeof LayoutDashboard;
     /** A stable key for a group with no href, so its open/closed state can be tracked. */
     id?: string;
-    /** A child shown only to those holding `permission` — the route checks it too; this only hides what cannot be used. */
+    /**
+     * Shown only to those holding `permission` — the route checks it too; this only hides what
+     * cannot be used. On the row itself as well as on a child, since a destination does not become
+     * freely readable by being promoted out of a fold: Tax rules needs `fiscal.parameters.view`
+     * whether it sits under Legislation or beside it.
+     */
+    permission?: string;
     children?: { href: string; label: (d: Dictionary) => string; icon: typeof LayoutDashboard; permission?: string }[];
 }
 
@@ -131,21 +137,22 @@ const ANALYSIS_GROUP: NavLink = {
 };
 
 /**
- * The law, and the numbers it sets.
+ * The law, and the numbers read out of it — two rows, neither owning the other.
  *
- * The rules used to hang off `Impozite`, one level away from the texts they are read out of. They
- * are the same subject: an act says 10%, the rule holds 10%, and changing one without the other is
- * the mistake this pairing is meant to make obvious. The address stays `/taxes/rules` — a menu is
- * free to disagree with a URL, and moving it would break every link already written down.
+ * The rules hung off Legislation as its only child, which said the wrong thing twice: that the
+ * rules are part of the acts, and that the acts are somewhere you pass through to reach them. They
+ * are the same subject — an act says 10%, the rule holds 10%, and changing one without the other is
+ * the mistake keeping them side by side is meant to make obvious — but they are two destinations,
+ * and a fold around a single child is a fold that only ever hides one thing.
+ *
+ * The address stays `/taxes/rules`: a menu is free to disagree with a URL, and moving it would
+ * break every link already written down. That disagreement is also why `isActive` matches the
+ * longest declared address rather than any prefix.
  */
-const LEGISLATION_GROUP: NavLink = {
-    href: '/legislation',
-    label: (d) => d.nav.legislation,
-    icon: Gavel,
-    children: [
-        { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
-    ],
-};
+const LAW_ITEMS: NavLink[] = [
+    { href: '/legislation', label: (d) => d.nav.legislation, icon: Gavel },
+    { href: '/taxes/rules', label: (d) => d.nav.taxRules, icon: Scale, permission: 'fiscal.parameters.view' },
+];
 
 /* Everything the installation talks to on the taxpayer's behalf. SPV is the only one today, and the
    page's own words are already these: it speaks of a connection, of revoking one, of its sync runs. */
@@ -199,14 +206,39 @@ const ADMIN_GROUP: NavLink = {
  */
 const NAV_SECTIONS: Array<{ id: string; heading?: (d: Dictionary) => string; items: NavLink[] }> = [
     { id: 'home', items: [DASHBOARD_ITEM] },
-    { id: 'records', heading: (d) => d.nav.sections.records, items: [RECORDS_GROUP] },
-    { id: 'fiscal', heading: (d) => d.nav.sections.fiscal, items: [ANALYSIS_GROUP, LEGISLATION_GROUP] },
+    // Analysis sits with the records it reads, not with the law. What a figure adds up to is a
+    // question about the bookkeeping above it; what the law says is a different kind of question,
+    // and the heading between them is the honest place to change subject.
+    { id: 'records', heading: (d) => d.nav.sections.records, items: [RECORDS_GROUP, ANALYSIS_GROUP] },
+    { id: 'law', heading: (d) => d.nav.sections.law, items: LAW_ITEMS },
     { id: 'connections', heading: (d) => d.nav.sections.connections, items: CONNECTION_ITEMS },
     { id: 'system', heading: (d) => d.nav.sections.system, items: [ACCOUNT_GROUP, AUDIT_ITEM, ADMIN_GROUP] },
 ];
 
+/** Every address the menu declares, longest first — see {@link isActive}. */
+const NAV_HREFS: string[] = NAV_SECTIONS.flatMap((section) =>
+    section.items.flatMap((item) => [item.href, ...(item.children ?? []).map((child) => child.href)]),
+)
+    .filter((href): href is string => href !== undefined)
+    .sort((left, right) => right.length - left.length);
+
+/**
+ * The active row is the **longest** declared address this URL sits under — not every address it
+ * happens to begin with.
+ *
+ * `/taxes/rules` sits under `/taxes`, and the two are deliberately different rows: the rules are
+ * read out of the law, so they hang off Legislation while their address stays where every link
+ * already written points (see `LEGISLATION_GROUP`). A plain prefix test marked both, so opening Tax
+ * rules told a reader they were on Taxes as well — two rows claiming to be the page you are on.
+ *
+ * The query string is dropped first. `usePage().url` carries it, and a page reached with one
+ * (`/legislation/{id}?as_of=…`) is still that page.
+ */
 function isActive(currentUrl: string, href: string): boolean {
-    return currentUrl === href || currentUrl.startsWith(`${href}/`);
+    const path = currentUrl.split('?')[0] ?? currentUrl;
+    const match = NAV_HREFS.find((candidate) => path === candidate || path.startsWith(`${candidate}/`));
+
+    return match === href;
 }
 
 async function handleLogout(): Promise<void> {
@@ -575,21 +607,21 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
 
     const permissions = useSharedAuth()?.user.permissions ?? [];
 
-    /** What this account may actually open — a child it has no permission for is not drawn at all. */
+    /** What this account may actually open — a row it has no permission for is not drawn at all. */
+    function allowed(entry: { permission?: string }): boolean {
+        return entry.permission === undefined || permissions.includes(entry.permission);
+    }
+
     function visible(item: NavLink): NavLink {
-        return item.children === undefined
-            ? item
-            : {
-                  ...item,
-                  children: item.children.filter(
-                      (child) => child.permission === undefined || permissions.includes(child.permission),
-                  ),
-              };
+        return item.children === undefined ? item : { ...item, children: item.children.filter(allowed) };
     }
 
     const sections = NAV_SECTIONS.map((section) => ({
         ...section,
-        items: section.items.filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED).map(visible),
+        items: section.items
+            .filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED)
+            .filter(allowed)
+            .map(visible),
     })).filter((section) => section.items.length > 0);
 
     function isOpen(item: NavLink): boolean {

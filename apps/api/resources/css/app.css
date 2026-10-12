@@ -1449,6 +1449,21 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     color: var(--muted-foreground);
 }
 
+/*
+ * A card's sentence of explanation is the first thing a phone can do without.
+ *
+ * It qualifies the title — "the effective dates cover the date searched", "read from the portal
+ * with every consolidation" — and a title that needs qualifying on a desktop still reads on a phone,
+ * where the sentence instead costs two or three lines above every single card. The information is
+ * not lost: the same screen at any wider width shows it, and nothing here is the only place a fact
+ * appears.
+ */
+@media (width < 40rem) {
+    .panel-subtitle {
+        display: none;
+    }
+}
+
 .panel-foot {
     display: flex;
     flex-direction: column;
@@ -2852,6 +2867,24 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
      * Only below 40rem. The wide table keeps the ellipsis, where there is room for one line.
      */
     .data-table-stack .identity-sub {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    /*
+     * The same for the leading cell's own text, wherever a screen reached for `truncate` there.
+     *
+     * A stacked row is as tall as its contents, so there is no line budget to protect: a document
+     * called "Factura Enel noiembrie 2025 scanata.pdf" ends in an ellipsis on a phone and the half
+     * that says which month it is, is the half that gets cut. On the wide table the ellipsis is
+     * right — one line, several columns, and the name is not the only thing on it.
+     *
+     * Stated for the cell rather than for `.truncate` everywhere: a `truncate` inside a filter chip
+     * or a menu is still protecting a line that genuinely has one.
+     */
+    .data-table-stack td.col-primary .truncate,
+    .data-table-stack td.col-primary .row-note {
+        overflow: visible;
         white-space: normal;
         overflow-wrap: anywhere;
     }

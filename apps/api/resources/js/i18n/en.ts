@@ -26,7 +26,7 @@ export const en = {
         adminAudit: 'Audit',
         sections: {
             records: 'Records',
-            fiscal: 'Tax',
+            law: 'Law',
             connections: 'Connections',
             system: 'Account & system',
         },
@@ -295,7 +295,7 @@ export const en = {
             'The files and their extracted text are removed. Transactions built from them keep their figures and lose only the link.',
         emptyFiltered: 'No documents match these filters.',
         description: 'Every document for the active taxpayer, whichever device it was uploaded from.',
-        newDocument: 'New document',
+        newDocument: 'Add document',
         liveNotice:
             'The list comes from the server and updates live. Status always comes from the server itself, never from the live notification alone.',
         offline: 'Cached locally',
@@ -1446,6 +1446,10 @@ export const en = {
             deleteTitle: 'Delete this rental?',
             deleteHint:
                 'For a rental entered by mistake. The years it was owed for go with it; a rental that really ended should be ended instead.',
+            actions: {
+                rent: 'New rent',
+                end: 'End',
+            },
             columns: {
                 property: 'Property',
                 tenant: 'Tenant',

@@ -34,7 +34,7 @@ export interface Dictionary {
         adminJobs: string;
         adminAudit: string;
         /** The bands the sidebar groups its destinations into. */
-        sections: { records: string; fiscal: string; connections: string; system: string };
+        sections: { records: string; law: string; connections: string; system: string };
     };
     shell: {
         appTagline: string;
@@ -1277,6 +1277,8 @@ export interface Dictionary {
             deleteTitle: string;
             deleteHint: string;
             /** `{year}` is substituted in `owed`. */
+            /** The row's own verbs — short, because the dialog each one opens says the rest. */
+            actions: { rent: string; end: string };
             columns: { property: string; tenant: string; rent: string; period: string; owed: string; status: string };
             openEnded: string;
             active: string;

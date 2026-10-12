@@ -1,4 +1,17 @@
-import { Banknote, Check, KeyRoundIcon, PlusIcon, X } from 'lucide-react';
+import {
+    Activity,
+    Banknote,
+    CalendarRange,
+    CalendarX2,
+    Check,
+    Coins,
+    KeyRoundIcon,
+    Pencil,
+    PlusIcon,
+    Trash2,
+    UserRound,
+    X,
+} from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -8,6 +21,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { PanelDate } from '../components/PanelDatePicker';
 import {
     ActionGroup,
+    CellLabel,
     DataTable,
     EmptyState,
     Field,
@@ -20,9 +34,9 @@ import {
     PanelSelect,
     Pill,
     Status,
+    TableSkeleton,
 } from '../components/panel';
 import RentalDialog from '../components/rentals/RentalDialog';
-import { Skeleton } from '../components/ui/skeleton';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
 import { describeApiFailure } from '../lib/apiErrors';
@@ -129,7 +143,7 @@ export default function Rentals(): JSX.Element {
                     }
                 >
                     {rentals === null ? (
-                        <TableSkeleton />
+                        <TableSkeleton rows={3} />
                     ) : failed ? (
                         <p className="note p-4">{t((d) => d.pages.wallet.loadFailed)}</p>
                     ) : rentals.length === 0 ? (
@@ -188,45 +202,79 @@ export default function Rentals(): JSX.Element {
                                             )}
                                         </td>
                                         <td>
-                                            <div>{rental.tenantName}</div>
-                                            <Pill>
-                                                {t(
-                                                    (d) =>
-                                                        d.pages.rentals.tenantTypes[rental.tenantType] ??
-                                                        rental.tenantType,
-                                                )}
-                                            </Pill>
+                                            <CellLabel icon={<UserRound className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.rentals.columns.tenant)}
+                                            </CellLabel>
+                                            {/* One element beside the mark, never three: the stacked
+                                                cell is `space-between`, and a second and third child
+                                                would be spread across the row instead of stacking
+                                                against its right edge. */}
+                                            <div className="min-w-0 text-right">
+                                                <div className="truncate">{rental.tenantName}</div>
+                                                <Pill>
+                                                    {t(
+                                                        (d) =>
+                                                            d.pages.rentals.tenantTypes[rental.tenantType] ??
+                                                            rental.tenantType,
+                                                    )}
+                                                </Pill>
+                                            </div>
                                         </td>
                                         <td className="tabular-nums whitespace-nowrap">
-                                            {formatMinor(rental.rentMinor, rental.currencyCode, locale)}
-                                            <div className="note">
-                                                {t(
-                                                    (d) =>
-                                                        d.pages.wallet.frequencies[rental.paymentFrequency] ??
-                                                        rental.paymentFrequency,
-                                                )}
+                                            <CellLabel icon={<Banknote className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.rentals.columns.rent)}
+                                            </CellLabel>
+                                            <div className="text-right">
+                                                {formatMinor(rental.rentMinor, rental.currencyCode, locale)}
+                                                <div className="note">
+                                                    {t(
+                                                        (d) =>
+                                                            d.pages.wallet.frequencies[rental.paymentFrequency] ??
+                                                            rental.paymentFrequency,
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="whitespace-nowrap">
-                                            {formatDate(rental.startDate, locale)}
-                                            <div className="note">
-                                                {rental.endDate === null
-                                                    ? t((d) => d.pages.rentals.openEnded)
-                                                    : formatDate(rental.endDate, locale)}
+                                            <CellLabel icon={<CalendarRange className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.rentals.columns.period)}
+                                            </CellLabel>
+                                            <div className="text-right">
+                                                {formatDate(rental.startDate, locale)}
+                                                <div className="note">
+                                                    {rental.endDate === null
+                                                        ? t((d) => d.pages.rentals.openEnded)
+                                                        : formatDate(rental.endDate, locale)}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="tabular-nums whitespace-nowrap">
-                                            {/* This taxpayer's share, owed whether or not it was paid.
-                                                A year with nothing due reads as zero: the contract
-                                                exists and owed nothing, which is itself an answer. */}
-                                            {formatMinor(owedThisYear?.shareMinor ?? 0, rental.currencyCode, locale)}
-                                            {earlier.map((entry) => (
-                                                <div key={entry.year} className="note">
-                                                    {`${String(entry.year)}: ${formatMinor(entry.shareMinor, rental.currencyCode, locale)}`}
-                                                </div>
-                                            ))}
+                                            <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.rentals.columns.owed).replace(
+                                                    '{year}',
+                                                    String(currentYear),
+                                                )}
+                                            </CellLabel>
+                                            <div className="text-right">
+                                                {/* This taxpayer's share, owed whether or not it was paid.
+                                                    A year with nothing due reads as zero: the contract
+                                                    exists and owed nothing, which is itself an answer. */}
+                                                {formatMinor(
+                                                    owedThisYear?.shareMinor ?? 0,
+                                                    rental.currencyCode,
+                                                    locale,
+                                                )}
+                                                {earlier.map((entry) => (
+                                                    <div key={entry.year} className="note">
+                                                        {`${String(entry.year)}: ${formatMinor(entry.shareMinor, rental.currencyCode, locale)}`}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </td>
                                         <td>
+                                            <CellLabel icon={<Activity className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.rentals.columns.status)}
+                                            </CellLabel>
                                             <Status tone={active ? 'ok' : 'idle'}>
                                                 {active
                                                     ? t((d) => d.pages.rentals.active)
@@ -236,10 +284,25 @@ export default function Rentals(): JSX.Element {
                                         <td className="col-end text-right">
                                             <div className="flex justify-end">
                                                 <ActionGroup
+                                                    // Four labelled actions are most of a phone's
+                                                    // width; behind one menu there, as themselves
+                                                    // everywhere else.
+                                                    collapse
+                                                    /*
+                                                        A mark and the shortest word that is still
+                                                        true, rather than the dialog's own title: the
+                                                        heading of the sheet that opens says "Change
+                                                        rent", and repeating it on the button that
+                                                        opens it spent most of the row on four
+                                                        sentences. Delete keeps its mark alone — it is
+                                                        the one action a reader already knows by its
+                                                        shape, and the row has nothing else red in it.
+                                                    */
                                                     actions={[
                                                         {
                                                             key: 'edit',
-                                                            label: t((d) => d.pages.rentals.edit),
+                                                            icon: <Pencil className="size-3.5" aria-hidden="true" />,
+                                                            label: t((d) => d.common.edit),
                                                             onClick: () => {
                                                                 setDialog({
                                                                     editing: rental,
@@ -253,14 +316,26 @@ export default function Rentals(): JSX.Element {
                                                             ? [
                                                                   {
                                                                       key: 'rent',
-                                                                      label: t((d) => d.pages.rentals.changeRent),
+                                                                      icon: (
+                                                                          <Banknote
+                                                                              className="size-3.5"
+                                                                              aria-hidden="true"
+                                                                          />
+                                                                      ),
+                                                                      label: t((d) => d.pages.rentals.actions.rent),
                                                                       onClick: () => {
                                                                           setChanging(rental);
                                                                       },
                                                                   },
                                                                   {
                                                                       key: 'end',
-                                                                      label: t((d) => d.pages.rentals.end),
+                                                                      icon: (
+                                                                          <CalendarX2
+                                                                              className="size-3.5"
+                                                                              aria-hidden="true"
+                                                                          />
+                                                                      ),
+                                                                      label: t((d) => d.pages.rentals.actions.end),
                                                                       onClick: () => {
                                                                           setEnding(rental);
                                                                       },
@@ -269,7 +344,8 @@ export default function Rentals(): JSX.Element {
                                                             : []),
                                                         {
                                                             key: 'delete',
-                                                            label: t((d) => d.common.delete),
+                                                            label: <Trash2 className="size-3.5" aria-hidden="true" />,
+                                                            title: t((d) => d.common.delete),
                                                             tone: 'destructive' as const,
                                                             onClick: () => {
                                                                 setDeleting(rental);
@@ -572,15 +648,5 @@ function EndRentalDialog({
                 </Field>
             </FieldGrid>
         </PanelDialog>
-    );
-}
-
-function TableSkeleton(): JSX.Element {
-    return (
-        <div className="space-y-2 p-3">
-            {[0, 1, 2].map((index) => (
-                <Skeleton key={index} className="tile h-9 w-full" />
-            ))}
-        </div>
     );
 }
