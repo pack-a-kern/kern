@@ -25,4 +25,23 @@ final class EmbeddingProviderNotConfiguredException extends RuntimeException
             'unavailable, until that decision is made.',
         );
     }
+
+    /**
+     * The other way semantic retrieval can be unavailable: a connection with no vector store.
+     *
+     * Vectors live in `ext_chunk_embeddings`, which `pgvector` backs and which the sqlite lane
+     * therefore does not have at all (`docs/handoff/029-hybrid-retrieval.md`). A caller that
+     * already degrades to lexical-only when no provider is configured should degrade identically
+     * here rather than meet a missing-table error — the installation cannot do semantic retrieval
+     * either way, and the reason is the same kind of reason.
+     */
+    public static function noVectorStore(string $driver): self
+    {
+        return new self(sprintf(
+            'Semantic indexing needs a vector store, and the [%s] connection has none — '
+            . '`ext_chunk_embeddings` is created on Postgres with pgvector only. Text and '
+            . 'citation retrieval are unaffected.',
+            $driver,
+        ));
+    }
 }

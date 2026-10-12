@@ -27,9 +27,6 @@ final class IndexedChunkFactory extends Factory
             'chunk_count' => 1,
             'text' => $text,
             'text_hash' => hash('sha256', $text),
-            'embedding_model' => null,
-            'embedding_dim' => null,
-            'embedded_at' => null,
         ];
     }
 }

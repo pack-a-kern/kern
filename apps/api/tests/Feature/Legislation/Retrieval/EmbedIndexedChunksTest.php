@@ -50,7 +50,7 @@ it('throws when no embedding provider is configured — the default binding', fu
     app(EmbedIndexedChunks::class)();
 })->throws(EmbeddingProviderNotConfiguredException::class);
 
-it('embeds pending chunks and records provenance, using the deterministic test fake', function (): void {
+it('embeds pending texts and records provenance on the vector, using the deterministic test fake', function (): void {
     app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text about contribuții sociale.']);
@@ -60,13 +60,61 @@ it('embeds pending chunks and records provenance, using the deterministic test f
 
     expect($embeddedCount)->toBe(1);
 
+    // Provenance sits with the vector, not with the chunk: which model produced a set of numbers
+    // is a fact about the text that was sent, and the same text reached through 91 consolidations
+    // was sent once.
     $chunk = IndexedChunk::query()->where('section_id', $section->id)->sole();
-    expect($chunk->embedding_model)->toBe('test-fake/hashed-bag-of-words-v1')
-        ->and($chunk->embedding_dim)->toBe(DeterministicHashEmbeddingProvider::dimension())
-        ->and($chunk->embedded_at)->not->toBeNull();
+    $vector = DB::table('ext_chunk_embeddings')->where('text_hash', $chunk->text_hash)->sole();
+
+    expect($vector->embedding_model)->toBe('test-fake/hashed-bag-of-words-v1')
+        ->and((int) $vector->embedding_dim)->toBe(DeterministicHashEmbeddingProvider::dimension())
+        ->and($vector->created_at)->not->toBeNull();
 });
 
-it('never re-embeds a chunk that already has an embedding', function (): void {
+/*
+ * The ordering this class got wrong once. A provider does not know what produced a vector until it
+ * has produced one — the service reports its own name in the response — so asking for the name
+ * before the call gets a stand-in, and the stand-in was a different string. The result was one
+ * model stored under two names and 1,044 texts cached twice; the migration
+ * `2026_10_12_140000_one_vector_per_distinct_chunk_text.php` cleans that up, and this keeps it
+ * from coming back. The fake's name is a constant, so only a provider that learns its own name on
+ * the call can catch it.
+ */
+it('records the name the provider reports after embedding, not one it offered beforehand', function (): void {
+    $provider = new class () implements EmbeddingProvider {
+        private ?string $reported = null;
+
+        public function embed(array $texts, EmbeddingPurpose $purpose = EmbeddingPurpose::PASSAGE): array
+        {
+            $this->reported = 'reported-by-the-service@main';
+
+            return (new DeterministicHashEmbeddingProvider())->embed($texts, $purpose);
+        }
+
+        public function modelIdentifier(): string
+        {
+            if ($this->reported === null) {
+                throw new RuntimeException('asked which model produced a vector before producing one');
+            }
+
+            return $this->reported;
+        }
+    };
+
+    app()->instance(EmbeddingProvider::class, $provider);
+
+    $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text, embedded once.']);
+    app(IndexDocumentVersionForRetrieval::class)($section->document_version_id);
+
+    expect(app(EmbedIndexedChunks::class)())->toBe(1);
+
+    $chunk = IndexedChunk::query()->where('section_id', $section->id)->sole();
+
+    expect(DB::table('ext_chunk_embeddings')->where('text_hash', $chunk->text_hash)->value('embedding_model'))
+        ->toBe('reported-by-the-service@main');
+});
+
+it('never re-embeds a text that already has a vector', function (): void {
     app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
 
     $section = SourceSection::factory()->create(['text' => 'SYNTHETIC text, once.']);
@@ -95,8 +143,8 @@ it('scopes embedding to one document version when asked', function (): void {
     $chunkA = IndexedChunk::query()->where('section_id', $sectionA->id)->sole();
     $chunkB = IndexedChunk::query()->where('section_id', $sectionB->id)->sole();
 
-    expect($chunkA->embedded_at)->not->toBeNull()
-        ->and($chunkB->embedded_at)->toBeNull();
+    expect(DB::table('ext_chunk_embeddings')->where('text_hash', $chunkA->text_hash)->exists())->toBeTrue()
+        ->and(DB::table('ext_chunk_embeddings')->where('text_hash', $chunkB->text_hash)->exists())->toBeFalse();
 });
 
 it('throws when a provider violates its own contract by returning the wrong number of vectors', function (): void {
@@ -122,7 +170,7 @@ it('throws when a provider violates its own contract by returning the wrong numb
     app(EmbedIndexedChunks::class)();
 })->throws(RuntimeException::class);
 
-it('copies the vector of an identical text rather than embedding it again', function (): void {
+it('asks for nothing when the next consolidation repeats a text already embedded', function (): void {
     app()->instance(EmbeddingProvider::class, new DeterministicHashEmbeddingProvider());
 
     $earlier = SourceSection::factory()->create(['text' => 'SYNTHETIC: the same provision, unchanged.']);
@@ -146,12 +194,15 @@ it('copies the vector of an identical text rather than embedding it again', func
         }
     });
 
-    expect(app(EmbedIndexedChunks::class)())->toBe(1);
+    // Nothing to do, rather than something cheap to do: the later chunk already reaches a vector
+    // through its text's hash, so there is no row to fill and no copy to make.
+    expect(app(EmbedIndexedChunks::class)())->toBe(0);
 
-    $vectors = DB::table('ext_source_section_chunks')
+    $hashes = DB::table('ext_source_section_chunks')
         ->whereIn('section_id', [$earlier->id, $later->id])
-        ->pluck('embedding')
-        ->unique();
+        ->pluck('text_hash');
 
-    expect($vectors)->toHaveCount(1);
+    expect($hashes)->toHaveCount(2)
+        ->and($hashes->unique())->toHaveCount(1)
+        ->and(DB::table('ext_chunk_embeddings')->where('text_hash', $hashes->first())->count())->toBe(1);
 });

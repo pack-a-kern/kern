@@ -23,12 +23,11 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * persisted row {@see \Kern\Legislation\Retrieval\Indexing\IndexDocumentVersionForRetrieval}
  * writes from one. Two different things; two different names.
  *
- * `embedding` is deliberately **not** listed in `$fillable`/`$casts` — nothing in this module ever
- * reads a stored vector back into PHP as a list of floats (all vector arithmetic happens in SQL,
- * per `BLUEPRINT.md` §15.5 — this layer retrieves and cites, it does not compute). Writes go through
- * {@see \Kern\Legislation\Retrieval\Indexing\EmbedIndexedChunks}, which sets it via a raw
- * query builder update using {@see \Kern\Legislation\Retrieval\Embedding\EmbeddingVector::toPgvectorLiteral()}
- * — Eloquent's attribute system has no `vector` cast to round-trip, and none is needed.
+ * A chunk carries **no vector and no embedding provenance of its own**. Both belong to its text:
+ * `ext_chunk_embeddings` keys one vector per `text_hash`, and the 91 consolidations of a law that
+ * repeat a provision unchanged all reach the same row. `text_hash` is therefore the interesting
+ * column here — it is this row's claim on a vector, and what
+ * {@see \Kern\Legislation\Retrieval\Query\HybridLegislationSearch} joins on.
  *
  * @property string $id
  * @property string $section_id
@@ -36,9 +35,6 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property int $chunk_count
  * @property string $text
  * @property string $text_hash
- * @property string|null $embedding_model
- * @property int|null $embedding_dim
- * @property \Illuminate\Support\Carbon|null $embedded_at
  */
 #[UseFactory(IndexedChunkFactory::class)]
 final class IndexedChunk extends Model
@@ -56,17 +52,12 @@ final class IndexedChunk extends Model
         'chunk_count',
         'text',
         'text_hash',
-        'embedding_model',
-        'embedding_dim',
-        'embedded_at',
     ];
 
     /** @var array<string, string> */
     protected $casts = [
         'chunk_index' => 'integer',
         'chunk_count' => 'integer',
-        'embedding_dim' => 'integer',
-        'embedded_at' => 'datetime',
     ];
 
     /**

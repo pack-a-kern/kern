@@ -11,7 +11,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Embeds text through the `python-api` service, which runs `BAAI/bge-m3` locally
+ * Embeds text through the `python-api` service, which runs `intfloat/multilingual-e5-small` locally
  * (`apps/processing/src/processing/embeddings`).
  *
  * The interface's original docblock anticipated an OpenAI-compatible external adapter once
@@ -78,10 +78,27 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
 
     public function modelIdentifier(): string
     {
-        // Prefer what the service reported over what this side configured: the string is stored per
-        // row as `embedding_model`, and it must name what actually produced the vector. The
-        // configured name is only a stand-in for callers that ask before any call has been made.
-        return $this->reportedModel ?? $this->stringConfig('ai.embeddings.model');
+        /*
+         * Only ever what the service reported, never what this side configured — and a caller who
+         * asks before any call has been made is told so rather than given a guess.
+         *
+         * It used to fall back to `ai.embeddings.model`, and that was a bug with a visible result.
+         * The service names itself `model_id@revision`, so the configured `EMBEDDING_MODEL_ID`
+         * ("intfloat/multilingual-e5-small") is never the string it will report
+         * ("intfloat/multilingual-e5-small@main"). `EmbedIndexedChunks` read this before embedding,
+         * so each worker process stamped its first batch with the configured name and every later
+         * batch with the real one: one model stored under two names, and 1,044 texts cached twice.
+         * The provenance of a vector is not knowable before the vector exists, so this no longer
+         * pretends otherwise.
+         */
+        if ($this->reportedModel === null) {
+            throw new EmbeddingProviderNotConfiguredException(
+                'No embedding call has been made yet, so no model has reported itself. '
+                . 'Embed first, then record which model produced the vectors.',
+            );
+        }
+
+        return $this->reportedModel;
     }
 
     /**

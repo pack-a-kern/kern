@@ -35,6 +35,11 @@ use stdClass;
  * all three evaluated per row that survives the `WHERE`. With the date test applied afterwards
  * they were evaluated for every row in the table instead.
  *
+ * **A chunk's vector is its text's vector.** The dense half reads `ext_chunk_embeddings`, which
+ * keys one vector per distinct text hash, through a `LEFT JOIN` — so a text nothing has embedded
+ * yet still ranks lexically, and the ~15.6k distinct vectors this corpus has are stored and
+ * indexed once rather than once per chunk row that happens to repeat the same provision.
+ *
  * **Semantic ranking degrades gracefully when no embedding provider is configured** — `search()`
  * catches {@see EmbeddingProviderNotConfiguredException} from the query-embedding attempt and
  * proceeds lexical+fuzzy-only (`semantic_similarity` stays `NULL` for every row; the SQL's own
@@ -120,8 +125,8 @@ final readonly class HybridLegislationSearch
                     ts_rank_cd(c.text_search, plainto_tsquery('romanian', kern_unaccent(p.query_text)), 32) AS lexical_rank,
                     similarity(kern_unaccent(lower(s.citation_label)), kern_unaccent(lower(p.query_text))) AS citation_similarity,
                     CASE
-                        WHEN c.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
-                        THEN 1 - (c.embedding <=> p.query_embedding)
+                        WHEN ce.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
+                        THEN 1 - (ce.embedding <=> p.query_embedding)
                         ELSE NULL
                     END AS semantic_similarity,
                     -- Only two cases can reach here: the WHERE below has already dropped every
@@ -138,6 +143,11 @@ final readonly class HybridLegislationSearch
                 JOIN ext_source_document_versions dv ON dv.id = s.document_version_id
                 JOIN ext_source_documents sd ON sd.id = dv.source_document_id
                 JOIN ext_official_sources os ON os.id = sd.official_source_id
+                -- LEFT, because a text with no vector yet is still searchable by its words. The
+                -- vector belongs to the text rather than to this row: 91 consolidations of one law
+                -- repeat most provisions unchanged, so 583k chunks share 15.6k vectors, and this
+                -- join is how a chunk reaches the one its text has.
+                LEFT JOIN ext_chunk_embeddings ce ON ce.text_hash = c.text_hash
                 WHERE 1 = 1{$filterSql}
                   -- A date comparison, cheap, standing in front of three expensive scores: a
                   -- vector distance, a trigram similarity and a text rank, each of which this

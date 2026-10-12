@@ -102,11 +102,26 @@ final readonly class ProbeDataFreshness
      * The retrieval chunk index. Chunks that exist but carry no embedding are `warn`, not `bad`:
      * lexical search still works, and no embedding provider is configured yet in this installation
      * (`kern:legislation:reindex --embed` is documented as a no-op until one is).
+     *
+     * A chunk is embedded when its *text* has a vector, not when the chunk row does: one vector
+     * serves every chunk repeating that text, which across 91 consolidations of one law is nearly
+     * all of them. `ext_chunk_embeddings` exists only where pgvector does, so on a connection
+     * without it the count is zero and this row reads `warn` — which is the truth, not a
+     * workaround. Asking anyway would raise inside a wrapping transaction and, in Postgres, poison
+     * every probe after this one; the per-probe `catch` cannot undo an aborted transaction.
      */
     private function retrievalIndex(): FreshnessItem
     {
         $chunks = DB::table('ext_source_section_chunks')->count();
-        $embedded = DB::table('ext_source_section_chunks')->whereNotNull('embedded_at')->count();
+        $embedded = DB::connection()->getDriverName() !== 'pgsql'
+            ? 0
+            : DB::table('ext_source_section_chunks as c')
+                ->whereExists(function ($exists): void {
+                    $exists->select(DB::raw('1'))
+                        ->from('ext_chunk_embeddings as e')
+                        ->whereColumn('e.text_hash', 'c.text_hash');
+                })
+                ->count();
 
         return new FreshnessItem(
             key: 'retrieval_index',

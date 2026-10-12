@@ -40,9 +40,12 @@ it('persists one chunk with correct text and hash for a short section', function
     expect($chunk->chunk_index)->toBe(0)
         ->and($chunk->chunk_count)->toBe(1)
         ->and($chunk->text)->toBe('SYNTHETIC: short article text.')
-        ->and($chunk->text_hash)->toBe(hash('sha256', 'SYNTHETIC: short article text.'))
-        ->and($chunk->embedding_model)->toBeNull()
-        ->and($chunk->embedded_at)->toBeNull();
+        ->and($chunk->text_hash)->toBe(hash('sha256', 'SYNTHETIC: short article text.'));
+
+    // Indexing never embeds — that is `EmbedIndexedChunks`' job, and it must stay possible with no
+    // provider configured at all. A chunk has no vector of its own to be null; what there is to
+    // check is that its text has not been given one.
+    expect(DB::table('ext_chunk_embeddings')->where('text_hash', $chunk->text_hash)->exists())->toBeFalse();
 });
 
 it('splits a long section into multiple ordered chunks', function (): void {

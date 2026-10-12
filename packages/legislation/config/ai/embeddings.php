@@ -31,10 +31,11 @@ return [
     // plausible-looking nonsense instead of failing.
     'dimension' => (int) env('EMBEDDING_DIMENSION', 384),
 
-    // Only a fallback for `modelIdentifier()` before any call has run — the stored
-    // `embedding_model` always prefers what the service reported. Must match the Python
-    // service's `EMBEDDING_MODEL_ID` to be meaningful.
-    'model' => env('EMBEDDING_MODEL_ID'),
+    // There is deliberately no `model` key. The name of the model that produced a vector is
+    // reported by the service that produced it and stored on the vector's own row; a name
+    // configured on this side could only ever disagree with it, and once did —
+    // `HttpEmbeddingProvider::modelIdentifier()` explains what that cost. `EMBEDDING_MODEL_ID`
+    // still exists, in `compose.yaml`, where it tells the Python service which model to load.
 
     // Texts per HTTP call. The Python service batches internally as well; this bounds the
     // request body and lets a long backfill make visible progress instead of one giant call.

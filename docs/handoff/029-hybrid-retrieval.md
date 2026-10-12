@@ -3,6 +3,48 @@
 **Milestone:** M11   **Status:** complete (retrieval + citation only — answer generation deliberately out of scope)
 **Date:** 2026-09-08
 
+## Amendment — 2026-10-12
+
+Two parts of what is described below have been superseded. The record stays (`docs/AGENTS.md` §5),
+but a reader sent here by a code docblock should read this first.
+
+**1. The temporal test runs before the scoring, not after it.** As originally written, the `scored`
+CTE's `WHERE` was `1 = 1` and the date test lived in the outer query, so every chunk in the table
+was scored and the out-of-range ones were discarded afterwards. Each row costs a 384-dimension
+cosine distance, a trigram similarity and a ranked `tsvector` match. That is affordable over a few
+thousand rows and not over 583,082 — Legea 227/2015 alone carries 91 consolidations, and only the
+versions in force on the requested date can match (7,192 chunks, 1.2% of the table). Measured on the
+real corpus: **14,524 ms → 381 ms**, and a 485 MB sort spill became a 27 kB top-N heapsort. The
+`OUT_OF_RANGE` label is gone with it: the range test is now stated once, in the `WHERE`, so the
+`CASE` only has to tell `DATE_UNKNOWN` from `CONFIRMED`.
+
+**2. A vector belongs to a text, not to a chunk row.** `EmbedIndexedChunks` looked each vector up in
+`ext_chunk_embeddings` by text hash — which is why the model was never called twice for the same
+sentence — and then copied it onto the chunk row as well, giving 583,082 copies of 15,582 distinct
+vectors (~770 MB of out-of-line storage and a 160 MB HNSW index over it). The chunk columns
+`embedding`, `embedding_model`, `embedding_dim` and `embedded_at` are dropped; the search reaches a
+vector through `LEFT JOIN ext_chunk_embeddings ce ON ce.text_hash = c.text_hash`, and "is this chunk
+embedded" is "does its text have a row there". `ext_chunk_embeddings` is keyed by `text_hash` alone
+now, so one text has one vector; its column is `vector(384)` and carries the HNSW index, over 15.6k
+rows instead of 583k. See
+`packages/legislation/database/migrations/2026_10_12_140000_one_vector_per_distinct_chunk_text.php`.
+
+That migration also repairs a split this project caused itself:
+`HttpEmbeddingProvider::modelIdentifier()` fell back to the configured `EMBEDDING_MODEL_ID` when
+asked before the service had answered, and the service names itself `model_id@revision` — so each
+worker process stamped its first batch `intfloat/multilingual-e5-small` and the rest
+`intfloat/multilingual-e5-small@main`. One model, two names, 1,044 texts cached under both (their
+two vectors agree to a cosine similarity of 0.9935–0.9988; int8 ONNX inference is not
+bit-reproducible across batch sizes). The method no longer offers a name it cannot know, the
+`ai.embeddings.model` config key is gone, and `EmbedIndexedChunks` asks after the call rather than
+before.
+
+**Still true as written:** the ranking weights, the two result groups, the unknown-date rule, the
+diacritic handling, the citation fuzzy match, and the single-statement shape ADR 0006 chose
+pgvector for. What has **not** been done is the larger rewrite that would let the three indexes
+answer by lookup — the GIN, HNSW and trigram indexes all exist and none is used, because the scores
+are computed in a select list rather than driving the query. That is the remaining retrieval work.
+
 ## What was built
 
 The retrieval half of Milestone 11 — hybrid lexical + semantic + temporal/tier search over the
@@ -84,6 +126,8 @@ blocked item #3, ADR 0007).
   chunks with `embedded_at IS NULL` (optionally scoped to one document version), writes the vector
   via the raw query builder (`EmbeddingVector::toPgvectorLiteral()` — Eloquent has no `vector`
   cast). Throws if the provider is unconfigured or violates its own contract (wrong vector count).
+  **Superseded (see Amendment):** it batches distinct *texts* that have no row in
+  `ext_chunk_embeddings`; `embedded_at` no longer exists.
 
 **`Kern\Legislation\Retrieval\Query`**
 - `TemporalConfidence.php` — enum: `CONFIRMED` | `DATE_UNKNOWN` (see "The unknown-date rule").
@@ -194,8 +238,10 @@ scored AS (
         os.code AS source_code, os.trust_tier,
         ts_rank_cd(c.text_search, plainto_tsquery('romanian', kern_unaccent(p.query_text)), 32) AS lexical_rank,
         similarity(kern_unaccent(lower(s.citation_label)), kern_unaccent(lower(p.query_text))) AS citation_similarity,
-        CASE WHEN c.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
-             THEN 1 - (c.embedding <=> p.query_embedding) ELSE NULL END AS semantic_similarity,
+        -- Superseded (see Amendment): the vector comes from `ext_chunk_embeddings ce`, joined on
+        -- `ce.text_hash = c.text_hash`, and `OUT_OF_RANGE` below is now a WHERE in this CTE.
+        CASE WHEN ce.embedding IS NOT NULL AND p.query_embedding IS NOT NULL
+             THEN 1 - (ce.embedding <=> p.query_embedding) ELSE NULL END AS semantic_similarity,
         CASE
             WHEN COALESCE(s.effective_from, dv.effective_from) IS NULL THEN 'DATE_UNKNOWN'
             WHEN COALESCE(s.effective_from, dv.effective_from) <= p.as_of
