@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { Ban, KeyRound, Link2, Mails, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import {
+    Activity,
+    Ban,
+    Clock,
+    KeyRound,
+    Link2,
+    Link2Off,
+    Mails,
+    RefreshCw,
+    ShieldCheck,
+    Trash2,
+    UserRound,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import AppShell from '../components/AppShell';
 import {
+    CellLabel,
     DataTable,
+    EmptyState,
     Field,
     FieldGrid,
     Page,
@@ -90,7 +104,8 @@ function parse(payload: unknown): Connection[] {
             lastSuccessAt: typeof row.last_success_at === 'string' ? row.last_success_at : null,
             lastErrorMessage: typeof row.last_error_message === 'string' ? row.last_error_message : null,
             runCount: typeof row.run_count === 'number' ? row.run_count : 0,
-            session: str(obj(row.session), 'expires_at') === '' ? null : { expiresAt: str(obj(row.session), 'expires_at') },
+            session:
+                str(obj(row.session), 'expires_at') === '' ? null : { expiresAt: str(obj(row.session), 'expires_at') },
             lastRun:
                 row.last_run === null || row.last_run === undefined
                     ? null
@@ -384,7 +399,6 @@ export default function Spv(): JSX.Element {
                     aside={
                         <PanelButton
                             primary
-                            inline
                             onClick={() => {
                                 errors.reset();
                                 setConnecting(true);
@@ -398,7 +412,10 @@ export default function Spv(): JSX.Element {
                     {connections === null ? (
                         <p className="note p-4">{t((d) => d.common.loading)}</p>
                     ) : connections.length === 0 ? (
-                        <p className="note p-4">{t((d) => d.pages.spv.noConnections)}</p>
+                        <EmptyState
+                            icon={<Link2Off className="size-5" />}
+                            title={t((d) => d.pages.spv.noConnections)}
+                        />
                     ) : (
                         <DataTable
                             stacked
@@ -429,7 +446,10 @@ export default function Spv(): JSX.Element {
                                             <div className="note">{connection.username}</div>
                                         )}
                                     </td>
-                                    <td className="whitespace-nowrap" data-label={t((d) => d.pages.spv.lastSuccess)}>
+                                    <td className="whitespace-nowrap">
+                                        <CellLabel icon={<Clock className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.spv.lastSuccess)}
+                                        </CellLabel>
                                         {connection.lastSuccessAt === null ? (
                                             <span className="note">{t((d) => d.pages.spv.never)}</span>
                                         ) : (
@@ -438,7 +458,10 @@ export default function Spv(): JSX.Element {
                                             </time>
                                         )}
                                     </td>
-                                    <td data-label={t((d) => d.pages.spv.statusColumn)}>
+                                    <td>
+                                        <CellLabel icon={<Activity className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.spv.statusColumn)}
+                                        </CellLabel>
                                         <Status tone={statusTone(connection.status)}>
                                             {t((d) => d.pages.spv.statuses[connection.status] ?? connection.status)}
                                         </Status>
@@ -492,7 +515,8 @@ export default function Spv(): JSX.Element {
                                                 the action unconditionally. When a sitting ends, this
                                                 disappears rather than failing when pressed. */}
                                             {connection.status === 'REVOKED' ||
-                                            (connection.authMethod !== 'CERTIFICATE' && connection.session === null) ? null : (
+                                            (connection.authMethod !== 'CERTIFICATE' &&
+                                                connection.session === null) ? null : (
                                                 <PanelButton
                                                     disabled={working}
                                                     onClick={() => {

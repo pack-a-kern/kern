@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import {
+    Banknote,
     EllipsisVertical,
     Info,
     PauseCircle,
@@ -339,6 +340,10 @@ export default function SubjectsPage(): JSX.Element {
                                             written for this, and its comment names a currency. */}
                                         <PanelSelect
                                             className="select-compact"
+                                            // One mark on the control, not one per option: it says
+                                            // what this chooses, and repeating it down a list of
+                                            // three-letter codes would distinguish nothing.
+                                            icon={<Banknote className="size-3.5" aria-hidden="true" />}
                                             aria-label={t((d) => d.pages.settingsSubjects.columns.currency)}
                                             value={subject.displayCurrency}
                                             disabled={
