@@ -1764,7 +1764,7 @@ function ReviewOverview({
                     rows are still without a suggestion. Never while calls are still running. */}
                 {waiting ||
                 (failedCalls.length === 0 && classification?.failure === null && withoutSuggestion === 0) ? null : (
-                    <PanelButton inline onClick={onAskAgain}>
+                    <PanelButton onClick={onAskAgain}>
                         <Sparkles className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.walletImports.review.askAgain)}
                     </PanelButton>

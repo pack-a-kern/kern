@@ -413,7 +413,6 @@ export default function DocumentsInbox(): JSX.Element {
                             )}
                             <PanelButton
                                 primary
-                                inline
                                 onClick={() => {
                                     setAdding(true);
                                 }}
@@ -540,18 +539,6 @@ export default function DocumentsInbox(): JSX.Element {
                                 icon={<FolderOpen className="size-5" />}
                                 title={t((d) => d.documentsInbox.emptyTitle)}
                                 description={t((d) => d.documentsInbox.empty)}
-                                action={
-                                    <PanelButton
-                                        primary
-                                        inline
-                                        onClick={() => {
-                                            setAdding(true);
-                                        }}
-                                    >
-                                        <Plus className="size-4" />
-                                        {t((d) => d.documentsInbox.newDocument)}
-                                    </PanelButton>
-                                }
                             />
                         )
                     ) : (

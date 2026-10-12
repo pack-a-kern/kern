@@ -721,8 +721,11 @@ export default function WalletTransactions(): JSX.Element {
                                 its own place in the sidebar, and two buttons that both leave this
                                 screen made the one people press look like the one they do not. */}
                             <PanelButton
-                                inline
-                                variant={view === 'duplicates' ? 'outline' : 'ghost'}
+                                /* `card` rather than `ghost` for the off state: it is the variant
+                                   that carries `border-border` on the card's own background, and
+                                   `.ctl-action` — unlike `.ctl` — does not paint a border of its
+                                   own. Under `ghost` the button simply lost its outline. */
+                                variant={view === 'duplicates' ? 'outline' : 'card'}
                                 className={view === 'duplicates' ? 'bg-secondary' : ''}
                                 aria-pressed={view === 'duplicates'}
                                 onClick={() => {
@@ -743,7 +746,6 @@ export default function WalletTransactions(): JSX.Element {
                             </PanelButton>
                             <PanelButton
                                 primary
-                                inline
                                 disabled={accounts.length === 0}
                                 onClick={() => {
                                     errors.reset();

@@ -1383,8 +1383,13 @@ export function PanelButton(props: {
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
     disabled?: boolean;
     primary?: boolean;
-    variant?: 'ghost' | 'outline';
-    /** Match a control it stands beside (32px) instead of the 30px card-foot button. */
+    /**
+     * `card` is the one to reach for on a card's own surface: it draws a border and a fill that
+     * matches the card, where `outline` paints `bg-background` — the page behind the card — and
+     * reads grey on it. `ghost` draws neither, so it needs `.ctl`'s border to be visible at all.
+     */
+    variant?: 'ghost' | 'outline' | 'card';
+    /** Match a control it stands beside (34px) instead of the 30px card-foot button. */
     inline?: boolean;
     /** The hover text an icon-only button needs, since its label is a picture. */
     title?: string;

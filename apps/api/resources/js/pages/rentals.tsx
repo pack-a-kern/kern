@@ -119,7 +119,6 @@ export default function Rentals(): JSX.Element {
                     aside={
                         <PanelButton
                             primary
-                            inline
                             onClick={() => {
                                 setDialog({ editing: null, form: emptyRentalForm() });
                             }}

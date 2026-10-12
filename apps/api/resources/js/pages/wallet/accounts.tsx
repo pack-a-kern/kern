@@ -484,7 +484,7 @@ export default function WalletAccounts(): JSX.Element {
                     icon={<LandmarkIcon className="size-4" />}
                     flush
                     aside={
-                        <PanelButton primary inline onClick={openAdd}>
+                        <PanelButton primary onClick={openAdd}>
                             <PlusIcon className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.walletAccounts.add)}
                         </PanelButton>
