@@ -16,7 +16,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
-import type { ChartConfiguration } from 'chart.js';
+import type { ChartConfiguration, Plugin } from 'chart.js';
 
 import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
@@ -38,10 +38,12 @@ import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
 import { formatDate } from '../lib/format';
 import { getActiveSubjectId } from '../lib/subjectStore';
+import { useCurrencies } from '../lib/sharedProps';
 import { themeColor } from '../lib/themeColor';
 import { cn } from '../lib/utils';
 import {
     addHoldings,
+    BASE_CURRENCY,
     formatMinor,
     type Holding,
     type NetWorth,
@@ -54,9 +56,6 @@ const DOCUMENTS_PATH = '/documents';
 const TRANSACTIONS_PATH = '/wallet/transactions';
 const TAXES_PATH = '/taxes';
 const SPV_PATH = '/spv';
-
-/** The currencies worth offering: what a Romanian taxpayer is most likely to hold or be paid in. */
-const FX_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'];
 
 /** Three months to five years, as whole months, matching what the endpoint accepts. */
 const FX_WINDOWS = ['3', '6', '12', '60'];
@@ -210,7 +209,7 @@ export default function Dashboard(): JSX.Element {
                                     <Wallet className="size-4" />
                                 </IconBadge>
                                 <div className="min-w-0">
-                                    <div className="text-xs font-semibold">
+                                    <div className="panel-title">
                                         {t((d) => d.pages.walletOverview.netWorth)}
                                     </div>
                                     <div className="note">{t((d) => d.pages.walletOverview.netWorthScope)}</div>
@@ -248,14 +247,14 @@ export default function Dashboard(): JSX.Element {
 
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                                <div className="text-xs font-semibold">
+                                <div className="panel-title">
                                     {t((d) => d.pages.walletOverview.whereItSits)}
                                 </div>
                                 <span className="note">{t((d) => d.pages.walletOverview.allocationOf)}</span>
                             </div>
 
                             <div
-                                className="bg-muted mt-3.5 flex h-2.5 gap-0.5 overflow-hidden rounded-full"
+                                className="bg-muted mt-3.5 flex h-1.5 gap-0.5 overflow-hidden rounded-full"
                                 aria-hidden="true"
                             >
                                 {groups.map((group) =>
@@ -270,36 +269,60 @@ export default function Dashboard(): JSX.Element {
                             </div>
 
                             <dl className="divide-border mt-3 divide-y">
-                                {groups.map((group) => (
-                                    <div
-                                        key={group.key}
-                                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0"
-                                    >
-                                        <dt className="flex min-w-0 items-center gap-2 text-xs font-medium">
-                                            <span className={cn('size-2 shrink-0 rounded-full', group.swatch)} />
-                                            <span className="truncate">
-                                                {t((d) => d.pages.walletOverview[group.key])}
-                                            </span>
-                                            <span className="note">
-                                                {[
-                                                    percent(shareOf(group.holding)),
-                                                    group.key === 'deposits' && totals !== null
-                                                        ? t((d) => d.pages.walletOverview.depositCount).replace(
-                                                              '{count}',
-                                                              String(totals.depositCount),
-                                                          )
-                                                        : '',
-                                                    perCurrency(group.holding.amounts),
-                                                ]
-                                                    .filter((part) => part !== '')
-                                                    .join(' · ')}
-                                            </span>
-                                        </dt>
-                                        <dd className="text-sm font-semibold tabular-nums">
-                                            {holdingValue(group.holding)}
-                                        </dd>
-                                    </div>
-                                ))}
+                                {groups.map((group) => {
+                                    /* What the share is not: the deposit count and the per-currency split
+                                       are the holding read out, and they belong under the name rather than
+                                       in the line that identifies it. */
+                                    const detail = [
+                                        group.key === 'deposits' && totals !== null
+                                            ? t((d) => d.pages.walletOverview.depositCount).replace(
+                                                  '{count}',
+                                                  String(totals.depositCount),
+                                              )
+                                            : '',
+                                        perCurrency(group.holding.amounts),
+                                    ]
+                                        .filter((part) => part !== '')
+                                        .join(' · ');
+
+                                    return (
+                                        <div
+                                            key={group.key}
+                                            className="flex items-baseline justify-between gap-x-4 py-2.5 first:pt-0 last:pb-0"
+                                        >
+                                            {/* Two lines at every width. The first says which holding and how
+                                                much of the total it is, with the amount against the right edge;
+                                                the reading sits under it. All of it inline made a line too long
+                                                to fit beside the amount even on a desktop, so the amount wrapped
+                                                onto a line of its own at the left — the one place a figure should
+                                                never be. */}
+                                            <dt className="flex min-w-0 flex-col gap-y-1 text-xs font-medium">
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className={cn('size-2 shrink-0 rounded-full', group.swatch)}
+                                                    />
+                                                    <span className="truncate">
+                                                        {t((d) => d.pages.walletOverview[group.key])}
+                                                    </span>
+                                                    {/* The share as a mark, not as the first of three
+                                                        full stops' worth of text: it is the one number here
+                                                        that is about the whole rather than this holding. */}
+                                                    <Pill tone="neutral" className="shrink-0 tabular-nums">
+                                                        {percent(shareOf(group.holding))}
+                                                    </Pill>
+                                                </span>
+                                                {detail === '' ? null : (
+                                                    /* Indented by the dot and its gap, so the reading
+                                                       starts where the name above it does. */
+                                                    <span className="note pl-4">{detail}</span>
+                                                )}
+                                            </dt>
+                                            <dd className="shrink-0 text-sm font-semibold tabular-nums">
+                                                {holdingValue(group.holding)}
+                                            </dd>
+                                        </div>
+                                    );
+                                })}
                             </dl>
                         </div>
                     </div>
@@ -708,6 +731,36 @@ function netWorthNote(netWorth: NetWorth, t: Translate): string {
 }
 
 /**
+ * A vertical line at the day under the cursor.
+ *
+ * Chart.js draws none, and without it the tooltip is a box floating over a line with nothing saying
+ * which of sixty points it belongs to. Registered on this chart only — a plugin in the configuration
+ * applies to its own instance, unlike `ChartJS.register`, which would put the line on every chart in
+ * the app.
+ */
+const hoverLine: Plugin<'line'> = {
+    id: 'hoverLine',
+    afterDatasetsDraw(chart) {
+        const hovered = chart.getActiveElements().at(0);
+
+        if (hovered === undefined) {
+            return;
+        }
+
+        const { ctx, chartArea } = chart;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(hovered.element.x, chartArea.top);
+        ctx.lineTo(hovered.element.x, chartArea.bottom);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = themeColor('--muted-foreground', 0.5);
+        ctx.stroke();
+        ctx.restore();
+    },
+};
+
+/**
  * What a currency has been worth, as a line.
  *
  * Its own component because it fetches on its own schedule — a currency and a window the reader chooses, not
@@ -719,8 +772,14 @@ function netWorthNote(netWorth: NetWorth, t: Translate): string {
  */
 function FxHistoryCard({ locale }: { locale: string }): JSX.Element {
     const { t } = useTranslation();
-    const [currency, setCurrency] = useRememberedState<string>('dashboard.fx.currency', 'EUR', {
-        isValid: (value: string) => FX_CURRENCIES.includes(value),
+    /*
+     * The installation's own currencies, less the base one — there is no rate of the leu against the
+     * leu, and this chart is rates. It used to be a second hardcoded list, four codes that happened
+     * to overlap with the five the wallet forms offered.
+     */
+    const offered = useCurrencies().filter((code) => code !== BASE_CURRENCY);
+    const [currency, setCurrency] = useRememberedState<string>('dashboard.fx.currency', offered[0] ?? 'EUR', {
+        isValid: (value: string) => offered.includes(value),
     });
     const [months, setMonths] = useRememberedState<string>('dashboard.fx.months', '3', {
         isValid: (value: string) => FX_WINDOWS.includes(value),
@@ -760,46 +819,108 @@ function FxHistoryCard({ locale }: { locale: string }): JSX.Element {
         };
     }, [currency, months]);
 
-    const config = useMemo<ChartConfiguration>(
-        () => ({
+    const config = useMemo<ChartConfiguration>(() => {
+        const rows = points ?? [];
+        /*
+         * The axis reads in words, the tooltip in full.
+         *
+         * The labels stay ISO, because that is what the tooltip's title formats and what the data is
+         * keyed by; the axis gets its own short form through a tick callback. Three months of daily
+         * rates is sixty-odd labels, so Chart.js is left to skip all but a handful.
+         */
+        const axisDates = rows.map((point) =>
+            new Date(`${point.date}T00:00:00Z`).toLocaleDateString(locale, {
+                day: 'numeric',
+                month: 'short',
+                timeZone: 'UTC',
+            }),
+        );
+
+        return {
             type: 'line',
             data: {
-                labels: (points ?? []).map((point) => point.date),
+                labels: rows.map((point) => point.date),
                 datasets: [
                     {
-                        data: (points ?? []).map((point) => point.rate),
-                        borderColor: themeColor('--primary'),
+                        data: rows.map((point) => point.rate),
+                        // Blue, like the line on the reports page. `--primary` is a near-black in this
+                        // theme, which put a black line and a black wash over grey gridlines — three
+                        // greys with nothing to tell them apart.
+                        borderColor: themeColor('--info'),
                         // A fill under the line, held well back: it says "this is a quantity over time"
                         // without competing with the line for the reader's eye.
-                        backgroundColor: themeColor('--primary', 0.08),
+                        backgroundColor: themeColor('--info', 0.12),
                         borderWidth: 2,
                         fill: true,
-                        pointRadius: 0,
                         // The last point marked, because "where it is now" is the one value a reader is
-                        // looking for in a line they are glancing at.
+                        // looking for in a line they are glancing at. The rest are drawn by the line.
+                        pointRadius: rows.map((_, index, all) => (index === all.length - 1 ? 3 : 0)),
+                        pointBackgroundColor: themeColor('--info'),
                         pointHoverRadius: 4,
-                        tension: 0.25,
+                        tension: 0.35,
                     },
                 ],
             },
+            plugins: [hoverLine],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                /*
+                 * Hovering anywhere over the chart reads the nearest day.
+                 *
+                 * Chart.js defaults to `intersect: true`, which shows the tooltip only while the cursor
+                 * is inside a point — and these points are drawn at radius 0, so the target was a pixel
+                 * wide and invisible. `index` on the x axis means the whole column counts, which is how
+                 * a reader expects to use a line: move across it and read the values.
+                 */
+                interaction: { mode: 'index', intersect: false, axis: 'x' },
+                plugins: {
+                    legend: { display: false },
+                    /*
+                     * Only the words. `Chart.tsx` draws the box itself, in CSS, so nothing here says
+                     * what it looks like — the date as the reader writes it, and the rate at the four
+                     * decimals the BNR publishes.
+                     */
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => formatDate(items[0]?.label ?? '', locale),
+                            label: (item) => `${currency} ${(item.parsed.y ?? 0).toFixed(4)}`,
+                        },
+                    },
+                },
                 scales: {
-                    x: { display: false },
+                    // Dated, like every other line in the app: a rate chart with no axis is a shape,
+                    // and the window the reader picked is the thing it is a shape of.
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: themeColor('--muted-foreground'),
+                            font: { size: 10 },
+                            autoSkip: true,
+                            maxTicksLimit: 5,
+                            maxRotation: 0,
+                            callback: (_, index) => axisDates.at(index) ?? '',
+                        },
+                    },
                     y: {
                         // Not from zero: a rate that moves between 4.97 and 5.06 is a flat line above a
                         // zero axis, which hides the only thing the chart is for.
                         beginAtZero: false,
-                        grid: { color: themeColor('--border', 0.6) },
-                        ticks: { color: themeColor('--muted-foreground'), font: { size: 10 }, maxTicksLimit: 3 },
+                        border: { display: false },
+                        grid: { color: themeColor('--border') },
+                        ticks: {
+                            color: themeColor('--muted-foreground'),
+                            font: { size: 10 },
+                            maxTicksLimit: 4,
+                            // Two decimals throughout, or the column reads `5`, `4.95`, `4.9` — three
+                            // different precisions for one quantity.
+                            callback: (value) => Number(value).toFixed(2),
+                        },
                     },
                 },
             },
-        }),
-        [points],
-    );
+        };
+    }, [points, currency, locale]);
 
     const latest = points?.at(-1) ?? null;
 
@@ -814,7 +935,7 @@ function FxHistoryCard({ locale }: { locale: string }): JSX.Element {
                         className="ctl-narrow"
                         value={currency}
                         onValueChange={setCurrency}
-                        options={FX_CURRENCIES.map((code) => ({ value: code, label: code }))}
+                        options={offered.map((code) => ({ value: code, label: code }))}
                     />
                     <PanelSelect
                         className="ctl-narrow"
