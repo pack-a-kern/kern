@@ -470,6 +470,19 @@
 :root {
     /* 34px — see `.ctl`. */
     --ctl-h: 2.125rem;
+
+    /*
+     * The other control height, named rather than re-derived.
+     *
+     * An action *inside* a control's world — a button in a card's head or foot, a row's own verbs,
+     * the shell's menus — sits four pixels under the controls it accompanies, so a row of them does
+     * not read as a row of fields. Three rules computed `calc(var(--ctl-h) - 4px)` separately, which
+     * tracked `--ctl-h` correctly and still said nothing: that they are the same size on purpose was
+     * left for a reader to infer from matching arithmetic. One other rule uses that same expression
+     * for an unrelated reason — `.col-primary`'s `min-height` clears the actions pinned over it —
+     * and keeps its own copy, which now reads as the coincidence it is.
+     */
+    --ctl-h-sm: calc(var(--ctl-h) - 4px);
 }
 
 .ctl {
@@ -811,7 +824,7 @@
 /* Inset by 2px on each side of the control it sits in, so it keeps that inset whatever
    `--ctl-h` becomes. It was a flat 30px, which happened to be right while controls were 32. */
 .ctl-action {
-    height: calc(var(--ctl-h) - 4px);
+    height: var(--ctl-h-sm);
     border-radius: var(--radius-lg);
     padding-inline: 0.625rem;
     font-size: var(--text-xs);
@@ -831,7 +844,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    height: calc(var(--ctl-h) - 4px);
+    height: var(--ctl-h-sm);
     border-radius: var(--radius-lg);
     padding-inline: 0.625rem;
     font-size: var(--text-xs);
@@ -1216,7 +1229,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
    shell surface rather than a bare ghost button, so the cluster reads as one group of controls. */
 .shell-control {
     display: inline-flex;
-    height: calc(var(--ctl-h) - 4px);
+    height: var(--ctl-h-sm);
     align-items: center;
     gap: 0.375rem;
     border: 1px solid var(--border);
@@ -1226,6 +1239,22 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     font-size: var(--text-xs);
     font-weight: 600;
     color: var(--muted-foreground);
+}
+
+/*
+ * A `.shell-control` that is not in the shell.
+ *
+ * `BulkActions` draws one, and it stands in a toolbar row beside a search box, the selects and a
+ * date picker — every one of them `.ctl` at `--ctl-h`. The shell's own controls are the 4px shorter
+ * on purpose: they sit in a 56px bar with nothing to line up against. In a row of controls that 4px
+ * is the row's baseline breaking under one of them.
+ *
+ * `.shell-control.ctl-row`, not a bare `.ctl-row`, for the reason stated at the top of this section:
+ * two classes beat one wherever they are written, and a bare modifier would win or lose on source
+ * order alone.
+ */
+.shell-control.ctl-row {
+    height: var(--ctl-h);
 }
 
 .shell-control:hover {

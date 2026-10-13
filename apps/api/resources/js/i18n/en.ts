@@ -1345,6 +1345,9 @@ export const en = {
                 rename: 'Rename',
                 merge: 'Merge into…',
                 mergeConfirm: 'Merge',
+                mergeManyHint:
+                    '{count} tags become one. Every transaction and every remembered rule moves to the name you keep; the others go.',
+                keepName: 'Keep this name',
                 empty: 'No tags yet. Add one on a transaction.',
                 renamed: 'Tag renamed.',
                 merged: 'Tags merged.',

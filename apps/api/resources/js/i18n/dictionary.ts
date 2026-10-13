@@ -1191,6 +1191,9 @@ export interface Dictionary {
                 rename: string;
                 merge: string;
                 mergeConfirm: string;
+                /** `{count}` tags are being folded into one. */
+                mergeManyHint: string;
+                keepName: string;
                 empty: string;
                 renamed: string;
                 merged: string;

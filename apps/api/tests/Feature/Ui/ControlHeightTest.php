@@ -82,11 +82,20 @@ it('states every control height as the shared token, never as a literal', functi
             $value = trim($declaration[2]);
 
             /*
-             * Allowed: the token itself, bare or inside a `calc`; `auto`, which is not a height
-             * anybody has to keep in step; and `100%`, which tracks a parent that is already on the
-             * token — `.input-group .ctl` fills the group around it.
+             * Allowed: either token, bare or inside a `calc`; `auto`, which is not a height anybody
+             * has to keep in step; and `100%`, which tracks a parent that is already on a token —
+             * `.input-group .ctl` fills the group around it.
+             *
+             * There are two tokens because there are two control sizes: `--ctl-h` is the row's own
+             * height, and `--ctl-h-sm` the shorter one an action inside a card wears. `--ctl-h-sm`
+             * is itself a `calc` off `--ctl-h`, so there is still one number.
              */
-            if ($value === 'auto' || $value === '100%' || str_contains($value, 'var(--ctl-h)')) {
+            if (
+                $value === 'auto'
+                || $value === '100%'
+                || str_contains($value, 'var(--ctl-h)')
+                || str_contains($value, 'var(--ctl-h-sm)')
+            ) {
                 continue;
             }
 
@@ -108,4 +117,11 @@ it('states every control height as the shared token, never as a literal', functi
 
 it('declares the token once, so there is one number to change', function (): void {
     expect(substr_count(stylesheet(), '--ctl-h:'))->toBe(1);
+});
+
+it('derives the short control height from the tall one rather than restating it', function (): void {
+    // The two sizes are 34px and 30px. Written as two numbers they drift; written as a `calc` off
+    // the first, raising the row raises both — which is what made this worth a token at all.
+    expect(stylesheet())->toContain('--ctl-h-sm: calc(var(--ctl-h) - 4px)')
+        ->and(substr_count(stylesheet(), '--ctl-h-sm:'))->toBe(1);
 });

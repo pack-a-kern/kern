@@ -1346,6 +1346,9 @@ export const ro = {
                 rename: 'Redenumește',
                 merge: 'Unește cu…',
                 mergeConfirm: 'Unește',
+                mergeManyHint:
+                    '{count} etichete devin una. Toate tranzacțiile și toate regulile memorate trec la numele păstrat; celelalte dispar.',
+                keepName: 'Păstrează acest nume',
                 empty: 'Nicio etichetă încă. Adaugă una pe o tranzacție.',
                 renamed: 'Eticheta a fost redenumită.',
                 merged: 'Etichetele au fost unite.',
