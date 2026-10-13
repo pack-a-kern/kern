@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Exports;
 
+use Kern\Platform\Text\CsvFile;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
@@ -23,11 +24,11 @@ use Kern\TaxRomania\TaxEngine\Models\TaxFact;
  * have rendered is a second place money is decided, and an export is exactly where that divergence would go
  * unnoticed — nobody checks a downloaded file against the page it came from.
  *
- * ## Amounts are written plainly
+ * ## The file's own conventions are not decided here
  *
- * `1234.56`, dot decimal, no grouping, no currency in the cell. A spreadsheet reads that as a number in every
- * locale; "1.234,56 RON" is text in most of them, and a column of text that looks like money is worse than a
- * column of numbers that needs a header to explain itself. The currency is its own column.
+ * The BOM Excel needs and the plain dot-decimal amount are `Kern\Platform\Text\CsvFile`'s, shared with the
+ * wallet report's export — a spreadsheet opening one of this application's files should behave the same way
+ * for all of them.
  */
 final readonly class AssessmentCsv
 {
@@ -56,16 +57,16 @@ final readonly class AssessmentCsv
                 $line->tax_code,
                 $line->category_code,
                 is_string($income) ? $this->amountOf($income) : '',
-                $this->minorToDecimal($line->taxable_base_minor),
+                CsvFile::decimal($line->taxable_base_minor),
                 $line->rate_decimal ?? '',
-                $this->minorToDecimal($line->tax_minor),
+                CsvFile::decimal($line->tax_minor),
                 $line->explanation_key,
                 is_string($trace['rule_version'] ?? null) ? $trace['rule_version'] : '',
                 is_array($refs) ? implode(' ', array_filter($refs, 'is_string')) : '',
             ];
         }
 
-        return $this->toCsv($rows);
+        return CsvFile::fromRows($rows);
     }
 
     /**
@@ -95,18 +96,18 @@ final readonly class AssessmentCsv
             $rows[] = [
                 $fact->recognition_date->toDateString(),
                 $fact->category_code,
-                $this->minorToDecimal($fact->gross_amount_minor),
+                CsvFile::decimal($fact->gross_amount_minor),
                 $fact->currency_code,
-                $this->minorToDecimal($fact->ron_amount_minor),
+                CsvFile::decimal($fact->ron_amount_minor),
                 is_array($fx) && is_string($fx['rate'] ?? null) ? $fx['rate'] : '',
                 is_array($fx) && is_string($fx['rate_date'] ?? null) ? $fx['rate_date'] : '',
-                $fact->withheld_tax_ron_minor === null ? '' : $this->minorToDecimal($fact->withheld_tax_ron_minor),
+                $fact->withheld_tax_ron_minor === null ? '' : CsvFile::decimal($fact->withheld_tax_ron_minor),
                 $fact->source_type,
                 $fact->source_id,
             ];
         }
 
-        return $this->toCsv($rows);
+        return CsvFile::fromRows($rows);
     }
 
     /** The numeric part of a `Money` string, which is how a trace records an amount. */
@@ -115,36 +116,4 @@ final readonly class AssessmentCsv
         return preg_match('/^(-?\d+\.\d{2}) [A-Z]{3}$/', $money, $matches) === 1 ? $matches[1] : '';
     }
 
-    private function minorToDecimal(int $minor): string
-    {
-        return number_format($minor / 100, 2, '.', '');
-    }
-
-    /**
-     * @param  list<list<string>>  $rows
-     */
-    private function toCsv(array $rows): string
-    {
-        $handle = fopen('php://temp', 'r+');
-
-        if ($handle === false) {
-            return '';
-        }
-
-        /*
-         * A BOM, because Excel on Windows reads a UTF-8 file without one as the system codepage and turns
-         * every Romanian diacritic into mojibake. The file is still valid UTF-8 for everything else.
-         */
-        fwrite($handle, "\u{FEFF}");
-
-        foreach ($rows as $row) {
-            fputcsv($handle, $row, ',', '"', '\\');
-        }
-
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
-
-        return $csv === false ? '' : $csv;
-    }
 }

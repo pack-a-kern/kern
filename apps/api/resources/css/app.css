@@ -3872,7 +3872,15 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     margin: 0;
     display: inline-grid;
     place-content: center;
-    border: 1px solid var(--input);
+    /*
+     * The empty box already carries the brand, faintly.
+     *
+     * At `--input` it was the same hairline as a text field's, which in a table of forty rows read as
+     * part of the ruling rather than as something to click — the control that selects a row looked
+     * like the line between two of them. A third of the brand mixed into that border is enough to
+     * say "this is a control" at a glance and still quiet enough not to dot the table with colour.
+     */
+    border: 1px solid color-mix(in srgb, var(--brand-500) 35%, var(--input));
     border-radius: var(--radius-sm);
     background: var(--card);
     transition:
@@ -3881,9 +3889,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         transform 0.1s ease;
 }
 
+/* Hover completes the colour the resting state hints at, rather than turning it grey — which read as
+   the control going inert under the cursor. */
 .checkbox:hover {
-    border-color: var(--muted-foreground);
-    background: var(--secondary);
+    border-color: var(--brand-500);
+    background: color-mix(in srgb, var(--brand-500) 7%, var(--card));
 }
 
 .checkbox:checked,

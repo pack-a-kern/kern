@@ -712,7 +712,10 @@ export interface Dictionary {
             colTxs: string;
             colTop: string;
             exportReport: string;
-            exportSoon: string;
+            exportMonths: string;
+            exportBreakdown: string;
+            exportMovement: string;
+            exportLargest: string;
             versusPrevious: string;
             retained: string;
             needAttention: string;

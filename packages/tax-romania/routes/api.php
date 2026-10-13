@@ -57,6 +57,7 @@ use Kern\TaxRomania\Http\Controllers\Wallet\ClassifyTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteAccountController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteTagController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteTransactionController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ExportWalletReportsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ForgetCounterpartiesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\KeepDuplicateTransactionsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\MergeCounterpartiesController;
@@ -137,6 +138,9 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // A year read three ways — by tag, by bank, by category. Never a tax figure: what is owed comes
     // from the tax engine's versioned rules, not from a person's own labels.
     Route::get('wallet/reports', ShowWalletReportsController::class);
+    // The same report as a file, one panel per download. Before any `wallet/reports/{…}` would be —
+    // there is none today, and a literal segment that loses to a parameter is a bug waiting for one.
+    Route::get('wallet/reports/export', ExportWalletReportsController::class);
     // Which currency this subject's totals are added up in. A display preference — never a fiscal
     // conversion, which each tax rule decides for itself with its own provenance.
     Route::put('wallet/display-currency', UpdateDisplayCurrencyController::class);

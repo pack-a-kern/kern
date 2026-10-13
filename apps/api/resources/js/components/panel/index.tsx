@@ -477,7 +477,7 @@ export function RowList({ children }: { children: ReactNode }): JSX.Element {
     return <div className="divide-border divide-y">{children}</div>;
 }
 
-export function Row(props: { title: string; subtitle?: string; children: ReactNode }): JSX.Element {
+export function Row(props: { title: ReactNode; subtitle?: string; children: ReactNode }): JSX.Element {
     return (
         /*
          * Wraps, and the name is what claims the width.
@@ -486,14 +486,23 @@ export function Row(props: { title: string; subtitle?: string; children: ReactNo
          * narrow card squeezed the name — the thing the row is *about* — down a letter at a time
          * while a state pill and a labelled button sat at full width beside it. `flex: 1 1 14rem`
          * inverts that: the name keeps a readable minimum and the controls take their own line
-         * underneath when both will not fit, which on a phone is most of them.
+         * underneath when both will not fit.
+         *
+         * 14rem is more than a phone can spare, though, and the line it was protecting the name from
+         * losing is one the name can simply wrap onto — `min-w-0` and no `truncate`, so a long tag
+         * runs to two lines rather than being shaved. 8rem there keeps three icon buttons on the
+         * name's own row, which is where they belong when they are that small.
          *
          * `ml-auto` is what keeps them at the right edge on the line they land on, whichever that is.
          * `items-start` rather than `items-center`, because once a subtitle runs to two lines a
          * centred control floats in the middle of nothing.
+         *
+         * `title` is a node rather than a string so a row can be edited in place: the field replaces
+         * the name where the name was, and with no controls beside it the title's track is the whole
+         * row. A name and a box asking for a new one are the same thing twice.
          */
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-[9px] first:pt-0 last:pb-0">
-            <div className="min-w-0 flex-[1_1_14rem]">
+            <div className="min-w-0 flex-[1_1_8rem] sm:flex-[1_1_14rem]">
                 <div className="text-xs font-semibold">{props.title}</div>
                 {props.subtitle !== undefined ? <div className="note mt-0.5">{props.subtitle}</div> : null}
             </div>
@@ -1492,8 +1501,14 @@ export function Pill({
 /** 30px tall, 11.5px label — smaller than the default control, per these screens' scale. */
 export function PanelButton(props: {
     children: ReactNode;
-    /** The event comes with it: an action inside a card that is itself clickable stops it there. */
-    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+    /**
+     * The event comes with it: an action inside a card that is itself clickable stops it there.
+     *
+     * Optional only because a `DropdownMenuTrigger asChild` supplies its own — the button then opens
+     * a menu and does nothing by itself, and a no-op handler written to satisfy a type is a lie
+     * about what the control does.
+     */
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
     disabled?: boolean;
     primary?: boolean;
     /**

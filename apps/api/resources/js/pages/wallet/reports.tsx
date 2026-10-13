@@ -1,5 +1,4 @@
 import { Head, router } from '@inertiajs/react';
-import { toast } from 'sonner';
 import type { ChartConfiguration } from 'chart.js';
 import {
     Activity,
@@ -13,8 +12,10 @@ import {
     ChevronRight,
     CircleHelp,
     Coins,
+    ChevronDown,
     CopyCheck,
     Download,
+    Hash,
     Landmark,
     Shapes,
     Tag as TagIcon,
@@ -26,10 +27,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 
-import { apiRequest } from '../../lib/http';
+import { apiRequest, apiRequestBinary } from '../../lib/http';
+import { reportApiFailure } from '../../lib/apiErrors';
 import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
 import {
+    CellLabel,
     DataTable,
     EmptyState,
     Page,
@@ -41,12 +44,13 @@ import {
     StatGrid,
     Tabs,
 } from '../../components/panel';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { useRememberedState } from '../../hooks/useRememberedState';
-import { formatDate } from '../../lib/format';
+import { formatCompact, formatDate } from '../../lib/format';
 import { formatMinor } from '../../types/wallet';
 
 interface TagRow {
@@ -68,6 +72,14 @@ interface CategoryRow {
     categoryCode: string;
     currencyCode: string;
     totalMinor: number;
+}
+
+/** One line of the breakdown panel — a tag, a counterparty or a category, with its total. */
+interface BreakdownRow {
+    key: string;
+    label: string;
+    totalMinor: number;
+    note?: string;
 }
 
 interface MonthRow {
@@ -366,7 +378,19 @@ export default function WalletReports(): JSX.Element {
 
     const totals = reports?.totals.find((row) => row.currencyCode === currency) ?? null;
     const previous = reports?.previous.find((row) => row.currencyCode === currency) ?? null;
-    const months = (reports?.cashFlow ?? []).filter((row) => row.currencyCode === currency);
+    /*
+     * Memoised, like the three lists below it, and for a reason that is not performance.
+     *
+     * `Chart` hands the configuration to Chart.js and rebuilds the canvas when it changes identity.
+     * These lists feed those configurations, so a plain `filter()` in the render body made a new
+     * array on every render — and every state change on this page, a tab among them, destroyed both
+     * charts and played their load animation again. The deps are the data and the choices that
+     * reshape it; nothing here depends on which tab a table is showing.
+     */
+    const months = useMemo(
+        () => (reports?.cashFlow ?? []).filter((row) => row.currencyCode === currency),
+        [reports, currency],
+    );
 
     /** `2026-03` as the month's own name, in the reader's language. */
     const monthLabel = (month: string): string =>
@@ -380,6 +404,54 @@ export default function WalletReports(): JSX.Element {
 
     const money = (minor: number): string => formatMinor(minor, currency, locale);
 
+    /**
+     * The same amount shortened — "933,9 K" — for the places a reader glances rather than reads.
+     *
+     * A report is read at a glance and a full figure is eleven characters of which three matter, so
+     * the ring's hole, the ranked list and the month cards carry the short form. The exact value
+     * goes in `title` on every one of them, which is the bargain `formatCompact` is documented to
+     * require: nothing here is a figure anybody pays, and nothing here hides one either.
+     */
+    const short = (minor: number, code: string = currency): string =>
+        `${formatCompact(minor / 100, locale)} ${code}`;
+
+    /** The same pair as a cell: short enough to scan, exact on hover. */
+    const figure = (minor: number, code: string = currency): JSX.Element => (
+        <span title={formatMinor(minor, code, locale)}>{short(minor, code)}</span>
+    );
+
+    /**
+     * One panel of the report as a file.
+     *
+     * Fetched as bytes rather than parsed: the server builds the CSV from the same query the screen
+     * reads, so the file is a copy of the report and not a second answer assembled in the browser
+     * from whatever happens to be rendered. The period in the name is the period on screen.
+     */
+    const exportCsv = async (part: 'months' | 'breakdown' | 'movement' | 'largest'): Promise<void> => {
+        if (subjectId === null) {
+            return;
+        }
+
+        try {
+            const blob = await apiRequestBinary(
+                `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/reports/export` +
+                    `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&part=${part}`,
+            );
+            const url = URL.createObjectURL(blob);
+            const link = window.document.createElement('a');
+
+            link.href = url;
+            link.download = `kern-wallet-${from}-${to}-${part}.csv`;
+            link.click();
+
+            window.setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 0);
+        } catch (cause: unknown) {
+            reportApiFailure(cause, t);
+        }
+    };
+
     /** The widest total in a set, so bars share one scale rather than each filling its row. */
     const widest = (values: number[]): number => Math.max(1, ...values.map((value) => Math.abs(value)));
 
@@ -392,51 +464,61 @@ export default function WalletReports(): JSX.Element {
             : Math.round((clean / reports.attention.totalCount) * 100);
 
     /** The ranked list behind the breakdown donut, in whichever terms the tab asks for. */
-    const breakdown = ((): Array<{ key: string; label: string; totalMinor: number; note?: string }> => {
-        if (reports === null) {
-            return [];
-        }
+    const breakdown = useMemo<BreakdownRow[]>(() => {
+        /* Ranked inside the memo, not after it: a sort on the way out would hand the donut a new
+           array on every render, which is the whole thing this memo exists to stop. */
+        const rows = ((): BreakdownRow[] => {
+            if (reports === null) {
+                return [];
+            }
 
-        if (breakdownView === 'tag') {
-            return reports.byTag
-                .filter((row) => row.currencyCode === currency)
+            if (breakdownView === 'tag') {
+                return reports.byTag
+                    .filter((row) => row.currencyCode === currency)
+                    .map((row) => ({
+                        key: row.tagId,
+                        label: row.name === '' ? t((d) => d.pages.walletReports.untagged) : row.name,
+                        totalMinor: Math.abs(row.totalMinor),
+                    }));
+            }
+
+            if (breakdownView === 'merchant') {
+                return reports.byCounterparty
+                    .filter((row) => row.currencyCode === currency)
+                    .map((row, index) => ({
+                        key: `${String(index)}-${row.name ?? ''}`,
+                        label: row.name ?? t((d) => d.pages.walletReports.noCounterparty),
+                        totalMinor: row.totalMinor,
+                        note: String(row.count),
+                    }));
+            }
+
+            return reports.byCategory
+                .filter((row) => row.currencyCode === currency && row.totalMinor < 0)
                 .map((row) => ({
-                    key: row.tagId,
-                    label: row.name === '' ? t((d) => d.pages.walletReports.untagged) : row.name,
+                    key: row.categoryCode,
+                    // The dictionary read here rather than through `categoryLabel`, which is rebuilt on
+                    // every render and would be a dependency that changes every time.
+                    label: t((d) => d.pages.walletTransactions.categories[row.categoryCode] ?? row.categoryCode),
                     totalMinor: Math.abs(row.totalMinor),
                 }));
-        }
+        })();
 
-        if (breakdownView === 'merchant') {
-            return reports.byCounterparty
-                .filter((row) => row.currencyCode === currency)
-                .map((row, index) => ({
-                    key: `${String(index)}-${row.name ?? ''}`,
-                    label: row.name ?? t((d) => d.pages.walletReports.noCounterparty),
-                    totalMinor: row.totalMinor,
-                    note: String(row.count),
-                }));
-        }
-
-        return reports.byCategory
-            .filter((row) => row.currencyCode === currency && row.totalMinor < 0)
-            .map((row) => ({
-                key: row.categoryCode,
-                label: categoryLabel(row.categoryCode),
-                totalMinor: Math.abs(row.totalMinor),
-            }));
-    })().sort((a, b) => b.totalMinor - a.totalMinor);
+        return rows.sort((a, b) => b.totalMinor - a.totalMinor);
+    }, [reports, breakdownView, currency, t]);
 
     const breakdownTotal = breakdown.reduce((sum, row) => sum + row.totalMinor, 0);
 
     /** The movement table, in whichever terms its tab asks for. */
-    const movement = ((): Array<{
-        key: string;
-        label: string;
-        currencyCode: string;
-        inMinor: number;
-        outMinor: number;
-    }> => {
+    const movement = useMemo<
+        Array<{
+            key: string;
+            label: string;
+            currencyCode: string;
+            inMinor: number;
+            outMinor: number;
+        }>
+    >(() => {
         if (reports === null) {
             return [];
         }
@@ -468,7 +550,7 @@ export default function WalletReports(): JSX.Element {
             inMinor: row.inMinor,
             outMinor: row.outMinor,
         }));
-    })();
+    }, [reports, movementView, t]);
 
     /**
      * The five biggest payments and the five biggest receipts, in one table.
@@ -477,7 +559,10 @@ export default function WalletReports(): JSX.Element {
      * large enough to move the totals — does not care which way the money went. The sign says that,
      * and it says it in the one place a reader is already looking.
      */
-    const largest = [...(reports?.largest ?? [])].sort((a, b) => Math.abs(b.amountMinor) - Math.abs(a.amountMinor));
+    const largest = useMemo(
+        () => [...(reports?.largest ?? [])].sort((a, b) => Math.abs(b.amountMinor) - Math.abs(a.amountMinor)),
+        [reports],
+    );
 
     /**
      * The year's shape. Two modes, because they answer different questions: the pair of bars says
@@ -578,12 +663,10 @@ export default function WalletReports(): JSX.Element {
                         ticks: {
                             color: ink,
                             font: { size: 10 },
-                            // Thousands as `12k`: a year of axis labels at full precision is a
-                            // column of digits nobody reads.
-                            callback: (value) =>
-                                typeof value === 'number' && Math.abs(value) >= 1000
-                                    ? `${String(Math.round(value / 100) / 10)}k`
-                                    : String(value),
+                            // Shortened by the app's own helper rather than a rule of this chart's
+                            // own: a year of axis labels at full precision is a column of digits
+                            // nobody reads, and `12,3 K` here should read like `12,3 K` anywhere.
+                            callback: (value) => formatCompact(typeof value === 'number' ? value : Number(value), locale),
                         },
                     },
                 },
@@ -658,7 +741,15 @@ export default function WalletReports(): JSX.Element {
         <AppShell>
             <Head title={t((d) => d.pages.walletReports.title)} />
             <Page title={t((d) => d.pages.walletReports.title)} lede={t((d) => d.pages.walletReports.description)}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/*
+                 * One line of controls, then the dates under them.
+                 *
+                 * On a phone the period reads as a caption of the year that was chosen, so it takes
+                 * the second line whole and the export button comes up beside the select — the shape
+                 * every other screen's head has. From `sm` the three sit on one line again, the
+                 * dates after the controls and the button against the far edge.
+                 */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                         {/* The years this taxpayer has records in, newest first, rather than the last
                             four — which was a menu of empty reports for one person and a menu missing
@@ -685,21 +776,59 @@ export default function WalletReports(): JSX.Element {
                                 options={currencies.map((code) => ({ value: code, label: code }))}
                             />
                         )}
-                        <span className="note">
-                            {reports === null
-                                ? ''
-                                : `${formatDate(reports.from, locale)} – ${formatDate(reports.to, locale)}`}
-                        </span>
                     </div>
-                    <PanelButton
-                        inline
-                        onClick={() => {
-                            toast.info(t((d) => d.pages.walletReports.exportSoon));
-                        }}
-                    >
-                        <Download className="size-3.5" aria-hidden="true" />
-                        {t((d) => d.pages.walletReports.exportReport)}
-                    </PanelButton>
+                    <span className="note order-3 basis-full sm:order-2 sm:basis-auto">
+                        {reports === null
+                            ? ''
+                            : `${formatDate(reports.from, locale)} – ${formatDate(reports.to, locale)}`}
+                    </span>
+                    {/* A menu, not four buttons: the four panels have four readers, and a row of
+                        downloads where only one is ever wanted is four controls to read before
+                        clicking one. Disabled until the report has loaded — there is nothing to
+                        write a file from before that. */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <PanelButton inline className="order-2 ml-auto sm:order-3" disabled={reports === null}>
+                                <Download className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletReports.exportReport)}
+                                <ChevronDown className="size-3.5" aria-hidden="true" />
+                            </PanelButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    void exportCsv('months');
+                                }}
+                            >
+                                <CalendarRange className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletReports.exportMonths)}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    void exportCsv('breakdown');
+                                }}
+                            >
+                                <ChartColumn className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletReports.exportBreakdown)}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    void exportCsv('movement');
+                                }}
+                            >
+                                <ArrowLeftRight className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletReports.exportMovement)}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    void exportCsv('largest');
+                                }}
+                            >
+                                <Trophy className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletReports.exportLargest)}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {failed ? <p className="note">{t((d) => d.pages.walletReports.loadFailed)}</p> : null}
@@ -723,7 +852,7 @@ export default function WalletReports(): JSX.Element {
                         <StatGrid>
                             <Stat
                                 label={t((d) => d.pages.walletReports.moneyIn)}
-                                value={money(moneyIn)}
+                                value={figure(moneyIn)}
                                 tone="success"
                                 icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
                                 sub={
@@ -735,7 +864,7 @@ export default function WalletReports(): JSX.Element {
                             />
                             <Stat
                                 label={t((d) => d.pages.walletReports.moneyOut)}
-                                value={money(moneyOut)}
+                                value={figure(-moneyOut)}
                                 tone="destructive"
                                 icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
                                 sub={
@@ -750,7 +879,7 @@ export default function WalletReports(): JSX.Element {
                             />
                             <Stat
                                 label={t((d) => d.pages.walletReports.net)}
-                                value={money(moneyIn - moneyOut)}
+                                value={figure(moneyIn - moneyOut)}
                                 tone="accent"
                                 icon={<Activity className="size-3.5" aria-hidden="true" />}
                                 sub={
@@ -828,7 +957,7 @@ export default function WalletReports(): JSX.Element {
                                         note={
                                             breakdown[0] === undefined || breakdownTotal === 0
                                                 ? ''
-                                                : `${money(breakdown[0].totalMinor)} · ${String(Math.round((breakdown[0].totalMinor / breakdownTotal) * 100))}%`
+                                                : `${short(breakdown[0].totalMinor)} · ${String(Math.round((breakdown[0].totalMinor / breakdownTotal) * 100))}%`
                                         }
                                     />
                                     <DonutTile
@@ -912,6 +1041,7 @@ export default function WalletReports(): JSX.Element {
                                     />
                                 ) : (
                                     <DataTable
+                                        stacked
                                         head={
                                             <>
                                                 <th>{t((d) => d.pages.walletReports.month)}</th>
@@ -933,16 +1063,53 @@ export default function WalletReports(): JSX.Element {
 
                                             return (
                                                 <tr key={row.month}>
-                                                    <td className="col-primary">{monthLabel(row.month)}</td>
-                                                    <td className="col-figure is-in">{money(row.inMinor)}</td>
-                                                    <td className="col-figure is-out">{money(-row.outMinor)}</td>
-                                                    <td
-                                                        className={`col-figure font-semibold ${net < 0 ? 'is-out' : 'is-in'}`}
-                                                    >
-                                                        {money(net)}
+                                                    <td className="col-primary font-semibold">
+                                                        {monthLabel(row.month)}
                                                     </td>
-                                                    <td className="col-figure">{row.count}</td>
+                                                    <td className="col-figure is-in">
+                                                        <CellLabel
+                                                            icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.moneyIn)}
+                                                        </CellLabel>
+                                                        {figure(row.inMinor)}
+                                                    </td>
+                                                    <td className="col-figure is-out">
+                                                        <CellLabel
+                                                            icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.moneyOut)}
+                                                        </CellLabel>
+                                                        {figure(-row.outMinor)}
+                                                    </td>
+                                                    {/* `.col-end` only exists in the stacked layout, so
+                                                        this stays the fourth column on a wide screen and
+                                                        is pinned to the card's corner on a phone — where
+                                                        every other table on this screen puts the one
+                                                        value that answers the row. Short, which the corner's
+                                                        80px requires and the rest of this page does anyway;
+                                                        the exact figure is the `title` and, below, the two
+                                                        lines it is the difference of. */}
+                                                    <td
+                                                        className={`col-end col-figure font-semibold ${net < 0 ? 'is-out' : 'is-in'}`}
+                                                        title={money(net)}
+                                                    >
+                                                        {short(net)}
+                                                    </td>
+                                                    <td className="col-figure">
+                                                        <CellLabel
+                                                            icon={<Hash className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.colTxs)}
+                                                        </CellLabel>
+                                                        {row.count}
+                                                    </td>
                                                     <td>
+                                                        <CellLabel
+                                                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.colTop)}
+                                                        </CellLabel>
                                                         {row.topCategory === null ? (
                                                             <span className="note">—</span>
                                                         ) : (
@@ -974,6 +1141,7 @@ export default function WalletReports(): JSX.Element {
                                 />
                             ) : (
                                 <DataTable
+                                    stacked
                                     head={
                                         <>
                                             <th>{t((d) => d.pages.walletReports.date)}</th>
@@ -1016,7 +1184,10 @@ export default function WalletReports(): JSX.Element {
                                                     row.amountMinor < 0 ? 'is-out' : 'is-in'
                                                 }`}
                                             >
-                                                {formatMinor(row.amountMinor, row.currencyCode, locale)}
+                                                <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                    {t((d) => d.pages.walletReports.amount)}
+                                                </CellLabel>
+                                                {figure(row.amountMinor, row.currencyCode)}
                                             </td>
                                         </tr>
                                     ))}
@@ -1070,8 +1241,11 @@ export default function WalletReports(): JSX.Element {
                                                     <p className="note">
                                                         {t((d) => d.pages.walletReports.totalExpenses)}
                                                     </p>
-                                                    <p className="mt-1 text-lg font-semibold tracking-tight">
-                                                        {money(breakdownTotal)}
+                                                    <p
+                                                        className="mt-1 text-lg font-semibold tracking-tight"
+                                                        title={money(breakdownTotal)}
+                                                    >
+                                                        {short(breakdownTotal)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1088,8 +1262,11 @@ export default function WalletReports(): JSX.Element {
                                                                 ? ''
                                                                 : `${String(Math.round((row.totalMinor / breakdownTotal) * 100))}%`}
                                                         </span>
-                                                        <span className="text-sm font-semibold tabular-nums">
-                                                            {money(row.totalMinor)}
+                                                        <span
+                                                            className="text-sm font-semibold tabular-nums"
+                                                            title={money(row.totalMinor)}
+                                                        >
+                                                            {short(row.totalMinor)}
                                                         </span>
                                                     </span>
                                                 </div>
@@ -1150,24 +1327,34 @@ export default function WalletReports(): JSX.Element {
                                         <div className="divide-border border-border grid grid-cols-3 divide-x border-b">
                                             <div className="p-3 text-center">
                                                 <p className="note">{t((d) => d.pages.walletReports.moneyIn)}</p>
-                                                <p className="text-success mt-1 text-sm font-semibold tabular-nums">
-                                                    {money(moneyIn)}
+                                                <p
+                                                    className="text-success mt-1 text-sm font-semibold tabular-nums"
+                                                    title={money(moneyIn)}
+                                                >
+                                                    {short(moneyIn)}
                                                 </p>
                                             </div>
                                             <div className="p-3 text-center">
                                                 <p className="note">{t((d) => d.pages.walletReports.moneyOut)}</p>
-                                                <p className="text-destructive mt-1 text-sm font-semibold tabular-nums">
-                                                    {money(-moneyOut)}
+                                                <p
+                                                    className="text-destructive mt-1 text-sm font-semibold tabular-nums"
+                                                    title={money(-moneyOut)}
+                                                >
+                                                    {short(-moneyOut)}
                                                 </p>
                                             </div>
                                             <div className="p-3 text-center">
                                                 <p className="note">{t((d) => d.pages.walletReports.net)}</p>
-                                                <p className="mt-1 text-sm font-semibold tabular-nums">
-                                                    {money(moneyIn - moneyOut)}
+                                                <p
+                                                    className="mt-1 text-sm font-semibold tabular-nums"
+                                                    title={money(moneyIn - moneyOut)}
+                                                >
+                                                    {short(moneyIn - moneyOut)}
                                                 </p>
                                             </div>
                                         </div>
                                         <DataTable
+                                            stacked
                                             head={
                                                 <>
                                                     <th>{t((d) => d.pages.walletReports.source)}</th>
@@ -1183,13 +1370,29 @@ export default function WalletReports(): JSX.Element {
                                         >
                                             {movement.map((row) => (
                                                 <tr key={row.key}>
-                                                    <td className="col-primary">{row.label}</td>
-                                                    <td className="note">{row.currencyCode}</td>
+                                                    <td className="col-primary font-semibold">{row.label}</td>
+                                                    {/* The currency is a column on a wide screen and a
+                                                        mark in the card's corner on a phone: it qualifies
+                                                        the two figures under it, so it has to be read
+                                                        before them rather than after. */}
+                                                    <td className="col-end note">
+                                                        <Pill>{row.currencyCode}</Pill>
+                                                    </td>
                                                     <td className="col-figure is-in">
-                                                        {formatMinor(row.inMinor, row.currencyCode, locale)}
+                                                        <CellLabel
+                                                            icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.moneyIn)}
+                                                        </CellLabel>
+                                                        {figure(row.inMinor, row.currencyCode)}
                                                     </td>
                                                     <td className="col-figure is-out">
-                                                        {formatMinor(-row.outMinor, row.currencyCode, locale)}
+                                                        <CellLabel
+                                                            icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
+                                                        >
+                                                            {t((d) => d.pages.walletReports.moneyOut)}
+                                                        </CellLabel>
+                                                        {figure(-row.outMinor, row.currencyCode)}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1215,7 +1418,7 @@ export default function WalletReports(): JSX.Element {
                                             )}
                                             note={reports.attention.unclassifiedMinor
                                                 .map((total) =>
-                                                    formatMinor(total.totalMinor, total.currencyCode, locale),
+                                                    short(total.totalMinor, total.currencyCode),
                                                 )
                                                 .join(' · ')}
                                             onClick={() => {
