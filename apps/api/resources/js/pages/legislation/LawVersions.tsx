@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink, Eye } from 'lucide-react';
 import type { JSX } from 'react';
 
 import { PanelButton, Status } from '../../components/panel';
@@ -90,6 +90,11 @@ export default function LawVersions({
                                             onOpenChange(false);
                                         }}
                                     >
+                                        {current ? (
+                                            <Check className="size-3.5" aria-hidden="true" />
+                                        ) : (
+                                            <Eye className="size-3.5" aria-hidden="true" />
+                                        )}
                                         {current
                                             ? t((d) => d.pages.legislation.law.shown)
                                             : t((d) => d.pages.legislation.law.viewOn)}

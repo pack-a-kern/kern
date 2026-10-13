@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { UserRoundCog } from 'lucide-react';
+import { ArrowLeft, UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { stopImpersonating } from '../api/adminApi';
@@ -62,6 +62,7 @@ export default function ImpersonationBanner(): JSX.Element | null {
                     void stop();
                 }}
             >
+                <ArrowLeft className="size-3.5" aria-hidden="true" />
                 {t((d) => d.shell.impersonationStop)}
             </button>
         </div>

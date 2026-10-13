@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import AppShell from '../../components/AppShell';
-import { Activity, CalendarClock, CircleHelp, History, Play, Timer, X, Zap } from 'lucide-react';
+import {
+    Activity,
+    CalendarClock,
+    ChevronDown,
+    ChevronUp,
+    CircleHelp,
+    History,
+    Play,
+    Timer,
+    X,
+    Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -652,6 +663,11 @@ function TaskHistoryDialog(props: {
                                                     setExpanded(expanded === run.id ? null : run.id);
                                                 }}
                                             >
+                                                {expanded === run.id ? (
+                                                    <ChevronUp className="size-3.5" aria-hidden="true" />
+                                                ) : (
+                                                    <ChevronDown className="size-3.5" aria-hidden="true" />
+                                                )}
                                                 {t((d) => d.pages.adminOperations.tasks.output)}
                                             </PanelButton>
                                         </td>

@@ -4173,6 +4173,12 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 .impersonation-exit {
+    /* Flex, because the word now travels with a mark: the arrow back to one's own account. A block
+       button would stack them, and `gap` is the only spacing that does not depend on which of the
+       two comes first. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     flex: none;
     border-radius: var(--radius-lg);
     background: var(--warning-foreground);

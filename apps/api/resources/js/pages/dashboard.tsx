@@ -62,8 +62,6 @@ const FX_WINDOWS = ['3', '6', '12', '60'];
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
-
-
 /**
  * Where the money is, in the order the bar draws it. Class names are written out whole so the
  * stylesheet build finds them; the colours are the palette's own, so a changed palette recolours
@@ -209,9 +207,7 @@ export default function Dashboard(): JSX.Element {
                                     <Wallet className="size-4" />
                                 </IconBadge>
                                 <div className="min-w-0">
-                                    <div className="panel-title">
-                                        {t((d) => d.pages.walletOverview.netWorth)}
-                                    </div>
+                                    <div className="panel-title">{t((d) => d.pages.walletOverview.netWorth)}</div>
                                     <div className="note">{t((d) => d.pages.walletOverview.netWorthScope)}</div>
                                 </div>
                             </div>
@@ -247,9 +243,7 @@ export default function Dashboard(): JSX.Element {
 
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                                <div className="panel-title">
-                                    {t((d) => d.pages.walletOverview.whereItSits)}
-                                </div>
+                                <div className="panel-title">{t((d) => d.pages.walletOverview.whereItSits)}</div>
                                 <span className="note">{t((d) => d.pages.walletOverview.allocationOf)}</span>
                             </div>
 
@@ -432,6 +426,7 @@ export default function Dashboard(): JSX.Element {
                                     router.visit(ACCOUNTS_PATH);
                                 }}
                             >
+                                <Landmark className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletOverview.viewAccounts)}
                             </PanelButton>
                         }
@@ -574,11 +569,7 @@ export default function Dashboard(): JSX.Element {
                                                     {t((d) => d.pages.walletOverview.principalLabel)}
                                                 </div>
                                                 <div className="mt-0.5 text-xs font-semibold">
-                                                    {formatMinor(
-                                                        deposit.principalMinor,
-                                                        deposit.currencyCode,
-                                                        locale,
-                                                    )}
+                                                    {formatMinor(deposit.principalMinor, deposit.currencyCode, locale)}
                                                 </div>
                                             </div>
                                             {deposit.interestAtMaturityMinor === null ? null : (
@@ -595,9 +586,7 @@ export default function Dashboard(): JSX.Element {
                                                                 locale,
                                                             ),
                                                         )}
-                                                        {deposit.annualRate === null
-                                                            ? ''
-                                                            : ` · ${deposit.annualRate}%`}
+                                                        {deposit.annualRate === null ? '' : ` · ${deposit.annualRate}%`}
                                                     </div>
                                                 </div>
                                             )}
@@ -664,8 +653,6 @@ export default function Dashboard(): JSX.Element {
         </AppShell>
     );
 }
-
-
 
 /** The day and month a deposit matures, as a small calendar leaf — scanned down a list faster than a date. */
 function CalendarTile({ isoDate, locale }: { isoDate: string; locale: string }): JSX.Element {

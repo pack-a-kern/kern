@@ -6,6 +6,7 @@ import {
     PauseCircle,
     Pencil,
     PlayCircle,
+    RotateCcw,
     Plus,
     Users,
     UsersIcon,
@@ -208,6 +209,7 @@ export default function SubjectsPage(): JSX.Element {
                                 setReloadToken((token) => token + 1);
                             }}
                         >
+                            <RotateCcw className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.settingsSubjects.retry)}
                         </PanelButton>
                     ) : undefined

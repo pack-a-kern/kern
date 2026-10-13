@@ -4,12 +4,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 import {
     Activity,
     ArrowLeft,
+    ArrowLeftRight,
+    Building2,
     Banknote,
     CalendarDays,
+    ChevronDown,
     Check,
     Coins,
     CreditCard,
     Eraser,
+    ExternalLink,
     FileText,
     ScanText,
     FileType2,
@@ -24,6 +28,7 @@ import {
     MoreHorizontal,
     Pencil,
     Plus,
+    RotateCcw,
     ScrollText,
     Store,
     Tag,
@@ -1349,6 +1354,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                 <p className="mb-2">{t((d) => d.documentsReview.unsupportedPreview)}</p>
                                                 <Button variant="link" className="h-auto p-0" asChild>
                                                     <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="size-3.5" aria-hidden="true" />
                                                         {t((d) => d.documentsReview.openInNewTab)}
                                                     </a>
                                                 </Button>
@@ -1381,6 +1387,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                         void loadMoreExtractions();
                                     }}
                                 >
+                                    <ChevronDown className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.documentsReview.loadMore)}
                                 </PanelButton>
                             )
@@ -1469,6 +1476,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                         void handleRetryExtraction();
                                                     }}
                                                 >
+                                                    <RotateCcw className="size-3.5" aria-hidden="true" />
                                                     {retrying
                                                         ? t((d) => d.documentsReview.aiOutcomeRetrying)
                                                         : t((d) => d.documentsReview.aiOutcomeRetry)}
@@ -1578,6 +1586,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                         void handleAccept(extraction);
                                                     }}
                                                 >
+                                                    <Check className="size-3.5" aria-hidden="true" />
                                                     {t((d) => d.documentsReview.accept)}
                                                 </PanelButton>
                                                 <PanelButton
@@ -1586,6 +1595,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                         startCorrection(extraction);
                                                     }}
                                                 >
+                                                    <Pencil className="size-3.5" aria-hidden="true" />
                                                     {t((d) => d.documentsReview.correct)}
                                                 </PanelButton>
                                             </div>
@@ -1624,6 +1634,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                     setCreatingRental(true);
                                                 }}
                                             >
+                                                <Building2 className="size-3.5" aria-hidden="true" />
                                                 {t((d) => d.documentsReview.createRental)}
                                             </Button>
                                         ) : statementRows === null ? (
@@ -1633,6 +1644,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                                     setCreatingTransaction(true);
                                                 }}
                                             >
+                                                <ArrowLeftRight className="size-3.5" aria-hidden="true" />
                                                 {t((d) => d.documentsReview.importTransaction)}
                                             </Button>
                                         ) : (
@@ -1785,6 +1797,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                                     setNameDraft(suggestedName);
                                 }}
                             >
+                                <Check className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.documentsReview.renameUseSuggestion)}
                             </PanelButton>
                         </div>

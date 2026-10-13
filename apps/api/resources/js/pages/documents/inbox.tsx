@@ -9,6 +9,7 @@ import {
     Building2,
     FileQuestion,
     FileSignature,
+    Eye,
     FileText,
     FilterX,
     FolderOpen,
@@ -651,6 +652,12 @@ export default function DocumentsInbox(): JSX.Element {
                                                             ? [
                                                                   {
                                                                       key: 'review',
+                                                                      icon: (
+                                                                          <Eye
+                                                                              className="size-3.5"
+                                                                              aria-hidden="true"
+                                                                          />
+                                                                      ),
                                                                       label: t((d) =>
                                                                           document.stage === 'DONE'
                                                                               ? d.documentsInbox.view

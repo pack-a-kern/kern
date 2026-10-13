@@ -6,6 +6,7 @@ import {
     Calculator,
     CalendarClock,
     ChartColumn,
+    CheckCheck,
     ChevronDown,
     FileSpreadsheet,
     Files,
@@ -362,9 +363,10 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                     {unread > 0 && (
                         <button
                             type="button"
-                            className="text-accent-600 hover:text-accent-700 text-xs font-semibold"
+                            className="text-accent-600 hover:text-accent-700 inline-flex items-center gap-1 text-xs font-semibold"
                             onClick={markAllRead}
                         >
+                            <CheckCheck className="size-3" aria-hidden="true" />
                             {t((d) => d.shell.markAllRead)}
                         </button>
                     )}

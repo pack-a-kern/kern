@@ -8,6 +8,8 @@ import {
     CalendarDays,
     CalendarRange,
     Coins,
+    Eye,
+    RotateCcw,
     CheckCircle2,
     Columns3,
     ChevronRight,
@@ -712,6 +714,7 @@ export default function WalletImport(): JSX.Element {
                                         void askAgainForColumns();
                                     }}
                                 >
+                                    <RotateCcw className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.walletImports.readAgain)}
                                 </PanelButton>
                             ) : null}
@@ -720,6 +723,7 @@ export default function WalletImport(): JSX.Element {
                                     router.visit(IMPORTS_PATH);
                                 }}
                             >
+                                <FileSpreadsheet className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletImports.historyTitle)}
                             </PanelButton>
                         </p>
@@ -971,6 +975,7 @@ export default function WalletImport(): JSX.Element {
                                             void applyToSelection({ included: false });
                                         }}
                                     >
+                                        <X className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.walletImports.review.exclude)}
                                     </PanelButton>
                                     <PanelButton
@@ -979,6 +984,7 @@ export default function WalletImport(): JSX.Element {
                                             void applyToSelection({ included: true });
                                         }}
                                     >
+                                        <Check className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.walletImports.review.include)}
                                     </PanelButton>
                                 </>
@@ -1273,6 +1279,7 @@ function BatchQueue({
                                     onOpen(one.importId ?? '');
                                 }}
                             >
+                                <Eye className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.pages.walletImports.file.openOne)}
                             </PanelButton>
                         )}
@@ -1610,7 +1617,10 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="note">{t((d) => d.pages.walletImports.suggesting.why)}</p>
-                <PanelButton onClick={onSkip}>{t((d) => d.pages.walletImports.suggesting.skip)}</PanelButton>
+                <PanelButton onClick={onSkip}>
+                    <ArrowRight className="size-3.5" aria-hidden="true" />
+                    {t((d) => d.pages.walletImports.suggesting.skip)}
+                </PanelButton>
             </div>
         </Panel>
     );
@@ -2182,13 +2192,14 @@ function MappingFields({
                 <button
                     key={value}
                     type="button"
-                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-destructive hover:text-destructive"
+                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-destructive hover:text-destructive"
                     title={t((d) => d.pages.walletImports.columns.removeHint)}
                     onClick={() => {
                         onRemove(value);
                     }}
                 >
-                    {value} ×
+                    {value}
+                    <X className="size-3" aria-hidden="true" />
                 </button>
             ))}
         </div>

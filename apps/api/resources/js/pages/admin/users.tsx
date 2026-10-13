@@ -286,7 +286,9 @@ export default function AdminUsers(): JSX.Element {
                   },
         );
 
-        setEditing((current) => (current === null || current.id !== userId ? current : { ...current, avatarUpdatedAt: version }));
+        setEditing((current) =>
+            current === null || current.id !== userId ? current : { ...current, avatarUpdatedAt: version },
+        );
     };
 
     const save = async (user: AdminUser, roles: string[], status: string): Promise<void> => {
@@ -328,7 +330,10 @@ export default function AdminUsers(): JSX.Element {
                 lede={t((d) => d.pages.adminUsers.description)}
                 actions={
                     failed ? (
-                        <PanelButton onClick={reload}>{t((d) => d.pages.adminUsers.retry)}</PanelButton>
+                        <PanelButton onClick={reload}>
+                            <RotateCcw className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.adminUsers.retry)}
+                        </PanelButton>
                     ) : undefined
                 }
             >

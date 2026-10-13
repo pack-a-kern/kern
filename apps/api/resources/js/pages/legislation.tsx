@@ -502,6 +502,7 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                                             </PanelButton>
                                         ) : null}
                                         <PanelButton onClick={open}>
+                                            <BookOpen className="size-3.5" aria-hidden="true" />
                                             {t((d) => d.pages.legislation.laws.open)}
                                         </PanelButton>
                                     </div>

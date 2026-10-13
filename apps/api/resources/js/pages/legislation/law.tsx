@@ -487,9 +487,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
 
                     <aside className="reader-stack hidden flex-col gap-2.5 xl:flex">
                         <div className="panel panel-pad-sm flex min-h-0 flex-1 flex-col">
-                            <h4 className="panel-title mb-1.5">
-                                {t((d) => d.pages.legislation.law.inThisPart)}
-                            </h4>
+                            <h4 className="panel-title mb-1.5">{t((d) => d.pages.legislation.law.inThisPart)}</h4>
                             <div className="reader-scroll min-h-0 flex-1">
                                 {found.map((group) => (
                                     <button
@@ -512,9 +510,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                         </div>
                         {law === null ? null : (
                             <div className="panel panel-pad-sm">
-                                <h4 className="panel-title mb-1.5">
-                                    {t((d) => d.pages.legislation.law.thisVersion)}
-                                </h4>
+                                <h4 className="panel-title mb-1.5">{t((d) => d.pages.legislation.law.thisVersion)}</h4>
                                 {readVersions
                                     .slice(Math.max(shownIndex, 0), Math.max(shownIndex, 0) + 3)
                                     .map((consolidation) => (
@@ -549,6 +545,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                                         setVersionsOpen(true);
                                     }}
                                 >
+                                    <History className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.legislation.law.allVersions)}
                                 </PanelButton>
                             </div>
