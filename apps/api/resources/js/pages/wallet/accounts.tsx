@@ -52,6 +52,7 @@ import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
@@ -62,7 +63,7 @@ import {
     OPENABLE_KINDS,
     isStreamKind,
     sourceName,
-    CURRENCIES,
+    BASE_CURRENCY,
     INTEREST_METHODS,
     PAYMENT_FREQUENCIES,
     RATE_TYPES,
@@ -136,7 +137,7 @@ function formFor(account: AccountSummary): AccountForm {
         ...emptyForm(),
         display_name: account.displayName,
         kind: account.kind,
-        currency_code: account.currencyCode ?? deposit?.currencyCode ?? CURRENCIES[0],
+        currency_code: account.currencyCode ?? deposit?.currencyCode ?? BASE_CURRENCY,
         holding_amount:
             account.kind === 'CASH' && account.balances[0] !== undefined
                 ? String(account.balances[0].amountMinor / 100)
@@ -162,7 +163,7 @@ function emptyForm(): AccountForm {
         display_name: '',
         // Defaults chosen so the commonest account is one field away: a RON current account.
         kind: OPENABLE_KINDS[0] ?? 'OTHER',
-        currency_code: CURRENCIES[0],
+        currency_code: BASE_CURRENCY,
         starts_at: '',
         holding_amount: '',
         funding_account_id: '',
@@ -179,6 +180,7 @@ function emptyForm(): AccountForm {
 
 export default function WalletAccounts(): JSX.Element {
     const { t, locale } = useTranslation();
+    const currencies = useCurrencies();
     const subjectId = getActiveSubjectId();
 
     const [loaded, setLoaded] = useState<{
@@ -435,14 +437,23 @@ export default function WalletAccounts(): JSX.Element {
     };
 
     /** Edit and delete, in the one control every row in this application draws them as. */
+    /*
+     * Marks alone, as every other list draws the same two verbs.
+     *
+     * The words were why this row could not pin its controls into the card's corner on a phone and
+     * took a line of its own at the foot instead — which made it the one table that looked different
+     * from the rest. A pencil and a bin are the two pictures a reader of this application has
+     * already met on the taxpayer, transaction and counterparty rows, and each keeps its word as the
+     * hover and the accessible name.
+     */
     const rowActions = (account: AccountSummary): JSX.Element => (
         <div className="flex justify-end">
             <ActionGroup
                 actions={[
                     {
                         key: 'edit',
-                        icon: <Pencil className="size-3.5" />,
-                        label: t((d) => d.pages.walletAccounts.edit),
+                        label: <Pencil className="size-3.5" aria-hidden="true" />,
+                        title: t((d) => d.pages.walletAccounts.edit),
                         onClick: () => {
                             errors.reset();
                             setForm(formFor(account));
@@ -451,8 +462,8 @@ export default function WalletAccounts(): JSX.Element {
                     },
                     {
                         key: 'delete',
-                        icon: <Trash2 className="size-3.5" />,
-                        label: t((d) => d.common.delete),
+                        label: <Trash2 className="size-3.5" aria-hidden="true" />,
+                        title: t((d) => d.common.delete),
                         tone: 'destructive' as const,
                         onClick: () => {
                             setDeleting(account);
@@ -704,7 +715,7 @@ export default function WalletAccounts(): JSX.Element {
                                                 </>
                                             )}
                                         </td>
-                                        <td className="col-actions text-right">{rowActions(account)}</td>
+                                        <td className="col-end text-right">{rowActions(account)}</td>
                                     </tr>
                                 );
                             })}
@@ -914,7 +925,7 @@ export default function WalletAccounts(): JSX.Element {
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, currency_code: value }));
                             }}
-                            options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                            options={currencies.map((code) => ({ value: code, label: code }))}
                         />
                     </Field>
 

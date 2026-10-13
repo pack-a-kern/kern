@@ -140,7 +140,46 @@ final readonly class UpdateSettingsGroupController
             SettingType::STRING, SettingType::SECRET => is_string($value) && trim($value) !== ''
                 ? $value
                 : null,
+            SettingType::CURRENCY_LIST => $this->currencyList($value),
         };
+    }
+
+    /**
+     * A list of three-letter codes, canonicalised — or null if any member is not one.
+     *
+     * Rejected rather than filtered: somebody who typed `lei` wants to be told, not to have it
+     * quietly dropped and the save reported as successful. Accepts the array the screen sends and
+     * the comma-separated string an API caller would.
+     */
+    private function currencyList(mixed $value): ?string
+    {
+        $codes = is_array($value) ? $value : (is_string($value) ? explode(',', $value) : null);
+
+        if ($codes === null) {
+            return null;
+        }
+
+        $clean = [];
+
+        foreach ($codes as $candidate) {
+            if (! is_string($candidate)) {
+                return null;
+            }
+
+            $code = strtoupper(trim($candidate));
+
+            if ($code === '') {
+                continue;
+            }
+
+            if (preg_match('/^[A-Z]{3}$/', $code) !== 1) {
+                return null;
+            }
+
+            $clean[] = $code;
+        }
+
+        return SettingType::encodeCurrencyList($clean);
     }
 
     private function expectation(SettingKey $key): string
@@ -151,6 +190,7 @@ final readonly class UpdateSettingsGroupController
             SettingType::DECIMAL => 'Expected a number.',
             SettingType::URL => 'Expected a valid URL.',
             SettingType::STRING, SettingType::SECRET => 'Expected a non-empty value.',
+            SettingType::CURRENCY_LIST => 'Expected three-letter currency codes.',
         };
     }
 }

@@ -86,6 +86,20 @@ enum SettingKey: string
     // FX verification (BLUEPRINT.md §7.4).
     case FX_VERIFICATION_TOLERANCE = 'fx.verification_tolerance';
 
+    /**
+     * Which currencies this installation works in.
+     *
+     * The import is untouched by it — BNR publishes thirty-nine and all thirty-nine are stored,
+     * because a rate nobody asked for still costs nothing and a missing year cannot be backfilled
+     * later. This is the shorter list a person actually holds money in: what the account, transaction
+     * and rental forms offer, and what the dashboard will chart.
+     *
+     * A setting rather than a constant in the frontend, which is where it used to be — two arrays in
+     * two files that disagreed with each other and with the API, none of them editable without a
+     * deploy.
+     */
+    case FX_CURRENCIES = 'fx.currencies';
+
     // SPV (BLUEPRINT.md §13).
     case SPV_MESSAGES_WINDOW_DAYS = 'spv.messages_window_days';
     case SPV_CHALLENGE_TTL_SECONDS = 'spv.challenge_ttl_seconds';
@@ -181,7 +195,8 @@ enum SettingKey: string
             self::SOURCES_FETCH_TIMEOUT_SECONDS, self::SOURCES_FETCH_MAX_BYTES,
             self::SOURCES_FETCH_MAX_REDIRECTS => SettingGroup::SOURCES,
 
-            self::FX_VERIFICATION_TOLERANCE, self::FX_DECIMAL_SCALE => SettingGroup::FX,
+            self::FX_VERIFICATION_TOLERANCE, self::FX_DECIMAL_SCALE,
+            self::FX_CURRENCIES => SettingGroup::FX,
 
             self::SPV_MESSAGES_WINDOW_DAYS, self::SPV_CHALLENGE_TTL_SECONDS => SettingGroup::SPV,
             // How long this installation waits on its browser worker. Not an SPV value: the worker
@@ -226,6 +241,7 @@ enum SettingKey: string
             self::SOURCES_FETCH_MAX_REDIRECTS => 'sources.fetch.max_redirects',
             self::FX_VERIFICATION_TOLERANCE => 'sources.fx.verification_tolerance',
             self::FX_DECIMAL_SCALE => 'sources.fx.decimal_scale',
+            self::FX_CURRENCIES => 'sources.fx.currencies',
             self::SPV_MESSAGES_WINDOW_DAYS => 'spv.anaf_api.messages_window_days',
             self::SPV_CHALLENGE_TTL_SECONDS => 'spv.challenge_ttl_seconds',
             self::BROWSER_WORKER_TIMEOUT_SECONDS => 'browser_worker.timeout_seconds',
@@ -253,6 +269,7 @@ enum SettingKey: string
             self::SOURCES_BNR_YEARLY_URL_TEMPLATE, self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL,
             self::SOURCES_GLEIF_BIC_LEI_PAGE_URL, self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL => SettingType::URL,
             self::FX_VERIFICATION_TOLERANCE => SettingType::DECIMAL,
+            self::FX_CURRENCIES => SettingType::CURRENCY_LIST,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER => SettingType::STRING,
             default => SettingType::INTEGER,

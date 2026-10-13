@@ -17,6 +17,23 @@ export function useAppName(): string {
 }
 
 /**
+ * The currencies this installation works in, base currency first.
+ *
+ * Shared by `HandleInertiaRequests::share()` from the `fx.currencies` setting. It used to be two
+ * arrays written into the frontend — one here in `types/wallet.ts`, one in the dashboard — which
+ * disagreed with each other and with an API that accepts any ISO 4217 code, and neither could be
+ * changed without a deploy. Read it here; never write a list of codes down again.
+ *
+ * The fallback is the base currency alone rather than an empty list: a select with no options is a
+ * form nobody can submit, and a Romanian tax product always has lei.
+ */
+export function useCurrencies(): string[] {
+    const value = usePage().props.currencies;
+
+    return Array.isArray(value) ? value.filter((code): code is string => typeof code === 'string') : ['RON'];
+}
+
+/**
  * What every screen is handed by the page it arrived on.
  *
  * `HandleInertiaRequests::share()` puts the signed-in account and its taxpayers into the page

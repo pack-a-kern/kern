@@ -433,11 +433,14 @@ export function sourceName(account: { kind: string; displayName: string }, gener
 }
 
 /**
- * Currencies offered in the forms. RON first because this is a Romanian tax product; the rest are
- * what a Romanian taxpayer plausibly holds. Not an allowlist — the API accepts any ISO 4217 code,
- * this is just what the select shows.
+ * The currency this product is denominated in, which no setting can remove.
+ *
+ * Mirrors `Kern\Platform\Settings\Enums\SettingType::BASE_CURRENCY`. A list of *offered*
+ * currencies is a setting and comes from `useCurrencies()`; this is the one code that is not a
+ * choice, and it is here so a default never has to reach for a list it does not have — a form
+ * builder outside a component cannot call a hook.
  */
-export const CURRENCIES = ['RON', 'EUR', 'USD', 'GBP', 'CHF'] as const;
+export const BASE_CURRENCY = 'RON';
 
 /** Mirrors `Kern\TaxRomania\Wallet\Enums\RateType`. */
 export const RATE_TYPES = ['FIXED', 'VARIABLE'] as const;

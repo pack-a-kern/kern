@@ -8,10 +8,10 @@ import { useEffect } from 'react';
 import { PanelDate } from '../PanelDatePicker';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { currencyFrom, entryAt, groupOf, readString, subjectPaymentIndex } from '../../lib/readingFields';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import type { DocumentExtractionSummary, DocumentSummary } from '../../types/documents';
 import {
-    CURRENCIES,
     categoriesFor,
     categoryFor,
     isStreamKind,
@@ -63,7 +63,8 @@ export default function CreateTransactionDialog({
     // the transactions screen's classification offers, so the two cannot disagree.
     const [categories, setCategories] = useState<TaxCategory[]>([]);
     const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState(() => prefill(extraction, document));
+    const currencies = useCurrencies();
+    const [form, setForm] = useState(() => prefill(extraction, document, currencies));
 
     useEffect(() => {
         let active = true;
@@ -286,7 +287,7 @@ export default function CreateTransactionDialog({
                         onValueChange={(value) => {
                             setForm((current) => ({ ...current, currency_code: value }));
                         }}
-                        options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                        options={currencies.map((code) => ({ value: code, label: code }))}
                     />
                 </Field>
 
@@ -389,7 +390,11 @@ function categoryFrom(payment: Record<string, unknown>): string {
  * with several lines, a dividend decision with several beneficiaries). Only the first is offered
  * here because this dialog builds one transaction; the rest are what the bulk import is for.
  */
-function prefill(extraction: DocumentExtractionSummary | null, document: DocumentSummary): TransactionForm {
+function prefill(
+    extraction: DocumentExtractionSummary | null,
+    document: DocumentSummary,
+    offered: string[],
+): TransactionForm {
     const fields = extraction?.proposedFields ?? {};
     const index = subjectPaymentIndex(extraction);
     const payment = entryAt(fields, 'payments', index);
@@ -405,7 +410,7 @@ function prefill(extraction: DocumentExtractionSummary | null, document: Documen
         direction: parties.direction === 'IN' ? 'in' : 'out',
         // What the document was actually paid in, where it says so — the amount above is in that
         // currency, and inheriting the account's instead is how 211588 USD became 211588 RON.
-        currency_code: currencyFrom(payment),
+        currency_code: currencyFrom(payment, offered),
         category: categoryFrom(payment),
         // What was actually handed over. `amount_stated` is the same money in the currency the
         // document computes in, and belongs to a conversion this form does not do.

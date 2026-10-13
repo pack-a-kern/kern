@@ -7,7 +7,8 @@
  */
 export type SettingSource = 'database' | 'inherited';
 
-export type SettingType = 'string' | 'integer' | 'decimal' | 'boolean' | 'url' | 'secret';
+/** Mirrors `Kern\Platform\Settings\Enums\SettingType`. */
+export type SettingType = 'string' | 'integer' | 'decimal' | 'boolean' | 'url' | 'secret' | 'currency_list';
 
 export interface Setting {
     key: string;

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\TaxRomania\Fx\Services\CurrencyCatalogue;
 use Kern\TaxRomania\Subjects\Queries\ListSubjectsForUser;
 use Kern\TaxRomania\Subjects\Queries\SubjectSummary;
 
@@ -97,6 +98,19 @@ final class HandleInertiaRequests extends Middleware
                     app(ListSubjectsForUser::class)($user->id)->items(),
                 ),
             ],
+            /*
+             * The currencies this installation works in, for the same reason as the line below it.
+             *
+             * Seven screens record an amount and every one of them needs this list; it used to be two
+             * arrays written into the frontend — `types/wallet.ts` and the dashboard's own copy — which
+             * disagreed with each other and with an API that accepts any ISO 4217 code. Shared from the
+             * setting, so changing it is a save rather than a deploy, and so there is one list.
+             *
+             * A config read, not a query: five strings off a setting that is already overlaid onto
+             * config at boot. The available-currency list, which does read the rates, stays on the
+             * settings screen's own endpoint.
+             */
+            'currencies' => app(CurrencyCatalogue::class)->enabled(),
             // What the upload picker may offer, from the one list that decides what the server
             // will actually accept. Shared rather than retyped in the dialog: a hand-maintained
             // copy drifts, and the way it drifts is a picker offering a file the server refuses.

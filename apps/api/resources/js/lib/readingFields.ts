@@ -1,5 +1,5 @@
 import type { DocumentExtractionSummary } from '../types/documents';
-import { CURRENCIES } from '../types/wallet';
+import { BASE_CURRENCY } from '../types/wallet';
 
 /*
  * Reading values out of a document's proposal, for the forms a document pre-fills.
@@ -50,9 +50,15 @@ export function subjectPaymentIndex(extraction: DocumentExtractionSummary | null
     return match === -1 ? 0 : match;
 }
 
-/** The payment's own currency where it is one we offer, else the first we do. */
-export function currencyFrom(payment: Record<string, unknown>): string {
+/**
+ * The payment's own currency where it is one this installation offers, else the base currency.
+ *
+ * The offered list is a parameter because it is a setting now, and this module is read by form
+ * builders that run outside a component where no hook can be called. The caller has it from
+ * `useCurrencies()` and passes it down.
+ */
+export function currencyFrom(payment: Record<string, unknown>, offered: string[]): string {
     const read = readString(payment, 'currency_paid').toUpperCase();
 
-    return (CURRENCIES as readonly string[]).includes(read) ? read : CURRENCIES[0];
+    return offered.includes(read) ? read : BASE_CURRENCY;
 }

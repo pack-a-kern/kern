@@ -19,6 +19,16 @@ enum SettingType: string
     case SECRET = 'secret';
 
     /**
+     * A set of ISO 4217 codes, stored as one comma-separated string.
+     *
+     * Its own type rather than a `STRING` holding a comma-separated list, because the two matches in
+     * `UpdateSettingsGroupController` have no `default` branch: a new shape there is a compile-time
+     * demand for a rule about how it is validated and what a rejection says. A plain string would
+     * have been accepted as `"lei, euro"` and read back as nothing.
+     */
+    case CURRENCY_LIST = 'currency_list';
+
+    /**
      * How a boolean is stored, and how it is read back.
      *
      * Both directions live here because they were written apart and disagreed: the update endpoint
@@ -54,6 +64,50 @@ enum SettingType: string
             self::FALSE, 'false' => false,
             default => null,
         };
+    }
+
+    /**
+     * The currency this product is denominated in, which is in every list whether it was chosen or not.
+     *
+     * A Romanian tax application without lei is not a configuration, it is a broken install: the
+     * fiscal parameters are in RON, the assessment is in RON, and every foreign amount is converted
+     * to it. So it is pinned here rather than guarded at each of the places that would otherwise
+     * have to check.
+     */
+    public const string BASE_CURRENCY = 'RON';
+
+    /**
+     * A stored string back to the codes it names — upper-cased, deduplicated, base currency first.
+     *
+     * Tolerant of the spacing a person types and of an empty list, which decodes to the base
+     * currency alone rather than to nothing: a select with no options is a screen that cannot be
+     * used, and the one code that is always meaningful is the one the product is written in.
+     *
+     * @return list<string>
+     */
+    public static function decodeCurrencyList(?string $stored): array
+    {
+        $codes = [self::BASE_CURRENCY];
+
+        foreach (explode(',', $stored ?? '') as $candidate) {
+            $code = strtoupper(trim($candidate));
+
+            if (preg_match('/^[A-Z]{3}$/', $code) === 1 && ! in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * Codes back to the stored string.
+     *
+     * @param  list<string>  $codes
+     */
+    public static function encodeCurrencyList(array $codes): string
+    {
+        return implode(',', self::decodeCurrencyList(implode(',', $codes)));
     }
 
     /**

@@ -1838,6 +1838,10 @@ export interface Dictionary {
             secretSet: string;
             secretUnset: string;
             secretReplace: string;
+            currencyAdd: string;
+            currencyRemove: string;
+            currencyNone: string;
+            currencyChosen: string;
             clearOverride: string;
             forbidden: string;
             loadFailed: string;

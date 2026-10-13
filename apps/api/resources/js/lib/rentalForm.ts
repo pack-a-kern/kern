@@ -1,6 +1,6 @@
 import type { DocumentExtractionSummary } from '../types/documents';
 import type { RentalSummary } from '../types/rentals';
-import { CURRENCIES } from '../types/wallet';
+import { BASE_CURRENCY } from '../types/wallet';
 import { currencyFrom, entryAt, groupOf, readString, subjectPaymentIndex } from './readingFields';
 
 /*
@@ -36,7 +36,7 @@ export function emptyRentalForm(): RentalForm {
         tenant_name: '',
         start_date: '',
         end_date: '',
-        currency_code: CURRENCIES[0],
+        currency_code: BASE_CURRENCY,
         rent: '',
         payment_frequency: '',
     };
@@ -64,7 +64,7 @@ export function rentalFormFor(rental: RentalSummary): RentalForm {
  * the subject is on, so the other side is the tenant. The address is the property's as the contract
  * prints it, and starts empty when the contract did not say.
  */
-export function rentalFormFromReading(extraction: DocumentExtractionSummary | null): RentalForm {
+export function rentalFormFromReading(extraction: DocumentExtractionSummary | null, offered: string[]): RentalForm {
     const fields = extraction?.proposedFields ?? {};
     const index = subjectPaymentIndex(extraction);
     const payment = entryAt(fields, 'payments', index);
@@ -76,7 +76,7 @@ export function rentalFormFromReading(extraction: DocumentExtractionSummary | nu
         start_date: readString(fields, 'date'),
         end_date: readString(fields, 'contract_end_date'),
         address: readString(fields, 'contract_rental_address'),
-        currency_code: currencyFrom(payment),
+        currency_code: currencyFrom(payment, offered),
         rent: readString(payment, 'amount_paid'),
     };
 }

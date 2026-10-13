@@ -7,6 +7,7 @@ use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVers
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\StartFiscalYearController;
+use Kern\TaxRomania\Http\Controllers\Fx\ShowCurrencyCatalogueController;
 use Kern\TaxRomania\Http\Controllers\Fx\ShowFxRateHistoryController;
 use Kern\TaxRomania\Http\Controllers\Operations\ForgetFailedJobController;
 use Kern\TaxRomania\Http\Controllers\Operations\RetryFailedJobController;
@@ -308,6 +309,9 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax
  */
 Route::prefix('v1/fx')->middleware('auth:web')->group(function (): void {
     Route::get('rates/history', ShowFxRateHistoryController::class);
+    // What the settings screen offers and what it saves. Not behind a permission: knowing that BNR
+    // publishes a yen rate tells a reader nothing about this installation's taxpayers.
+    Route::get('currencies', ShowCurrencyCatalogueController::class);
 });
 
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {

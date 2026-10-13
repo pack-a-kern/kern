@@ -54,6 +54,7 @@ import {
 } from '../../api/documentsApi';
 import { useCoalescedCallback } from '../../hooks/useCoalescedCallback';
 import { useDocumentsChannel } from '../../hooks/useDocumentsChannel';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { suggestDocumentName } from '../../lib/documentName';
 import { cn } from '@/lib/utils';
@@ -536,6 +537,7 @@ function fieldsToRows(
 
 export default function DocumentReview({ documentId }: { documentId: string }): JSX.Element {
     const { t, locale } = useTranslation();
+    const currencies = useCurrencies();
     const unrenderableValue = t((d) => d.documentsReview.unrenderableValue);
     const [subjectId] = useState(() => getActiveSubjectId());
     const [document, setDocument] = useState<DocumentSummary | null>(null);
@@ -1670,7 +1672,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                     subjectId={subjectId}
                     options={null}
                     editing={null}
-                    initial={rentalFormFromReading(bestReading)}
+                    initial={rentalFormFromReading(bestReading, currencies)}
                     documentId={document.id}
                     open={creatingRental}
                     onOpenChange={setCreatingRental}

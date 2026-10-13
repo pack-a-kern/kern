@@ -65,11 +65,12 @@ import {
     Toolbar,
 } from '../../components/panel';
 import { useRowSelection } from '../../hooks/useRowSelection';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { cn } from '../../lib/utils';
-import { categoriesFor, CURRENCIES, formatMinor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
+import { categoriesFor, formatMinor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
 import type {
     StatementClassification,
@@ -2026,6 +2027,7 @@ function MappingFields({
     };
 }): JSX.Element {
     const { t } = useTranslation();
+    const currencies = useCurrencies();
 
     const columnOptions = detail.preview.columns.map((column) => {
         const name = column.header === '' ? `#${String(column.index + 1)}` : column.header;
@@ -2421,7 +2423,7 @@ function MappingFields({
                         onValueChange={(next) => {
                             set({ currency: next === '' ? null : { type: 'code', value: next } });
                         }}
-                        options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                        options={currencies.map((code) => ({ value: code, label: code }))}
                     />
                 </Field>
 

@@ -69,6 +69,7 @@ import { useRememberedPaging, useRememberedState } from '../../hooks/useRemember
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
@@ -79,7 +80,7 @@ import {
     categoryFor,
     signedMinor,
     type MoneyDirection,
-    CURRENCIES,
+    BASE_CURRENCY,
     isStreamKind,
     sourceName,
     type AccountSummary,
@@ -103,8 +104,8 @@ import {
 /**
  * The add/edit form's fields.
  *
- * Declared rather than inferred: `CURRENCIES[0]` is a const-asserted tuple, so inference would pin
- * `currency_code` to the literal 'RON' and reject every other code the select offers.
+ * Declared rather than inferred: `BASE_CURRENCY` is a literal, so inference would pin
+ * `currency_code` to 'RON' and reject every other code the select offers.
  */
 interface TransactionForm {
     account_id: string;
@@ -128,7 +129,7 @@ function emptyTransactionForm(): TransactionForm {
         // Money in: what a tax return reads, and never given a category until someone chooses one.
         direction: 'in',
         amount: '',
-        currency_code: CURRENCIES[0],
+        currency_code: BASE_CURRENCY,
         booked_at: '',
         description: '',
         counterparty: '',
@@ -142,6 +143,7 @@ function emptyTransactionForm(): TransactionForm {
 
 export default function WalletTransactions(): JSX.Element {
     const { t, locale } = useTranslation();
+    const currencies = useCurrencies();
     const countries = useCountries();
     const subjectId = getActiveSubjectId();
 
@@ -785,7 +787,7 @@ export default function WalletTransactions(): JSX.Element {
                                     setForm({
                                         ...emptyTransactionForm(),
                                         account_id: accounts[0]?.id ?? '',
-                                        currency_code: accounts[0]?.currencyCode ?? CURRENCIES[0],
+                                        currency_code: accounts[0]?.currencyCode ?? BASE_CURRENCY,
                                         booked_at: new Date().toISOString().slice(0, 10),
                                     });
                                     setAdding(true);
@@ -850,6 +852,10 @@ export default function WalletTransactions(): JSX.Element {
                                             beats a layered `hidden`. */}
                                         <div className="sm:hidden">
                                             <PanelButton
+                                                /* `inline`, because this one does stand beside a
+                                                   control — the date range at `--ctl-h` — and the
+                                                   bulk menu beside it takes that height too. */
+                                                inline
                                                 /*
                                                     Tinted at every moment, so it reads as a different
                                                     kind of thing from the date picker it stands
@@ -1165,7 +1171,11 @@ export default function WalletTransactions(): JSX.Element {
                                     key={transaction.id}
                                     className={cn(selection.has(transaction.id) && 'row-selected')}
                                 >
-                                    <td className="col-hide w-8">
+                                    {/* Not `col-hide`: hidden on a phone, nothing can be ticked
+                                        there, and bulk delete lives behind a menu that appears only
+                                        once something is. A system row has no box either way — it is
+                                        the one kind this list cannot act on. */}
+                                    <td className="w-8">
                                         {transaction.source === 'SYSTEM' ? null : (
                                             <Checkbox
                                                 checked={selection.has(transaction.id)}
@@ -1557,7 +1567,7 @@ export default function WalletTransactions(): JSX.Element {
                             onValueChange={(value) => {
                                 setForm((current) => ({ ...current, currency_code: value }));
                             }}
-                            options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                            options={currencies.map((code) => ({ value: code, label: code }))}
                         />
                     </Field>
 

@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 
 import { listRentals, openRental, updateRental } from '../../api/rentalsApi';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import type { RentalForm } from '../../lib/rentalForm';
 import type { RentalFormOptions, RentalSummary } from '../../types/rentals';
-import { CURRENCIES } from '../../types/wallet';
+
 import { PanelDate } from '../PanelDatePicker';
 import { Field, FieldGrid, PanelButton, PanelDialog, PanelInput, PanelSelect } from '../panel';
 
@@ -46,6 +47,7 @@ export default function RentalDialog({
     onSaved: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
+    const currencies = useCurrencies();
     const errors = useFormErrors();
     const [fetchedOptions, setFetchedOptions] = useState<RentalFormOptions | null>(null);
     const [form, setForm] = useState<RentalForm>(initial);
@@ -314,7 +316,7 @@ export default function RentalDialog({
                         onValueChange={(value) => {
                             set('currency_code', value);
                         }}
-                        options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                        options={currencies.map((code) => ({ value: code, label: code }))}
                     />
                 </Field>
 

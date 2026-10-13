@@ -22,6 +22,7 @@ import {
     PanelButton,
     PanelDialog,
     PanelInput,
+    PanelMultiSelect,
     PanelSelect,
     Pill,
     Row,
@@ -37,7 +38,9 @@ import Checkbox from '../../components/Checkbox';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { ApiError } from '../../lib/http';
+import { apiRequest } from '../../lib/http';
 import { cn } from '../../lib/utils';
+import { BASE_CURRENCY } from '../../types/wallet';
 import {
     ActivityIcon,
     BanknoteIcon,
@@ -1285,6 +1288,84 @@ function formatSetting(setting: Setting, draft: string | undefined): string {
     return unit ? `${shown} ${unit.suffix}` : shown;
 }
 
+/**
+ * Which currencies this installation works in, chosen from the ones there are rates for.
+ *
+ * The app's own multi-select rather than a text field, because the two mistakes a text field invites
+ * are the two that matter: a code with no rates behind it, which makes a form offer a currency
+ * nothing can convert, and a typo, which silently offers nothing at all. The options come from the
+ * rates themselves — `GET /v1/fx/currencies` — so this screen can only offer what the application
+ * can actually convert.
+ *
+ * The base currency is not in the list. It is not a preference: the fiscal figures are in lei and
+ * every foreign amount converts to it, so the server pins it whatever is saved here, and offering it
+ * as something to remove would be offering a choice that is not one. The hint below says so.
+ */
+function CurrencyChoice(props: { id: string; value: string; disabled: boolean; onChange: (next: string) => void }): JSX.Element {
+    const { t } = useTranslation();
+    const [available, setAvailable] = useState<string[] | null>(null);
+
+    useEffect(() => {
+        let current = true;
+
+        void apiRequest('/v1/fx/currencies')
+            .then((text) => {
+                const body: unknown = JSON.parse(text);
+                const rows =
+                    typeof body === 'object' && body !== null ? (body as { available?: unknown }).available : null;
+
+                if (current) {
+                    setAvailable(
+                        Array.isArray(rows) ? rows.filter((code): code is string => typeof code === 'string') : [],
+                    );
+                }
+            })
+            .catch(() => {
+                if (current) {
+                    setAvailable([]);
+                }
+            });
+
+        return () => {
+            current = false;
+        };
+    }, []);
+
+    const chosen = props.value
+        .split(',')
+        .map((code) => code.trim().toUpperCase())
+        .filter((code) => code !== '' && code !== BASE_CURRENCY);
+    // Until the rates answer, what is already chosen is the only thing there is to offer — a spinner
+    // would hide the current setting while loading a longer list of it.
+    const options = (available ?? chosen).filter((code) => code !== BASE_CURRENCY);
+
+    return (
+        <div className="space-y-2">
+            <PanelMultiSelect
+                id={props.id}
+                values={chosen}
+                // Alphabetical, not the order they were picked: this is a set of currencies, and a
+                // numbered chip would claim a precedence the setting does not have.
+                ordered={false}
+                searchable
+                options={options.map((code) => ({ value: code, label: code }))}
+                addLabel={t((d) => d.pages.adminSettings.currencyAdd)}
+                removeLabel={t((d) => d.pages.adminSettings.currencyRemove)}
+                placeholder={t((d) => d.pages.adminSettings.currencyNone)}
+                disabled={props.disabled}
+                onChange={(next) => {
+                    props.onChange(next.join(','));
+                }}
+            />
+            <p className="note">
+                {t((d) => d.pages.adminSettings.currencyChosen)
+                    .replace('{chosen}', String(chosen.length + 1))
+                    .replace('{available}', String(options.length + 1))}
+            </p>
+        </div>
+    );
+}
+
 function SettingField(props: {
     setting: Setting;
     draft: string | undefined;
@@ -1298,6 +1379,7 @@ function SettingField(props: {
 
     const isSecret = setting.type === 'secret';
     const isBoolean = setting.type === 'boolean';
+    const isCurrencyList = setting.type === 'currency_list';
     const unit = unitFor(setting.key);
 
     // The draft is already in display units, so it is rendered verbatim; only the stored value
@@ -1319,7 +1401,14 @@ function SettingField(props: {
                     : null
             }
         >
-            {isBoolean ? (
+            {isCurrencyList ? (
+                <CurrencyChoice
+                    id={setting.key}
+                    value={shown}
+                    disabled={setting.read_only}
+                    onChange={props.onDraft}
+                />
+            ) : isBoolean ? (
                 <div className="flex h-8 items-center">
                     <Switch
                         id={setting.key}

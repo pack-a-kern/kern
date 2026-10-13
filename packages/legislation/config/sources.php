@@ -169,9 +169,14 @@ return [
     // ext_fx_period_averages storage precision; `verification_tolerance` is the maximum absolute
     // difference between a calculated period average and BNR's own published value before
     // Kern\TaxRomania\Fx\Enums\VerificationStatus::MISMATCH is recorded instead of VERIFIED.
+    // `currencies` is the shorter list the forms offer, not what is imported: every currency BNR
+    // publishes is stored either way. Comma-separated because a settings row is one string; RON is
+    // added back by Kern\Platform\Settings\Enums\SettingType::decodeCurrencyList() whether or not
+    // it is named here.
     'fx' => [
         'decimal_scale' => (int) env('FX_DECIMAL_SCALE', 6),
         'verification_tolerance' => env('FX_VERIFICATION_TOLERANCE', '0.0001'),
+        'currencies' => env('FX_CURRENCIES', 'RON,EUR,USD,GBP,CHF'),
     ],
 
 ];

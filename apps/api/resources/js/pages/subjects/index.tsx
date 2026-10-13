@@ -32,10 +32,11 @@ import { Switch } from '../../components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useRememberedPaging } from '../../hooks/useRememberedState';
+import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import type { SubjectsPage, TaxSubject } from '../../types/account';
-import { CURRENCIES } from '../../types/wallet';
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -66,6 +67,7 @@ import EditSubjectDialog from './EditSubjectDialog';
  */
 export default function SubjectsPage(): JSX.Element {
     const { t } = useTranslation();
+    const currencies = useCurrencies();
 
     const [page, setPage] = useState<SubjectsPage | null>(null);
     const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('subjects');
@@ -356,7 +358,7 @@ export default function SubjectsPage(): JSX.Element {
                                                     void changeCurrency(subject, next);
                                                 }
                                             }}
-                                            options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                                            options={currencies.map((code) => ({ value: code, label: code }))}
                                         />
                                     </td>
                                     <td data-label={t((d) => d.pages.settingsSubjects.columns.ai)}>
