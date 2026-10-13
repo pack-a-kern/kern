@@ -11,6 +11,7 @@ import {
     ShieldCheck,
     Trash2,
     UserRound,
+    X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -582,6 +583,7 @@ export default function Spv(): JSX.Element {
                                 setConnecting(false);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -591,6 +593,7 @@ export default function Spv(): JSX.Element {
                                 void register();
                             }}
                         >
+                            <Link2 className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.connect)}
                         </PanelButton>
                     </>
@@ -649,6 +652,7 @@ export default function Spv(): JSX.Element {
                                 setRevoking(null);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -660,6 +664,7 @@ export default function Spv(): JSX.Element {
                                 }
                             }}
                         >
+                            <Ban className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.revoke)}
                         </PanelButton>
                     </>
@@ -685,6 +690,7 @@ export default function Spv(): JSX.Element {
                                 setDeleting(null);
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -696,6 +702,7 @@ export default function Spv(): JSX.Element {
                                 }
                             }}
                         >
+                            <Trash2 className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.delete)}
                         </PanelButton>
                     </>
@@ -737,6 +744,7 @@ export default function Spv(): JSX.Element {
                                 }
                             }}
                         >
+                            <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.cancel)}
                         </PanelButton>
                         <PanelButton
@@ -746,6 +754,7 @@ export default function Spv(): JSX.Element {
                                 void (signIn.step === 'challenge' ? sendCode() : sendCredentials());
                             }}
                         >
+                            <KeyRound className="size-3.5" aria-hidden="true" />
                             {t((d) => d.pages.spv.submit)}
                         </PanelButton>
                     </>

@@ -1,5 +1,6 @@
 import { useState, type JSX } from 'react';
 import {
+    ArrowRight,
     Building2Icon,
     CalendarIcon,
     GlobeIcon,
@@ -210,6 +211,7 @@ export default function AddSubjectDialog(props: {
                             void checkCnp();
                         }}
                     >
+                        <ArrowRight className="size-3.5" aria-hidden="true" />
                         {checking
                             ? t((d) => d.pages.settingsSubjects.checkingCnp)
                             : t((d) => d.pages.settingsSubjects.continueLabel)}

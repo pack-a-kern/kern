@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useState, type JSX, type SyntheticEvent } from 'react';
-import { CheckCircle2Icon, MailIcon } from 'lucide-react';
+import { ArrowRight, CheckCircle2Icon, LogOut, MailIcon, Send, ShieldCheck } from 'lucide-react';
 import ErrorText from '../../components/ErrorText';
 import { LanguageMenu, PaletteMenu, ThemeToggle } from '../../components/ShellControls';
 import { fetchEmailVerificationStatus, logout, resendEmailVerification, verifyEmail } from '../../api/authApi';
@@ -155,6 +155,7 @@ export default function VerifyEmail(): JSX.Element {
                                         window.location.assign('/dashboard');
                                     }}
                                 >
+                                    <ArrowRight className="size-4" aria-hidden="true" />
                                     {t((d) => d.pages.verifyEmail.continueToApp)}
                                 </Button>
                             ) : (
@@ -194,7 +195,12 @@ export default function VerifyEmail(): JSX.Element {
                                                 />
                                             </Field>
 
-                                            <Button type="submit" className="w-full" disabled={busy || code.trim() === ''}>
+                                            <Button
+                                                type="submit"
+                                                className="w-full"
+                                                disabled={busy || code.trim() === ''}
+                                            >
+                                                <ShieldCheck className="size-4" aria-hidden="true" />
                                                 {t((d) => d.pages.verifyEmail.submit)}
                                             </Button>
 
@@ -205,6 +211,7 @@ export default function VerifyEmail(): JSX.Element {
                                                 disabled={busy}
                                                 onClick={() => void handleResend()}
                                             >
+                                                <Send className="size-4" aria-hidden="true" />
                                                 {t((d) => d.pages.verifyEmail.resend)}
                                             </Button>
                                         </form>
@@ -212,9 +219,7 @@ export default function VerifyEmail(): JSX.Element {
 
                                     {resent ? (
                                         <Alert>
-                                            <AlertDescription>
-                                                {t((d) => d.pages.verifyEmail.resent)}
-                                            </AlertDescription>
+                                            <AlertDescription>{t((d) => d.pages.verifyEmail.resent)}</AlertDescription>
                                         </Alert>
                                     ) : null}
 
@@ -230,6 +235,7 @@ export default function VerifyEmail(): JSX.Element {
                                             });
                                         }}
                                     >
+                                        <LogOut className="size-4" aria-hidden="true" />
                                         {t((d) => d.pages.verifyEmail.signOut)}
                                     </Button>
                                 </div>

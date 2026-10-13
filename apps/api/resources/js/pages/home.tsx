@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import type { JSX } from 'react';
+import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '../i18n';
 import { LanguageMenu, PaletteMenu, ThemeToggle } from '../components/ShellControls';
@@ -22,7 +23,10 @@ export default function Home(): JSX.Element {
                     <h1 className="text-2xl font-semibold">{appName}</h1>
                     <p className="mt-2 text-muted-foreground">{t((d) => d.home.tagline)}</p>
                     <Button asChild className="mt-6">
-                        <Link href="/login">{t((d) => d.home.signIn)}</Link>
+                        <Link href="/login">
+                            <LogIn className="size-4" aria-hidden="true" />
+                            {t((d) => d.home.signIn)}
+                        </Link>
                     </Button>
                 </div>
             </main>

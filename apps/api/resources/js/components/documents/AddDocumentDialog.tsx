@@ -1,4 +1,4 @@
-import { Camera, FileText, FolderOpen, Upload, Wand2, X } from 'lucide-react';
+import { Camera, FileText, FolderOpen, RotateCcw, Upload, Wand2, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
 import Checkbox from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
@@ -439,6 +439,7 @@ export default function AddDocumentDialog({
                                             );
                                         }}
                                     >
+                                        <X className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.documentsCapture.remove)}
                                     </PanelButton>
                                 </li>
@@ -553,6 +554,7 @@ export default function AddDocumentDialog({
                                                             void retry(item.localId);
                                                         }}
                                                     >
+                                                        <RotateCcw className="size-3.5" aria-hidden="true" />
                                                         {t((d) => d.documentsCapture.retry)}
                                                     </PanelButton>
                                                 ) : null}
@@ -565,6 +567,7 @@ export default function AddDocumentDialog({
                                                             void remove(item.localId);
                                                         }}
                                                     >
+                                                        <X className="size-3.5" aria-hidden="true" />
                                                         {t((d) => d.documentsCapture.remove)}
                                                     </PanelButton>
                                                 ) : null}

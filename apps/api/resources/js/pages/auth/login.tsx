@@ -1,7 +1,20 @@
 import { Head, usePage } from '@inertiajs/react';
 import { useRef, useState, type ClipboardEvent, type JSX, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { startAuthentication } from '@simplewebauthn/browser';
-import { AtSignIcon, Eye, EyeOff, Fingerprint, KeyRound, LockIcon, ScrollText, ShieldCheck } from 'lucide-react';
+import {
+    ArrowLeft,
+    AtSignIcon,
+    Eye,
+    EyeOff,
+    Fingerprint,
+    KeyRound,
+    LockIcon,
+    LogIn,
+    ScrollText,
+    ShieldCheck,
+    Smartphone,
+    UserRoundPlus,
+} from 'lucide-react';
 import ErrorText from '../../components/ErrorText';
 import { LanguageMenu, PaletteMenu, ThemeToggle } from '../../components/ShellControls';
 import {
@@ -205,9 +218,7 @@ export default function Login(): JSX.Element {
                                 T
                             </span>
                             <span>
-                                <span className="block text-sm font-semibold tracking-tight">
-                                    {appName}
-                                </span>
+                                <span className="block text-sm font-semibold tracking-tight">{appName}</span>
                                 <span className="text-muted-foreground block text-2xs">
                                     {t((d) => d.shell.appTagline)}
                                 </span>
@@ -310,6 +321,11 @@ export default function Login(): JSX.Element {
                                     </Field>
 
                                     <Button type="submit" disabled={busy} className="h-10 w-full">
+                                        {mode === 'register' ? (
+                                            <UserRoundPlus className="size-4" aria-hidden="true" />
+                                        ) : (
+                                            <LogIn className="size-4" aria-hidden="true" />
+                                        )}
                                         {mode === 'register'
                                             ? t((d) => d.auth.submitRegister)
                                             : t((d) => d.auth.submitSignIn)}
@@ -384,26 +400,29 @@ export default function Login(): JSX.Element {
                                                 disabled={busy || digits.join('').length < OTP_LENGTH}
                                                 className="h-10 w-full"
                                             >
+                                                <ShieldCheck className="size-4" aria-hidden="true" />
                                                 {t((d) => d.auth.mfaVerify)}
                                             </Button>
 
                                             <div className="flex items-center justify-between text-2xs">
                                                 <button
                                                     type="button"
-                                                    className="text-accent-700 font-semibold"
+                                                    className="text-accent-700 inline-flex items-center gap-1 font-semibold"
                                                     onClick={() => {
                                                         setMode('recovery');
                                                         setError(null);
                                                         errors.reset();
                                                     }}
                                                 >
+                                                    <KeyRound className="size-3" aria-hidden="true" />
                                                     {t((d) => d.auth.useRecoveryCode)}
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    className="text-muted-foreground font-semibold"
+                                                    className="text-muted-foreground inline-flex items-center gap-1 font-semibold"
                                                     onClick={leaveSecondStep}
                                                 >
+                                                    <ArrowLeft className="size-3" aria-hidden="true" />
                                                     {t((d) => d.auth.back)}
                                                 </button>
                                             </div>
@@ -443,6 +462,7 @@ export default function Login(): JSX.Element {
                                                 disabled={busy || recoveryCode.trim() === ''}
                                                 className="h-10 w-full"
                                             >
+                                                <ShieldCheck className="size-4" aria-hidden="true" />
                                                 {t((d) => d.auth.recoveryVerify)}
                                             </Button>
 
@@ -456,6 +476,7 @@ export default function Login(): JSX.Element {
                                                     errors.reset();
                                                 }}
                                             >
+                                                <Smartphone className="size-4" aria-hidden="true" />
                                                 {t((d) => d.auth.useAuthenticatorCode)}
                                             </Button>
                                         </form>
@@ -645,9 +666,7 @@ function AuthAside(): JSX.Element {
                                     <card.icon className="size-4" aria-hidden="true" />
                                 </span>
                                 <span className="mt-3 block text-xs font-semibold">{card.title}</span>
-                                <span className="text-muted-foreground mt-1 block text-2xs leading-4">
-                                    {card.body}
-                                </span>
+                                <span className="text-muted-foreground mt-1 block text-2xs leading-4">{card.body}</span>
                             </div>
                         ))}
                     </div>

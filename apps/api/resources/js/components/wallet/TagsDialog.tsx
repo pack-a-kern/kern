@@ -295,6 +295,7 @@ export default function TagsDialog({
                                     setMerging(false);
                                 }}
                             >
+                                <X className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.common.cancel)}
                             </PanelButton>
                             <PanelButton

@@ -1,21 +1,9 @@
-import {
-    Search,
-    SearchX,
-    X,
-} from 'lucide-react';
+import { Download, Search, SearchX, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { readPortalAct, searchPortal } from '../../api/legislationApi';
-import {
-    EmptyState,
-    Field,
-    PanelButton,
-    PanelDialog,
-    PanelInput,
-    PanelSelect,
-    Pill,
-} from '../../components/panel';
+import { EmptyState, Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
@@ -215,10 +203,7 @@ export default function AddLawDialog({
 
             <div className="mt-4 space-y-2" aria-live="polite">
                 {results === null ? null : results.length === 0 ? (
-                    <EmptyState
-                        icon={<SearchX className="size-5" />}
-                        title={t((d) => d.pages.legislation.add.none)}
-                    />
+                    <EmptyState icon={<SearchX className="size-5" />} title={t((d) => d.pages.legislation.add.none)} />
                 ) : (
                     results.map((act) => (
                         <article
@@ -261,9 +246,11 @@ export default function AddLawDialog({
                                             setConfirming(null);
                                         }}
                                     >
+                                        <X className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.legislation.add.cancel)}
                                     </PanelButton>
                                     <PanelButton primary onClick={() => void read(act)}>
+                                        <Download className="size-3.5" aria-hidden="true" />
                                         {t((d) => d.pages.legislation.add.confirmImport)}
                                     </PanelButton>
                                 </div>
@@ -273,6 +260,7 @@ export default function AddLawDialog({
                                         setConfirming(act.url);
                                     }}
                                 >
+                                    <Download className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.legislation.add.import)}
                                 </PanelButton>
                             )}

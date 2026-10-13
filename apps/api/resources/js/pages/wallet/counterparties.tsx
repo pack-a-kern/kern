@@ -10,6 +10,7 @@ import {
     Trash2,
     UserRound,
     UsersRound,
+    X,
 } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -542,6 +543,7 @@ export default function WalletCounterparties(): JSX.Element {
                                     setEditing(null);
                                 }}
                             >
+                                <X className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.common.cancel)}
                             </PanelButton>
                             <PanelButton primary disabled={saving} onClick={saveRules}>
@@ -638,6 +640,7 @@ export default function WalletCounterparties(): JSX.Element {
                                     setMerging(false);
                                 }}
                             >
+                                <X className="size-3.5" aria-hidden="true" />
                                 {t((d) => d.common.cancel)}
                             </PanelButton>
                             <PanelButton
