@@ -1,11 +1,24 @@
 import { Head } from '@inertiajs/react';
-import { Merge, Pencil, Shapes, Tag as TagIcon, Trash2, UserRound, UsersRound } from 'lucide-react';
+import {
+    ArrowDownLeft,
+    ArrowLeftRight,
+    ArrowUpRight,
+    Merge,
+    Pencil,
+    Shapes,
+    Tag as TagIcon,
+    Trash2,
+    UserRound,
+    UsersRound,
+} from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import AppShell from '../../components/AppShell';
+import BulkActions from '../../components/BulkActions';
 import {
     ActionGroup,
+    CellLabel,
     DataTable,
     EmptyState,
     Field,
@@ -25,6 +38,7 @@ import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
 import { Skeleton } from '../../components/ui/skeleton';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import TagsDialog from '../../components/wallet/TagsDialog';
 import TagsInput from '../../components/wallet/TagsInput';
 import { useRememberedPaging } from '../../hooks/useRememberedState';
@@ -147,7 +161,14 @@ export default function WalletCounterparties(): JSX.Element {
 
     const [editing, setEditing] = useState<Draft | null>(null);
     const [merging, setMerging] = useState(false);
-    const [forgetting, setForgetting] = useState(false);
+    /*
+     * Which parties to forget, not merely that the question is being asked.
+     *
+     * One name from its own row and a ticked set from the menu are the same act on different
+     * subjects, so they are the same dialog with a different list — a second piece of state for the
+     * single case would be two ways to forget that could drift apart.
+     */
+    const [forgetting, setForgetting] = useState<Party[] | null>(null);
     const [managingTags, setManagingTags] = useState(false);
     const [survivor, setSurvivor] = useState('');
     const [saving, setSaving] = useState(false);
@@ -317,6 +338,21 @@ export default function WalletCounterparties(): JSX.Element {
                     title={t((d) => d.pages.walletCounterparties.title)}
                     icon={<UsersRound className="size-4" aria-hidden="true" />}
                     flush
+                    /* In the card's head, where every screen keeps the action that is about the card
+                       rather than about a row. It was an unlabelled icon at the end of the filter
+                       row, between a search box and two controls that acted on ticked rows — three
+                       different kinds of thing in one line, and the only one of them that is always
+                       available was the one wearing no word. */
+                    aside={
+                        <PanelButton
+                            onClick={() => {
+                                setManagingTags(true);
+                            }}
+                        >
+                            <TagIcon className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.walletCounterparties.manageTags)}
+                        </PanelButton>
+                    }
                     foot={
                         // Gone while searching: those results are not a page of anything, they are
                         // every party that matched.
@@ -335,19 +371,40 @@ export default function WalletCounterparties(): JSX.Element {
                         )
                     }
                 >
-                    {/* One line: what to look for, and what to do with what is ticked. */}
+                    {/* One line: what to look for, and — once something is ticked — what to do with
+                        it. The two acted on a selection but were on screen whether or not there was
+                        one, each wearing a count pill to say so; the control every other list uses
+                        for this says it by existing. */}
                     <ToolbarRows>
                         <ToolbarRow
                             end={
-                                <PanelButton
-                                    title={t((d) => d.pages.walletCounterparties.manageTags)}
-                                    onClick={() => {
-                                        setManagingTags(true);
-                                    }}
-                                >
-                                    <TagIcon className="size-3.5" aria-hidden="true" />
-                                    <span className="sr-only">{t((d) => d.pages.walletCounterparties.manageTags)}</span>
-                                </PanelButton>
+                                <BulkActions count={picked.length}>
+                                    <DropdownMenuItem
+                                        /* Two spellings at least, or there is nothing to merge into
+                                           anything. Shown and refused rather than hidden: a menu
+                                           whose contents change with the count is one a reader has
+                                           to discover twice. */
+                                        disabled={picked.length < 2}
+                                        onSelect={() => {
+                                            // The busiest spelling, offered rather than imposed — a
+                                            // person who wants a shorter name types one.
+                                            setSurvivor(picked[0]?.name ?? '');
+                                            setMerging(true);
+                                        }}
+                                    >
+                                        <Merge className="size-4" aria-hidden="true" />
+                                        {t((d) => d.pages.walletCounterparties.merge)}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        onSelect={() => {
+                                            setForgetting(picked);
+                                        }}
+                                    >
+                                        <Trash2 className="size-4" aria-hidden="true" />
+                                        {t((d) => d.pages.walletCounterparties.forget)}
+                                    </DropdownMenuItem>
+                                </BulkActions>
                             }
                         >
                             <SearchInput
@@ -355,29 +412,6 @@ export default function WalletCounterparties(): JSX.Element {
                                 onChange={setTyped}
                                 placeholder={t((d) => d.pages.walletCounterparties.search)}
                             />
-                            <PanelButton
-                                disabled={picked.length < 2}
-                                onClick={() => {
-                                    // The busiest spelling, offered rather than imposed — a person
-                                    // who wants a shorter name types one.
-                                    setSurvivor(picked[0]?.name ?? '');
-                                    setMerging(true);
-                                }}
-                            >
-                                <Merge className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.walletCounterparties.merge)}
-                                {picked.length < 2 ? null : <Pill tone="accent">{picked.length}</Pill>}
-                            </PanelButton>
-                            <PanelButton
-                                disabled={picked.length === 0}
-                                onClick={() => {
-                                    setForgetting(true);
-                                }}
-                            >
-                                <Trash2 className="size-3.5 text-destructive" aria-hidden="true" />
-                                {t((d) => d.pages.walletCounterparties.forget)}
-                                {picked.length === 0 ? null : <Pill tone="accent">{picked.length}</Pill>}
-                            </PanelButton>
                         </ToolbarRow>
                     </ToolbarRows>
 
@@ -420,7 +454,11 @@ export default function WalletCounterparties(): JSX.Element {
                         >
                             {parties.map((party) => (
                                 <tr key={party.name}>
-                                    <td className="col-hide w-8">
+                                    {/* Not `col-hide`. Hidden on a phone, the two bulk actions could
+                                        never be reached there at all — the menu that holds them
+                                        appears only once something is ticked. The documents list
+                                        keeps its tick for the same reason. */}
+                                    <td className="w-8">
                                         <Checkbox
                                             checked={selection.has(party.name)}
                                             onCheckedChange={(next) => {
@@ -430,11 +468,25 @@ export default function WalletCounterparties(): JSX.Element {
                                         />
                                     </td>
                                     <td className="col-primary col-wide">{party.name}</td>
-                                    <td className="col-figure">{party.rows.toLocaleString(locale)}</td>
-                                    <td data-label={t((d) => d.pages.walletCounterparties.moneyIn)}>
+                                    <td className="col-figure">
+                                        <CellLabel icon={<ArrowLeftRight className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.walletCounterparties.rows)}
+                                        </CellLabel>
+                                        {party.rows.toLocaleString(locale)}
+                                    </td>
+                                    {/* In and out, as the two directions rather than two words: the
+                                        pair is the only thing on this row a reader compares, and the
+                                        arrows say which is which before the label is read. */}
+                                    <td>
+                                        <CellLabel icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.walletCounterparties.moneyIn)}
+                                        </CellLabel>
                                         <RuleCell rule={party.in} label={categoryLabel} />
                                     </td>
-                                    <td data-label={t((d) => d.pages.walletCounterparties.moneyOut)}>
+                                    <td>
+                                        <CellLabel icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.walletCounterparties.moneyOut)}
+                                        </CellLabel>
                                         <RuleCell rule={party.out} label={categoryLabel} />
                                     </td>
                                     <td className="col-end text-right">
@@ -447,6 +499,20 @@ export default function WalletCounterparties(): JSX.Element {
                                                         title: t((d) => d.common.edit),
                                                         onClick: () => {
                                                             openEditor(party);
+                                                        },
+                                                    },
+                                                    {
+                                                        /* Forgetting one name needed two gestures and
+                                                           a control that acts on a set: tick it,
+                                                           then find the menu. Every other list in
+                                                           this application puts it at the end of the
+                                                           row it belongs to. */
+                                                        key: 'forget',
+                                                        label: <Trash2 className="size-3.5" aria-hidden="true" />,
+                                                        title: t((d) => d.pages.walletCounterparties.forget),
+                                                        tone: 'destructive' as const,
+                                                        onClick: () => {
+                                                            setForgetting([party]);
                                                         },
                                                     },
                                                 ]}
@@ -628,22 +694,26 @@ export default function WalletCounterparties(): JSX.Element {
                 </PanelDialog>
             )}
 
-            {!forgetting ? null : (
+            {forgetting === null ? null : (
                 <ConfirmDialog
                     open
                     title={t((d) => d.pages.walletCounterparties.forgetTitle)}
                     description={t((d) => d.pages.walletCounterparties.forgetHint).replace(
                         '{count}',
-                        String(picked.length),
+                        String(forgetting.length),
                     )}
                     confirmLabel={t((d) => d.pages.walletCounterparties.forget)}
                     cancelLabel={t((d) => d.common.cancel)}
-                    onOpenChange={setForgetting}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setForgetting(null);
+                        }
+                    }}
                     onConfirm={() =>
-                        post('forget', { counterparty_ids: idsOf(picked) }, (text) => {
+                        post('forget', { counterparty_ids: idsOf(forgetting) }, (text) => {
                             const count = obj(JSON.parse(text)).counterparties_forgotten;
 
-                            setForgetting(false);
+                            setForgetting(null);
                             toast.success(
                                 t((d) => d.pages.walletCounterparties.forgotten).replace(
                                     '{count}',

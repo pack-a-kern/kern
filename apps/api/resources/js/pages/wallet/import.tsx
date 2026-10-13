@@ -739,6 +739,9 @@ export default function WalletImport(): JSX.Element {
                                         void askAgainForColumns();
                                     }}
                                 >
+                                    {/* The same mark this screen already gives asking the model
+                                        again further down, so the two reads are one gesture. */}
+                                    <Sparkles className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.walletImports.columns.askAgain)}
                                 </PanelButton>
                                 <PanelButton
@@ -748,6 +751,9 @@ export default function WalletImport(): JSX.Element {
                                         void applyMapping();
                                     }}
                                 >
+                                    {/* The step rail's own separator: on this screen the chevron
+                                        already means "the next one of these". */}
+                                    <ChevronRight className="size-3.5" aria-hidden="true" />
                                     {t((d) => d.pages.walletImports.columns.apply)}
                                 </PanelButton>
                             </>
@@ -1010,7 +1016,22 @@ export default function WalletImport(): JSX.Element {
                                             aria-label={row.description}
                                         />
                                     </td>
-                                    <td className="row-when whitespace-nowrap tabular-nums">{row.bookedAt ?? '—'}</td>
+                                    <td className="row-when whitespace-nowrap tabular-nums">
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {/* Drawn on a phone only. The wide table names this
+                                                column in its head, and a calendar on every row
+                                                under a column called "Date" says it twice —
+                                                `.cell-label` is the class that already appears in
+                                                the stacked layout alone. Nested one level down, so
+                                                the labelled-cell rules, which match a *direct*
+                                                child, stay off and this row keeps its own
+                                                arrangement. */}
+                                            <span className="cell-label">
+                                                <CalendarDays className="size-3.5" aria-hidden="true" />
+                                            </span>
+                                            {row.bookedAt ?? '—'}
+                                        </span>
+                                    </td>
                                     <td className="row-name">
                                         <div>{row.description}</div>
                                         {row.counterparty === null ? null : (

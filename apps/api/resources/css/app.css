@@ -1410,6 +1410,24 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
+ * On a phone the title gives way rather than the action leaving the row.
+ *
+ * `.panel-head` wraps, and a 12rem basis is wider than what is left beside a labelled button on a
+ * 360px screen — so the action dropped to a line of its own and the head cost two rows before the
+ * card said anything. A smaller basis lets the title wrap *inside its own column* instead, which is
+ * what the wrap was protecting against in the first place: the comment on `.panel-head` records an
+ * action that once squeezed a title into three lines and still overflowed, and `min-width: 0` above
+ * is why that cannot happen now.
+ *
+ * Phones only. There is no shortage of room at any width where the two already fit.
+ */
+@media (width < 40rem) {
+    .panel-head-main {
+        flex-basis: 7.5rem;
+    }
+}
+
+/*
  * The head's leading tile: a square holding the card's icon, so a page of cards scans by shape
  * before it is read.
  *
@@ -2802,9 +2820,19 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         display: none;
     }
     /* Takes the whole first line; everything else flows onto the second. The right padding is the
-       actions' width — they are pinned over this line, not laid out beside it. */
+       actions' width — they are pinned over this line, not laid out beside it.
+
+       The minimum height is the rest of that bargain, and the arithmetic is worth writing down. The
+       row's padding puts this line's top at 10px and the actions pin at `top: 10px`, so a control
+       of `--ctl-h` reaches 10px + 34px down. The row's own 8px gap sits between this line and the
+       next, so `--ctl-h - 8px` is where the next line just touches the buttons; the 4px here leaves
+       it clear of them rather than against them. Below that — a one-line name, which is the common
+       case — whatever follows runs under the buttons. It showed up first on the transaction rows,
+       where what follows is the amount, but every stacked table with a short first line had it
+       waiting. */
     .data-table-stack td.col-primary {
         flex-basis: 100%;
+        min-height: calc(var(--ctl-h) - 4px);
         padding-right: 80px;
     }
     /* Pinned to the row's top-right corner rather than pushed right on whatever line it ended up on
@@ -2888,37 +2916,37 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         white-space: normal;
         overflow-wrap: anywhere;
     }
-    /* A transaction as a phone shows one: what it was and how much, then when, then the one
+    /* A transaction as a phone shows one: what it was, then when and how much, then the one
        decision to make about it.
 
-       The date had the first line to itself and the amount was laid out after a two-line
-       description, so it came to rest halfway down the row against nothing, and the select that
-       followed took whatever width was left — a little over half, with the rest empty. Reading a
-       statement, the pair worth seeing together is the name and the figure; the date is what you
-       check second, which is where it now is.
+       Three bands, each with a job. The description takes the full width because it is the only
+       part that cannot be read at a glance — a statement descriptor runs to two lines and sharing
+       its line with the figure left both cramped. Underneath, the date and the amount face each
+       other across the row: the two short facts, the one you read left to right, and nothing
+       between them to cross. The select last, on its own line, because it is the only thing here
+       anyone clicks.
 
        `order` rather than reordered markup: the columns are right for the table this becomes again
        at 640px, and the cells carry their own meaning in either arrangement. */
     .data-table-stack td.row-name {
         order: 1;
-        flex: 1 1 auto;
+        flex-basis: 100%;
         min-width: 0;
         font-weight: 500;
     }
-    /* Top-aligned, not centred: the name beside it may run to three lines with its pills, and the
-       figure belongs on the first of them. */
+    .data-table-stack td.row-when {
+        order: 2;
+        flex: 1 1 auto;
+        font-size: var(--text-xs);
+        color: var(--muted-foreground);
+    }
+    /* The far edge of the same line, so the figures line up down the list and the date it belongs
+       to is the one beside it. */
     .data-table-stack td.row-sum {
-        order: 1;
-        align-self: flex-start;
+        order: 2;
         margin-left: auto;
         padding-left: 10px;
         font-weight: 600;
-    }
-    .data-table-stack td.row-when {
-        order: 2;
-        flex-basis: 100%;
-        font-size: var(--text-xs);
-        color: var(--muted-foreground);
     }
     /* The whole width: it is the only thing on the row anyone clicks. */
     .data-table-stack td.row-pick {
@@ -2926,9 +2954,15 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         flex-basis: 100%;
     }
     /* A labelled cell reads as one thing: the header row is gone on a phone, so the label travels
-       with its control instead of sitting above it and leaving the column ragged. */
+       with its control instead of sitting above it and leaving the column ragged.
+
+       `order: 3` puts the labelled pairs below the unlabelled cells, which is where they already
+       were by source order in every table that has no `order` of its own — stated so that a table
+       which *does* order its first lines (see the transaction rows above) does not find its
+       labelled cells jumping in front of them, an unordered flex item being `order: 0`. */
     .data-table-stack td[data-label],
     .data-table-stack td:has(> .cell-label) {
+        order: 3;
         display: flex;
         flex-basis: 100%;
         align-items: baseline;

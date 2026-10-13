@@ -192,9 +192,12 @@ export default function WalletImports(): JSX.Element {
                                     {t((d) => d.common.deleteSelected)}
                                 </DropdownMenuItem>
                             </BulkActions>
+                            {/* Not `inline`: that matches a 34px control, and the one this stands
+                                beside is `BulkActions`, whose trigger is `.shell-control` at 30px —
+                                so it was the taller of the two, mismatching the only thing it was
+                                there to match. */}
                             <PanelButton
                                 primary
-                                inline
                                 onClick={() => {
                                     router.visit(NEW_IMPORT_PATH);
                                 }}

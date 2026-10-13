@@ -41,9 +41,64 @@ before.
 
 **Still true as written:** the ranking weights, the two result groups, the unknown-date rule, the
 diacritic handling, the citation fuzzy match, and the single-statement shape ADR 0006 chose
-pgvector for. What has **not** been done is the larger rewrite that would let the three indexes
-answer by lookup — the GIN, HNSW and trigram indexes all exist and none is used, because the scores
-are computed in a select list rather than driving the query. That is the remaining retrieval work.
+pgvector for.
+
+## The remaining work, and what it is *not* — 2026-10-13
+
+Three indexes exist over this corpus and the search uses none of them: the GIN over
+`ext_source_section_chunks.text_search`, the trigram GIN over
+`kern_unaccent(lower(ext_source_sections.citation_label))`, and the HNSW over
+`ext_chunk_embeddings.embedding`. The obvious conclusion — rewrite the query so each index answers
+by lookup — was tried and **measured as worse**. It is written down here so nobody spends the day
+again.
+
+Three shapes, same query text, same corpus, each returning the same 294 rows:
+
+| shape | time |
+|---|---|
+| what is committed: date test first, then score the survivors | **345 ms** |
+| one pass, the three arms as indexable predicates OR'd together | 518 ms |
+| three candidate CTEs, merged, then date-filtered | 2,755 ms |
+
+Two reasons, both structural:
+
+**1. The bottleneck is no longer the scoring.** Since the date test moved ahead of it (see the
+Amendment above), only about 7,000 rows are scored. The plan's cost is somewhere else:
+
+```
+Nested Loop                                    187 ms
+  Hash Join                                    180 ms
+    Parallel Seq Scan on ext_source_sections   110 ms   ← 579,703 rows
+    Parallel Seq Scan on ext_chunk_embeddings    5 ms
+```
+
+Finding *which sections are in force* reads the whole sections table. A section's dates usually come
+from its version — `COALESCE(s.effective_from, dv.effective_from)` — an expression spanning two
+tables, which no index can serve. Driving from the versions instead does not help: the planner
+estimates sections uniformly across versions, and the in-force set is mostly the tiny
+`BANK_INSTITUTION_LIST` versions while the Fiscal Code's 91 consolidations hold ~7,000 sections
+each, so it picks a hash join over the full index-only scan and is right to by its own numbers.
+
+**2. A semantic candidate is a *text*, and a text expands.** `ext_chunk_embeddings` is keyed by
+`text_hash`, and one hash reaches every chunk repeating that provision — up to 91 of them. A top-400
+vector search became **25,882 candidate chunks** before the date filter could touch them. That
+expansion is the 2.7 seconds.
+
+**An HNSW trap worth recording.** `hnsw.ef_search` defaults to **40**: ask the index for the 400
+nearest and it returns 40, silently. Raising it to 500 returns 400 in 15 ms — and an exact scan of
+the same 15,582 vectors with no index at all returns 400 in **12 ms**. At this corpus size exact is
+both faster and complete, which is why the committed query seq-scans that table and the HNSW index
+currently earns nothing. It stays because it costs 27 MB and is what any future candidate-driven
+query would need; revisit when the distinct-text count grows by an order of magnitude, and set
+`ef_search` when it does.
+
+**What would actually fix it:** resolve each section's effective dates **at write time**.
+`LegislationSectionPersister` already receives the version's dates, so it can store the resolved
+pair on the section row; "in force on date D" then becomes a plain indexable predicate on one table
+and the 110 ms scan disappears. That is a schema and ingestion change, not a query rewrite — a
+column pair, an index, the persister filling them, and the care that they stay in sync when a
+version's dates change. It was not done because 345 ms is a usable search and the risk attaches to
+legal effective dates, which is the one thing in this module that must not be quietly wrong.
 
 ## What was built
 

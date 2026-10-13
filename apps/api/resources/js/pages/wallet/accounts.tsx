@@ -32,6 +32,7 @@ import { bankOptions } from '../../components/wallet/bankOptions';
 import { PanelDate } from '../../components/PanelDatePicker';
 import {
     ActionGroup,
+    CellLabel,
     DataTable,
     EmptyState,
     Field,
@@ -580,7 +581,9 @@ export default function WalletAccounts(): JSX.Element {
 
                                 return (
                                     <tr key={account.id} className={cn(selection.has(account.id) && 'row-selected')}>
-                                        <td className="col-hide w-8">
+                                        {/* Not `col-hide`: hidden on a phone, nothing can be ticked
+                                            there, and the bulk menu only exists once something is. */}
+                                        <td className="w-8">
                                             <Checkbox
                                                 checked={selection.has(account.id)}
                                                 onCheckedChange={(next) => {
@@ -604,10 +607,10 @@ export default function WalletAccounts(): JSX.Element {
                                                       )}`}
                                             </div>
                                         </td>
-                                        <td
-                                            className="tabular-nums whitespace-nowrap"
-                                            data-label={t((d) => d.pages.walletAccounts.columns.amount)}
-                                        >
+                                        <td className="tabular-nums whitespace-nowrap">
+                                            <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.walletAccounts.columns.amount)}
+                                            </CellLabel>
                                             {/* A deposit's money is its principal; anything else is what
                                                 has been recorded in it, one line per currency. */}
                                             {deposit !== null ? (
@@ -622,48 +625,58 @@ export default function WalletAccounts(): JSX.Element {
                                                 ))
                                             )}
                                         </td>
-                                        <td
-                                            className="tabular-nums whitespace-nowrap"
-                                            data-label={t((d) => d.pages.walletAccounts.columns.interest)}
-                                        >
-                                            {deposit === null ? null : (
-                                                /* One element: a stacked row lays a labelled cell out as a
-                                                   flex row, so loose siblings become columns beside the
-                                                   label rather than lines under each other. */
-                                                <div className="min-w-0 text-right sm:text-left">
-                                                    {deposit.interestAtMaturityMinor === null ? (
-                                                        <span className="note">
-                                                            {t((d) => d.pages.walletDeposits.notComputed)}
-                                                        </span>
-                                                    ) : (
-                                                        `+ ${formatMinor(deposit.interestAtMaturityMinor, deposit.currencyCode, locale)}`
-                                                    )}
-                                                    <div className="note">
-                                                        {deposit.annualRate === null
-                                                            ? t((d) => d.pages.walletDeposits.noRate)
-                                                            : `${deposit.annualRate}%`}
-                                                    </div>
-                                                    {deposit.interestReceivedMinor > 0 ? (
-                                                        <div className="note">
-                                                            {t((d) => d.pages.walletDeposits.receivedSoFar).replace(
-                                                                '{amount}',
-                                                                formatMinor(
-                                                                    deposit.interestReceivedMinor,
-                                                                    deposit.currencyCode,
-                                                                    locale,
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td
-                                            className="whitespace-nowrap"
-                                            data-label={t((d) => d.pages.walletAccounts.columns.maturity)}
-                                        >
+                                        {/* The label sits inside the deposit branch, not on the cell:
+                                            `data-label` drew its word for every row, so an ordinary
+                                            current account showed "INTEREST" and then nothing — a
+                                            heading for an answer that does not exist. */}
+                                        <td className="tabular-nums whitespace-nowrap">
                                             {deposit === null ? null : (
                                                 <>
+                                                    <CellLabel
+                                                        icon={<Percent className="size-3.5" aria-hidden="true" />}
+                                                    >
+                                                        {t((d) => d.pages.walletAccounts.columns.interest)}
+                                                    </CellLabel>
+                                                    {/* One element: a stacked row lays a labelled cell out as a
+                                                   flex row, so loose siblings become columns beside the
+                                                   label rather than lines under each other. */}
+                                                    <div className="min-w-0 text-right sm:text-left">
+                                                        {deposit.interestAtMaturityMinor === null ? (
+                                                            <span className="note">
+                                                                {t((d) => d.pages.walletDeposits.notComputed)}
+                                                            </span>
+                                                        ) : (
+                                                            `+ ${formatMinor(deposit.interestAtMaturityMinor, deposit.currencyCode, locale)}`
+                                                        )}
+                                                        <div className="note">
+                                                            {deposit.annualRate === null
+                                                                ? t((d) => d.pages.walletDeposits.noRate)
+                                                                : `${deposit.annualRate}%`}
+                                                        </div>
+                                                        {deposit.interestReceivedMinor > 0 ? (
+                                                            <div className="note">
+                                                                {t((d) => d.pages.walletDeposits.receivedSoFar).replace(
+                                                                    '{amount}',
+                                                                    formatMinor(
+                                                                        deposit.interestReceivedMinor,
+                                                                        deposit.currencyCode,
+                                                                        locale,
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </td>
+                                        <td className="whitespace-nowrap">
+                                            {deposit === null ? null : (
+                                                <>
+                                                    <CellLabel
+                                                        icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
+                                                    >
+                                                        {t((d) => d.pages.walletAccounts.columns.maturity)}
+                                                    </CellLabel>
                                                     {formatDate(deposit.maturityAt, locale)}
                                                     <div className="note">
                                                         {deposit.closed || deposit.daysToMaturity < 0
@@ -679,8 +692,17 @@ export default function WalletAccounts(): JSX.Element {
                                                 </>
                                             )}
                                         </td>
-                                        <td data-label={t((d) => d.pages.walletAccounts.columns.status)}>
-                                            {deposit === null ? null : depositStatus(deposit)}
+                                        <td>
+                                            {deposit === null ? null : (
+                                                <>
+                                                    <CellLabel
+                                                        icon={<Hourglass className="size-3.5" aria-hidden="true" />}
+                                                    >
+                                                        {t((d) => d.pages.walletAccounts.columns.status)}
+                                                    </CellLabel>
+                                                    {depositStatus(deposit)}
+                                                </>
+                                            )}
                                         </td>
                                         <td className="col-actions text-right">{rowActions(account)}</td>
                                     </tr>

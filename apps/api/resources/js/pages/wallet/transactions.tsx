@@ -18,9 +18,11 @@ import {
 import {
     AlignLeftIcon,
     ArrowLeftRight,
+    CalendarDays,
     Check,
     Coins,
     Copy as CopyIcon,
+    Filter,
     FilterX,
     Globe,
     Landmark,
@@ -29,6 +31,7 @@ import {
     Shapes,
     Tag as TagIcon,
     Trash2,
+    UsersRound,
     WalletCards,
     X,
 } from 'lucide-react';
@@ -36,6 +39,7 @@ import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
     ActionGroup,
+    CellLabel,
     ButtonGroup,
     DataTable,
     EmptyState,
@@ -234,6 +238,21 @@ export default function WalletTransactions(): JSX.Element {
      * Whether anything is narrowing the list. Drives the reset button, which otherwise sat in the row
      * permanently offering to undo nothing.
      */
+    /*
+     * The five folded filters, on a phone only.
+     *
+     * They are always open on a wider screen, where one line holds them: see the note on the row
+     * itself for why that is right there. A phone gives that line five rows of its own, above the
+     * transactions it is meant to narrow — so there they fold behind a button that says how many
+     * are on, beside the dates, which stay out because they are the other thing people reach for.
+     */
+    const [filtersOpen, setFiltersOpen] = useState(false);
+
+    /** Only the five behind the button. The search and the dates are on screen, saying themselves. */
+    const foldedFiltersOn =
+        [accountId, bankId, tagId, direction].filter((value) => value !== '').length +
+        (classification === 'all' ? 0 : 1);
+
     const filtersSet =
         accountId !== '' ||
         bankId !== '' ||
@@ -720,6 +739,19 @@ export default function WalletTransactions(): JSX.Element {
                                 than among the filters — it is not one. Importing moved out: it has
                                 its own place in the sidebar, and two buttons that both leave this
                                 screen made the one people press look like the one they do not. */}
+                            {/*
+                                Only "New transaction" gives up its label on a phone — a plus is the
+                                least ambiguous picture in this application, and it keeps its words
+                                as the hover and the accessible name. That is enough: the two
+                                labelled buttons together were about 290px against a head with
+                                roughly 330px to share with a title, and dropping one of them puts
+                                the pair back on the title's row.
+
+                                The toggle beside it keeps its words at every width, and must. Its
+                                mark is the same copy icon in both states — what changes is the word,
+                                which names the view it takes you *to*. Hidden, the two states are
+                                one picture that does two different things.
+                            */}
                             <PanelButton
                                 /* `card` rather than `ghost` for the off state: it is the variant
                                    that carries `border-border` on the card's own background, and
@@ -747,6 +779,7 @@ export default function WalletTransactions(): JSX.Element {
                             <PanelButton
                                 primary
                                 disabled={accounts.length === 0}
+                                title={t((d) => d.pages.walletTransactions.add)}
                                 onClick={() => {
                                     errors.reset();
                                     setForm({
@@ -759,7 +792,7 @@ export default function WalletTransactions(): JSX.Element {
                                 }}
                             >
                                 <PlusIcon className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.walletTransactions.add)}
+                                <span className="hidden sm:inline">{t((d) => d.pages.walletTransactions.add)}</span>
                             </PanelButton>
                         </>
                     }
@@ -811,6 +844,42 @@ export default function WalletTransactions(): JSX.Element {
                                                 {t((d) => d.common.deleteSelected)}
                                             </DropdownMenuItem>
                                         </BulkActions>
+
+                                        {/* The breakpoint sits on the wrapper: `.ctl-action` is an
+                                            unlayered component class, and an unlayered `display`
+                                            beats a layered `hidden`. */}
+                                        <div className="sm:hidden">
+                                            <PanelButton
+                                                /*
+                                                    Tinted at every moment, so it reads as a different
+                                                    kind of thing from the date picker it stands
+                                                    beside — one opens a panel, the other sets a
+                                                    value. The deeper fill is the state that matters:
+                                                    something is narrowing the list. It survives
+                                                    folding the panel shut, which is exactly the case
+                                                    worth noticing — a list filtered when nothing on
+                                                    screen says so.
+                                                */
+                                                variant={filtersOpen ? 'outline' : 'card'}
+                                                className={cn(
+                                                    'border-info/30 bg-info/5 text-info',
+                                                    foldedFiltersOn > 0 && 'border-info/50 bg-info/15 font-semibold',
+                                                )}
+                                                aria-expanded={filtersOpen}
+                                                onClick={() => {
+                                                    setFiltersOpen((open) => !open);
+                                                }}
+                                            >
+                                                <Filter className="size-3.5" aria-hidden="true" />
+                                                {t((d) => d.pages.walletTransactions.toolbar.filter)}
+                                                {/* The number, only when there is one. A badge
+                                                    reading zero is a control explaining that it has
+                                                    nothing to explain. */}
+                                                {foldedFiltersOn === 0 ? null : (
+                                                    <span className="tabular-nums">{foldedFiltersOn}</span>
+                                                )}
+                                            </PanelButton>
+                                        </div>
                                     </>
                                 }
                             >
@@ -831,28 +900,31 @@ export default function WalletTransactions(): JSX.Element {
                                 />
                             </ToolbarRow>
 
-                            {/* Always open. It was behind a button with a count on it, which meant a
-                                second row of chips to say what that count stood for — two pieces of
-                                furniture to explain a panel that fits on one line. */}
-                            <ToolbarRow>
-                                <div className="filter-card">
-                                    {/* Labelled and equal width: five unlabelled selects in a row
+                            {/* Always open on a wide screen. It was behind a button with a count on
+                                it, which meant a second row of chips to say what that count stood
+                                for — two pieces of furniture to explain a panel that fits on one
+                                line. A phone has no such line: the same panel is five rows there,
+                                above the transactions it narrows, so it keeps the button. */}
+                            <div className={filtersOpen ? undefined : 'hidden sm:block'}>
+                                <ToolbarRow>
+                                    <div className="filter-card">
+                                        {/* Labelled and equal width: five unlabelled selects in a row
                                             are five things to identify by their placeholder, and
                                             "Toate" appears in three of them. */}
-                                    <div className="filter-grid">
-                                        <Field label={t((d) => d.pages.walletTransactions.filters.labelAccount)}>
-                                            <PanelSelect
-                                                className="w-full"
-                                                icon={<WalletCards className="size-3.5" aria-hidden="true" />}
-                                                value={accountId}
-                                                onValueChange={(next) => {
-                                                    narrow(() => {
-                                                        setAccountId(next);
-                                                    });
-                                                }}
-                                                placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
-                                                emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
-                                                /*
+                                        <div className="filter-grid">
+                                            <Field label={t((d) => d.pages.walletTransactions.filters.labelAccount)}>
+                                                <PanelSelect
+                                                    className="w-full"
+                                                    icon={<WalletCards className="size-3.5" aria-hidden="true" />}
+                                                    value={accountId}
+                                                    onValueChange={(next) => {
+                                                        narrow(() => {
+                                                            setAccountId(next);
+                                                        });
+                                                    }}
+                                                    placeholder={t((d) => d.pages.walletTransactions.allAccounts)}
+                                                    emptyLabel={t((d) => d.pages.walletTransactions.allAccounts)}
+                                                    /*
                                             The sources with rows in this view, not every source the taxpayer
                                             has. A cash holding's rows are never listed and a term deposit's are
                                             not listed until interest is posted, so both were choices that
@@ -860,36 +932,36 @@ export default function WalletTransactions(): JSX.Element {
                                             this one, and the chosen source is kept whatever the list says —
                                             exactly as for the banks beside it.
                                             */
-                                                options={accounts
-                                                    .filter(
-                                                        (account) =>
-                                                            account.id === accountId ||
-                                                            (page?.accountIdsInUse ?? []).includes(account.id),
-                                                    )
-                                                    .map((account) => ({
-                                                        value: account.id,
-                                                        label: sourceName(
-                                                            account,
-                                                            t((d) => d.pages.wallet.generalSource),
-                                                        ),
-                                                    }))}
-                                            />
-                                        </Field>
-                                        <Field label={t((d) => d.pages.walletTransactions.filters.labelBank)}>
-                                            <PanelSelect
-                                                className="w-full"
-                                                icon={<Landmark className="size-3.5" aria-hidden="true" />}
-                                                searchable
-                                                value={bankId}
-                                                placeholder={t((d) => d.pages.walletTransactions.filters.allBanks)}
-                                                emptyLabel={t((d) => d.pages.walletTransactions.filters.allBanks)}
-                                                onValueChange={(next) => {
-                                                    narrow(() => {
-                                                        setBankId(next);
-                                                    });
-                                                }}
-                                                optionVisual="bare"
-                                                /*
+                                                    options={accounts
+                                                        .filter(
+                                                            (account) =>
+                                                                account.id === accountId ||
+                                                                (page?.accountIdsInUse ?? []).includes(account.id),
+                                                        )
+                                                        .map((account) => ({
+                                                            value: account.id,
+                                                            label: sourceName(
+                                                                account,
+                                                                t((d) => d.pages.wallet.generalSource),
+                                                            ),
+                                                        }))}
+                                                />
+                                            </Field>
+                                            <Field label={t((d) => d.pages.walletTransactions.filters.labelBank)}>
+                                                <PanelSelect
+                                                    className="w-full"
+                                                    icon={<Landmark className="size-3.5" aria-hidden="true" />}
+                                                    searchable
+                                                    value={bankId}
+                                                    placeholder={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                                                    emptyLabel={t((d) => d.pages.walletTransactions.filters.allBanks)}
+                                                    onValueChange={(next) => {
+                                                        narrow(() => {
+                                                            setBankId(next);
+                                                        });
+                                                    }}
+                                                    optionVisual="bare"
+                                                    /*
                                             The banks reachable under the other filters, not the register.
                                             Offering all forty-six meant scrolling past forty-odd choices that
                                             each return nothing, and a filter should never offer an empty result.
@@ -900,129 +972,137 @@ export default function WalletTransactions(): JSX.Element {
                                             free to drop it: pick a bank, then a tag it has no rows under, and
                                             the select would otherwise hold a value it cannot show a name for.
                                             */
-                                                options={bankOptions(
-                                                    banks.filter(
-                                                        (bank) =>
-                                                            bank.id === bankId ||
-                                                            (page?.bankIdsInUse ?? []).includes(bank.id),
-                                                    ),
-                                                    t((d) => d.pages.walletTransactions.bank.closed),
-                                                )}
-                                            />
-                                        </Field>
-                                        <Field label={t((d) => d.pages.walletTransactions.filters.labelTag)}>
-                                            <PanelSelect
-                                                className="w-full"
-                                                icon={<TagIcon className="size-3.5" aria-hidden="true" />}
-                                                searchable
-                                                value={tagId}
-                                                placeholder={t((d) => d.pages.walletTransactions.filters.allTags)}
-                                                emptyLabel={t((d) => d.pages.walletTransactions.filters.allTags)}
-                                                onValueChange={(next) => {
-                                                    narrow(() => {
-                                                        setTagId(next);
-                                                    });
-                                                }}
-                                                options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
-                                            />
-                                        </Field>
-                                        <Field label={t((d) => d.pages.walletTransactions.filters.labelDirection)}>
-                                            <PanelSelect
-                                                className="w-full"
-                                                icon={<ArrowLeftRight className="size-3.5" aria-hidden="true" />}
-                                                value={direction}
-                                                placeholder={t((d) => d.pages.walletTransactions.filters.allDirections)}
-                                                emptyLabel={t((d) => d.pages.walletTransactions.filters.allDirections)}
-                                                onValueChange={(next) => {
-                                                    narrow(() => {
-                                                        setDirection(next);
-                                                    });
-                                                }}
-                                                options={[
-                                                    {
-                                                        value: 'IN',
-                                                        label: t((d) => d.pages.walletTransactions.filters.directionIn),
-                                                    },
-                                                    {
-                                                        value: 'OUT',
-                                                        label: t(
-                                                            (d) => d.pages.walletTransactions.filters.directionOut,
+                                                    options={bankOptions(
+                                                        banks.filter(
+                                                            (bank) =>
+                                                                bank.id === bankId ||
+                                                                (page?.bankIdsInUse ?? []).includes(bank.id),
                                                         ),
-                                                    },
-                                                ]}
-                                            />
-                                        </Field>
-                                        <Field label={t((d) => d.pages.walletTransactions.filters.labelStatus)}>
-                                            <PanelSelect
-                                                className="w-full"
-                                                icon={<Shapes className="size-3.5" aria-hidden="true" />}
-                                                value={classification}
-                                                onValueChange={(next) => {
-                                                    narrow(() => {
-                                                        setClassification(next === '' ? 'all' : next);
-                                                    });
-                                                }}
-                                                options={[
-                                                    {
-                                                        value: 'all',
-                                                        label: t(
-                                                            (d) => d.pages.walletTransactions.classify.allStatuses,
-                                                        ),
-                                                    },
-                                                    {
-                                                        value: 'unclassified',
-                                                        label: t(
-                                                            (d) => d.pages.walletTransactions.classify.unclassified,
-                                                        ),
-                                                    },
-                                                    // The catalogue the classify dialog offers, so
-                                                    // the filter cannot name a category that no
-                                                    // transaction could have been given. It
-                                                    // replaces a "classified" option, which named
-                                                    // a state nobody acts on: a person looking for
-                                                    // what is answered is looking for rent, or for
-                                                    // dividends, and now asks for that.
-                                                    ...(page?.categories ?? []).map((category) => ({
-                                                        value: category.code,
-                                                        label: t(
-                                                            (d) =>
-                                                                d.pages.walletTransactions.categories[category.code] ??
-                                                                category.code,
-                                                        ),
-                                                    })),
-                                                ]}
-                                            />
-                                        </Field>
-                                    </div>
-                                    {filtersSet ? (
-                                        <div className="filter-card-foot">
-                                            <div className="filter-card-chips">
-                                                {activeFilters.map((filter) => (
-                                                    <button
-                                                        key={filter.key}
-                                                        type="button"
-                                                        className="filter-chip"
-                                                        onClick={filter.clear}
-                                                        title={t((d) => d.pages.walletTransactions.filters.remove)}
-                                                    >
-                                                        <span className="truncate">
-                                                            <span className="font-normal opacity-70">
-                                                                {filter.label}:{' '}
-                                                            </span>
-                                                            {filter.value}
-                                                        </span>
-                                                        <X className="size-3 shrink-0" aria-hidden="true" />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <PanelButton onClick={resetFilters}>
-                                                <FilterX className="size-3.5" aria-hidden="true" />
-                                                {t((d) => d.pages.walletTransactions.filters.reset)}
-                                            </PanelButton>
+                                                        t((d) => d.pages.walletTransactions.bank.closed),
+                                                    )}
+                                                />
+                                            </Field>
+                                            <Field label={t((d) => d.pages.walletTransactions.filters.labelTag)}>
+                                                <PanelSelect
+                                                    className="w-full"
+                                                    icon={<TagIcon className="size-3.5" aria-hidden="true" />}
+                                                    searchable
+                                                    value={tagId}
+                                                    placeholder={t((d) => d.pages.walletTransactions.filters.allTags)}
+                                                    emptyLabel={t((d) => d.pages.walletTransactions.filters.allTags)}
+                                                    onValueChange={(next) => {
+                                                        narrow(() => {
+                                                            setTagId(next);
+                                                        });
+                                                    }}
+                                                    options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+                                                />
+                                            </Field>
+                                            <Field label={t((d) => d.pages.walletTransactions.filters.labelDirection)}>
+                                                <PanelSelect
+                                                    className="w-full"
+                                                    icon={<ArrowLeftRight className="size-3.5" aria-hidden="true" />}
+                                                    value={direction}
+                                                    placeholder={t(
+                                                        (d) => d.pages.walletTransactions.filters.allDirections,
+                                                    )}
+                                                    emptyLabel={t(
+                                                        (d) => d.pages.walletTransactions.filters.allDirections,
+                                                    )}
+                                                    onValueChange={(next) => {
+                                                        narrow(() => {
+                                                            setDirection(next);
+                                                        });
+                                                    }}
+                                                    options={[
+                                                        {
+                                                            value: 'IN',
+                                                            label: t(
+                                                                (d) => d.pages.walletTransactions.filters.directionIn,
+                                                            ),
+                                                        },
+                                                        {
+                                                            value: 'OUT',
+                                                            label: t(
+                                                                (d) => d.pages.walletTransactions.filters.directionOut,
+                                                            ),
+                                                        },
+                                                    ]}
+                                                />
+                                            </Field>
+                                            <Field label={t((d) => d.pages.walletTransactions.filters.labelStatus)}>
+                                                <PanelSelect
+                                                    className="w-full"
+                                                    icon={<Shapes className="size-3.5" aria-hidden="true" />}
+                                                    value={classification}
+                                                    onValueChange={(next) => {
+                                                        narrow(() => {
+                                                            setClassification(next === '' ? 'all' : next);
+                                                        });
+                                                    }}
+                                                    options={[
+                                                        {
+                                                            value: 'all',
+                                                            label: t(
+                                                                (d) => d.pages.walletTransactions.classify.allStatuses,
+                                                            ),
+                                                        },
+                                                        {
+                                                            value: 'unclassified',
+                                                            label: t(
+                                                                (d) => d.pages.walletTransactions.classify.unclassified,
+                                                            ),
+                                                        },
+                                                        // The catalogue the classify dialog offers, so
+                                                        // the filter cannot name a category that no
+                                                        // transaction could have been given. It
+                                                        // replaces a "classified" option, which named
+                                                        // a state nobody acts on: a person looking for
+                                                        // what is answered is looking for rent, or for
+                                                        // dividends, and now asks for that.
+                                                        ...(page?.categories ?? []).map((category) => ({
+                                                            value: category.code,
+                                                            label: t(
+                                                                (d) =>
+                                                                    d.pages.walletTransactions.categories[
+                                                                        category.code
+                                                                    ] ?? category.code,
+                                                            ),
+                                                        })),
+                                                    ]}
+                                                />
+                                            </Field>
                                         </div>
-                                    ) : null}
-                                </div>
-                            </ToolbarRow>
+                                        {filtersSet ? (
+                                            <div className="filter-card-foot">
+                                                <div className="filter-card-chips">
+                                                    {activeFilters.map((filter) => (
+                                                        <button
+                                                            key={filter.key}
+                                                            type="button"
+                                                            className="filter-chip"
+                                                            onClick={filter.clear}
+                                                            title={t((d) => d.pages.walletTransactions.filters.remove)}
+                                                        >
+                                                            <span className="truncate">
+                                                                <span className="font-normal opacity-70">
+                                                                    {filter.label}:{' '}
+                                                                </span>
+                                                                {filter.value}
+                                                            </span>
+                                                            <X className="size-3 shrink-0" aria-hidden="true" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <PanelButton onClick={resetFilters}>
+                                                    <FilterX className="size-3.5" aria-hidden="true" />
+                                                    {t((d) => d.pages.walletTransactions.filters.reset)}
+                                                </PanelButton>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </ToolbarRow>
+                            </div>
                         </ToolbarRows>
                     )}
 
@@ -1072,7 +1152,6 @@ export default function WalletTransactions(): JSX.Element {
                                     <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.account)}</th>
                                     <th>{t((d) => d.pages.walletTransactions.columns.description)}</th>
-                                    <th>{t((d) => d.pages.walletTransactions.columns.counterparty)}</th>
                                     <th className="col-figure">
                                         {t((d) => d.pages.walletTransactions.columns.amount)}
                                     </th>
@@ -1097,8 +1176,33 @@ export default function WalletTransactions(): JSX.Element {
                                             />
                                         )}
                                     </td>
-                                    <td className="col-primary whitespace-nowrap tabular-nums">
-                                        {formatDate(transaction.bookedAt, locale)}
+                                    {/* When, and who — the two short facts about a payment that are
+                                        not the payment itself. The counterparty had a column of its
+                                        own holding one short name, mostly against empty space, while
+                                        the description column beside it was the one running out of
+                                        room. Under the date it costs no width at all, and the pair
+                                        reads as one answer: 12 Nov, to Enel. The account cell two
+                                        along already carries its bank this way. */}
+                                    <td className="row-when tabular-nums">
+                                        {/* Block rows, not inline ones: an `inline-flex` span leaves
+                                            the next inline box free to sit beside it, which put the
+                                            payee on the date's own line. */}
+                                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                            {/* At every width, like the bank under the account two
+                                                cells along. The mark is what tells the two lines
+                                                apart once they share a column — the header above can
+                                                only name one of them. */}
+                                            <CalendarDays className="size-3 shrink-0 opacity-60" aria-hidden="true" />
+                                            {formatDate(transaction.bookedAt, locale)}
+                                        </div>
+                                        {transaction.counterparty === null ? null : (
+                                            <div className="note flex items-center gap-1">
+                                                <UsersRound className="size-3 shrink-0" aria-hidden="true" />
+                                                <span className="cell-name" title={transaction.counterparty}>
+                                                    {transaction.counterparty}
+                                                </span>
+                                            </div>
+                                        )}
                                     </td>
                                     {/* The account, and beneath it the bank. Both answer "where", and
                                         the bank was down in the description cell answering it from
@@ -1125,7 +1229,12 @@ export default function WalletTransactions(): JSX.Element {
                                         counterparty, the bank and the tags — with one header above
                                         them saying "Description", so nothing said which line was
                                         which. Three of them now sit under headers of their own. */}
-                                    <td className="col-wide">
+                                    {/* The row's first line on a phone, where it used to be the
+                                        date: what a payment *was* is what identifies it in a list,
+                                        and a card headed "12 Nov 2025" made every row look alike.
+                                        `col-primary` with it, because that is what reserves the
+                                        corner the actions are pinned into. */}
+                                    <td className="row-name col-primary col-wide">
                                         <div>{transaction.description}</div>
                                         {/* The person's own labels stay here: a tag describes the
                                             payment, not who was paid, and "how much on food" is a
@@ -1145,23 +1254,19 @@ export default function WalletTransactions(): JSX.Element {
                                             </div>
                                         )}
                                     </td>
-                                    <td data-label={t((d) => d.pages.walletTransactions.columns.counterparty)}>
-                                        {transaction.counterparty === null ? (
-                                            // An em dash rather than nothing: an empty cell in a
-                                            // column of names reads as a rendering fault.
-                                            <span className="note">—</span>
-                                        ) : (
-                                            <div className="cell-name" title={transaction.counterparty}>
-                                                {transaction.counterparty}
-                                            </div>
-                                        )}
-                                    </td>
                                     {/* Money out reads red; the sign is the source of truth, not a
                                         separate direction column that could contradict it. */}
-                                    <td className={`col-figure ${transaction.amountMinor < 0 ? 'is-out' : 'is-in'}`}>
+                                    <td
+                                        className={`row-sum col-figure ${
+                                            transaction.amountMinor < 0 ? 'is-out' : 'is-in'
+                                        }`}
+                                    >
                                         {formatMinor(transaction.amountMinor, transaction.currencyCode, locale)}
                                     </td>
-                                    <td data-label={t((d) => d.pages.walletTransactions.columns.status)}>
+                                    <td>
+                                        <CellLabel icon={<Shapes className="size-3.5" aria-hidden="true" />}>
+                                            {t((d) => d.pages.walletTransactions.columns.status)}
+                                        </CellLabel>
                                         {/* The answer itself, not merely that one exists: this list
                                             is the worklist, and "Chirii · DE" is what a person is
                                             checking for. An unanswered row stays a plain pill so it
@@ -1716,7 +1821,12 @@ function DuplicateGroups({
                                     more here: deciding whether two rows are the same payment is
                                     mostly comparing who was paid, which is easier down a column than
                                     on the second line of two cells. */}
-                                <td data-label={t((d) => d.pages.walletTransactions.columns.counterparty)}>
+                                <td>
+                                    {/* The same mark the ledger beside it uses: one list in two
+                                        views, and a phone should not be told they are two tables. */}
+                                    <CellLabel icon={<UsersRound className="size-3.5" aria-hidden="true" />}>
+                                        {t((d) => d.pages.walletTransactions.columns.counterparty)}
+                                    </CellLabel>
                                     {transaction.counterparty === null ? (
                                         <span className="note">—</span>
                                     ) : (
