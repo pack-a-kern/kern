@@ -1498,8 +1498,32 @@ export function Pill({
     );
 }
 
-/** 30px tall, 11.5px label — smaller than the default control, per these screens' scale. */
-export function PanelButton(props: {
+/**
+ * 30px tall, 11.5px label — smaller than the default control, per these screens' scale.
+ *
+ * ## Why it takes a button's own props as well as its own
+ *
+ * A `DropdownMenuTrigger asChild` does not wrap its child: it clones it, handing it the menu's
+ * `ref`, the `onPointerDown` that actually opens the menu, and the `aria-haspopup` / `data-state`
+ * that say it is one. A component that forwards only the props it thought to declare drops all of
+ * that, and the result is a button that renders perfectly and does nothing — which is exactly how
+ * the wallet report's export menu shipped dead. Everything not named below passes straight through
+ * to the `<button>`, so a trigger gets what it gave.
+ *
+ * The named props stay named: they are this button's own vocabulary, each is a decision with a
+ * reason, and `variant` and `inline` mean something here that a `<button>` attribute cannot say.
+ */
+export function PanelButton({
+    children,
+    onClick,
+    disabled,
+    primary,
+    variant,
+    inline,
+    title,
+    className,
+    ...rest
+}: Omit<ComponentProps<'button'>, 'children' | 'type'> & {
     children: ReactNode;
     /**
      * The event comes with it: an action inside a card that is itself clickable stops it there.
@@ -1509,7 +1533,6 @@ export function PanelButton(props: {
      * about what the control does.
      */
     onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
-    disabled?: boolean;
     primary?: boolean;
     /**
      * `card` is the one to reach for on a card's own surface: it draws a border and a fill that
@@ -1519,25 +1542,18 @@ export function PanelButton(props: {
     variant?: 'ghost' | 'outline' | 'card';
     /** Match a control it stands beside (34px) instead of the 30px card-foot button. */
     inline?: boolean;
-    /** The hover text an icon-only button needs, since its label is a picture. */
-    title?: string;
-    /** For a button that is on or off, so a reader is told which rather than shown a shade. */
-    'aria-pressed'?: boolean;
-    'aria-expanded'?: boolean;
-    className?: string;
 }): JSX.Element {
     return (
         <Button
+            {...rest}
             type="button"
-            variant={props.primary === true ? 'default' : (props.variant ?? 'outline')}
-            {...(props.title === undefined ? {} : { title: props.title })}
-            {...(props['aria-pressed'] === undefined ? {} : { 'aria-pressed': props['aria-pressed'] })}
-            {...(props['aria-expanded'] === undefined ? {} : { 'aria-expanded': props['aria-expanded'] })}
-            className={cn(props.inline === true ? 'ctl shrink-0 font-semibold' : 'ctl-action', props.className)}
-            onClick={props.onClick}
-            disabled={props.disabled ?? false}
+            variant={primary === true ? 'default' : (variant ?? 'outline')}
+            {...(title === undefined ? {} : { title })}
+            className={cn(inline === true ? 'ctl shrink-0 font-semibold' : 'ctl-action', className)}
+            onClick={onClick}
+            disabled={disabled ?? false}
         >
-            {props.children}
+            {children}
         </Button>
     );
 }
