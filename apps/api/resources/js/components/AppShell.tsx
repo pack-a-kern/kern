@@ -850,14 +850,35 @@ export default function AppShell({
                             </SheetContent>
                         </Sheet>
 
-                        {/* The page says what it is; the shell does not repeat the product name on every
-                        screen. */}
+                        {/*
+                            The page says what it is; the shell does not repeat the product name on
+                            every screen.
+
+                            On a phone it says it to a screen reader only. The bar there holds a menu
+                            button and four controls, and a page name between them left none of it
+                            room — while the first card below almost always carries the same words in
+                            its own head. `sr-only` rather than `hidden`, because a document with no
+                            `h1` is a document a screen reader cannot summarise, and the name is the
+                            one thing it should be able to say.
+
+                            Colours from the tokens, not from hexes: this was the one place in the
+                            application painting text `#7C8592` and `#B5B9C0`, which is `muted`
+                            under another name and does not follow a palette when one is switched.
+
+                            Sized as chrome, not as a heading. It was `lg` — 18px, four pixels over
+                            every card title on the screen below it and the largest text in the
+                            application — so the bar announced the page louder than the page did.
+                            The note on the type scale makes the argument for the card title it broke:
+                            two or three pixels above the text it introduces is where a title starts
+                            reading as a page heading. `base` over `2xs` is the same pairing a card
+                            head uses, which is what this is.
+                        */}
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-ink-950 truncate text-base leading-5 font-semibold tracking-[-0.035em] sm:text-lg dark:text-white">
+                            <h1 className="text-foreground sr-only truncate text-base leading-5 font-semibold tracking-tight sm:not-sr-only">
                                 {header?.title ?? title ?? appName}
                             </h1>
                             {(header?.description ?? description) !== undefined && (
-                                <p className="mt-0.5 hidden truncate text-xs leading-4 font-medium text-[#7C8592] sm:block dark:text-[#B5B9C0]">
+                                <p className="text-muted-foreground mt-px hidden truncate text-2xs leading-4 sm:block">
                                     {header?.description ?? description}
                                 </p>
                             )}
@@ -870,7 +891,20 @@ export default function AppShell({
                         <UserMenu />
                     </header>
 
-                    <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
+                    {/*
+                        `relative`, which is not decoration: it is what makes this element the
+                        containing block for the absolutely positioned boxes inside it.
+
+                        Without it, a `.sr-only` span — `position: absolute`, which is how the
+                        utility hides text while leaving it readable to a screen reader — resolves
+                        against the initial containing block instead. An overflow only clips its own
+                        descendants, and a box positioned against something outside this one is not
+                        one: the twelve tooltip labels on the tasks screen therefore sat in the
+                        *document's* layout overflow, at the y where their rows would have been, and
+                        the window grew a second scrollbar beside this element's own. Positioned,
+                        they resolve here and are clipped here.
+                    */}
+                    <main className="relative min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
                         {/*
                             The cap widens on a large monitor, not below one.
                             `2xl:` is 1536px and up, so every laptop keeps the 1420px it had; past
