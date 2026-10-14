@@ -496,7 +496,10 @@ once the image exists.
 12. **Create the administrator.** `kern:access:grant` and `kern:identity:verify-email` already exist;
     what is missing is creating the user itself. See §7.
 13. **Obtain the certificate.** Caddy does this on first request; the installer waits for it and
-    reports what was issued, or says plainly that an IP answer means a browser warning.
+    reports what was issued, or says plainly that an IP answer means a browser warning. Until the
+    edge is Caddy, and as the fallback afterwards, this is `scripts/generate-certs.sh` — which the
+    installer calls before step 7, since the edge image is built with the certificate mounted and
+    `make up` refuses to start without it.
 14. **Health check** — `ProbeSystemHealth`, printed per component. Any non-healthy component is a
     non-zero exit with the component named.
 
@@ -515,7 +518,7 @@ In dependency order. Nothing after the first item can be finished before it.
 | # | Work | Why first |
 |---|---|---|
 | 1 | ~~**Split compose per service** (§3) + `COMPOSE_FILE` + the `make` guard~~ — **done** | nothing else can skip a service |
-| 2 | **`kern:certs`** — generate a self-signed pair with the right SANs | closes the fresh-clone hole today, and stays the fallback for the IP answer |
+| 2 | ~~**`kern:certs`**~~ — shipped as **`make certs`** / `scripts/generate-certs.sh`, not an artisan command: the edge needs the file before any image exists — **done** | closes the fresh-clone hole today, and stays the fallback for the IP answer |
 | 3 | **`kern:admin:create`** — creates the user, then reuses the existing `kern:identity:verify-email` and `kern:access:grant`; only user creation is missing | step 12 has nothing to call |
 | 4 | **Two more health probes** — OpenBao, browser worker (and `vpn` if built) | step 14 cannot verify what it cannot probe |
 | 5 | **Caddy edge** (§4) | needed for a real certificate, but the stack runs without it |

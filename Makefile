@@ -5,7 +5,7 @@
 
 SERVICE ?= app
 
-.PHONY: env up down build logs shell test lint fresh compose-file
+.PHONY: env certs up down build logs shell test lint fresh compose-file
 
 ## Refuse to run compose without a service list.
 ##
@@ -33,9 +33,22 @@ env:
 	@cat apps/api/.env.example packages/*/.env.example > apps/api/.env
 	@echo "Wrote apps/api/.env. Fill in every empty value — APP_KEY, the passwords, the tokens — before \`make up\`."
 
+## Generate the edge's TLS certificate and key. Usage: make certs [HOST=kern.example.ro]
+##
+## Neither file is in git — a private key must never be, and a certificate without its key is what
+## used to make a fresh clone fail to start the edge with nothing saying why. Self-signed, so
+## browsers warn; see docs/INSTALLER-PLAN.md §4 for what a real certificate needs.
+certs:
+	@scripts/generate-certs.sh $(HOST)
+
 ## Start the full stack in the background.
 up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
+	@test -f docker/nginx/certs/kern.crt -a -f docker/nginx/certs/kern.key || { \
+		echo "docker/nginx/certs is missing a certificate or its key, and the edge will not start."; \
+		echo "Run \`make certs\` — neither file is in git."; \
+		exit 1; \
+	}
 	docker compose up -d
 
 ## Stop and remove containers (volumes are kept).

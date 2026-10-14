@@ -329,10 +329,16 @@ clean checkout on the server.
 
 2. **Put a TLS certificate in place.** `edge` expects a certificate and key at
    `docker/nginx/certs/kern.crt` and `docker/nginx/certs/kern.key` (mounted read-only into the
-   container). **Only the certificate is committed** — `kern.crt` is in git and `kern.key` is
-   ignored by `.gitignore:20`, so a fresh clone has a certificate with no key and `edge` will not
-   start. Generate a pair before the first `make up`, and for a real deployment replace it (see
-   section 7 — this is one of the "needs a decision" items).
+   container).
+   ```bash
+   make certs                      # every address this host answers on, plus localhost
+   make certs HOST=kern.example.ro # a domain name instead
+   ```
+   **Neither file is in git.** The certificate used to be committed with its key ignored, which
+   gave a fresh clone a certificate it had no key for and an edge that would not start, with
+   nothing saying why; `make up` now refuses rather than letting that happen. The pair this writes
+   is self-signed, so browsers warn — for a real deployment replace it (see section 7, and
+   `docs/INSTALLER-PLAN.md` §4 for the domain path).
 
 3. **Build the frontend assets before building any images.** `docker/nginx/Dockerfile` copies
    `apps/api/public` into the `edge` image at build time and does not run any JavaScript build tool
