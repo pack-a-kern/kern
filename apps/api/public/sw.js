@@ -21,7 +21,7 @@
  *   navigation falls back to the static, session-free `/offline.html` instead of a stale app shell.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `kern-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `kern-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';

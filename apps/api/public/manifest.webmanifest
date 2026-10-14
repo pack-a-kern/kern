@@ -1,6 +1,6 @@
 {
-    "name": "TaxOS România",
-    "short_name": "TaxOS",
+    "name": "Kern",
+    "short_name": "Kern",
     "description": "Platformă fiscal-financiară pentru persoane fizice — capturare documente, verificare extrageri și panou fiscal.",
     "start_url": "/dashboard",
     "id": "/dashboard",
