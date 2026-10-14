@@ -493,8 +493,14 @@ once the image exists.
     later as unreadable taxpayer data.
 11. **Sync the access catalogue** — `php artisan kern:access:sync` (the command behind
     `SyncAccessCatalogueCommand`).
-12. **Create the administrator.** `kern:access:grant` and `kern:identity:verify-email` already exist;
-    what is missing is creating the user itself. See §7.
+12. **Create the administrator.** `kern:admin:create`, with the password on standard input so it
+    never reaches `ps`, the shell's history or `docker inspect`:
+
+    ```
+    printf '%s\n' "$password" | php artisan kern:admin:create --stdin "$email"
+    ```
+
+    It refuses if `kern:access:sync` has not run, so step 11 comes first.
 13. **Obtain the certificate.** Caddy does this on first request; the installer waits for it and
     reports what was issued, or says plainly that an IP answer means a browser warning. Until the
     edge is Caddy, and as the fallback afterwards, this is `scripts/generate-certs.sh` — which the
@@ -519,7 +525,7 @@ In dependency order. Nothing after the first item can be finished before it.
 |---|---|---|
 | 1 | ~~**Split compose per service** (§3) + `COMPOSE_FILE` + the `make` guard~~ — **done** | nothing else can skip a service |
 | 2 | ~~**`kern:certs`**~~ — shipped as **`make certs`** / `scripts/generate-certs.sh`, not an artisan command: the edge needs the file before any image exists — **done** | closes the fresh-clone hole today, and stays the fallback for the IP answer |
-| 3 | **`kern:admin:create`** — creates the user, then reuses the existing `kern:identity:verify-email` and `kern:access:grant`; only user creation is missing | step 12 has nothing to call |
+| 3 | ~~**`kern:admin:create`**~~ — **done**. Creates the user, marks the address verified and grants the role in one transaction; `--stdin` is how the installer passes the password | step 12 has nothing to call |
 | 4 | **Two more health probes** — OpenBao, browser worker (and `vpn` if built) | step 14 cannot verify what it cannot probe |
 | 5 | **Caddy edge** (§4) | needed for a real certificate, but the stack runs without it |
 | 6 | **`scripts/install.sh`** (§6) | the questions and the ordering |
