@@ -171,7 +171,7 @@ packages-clean:
 
 ## Apply apps/api/.env or compose changes to the running stack.
 ##
-## PHP edits no longer need this: `docker/php/php.dev.ini`, mounted only by compose.override.yaml,
+## PHP edits no longer need this: `docker/php/php.dev.ini`, mounted only by compose.dev.yaml,
 ## turns `opcache.validate_timestamps` back on in development, so php-fpm picks up an edited file on
 ## the next request exactly like a normal Laravel install. Production keeps it off.
 ##

@@ -1,6 +1,6 @@
 # python-api — development-only additions to compose.services/python.yaml.
 #
-# Separate from compose.override.yaml for the same reason the base file is separate from
+# Separate from compose.dev.yaml for the same reason the base file is separate from
 # compose.yaml: an override naming a service whose base file was left out of COMPOSE_FILE declares
 # a service with no image, and the whole project becomes invalid ("has neither an image nor a build
 # context"). Keeping the dev half beside the base half means dropping one line from COMPOSE_FILE

@@ -1,18 +1,26 @@
-# Kern — local development overrides.
+# Kern — your working copy, running in the containers.
 #
-# NOT applied automatically any more. Compose merges this file by default only when COMPOSE_FILE is
-# unset, and that variable is now how an installation chooses its services — so a development list
-# has to name this file explicitly, last. apps/api/.env.example carries the line.
+# Named `compose.dev.yaml`, not `compose.override.yaml`. That was a magic filename compose loads by
+# itself, and the magic stopped applying the moment COMPOSE_FILE became how an installation chooses
+# its services: setting that variable suppresses the automatic override entirely. A name promising
+# behaviour it no longer has is worse than no convention, and this was the only development file not
+# called `.dev`. Now the production rule is one sentence: a production COMPOSE_FILE contains no
+# `.dev` file. See docs/INSTALLER-PLAN.md §3.
 #
-# It holds the dev half for services that are always present: the edge, the four PHP processes, and
-# mailpit, which is dev-only in its entirety. The dev half for a service an installation might not
-# run at all lives beside its base file instead — compose.services/postgres.dev.yaml,
-# redis.dev.yaml, python.dev.yaml — because an override naming a service whose base file was left
-# out declares a service with no image and invalidates the whole project.
+# Must be listed last, after every base file it modifies.
 #
-# Never used in production — see compose.yaml's own header.
+# It holds the development half for services that are always present: the edge, the four PHP
+# processes, and mailpit, which is dev-only in its entirety. The development half of a service an
+# installation might not run at all lives beside its base file instead —
+# compose.services/postgres.dev.yaml, redis.dev.yaml, python.dev.yaml — because a file naming a
+# service whose base file was left out declares a service with no image and invalidates the whole
+# project.
 #
-# What this file does, and why it needs a non-internal `dev_net`:
+# What all of it amounts to: the containers run the source on this host instead of the code baked
+# into the image, and are writable so they can. None of that belongs on a server — see
+# compose.yaml's own header.
+#
+# Why it needs a non-internal `dev_net`:
 #   - Publishes postgres/redis to the host for local psql/redis-cli
 #     access ("dev access goes through the app or an explicit override" —
 #     this is that override). compose.yaml deliberately keeps those three on

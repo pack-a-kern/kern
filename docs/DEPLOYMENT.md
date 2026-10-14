@@ -6,7 +6,7 @@ term needs explaining ("queue worker", "supervisor", "environment"), it's explai
 it appears.
 
 Everything below is drawn from the actual files in this repository — `compose.yaml`,
-`compose.override.yaml`, `apps/api/.env.example`, `apps/api/config/horizon.php`, `Makefile`, the ADRs in
+`compose.dev.yaml`, `apps/api/.env.example`, `apps/api/config/horizon.php`, `Makefile`, the ADRs in
 `docs/adr/`, and `BLUEPRINT.md`. Where something isn't in the repo, or is ambiguous, it's called out
 under "Needs a decision" at the end rather than guessed at.
 
@@ -34,7 +34,7 @@ own isolated box, that talks to the others over a private network.
 | `minio-init-buckets` | Runs once at startup to create the two storage "buckets" (`kern-documents`, `kern-quarantine` — like top-level folders) the app expects, then exits. |
 | `openbao` | The key-management service ("KMS") that holds the master key used to protect every taxpayer's personal encryption key. See section 4. **Runs in "dev mode" as configured — not production-safe. See section 7.** |
 | `openbao-init` | Runs once at startup to set up the encryption key inside `openbao`, then exits. |
-| `mailpit` | **DEV-ONLY.** A fake mail server with a web inbox, so outgoing emails can be previewed during development instead of actually being sent. Only exists in `compose.override.yaml`. |
+| `mailpit` | **DEV-ONLY.** A fake mail server with a web inbox, so outgoing emails can be previewed during development instead of actually being sent. Only exists in `compose.dev.yaml`. |
 
 ### Dev-only pieces, and what changes them
 
@@ -44,16 +44,16 @@ might instead point at one it already runs lives in its own file under `compose.
 `COMPOSE_FILE` in `apps/api/.env` is the list compose loads. `make env` writes that line from
 `.env.example`, listing every service.
 
-Two consequences for this section. `compose.override.yaml` is **no longer loaded automatically** —
+Two consequences for this section. `compose.dev.yaml` is **no longer loaded automatically** —
 setting `COMPOSE_FILE` suppresses it, so a development list names it explicitly and last. And
 `compose.yaml` on its own has no database, so "run with `compose.yaml` only" is no longer the way
 to get the production shape: a production list is every `compose.services/<service>.yaml` the
-installation runs here, with **no** `.dev.yaml` entries and **no** `compose.override.yaml`.
+installation runs here, with **no** `.dev.yaml` entries and **no** `compose.dev.yaml`.
 
 The dev half of a service that may not exist sits beside its base file —
 `compose.services/postgres.dev.yaml`, `redis.dev.yaml`, `python.dev.yaml` — because an override
 naming a service whose base file was left out declares a service with no image and invalidates the
-whole project. What remains in `compose.override.yaml` is the dev half for services that are always
+whole project. What remains in `compose.dev.yaml` is the dev half for services that are always
 present, plus mailpit. Its own header says it "must never ship to a production compose file."
 
 Concretely, the override file and those three `.dev.yaml` files:
@@ -139,7 +139,7 @@ So: whatever machine you deploy to, if you set `APP_ENV=production` in `.env`, t
 can run up to 10 worker processes at once; if you leave it as `local`, only up to 3. The
 `documents-ai` queue always stays at exactly 1, regardless of `APP_ENV`, because the limit there is
 about the AI endpoint, not about scaling. Note that `.env.example` sets `APP_ENV=production` as the
-committed default, but `compose.override.yaml` (dev-only, see section 1) quietly changes that
+committed default, but `compose.dev.yaml` (dev-only, see section 1) quietly changes that
 default back to `local` for local runs unless your `.env` says otherwise — so double-check the
 running container's actual environment (section 6) rather than assuming from the file alone.
 
@@ -223,7 +223,7 @@ shipped default may not be what you want.
 | `DB_DATABASE`, `DB_USERNAME` | Fine at their shipped defaults (`kern`) unless you have a naming reason to change them. The bundled Postgres is created with whatever they say. |
 | `CRYPTO_BLIND_INDEX_CURRENT_VERSION` | Only changes when you're deliberately rotating the blind-index key — leave at `1` otherwise. |
 | `VITE_DEFAULT_PALETTE` | Just picks which colour theme greets a user before they choose one. |
-| `POSTGRES_DEV_PORT`, `REDIS_DEV_PORT`, `MINIO_DEV_API_PORT`, `MINIO_DEV_CONSOLE_PORT`, `MAILPIT_UI_PORT`, `VITE_DEV_PORT` | These only do anything when `compose.override.yaml` (dev-only, section 1) is loaded. In a production deployment running `compose.yaml` alone, they have no effect at all. |
+| `POSTGRES_DEV_PORT`, `REDIS_DEV_PORT`, `MINIO_DEV_API_PORT`, `MINIO_DEV_CONSOLE_PORT`, `MAILPIT_UI_PORT`, `VITE_DEV_PORT` | These only do anything when `compose.dev.yaml` (dev-only, section 1) is loaded. In a production deployment running `compose.yaml` alone, they have no effect at all. |
 
 ### Worth knowing about
 
@@ -321,7 +321,7 @@ clean checkout on the server.
    the generation commands in section 4.
 
    It also brings the `COMPOSE_FILE` line, listing every service. Before going further, edit it:
-   remove `compose.override.yaml` and the three `.dev.yaml` entries for a production shape, and
+   remove `compose.dev.yaml` and the three `.dev.yaml` entries for a production shape, and
    remove the `compose.services/<service>.yaml` of anything this machine will not run — then point
    that service's variable (`DB_HOST`, `REDIS_HOST`, `OPENBAO_ADDR`, `CLAMAV_HOST`,
    `PROCESSING_URL`, `BROWSER_WORKER_URL`) at wherever it does run. `make up` refuses to start if
@@ -352,7 +352,7 @@ clean checkout on the server.
    make build          # = docker compose build
    ```
 
-5. **Start the stack**, running the production shape only (no `compose.override.yaml`):
+5. **Start the stack**, running the production shape only (no `compose.dev.yaml`):
    ```bash
    make up             # = docker compose up -d
    ```

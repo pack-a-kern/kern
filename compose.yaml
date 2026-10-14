@@ -10,13 +10,13 @@
 # Splitting by file is the only shape where leaving a service out also leaves out everything that
 # waits for it. See docs/INSTALLER-PLAN.md §3.
 #
-# `COMPOSE_FILE` also SUPPRESSES the automatic loading of compose.override.yaml, so a development
+# `COMPOSE_FILE` also SUPPRESSES the automatic loading of compose.dev.yaml, so a development
 # list has to name it explicitly, last. apps/api/.env.example carries the full line.
 #
 # This is the production-shape file: no host ports on postgres/redis,
 # app_net and data_net are `internal: true` (no outbound Internet), and
 # every image is pinned to an exact tag (docs/DEPENDENCY-POLICY.md).
-# compose.override.yaml adds dev-only conveniences (mailpit, published DB
+# compose.dev.yaml adds dev-only conveniences (mailpit, published DB
 # ports, bind-mounted source) on top of this file — do not add those things
 # here.
 #

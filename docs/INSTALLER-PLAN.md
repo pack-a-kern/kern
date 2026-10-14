@@ -201,10 +201,10 @@ compose.services/minio.yaml
 compose.services/python.yaml
 compose.services/browser.yaml
 compose.services/vpn.yaml
-compose.override.yaml            dev conveniences for services that are always present
+compose.dev.yaml            dev conveniences for services that are always present
 ```
 
-The dev overrides split too. `compose.override.yaml` used to re-declare `postgres`, `redis` and
+The dev overrides split too. `compose.dev.yaml` used to re-declare `postgres`, `redis` and
 `python-api` to publish host ports and turn on uvicorn's `--reload`. Left in place, dropping
 `compose.services/postgres.yaml` from the list leaves the override declaring a `postgres` with no
 image, and the project is invalid again:
@@ -214,7 +214,7 @@ service "postgres" has neither an image nor a build context specified: invalid c
 ```
 
 So each of those three has a `.dev.yaml` beside its base file, listed after it, and the two come out
-of `COMPOSE_FILE` together. What stays in `compose.override.yaml` is the dev half for the edge and
+of `COMPOSE_FILE` together. What stays in `compose.dev.yaml` is the dev half for the edge and
 the four PHP processes, plus mailpit, which is dev-only in its entirety.
 
 The installer writes one line:
@@ -230,7 +230,7 @@ extra wiring.
 a per-service file re-declares only the networks its service joins.
 
 **Two traps, both guarded.** Setting `COMPOSE_FILE` at all *suppresses* compose's automatic loading
-of `compose.override.yaml`, so a development list must name it explicitly and last. And
+of `compose.dev.yaml`, so a development list must name it explicitly and last. And
 `compose.yaml` alone has no database, so an unset or partial list starts a stack that cannot boot —
 `.env.example` therefore ships the line with every service in it, and `make compose-file` (a
 prerequisite of `up`, `down`, `build`, `reload` and `fresh`) refuses to run compose if
@@ -352,7 +352,7 @@ The nginx config's comments each record a real failure. Carry every one into the
   additionally writes to `/data` and `/config`, which need tmpfs or a volume; with ACME in use
   `/data` must be a **named volume**, or every restart re-issues the certificate and runs into rate
   limits.
-- In dev, `compose.override.yaml:82` bind-mounts `apps/api/public` and the server config over the
+- In dev, `compose.dev.yaml:82` bind-mounts `apps/api/public` and the server config over the
   baked copies. The Caddy equivalents must exist or an asset rebuild will 404 again.
 
 ### Files
@@ -362,7 +362,7 @@ docker/caddy/Dockerfile       new — two-stage, cloudflare DNS module
 docker/caddy/Caddyfile        new — ~35 lines
 docker/nginx/                 deleted, certs included
 compose.yaml                  edge: new build context, /data volume, ACME env vars
-compose.override.yaml         the two dev bind-mounts, retargeted
+compose.dev.yaml         the two dev bind-mounts, retargeted
 .github/workflows/ci.yml      wherever the edge image is built
 docs/DEPLOYMENT.md            §5 step 2, §7 item 2, and the stale minio services in §1
 ```
