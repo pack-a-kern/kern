@@ -1,0 +1,77 @@
+# openbao — one of the services an installation may run here or point elsewhere.
+#
+# OpenBao, the key manager. Leave this file out of COMPOSE_FILE and point OPENBAO_ADDR at
+# one you already run — but read the service comment first: the volume it keeps is the one
+# thing in this stack whose loss is unrecoverable, and an external instance moves that
+# responsibility to you rather than removing it.
+#
+# Compose merges files, so this one carries both halves of the choice: the service itself and
+# anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
+# apps/api/.env.example.
+
+services:
+  # The key manager, on disk. It used to run `server -dev`, which kept the master key in memory only:
+  # a Proxmox kernel panic on 2026-09-28 restarted it empty, and every wrapped data key in the
+  # database became permanently unreadable. `docker/openbao/config.hcl` stores it on the volume below,
+  # and `docker/openbao/entrypoint.sh` initialises, unseals and configures it on every boot — see that
+  # script for why none of that can live in a separate container any more.
+  openbao:
+    image: openbao/openbao:2.6.2
+    entrypoint: ["sh", "/openbao/entrypoint.sh"]
+    networks:
+      - app_net
+    environment:
+      # The CLI calls the server from inside this container, over the plain-HTTP listener — without
+      # this it defaults to https://127.0.0.1:8200 and fails (a real health-check failure, 2026-09-07).
+      BAO_ADDR: http://127.0.0.1:8200
+      # The token the application presents. The startup script issues it against a policy covering the
+      # four transit paths the application actually calls and nothing else — it is no longer the root
+      # token, which now exists only inside the volume. One place the value is written down, still.
+      KERN_APP_TOKEN: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
+      # Both must agree with what the application is configured with; the policy is written from them,
+      # so a mismatch fails closed rather than granting something wider.
+      KERN_KEK_NAME: ${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek}
+      KERN_TRANSIT_MOUNT: ${OPENBAO_TRANSIT_MOUNT:-transit}
+    volumes:
+      # The master key lives here. Losing this volume is losing every encrypted value in the database.
+      # `/openbao/file` is the path the image creates and owns, so the volume is writable by the user
+      # the server runs as without a chown step.
+      - openbao_data:/openbao/file
+      - ./docker/openbao/config.hcl:/openbao/config.hcl:ro
+      - ./docker/openbao/entrypoint.sh:/openbao/entrypoint.sh:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /home/openbao:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    # No `cap_add: IPC_LOCK`: it existed for mlock(), and OpenBao 2.6.2 dropped mlock support — the
+    # capability would now grant something nothing asks for.
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Reads the KEK, not `bao status`. Status answers "the server is running and unsealed", which it
+      # did for fourteen hours after the panic while holding no transit engine and no key — healthy,
+      # and useless, with the only symptom 500s in the application log. A container that comes back
+      # without the key now reports unhealthy immediately.
+      # Authenticated as the application, with the application's own token, reading the one path it
+      # needs. So "healthy" means precisely "the application can reach its key" — not "a server is
+      # listening", which is what `bao status` meant while this container held no key at all.
+      test: ["CMD", "sh", "-c", "BAO_TOKEN=\"$$KERN_APP_TOKEN\" bao read ${OPENBAO_TRANSIT_MOUNT:-transit}/keys/${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek} >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Longer than the old 5s: a first boot initialises, unseals, enables the engine and writes a
+      # policy before any of that is true.
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    restart: unless-stopped
+
+volumes:
+  # The master key, and the unseal key that opens it. Losing this volume is losing every
+  # encrypted value in the database.
+  openbao_data:

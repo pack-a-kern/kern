@@ -1,0 +1,85 @@
+# python-api — one of the services an installation may run here or point elsewhere.
+#
+# The processing plane. Leave this file out of COMPOSE_FILE and either point PROCESSING_URL
+# at one you already run, or set AI_ENABLED=false and do without document reading.
+#
+# Compose merges files, so this one carries both halves of the choice: the service itself and
+# anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
+# apps/api/.env.example.
+
+services:
+  # -------------------------------------------------------------------------
+  # Processing plane (Python) — BLUEPRINT.md §1.2. No Postgres credentials.
+  # -------------------------------------------------------------------------
+  python-api:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    command: ["uvicorn", "processing.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - processing_net
+    environment:
+      # Shared secret with the app/queue/scheduler/reverb containers' own
+      # INTERNAL_SERVICE_AUTH_TOKEN the application containers get from apps/api/.env — BLUEPRINT.md §4.10,
+      # docs/handoff/024-extraction-endpoint.md. processing.internal_auth.require_internal_auth
+      # fails closed (401) if this is unset.
+      INTERNAL_SERVICE_AUTH_TOKEN: ${INTERNAL_SERVICE_AUTH_TOKEN:?set INTERNAL_SERVICE_AUTH_TOKEN — see apps/api/.env.example}
+      # Local embedding model for legislation retrieval (BLUEPRINT.md §15.2). Self-hosted rather
+      # than an external API: docs/STATUS.md blocked item #3 (provider, region, DPA) gates every
+      # external AI call, and running the weights here sidesteps it for this corpus entirely.
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-intfloat/multilingual-e5-small}
+      EMBEDDING_REVISION: ${EMBEDDING_REVISION:-main}
+      EMBEDDING_CACHE_DIR: /var/cache/embeddings
+      # Must match `source_section_chunks.embedding`'s `vector(N)`. Changing either alone silently
+      # breaks retrieval; changing both requires re-embedding every stored chunk.
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-384}
+      EMBEDDING_ONNX_FILE: ${EMBEDDING_ONNX_FILE:-model_qint8_avx512_vnni.onnx}
+      EMBEDDING_POOLING: ${EMBEDDING_POOLING:-mean}
+      # Quoted wholesale: the values contain ": ", which YAML reads as a mapping otherwise. The
+      # trailing space is part of the prefix and must survive.
+      EMBEDDING_QUERY_PREFIX: '${EMBEDDING_QUERY_PREFIX:-query: }'
+      EMBEDDING_PASSAGE_PREFIX: '${EMBEDDING_PASSAGE_PREFIX:-passage: }'
+      EMBEDDING_MAX_TOKENS: ${EMBEDDING_MAX_TOKENS:-512}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-16}
+      EMBEDDING_WARM_ON_STARTUP: ${EMBEDDING_WARM_ON_STARTUP:-false}
+      # huggingface_hub writes here as well as to EMBEDDING_CACHE_DIR; without it the library
+      # tries $HOME, which this user does not have (`--no-create-home`).
+      HF_HOME: /var/cache/embeddings
+      # Statement import (docs/handoff/045-statement-import.md). The ceilings exist because the
+      # bytes come from outside — a file claiming to be a statement can be a decompression bomb or a
+      # sheet with a million rows. The row limit is sized for a real export rather than a month: a
+      # current account's five years is comfortably under 20 000 lines, and a person importing their
+      # whole history should not be told to split the file by hand.
+      STATEMENT_PARSE_MAX_ROWS: ${STATEMENT_PARSE_MAX_ROWS:-20000}
+      STATEMENT_PARSE_MAX_FILE_SIZE_BYTES: ${STATEMENT_PARSE_MAX_FILE_SIZE_BYTES:-10485760}
+      STATEMENT_PARSE_MAX_PDF_PAGES: ${STATEMENT_PARSE_MAX_PDF_PAGES:-60}
+      STATEMENT_PARSE_MAX_PREAMBLE_ROWS: ${STATEMENT_PARSE_MAX_PREAMBLE_ROWS:-20}
+    volumes:
+      - embedding_cache:/var/cache/embeddings
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          # Raised modestly when the embedding model moved in-process. The int8
+          # multilingual-e5-small graph is 118 MB on disk and roughly 300-400 MB resident with
+          # onnxruntime's arena, which leaves no room beside PDF extraction inside the old 512M.
+          # 1G is comfortable rather than generous; a larger model needs this raised with it.
+          cpus: "${PYTHON_API_CPUS:-2.00}"
+          memory: ${PYTHON_API_MEMORY:-1G}
+    restart: unless-stopped
+
+volumes:
+  # ~2.3 GB of embedding model weights, downloaded once and reused across recreates.
+  embedding_cache:

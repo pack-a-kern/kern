@@ -1,0 +1,22 @@
+# redis — development-only additions to compose.services/redis.yaml.
+#
+# Separate from compose.override.yaml for the same reason the base file is separate from
+# compose.yaml: an override naming a service whose base file was left out of COMPOSE_FILE declares
+# a service with no image, and the whole project becomes invalid ("has neither an image nor a build
+# context"). Keeping the dev half beside the base half means dropping one line from COMPOSE_FILE
+# drops both.
+#
+# List it AFTER compose.services/redis.yaml. See docs/INSTALLER-PLAN.md §3.
+
+networks:
+  dev_net:
+    driver: bridge
+
+services:
+  redis:
+    networks:
+      - app_net
+      - data_net
+      - dev_net
+    ports:
+      - "${REDIS_DEV_PORT:-6379}:6379"

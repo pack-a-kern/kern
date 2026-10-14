@@ -1,0 +1,59 @@
+# browser-worker — one of the services an installation may run here or point elsewhere.
+#
+# The browser worker, for SPV automation. Leave this file out of COMPOSE_FILE and either
+# point BROWSER_WORKER_URL at one you already run, or do without SPV automation — nothing
+# else in the stack calls it.
+#
+# Compose merges files, so this one carries both halves of the choice: the service itself and
+# anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
+# apps/api/.env.example.
+
+services:
+  browser-worker:
+    # Reaps the browser's children. Node as PID 1 does not: a Chromium that exits gets re-parented to
+    # it and stays a zombie, two per launch, for the life of the container — found by looking at `ps`
+    # after four sign-in attempts and seeing eight. Each one holds a PID, so a long-running worker
+    # eventually cannot start a browser at all. `init` runs tini as PID 1 instead, whose whole job this
+    # is.
+    init: true
+    build:
+      context: .
+      dockerfile: docker/playwright/Dockerfile
+      # Named, not inferred. A Dockerfile's default target is its last stage, so adding the `test`
+      # stage at the end silently made the running service a test runner — which it then was, until
+      # it crashed on the read-only filesystem it is given.
+      target: runtime
+    networks:
+      - browser_net
+    environment:
+      # The only variable this service receives. Never `env_file`: it sits on a network carrying no
+      # database or object-store credentials, and handing it the whole environment would undo that.
+      # Unset is a working configuration — see `BROWSER_AUTH_MODE` in its own README.
+      BROWSER_AUTH_MODE: "${BROWSER_AUTH_MODE:-network}"
+      BROWSER_AUTH_TOKEN: "${BROWSER_WORKER_TOKEN:-}"
+    shm_size: "1gb"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /home/pwuser:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Probed with node rather than curl: node is the one binary this image is
+      # guaranteed to keep (curl comes from the Playwright base and is not ours to rely on),
+      # matching python-api's `python -c` convention. Port/path must track
+      # apps/browser-worker/src/server.ts (PORT, default 8090) and routes/health.ts (/health).
+      # Verified live: returns 200.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+    restart: unless-stopped

@@ -1,11 +1,24 @@
-# TaxOS România — everyday docker compose commands.
+# Kern — everyday docker compose commands.
 #
 # Every target here was run for real while this file was written (see
 # docs/handoff/001-docker-topology.md "How to verify"). Nothing aspirational.
 
 SERVICE ?= app
 
-.PHONY: env up down build logs shell test lint fresh
+.PHONY: env up down build logs shell test lint fresh compose-file
+
+## Refuse to run compose without a service list.
+##
+## compose.yaml holds the application alone, so an unset COMPOSE_FILE resolves to the edge and the
+## four PHP processes with no database behind them — a stack that starts and cannot boot. The
+## variable lives in apps/api/.env, which compose reads itself, so a bare `docker compose` is
+## correct too; this only catches a .env written before the split.
+compose-file:
+	@grep -q '^COMPOSE_FILE=' apps/api/.env || { \
+		echo "apps/api/.env has no COMPOSE_FILE line, so compose would start a stack with no database."; \
+		echo "Copy the line from apps/api/.env.example — it lists every service."; \
+		exit 1; \
+	}
 
 ## Create apps/api/.env — the one file this installation is configured in.
 ##
@@ -13,22 +26,24 @@ SERVICE ?= app
 ## what `php artisan kern:env` prints. Done here with `cat` because at this point nothing can run:
 ## compose needs this file to exist before it can start a container to run artisan in. Once the
 ## stack is up, use the command — after installing a package, say, to see its new variables.
+## The COMPOSE_FILE line comes with it, from .env.example, listing every service — which is the
+## shape to keep until an installation deliberately moves one off this machine.
 env:
 	@test ! -e apps/api/.env || { echo "apps/api/.env exists — not overwriting it."; exit 1; }
 	@cat apps/api/.env.example packages/*/.env.example > apps/api/.env
 	@echo "Wrote apps/api/.env. Fill in every empty value — APP_KEY, the passwords, the tokens — before \`make up\`."
 
 ## Start the full stack in the background.
-up:
+up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
 	docker compose up -d
 
 ## Stop and remove containers (volumes are kept).
-down:
+down: compose-file
 	docker compose down
 
 ## Build (or rebuild) every image.
-build:
+build: compose-file
 	docker compose build
 
 ## Tail logs. Usage: make logs [SERVICE=queue]
@@ -164,7 +179,7 @@ packages-clean:
 ## only when it creates a container. If the variable is one an infrastructure container is created
 ## with (DB_PASSWORD, AWS_ACCESS_KEY_ID, REDIS_PASSWORD, OPENBAO_TOKEN), name that service here too,
 ## or the two come up disagreeing.
-reload:
+reload: compose-file
 	docker compose up -d --force-recreate $(SERVICE)
 
 ## Is the site actually up? Answers the question a green test suite does not.
@@ -174,7 +189,7 @@ smoke:
 		-H 'Accept: application/json' https://127.0.0.1/api/v1/settings
 
 ## Destroy everything, including volumes, and start clean.
-fresh:
+fresh: compose-file
 	docker compose down -v
 	docker compose build
 	docker compose up -d

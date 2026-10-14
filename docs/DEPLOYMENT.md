@@ -38,12 +38,25 @@ own isolated box, that talks to the others over a private network.
 
 ### Dev-only pieces, and what changes them
 
-`compose.override.yaml` is loaded automatically alongside `compose.yaml` whenever you run
-`docker compose up` from a checkout that has both files — which is what happens on a developer's
-own machine. Its own header comment says it "must never ship to a production compose file." A
-production deployment must run with **`compose.yaml` only** (e.g. `docker compose -f compose.yaml
-...`, or simply not have `compose.override.yaml` present in the deploy directory). Concretely, the
-override file:
+**This changed with the per-service split — see `docs/INSTALLER-PLAN.md` §3.** `compose.yaml` now
+holds the application alone: the edge and the four PHP processes. Every service an installation
+might instead point at one it already runs lives in its own file under `compose.services/`, and
+`COMPOSE_FILE` in `apps/api/.env` is the list compose loads. `make env` writes that line from
+`.env.example`, listing every service.
+
+Two consequences for this section. `compose.override.yaml` is **no longer loaded automatically** —
+setting `COMPOSE_FILE` suppresses it, so a development list names it explicitly and last. And
+`compose.yaml` on its own has no database, so "run with `compose.yaml` only" is no longer the way
+to get the production shape: a production list is every `compose.services/<service>.yaml` the
+installation runs here, with **no** `.dev.yaml` entries and **no** `compose.override.yaml`.
+
+The dev half of a service that may not exist sits beside its base file —
+`compose.services/postgres.dev.yaml`, `redis.dev.yaml`, `python.dev.yaml` — because an override
+naming a service whose base file was left out declares a service with no image and invalidates the
+whole project. What remains in `compose.override.yaml` is the dev half for services that are always
+present, plus mailpit. Its own header says it "must never ship to a production compose file."
+
+Concretely, the override file and those three `.dev.yaml` files:
 
 - **Adds `mailpit`** entirely (not present otherwise).
 - **Publishes `postgres`, `redis`, and `minio` on host ports** (`5432`, `6379`, `9000`/`9001`) so you
@@ -307,10 +320,19 @@ clean checkout on the server.
    to overwrite one that already exists. Fill in every "must change" variable from section 3, using
    the generation commands in section 4.
 
+   It also brings the `COMPOSE_FILE` line, listing every service. Before going further, edit it:
+   remove `compose.override.yaml` and the three `.dev.yaml` entries for a production shape, and
+   remove the `compose.services/<service>.yaml` of anything this machine will not run — then point
+   that service's variable (`DB_HOST`, `REDIS_HOST`, `OPENBAO_ADDR`, `CLAMAV_HOST`,
+   `PROCESSING_URL`, `BROWSER_WORKER_URL`) at wherever it does run. `make up` refuses to start if
+   the line is missing, because without it compose resolves to a stack with no database.
+
 2. **Put a TLS certificate in place.** `edge` expects a certificate and key at
    `docker/nginx/certs/kern.crt` and `docker/nginx/certs/kern.key` (mounted read-only into the
-   container). A self-signed pair is already committed for development; for a real deployment,
-   replace it (see section 7 — this is one of the "needs a decision" items).
+   container). **Only the certificate is committed** — `kern.crt` is in git and `kern.key` is
+   ignored by `.gitignore:20`, so a fresh clone has a certificate with no key and `edge` will not
+   start. Generate a pair before the first `make up`, and for a real deployment replace it (see
+   section 7 — this is one of the "needs a decision" items).
 
 3. **Build the frontend assets before building any images.** `docker/nginx/Dockerfile` copies
    `apps/api/public` into the `edge` image at build time and does not run any JavaScript build tool

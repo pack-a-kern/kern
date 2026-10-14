@@ -1,0 +1,83 @@
+# clamav — one of the services an installation may run here or point elsewhere.
+#
+# ClamAV. Leave this file out of COMPOSE_FILE and point CLAMAV_HOST at a clamd you already
+# run. What you cannot do is leave it out and run no scanner at all: an upload that cannot
+# be scanned is refused (packages/documents/.env.example), so this is a choice of where
+# clamd runs, never whether.
+#
+# Compose merges files, so this one carries both halves of the choice: the service itself and
+# anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
+# apps/api/.env.example.
+
+services:
+  # -------------------------------------------------------------------------
+  # Document intake — ClamAV (BLUEPRINT.md §14.1)
+  # -------------------------------------------------------------------------
+  clamav:
+    image: clamav/clamav:1.5-debian13-slim
+    networks:
+      - processing_net
+    volumes:
+      - clamav_data:/var/lib/clamav
+      # clamd's whole configuration. Mounted rather than set through the image's `CLAMD_CONF_*`
+      # variables, which the entrypoint applies with `sed -i` against a filesystem `read_only: true`
+      # below makes read-only; see the header of the file itself for why mounting is the way that
+      # works, and for the two settings it changes.
+      - ./docker/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /run/clamav:mode=1777
+      # The image's entrypoint symlinks into /var/lock, which `read_only: true` blocks
+      # ("ln: failed to create symbolic link '/var/lock/lock': Read-only file system").
+      # tmpfs keeps the root filesystem read-only while giving it the one writable path it needs.
+      - /var/lock:mode=1777
+      # freshclam writes its update log here and refuses to initialise without it
+      # ("Failed to open log file /var/log/clamav/freshclam.log: Read-only file system").
+      - /var/log/clamav:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The clamav image's entrypoint chowns /var/lib/clamav on first boot and then drops to the
+    # `clamav` user, so a bare `cap_drop: ALL` makes it crash-loop with
+    # "chown: cannot read directory '/var/lib/clamav': Permission denied" (observed: 7 restarts).
+    # Same minimal set already granted to postgres/redis for their own privilege-drop entrypoints.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    # No healthcheck override: the image ships its own verified
+    # `clamdcheck.sh` HEALTHCHECK (docker inspect confirmed 2026-09-07).
+    #
+    # `restart: unless-stopped` does not cover every failure: clamd can die *inside* a container
+    # that stays up, so Docker sees nothing to restart. It happened once — OOM-killed under the old
+    # 1 GB limit, "running" with a refused port for six hours, and the only symptom a document
+    # stuck in quarantine (failing closed, as intended). The memory limit below removes that cause.
+    #
+    # A watchdog container used to restart it on an unhealthy report. It was removed: it needed
+    # the Docker socket, which is root on the host, and no container in this file is given that.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          # clamd holds the signature database resident: ~1.0 GB for 3.6M signatures (measured
+          # 2026-10-14) against 168 MB of main.cvd/daily.cld on disk. That part does not shrink —
+          # ClamAV does not split its database by file type, so there is no subset to load instead.
+          #
+          # What did shrink is the peak. This was 3 GB because clamd used to hold the old database
+          # and the new one together for the length of a freshclam update, and that transient is
+          # what crossed the earlier 1 GB limit mid-"Activating the newly loaded database" on
+          # 2026-09-10 and had the kernel kill it (`OOMKilled=true`). With
+          # `ConcurrentDatabaseReload no` (docker/clamav/clamd.conf) there is no second copy, so
+          # 1.5 GB is ~50% headroom over the real working set rather than cover for a doubling.
+          #
+          # Still a limit, not a reservation: clamd uses what it needs and the cap only exists to
+          # stop a runaway taking the machine with it.
+          memory: 1536M
+    restart: unless-stopped
+
+volumes:
+  clamav_data:

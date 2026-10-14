@@ -1,8 +1,16 @@
-# TaxOS România — local development overrides.
+# Kern — local development overrides.
 #
-# Applied automatically by `docker compose up` alongside compose.yaml (Compose
-# merges the two files by default when both are present in the working
-# directory). Never used in production — see compose.yaml's own header.
+# NOT applied automatically any more. Compose merges this file by default only when COMPOSE_FILE is
+# unset, and that variable is now how an installation chooses its services — so a development list
+# has to name this file explicitly, last. apps/api/.env.example carries the line.
+#
+# It holds the dev half for services that are always present: the edge, the four PHP processes, and
+# mailpit, which is dev-only in its entirety. The dev half for a service an installation might not
+# run at all lives beside its base file instead — compose.services/postgres.dev.yaml,
+# redis.dev.yaml, python.dev.yaml — because an override naming a service whose base file was left
+# out declares a service with no image and invalidates the whole project.
+#
+# Never used in production — see compose.yaml's own header.
 #
 # What this file does, and why it needs a non-internal `dev_net`:
 #   - Publishes postgres/redis to the host for local psql/redis-cli
@@ -26,21 +34,6 @@ networks:
     driver: bridge
 
 services:
-  postgres:
-    networks:
-      - data_net
-      - dev_net
-    ports:
-      - "${POSTGRES_DEV_PORT:-5432}:5432"
-
-  redis:
-    networks:
-      - app_net
-      - data_net
-      - dev_net
-    ports:
-      - "${REDIS_DEV_PORT:-6379}:6379"
-
   mailpit:
     image: axllent/mailpit:v1.31.1
     networks:
@@ -146,20 +139,3 @@ services:
       - ./packages:/var/packages
       - ./docker/php/php.dev.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
     read_only: false
-
-
-  python-api:
-    volumes:
-      - ./apps/processing/src:/app/src
-    read_only: false
-    command:
-      [
-        "uvicorn",
-        "processing.main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
-        "--reload",
-      ]
-

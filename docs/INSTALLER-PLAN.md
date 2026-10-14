@@ -178,7 +178,15 @@ The OpenBao volume is the one thing whose loss is unrecoverable. Back it up.
 "I already run PostgreSQL" therefore changes `DB_HOST` and nothing else: the local container still
 starts, and the application still waits for it to be healthy before booting.
 
-Profiles alone do not fix this, because a `depends_on` naming a profiled service pulls it back in.
+Profiles do not fix this. Verified against compose 5.6.0: a `depends_on` naming a service whose
+profile is inactive does not skip it and does not pull it in — it invalidates the whole project.
+
+```
+service "app" depends on undefined service "db": invalid compose project
+```
+
+Splitting by file is therefore the only shape where leaving a service out also leaves out
+everything that waits for it.
 
 **Shape.** One file per optional service, each holding both the service and the `depends_on` that
 needs it. Compose merges files, so leaving a file out removes both halves at once.
@@ -193,8 +201,21 @@ compose.services/minio.yaml
 compose.services/python.yaml
 compose.services/browser.yaml
 compose.services/vpn.yaml
-compose.override.yaml            unchanged: dev conveniences
+compose.override.yaml            dev conveniences for services that are always present
 ```
+
+The dev overrides split too. `compose.override.yaml` used to re-declare `postgres`, `redis` and
+`python-api` to publish host ports and turn on uvicorn's `--reload`. Left in place, dropping
+`compose.services/postgres.yaml` from the list leaves the override declaring a `postgres` with no
+image, and the project is invalid again:
+
+```
+service "postgres" has neither an image nor a build context specified: invalid compose project
+```
+
+So each of those three has a `.dev.yaml` beside its base file, listed after it, and the two come out
+of `COMPOSE_FILE` together. What stays in `compose.override.yaml` is the dev half for the edge and
+the four PHP processes, plus mailpit, which is dev-only in its entirety.
 
 The installer writes one line:
 
@@ -208,9 +229,15 @@ extra wiring.
 **Networks stay as they are.** The five networks and their `internal: true` flags are unchanged;
 a per-service file re-declares only the networks its service joins.
 
-**Risk to watch.** `make up`, `make down`, `make fresh`, `make smoke` and `.github/workflows/ci.yml`
-all assume the current single-file layout. CI must get an explicit `COMPOSE_FILE` covering every
-service, or it will start testing a subset without saying so.
+**Two traps, both guarded.** Setting `COMPOSE_FILE` at all *suppresses* compose's automatic loading
+of `compose.override.yaml`, so a development list must name it explicitly and last. And
+`compose.yaml` alone has no database, so an unset or partial list starts a stack that cannot boot —
+`.env.example` therefore ships the line with every service in it, and `make compose-file` (a
+prerequisite of `up`, `down`, `build`, `reload` and `fresh`) refuses to run compose if
+`apps/api/.env` has no such line.
+
+**CI needs no change.** `.github/workflows/ci.yml` builds each image from its Dockerfile path
+directly and never invokes `docker compose`, so the layout is invisible to it.
 
 ---
 
@@ -487,7 +514,7 @@ In dependency order. Nothing after the first item can be finished before it.
 
 | # | Work | Why first |
 |---|---|---|
-| 1 | **Split compose per service** (§3) + `COMPOSE_FILE` + fix `make`/CI | nothing else can skip a service |
+| 1 | ~~**Split compose per service** (§3) + `COMPOSE_FILE` + the `make` guard~~ — **done** | nothing else can skip a service |
 | 2 | **`kern:certs`** — generate a self-signed pair with the right SANs | closes the fresh-clone hole today, and stays the fallback for the IP answer |
 | 3 | **`kern:admin:create`** — creates the user, then reuses the existing `kern:identity:verify-email` and `kern:access:grant`; only user creation is missing | step 12 has nothing to call |
 | 4 | **Two more health probes** — OpenBao, browser worker (and `vpn` if built) | step 14 cannot verify what it cannot probe |
@@ -514,8 +541,6 @@ Items 2, 3 and 4 are small and independently useful — worth doing even if the 
 - **A 6-day certificate lifetime** means renewal failure becomes visible in days, not months. If the
   `shortlived` profile is used, renewal needs monitoring, not just automation.
 - **Cloudflare proxying and WebSockets** — `/app/` must survive the orange cloud.
-- **`compose.override.yaml` under a split layout** — overrides merge per service, and the dev bind
-  mounts must still land on services that may now come from another file.
 - **Whether `kern:env` can replace the `cat` in `make env`** — it needs composer to have run, so the
   installer may need both: `cat` before `composer install`, `kern:env` after.
 

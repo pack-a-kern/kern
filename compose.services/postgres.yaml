@@ -1,0 +1,88 @@
+# postgres — one of the services an installation may run here or point elsewhere.
+#
+# PostgreSQL. Leave this file out of COMPOSE_FILE and point DB_HOST at a server you
+# already run — apps/api/.env.example says so at the DB_HOST line, and the service's own
+# comment below explains why it takes the application's credentials rather than its own.
+#
+# Compose merges files, so this one carries both halves of the choice: the service itself and
+# anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
+# apps/api/.env.example.
+
+services:
+  # -------------------------------------------------------------------------
+  # Data layer — no host ports, data_net is internal (no outbound Internet).
+  # -------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg18-trixie
+    networks:
+      - data_net
+    # Created with the credentials the APPLICATION connects with, not with names of its own. The
+    # database the application asks for is the database that exists, and pointing DB_HOST at a
+    # Postgres you already run means this container is simply never started — there is no second
+    # place to keep the password in step.
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-kern}
+      POSTGRES_USER: ${DB_USERNAME:-kern}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD — see apps/api/.env.example}
+    volumes:
+      # Postgres 18's own image changed convention: mount the parent
+      # `/var/lib/postgresql`, not `/var/lib/postgresql/data` — the image
+      # now places data in a major-version subdirectory for pg_upgrade
+      # compatibility. Mounting the old path produces a working-but-warning
+      # container (confirmed 2026-09-07); this is the path its own
+      # entrypoint recommends.
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /var/run/postgresql:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # The official postgres entrypoint starts as root and drops to the
+      # `postgres` user itself (gosu) — it needs these four to do that and
+      # to fix up ownership of a fresh volume. Confirmed by a real boot
+      # test: `cap_drop: [ALL]` alone makes initdb fail with
+      # "Operation not permitted" on chown. 2026-09-07.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1024M
+    restart: unless-stopped
+
+  # The four PHP processes cannot boot without this, so the dependency lives here rather
+  # than in compose.yaml: leave this file out of COMPOSE_FILE and both the service and
+  # every wait for it disappear together.
+  app:
+    depends_on:
+      postgres:
+        condition: service_healthy
+  queue:
+    depends_on:
+      postgres:
+        condition: service_healthy
+  scheduler:
+    depends_on:
+      postgres:
+        condition: service_healthy
+  reverb:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

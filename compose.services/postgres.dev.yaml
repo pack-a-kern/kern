@@ -1,0 +1,25 @@
+# postgres — development-only additions to compose.services/postgres.yaml.
+#
+# Separate from compose.override.yaml for the same reason the base file is separate from
+# compose.yaml: an override naming a service whose base file was left out of COMPOSE_FILE declares
+# a service with no image, and the whole project becomes invalid ("has neither an image nor a build
+# context"). Keeping the dev half beside the base half means dropping one line from COMPOSE_FILE
+# drops both.
+#
+# List it AFTER compose.services/postgres.yaml. See docs/INSTALLER-PLAN.md §3.
+
+# `dev_net` is declared here as well as in compose.override.yaml. Compose merges identical
+# top-level networks, and declaring it locally means this file works in any list that includes
+# it. The reason it is needed at all is in compose.override.yaml's header: a container attached
+# only to an internal network cannot have a host port published.
+networks:
+  dev_net:
+    driver: bridge
+
+services:
+  postgres:
+    networks:
+      - data_net
+      - dev_net
+    ports:
+      - "${POSTGRES_DEV_PORT:-5432}:5432"
