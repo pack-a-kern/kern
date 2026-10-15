@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Kern\Platform\Settings\Services;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Settings\DataTransferObjects\ComponentHealth;
 use RuntimeException;
 use Throwable;
@@ -18,7 +20,9 @@ use Throwable;
  *
  * Every entry is the result of a real probe. Nothing here is inferred from configuration alone,
  * and no service we do not run is listed: a status board that reports "Healthy" without having
- * asked is worse than no status board, because it is trusted.
+ * asked is worse than no status board, because it is trusted. The one state that is read from
+ * configuration is `not_configured`, which claims nothing about a service and is only reached for
+ * one an installation is free to leave out ({@see self::probeBrowserWorker()}).
  *
  * Deliberately not covered, rather than guessed at:
  *  - **Queue workers.** Horizon's supervisor state is not readable without Horizon's own storage
@@ -34,6 +38,7 @@ final readonly class ProbeSystemHealth
     public function __construct(
         private HttpFactory $http,
         private ConfigRepository $config,
+        private Container $container,
     ) {
     }
 
@@ -52,6 +57,22 @@ final readonly class ProbeSystemHealth
                 Redis::connection()->command('ping', []);
 
                 return null;
+            }),
+            $this->probe('key_management', function (): string {
+                // Resolved here instead of injected, because *building* this is one of the things
+                // that can be wrong: the binding reads four config values and throws if any is
+                // missing, and a constructor argument would turn that into a 500 from the one
+                // endpoint an operator opens to find out what is broken. Inside the probe it is
+                // a degraded row, which is what it is.
+                $kms = $this->container->make(KeyManagementService::class);
+
+                // A read of the key's metadata rather than a test encryption: it proves the same
+                // address, token, transit mount and that the KEK itself exists — a sealed OpenBao
+                // answers 503 and a missing key 404, both of which fail here — without asking
+                // transit to wrap a data key nobody will ever hold. The version it returns is
+                // worth reporting: after `kern:kek:rotate` this row is where an operator sees
+                // that the rotation took.
+                return sprintf('KEK version %d', $kms->currentKekVersion());
             }),
             $this->probe('object_storage', function (): string {
                 $disk = $this->stringConfig('filesystems.default');
@@ -75,7 +96,42 @@ final readonly class ProbeSystemHealth
                 return null;
             }),
             $this->probeAntivirus(),
+            $this->probeBrowserWorker(),
         ];
+    }
+
+    /**
+     * The one service here an installation is allowed not to run.
+     *
+     * `compose.services/browser.yaml` can be left out of `COMPOSE_FILE` — the cost is SPV
+     * automation, nothing else — so an unset `BROWSER_WORKER_URL` is a choice, not a fault, and is
+     * reported as such. Degraded would say an operator has something to fix when they have not.
+     *
+     * The timeout is the health page's, not `browser_worker.timeout_seconds`: that one is sized for
+     * the slowest page a playbook waits on (120 seconds by default), and a status board that can
+     * hang for two minutes is not a status board. `/health` is also the worker's only unauthenticated
+     * route, so the bearer token stays out of this request — a secret is not sent where it buys
+     * nothing.
+     */
+    private function probeBrowserWorker(): ComponentHealth
+    {
+        $baseUrl = $this->config->get('browser_worker.url');
+
+        if (! is_string($baseUrl) || $baseUrl === '') {
+            return ComponentHealth::notConfigured('browser_worker');
+        }
+
+        return $this->probe('browser_worker', function () use ($baseUrl): ?string {
+            $response = $this->http
+                ->timeout($this->config->integer('operations.health.timeout_seconds'))
+                ->get(rtrim($baseUrl, '/') . '/health');
+
+            if ($response->failed()) {
+                throw new RuntimeException('status ' . $response->status());
+            }
+
+            return null;
+        });
     }
 
     /**

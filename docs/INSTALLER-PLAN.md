@@ -36,9 +36,10 @@ Three pieces of the installer also already exist and must be reused rather than 
 - **`Kern\Platform\Config\InstalledPackages::firstParty()`** discovers packages from
   `vendor/composer/installed.json`, filtered by the application's own vendor. Nothing lists them, so
   a package installed tomorrow is found with no change here.
-- **`Kern\Platform\Settings\Services\ProbeSystemHealth`** already probes `database`, `cache`,
-  `object_storage`, `processing` and `antivirus`. The installer's "testing..." steps are this
-  service, not new code. It is missing probes for OpenBao and the browser worker.
+- **`Kern\Platform\Settings\Services\ProbeSystemHealth`** probes `database`, `cache`,
+  `key_management`, `object_storage`, `processing`, `antivirus` and `browser_worker`. The
+  installer's "testing..." steps are this service, not new code. A `vpn` probe is still missing and
+  belongs with §5.
 
 ### What cannot be made optional
 
@@ -506,8 +507,9 @@ once the image exists.
     edge is Caddy, and as the fallback afterwards, this is `scripts/generate-certs.sh` — which the
     installer calls before step 7, since the edge image is built with the certificate mounted and
     `make up` refuses to start without it.
-14. **Health check** — `ProbeSystemHealth`, printed per component. Any non-healthy component is a
-    non-zero exit with the component named.
+14. **Health check** — `ProbeSystemHealth`, printed per component. A `degraded` component is a
+    non-zero exit with the component named; `not_configured` is printed and passes, because it
+    names a service this installation was told not to run.
 
 ### Re-running it
 
@@ -526,7 +528,7 @@ In dependency order. Nothing after the first item can be finished before it.
 | 1 | ~~**Split compose per service** (§3) + `COMPOSE_FILE` + the `make` guard~~ — **done** | nothing else can skip a service |
 | 2 | ~~**`kern:certs`**~~ — shipped as **`make certs`** / `scripts/generate-certs.sh`, not an artisan command: the edge needs the file before any image exists — **done** | closes the fresh-clone hole today, and stays the fallback for the IP answer |
 | 3 | ~~**`kern:admin:create`**~~ — **done**. Creates the user, marks the address verified and grants the role in one transaction; `--stdin` is how the installer passes the password | step 12 has nothing to call |
-| 4 | **Two more health probes** — OpenBao, browser worker (and `vpn` if built) | step 14 cannot verify what it cannot probe |
+| 4 | ~~**Two more health probes** — OpenBao, browser worker~~ — **done** as `key_management` (reads the KEK's version through the real driver) and `browser_worker` (`not_configured` when the installation runs none). A `vpn` probe comes with §5 | step 14 cannot verify what it cannot probe |
 | 5 | **Caddy edge** (§4) | needed for a real certificate, but the stack runs without it |
 | 6 | **`scripts/install.sh`** (§6) | the questions and the ordering |
 | 7 | **VPN container** (§5) | optional; current host VPN keeps working |
