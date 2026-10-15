@@ -38,7 +38,9 @@ Three pieces of the installer also already exist and must be reused rather than 
   a package installed tomorrow is found with no change here.
 - **`Kern\Platform\Settings\Services\ProbeSystemHealth`** probes `database`, `cache`,
   `key_management`, `object_storage`, `processing`, `antivirus` and `browser_worker`. The
-  installer's "testing..." steps are this service, not new code. The two services an installation
+  installer's one "testing..." step is this service, printed by `php artisan kern:health` — the
+  only new code it needed, because the HTTP route it was behind requires an administrator to be
+  signed in and the installer runs before any account exists. The two services an installation
   may leave out — processing and the browser worker — report `not_configured` rather than
   `degraded` when their address was never set, so skipping one does not read as a fault. A `vpn`
   probe is still missing and belongs with §5.
@@ -493,7 +495,7 @@ which.
 
 ---
 
-## 6. Part D — the install script
+## 6. Part D — the install script — **done**
 
 ### Why a shell script and not an artisan command
 
@@ -556,6 +558,69 @@ The script must be safe to run twice. It refuses if `.env` exists, and offers `-
 skips questions and re-runs steps 8–14 only. Nothing in the flow is allowed to overwrite a `.env`
 holding real credentials, which is already the rule `kern:env` follows.
 
+### Files — as built
+
+```
+scripts/install.sh               the questions, the ordering, 14 steps
+scripts/host-addresses.sh        new — the addresses this host answers on, shared with generate-certs.sh
+Makefile                         `make install`, and `make install ARGS=--repair`
+packages/platform/src/Console/Commands/Settings/CheckSystemHealthCommand.php
+                                 new — `kern:health`, which step 14 is
+packages/platform/src/Settings/SettingsServiceProvider.php
+                                 registers it
+apps/api/tests/Feature/Platform/Settings/CheckSystemHealthCommandTest.php
+docs/DEPLOYMENT.md               §5 opens with `make install`; §6 gains a `kern:health` row
+```
+
+### Where it departs from the plan above, and why
+
+Five places. Each is a thing the plan promised that could not be built honestly, or a thing running
+it turned out to need:
+
+- **Step 14 needed a command.** `ProbeSystemHealth` was only reachable through
+  `GET /api/v1/settings/health`, which requires a signed-in administrator holding
+  `system.settings.view` — and the installer runs before any account exists. `kern:health` prints
+  the same rows on a terminal and exits non-zero on a `degraded` one. It reuses the service
+  unchanged, so the terminal and the screen cannot disagree about what is up.
+- **No "install object storage here".** `compose.services/minio.yaml` was in §3's file list and was
+  never written: this deployment has always used a remote MinIO, and building a service nothing has
+  asked for to answer a question is the opposite of the rule. So the object-storage question asks
+  for an endpoint, a key pair and two bucket names, and says plainly that there is no local option.
+  **This is the one real gap in the installer**: a standalone server with no S3 anywhere cannot be
+  installed without one, because documents have nowhere to go.
+- **No Cloudflare DNS-01, and no xcaddy stage.** §8 says this path must be built and issued once
+  against a real zone before it ships, and there is no zone or token here to do that against. The
+  third TLS answer is "a domain name, with a certificate you already have", which covers the
+  Cloudflare case through an Origin certificate — valid fifteen years, trusted by Cloudflare for
+  the edge→origin leg, no token at runtime and no renewal — and needs no module that is not in the
+  image. DNS-01 stays unbuilt until it can be tested.
+- **No "testing…" line after each question.** The mock flow in §2 answers each external address
+  with a live probe from the host. The host is the wrong place to probe from: what has to be true is
+  that the *container* can reach the address, and on this deployment those two answers differ by a
+  VPN. Every external service is therefore tested exactly once, at step 14, from inside the
+  container that has to reach it — and that one test fails the install.
+- **Streaming output instead of one line per step.** `docker compose build` takes three minutes and
+  `npm ci` the better part of one. A dotted line that has not finished is indistinguishable from a
+  hang, so each step prints a heading and then lets the command's own output through.
+
+`--repair` also stops short of creating the administrator: by definition that account already
+exists, and `kern:admin:create` refuses an address it already has, which would fail a repair over
+the one thing that is correct. It runs start, wait, migrate, sync and health.
+
+### What running it turned up
+
+- **An empty variable is not an unset one.** Writing `KERN_EDGE_TLS=` for the IP answer looks like
+  leaving it alone and is not: compose forwards a variable that is set to nothing, and `tls` with no
+  argument stops the edge from starting. The two `KERN_EDGE_*` lines are written only when there is
+  something to say, and stay commented out otherwise.
+- **The certificate has to cover more than the answer.** `scripts/generate-certs.sh` with one name
+  produces a certificate valid for that name alone, so an operator reaching the same installation by
+  its other address gets a second, different browser warning on top of the self-signed one. The
+  installer passes the answer *and* every address this host has — which is why
+  `scripts/host-addresses.sh` exists rather than the same `ip`/`awk` pipeline living in two scripts.
+- **The live `apps/api/.env` on this host is mode 0644.** The installer writes 0600. Nothing
+  changed the existing file.
+
 ---
 
 ## 7. What has to be built
@@ -569,7 +634,7 @@ In dependency order. Nothing after the first item can be finished before it.
 | 3 | ~~**`kern:admin:create`**~~ — **done**. Creates the user, marks the address verified and grants the role in one transaction; `--stdin` is how the installer passes the password | step 12 has nothing to call |
 | 4 | ~~**Two more health probes** — OpenBao, browser worker~~ — **done** as `key_management` (reads the KEK's version through the real driver) and `browser_worker` (`not_configured` when the installation runs none). A `vpn` probe comes with §5 | step 14 cannot verify what it cannot probe |
 | 5 | ~~**Caddy edge** (§4)~~ — **done**. One container, one Caddyfile; `KERN_EDGE_SITE` and `KERN_EDGE_TLS` are the two answers the installer will set. The Cloudflare DNS module waits for the question in §6 | needed for a real certificate, but the stack runs without it |
-| 6 | **`scripts/install.sh`** (§6) | the questions and the ordering |
+| 6 | ~~**`scripts/install.sh`** (§6)~~ — **done**, with `kern:health` as the step-14 command and five departures recorded in §6 | the questions and the ordering |
 | 7 | **VPN container** (§5) | optional; current host VPN keeps working |
 | 8 | **`docs/DEPLOYMENT.md`** rewritten around the installer | the manual steps become the fallback path |
 

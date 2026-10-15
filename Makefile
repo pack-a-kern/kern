@@ -5,7 +5,7 @@
 
 SERVICE ?= app
 
-.PHONY: env certs up down build logs shell test lint fresh compose-file
+.PHONY: install env certs up down build logs shell test lint fresh compose-file
 
 ## Refuse to run compose without a service list.
 ##
@@ -19,6 +19,19 @@ compose-file:
 		echo "Copy the line from apps/api/.env.example — it lists every service."; \
 		exit 1; \
 	}
+
+## Install this on a server: ask the questions, generate every secret, bring the stack up.
+##
+## One command from a fresh clone to a working installation — the environment file, the TLS
+## certificate, the frontend assets, the images, the migrations, the role catalogue, the first
+## administrator, and a health check that fails the install if something it needs did not answer.
+## It refuses to overwrite an existing apps/api/.env; `make install ARGS=--repair` re-runs everything
+## after that file against an installation that is already there.
+##
+## `make env` is the other way in, and the one to use on a development machine: it writes the same
+## file from .env.example with every value still to fill in, and the dev shape of COMPOSE_FILE.
+install:
+	@scripts/install.sh $(ARGS)
 
 ## Create apps/api/.env — the one file this installation is configured in.
 ##

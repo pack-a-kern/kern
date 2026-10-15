@@ -310,6 +310,24 @@ bottom of `packages/platform/README.md`.
 
 ## 5. Deployment steps
 
+**There is one command that does all of this:**
+
+```bash
+make install
+```
+
+`scripts/install.sh` asks how the installation will be reached and which services it should run
+here rather than point at, generates all nine secrets from `openssl rand`, writes `apps/api/.env`
+at mode 0600, builds the assets and the images, starts the stack, runs the migrations, creates the
+role catalogue and the first administrator, and finishes on `php artisan kern:health` — which fails
+the install, with the component named, if anything it was told to run did not answer. It refuses to
+overwrite an existing `apps/api/.env`; `make install ARGS=--repair` re-runs everything after that
+file against an installation that is already there.
+
+The steps below are the same work by hand. They are worth knowing because they are what the
+installer does, and because they are the way through when one step of it fails — but on a clean
+server, use the command.
+
 Derived from `Makefile`, `compose.yaml`, and `docker/caddy/Dockerfile`. Run these in order, from a
 clean checkout on the server.
 
@@ -416,6 +434,7 @@ Beyond that:
 
 | Check | Command | What healthy looks like |
 |---|---|---|
+| Every service this installation runs answers | `docker compose exec app php artisan kern:health` | One row per component — `ok`, `not installed` for one this installation was told not to run, or `DOWN`. Exits non-zero if any row is `DOWN`, which is what `make install` ends on. |
 | All containers report healthy | `docker compose ps` | Every service shows `Up` / `(healthy)`, not `unhealthy` or restarting in a loop. |
 | Queue workers are running | `docker compose exec app php artisan horizon:status` | Reports Horizon as running, not paused or inactive. |
 | Scheduler is actually ticking | `docker compose logs scheduler` | New log lines appear roughly once a minute; the container's own healthcheck (`docker/php/scheduler-healthcheck.php`) already fails the container if the schedule hasn't run in the last 180 seconds. |

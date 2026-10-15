@@ -59,17 +59,10 @@ if [ "$#" -gt 0 ]; then
     NAMES="$*"
 else
     # Every address this host answers on, so the certificate covers the public IP, the VPN address,
-    # and anything else, without a person having to list them. `ip` is on every Linux host running
-    # containers; if it is missing, pass the addresses as arguments instead.
-    #
-    # Filtered by interface name rather than by address range. Docker's own bridges carry addresses
-    # no client outside this host can reach, and `ip` lists interfaces that are DOWN as well —
-    # a first attempt matched on 172.16/12 and still picked up `docker0`'s 10.0.0.1 while that
-    # interface was down. Dropping lo, docker*, br-* and veth* leaves exactly the addresses someone
-    # could type into a browser.
-    NAMES=$(ip -4 -brief addr show 2>/dev/null \
-        | awk '$3 != "" && $1 !~ /^(lo|docker|br-|veth)/ { split($3, a, "/"); print a[1] }' \
-        || true)
+    # and anything else, without a person having to list them. The list comes from
+    # `host-addresses.sh` because `scripts/install.sh` offers the same addresses as its default
+    # answer, and the two must not disagree — see that script for how they are chosen.
+    NAMES=$("$(dirname -- "$0")/host-addresses.sh" || true)
     [ -n "$NAMES" ] || {
         echo "Could not work out this host's addresses. Pass them as arguments:" >&2
         echo "  scripts/generate-certs.sh 203.0.113.10 kern.example.ro" >&2
