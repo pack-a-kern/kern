@@ -13,18 +13,31 @@ use Kern\Platform\Settings\Services\ProbeSystemHealth;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 
 beforeEach(function (): void {
-    // The probe asks every service at once, and only two of them are what these tests are about.
-    // Faking the disk and the processing plane keeps the other rows from reaching a real MinIO or a
-    // real FastAPI — neither of which exists in a test run, and the S3 client retries before it
-    // gives up, which is seconds this suite should not spend.
-    //
-    // No `*` stub: the first *matching* stub wins, so a wildcard registered here could never be
-    // overridden by a test that wants the worker to answer differently. Each test below registers
-    // its own `browser-worker` stub, and the patterns do not overlap.
+    // The probe asks every service at once, and only three of them are what these tests are about.
+    // Faking the disk keeps the storage row from reaching a real MinIO, which does not exist in a
+    // test run and whose client retries before it gives up — seconds this suite should not spend.
     Storage::fake(Config::string('filesystems.default'));
+
+    // Both optional services are switched off here, so each test registers the one stub for the
+    // service it is about and no request leaves the process by accident. Nothing is faked with a
+    // `*` pattern, because the first *matching* stub wins: a wildcard registered here could never
+    // be overridden by a test that wants a service to answer differently.
     Http::preventStrayRequests();
-    Http::fake(['python-api*' => Http::response(['status' => 'ok'])]);
+    Config::set('services.processing.base_url', null);
+    Config::set('browser_worker.url', null);
 });
+
+/**
+ * The two services an installation may leave out, and where each one's address comes from.
+ *
+ * One dataset rather than two sets of tests: `ProbeSystemHealth::probeOptionalHttpService()` is one
+ * method serving both, so a case that holds for one and not the other would be a surprise worth
+ * failing on.
+ */
+const OPTIONAL_SERVICES = [
+    'the processing plane' => ['processing', 'services.processing.base_url', 'http://python-api:8000'],
+    'the browser worker' => ['browser_worker', 'browser_worker.url', 'http://browser-worker:8090'],
+];
 
 /**
  * The row for one component, by key.
@@ -98,36 +111,40 @@ it('reports the key manager degraded when it cannot even be built', function ():
         ->and($row->detail)->toBe('InvalidArgumentException');
 });
 
-it('reports the browser worker healthy when it answers its health route', function (): void {
-    Config::set('browser_worker.url', 'http://browser-worker:8090');
-    Http::fake(['browser-worker*' => Http::response(['status' => 'ok', 'service' => 'browser-worker'])]);
+it('reports an optional service healthy when it answers its health route', function (string $key, string $configKey, string $baseUrl): void {
+    Config::set($configKey, $baseUrl);
+    Http::fake([$baseUrl . '*' => Http::response(['status' => 'ok'])]);
 
-    expect(healthOf('browser_worker')->state)->toBe('healthy');
+    expect(healthOf($key)->state)->toBe('healthy');
 
-    Http::assertSent(fn ($request): bool => $request->url() === 'http://browser-worker:8090/health'
-        // `/health` is the worker's one unauthenticated route, so the shared secret is not sent.
+    Http::assertSent(fn ($request): bool => $request->url() === $baseUrl . '/health'
+        // `/health` is the one unauthenticated route on both services, so neither shared secret is
+        // sent with this request.
         && ! $request->hasHeader('Authorization'));
-});
+})->with(OPTIONAL_SERVICES);
 
-it('reports the browser worker degraded when it answers with a failure', function (): void {
-    Config::set('browser_worker.url', 'http://browser-worker:8090');
-    Http::fake(['browser-worker*' => Http::response(status: 503)]);
+it('reports an optional service degraded when it answers with a failure', function (string $key, string $configKey, string $baseUrl): void {
+    Config::set($configKey, $baseUrl);
+    Http::fake([$baseUrl . '*' => Http::response(status: 503)]);
 
-    $row = healthOf('browser_worker');
+    $row = healthOf($key);
 
     expect($row->state)->toBe('degraded')
         ->and($row->detail)->toBe('RuntimeException');
-});
+})->with(OPTIONAL_SERVICES);
 
-it('reports the browser worker not configured when this installation does not run one', function (): void {
-    // `compose.services/browser.yaml` is one of the files a COMPOSE_FILE may leave out. Leaving it
-    // out is a decision, not a fault, and the board must not read as broken because of it.
-    Config::set('browser_worker.url', null);
+it('reports an optional service not configured when this installation does not run it', function (string $key, string $configKey, string $baseUrl): void {
+    // `compose.services/python.yaml` and `compose.services/browser.yaml` are both files a
+    // COMPOSE_FILE may leave out. Leaving one out is a decision, not a fault, and the board must
+    // not read as broken because of it.
+    Config::set($configKey, null);
 
-    $row = healthOf('browser_worker');
+    $row = healthOf($key);
 
     expect($row->state)->toBe('not_configured')
         ->and($row->detail)->toBeNull();
 
-    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'browser-worker'));
-});
+    // And nothing was asked. A `not_configured` row that still made a request would be reporting
+    // one thing and doing another.
+    Http::assertNotSent(fn ($request): bool => str_starts_with($request->url(), $baseUrl));
+})->with(OPTIONAL_SERVICES);

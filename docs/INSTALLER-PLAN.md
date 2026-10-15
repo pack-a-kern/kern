@@ -38,8 +38,10 @@ Three pieces of the installer also already exist and must be reused rather than 
   a package installed tomorrow is found with no change here.
 - **`Kern\Platform\Settings\Services\ProbeSystemHealth`** probes `database`, `cache`,
   `key_management`, `object_storage`, `processing`, `antivirus` and `browser_worker`. The
-  installer's "testing..." steps are this service, not new code. A `vpn` probe is still missing and
-  belongs with §5.
+  installer's "testing..." steps are this service, not new code. The two services an installation
+  may leave out — processing and the browser worker — report `not_configured` rather than
+  `degraded` when their address was never set, so skipping one does not read as a fault. A `vpn`
+  probe is still missing and belongs with §5.
 
 ### What cannot be made optional
 

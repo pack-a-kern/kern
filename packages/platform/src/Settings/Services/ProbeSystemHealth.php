@@ -22,7 +22,7 @@ use Throwable;
  * and no service we do not run is listed: a status board that reports "Healthy" without having
  * asked is worse than no status board, because it is trusted. The one state that is read from
  * configuration is `not_configured`, which claims nothing about a service and is only reached for
- * one an installation is free to leave out ({@see self::probeBrowserWorker()}).
+ * one an installation is free to leave out ({@see self::probeOptionalHttpService()}).
  *
  * Deliberately not covered, rather than guessed at:
  *  - **Queue workers.** Horizon's supervisor state is not readable without Horizon's own storage
@@ -83,45 +83,42 @@ final readonly class ProbeSystemHealth
 
                 return $disk;
             }),
-            $this->probe('processing', function (): ?string {
-                // The one address every feature using the service reads, so "up" here means up for all
-                // of them — not only for document extraction.
-                $baseUrl = $this->stringConfig('services.processing.base_url');
-                $response = $this->http->timeout($this->config->integer('operations.health.timeout_seconds'))->get(rtrim($baseUrl, '/') . '/health');
-
-                if ($response->failed()) {
-                    throw new RuntimeException('status ' . $response->status());
-                }
-
-                return null;
-            }),
+            // The one address every feature using the service reads, so "up" here means up for all
+            // of them — not only for document extraction.
+            $this->probeOptionalHttpService('processing', 'services.processing.base_url'),
             $this->probeAntivirus(),
-            $this->probeBrowserWorker(),
+            $this->probeOptionalHttpService('browser_worker', 'browser_worker.url'),
         ];
     }
 
     /**
-     * The one service here an installation is allowed not to run.
+     * One of the two services an installation is allowed not to run, asked over HTTP.
      *
-     * `compose.services/browser.yaml` can be left out of `COMPOSE_FILE` — the cost is SPV
-     * automation, nothing else — so an unset `BROWSER_WORKER_URL` is a choice, not a fault, and is
-     * reported as such. Degraded would say an operator has something to fix when they have not.
+     * `compose.services/python.yaml` and `compose.services/browser.yaml` are both files a
+     * `COMPOSE_FILE` may leave out — the cost is AI features and SPV automation respectively, and
+     * nothing else — so an address that was never set is a decision, not a fault, and reads as
+     * `not_configured`. Degraded would send an operator hunting for a service they chose not to
+     * install. Neither address carries a default for exactly this reason: where a service lives is
+     * the installation's own fact, so "unset" is a reliable answer rather than a guess.
      *
-     * The timeout is the health page's, not `browser_worker.timeout_seconds`: that one is sized for
-     * the slowest page a playbook waits on (120 seconds by default), and a status board that can
-     * hang for two minutes is not a status board. `/health` is also the worker's only unauthenticated
-     * route, so the bearer token stays out of this request — a secret is not sent where it buys
+     * One method for both, because the two probes are the same probe: an address from config, a
+     * `/health` route, a status. They differ only in which file names the address.
+     *
+     * The timeout is the health page's, never the service's own. `browser_worker.timeout_seconds` is
+     * sized for the slowest page a playbook waits on (120 seconds by default), and a status board
+     * that can hang for two minutes is not a status board. `/health` is also the one unauthenticated
+     * route on both services, so neither bearer token is sent — a secret does not go where it buys
      * nothing.
      */
-    private function probeBrowserWorker(): ComponentHealth
+    private function probeOptionalHttpService(string $key, string $addressConfigKey): ComponentHealth
     {
-        $baseUrl = $this->config->get('browser_worker.url');
+        $baseUrl = $this->config->get($addressConfigKey);
 
         if (! is_string($baseUrl) || $baseUrl === '') {
-            return ComponentHealth::notConfigured('browser_worker');
+            return ComponentHealth::notConfigured($key);
         }
 
-        return $this->probe('browser_worker', function () use ($baseUrl): ?string {
+        return $this->probe($key, function () use ($baseUrl): ?string {
             $response = $this->http
                 ->timeout($this->config->integer('operations.health.timeout_seconds'))
                 ->get(rtrim($baseUrl, '/') . '/health');
