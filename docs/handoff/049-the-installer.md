@@ -49,13 +49,33 @@ MinIO service to answer the question was the obvious move and the wrong one — 
 it, and `compose.services/minio.yaml` was in the plan's file list and never written because this
 deployment has always used a remote one. Recorded in the plan §6 and in `DEPLOYMENT.md` §8.3.
 
-## Why no Cloudflare DNS-01
+## Cloudflare DNS-01, added the same day
 
-The plan's §8 requires that path to be built and issued once against a real zone before it ships, and
-there is no zone or token here to do that against. The third TLS answer — "a domain name, with a
-certificate you already have" — covers the Cloudflare case through an Origin certificate: fifteen
-years, trusted by Cloudflare for the edge→origin leg, no token at runtime, no renewal, and no module
-that is not already in the image.
+Left out of the first installer because §8 requires that path to be issued once against a real zone
+before it ships, and there is no zone here. Then built anyway, because everything *except* the
+issuance can be proved — and because an installation behind Cloudflare otherwise has no way to get a
+trusted certificate at all.
+
+`docker/caddy/Dockerfile` is two stages now: `xcaddy build --with
+github.com/caddy-dns/cloudflare@v0.2.4` on `caddy:2.11.7-builder-alpine`, then the binary copied
+into the runtime image. 167 MB → 235 MB. The token and the code that can use it are two different
+things: the official image has neither, and giving today's edge a token would do nothing.
+
+The Caddyfile turn-on is one line, and its shape is the interesting part. A Caddyfile has no
+conditionals and an `acme_dns` line with no provider is a configuration error, so "off" cannot be an
+empty provider name — the **whole directive** is an environment variable instead, defaulting to
+nothing, with the token in a second variable that Caddy reads at runtime rather than it living in
+the configuration's text.
+
+Verified: the image builds, `caddy list-modules` reports `dns.providers.cloudflare`, and
+`caddy validate` passes with nothing set, with a domain and an email, and with the DNS challenge on
+— where the Cloudflare module itself rejected a malformed token with its own error message, which is
+what proves it is reached rather than parsed past. The **old** image also still validates the new
+Caddyfile with the variable unset, which is what matters for every installation that does not use
+this path.
+
+Not verified: issuance against a real zone. The fifth TLS answer stays beside it for exactly that
+reason — a Cloudflare Origin certificate is fifteen years, no token, no renewal, no module.
 
 ## Threat-model note (required by `docs/AGENTS.md` §1 rule 20)
 

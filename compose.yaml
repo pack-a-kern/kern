@@ -131,6 +131,11 @@ services:
     environment:
       - KERN_EDGE_SITE
       - KERN_EDGE_TLS
+      # And how ACME proves this name, for an installation behind a proxy that answers port 80
+      # itself. Both empty unless the installer's fourth TLS answer was chosen; the Caddyfile's
+      # global options explain why the whole directive is a variable rather than just the provider.
+      - KERN_EDGE_ACME_DNS
+      - KERN_EDGE_DNS_TOKEN
     volumes:
       # TLS material. The edge is published on a public IP, so plain HTTP would put the login
       # password on the wire in clear text. Both halves are gitignored and written by `make certs`;

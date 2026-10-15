@@ -252,6 +252,8 @@ SITE_HOST=''
 SITE_URL=''
 EDGE_SITE=''
 EDGE_TLS=''
+EDGE_ACME_DNS=''
+EDGE_DNS_TOKEN=''
 TLS_NOTE=''
 
 DB_LOCAL=yes
@@ -304,6 +306,7 @@ ask_how_it_is_reached() {
     choose 'How will this installation be reached?' 1 \
         'An IP address — self-signed TLS, and browsers will warn' \
         "A domain name, with ports 80 and 443 reachable from the internet — Let's Encrypt, renewed by the edge" \
+        "A domain name behind Cloudflare's proxy — Let's Encrypt proved through DNS, renewed by the edge" \
         'A domain name, with a certificate you already have — including a Cloudflare Origin certificate'
 
     case "$CHOICE" in
@@ -326,6 +329,28 @@ ask_how_it_is_reached() {
             TLS_NOTE="Let's Encrypt, obtained on the first request to $SITE_HOST and renewed by the edge"
             ;;
         3)
+            ask_required 'The domain name' ''
+            SITE_HOST="$ANSWER"
+            EDGE_SITE="$SITE_HOST"
+            ask_required 'An email address for the certificate authority' ''
+            EDGE_TLS="$ANSWER"
+            # Cloudflare terminates TLS at its own edge, so a challenge answered on port 80 or 443
+            # never reaches this server and both default methods fail for a name that is otherwise
+            # configured correctly. Proving the name through DNS instead works regardless of the
+            # proxy — Caddy writes a record in the zone and the authority reads it.
+            #
+            # The directive is written whole rather than as a provider name, because a Caddyfile has
+            # no conditionals and `acme_dns` with no provider is a configuration error; the token
+            # goes in its own variable so Caddy reads it at runtime instead of it living in the
+            # configuration's text. Cloudflare is the one provider compiled into the edge image.
+            printf '\n  The token is made at Cloudflare → My Profile → API Tokens, scoped to\n'
+            printf '  Zone:DNS:Edit and Zone:Zone:Read on this one zone. Never a global API key.\n'
+            ask_secret 'Cloudflare API token'
+            EDGE_DNS_TOKEN="$ANSWER"
+            EDGE_ACME_DNS='acme_dns cloudflare {env.KERN_EDGE_DNS_TOKEN}'
+            TLS_NOTE="Let's Encrypt, proved through Cloudflare's DNS and renewed by the edge"
+            ;;
+        4)
             ask_required 'The domain name' ''
             SITE_HOST="$ANSWER"
             EDGE_SITE="$SITE_HOST"
@@ -655,6 +680,13 @@ write_environment_file() {
     if [ -n "$EDGE_SITE" ]; then
         set_env KERN_EDGE_SITE "$EDGE_SITE"
         set_env KERN_EDGE_TLS "$EDGE_TLS"
+    fi
+
+    # Same reasoning again, and it is the reason the directive is a variable at all: written empty
+    # it is an `acme_dns` with no provider, which stops the edge from starting.
+    if [ -n "$EDGE_ACME_DNS" ]; then
+        set_env KERN_EDGE_ACME_DNS "$EDGE_ACME_DNS"
+        set_env KERN_EDGE_DNS_TOKEN "$EDGE_DNS_TOKEN"
     fi
 
     if [ "$DB_LOCAL" = yes ]; then

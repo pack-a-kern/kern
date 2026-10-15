@@ -5,11 +5,40 @@
 # somebody generated once, and the edge stops being C code with a CVE chain this image had to purge
 # package by package (docker/nginx/Dockerfile did exactly that for libgd/libheif).
 #
-# Exact tag per docs/DEPENDENCY-POLICY.md §1. Alpine, because the edge needs no Debian package: the
+# Exact tags per docs/DEPENDENCY-POLICY.md §1. Alpine, because the edge needs no Debian package: the
 # healthcheck uses busybox's own wget and nothing else is installed on top.
-# `2.11.7-alpine` verified present 2026-10-15 via
+# `2.11.7-alpine` and `2.11.7-builder-alpine` verified present 2026-10-15 via
 # https://hub.docker.com/v2/repositories/library/caddy/tags — see docs/reference/verified-versions.md.
+
+# Stage: builder — Caddy rebuilt with one DNS provider module compiled in.
+#
+# ## Why the official image is not enough
+#
+# Caddy gets a certificate by proving it controls the name. By default it proves it by answering a
+# request on port 80 or a TLS handshake on 443 — which works only if the certificate authority's
+# request reaches *this* server. Behind Cloudflare's proxy it does not: Cloudflare terminates the
+# connection at its own edge, so the challenge never arrives and both of those methods fail, for a
+# name that is otherwise configured perfectly.
+#
+# The answer is to prove control of the name through DNS instead: Caddy writes a record, the
+# authority reads it. That needs an API token for the zone — and it needs code that can talk to that
+# particular DNS provider's API, which the official image has none of. A token alone does nothing.
+#
+# So the binary is rebuilt with exactly one provider compiled in: Cloudflare, which is the one this
+# installation's fourth TLS answer offers (`scripts/install.sh`). Adding a second provider is one
+# more `--with` here and one more answer there; adding none would mean an installation behind a
+# proxy cannot get a trusted certificate at all.
+#
+# Pinned to an exact module version like every other dependency. `v0.2.4`, released 2026-03-23,
+# resolved from the Go module proxy on 2026-10-15 — see docs/reference/verified-versions.md.
+FROM caddy:2.11.7-builder-alpine AS builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare@v0.2.4
+
 FROM caddy:2.11.7-alpine
+
+# The rebuilt binary, replacing the base image's. Copied before the user is created below, because
+# that step strips a file capability from this binary and so has to run after it is in place.
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
 # A non-root user, no home, no shell. Caddy listens on the unprivileged 8080/8443 (see the
 # Caddyfile's global options) specifically so no capability has to be added back after

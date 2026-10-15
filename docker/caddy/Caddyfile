@@ -19,6 +19,27 @@
 	# ACME's HTTP-01 challenge is unaffected: a challenge response is not a redirect.
 	auto_https disable_redirects
 
+	# How ACME proves this server controls the name, when the default way cannot.
+	#
+	# Caddy's default is to answer a request on port 80 or a TLS handshake on 443. Behind a proxy
+	# that terminates TLS itself — Cloudflare's orange cloud — neither reaches this server, so both
+	# fail for a name that is otherwise configured correctly. The alternative is to prove control
+	# through DNS: Caddy writes a record in the zone, the authority reads it, and the proxy is
+	# irrelevant.
+	#
+	# Empty unless this installation needs it, and the whole directive comes from the environment
+	# rather than just the provider's name, because a Caddyfile has no conditionals and an
+	# `acme_dns` line with no provider is a configuration error. `scripts/install.sh` writes both
+	# halves from one question:
+	#
+	#   KERN_EDGE_ACME_DNS=acme_dns cloudflare {env.KERN_EDGE_DNS_TOKEN}
+	#   KERN_EDGE_DNS_TOKEN=<a token scoped to Zone:DNS:Edit + Zone:Zone:Read on that zone>
+	#
+	# The token stays in its own variable so Caddy reads it at runtime instead of it being part of
+	# this file's text. Cloudflare is the one provider compiled into the image
+	# (docker/caddy/Dockerfile); a token for any other is a token nothing can use.
+	{$KERN_EDGE_ACME_DNS}
+
 	servers {
 		# No HTTP/3. compose publishes TCP only, and with h3 enabled Caddy advertises
 		# `Alt-Svc: h3=":443"` on every response — a browser then opens a QUIC connection to a UDP

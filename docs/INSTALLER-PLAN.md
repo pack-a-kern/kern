@@ -308,26 +308,48 @@ Two things worth being precise about, since they drove the questions:
   no ACME, no token at runtime and no renewal. It is only valid behind Cloudflare, which is exactly
   the case being configured.
 
-### DNS-01 means building the image — deferred to the installer
+### DNS-01 means building the image — **built**, with the question that selects it
 
-**Not built.** `docker/caddy/Dockerfile` is a single stage on the official image. The DNS module is
-only reachable through a question nothing asks yet — the installer's Cloudflare answer (§6) — and
-compiling a module no code path can select is the "for later" code `docs/CODE-QUALITY.md` forbids.
-It is a two-stage Dockerfile and a line in `docs/DEPENDENCY-POLICY.md` the day that question
-exists; what follows is still how:
-
-The official Caddy image has no DNS provider modules. A Cloudflare token is useless without
-`caddy-dns/cloudflare` compiled in, so `docker/caddy/Dockerfile` becomes two stages:
+The official Caddy image carries no DNS provider modules, so a Cloudflare token had nothing to use
+it: the token and the code that speaks to Cloudflare's API are two separate things, and the image
+had only the first. `docker/caddy/Dockerfile` is now two stages:
 
 ```
-FROM caddy:<version>-builder AS builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare
-FROM caddy:<version>
+FROM caddy:2.11.7-builder-alpine AS builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare@v0.2.4
+FROM caddy:2.11.7-alpine
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 ```
 
-This is a new build dependency and needs a line in `docs/DEPENDENCY-POLICY.md`, pinned to an exact
-version like every other image.
+Pinned to an exact module version like every other dependency, recorded in
+`docs/reference/verified-versions.md`, with the rule behind it in `docs/DEPENDENCY-POLICY.md` §4:
+a provider is compiled in only when a question in `scripts/install.sh` can select it. 167 MB → 235 MB.
+
+**How the Caddyfile turns it on, and why it is shaped that way.** A Caddyfile has no conditionals,
+and an `acme_dns` line with no provider is a configuration error — so "off" cannot be an empty
+provider name. The whole directive is therefore one environment variable, defaulting to nothing:
+
+```
+{$KERN_EDGE_ACME_DNS}                                      ← in the global options
+KERN_EDGE_ACME_DNS=acme_dns cloudflare {env.KERN_EDGE_DNS_TOKEN}
+KERN_EDGE_DNS_TOKEN=<Zone:DNS:Edit + Zone:Zone:Read, that zone only>
+```
+
+The token stays in its own variable so Caddy reads it at runtime rather than it being part of the
+configuration's text. `scripts/install.sh` writes both from one question, and both are listed
+valueless on the `edge` service so compose forwards them only when set.
+
+**What was verified, and what was not.** The image builds; `caddy list-modules` reports
+`dns.providers.cloudflare`; and `caddy validate` passes in all three states — nothing set (today's
+default, with the self-signed pair mounted), a domain with an ACME email, and a domain with the DNS
+challenge. In that last state the Cloudflare module itself rejected a deliberately malformed token
+with its own error, which is the proof that the module is wired in and reached. The old image also
+still validates the new Caddyfile with the variable unset, which is what matters for an installation
+that does not use this path.
+
+**Not verified: issuance against a real zone**, because there is no Cloudflare zone or token here to
+issue against. §8 keeps that open. What is promised is narrower than the plan's original claim and
+true: the edge can now *use* a Cloudflare token, where before it could only be given one.
 
 ### Translating the config
 
@@ -623,8 +645,8 @@ docs/DEPLOYMENT.md               §5 opens with `make install`; §6 gains a `ker
 
 ### Where it departs from the plan above, and why
 
-Five places. Each is a thing the plan promised that could not be built honestly, or a thing running
-it turned out to need:
+Five places, one of which has since been closed. Each is a thing the plan promised that could not be
+built honestly, or a thing running it turned out to need:
 
 - **Step 14 needed a command.** `ProbeSystemHealth` was only reachable through
   `GET /api/v1/settings/health`, which requires a signed-in administrator holding
@@ -637,12 +659,13 @@ it turned out to need:
   for an endpoint, a key pair and two bucket names, and says plainly that there is no local option.
   **This is the one real gap in the installer**: a standalone server with no S3 anywhere cannot be
   installed without one, because documents have nowhere to go.
-- **No Cloudflare DNS-01, and no xcaddy stage.** §8 says this path must be built and issued once
-  against a real zone before it ships, and there is no zone or token here to do that against. The
-  third TLS answer is "a domain name, with a certificate you already have", which covers the
-  Cloudflare case through an Origin certificate — valid fifteen years, trusted by Cloudflare for
-  the edge→origin leg, no token at runtime and no renewal — and needs no module that is not in the
-  image. DNS-01 stays unbuilt until it can be tested.
+- **Cloudflare DNS-01 shipped a day later, as a fourth TLS answer.** It was left out of the first
+  installer for the reason §8 gives — a path that cannot be issued against a real zone should not be
+  promised — and then built anyway, because everything except the issuance itself *can* be proved:
+  the module compiles in, `caddy list-modules` reports it, the configuration validates in every
+  state, and a malformed token is rejected by Cloudflare's own module rather than by the parser. §4
+  has what was and was not verified. The fifth answer, "a certificate you already have", stays
+  beside it: a Cloudflare Origin certificate is fifteen years, no token, no renewal, and no module.
 - **No "testing…" line after each question.** The mock flow in §2 answers each external address
   with a live probe from the host. The host is the wrong place to probe from: what has to be true is
   that the *container* can reach the address, and on this deployment those two answers differ by a
@@ -700,10 +723,12 @@ Items 2, 3 and 4 are small and independently useful — worth doing even if the 
   the `shortlived` profile, and community reports describe needing an updated certmagic. Until this
   is tested against the version we pin, the IP answer must offer `tls internal` and say the browser
   will warn. Do not advertise automatic trusted TLS for an IP.
-- **`caddy-dns/cloudflare` against the pinned Caddy version** — build it and issue once against a
-  real zone before this path ships. **Still not built**, for exactly this reason: there is no zone or
-  token here to test against. The installer's third TLS answer covers the Cloudflare case with a
-  certificate the operator already has, which needs no module (§6).
+- **`caddy-dns/cloudflare` against the pinned Caddy version** — **built and half-verified.** It
+  compiles into `caddy:2.11.7`, appears as `dns.providers.cloudflare`, and the configuration
+  validates with the challenge on and off (§4). **Issuance against a real zone is still unproven**,
+  because there is no zone or token here. The first installation to choose that answer is the test;
+  if it fails, the fallback is one answer away — a Cloudflare Origin certificate needs no ACME at
+  all.
 - **A 6-day certificate lifetime** means renewal failure becomes visible in days, not months. If the
   `shortlived` profile is used, renewal needs monitoring, not just automation.
 - **Cloudflare proxying and WebSockets** — `/app/` must survive the orange cloud.

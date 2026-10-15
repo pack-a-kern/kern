@@ -60,15 +60,21 @@ layout/table capability `apps/processing` does not need, where `pypdf` alone (ze
 runtime dependencies on Python ≥3.11) covers the actual requirement — detect a page's text layer
 and extract it (§14.3).
 
+## Caddy modules compiled into the edge
+
+| Module | Version |
+|--------|---------|
+| `github.com/caddy-dns/cloudflare` | `v0.2.4` (released 2026-03-23; resolved from the Go module proxy 2026-10-15, latest of five tags). Apache-2.0. Compiled in by `xcaddy` in `docker/caddy/Dockerfile`, and confirmed present as `dns.providers.cloudflare` in `caddy list-modules` on the built image. It is what lets an installation behind Cloudflare's proxy prove its name through DNS, which is the only ACME challenge that reaches a server the proxy answers for. |
+
 ## Container images (tags confirmed present)
 
 | Service | Image |
 |---------|-------|
-| edge | `caddy:2.11.7-alpine` (checked 2026-10-15; released 2026-10-06) |
+| edge | `caddy:2.11.7-alpine`, built from `caddy:2.11.7-builder-alpine` (both checked 2026-10-15; released 2026-10-06) |
 | app / queue / scheduler / reverb | `php:8.5-fpm-trixie` |
 | postgres | `pgvector/pgvector:pg18-trixie` (Postgres 18 + pgvector 0.8.6) |
 | redis | `redis:8-trixie` |
-| minio | `minio/minio` (last release 2025-09-07 — see STATUS known issues) |
+| minio | `minio/minio` (last release 2025-09-07 — see STATUS known issues). **Not in any compose file**: this deployment points at a MinIO it does not run |
 | openbao | `openbao/openbao:2.6.2` |
 | clamav | `clamav/clamav:1.5-debian13-slim` |
 | python | `python:3.14-slim-trixie` |

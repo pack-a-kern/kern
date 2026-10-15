@@ -25,7 +25,7 @@ guide used to list by hand.
 
 | Question | The answers |
 |---|---|
-| How will this be reached? | An IP address (self-signed, browsers warn) · a domain name with ports 80 and 443 open (Let's Encrypt, renewed by the edge) · a domain name with a certificate you already have |
+| How will this be reached? | An IP address (self-signed, browsers warn) · a domain name with ports 80 and 443 open (Let's Encrypt, renewed by the edge) · a domain name behind Cloudflare's proxy (Let's Encrypt proved through DNS, with a Cloudflare API token) · a domain name with a certificate you already have |
 | Database, Redis, key vault, virus scanner | Install it here · use the one I already run |
 | Object storage | An endpoint, a key pair and two bucket names. **There is no "install it here"** — see section 8 |
 | Document AI, SPV automation | Install it here · use the one I already run · skip it |
@@ -222,6 +222,7 @@ later. Section 5 is what each one protects.
 | `APP_URL` | The public address. Used in mail links, as the passkey origin, and as the default list of origins allowed to open a WebSocket. | The address people actually type |
 | `REVERB_ALLOWED_ORIGINS` | Which page addresses may open a live-update connection. Reverb compares the host only. | Every hostname this site is reached at. Wrong here fails **silently**: the socket connects and then delivers nothing |
 | `KERN_EDGE_SITE`, `KERN_EDGE_TLS` | The name this installation answers on, and how the edge proves it is that name. Commented out means every address, with the self-signed pair. | Set together, or not at all — see section 8 |
+| `KERN_EDGE_ACME_DNS`, `KERN_EDGE_DNS_TOKEN` | Proves the name through DNS instead of through a request to this server, which is the only method that works behind a proxy like Cloudflare's — it answers ports 80 and 443 itself, so the usual challenge never arrives. The first is the whole Caddy directive, because a Caddyfile has no conditionals and a provider-less `acme_dns` line stops the edge from starting; the second is the token, kept apart so Caddy reads it at runtime. | Both, or neither. Cloudflare is the one provider compiled into the edge image, and the token is scoped to `Zone:DNS:Edit` + `Zone:Zone:Read` on that one zone — never a global API key |
 | `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET` | Where documents live, and the two buckets used: documents, and the quarantine an upload waits in while it is scanned. | **Both buckets have to exist already.** Nothing in this stack creates them |
 | `AWS_USE_PATH_STYLE_ENDPOINT` | MinIO needs path-style addressing. | `true` for MinIO, `false` for real AWS S3 |
 | `MAIL_*` | The mail server. `MAIL_MAILER=log` writes mail to the application log instead of sending it. | An SMTP server, for anything real — password resets and verification codes go through it |
@@ -466,7 +467,13 @@ and ADRs or observed in the configuration — none is a guess.
    the edge presents `docker/caddy/certs/kern.crt` — every address this host answers on, plus
    `localhost` — and every visitor sees a warning. Point a domain at the server and set
    `KERN_EDGE_SITE` and `KERN_EDGE_TLS`: the edge then obtains a Let's Encrypt certificate on the
-   first request and renews it itself. Related: HSTS, which would force browsers to use HTTPS for
+   first request and renews it itself. Behind Cloudflare's proxy that first request never reaches
+   this server, so there the name is proved through DNS instead — `KERN_EDGE_ACME_DNS` and a scoped
+   Cloudflare token, which the edge image has the provider module for. **That path has never issued
+   a certificate against a real zone**: it builds, it validates, and Cloudflare's own module rejects
+   a malformed token, but the first installation to use it is the test. The fallback is a Cloudflare
+   Origin certificate, which needs no ACME at all. Related: HSTS, which would force browsers to use
+   HTTPS for
    this site, is deliberately **off** — with an untrusted certificate it makes the site unreachable
    with no easy recovery. It belongs in the Caddyfile's header block once a real certificate is in
    place.

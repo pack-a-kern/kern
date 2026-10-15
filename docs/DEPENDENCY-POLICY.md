@@ -38,6 +38,15 @@ status. §28 rule 9 forbids adding a dependency without justification.
 Prefer, in order: the language/framework standard library → an existing project dependency →
 a first-party Laravel/official package → a well-maintained third-party package.
 
+### Caddy modules are dependencies too
+
+The edge's binary is rebuilt by `xcaddy` with provider modules compiled in (`docker/caddy/Dockerfile`),
+so each one is pinned to an exact module version, recorded in
+`docs/reference/verified-versions.md`, and justified the same way. A module is added only when a
+question in `scripts/install.sh` selects it: compiling a provider nothing can choose is the
+"for later" code `docs/CODE-QUALITY.md` forbids, and it is also one more Go dependency in a binary
+that terminates TLS.
+
 ## 5. Audit gates in CI
 
 These run on every PR and **fail** the build — they are not advisory:
