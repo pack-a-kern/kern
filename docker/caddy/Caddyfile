@@ -1,0 +1,155 @@
+# Kern — the edge.
+#
+# Replaces ~170 lines of nginx across nginx.conf and conf.d/app.conf. Every comment here records a
+# real failure or a deliberate choice, carried over from those files; docs/INSTALLER-PLAN.md §4 has
+# the directive-by-directive translation.
+{
+	# No admin API. It is a control plane that can reconfigure this server over HTTP, nothing in
+	# this stack uses it (`make reload` restarts the container instead), and off also means Caddy
+	# autosaves no config — which suits a read-only root filesystem.
+	admin off
+
+	# Unprivileged ports, so the container keeps `cap_drop: ALL` with nothing added back. The host
+	# maps 80 -> 8080 and 443 -> 8443 (compose.yaml).
+	http_port 8080
+	https_port 8443
+
+	# Caddy publishes its own HTTP->HTTPS redirect per site name. The `:8080` block below is that
+	# redirect, written once and for every name, and two sources of one redirect is one too many.
+	# ACME's HTTP-01 challenge is unaffected: a challenge response is not a redirect.
+	auto_https disable_redirects
+
+	servers {
+		# No HTTP/3. compose publishes TCP only, and with h3 enabled Caddy advertises
+		# `Alt-Svc: h3=":443"` on every response — a browser then opens a QUIC connection to a UDP
+		# port that is not published, and waits for it to fail before falling back. This becomes
+		# `h1 h2 h3` the day the UDP port is published with the TCP one.
+		protocols h1 h2
+	}
+}
+
+# Plain HTTP exists only to redirect. The edge is published on a public IP, so leaving a login form
+# reachable over http:// means passwords cross the internet in clear text — habit is enough to make
+# that happen. /healthz stays on HTTP so the container healthcheck needs no TLS trust.
+:8080 {
+	# JSON, not Caddy's prettier `console` format: that one writes ANSI colour escapes even when
+	# nothing reading it is a terminal, and container logs are the collection point
+	# (BLUEPRINT.md §23).
+	log {
+		output stdout
+		format json
+	}
+
+	# The healthcheck runs every 10 seconds for the life of the container. Logging it would bury
+	# every real request.
+	log_skip /healthz
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle {
+		redir https://{host}{uri} 301
+	}
+
+	# nginx's `server_tokens off` sat in `http {}` and so covered both servers. This is the other
+	# half of it: measured, the redirect answered with `Server: Caddy` until this line existed.
+	header -Server
+}
+
+# The site address and the certificate are the two things an installation decides, so they are the
+# two things read from the environment. The defaults are what this repository has today: every name
+# on port 8443, with the self-signed pair `make certs` writes.
+{$KERN_EDGE_SITE::8443} {
+	# TLS. Without it the login password crosses the internet in clear text.
+	#
+	# The default pair is self-signed, so a browser warns — the honest state of an installation
+	# reached by IP address. One variable changes the answer, because which answer is right belongs
+	# to the installation and not to this file:
+	#
+	#   KERN_EDGE_TLS="internal"              Caddy's own CA: still untrusted, but it renews itself
+	#   KERN_EDGE_TLS="<email address>"       ACME — also needs KERN_EDGE_SITE set to a domain
+	#   KERN_EDGE_TLS="/a/cert.crt /a/key"    a certificate obtained some other way
+	#
+	# ACME needs KERN_EDGE_SITE to be a domain name: there is no name in `:8443` to get a
+	# certificate for. See docs/INSTALLER-PLAN.md §4 for the full table of answers.
+	tls {$KERN_EDGE_TLS:/etc/caddy/certs/kern.crt /etc/caddy/certs/kern.key}
+
+	# stdout only — container logs are the collection point (BLUEPRINT.md §23). Request bodies are
+	# never logged (docs/AGENTS.md §1.12), and Caddy redacts the Authorization and Cookie headers
+	# unless the `log_credentials` global option is turned on, which it is not.
+	log {
+		output stdout
+		format json
+	}
+
+	log_skip /healthz
+
+	# HSTS is deliberately NOT set while the certificate is untrusted: it would pin browsers to
+	# HTTPS for a certificate they refuse, which makes the site unreachable rather than warned
+	# about. It becomes safe, and belongs here, once the installer has obtained a real one.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		# nginx's `server_tokens off`. A version number in a response header helps nobody except
+		# somebody matching this server against a list of CVEs.
+		-Server
+		# And `Via`, which Caddy adds to anything it proxies and which names itself just as
+		# plainly. nginx sent neither; neither does this.
+		-Via
+	}
+
+	# Document capture uploads (BLUEPRINT.md §1.4) — the outer ceiling only, the same 25M enforced
+	# by upload_max_filesize in docker/php/php.ini. Refused here, before php-fpm is involved.
+	request_body {
+		max_size 25MB
+	}
+
+	# Never serve dotfiles (.env, .git, …) even if one ends up under public/.
+	@dotfiles path */.*
+	handle @dotfiles {
+		respond 403
+	}
+
+	# Self-contained liveness: proves the edge itself works without depending on php-fpm being
+	# reachable, which is what makes it usable as this container's healthcheck.
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Reverb (WebSockets) through the same origin, so the browser needs no extra published port and
+	# inherits the TLS above. Reverb speaks the Pusher protocol and serves the client handshake at
+	# /app/{key}; the server-side publish leg (/apps/{id}/events) stays on the internal network and
+	# is deliberately NOT proxied — nothing outside should be able to broadcast.
+	#
+	# No proxy headers and no timeouts, where nginx needed six and two: Caddy sets
+	# X-Forwarded-For/-Proto/-Host itself, handles the Upgrade handshake itself, and its reverse
+	# proxy has no read timeout, where nginx's default 60 seconds would drop a WebSocket that is
+	# idle by design between events.
+	handle /app/* {
+		reverse_proxy reverb:8080
+	}
+
+	handle {
+		root * /var/www/html/public
+
+		# `app:9000` is resolved per request. nginx needed `resolver 127.0.0.11` and an
+		# intermediate variable to get this, because a static `fastcgi_pass` makes it refuse to
+		# start at all when the app container is down, and then holds the address it first
+		# resolved across that container's restarts.
+		#
+		# nginx also passed a `REQUEST_ID` FastCGI parameter. Nothing in PHP has ever read it, and
+		# the convention the other two services follow is the `X-Request-Id` header
+		# (apps/processing, apps/browser-worker) — so it is dropped rather than carried over
+		# unread. If the edge should ever stamp a correlation id, it is that header.
+		php_fastcgi app:9000 {
+			read_timeout 60s
+		}
+
+		# Static assets under public/. Everything that is not a file on disk has already gone to
+		# index.php above, which is what nginx's `try_files $uri $uri/ /index.php?$query_string`
+		# did.
+		file_server
+	}
+}

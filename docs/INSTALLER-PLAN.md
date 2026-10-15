@@ -244,9 +244,9 @@ directly and never invokes `docker compose`, so the layout is invisible to it.
 
 ---
 
-## 4. Part B — Caddy replaces nginx at the edge
+## 4. Part B — Caddy replaces nginx at the edge — **done**
 
-`edge` is the only container that changes. Nothing else in the stack is touched.
+`edge` is the only container that changed. Nothing else in the stack was touched.
 
 ### Why now rather than later
 
@@ -300,7 +300,13 @@ Two things worth being precise about, since they drove the questions:
   no ACME, no token at runtime and no renewal. It is only valid behind Cloudflare, which is exactly
   the case being configured.
 
-### DNS-01 means building the image
+### DNS-01 means building the image — deferred to the installer
+
+**Not built.** `docker/caddy/Dockerfile` is a single stage on the official image. The DNS module is
+only reachable through a question nothing asks yet — the installer's Cloudflare answer (§6) — and
+compiling a module no code path can select is the "for later" code `docs/CODE-QUALITY.md` forbids.
+It is a two-stage Dockerfile and a line in `docs/DEPENDENCY-POLICY.md` the day that question
+exists; what follows is still how:
 
 The official Caddy image has no DNS provider modules. A Cloudflare token is useless without
 `caddy-dns/cloudflare` compiled in, so `docker/caddy/Dockerfile` becomes two stages:
@@ -358,17 +364,48 @@ The nginx config's comments each record a real failure. Carry every one into the
 - In dev, `compose.dev.yaml:82` bind-mounts `apps/api/public` and the server config over the
   baked copies. The Caddy equivalents must exist or an asset rebuild will 404 again.
 
-### Files
+### Files — as built
 
 ```
-docker/caddy/Dockerfile       new — two-stage, cloudflare DNS module
-docker/caddy/Caddyfile        new — ~35 lines
-docker/nginx/                 deleted, certs included
-compose.yaml                  edge: new build context, /data volume, ACME env vars
-compose.dev.yaml         the two dev bind-mounts, retargeted
-.github/workflows/ci.yml      wherever the edge image is built
-docs/DEPLOYMENT.md            §5 step 2, §7 item 2, and the stale minio services in §1
+docker/caddy/Dockerfile       new — single stage (see above), non-root, `setcap -r`
+docker/caddy/Caddyfile        new — 61 lines of directives, the rest comments
+docker/caddy/certs/           the pair moved here from docker/nginx/certs
+docker/nginx/                 deleted
+compose.yaml                  edge: new build context, caddy_data volume, KERN_EDGE_* passthrough
+compose.dev.yaml              the two dev bind-mounts, retargeted
+scripts/generate-certs.sh     new path, and the ownership fix below
+Makefile · .gitignore         the certificate path
+.github/workflows/ci.yml      the edge image's Dockerfile
+apps/api/.env.example         KERN_EDGE_SITE and KERN_EDGE_TLS
+BLUEPRINT.md §3.1 · docs/ARCHITECTURE.md §6 · docs/STATUS.md · docs/DEPLOYMENT.md
+docs/reference/verified-versions.md
 ```
+
+### What the switch turned up
+
+Three things that were only findable by running it:
+
+- **`cap_drop: [ALL]` could not exec the binary.** The official image grants
+  `cap_net_bind_service=ep` on `/usr/bin/caddy` so a non-root Caddy can bind 80 and 443. A binary
+  carrying an *effective* file capability cannot be exec'd at all when the capability is not
+  grantable, and the container died with `exec /usr/bin/caddy: operation not permitted` and nothing
+  else. This edge listens on 8080/8443 and needs no such capability, so the Dockerfile strips it
+  with `setcap -r`. Without that line the choice is dropping the hardening or dropping Caddy.
+- **`make certs` wrote a key the edge cannot read.** The script left the pair root-owned at 0600.
+  The edge runs as a non-root user, so TLS fails to load and the site is down, with "permission"
+  appearing nowhere in the error. The only reason this was not already broken was that the live
+  pair happened to be owned by nginx's uid. The script now writes 0640 owned by the edge's uid and
+  says what to run if it cannot.
+- **`Server` and `Via`.** nginx's `server_tokens off` lived in `http {}` and covered both servers;
+  the first Caddyfile only removed `Server` from the HTTPS one. Caddy also adds `Via: 0.0 Caddy` to
+  anything it proxies, which nginx never sent. Both are removed now, in both servers.
+
+Verified before the live edge was touched, by running the new image side by side on spare ports
+against the same `edge_net`: `/healthz` on both ports, the 301, a page through `php_fastcgi` (200,
+HTTP/2), a static asset, `/.env` (403), a 26 MB body (413) against a 1 MB one, `/apps/1/events`
+reaching Laravel rather than Reverb (404), and a real WebSocket upgrade to Reverb — **101 Switching
+Protocols**, byte-for-byte the same handshake the nginx edge answered on the port next to it. Then
+on the live stack: 12 containers healthy, `make smoke` 200/401, and 11 MiB of the 128 MiB limit.
 
 ---
 
@@ -531,7 +568,7 @@ In dependency order. Nothing after the first item can be finished before it.
 | 2 | ~~**`kern:certs`**~~ — shipped as **`make certs`** / `scripts/generate-certs.sh`, not an artisan command: the edge needs the file before any image exists — **done** | closes the fresh-clone hole today, and stays the fallback for the IP answer |
 | 3 | ~~**`kern:admin:create`**~~ — **done**. Creates the user, marks the address verified and grants the role in one transaction; `--stdin` is how the installer passes the password | step 12 has nothing to call |
 | 4 | ~~**Two more health probes** — OpenBao, browser worker~~ — **done** as `key_management` (reads the KEK's version through the real driver) and `browser_worker` (`not_configured` when the installation runs none). A `vpn` probe comes with §5 | step 14 cannot verify what it cannot probe |
-| 5 | **Caddy edge** (§4) | needed for a real certificate, but the stack runs without it |
+| 5 | ~~**Caddy edge** (§4)~~ — **done**. One container, one Caddyfile; `KERN_EDGE_SITE` and `KERN_EDGE_TLS` are the two answers the installer will set. The Cloudflare DNS module waits for the question in §6 | needed for a real certificate, but the stack runs without it |
 | 6 | **`scripts/install.sh`** (§6) | the questions and the ordering |
 | 7 | **VPN container** (§5) | optional; current host VPN keeps working |
 | 8 | **`docs/DEPLOYMENT.md`** rewritten around the installer | the manual steps become the fallback path |

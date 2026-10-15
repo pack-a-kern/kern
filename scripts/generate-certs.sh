@@ -23,12 +23,20 @@
 
 set -eu
 
-DIR="${CERT_DIR:-docker/nginx/certs}"
+DIR="${CERT_DIR:-docker/caddy/certs}"
 CRT="$DIR/kern.crt"
 KEY="$DIR/kern.key"
 DAYS="${CERT_DAYS:-825}"
 ORG="${CERT_ORG:-Kern}"
 COUNTRY="${CERT_COUNTRY:-RO}"
+
+# The uid:gid the edge container runs as (docker/caddy/Dockerfile). The pair is bind-mounted into
+# that container read-only, so the key has to be readable by *it*, not only by whoever ran this
+# script: a key left root-owned and 0600 makes the edge start, fail to load TLS, and take the site
+# down with nothing in the error saying "permissions". That is what the first version of this
+# script did.
+CERT_UID="${CERT_UID:-10001}"
+CERT_GID="${CERT_GID:-10001}"
 
 command -v openssl >/dev/null 2>&1 || {
     echo "openssl is not installed, and it is what makes the certificate." >&2
@@ -97,8 +105,17 @@ openssl req -x509 -newkey rsa:2048 -sha256 -days "$DAYS" -noenc \
     -addext "extendedKeyUsage=serverAuth" \
     >/dev/null 2>&1
 
-chmod 600 "$KEY"
+# 0640 with the group the edge runs as, rather than 0600: the container user has to read it, and
+# nothing else on the host should. The certificate itself is public by definition.
+chmod 640 "$KEY"
 chmod 644 "$CRT"
+
+if ! chown "$CERT_UID:$CERT_GID" "$KEY" "$CRT" 2>/dev/null; then
+    echo "Could not give $KEY to uid $CERT_UID — this needs root, and the edge container cannot"
+    echo "read the key without it. Run:"
+    echo "  sudo chown $CERT_UID:$CERT_GID $KEY $CRT"
+    echo
+fi
 
 echo "Wrote $CRT and $KEY"
 openssl x509 -in "$CRT" -noout -subject -dates -ext subjectAltName 2>/dev/null | sed 's/^/  /'

@@ -68,6 +68,7 @@ networks:
 volumes:
   app_storage:
   app_bootstrap_cache:
+  caddy_data:
 
 x-php-image: &php-image
   build:
@@ -119,14 +120,26 @@ services:
   edge:
     build:
       context: .
-      dockerfile: docker/nginx/Dockerfile
+      dockerfile: docker/caddy/Dockerfile
     ports:
       - "${EDGE_HTTP_PORT:-80}:8080"
       - "${EDGE_HTTPS_PORT:-443}:8443"
+    # Which address this installation answers on, and how it proves it is that address. Both are
+    # listed without a value on purpose: compose then passes each one through only when the
+    # environment actually sets it, so the single place either default lives is the Caddyfile. A
+    # default written here as well would be a second answer to the same question.
+    environment:
+      - KERN_EDGE_SITE
+      - KERN_EDGE_TLS
     volumes:
       # TLS material. The edge is published on a public IP, so plain HTTP would put the login
-      # password on the wire in clear text. Key is gitignored; cert is self-signed for dev.
-      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      # password on the wire in clear text. Both halves are gitignored and written by `make certs`;
+      # the pair is self-signed, so a browser warns until the installer obtains a real one.
+      - ./docker/caddy/certs:/etc/caddy/certs:ro
+      # Caddy's TLS state: its own CA under `tls internal`, and the ACME account key and
+      # certificates once a domain is configured. A named volume and not a tmpfs, because
+      # re-issuing on every restart is how an installation reaches Let's Encrypt's rate limit.
+      - caddy_data:/data
     networks:
       - edge_net
     depends_on:
@@ -134,15 +147,18 @@ services:
         condition: service_healthy
     read_only: true
     tmpfs:
+      # Caddy's autosave directory. It stays empty while the admin API is off (see the Caddyfile),
+      # but the process still creates it at boot, and mode 1777 because the container is not root.
       - /tmp:mode=1777
-      - /var/cache/nginx:mode=1777
-      - /var/run/nginx:mode=1777
+      - /config:mode=1777
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      # busybox wget, which the alpine base already has — nothing is installed for this. curl was
+      # the nginx image's answer and needed an apt-get.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -272,8 +288,8 @@ services:
     <<: *php-image
     command: ["php", "artisan", "reverb:start"]
     networks:
-      # edge_net so nginx can proxy the browser's WebSocket handshake to it (see
-      # docker/nginx/conf.d/app.conf, `location /app/`). Without this the edge cannot resolve
+      # edge_net so the edge can proxy the browser's WebSocket handshake to it (see
+      # docker/caddy/Caddyfile, `handle /app/*`). Without this the edge cannot resolve
       # `reverb` at all and every client falls back to no live updates, silently.
       - edge_net
       - app_net

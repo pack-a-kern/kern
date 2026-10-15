@@ -134,7 +134,7 @@ the same lifecycle (`docs/AGENTS.md` rule 15).
 ## 6. Network segmentation (`BLUEPRINT.md` §3.3)
 
 ```text
-edge_net        — nginx only
+edge_net        — the edge (Caddy) only
 app_net         — Laravel, Horizon, Reverb, python-api
 processing_net  — python-worker
 data_net        — postgres, redis, minio  (no outbound internet)

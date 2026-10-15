@@ -64,6 +64,7 @@ and extract it (§14.3).
 
 | Service | Image |
 |---------|-------|
+| edge | `caddy:2.11.7-alpine` (checked 2026-10-15; released 2026-10-06) |
 | app / queue / scheduler / reverb | `php:8.5-fpm-trixie` |
 | postgres | `pgvector/pgvector:pg18-trixie` (Postgres 18 + pgvector 0.8.6) |
 | redis | `redis:8-trixie` |

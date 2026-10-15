@@ -75,17 +75,18 @@ services:
   # `tail -f apps/api/storage/logs/laravel.log` from the host.
   edge:
     # Serve the CURRENT built assets, not the snapshot baked in at image-build time.
-    # docker/nginx/Dockerfile COPYs apps/api/public, so every `npm run build` changes the asset
-    # hashes while nginx keeps serving the old ones — the site 404s its own CSS and JS until
+    # docker/caddy/Dockerfile COPYs apps/api/public, so every `npm run build` changes the asset
+    # hashes while the edge keeps serving the old ones — the site 404s its own CSS and JS until
     # someone rebuilds the edge image. Production keeps the baked-in copy (immutable deploys);
     # development mounts the live directory so a rebuild is enough.
     volumes:
       - ./apps/api/public:/var/www/html/public:ro
-      # Same reasoning for the server config: docker/nginx/Dockerfile COPYs app.conf, so an edit
-      # to it does nothing until the image is rebuilt — a `location` block can look present in the
+      # Same reasoning for the server config: docker/caddy/Dockerfile COPYs the Caddyfile, so an
+      # edit to it does nothing until the image is rebuilt — a route can look present in the
       # repository and be absent from the running server, which is exactly how the Reverb proxy
-      # first appeared to 404. Production keeps the baked-in copy.
-      - ./docker/nginx/conf.d/app.conf:/etc/nginx/conf.d/app.conf:ro
+      # first appeared to 404. `make reload` restarts the container and the edit is live.
+      # Production keeps the baked-in copy.
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 
   # Every PHP service below mounts `docker/php/php.dev.ini` into `conf.d`, which turns opcache's
   # timestamp validation back on. Without it php-fpm serves the compiled copy it made at startup and

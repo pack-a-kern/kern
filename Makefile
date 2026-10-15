@@ -44,8 +44,8 @@ certs:
 ## Start the full stack in the background.
 up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
-	@test -f docker/nginx/certs/kern.crt -a -f docker/nginx/certs/kern.key || { \
-		echo "docker/nginx/certs is missing a certificate or its key, and the edge will not start."; \
+	@test -f docker/caddy/certs/kern.crt -a -f docker/caddy/certs/kern.key || { \
+		echo "docker/caddy/certs is missing a certificate or its key, and the edge will not start."; \
 		echo "Run \`make certs\` — neither file is in git."; \
 		exit 1; \
 	}

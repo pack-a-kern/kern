@@ -19,7 +19,7 @@ own isolated box, that talks to the others over a private network.
 
 | Container | What it does |
 |---|---|
-| `edge` | The nginx web server. Every request from a browser hits this first; it forwards to `app` or `reverb`. |
+| `edge` | The web server (Caddy). Every request from a browser hits this first; it forwards to `app` or `reverb`. It is also what holds the TLS certificate. |
 | `app` | The Laravel application itself (PHP). Handles web pages and the API. |
 | `queue` | Runs `php artisan horizon` — this is the process that works through background jobs (document scanning, AI extraction, sending things) instead of making a browser request wait for them. See section 2. |
 | `scheduler` | Runs `php artisan schedule:work` — fires off timed jobs, like the daily exchange-rate import, at the times configured in `.env`. |
@@ -71,7 +71,7 @@ Concretely, the override file and those three `.dev.yaml` files:
   (unless your `.env` says otherwise). `compose.yaml` on its own defaults these to `production` /
   `false`. Debug mode must never be on in production — a Laravel debug error page shows the entire
   server configuration, including database and encryption passwords, to whoever triggers the error.
-- Serves the nginx config and the built frontend files from your live folder on disk instead of the
+- Serves the edge's own config and the built frontend files from your live folder on disk instead of the
   copy baked into the image, and turns PHP's file-change detection ("opcache") back on so edited PHP
   files are picked up without restarting the container.
 
@@ -301,15 +301,16 @@ bottom of `packages/platform/README.md`.
 - `apps/api/.env` — excluded via `.gitignore`, along with any other `.env`. The single exception is
   the repository root's `.env`, which is committed because it is only a symlink to `apps/api/.env`
   and holds nothing itself. Any `.env.example` must **never** contain a real value.
-- `docker/nginx/certs/*.key` — the TLS private key is excluded via `.gitignore` (line 16). The
-  matching `.crt` (certificate) file is *not* excluded and is currently committed — that's fine for
-  a self-signed dev certificate, but revisit this once you move to a real, CA-issued certificate.
+- `docker/caddy/certs/*.key` **and** `*.crt` — both halves of the edge's TLS material. The
+  certificate used to be committed with only the key ignored, which gave a fresh clone a
+  certificate it had no key for; a certificate generated from a private key is worth no more than
+  that key, so neither is in git and `make certs` is how both appear.
 
 ---
 
 ## 5. Deployment steps
 
-Derived from `Makefile`, `compose.yaml`, and `docker/nginx/Dockerfile`. Run these in order, from a
+Derived from `Makefile`, `compose.yaml`, and `docker/caddy/Dockerfile`. Run these in order, from a
 clean checkout on the server.
 
 1. **Create the environment file and fill it in.**
@@ -327,9 +328,10 @@ clean checkout on the server.
    `PROCESSING_URL`, `BROWSER_WORKER_URL`) at wherever it does run. `make up` refuses to start if
    the line is missing, because without it compose resolves to a stack with no database.
 
-2. **Put a TLS certificate in place.** `edge` expects a certificate and key at
-   `docker/nginx/certs/kern.crt` and `docker/nginx/certs/kern.key` (mounted read-only into the
-   container).
+2. **Put a TLS certificate in place.** Unconfigured, `edge` expects a certificate and key at
+   `docker/caddy/certs/kern.crt` and `docker/caddy/certs/kern.key` (mounted read-only into the
+   container). With a domain name, it obtains one itself instead — set `KERN_EDGE_SITE` and
+   `KERN_EDGE_TLS` as `apps/api/.env.example` describes, and skip this step.
    ```bash
    make certs                      # every address this host answers on, plus localhost
    make certs HOST=kern.example.ro # a domain name instead
@@ -340,7 +342,7 @@ clean checkout on the server.
    is self-signed, so browsers warn — for a real deployment replace it (see section 7, and
    `docs/INSTALLER-PLAN.md` §4 for the domain path).
 
-3. **Build the frontend assets before building any images.** `docker/nginx/Dockerfile` copies
+3. **Build the frontend assets before building any images.** `docker/caddy/Dockerfile` copies
    `apps/api/public` into the `edge` image at build time and does not run any JavaScript build tool
    itself — its own comment says "This image does not run Vite itself — CI builds assets first, then
    this image is built." So, from `apps/api`:
@@ -438,13 +440,15 @@ files.
    outright: "OpenBao runs in dev mode... Fine for a demo, never for real taxpayer data." **This is
    the single highest-priority item before any real personal data goes into this system.**
 
-2. **The TLS certificate is self-signed.** `docker/nginx/certs/kern.crt`/`.key` cover the current
-   public IP, a Tailscale IP, and `localhost` — browsers will show a security warning to every
-   visitor. `docs/STATUS.md`'s deployment note says explicitly: point a real domain at the server and
-   issue a certificate via Let's Encrypt. Related: HSTS (a setting that would force browsers to
-   always use HTTPS for this site) is deliberately **not** turned on yet, because with a self-signed
-   certificate that would make the site unreachable with no easy recovery — turn it on only after a
-   real certificate is in place.
+2. **The TLS certificate is self-signed, unless a domain was configured.** With no
+   `KERN_EDGE_SITE`, the edge presents `docker/caddy/certs/kern.crt`/`.key` — every address this
+   host answers on, plus `localhost` — and browsers show a security warning to every visitor.
+   Point a real domain at the server and set `KERN_EDGE_SITE` and `KERN_EDGE_TLS`: the edge then
+   obtains a Let's Encrypt certificate on the first request and renews it on its own, which is the
+   thing the previous nginx edge could not do at all. Related: HSTS (a setting that would force
+   browsers to always use HTTPS for this site) is deliberately **not** turned on, because with an
+   untrusted certificate it makes the site unreachable with no easy recovery — it belongs in
+   `docker/caddy/Caddyfile`'s header block once a real certificate is in place.
 
 3. **MinIO is still what's bundled, even though moving off it is now only a setting.**
    `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET`, `AWS_DEFAULT_REGION` and

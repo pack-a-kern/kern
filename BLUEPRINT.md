@@ -220,7 +220,7 @@ Același eveniment financiar poate fi reinterpretat după schimbarea unui rulese
 ## 3.1 Containere
 
 ```text
-edge                  nginx
+edge                  Caddy
 app                   php-fpm Laravel
 queue-default         php artisan horizon
 scheduler             php artisan schedule:work
