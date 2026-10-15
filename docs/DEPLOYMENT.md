@@ -1,510 +1,515 @@
-# TaxOS România — deployment guide
+# Kern — deployment guide
 
-This is a plain-language guide to running this app on a real server, aimed at the person who owns
-the project and can run `docker compose` but doesn't live in Laravel's world day to day. Wherever a
-term needs explaining ("queue worker", "supervisor", "environment"), it's explained the first time
-it appears.
+A plain-language guide to running this application on a real server, for the person who owns the
+project and can run `docker compose` but does not live in Laravel's world day to day. Terms are
+explained the first time they appear.
 
-Everything below is drawn from the actual files in this repository — `compose.yaml`,
-`compose.dev.yaml`, `apps/api/.env.example`, `apps/api/config/horizon.php`, `Makefile`, the ADRs in
-`docs/adr/`, and `BLUEPRINT.md`. Where something isn't in the repo, or is ambiguous, it's called out
-under "Needs a decision" at the end rather than guessed at.
-
----
-
-## 1. What runs where
-
-`docker compose` starts one container per row below. Each container is one running program, in its
-own isolated box, that talks to the others over a private network.
-
-| Container | What it does |
-|---|---|
-| `edge` | The web server (Caddy). Every request from a browser hits this first; it forwards to `app` or `reverb`. It is also what holds the TLS certificate. |
-| `app` | The Laravel application itself (PHP). Handles web pages and the API. |
-| `queue` | Runs `php artisan horizon` — this is the process that works through background jobs (document scanning, AI extraction, sending things) instead of making a browser request wait for them. See section 2. |
-| `scheduler` | Runs `php artisan schedule:work` — fires off timed jobs, like the daily exchange-rate import, at the times configured in `.env`. |
-| `reverb` | A separate small server that keeps a live connection (WebSocket) open to each browser tab, so the UI can be pushed updates (e.g. "your document finished processing") without the page needing to keep asking. |
-| `python-api` | A small Python web service used only by the Laravel app internally. It extracts text from PDFs and (optionally) computes search embeddings for legislation. It never talks to the database directly. |
-| `browser-worker` | A real headless Chrome browser (via Playwright) that does what it is told by a *playbook* — URLs, selectors and what each page looks like, sent with the request. It knows no website of its own; logging into ANAF's SPV portal on the taxpayer's behalf is the first thing described to it. It gets no database password — if it's compromised, it still can't read the database. |
-| `clamav` | Antivirus scanner. Every uploaded file is scanned here before the app will use it. |
-| `postgres` | The main database (PostgreSQL). All application data lives here (encrypted where required, see section 4). |
-| `redis` | An in-memory data store used for: the session store, the cache, the background job queues, and real-time broadcasting to `reverb`. |
-| `minio-init-perms` | Runs once at startup to fix file-ownership on the object storage volume, then exits. Not a long-running service. |
-| `minio` | Object storage (S3-compatible) — this is where uploaded documents actually live as files. |
-| `minio-init-buckets` | Runs once at startup to create the two storage "buckets" (`kern-documents`, `kern-quarantine` — like top-level folders) the app expects, then exits. |
-| `openbao` | The key-management service ("KMS") that holds the master key used to protect every taxpayer's personal encryption key. See section 4. **Runs in "dev mode" as configured — not production-safe. See section 7.** |
-| `openbao-init` | Runs once at startup to set up the encryption key inside `openbao`, then exits. |
-| `mailpit` | **DEV-ONLY.** A fake mail server with a web inbox, so outgoing emails can be previewed during development instead of actually being sent. Only exists in `compose.dev.yaml`. |
-
-### Dev-only pieces, and what changes them
-
-**This changed with the per-service split — see `docs/INSTALLER-PLAN.md` §3.** `compose.yaml` now
-holds the application alone: the edge and the four PHP processes. Every service an installation
-might instead point at one it already runs lives in its own file under `compose.services/`, and
-`COMPOSE_FILE` in `apps/api/.env` is the list compose loads. `make env` writes that line from
-`.env.example`, listing every service.
-
-Two consequences for this section. `compose.dev.yaml` is **no longer loaded automatically** —
-setting `COMPOSE_FILE` suppresses it, so a development list names it explicitly and last. And
-`compose.yaml` on its own has no database, so "run with `compose.yaml` only" is no longer the way
-to get the production shape: a production list is every `compose.services/<service>.yaml` the
-installation runs here, with **no** `.dev.yaml` entries and **no** `compose.dev.yaml`.
-
-The dev half of a service that may not exist sits beside its base file —
-`compose.services/postgres.dev.yaml`, `redis.dev.yaml`, `python.dev.yaml` — because an override
-naming a service whose base file was left out declares a service with no image and invalidates the
-whole project. What remains in `compose.dev.yaml` is the dev half for services that are always
-present, plus mailpit. Its own header says it "must never ship to a production compose file."
-
-Concretely, the override file and those three `.dev.yaml` files:
-
-- **Adds `mailpit`** entirely (not present otherwise).
-- **Publishes `postgres`, `redis`, and `minio` on host ports** (`5432`, `6379`, `9000`/`9001`) so you
-  can connect to them directly with a local database client. In `compose.yaml` alone, these three
-  have no host ports at all and sit on a network marked `internal: true` (no route out to the
-  internet, and not reachable from your host machine either).
-- **Turns MinIO's web console back on** (`MINIO_BROWSER: "on"`) — it's off in `compose.yaml`.
-- **Mounts your local source code straight into the `app`, `queue`, `scheduler`, and `reverb`
-  containers**, and into `python-api`, so an edit to a file shows up immediately, without rebuilding
-  the image. In production the code is baked into the image at build time instead.
-- **Defaults `APP_ENV` to `local` and `APP_DEBUG` to `true`** for `app`/`queue`/`scheduler`/`reverb`
-  (unless your `.env` says otherwise). `compose.yaml` on its own defaults these to `production` /
-  `false`. Debug mode must never be on in production — a Laravel debug error page shows the entire
-  server configuration, including database and encryption passwords, to whoever triggers the error.
-- Serves the edge's own config and the built frontend files from your live folder on disk instead of the
-  copy baked into the image, and turns PHP's file-change detection ("opcache") back on so edited PHP
-  files are picked up without restarting the container.
-
-**`openbao` and `browser-worker` are not dev-only files** — both are defined in the production-shape
-`compose.yaml` itself and start in a real deployment exactly as they do locally. `browser-worker` is
-configured the same way in both cases and is fine to run as-is. `openbao`, however, is started with
-the command `bao server -dev`, i.e. "OpenBao's own development mode": everything it holds lives only
-in memory and is lost on every restart, and it is unlocked with a single "root token" taken straight
-from `OPENBAO_TOKEN` in `apps/api/.env` — the same token the application presents. `compose.yaml`
-says, in a comment right above the service: "DEV MODE ONLY... never anywhere but a developer's own
-machine." This is covered again in sections 4
-and 7 because it's the single most important thing to fix before this holds real data.
+Everything here is drawn from the files in this repository — `compose.yaml`, `compose.services/*`,
+`compose.dev.yaml`, `apps/api/.env.example`, `apps/api/config/horizon.php`, `Makefile`,
+`scripts/install.sh`, the ADRs in `docs/adr/` and `BLUEPRINT.md`. Where something is not in the
+repository, or is undecided, it is called out in section 8 rather than guessed at.
 
 ---
 
-## 2. How work gets processed
-
-Some things the app needs to do are too slow to make a browser wait for — extracting text from a
-scanned document, calling an AI model to read a receipt, sending SPV sync progress. Instead of doing
-that work inside the web request, the app puts a small note ("a job") onto a list, and the `queue`
-container picks jobs off that list and does the work in the background. Laravel calls the tool that
-manages this "Horizon"; its settings live in `apps/api/config/horizon.php`.
-
-There are two separate lists ("queues") of jobs:
-
-| Queue | What it's for | How many jobs run at once |
-|---|---|---|
-| `documents-ai` | Reading a scanned document (calling the AI model). | Exactly **1**, always, in every configuration. |
-| `default` | Everything else — sending notifications, importing exchange rates, most background work. | Scales up: more at once when there's more configured. |
-
-**Why `documents-ai` is capped at exactly one at a time, on purpose:** each of those jobs calls a
-single AI model over the network, and that endpoint can only usefully answer one request at a time
-in this setup. Running several of these jobs at once wouldn't make documents process faster — it
-would just make several requests queue up at the AI endpoint instead of in Horizon, with no benefit
-and a real risk of one request's slow response blocking the others. The config file spells this out
-directly: *"the constraint is a single model endpoint, not this machine's cores."* Because only one
-job runs, if a batch of documents comes in, later ones simply wait their turn — the config accepts a
-wait of up to 1800 seconds (30 minutes) before it even considers that unusual, on the reasoning that
-"ten documents at a minute each is ten minutes of honest waiting," not a fault.
-
-In Horizon's config file, a group of these worker processes for one queue is called a
-"supervisor" — think of it as the manager that starts, stops, and counts the actual PHP processes
-working through one queue. This app defines two supervisors:
-
-| Setting | `supervisor-documents-ai` (the `documents-ai` queue) | `supervisor-1` (the `default` queue) |
-|---|---|---|
-| How work is shared out ("`balance`") | `simple` — a fixed number of workers, no automatic adjustment. | `auto` — Laravel adds or removes worker processes on its own, based on how much work is waiting. |
-| Base worker count (`maxProcesses`) | **1**, everywhere — this number is never scaled up. | 1 (this is just the starting default before either override below applies). |
-| Time a job may run before being killed (`timeout`) | 600 seconds (10 minutes). | 60 seconds. |
-| Retries if a job fails (`tries`) | 1 — no automatic retry. | 1 — no automatic retry. |
-
-Both of those are the shared, baseline settings. Horizon then applies one more layer on top,
-depending on a setting called `APP_ENV` — and this is worth being precise about, because the two
-values it can have, `production` and `local`, are **just the names of two blocks of numbers in this
-config file**, not a description of what kind of machine or hardware you're running on. Whichever
-value `APP_ENV` is set to in `.env` (and passed into the `app`/`queue`/`scheduler`/`reverb`
-containers by `compose.yaml`) decides which block of numbers Horizon uses:
-
-| | `documents-ai` worker count | `default` worker count | extra `default`-queue tuning |
-|---|---|---|---|
-| `APP_ENV=production` | 1 (unchanged) | **10** | `balanceMaxShift: 1`, `balanceCooldown: 3` — when scaling, add/remove at most 1 worker at a time, waiting 3 seconds between adjustments. |
-| `APP_ENV=local` | 1 (unchanged) | **3** | (no extra tuning specified) |
-
-So: whatever machine you deploy to, if you set `APP_ENV=production` in `.env`, the `default` queue
-can run up to 10 worker processes at once; if you leave it as `local`, only up to 3. The
-`documents-ai` queue always stays at exactly 1, regardless of `APP_ENV`, because the limit there is
-about the AI endpoint, not about scaling. Note that `.env.example` sets `APP_ENV=production` as the
-committed default, but `compose.dev.yaml` (dev-only, see section 1) quietly changes that
-default back to `local` for local runs unless your `.env` says otherwise — so double-check the
-running container's actual environment (section 6) rather than assuming from the file alone.
-
-Two more Horizon numbers worth knowing:
-- `memory_limit`: 64 MB for Horizon's own manager process (not the workers) — if it uses more, it's
-  restarted.
-- Per-worker memory: 256 MB for a `documents-ai` worker, 128 MB for a `default` worker — a worker
-  using more than that is recycled.
-
----
-
-## 3. Environment variables to change before going live
-
-There is **one** file: `apps/api/.env`. Create it with `make env`, which writes it from
-`apps/api/.env.example` plus the `.env.example` every installed package ships — then fill it in. (The
-`.env` at the repository root is only a symlink to it, so that `docker compose`, which insists on
-finding its environment file there, reads the same file Laravel does.)
-
-`docker compose` hands that whole file to the `app`, `queue`, `scheduler` and `reverb` containers, so
-anything you set in it reaches the application. It also reads the file itself, for the `${...}` in
-`compose.yaml` — the host port numbers, and the credentials the bundled Postgres, Redis, MinIO and
-OpenBao containers are *created* with. That is the same direction throughout: the application's
-variables are the truth, and the bundled infrastructure is created to match them, which is why
-pointing `DB_HOST` or `AWS_ENDPOINT` at a service you already run needs no second edit anywhere.
-
-`python-api` and `browser-worker` deliberately do **not** get the whole file; each is handed only the few
-variables it needs, because they sit on networks that carry no database or object-storage credentials.
-
-### Must change — secrets, keys, and addresses
-
-Every one of these either has no safe default, or currently defaults to something that is
-wrong once you leave your own laptop. Four of them (`DB_PASSWORD`, `REDIS_PASSWORD`,
-`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `OPENBAO_TOKEN`) are marked in `compose.yaml` with
-Compose's own `:?` syntax, which means: **if the variable is empty, nothing starts at all**, with an
-error naming the missing variable. That's a deliberate fail-closed design, not a bug. The rest are
-enforced by the application itself: without `APP_KEY` or `CRYPTO_BLIND_INDEX_KEYS` it throws rather
-than running with a key nobody chose.
-
-| Variable | What it does | What to set it to |
-|---|---|---|
-| `APP_ENV` | Selects which block of settings applies (see section 2) and turns on/off production safety behaviour throughout Laravel. | `production` |
-| `APP_DEBUG` | If `true`, error pages show full internal detail (stack traces, config values, other secrets) to anyone who can trigger an error. | `false` — never `true` on a reachable server |
-| `APP_URL` | The public web address of the site. | Your real domain or IP, e.g. `https://yourdomain.ro` |
-| `APP_KEY` | The master encryption key Laravel itself uses (sessions, some internal encryption). | Generate fresh — see section 4 |
-| `DB_PASSWORD` | Database password. The bundled Postgres container is *created* with it, so this one value is both ends of the connection. | A strong random password, unique to this deployment |
-| `REDIS_PASSWORD` | Redis password. Empty is refused: the app's own Redis startup script "refuses to start on an unset or placeholder value." | A strong random password |
-| `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET` | The three-part credential that lets a browser open a live-update connection and stops an outside site from opening one using your visitor's login. | Unique random values — see section 4 |
-| `REVERB_HOST` | The address browsers connect *to* for live updates. | Your real public domain/IP — `localhost` only works on your own machine |
-| `REVERB_ALLOWED_ORIGINS` | Which page addresses are allowed to open a live-update connection at all; anything else is silently refused. | Every hostname the app is actually reached at (comma-separated). Leaving this wrong doesn't error — it just makes live updates quietly stop working. |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The key pair the app signs its object-storage requests with. The bundled MinIO is created with them; an S3 or MinIO you already run issues them instead. | Strong random values, unique to this deployment |
-| `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET`, `AWS_USE_PATH_STYLE_ENDPOINT` | Where object storage is, and the two buckets used: documents, and the quarantine unscanned uploads wait in. Path-style addressing is required by MinIO and must be dropped for real AWS S3. | The bundled MinIO's defaults work as shipped. For storage of your own: its URL, two buckets **you create yourself**, and the key pair above. |
-| `OPENBAO_TOKEN` | The token the key-management service is reached with — and, for the bundled dev-mode server, the token it is created with (see section 4/7). | Must change from any default, but see section 7 — the bigger issue is that this whole service is dev-mode |
-| `INTERNAL_SERVICE_AUTH_TOKEN` | The shared password the Laravel app and the Python service use to trust each other's requests. If empty, both sides refuse the request outright ("fail closed"). | Generate with `openssl rand -hex 32` |
-| `CRYPTO_BLIND_INDEX_KEYS` | The key used to allow exact-match lookups (e.g. "does this email already have an account") on fields that are otherwise fully encrypted, without decrypting every row to check. If empty, the app crashes on **any** such lookup — including login and registration. | Generate — see section 4 |
-
-### Should review — limits, timeouts, and business settings
-
-Not security-critical the way the list above is, but each of these shapes real behaviour and the
-shipped default may not be what you want.
-
-| Variable | What it does | What to consider |
-|---|---|---|
-| `EDGE_HTTP_PORT` | Host port that maps to the web server's HTTP port. | Usually leave at `80`. |
-| `AI_ENDPOINT_HOST`, `AI_ENDPOINT_IP` | Lets the app resolve a private AI endpoint's hostname (e.g. one only reachable over a VPN/LAN) that containers otherwise can't look up. | Only needed if your AI provider is on a private network; leave both blank otherwise. |
-| `AI_HTTP_TIMEOUT_SECONDS` (default 10) | How long the settings screen's "test connection" button waits before giving up. | Leave, unless your provider is consistently slower than 10s to answer one token. |
-| `AI_EXTRACTION_TIMEOUT_SECONDS` (default 120) | How long one document extraction call is allowed to run. Measured at 32–56s against the self-hosted model this was built against. | Raise if your AI model is slower than that. |
-| `AI_EXTRACTION_MAX_TOKENS` (default 4096) | Caps the length of the AI's answer for one document. Too low and a "thinking" model can use its whole budget reasoning and return nothing. | Leave unless you see empty extraction results. |
-| `AI_EXTRACTION_MAX_IMAGE_BYTES` (default 8388608, i.e. 8 MiB) | The largest document image sent to the AI model. Anything bigger is rejected as a failed extraction, not silently shrunk. | Review against your actual document sizes. |
-| `AI_ANTHROPIC_VERSION` | An API version header, only relevant if the configured provider is Anthropic. | Leave unless told otherwise by the provider's docs. |
-| `RETRIEVAL_EMBEDDING_ENABLED` (default `false`) | Turns on the legislation-search feature's local embedding model. | Leave off unless you're specifically enabling that feature. |
-| `RETRIEVAL_EMBEDDING_*`, `EMBEDDING_*` (the whole block) | Settings for that same local embedding model, only consulted if the flag above is on. Three of them (`RETRIEVAL_EMBEDDING_DIMENSION`, `EMBEDDING_DIMENSION`, and a database column) must all agree, or search results land "in the wrong space." | Leave at shipped defaults unless you're changing the embedding model, and if you do, change all three together. |
-| `OPERATIONS_SCHEDULE_TIMEZONE`, `OPERATIONS_CRON_FX_IMPORT_DAILY` | When the daily exchange-rate import runs. | Defaults already target Romanian business hours (`Europe/Bucharest`, weekdays 14:00) — review only if that's wrong for you. |
-| `OPERATIONS_HEARTBEAT_*`, `OPERATIONS_RUN_*`, `OPERATIONS_FX_MAX_AGE_DAYS`, `OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES`, `OPERATIONS_FAILED_JOBS_LIMIT`, `OPERATIONS_FX_BACKFILL_MIN_YEAR` | Various thresholds behind the internal "Operations" screen (is the scheduler alive, is FX data stale, etc). | Sensible defaults already; only worth tuning once you've seen the Operations screen and have an opinion. |
-| `WALLET_DEPOSIT_TERMS_MONTHS`, `WALLET_DEPOSIT_DEFAULT_DAY_COUNT` | The term-deposit lengths and interest day-count convention offered in the "add deposit" form. | Business decision, not a technical one — review with whoever owns that feature. |
-
-### Can leave alone
-
-| Variable | Why it's safe to leave |
-|---|---|
-| `APP_NAME` | Cosmetic — shows up in notifications and the Horizon dashboard title. |
-| `DB_DATABASE`, `DB_USERNAME` | Fine at their shipped defaults (`kern`) unless you have a naming reason to change them. The bundled Postgres is created with whatever they say. |
-| `CRYPTO_BLIND_INDEX_CURRENT_VERSION` | Only changes when you're deliberately rotating the blind-index key — leave at `1` otherwise. |
-| `VITE_DEFAULT_PALETTE` | Just picks which colour theme greets a user before they choose one. |
-| `POSTGRES_DEV_PORT`, `REDIS_DEV_PORT`, `MINIO_DEV_API_PORT`, `MINIO_DEV_CONSOLE_PORT`, `MAILPIT_UI_PORT`, `VITE_DEV_PORT` | These only do anything when `compose.dev.yaml` (dev-only, section 1) is loaded. In a production deployment running `compose.yaml` alone, they have no effect at all. |
-
-### Worth knowing about
-
-- **AI provider, model, and API key are settings, not environment variables.** They're set inside the
-  running app, under Administrare → Setări sistem, and stored (encrypted where sensitive) in the
-  database — precisely so an operator can change them without redeploying.
-  `AI_ENABLED`/`AI_PROVIDER`/`AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY` in `kern/platform`'s
-  `.env.example` are only the starting point, consulted for a field that has never been saved on that
-  screen. Once it has, the database wins.
-- **Which variables exist is not a fixed list.** Each package documents its own, in a `.env.example`
-  beside its `config/`. `docker compose exec app php artisan kern:env` prints the whole set — the
-  application's and every installed package's — with the sentence explaining each one.
-
----
-
-## 4. Secrets and keys
-
-### What must be generated fresh for every deployment
-
-Never reuse the values from `.env.example`, from a developer's machine, or from any other
-deployment. Run these against the built image so the PHP version/extensions match exactly:
+## 1. Installing it
 
 ```bash
-# Laravel's own application key
-docker compose run --rm app php artisan key:generate --show
-
-# The blind-index key (JSON object, version "1" mapped to a random 32-byte key)
-docker compose run --rm app php -r 'echo json_encode(["1" => base64_encode(random_bytes(32))]), PHP_EOL;'
-
-# The Laravel <-> Python shared secret
-openssl rand -hex 32
-
-# Database, Redis, and MinIO passwords — any strong random string, e.g.
-openssl rand -hex 24
+git clone <repository> && cd kern
+make install
 ```
 
-For `REVERB_APP_ID`, `REVERB_APP_KEY`, and `REVERB_APP_SECRET`, the repository doesn't document a
-specific generation command — they just need to be unique, unguessable strings (this is the same
-three-part credential scheme the Pusher protocol uses). `openssl rand -hex 20` for each is a
-reasonable choice.
+That is the whole thing. `scripts/install.sh` asks nine questions and then does every step this
+guide used to list by hand.
 
-### What OpenBao holds, and why it matters
+### What it asks
 
-Per ADR 0002 and `BLUEPRINT.md` §4.2: every `TaxSubject` (a taxpayer's record) gets its own random
-256-bit encryption key ("DEK"), used to encrypt that person's sensitive data — CNP, address, phone,
-IBAN, SPV credentials, uploaded documents, OCR output, and more (the full list is in
-`BLUEPRINT.md` §4.3). That per-subject key is never stored in plain form. Instead, it's itself
-encrypted ("wrapped") by a master key ("KEK") that lives only inside `openbao`, and the database
-only ever stores the wrapped, unreadable version. This means a stolen database dump or a stolen
-object-storage bucket is useless on its own — whoever has it still needs the OpenBao master key to
-unwrap anything.
+| Question | The answers |
+|---|---|
+| How will this be reached? | An IP address (self-signed, browsers warn) · a domain name with ports 80 and 443 open (Let's Encrypt, renewed by the edge) · a domain name with a certificate you already have |
+| Database, Redis, key vault, virus scanner | Install it here · use the one I already run |
+| Object storage | An endpoint, a key pair and two bucket names. **There is no "install it here"** — see section 8 |
+| Document AI, SPV automation | Install it here · use the one I already run · skip it |
+| Email | An SMTP server · skip it, and mail is written to the log |
+| The first administrator | An address and a password |
 
-The direct consequence: **`openbao` being reachable and unlocked is a hard requirement for the app
-to read or write any sensitive field.** ADR 0002 states this plainly — treating "KMS unavailable" as
-a routine outage to degrade gracefully around was rejected on purpose; `BLUEPRINT.md` §23 lists "KMS
-unavailable" as something that must trigger an alert, not something the app should quietly work
-around. If OpenBao is down or its key is lost, encrypted reads and writes fail outright, by design.
+Then it prints what it is about to do — which containers, how much memory their limits add up to
+against what the machine has, what is being left out — and waits for a yes.
 
-That makes the current setup's biggest weakness the same as its most important detail: `openbao`
-runs with `bao server -dev`, which keeps everything **in memory only**. Every restart of that
-container wipes the master key, and `openbao-init` has to recreate it from scratch — which means
-every DEK wrapped under the old key becomes permanently unreadable. This is fine for a demo; it is
-not survivable for real data. See section 7.
+### What it then does, in order
 
-### Rotating a key after it has been in use
+1. writes `apps/api/.env` at mode 0600, with every secret generated from `openssl rand`;
+2. writes the `COMPOSE_FILE` line, which is the list of services this installation runs (section 2);
+3. generates the TLS certificate and key, covering the answer above and every address this host has;
+4. builds the frontend assets — before the images, because the edge image copies `apps/api/public`
+   at build time and runs no build tool of its own;
+5. builds the images and starts the stack;
+6. waits for the database on the application's own connection, not on a sleep;
+7. runs the migrations;
+8. creates the roles and permissions (`kern:access:sync`), then the first administrator
+   (`kern:admin:create`), whose password reaches artisan on standard input and so never appears in
+   `ps`, in shell history or in `docker inspect`;
+9. asks every service whether it is really there (`kern:health`) — and **fails the install**, with
+   the component named, if one that this installation was told to run did not answer.
 
-Both rotatable keys — the master key in OpenBao and the blind-index key above — take two steps, not
-one: rotating mints the new version, and a second command carries everything still on the old one
-across. Until that second command reports zero, the key you meant to retire is still in use and
-cannot be deleted. The exact flow, both keys, with the commands and what breaks in between, is at the
-bottom of `packages/platform/README.md`.
+### What it will not do
+
+It refuses to overwrite an `apps/api/.env` that already exists: that file holds the only copy of
+this installation's secrets. The way back in is:
+
+```bash
+make install ARGS=--repair
+```
+
+which asks nothing, writes nothing, and re-runs steps 5 to 9 against the installation that is
+already there. It does not create an administrator — by then that account exists.
+
+### Before you start
+
+- **A Linux server with docker, docker compose v2, openssl and npm.** The installer checks for each
+  and stops if one is missing.
+- **Somewhere to keep documents.** An S3 bucket, a MinIO you already run, or anything that speaks
+  S3. This repository ships no object storage of its own.
+- **Memory.** The container limits add up to about 7 GB with everything installed locally, 3 GB with
+  every service pointed elsewhere. The installer shows the figure for your answers.
+- **A domain pointed at the server**, if you want a certificate browsers trust. Without one the site
+  works and every visitor sees a warning.
+
+### Doing it by hand
+
+Section 6 is the same work step by step. It is worth knowing, because it is what the installer does
+and it is the way through when one step of it fails — but on a clean server, use the command.
+
+---
+
+## 2. What runs where
+
+`docker compose` starts one container per row. Each container is one running program, in its own
+isolated box, talking to the others over a private network.
+
+| Container | What it does | In which file |
+|---|---|---|
+| `edge` | The web server (Caddy). Every browser request hits this first; it forwards to `app` or `reverb`, and it holds the TLS certificate. Caddy can also obtain and renew that certificate itself, which is why it replaced nginx. | `compose.yaml` |
+| `app` | The Laravel application (PHP). Web pages and the API. | `compose.yaml` |
+| `queue` | Runs `php artisan horizon` — works through background jobs instead of making a browser wait. Section 3. | `compose.yaml` |
+| `scheduler` | Runs `php artisan schedule:work` — fires timed jobs, like the daily exchange-rate import. | `compose.yaml` |
+| `reverb` | Keeps a live connection (WebSocket) open to each browser tab, so the interface can be pushed updates without the page asking. | `compose.yaml` |
+| `postgres` | The database. All application data, encrypted where required (section 5). | `compose.services/postgres.yaml` |
+| `redis` | In-memory store: sessions, cache, the background job queues, and broadcasting to `reverb`. | `compose.services/redis.yaml` |
+| `openbao` | The key manager. Holds the master key that protects every taxpayer's own encryption key. Section 5. | `compose.services/openbao.yaml` |
+| `clamav` | The virus scanner. Every uploaded file is scanned before the application will use it, and an upload that cannot be scanned is refused. | `compose.services/clamav.yaml` |
+| `python-api` | A small Python service the application uses internally: it extracts text from PDFs and computes search embeddings. It never touches the database. | `compose.services/python.yaml` |
+| `browser-worker` | A real headless Chrome (Playwright) that does what a *playbook* tells it — URLs, selectors, what each page looks like, all sent with the request. It knows no website of its own, and it gets no database password: if it is compromised it still cannot read the database. | `compose.services/browser.yaml` |
+| `mailpit` | **Development only.** A fake mail server with a web inbox, so outgoing mail can be read instead of sent. | `compose.dev.yaml` |
+
+### Which of them start: `COMPOSE_FILE`
+
+`compose.yaml` holds the application alone — the edge and the four PHP processes. Every service an
+installation might instead point at one it already runs lives in its own file under
+`compose.services/`, and the `COMPOSE_FILE` line in `apps/api/.env` is the list compose loads.
+Leaving a file out of that list leaves out both the service **and** everything that waits for it,
+which is the whole reason for the split: `app`, `queue`, `scheduler` and `reverb` each wait for the
+database to be healthy, so "I already run PostgreSQL" has to remove that wait as well as the
+container.
+
+The installer writes this line. `make env` writes the development one, with every service and the
+dev overrides. Two things to know:
+
+- **Setting `COMPOSE_FILE` at all stops compose loading `compose.dev.yaml` automatically.** A
+  development list therefore names it explicitly, and last. A production list names neither it nor
+  any `.dev.yaml` file.
+- **`compose.yaml` on its own has no database.** `make up`, `down`, `build`, `reload` and `fresh`
+  refuse to run if the line is missing, rather than starting a stack that cannot boot.
+
+The repository root `.env` is a symlink to `apps/api/.env`, so compose and Laravel read the same
+file.
+
+### What development adds
+
+`compose.dev.yaml` and the three `.dev.yaml` files beside their base files (`postgres.dev.yaml`,
+`redis.dev.yaml`, `python.dev.yaml`) exist only for working on the code. Together they:
+
+- add `mailpit`;
+- publish `postgres` and `redis` on host ports, so a database client on your own machine can reach
+  them. Without those files neither has a host port at all, and both sit on a network marked
+  `internal: true` — no route out, and not reachable from the host;
+- mount your local source into `app`, `queue`, `scheduler`, `reverb` and `python-api`, so an edit
+  shows up without rebuilding the image. In production the code is baked into the image;
+- turn PHP's file-change detection (opcache revalidation) back on, which is off in production;
+- default `APP_ENV` to `local` and `APP_DEBUG` to `true` unless `.env` says otherwise. **Debug must
+  never be on where the site is reachable** — a Laravel error page shows the whole configuration,
+  passwords and keys included, to whoever provoked the error;
+- serve the edge's configuration and the built frontend from the folder on disk rather than the copy
+  inside the image, and turn uvicorn's `--reload` on for `python-api`.
+
+A `.dev.yaml` file must never appear in a production `COMPOSE_FILE`.
+
+---
+
+## 3. How background work gets done
+
+Some things are too slow to make a browser wait for — extracting text from a scan, asking an AI
+model to read a receipt, parsing a consolidated law. Instead of doing that work inside the web
+request, the application puts a note on a list ("a job"), and the `queue` container works through
+the list in the background. Laravel's tool for managing this is called **Horizon**; its settings are
+in `apps/api/config/horizon.php`.
+
+There are three separate lists, each with its own worker, because each has a different reason to be
+slow:
+
+| Queue | What runs on it | Workers at once | A job may run for |
+|---|---|---|---|
+| `documents-ai` | Every call to an AI model: reading a document, mapping a bank statement. | **1**, in every configuration | 1500s (`HORIZON_AI_QUEUE_TIMEOUT_SECONDS`) |
+| `legislation` | Downloading and indexing a law. One consolidation of the Codul fiscal is about 5 MB and some 7000 sections. | **1** | 1800s (`LEGISLATION_QUEUE_TIMEOUT_SECONDS`) |
+| `default` | Everything else — notifications, exchange-rate imports, most background work. | scales up, see below | 60s (`HORIZON_DEFAULT_QUEUE_TIMEOUT_SECONDS`) |
+
+**Why the two single-worker queues are capped at one on purpose.** The AI queue calls a single model
+endpoint, which can usefully answer one request at a time; running several of these jobs at once
+would only move the waiting from Horizon to the endpoint. The config file says it directly: *"the
+constraint is a single model endpoint, not this machine's cores."* Ten documents at a minute each is
+ten minutes of honest waiting, not a fault. The legislation queue is one worker because each job
+holds a whole law in memory, and a second one would double that.
+
+Horizon calls the manager of the workers for one queue a **supervisor**. On top of the three above it
+applies one more layer, chosen by `APP_ENV`. The two values are just the names of two blocks of
+numbers in that file, not a description of your hardware:
+
+| | `documents-ai` | `legislation` | `default` |
+|---|---|---|---|
+| `APP_ENV=production` | 1 | 1 | **10**, adding or removing at most one worker every 3 seconds |
+| `APP_ENV=local` | 1 | 1 | **3** |
+
+Memory: Horizon's own manager process is restarted if it passes 64 MB. A worker is recycled if it
+passes its own limit — 256 MB on the AI queue, 512 MB on legislation, 128 MB on `default`. The whole
+`queue` container is limited to `QUEUE_MEMORY_LIMIT`, 2 GB by default: at 512 MB the kernel killed a
+worker part-way through reading a law.
+
+Neither queue retries. `tries` is 1 everywhere: a job that failed gets looked at, not run again.
+
+---
+
+## 4. The environment file
+
+There is **one** file: `apps/api/.env`. The installer writes it; `make env` writes it from the
+examples with every value still to fill in; `php artisan kern:env` prints the same thing once the
+stack is up, which is how to see the variables a newly installed package added.
+
+`docker compose` hands that whole file to `app`, `queue`, `scheduler` and `reverb`, so anything set
+in it reaches the application. Compose also reads it itself, for the `${...}` in the compose files —
+the host ports, and the credentials the bundled Postgres, Redis and OpenBao containers are *created*
+with. The direction is the same throughout: **the application's variables are the truth, and the
+bundled infrastructure is created to match them.** That is why pointing `DB_HOST` or `AWS_ENDPOINT`
+at a service you already run needs no second edit anywhere.
+
+`python-api` and `browser-worker` deliberately do **not** get the whole file. Each is handed only the
+few variables it needs, because they sit on networks that carry no database or object-storage
+credentials.
+
+### Written by the installer, and not to be edited by hand
+
+`APP_KEY`, `CRYPTO_BLIND_INDEX_KEYS`, `DB_PASSWORD`, `REDIS_PASSWORD`, `OPENBAO_TOKEN`,
+`INTERNAL_SERVICE_AUTH_TOKEN`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET` and
+`VITE_REVERB_APP_KEY`. Five of these are named again in the compose files with Compose's `:?`
+syntax, which means **an empty one stops the stack from starting at all**, with an error naming it.
+That is deliberate: a deployment missing one of these must fail to start rather than start and fail
+later. Section 5 is what each one protects.
+
+### Worth checking after an install
+
+| Variable | What it does | What it should be |
+|---|---|---|
+| `APP_ENV` | Picks which block of Horizon numbers applies (section 3) and turns on Laravel's production behaviour. | `production` |
+| `APP_DEBUG` | If `true`, an error page shows the whole configuration — every password and key — to whoever provoked it. | `false`, always, anywhere reachable |
+| `APP_URL` | The public address. Used in mail links, as the passkey origin, and as the default list of origins allowed to open a WebSocket. | The address people actually type |
+| `REVERB_ALLOWED_ORIGINS` | Which page addresses may open a live-update connection. Reverb compares the host only. | Every hostname this site is reached at. Wrong here fails **silently**: the socket connects and then delivers nothing |
+| `KERN_EDGE_SITE`, `KERN_EDGE_TLS` | The name this installation answers on, and how the edge proves it is that name. Commented out means every address, with the self-signed pair. | Set together, or not at all — see section 8 |
+| `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET` | Where documents live, and the two buckets used: documents, and the quarantine an upload waits in while it is scanned. | **Both buckets have to exist already.** Nothing in this stack creates them |
+| `AWS_USE_PATH_STYLE_ENDPOINT` | MinIO needs path-style addressing. | `true` for MinIO, `false` for real AWS S3 |
+| `MAIL_*` | The mail server. `MAIL_MAILER=log` writes mail to the application log instead of sending it. | An SMTP server, for anything real — password resets and verification codes go through it |
+
+`REVERB_HOST` is **not** the browser's address: it is where the application *publishes* an event,
+inside the network, so it stays `reverb`. The browser reaches Reverb through the edge at whatever
+address served the page, which is what the empty `VITE_REVERB_HOST`, `VITE_REVERB_PORT` and
+`VITE_REVERB_SCHEME` mean. Set those three only for a Reverb on a hostname of its own, and rebuild
+the frontend afterwards — they are baked into the assets at build time, not read at runtime.
+
+### Review once, then leave alone
+
+The timeouts, limits and business settings: `AI_*` (how long one extraction may take, how large an
+image may be), `RETRIEVAL_EMBEDDING_*` and `EMBEDDING_*` (the local search model, off by default),
+`OPERATIONS_CRON_*` (when the timed jobs run — the defaults target Romanian business hours),
+`OPERATIONS_*` thresholds (what the Operations screen calls stale or stuck),
+`WALLET_DEPOSIT_TERMS_MONTHS` (a business decision, not a technical one), and the
+`STATEMENT_IMPORT_*` block. Each carries the sentence that explains it in the file itself.
+
+Two things that are **not** environment variables:
+
+- **The AI provider, model and API key are settings**, set in the running application under
+  Administrare → Setări sistem and stored encrypted in the database — so an operator can change
+  them without a redeploy. The `AI_*` variables are only the starting point, consulted for a field
+  that has never been saved on that screen. Once it has, the database wins.
+- **Which variables exist is not a fixed list.** Each package documents its own in a `.env.example`
+  beside its `config/`, and `php artisan kern:env` prints the whole set.
+
+---
+
+## 5. Secrets, keys, and the one thing that cannot be recovered
+
+### What the installer generates, and what each one protects
+
+| Value | If it is wrong or lost |
+|---|---|
+| `APP_KEY` | Laravel's own encryption key: sessions and some internal values. Changing it signs everyone out. |
+| `CRYPTO_BLIND_INDEX_KEYS` | The key that makes an exact-match lookup possible on a fully encrypted column — "does an account already exist for this address" — without decrypting every row to check. Empty, and login and registration crash. |
+| `OPENBAO_TOKEN` | The token the application presents to the key manager. For a bundled OpenBao this is also the id the server issues that token under, against a policy covering the four transit paths the application calls and nothing else. It is no longer a root token. |
+| `DB_PASSWORD`, `REDIS_PASSWORD` | Both ends of one connection: the bundled container is created with the value the application uses. |
+| `INTERNAL_SERVICE_AUTH_TOKEN` | What the Laravel application and the Python service trust each other by. Empty, and both sides refuse the request. |
+| `REVERB_APP_ID` / `_KEY` / `_SECRET` | The three-part credential behind live updates. An empty secret would let anything outside broadcast events. |
+
+To generate one by hand — rotating it, or filling in a file written by `make env`:
+
+```bash
+# Laravel's application key
+docker compose run --rm app php artisan key:generate --show
+
+# The blind-index key (a JSON object, version "1" mapped to a random 32-byte key)
+docker compose run --rm app php -r 'echo json_encode(["1" => base64_encode(random_bytes(32))]), PHP_EOL;'
+
+# Anything else
+openssl rand -hex 32
+```
+
+### How taxpayer data is encrypted
+
+Per ADR 0002 and `BLUEPRINT.md` §4.2: every `TaxSubject` — one taxpayer's record — has its own
+random 256-bit key (a "DEK"), and that key encrypts that person's sensitive fields: CNP, address,
+phone, IBAN, SPV credentials, uploaded documents, extracted text. The full list is `BLUEPRINT.md`
+§4.3.
+
+That per-person key is never stored in readable form. It is itself encrypted ("wrapped") by a master
+key (the "KEK") that exists only inside `openbao`, and the database holds only the wrapped version.
+**So a stolen database dump, backup, replica or SQL injection is useless on its own** — whoever has
+it still needs the master key to unwrap anything.
+
+The direct consequence: **`openbao` being reachable and unsealed is a hard requirement for reading or
+writing any sensitive field.** ADR 0002 rejected treating "the key manager is down" as a routine
+outage to degrade around; `BLUEPRINT.md` §23 lists it as something that must raise an alert. If it is
+down, encrypted reads and writes fail outright, by design.
+
+### The one unrecoverable thing
+
+**The `openbao_data` volume.** It holds the master key, and the key that unseals it. Lose that volume
+and every wrapped key in the database stays wrapped forever — every encrypted field, for every
+taxpayer, permanently unreadable. No backup of the database helps, because the database never held
+the master key.
+
+This is not theoretical. OpenBao used to run with `server -dev`, which keeps everything in memory: a
+host kernel panic on 2026-09-28 restarted it empty and did exactly that. It now stores its state on
+the volume, and `docker/openbao/entrypoint.sh` initialises, unseals, mounts transit, ensures the key
+and issues the application's scoped token on **every** boot — because a reboot never runs
+`docker compose up`, so anything a reboot must not skip cannot live in a container that only `up`
+starts.
+
+Back that volume up. It is the only part of this system where a backup is the difference between an
+incident and a loss.
+
+### Rotating a key that has been in use
+
+Both rotatable keys — the master key and the blind-index key — take two steps, not one: rotating
+mints the new version, and a second command carries everything still on the old one across. Until
+that second command reports zero, the key you meant to retire is still in use and cannot be removed.
+The exact flow for both, with the commands and what breaks in between, is at the end of
+`packages/platform/README.md`.
 
 ### What must never be committed
 
-- `apps/api/.env` — excluded via `.gitignore`, along with any other `.env`. The single exception is
-  the repository root's `.env`, which is committed because it is only a symlink to `apps/api/.env`
-  and holds nothing itself. Any `.env.example` must **never** contain a real value.
-- `docker/caddy/certs/*.key` **and** `*.crt` — both halves of the edge's TLS material. The
-  certificate used to be committed with only the key ignored, which gave a fresh clone a
-  certificate it had no key for; a certificate generated from a private key is worth no more than
+- `apps/api/.env`, and any other `.env`. The single exception is the repository root's `.env`, which
+  is committed because it is only a symlink to that file and holds nothing itself. A `.env.example`
+  must never contain a real value.
+- `docker/caddy/certs/*.key` **and** `*.crt`. The certificate used to be committed with only the key
+  ignored, which gave a fresh clone a certificate it had no key for and an edge that would not
+  start, with nothing saying why. A certificate generated from a private key is worth no more than
   that key, so neither is in git and `make certs` is how both appear.
 
 ---
 
-## 5. Deployment steps
+## 6. Installing it by hand
 
-**There is one command that does all of this:**
+The same work as section 1, step by step. Use this when a step of the installer failed and you want
+to carry on from there, or when you want to see what it did.
 
-```bash
-make install
-```
-
-`scripts/install.sh` asks how the installation will be reached and which services it should run
-here rather than point at, generates all nine secrets from `openssl rand`, writes `apps/api/.env`
-at mode 0600, builds the assets and the images, starts the stack, runs the migrations, creates the
-role catalogue and the first administrator, and finishes on `php artisan kern:health` — which fails
-the install, with the component named, if anything it was told to run did not answer. It refuses to
-overwrite an existing `apps/api/.env`; `make install ARGS=--repair` re-runs everything after that
-file against an installation that is already there.
-
-The steps below are the same work by hand. They are worth knowing because they are what the
-installer does, and because they are the way through when one step of it fails — but on a clean
-server, use the command.
-
-Derived from `Makefile`, `compose.yaml`, and `docker/caddy/Dockerfile`. Run these in order, from a
-clean checkout on the server.
-
-1. **Create the environment file and fill it in.**
+1. **Write the environment file.**
    ```bash
    make env
    ```
-   That writes `apps/api/.env` from the application's `.env.example` and every package's. It refuses
-   to overwrite one that already exists. Fill in every "must change" variable from section 3, using
-   the generation commands in section 4.
+   That writes `apps/api/.env` from the application's `.env.example` plus every package's, and
+   refuses to overwrite one that exists. Then fill in every value from sections 4 and 5, and edit
+   the `COMPOSE_FILE` line: remove `compose.dev.yaml` and the three `.dev.yaml` entries for a
+   production shape, and remove the `compose.services/<service>.yaml` of anything this machine will
+   not run — pointing that service's variable (`DB_HOST`, `REDIS_HOST`, `OPENBAO_ADDR`,
+   `CLAMAV_HOST`, `PROCESSING_URL`, `BROWSER_WORKER_URL`) at wherever it does run.
 
-   It also brings the `COMPOSE_FILE` line, listing every service. Before going further, edit it:
-   remove `compose.dev.yaml` and the three `.dev.yaml` entries for a production shape, and
-   remove the `compose.services/<service>.yaml` of anything this machine will not run — then point
-   that service's variable (`DB_HOST`, `REDIS_HOST`, `OPENBAO_ADDR`, `CLAMAV_HOST`,
-   `PROCESSING_URL`, `BROWSER_WORKER_URL`) at wherever it does run. `make up` refuses to start if
-   the line is missing, because without it compose resolves to a stack with no database.
-
-2. **Put a TLS certificate in place.** Unconfigured, `edge` expects a certificate and key at
-   `docker/caddy/certs/kern.crt` and `docker/caddy/certs/kern.key` (mounted read-only into the
-   container). With a domain name, it obtains one itself instead — set `KERN_EDGE_SITE` and
-   `KERN_EDGE_TLS` as `apps/api/.env.example` describes, and skip this step.
+2. **Put a TLS certificate in place.**
    ```bash
-   make certs                      # every address this host answers on, plus localhost
-   make certs HOST=kern.example.ro # a domain name instead
+   make certs                       # every address this host answers on, plus localhost
+   make certs HOST=kern.example.ro  # that name instead
    ```
-   **Neither file is in git.** The certificate used to be committed with its key ignored, which
-   gave a fresh clone a certificate it had no key for and an edge that would not start, with
-   nothing saying why; `make up` now refuses rather than letting that happen. The pair this writes
-   is self-signed, so browsers warn — for a real deployment replace it (see section 7, and
-   `docs/INSTALLER-PLAN.md` §4 for the domain path).
+   Neither file is in git. `make up` refuses to start without the pair, rather than letting the edge
+   come up with no certificate. What this writes is self-signed, so browsers warn; with a domain,
+   set `KERN_EDGE_SITE` and `KERN_EDGE_TLS` and the edge obtains a real one itself on the first
+   request.
 
-3. **Build the frontend assets before building any images.** `docker/caddy/Dockerfile` copies
-   `apps/api/public` into the `edge` image at build time and does not run any JavaScript build tool
-   itself — its own comment says "This image does not run Vite itself — CI builds assets first, then
-   this image is built." So, from `apps/api`:
+3. **Build the frontend assets, before any image.**
    ```bash
-   cd apps/api
-   npm ci
-   npm run build
-   cd ..
+   cd apps/api && npm ci && npm run build && cd ../..
    ```
-   If you skip this on a brand-new checkout, `apps/api/public/build` won't exist yet and the site
-   will serve with no styling or JavaScript.
+   `docker/caddy/Dockerfile` copies `apps/api/public` into the edge image at build time and runs no
+   JavaScript build tool itself. Skip this on a fresh checkout and the site serves with no styling
+   and no JavaScript.
 
-4. **Build the images.**
+4. **Build the images and start the stack.**
    ```bash
-   make build          # = docker compose build
+   make build
+   make up
    ```
+   The bundled OpenBao initialises, unseals, mounts transit, creates the master key and issues the
+   application's scoped token in its own startup script, on every boot — there is no separate
+   init container to remember.
 
-5. **Start the stack**, running the production shape only (no `compose.dev.yaml`):
-   ```bash
-   make up             # = docker compose up -d
-   ```
-   This also runs the one-shot setup containers automatically, in the right order, because of the
-   `depends_on` conditions in `compose.yaml`: `minio-init-perms` fixes storage ownership, then
-   `minio` starts, then `minio-init-buckets` creates the `kern-documents` and `kern-quarantine`
-   buckets, then `openbao-init` sets up the encryption master key, then `app`/`queue` start (they
-   wait on Postgres, Redis, and the buckets being ready first).
-
-6. **Run the database migrations.** Nothing in the image runs these automatically — this is a manual
-   step, deliberately, so a schema change is never applied by accident on container restart:
+5. **Run the migrations.** Nothing in the image does this automatically, deliberately: a schema
+   change applied by a container restart is a schema change nobody decided to apply.
    ```bash
    docker compose exec app php artisan migrate --force
    ```
-   (`--force` is required because `APP_ENV=production` makes Artisan ask for interactive
-   confirmation otherwise, which would just hang in a non-interactive deploy.)
+   `--force` is required because `APP_ENV=production` otherwise asks for confirmation, which would
+   hang.
 
-7. **Create the roles and the first administrator.** Access control is a proper database-backed
-   roles system (ADR 0014) — `SUPER_ADMIN`, `ADMIN`, `ACCOUNTANT`, `VIEWER` — not an environment
-   variable. First, project the role/permission catalogue into the database:
+6. **Create the roles, then the first administrator.** Access control is a database-backed roles
+   system (ADR 0014) — `SUPER_ADMIN`, `ADMIN`, `ACCOUNTANT`, `VIEWER` — not an environment variable.
    ```bash
    docker compose exec app php artisan kern:access:sync
+   docker compose exec -T app php artisan kern:admin:create --stdin you@example.ro
    ```
-   Then grant yourself the top role (this is also how you'd recover if every admin account were
-   ever locked out — it only needs shell access to the server, on purpose):
-   ```bash
-   docker compose exec app php artisan kern:access:grant you@example.com SUPER_ADMIN
-   ```
+   The second command reads the password from standard input, so pipe it in rather than typing it as
+   an argument. `kern:access:grant` is how every role after the first is given, and is also the way
+   back in if every administrator account is ever locked out — it needs only shell access, on
+   purpose.
 
-8. **Confirm the scheduler and queues are actually running** — see section 6 below.
-
-That covers "clean server to running app." `queue`, `scheduler`, and `reverb` don't need any extra
-step to start — `command:` in `compose.yaml` already starts `php artisan horizon`,
-`php artisan schedule:work`, and `php artisan reverb:start` respectively as soon as their
-containers come up in step 5.
+7. **Check it.** Section 7.
 
 ---
 
-## 6. After deploying — how to check it worked
+## 7. After installing — how to check it worked
+
+Start here:
+
+```bash
+docker compose exec app php artisan kern:health
+```
+
+One row per service, from inside the container that has to reach it:
+
+```
+  database        ok            pgsql
+  cache           ok
+  key_management  ok            KEK version 1
+  object_storage  ok            s3
+  processing      ok
+  antivirus       ok
+  browser_worker  ok
+```
+
+`not installed` means this installation was told not to run that service, which is not a fault.
+`DOWN` names the layer that failed and exits non-zero; the cause is in the application log, never in
+the output, because an exception message from a driver can carry an address or a bucket name
+(`BLUEPRINT.md` §4.10).
+
+Then:
 
 ```bash
 make smoke
 ```
-This runs two checks defined in `Makefile`:
-- `https://127.0.0.1/login` — expect **200**. This is the login page; if you get a certificate
-  warning from `curl`, that's expected with the self-signed certificate (see section 7) — `make
-  smoke` uses `-k` to ignore it.
-- `https://127.0.0.1/api/v1/settings` — expect **401** (unauthorized) *while signed out*. Getting a
-  401 here is the healthy result — it means the API is up and correctly refusing an unauthenticated
-  request, not a failure.
 
-Beyond that:
+- `https://127.0.0.1/login` → **200**. The certificate warning from `curl` is expected while the
+  certificate is self-signed; `make smoke` passes `-k`.
+- `https://127.0.0.1/api/v1/settings` → **401** while signed out. A 401 here is the healthy answer:
+  the API is up and refusing an unauthenticated request.
 
-| Check | Command | What healthy looks like |
+| Check | Command | Healthy looks like |
 |---|---|---|
-| Every service this installation runs answers | `docker compose exec app php artisan kern:health` | One row per component — `ok`, `not installed` for one this installation was told not to run, or `DOWN`. Exits non-zero if any row is `DOWN`, which is what `make install` ends on. |
-| All containers report healthy | `docker compose ps` | Every service shows `Up` / `(healthy)`, not `unhealthy` or restarting in a loop. |
-| Queue workers are running | `docker compose exec app php artisan horizon:status` | Reports Horizon as running, not paused or inactive. |
-| Scheduler is actually ticking | `docker compose logs scheduler` | New log lines appear roughly once a minute; the container's own healthcheck (`docker/php/scheduler-healthcheck.php`) already fails the container if the schedule hasn't run in the last 180 seconds. |
-| A document upload works end-to-end | Upload a test document through the UI | It should reach a real status (not stuck "processing" past `OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES`, default 60 minutes) and show up decrypted for a signed-in user with access. |
-| Encryption/KMS is reachable | Try registering or logging in | If OpenBao is unreachable or misconfigured, these fail immediately (by design — see section 4) rather than silently succeeding with broken data. |
-| Live updates work | Open two browser tabs, trigger something that broadcasts (e.g. process a document) | The second tab updates without a manual refresh. If it doesn't, check `REVERB_ALLOWED_ORIGINS` first (section 3) — a mismatch here fails silently, with no visible error. |
-| Logs for one service | `make logs SERVICE=queue` (or `app`, `scheduler`, `reverb`, etc.) | Tails the last 200 lines and follows new ones. |
+| Every container is up | `docker compose ps` | Every service `Up` / `(healthy)`, none restarting in a loop |
+| Queue workers are running | `docker compose exec app php artisan horizon:status` | Running, not paused or inactive |
+| The scheduler is ticking | `docker compose logs scheduler` | New lines about once a minute. The container's own healthcheck fails it if the schedule has not run in 180 seconds |
+| An upload works end to end | Upload a document in the interface | It reaches a real status rather than sitting in "processing" past `OPERATIONS_DOCUMENT_STUCK_AFTER_MINUTES` (60 by default), and reads back decrypted for a user with access |
+| The key manager is reachable | Sign in, or register | If OpenBao is unreachable these fail immediately, by design (section 5), rather than appearing to work |
+| Live updates work | Two browser tabs; do something that broadcasts | The second tab updates with no refresh. If not, check `REVERB_ALLOWED_ORIGINS` first — a mismatch fails silently |
+| The log of one service | `make logs SERVICE=queue` | The last 200 lines, then follows |
 
 ---
 
-## 7. Needs a decision
+## 8. Needs a decision
 
-Things that are not production-ready as currently configured. These are not guesses — each is
-either stated directly in the repository's own comments/ADRs, or observed directly in the config
-files.
+Not production-ready as configured. Each of these is either stated in the repository's own comments
+and ADRs or observed in the configuration — none is a guess.
 
-1. **OpenBao (the encryption key service) runs in "dev mode."** `compose.yaml` starts it with
-   `bao server -dev`, which keeps the master key in memory only and unlocks with a single root token
-   from `.env`. Every restart loses the key, which permanently destroys access to every taxpayer
-   record's data (crypto-shredding by accident, not by choice). ADR 0002 recommends "cloud KMS/HSM
-   or HashiCorp Vault Transit" for production; `docs/handoff/037-public-exposure-hardening.md` says
-   outright: "OpenBao runs in dev mode... Fine for a demo, never for real taxpayer data." **This is
-   the single highest-priority item before any real personal data goes into this system.**
+1. **The key manager's unseal key sits in plaintext inside its own volume.** OpenBao no longer runs
+   in dev mode: it stores its state on `openbao_data`, survives a reboot, and hands the application
+   a token scoped to four transit paths rather than a root token. What remains is that
+   `docker/openbao/entrypoint.sh` writes the unseal key and root token to `init.json` in that
+   volume, so **anyone who can read the volume can unseal the server and decrypt everything in the
+   database.** This is not a step down from what came before — `OPENBAO_TOKEN` already sat in
+   plaintext in `apps/api/.env` on the same disk — and it does not weaken what envelope encryption
+   is for, which is a stolen *database*. But production wants a real answer: auto-unseal against a
+   cloud KMS, or Shamir shares held by different people. ADR 0002 recommends a cloud KMS/HSM or
+   Vault Transit. **This is the highest-priority item before real personal data.**
 
-2. **The TLS certificate is self-signed, unless a domain was configured.** With no
-   `KERN_EDGE_SITE`, the edge presents `docker/caddy/certs/kern.crt`/`.key` — every address this
-   host answers on, plus `localhost` — and browsers show a security warning to every visitor.
-   Point a real domain at the server and set `KERN_EDGE_SITE` and `KERN_EDGE_TLS`: the edge then
-   obtains a Let's Encrypt certificate on the first request and renews it on its own, which is the
-   thing the previous nginx edge could not do at all. Related: HSTS (a setting that would force
-   browsers to always use HTTPS for this site) is deliberately **not** turned on, because with an
-   untrusted certificate it makes the site unreachable with no easy recovery — it belongs in
-   `docker/caddy/Caddyfile`'s header block once a real certificate is in place.
+2. **The TLS certificate is self-signed unless a domain was configured.** With no `KERN_EDGE_SITE`
+   the edge presents `docker/caddy/certs/kern.crt` — every address this host answers on, plus
+   `localhost` — and every visitor sees a warning. Point a domain at the server and set
+   `KERN_EDGE_SITE` and `KERN_EDGE_TLS`: the edge then obtains a Let's Encrypt certificate on the
+   first request and renews it itself. Related: HSTS, which would force browsers to use HTTPS for
+   this site, is deliberately **off** — with an untrusted certificate it makes the site unreachable
+   with no easy recovery. It belongs in the Caddyfile's header block once a real certificate is in
+   place.
 
-3. **MinIO is still what's bundled, even though moving off it is now only a setting.**
-   `AWS_ENDPOINT`, `AWS_BUCKET`, `QUARANTINE_BUCKET`, `AWS_DEFAULT_REGION` and
-   `AWS_USE_PATH_STYLE_ENDPOINT` are all plain variables in `apps/api/.env`, so a real S3-compatible
-   provider needs no file edited. Two things do not follow automatically: the two buckets have to be
-   created (the bundled `minio-init-buckets` container does that only for the bundled MinIO), and the
-   `minio` and `minio-init-buckets` containers should then not be started at all. MinIO's own last
-   release was 2025-09-07 — worth revisiting if it stays stale.
+3. **Object storage has to exist before an install, and so do its two buckets.** This repository
+   ships no object-storage service, so `make install` has no "install it here" answer for it: a
+   server with no S3 anywhere cannot be installed, because documents have nowhere to go. Nothing in
+   the stack creates `AWS_BUCKET` or `QUARANTINE_BUCKET` either — they must exist already.
+   `docs/INSTALLER-PLAN.md` §6 records this as the installer's one real gap. (MinIO's own last
+   release was 2025-09-07, which is worth a look if it stays stale.)
 
-4. **A known, unresolved security bug: passkey login is broken.** `docs/STATUS.md` records it
-   directly: `POST /auth/passkeys/registration` fails because the registration challenge isn't found
-   by the follow-up call, "affects the real app, not just tests," and is flagged there as "High — a
-   security feature that silently does not work." Marked as deferred by the owner as of 2026-09-08,
-   to be fixed after other screens are done — worth confirming that's still the intended order before
-   launch.
+4. **Every container inherits the host's VPN, including the browser worker.** Object storage is
+   reached at `10.73.4.3:9000`, on a private network the *host* is a node of. Containers have no VPN
+   of their own: their traffic goes out through a Docker bridge and the host routes it onward. That
+   works, and it works for everything — including the one container whose whole job is to load
+   untrusted web pages with a real Chrome. It is the widest hole in the current topology.
+   `docs/INSTALLER-PLAN.md` §5 is the design that closes it: the VPN as its own container, joined
+   only by the services that need a remote address.
 
-5. **No external AI provider is selected yet.** `docs/STATUS.md`'s blocked-items list still shows
-   "Provider, region and DPA for ADR 0005 document processing" as open. ADR 0005's 2026-09-11
-   amendment notes the current deployment instead points at a **self-hosted** vision model over a
-   private network, so no document currently leaves the building for AI processing — but if that
-   changes to a genuine third-party provider, the EU-region/no-training data processing agreement
-   this ADR requires still needs to be signed off first.
+5. **Passkey registration is broken.** `docs/STATUS.md` records it as P1: `POST
+   /auth/passkeys/registration` returns 422, because the challenge written by the options call is
+   not found by the register call. It affects the real application, not only tests. Deferred by the
+   owner on 2026-09-08, to be fixed after the screens — worth confirming that is still the intended
+   order before launch.
 
-6. **`BLUEPRINT.md` §35's full pre-production checklist is untouched.** Items not yet done, in the
-   blueprint's own words (translated): external penetration test, tested key rotation, tested backup
-   restore, a scan of the database dump and object store for any plaintext that shouldn't be there, a
-   scan of logs for personal data, cross-tenant isolation tests, an incident-response runbook, a
-   tested account-deletion workflow, and formal privacy/DPA documentation. None of these are
-   optional extras for a system holding CNPs, IBANs, and tax records.
+6. **No external AI provider is chosen.** `docs/STATUS.md`'s blocked list still shows "Provider,
+   region and DPA for ADR 0005 document processing" as open. ADR 0005's amendment notes this
+   deployment points at a **self-hosted** vision model over a private network, so no document
+   currently leaves the building — but a genuine third-party provider needs the EU-region,
+   no-training data processing agreement signed off first.
 
-7. **No real personal data should go into this deployment until the above are resolved.** This
-   isn't a guess — it's the explicit conclusion of the repository's own hardening note
-   (`docs/handoff/037-public-exposure-hardening.md`): *"Still a dev deployment — self-signed
-   certificate and dev-mode OpenBao — so no real taxpayer data belongs in it."*
+7. **`BLUEPRINT.md` §35's pre-production checklist is untouched.** In the blueprint's own words: an
+   external penetration test, a tested key rotation, a tested backup restore, a scan of the database
+   dump and the object store for plaintext that should not be there, a scan of logs for personal
+   data, cross-tenant isolation tests, an incident-response runbook, a tested account-deletion
+   workflow, and formal privacy and DPA documentation. None of these are optional extras for a
+   system holding CNPs, IBANs and tax records.
 
-8. **Unverified: Reverb has no documented HTTP health endpoint.** The compose healthcheck for
-   `reverb` only confirms the WebSocket port accepts a TCP connection, not that broadcasting is
-   actually working end to end — `compose.yaml`'s own comment notes this ("Reverb exposes no
-   documented HTTP health route as of this check"). Worth keeping in mind if live updates ever appear
-   to silently stop.
+8. **Reverb's healthcheck proves a port is open, not that broadcasting works.** It is a TCP connect;
+   Reverb exposes no documented HTTP health route. `kern:health` deliberately does not report on it
+   either, because a TCP connect would be reporting something it did not check — the dashboard's own
+   connection indicator already shows the property that matters. Worth remembering if live updates
+   ever appear to stop silently.
+
+9. **No real personal data belongs in this deployment until the above are resolved.** This is the
+   repository's own conclusion, in `docs/handoff/037-public-exposure-hardening.md`.

@@ -46,12 +46,20 @@ Claim a path here before editing it, release it when your handoff note is writte
 
 ---
 
-## Deployment note (2026-09-08)
+## Deployment note (2026-10-15)
 
 The stack is exposed on a **public IP** (`https://your.server.ip/`). Hardened per
 `handoff/037-public-exposure-hardening.md`: debug off, TLS on, HTTP→HTTPS redirect, all secrets
-rotated. Still a **dev** deployment — self-signed certificate and dev-mode OpenBao — so no real
-taxpayer data belongs in it.
+rotated.
+
+**Installing it is one command**: `make install` ([049](handoff/049-the-installer.md)), and
+`docs/DEPLOYMENT.md` is written around it. The edge is Caddy, which can obtain and renew a real
+certificate itself once a domain is set. OpenBao is no longer in dev mode — it persists to a volume
+and hands the application a scoped token.
+
+Still a **dev** deployment, for two reasons rather than the four it used to be: the certificate is
+self-signed until a domain is pointed here, and OpenBao's unseal key sits in plaintext inside its own
+volume. `docs/DEPLOYMENT.md` §8 is the full list. No real taxpayer data belongs in it yet.
 
 ## Known issues
 

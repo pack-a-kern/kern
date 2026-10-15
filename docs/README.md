@@ -12,6 +12,7 @@ Read in this order when you join the project:
 | `adr/` | Architectural decisions and why they were made. |
 | `handoff/` | One note per completed task — how to continue someone else's work. |
 | `reference/` | Verified external facts: versions, endpoints, formats. |
+| `DEPLOYMENT.md` | Running this on a real server: `make install`, what each container is, every variable, and what is not production-ready yet. |
 | `INSTALLER-PLAN.md` | Planned work: one command to install on a fresh server. A plan, not a record. |
 
 ## Rules for these documents

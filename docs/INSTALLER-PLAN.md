@@ -66,6 +66,12 @@ So each service gets two or three answers, never a free choice:
 
 ## 2. The flow
 
+**This was the sketch, and it is kept as the sketch.** `scripts/install.sh` is built (§6), and it
+departs from what follows in five places — there is no "install MinIO here" because no such service
+exists in this repository, there is no live test after each question because the host is the wrong
+place to run one, and the steps stream their own output rather than printing a line each. §6 lists
+all five with the reasoning. Read this for the shape of the conversation, not for what it prints.
+
 ```
 git clone <repo> && cd kern
 make install
@@ -433,65 +439,108 @@ whose whole job is to load untrusted web pages. That undoes the point of `browse
 container is isolated from `data_net` by Docker and then handed a route to the private network
 anyway. It is the single widest hole in the current topology.
 
-### Shape
+### The shape, and why it is a forwarder rather than a route
 
-A `vpn` service that joins Tailscale in **userspace mode**, on its own `vpn_net`. Only services
-that need a remote address join that network.
+A `vpn` service on its own `vpn_net`. Only services that need a remote address join that network.
 
-```yaml
-vpn:
-  image: tailscale/tailscale:<pinned>
-  environment:
-    TS_AUTHKEY: ${TS_AUTHKEY:?}
-    TS_USERSPACE: "true"          # no /dev/net/tun, so no NET_ADMIN anywhere
-    TS_SOCKS5_SERVER: ":1055"
-    TS_STATE_DIR: /var/lib/tailscale
-  volumes: [ tailscale_state:/var/lib/tailscale ]
-  networks: [ vpn_net ]
-  cap_drop: [ ALL ]
-```
-
-Userspace mode is the point: no `NET_ADMIN`, no `/dev/net/tun`, no capability added back to any
-other container, and no static routes to maintain. The VPN container then forwards each remote port
-it is asked to expose through its own SOCKS proxy:
+The obvious design — give the VPN container the tunnel and let the others route through it — does
+not work without giving something up. A route inside another container's network namespace needs
+`NET_ADMIN` in *that* container, which is the capability being removed in the first place; and
+`network_mode: service:vpn` makes `app` share the VPN container's whole namespace, which would take
+`app_net` and `data_net` away with it. So the VPN container forwards ports instead: it listens on
+`vpn_net`, and each listening port is one remote address.
 
 ```
-vpn:9000  →  socks5 → 10.73.4.3:9000
+vpn:9000  →  tunnel  →  10.73.4.3:9000
 ```
 
 and the application's variable becomes `AWS_ENDPOINT=http://vpn:9000` — a hostname on a Docker
-network, exactly like `postgres` or `clamav`. No code change, no SDK proxy settings, no new
-capability.
-
-Result:
+network, exactly like `postgres` or `clamav`. No code change, no SDK proxy setting, no capability
+added anywhere else.
 
 | | Can reach 10.73.4.0/24 |
 |---|---|
-| app | yes — joins `vpn_net` |
-| queue | yes — joins `vpn_net` |
+| app, queue | yes — they join `vpn_net` |
 | browser-worker | **no** |
-| python-api | **no** unless it needs a remote address of its own |
+| python-api | **no**, unless it needs a remote address of its own |
 | postgres, redis, openbao | **no** |
 
-The same container serves any other remote service behind the VPN — a remote ClamAV or a remote
-Postgres is another forwarded port, not a new mechanism.
+### Where `10.73.4.3` goes, and where `vpn:9000` comes from
+
+This is the part worth being explicit about, because it looks like the installer invents an address.
+It does not. **The operator types the real address, exactly as today.** The installer asks:
+
+```
+Object storage
+  Endpoint: http://10.73.4.3:9000
+  Reachable only over a VPN? [y/N]: y
+```
+
+and from that one answer, `10.73.4.3:9000` is written **into the VPN container's forwarding rule**,
+not into `apps/api/.env`:
+
+```
+KERN_VPN_FORWARD=9000:10.73.4.3:9000      → the vpn service's own variable
+AWS_ENDPOINT=http://vpn:9000             → what the application is given
+```
+
+So the private address is named exactly once, in the one container that can reach it, and every
+other container is given a name on a Docker network. The same container serves any other remote
+service behind the same VPN — a remote ClamAV or a remote Postgres is another line in that list, not
+a new mechanism.
+
+### Tailscale or WireGuard — both, because the question is which one the operator already runs
+
+Whichever the operator has is the right answer. The design is the same either way: one container
+holding the tunnel, forwarding ports onto `vpn_net`. They differ in exactly two places — how the
+tunnel is authenticated, and whether the container needs a capability.
+
+| | Tailscale | WireGuard |
+|---|---|---|
+| What the operator supplies | an auth key (ephemeral, pre-authorised, tagged) | a `wg0.conf` — their own key, the peer's public key, the endpoint, the allowed IPs |
+| Capability needed | **none**, in userspace mode (`TS_USERSPACE=true`, no `/dev/net/tun`) | `NET_ADMIN` **in this one container**, plus `/dev/net/tun` |
+| How the forwarder reaches the remote address | through tailscaled's own proxy, because a userspace tunnel is not in the container's routing table | directly — the kernel interface gives the container a real route |
+| Keeps working after a reboot | yes, state on a volume | yes, the config is a file |
+| Which to offer first | the one this deployment already runs | — |
+
+Userspace Tailscale is the reason the "no capability anywhere" claim holds, and it is also why the
+forwarder cannot be a plain TCP relay: nothing in the container's routing table knows about
+`10.73.4.0/24`, so each forwarded connection has to be dialled through tailscaled's proxy. Kernel
+WireGuard is the opposite trade — one capability in one container, and a forwarder that is an
+ordinary relay.
+
+Either way the forwarder is a small loop inside the VPN container's entrypoint, reading
+`KERN_VPN_FORWARD` and starting one listener per line, the way `docker/openbao/entrypoint.sh`
+already does its own setup before handing over the foreground.
 
 ### Keeping the current behaviour
 
 "The host is already on the VPN" stays the default answer for this deployment: it works, and
-changing it is not required to ship an installer. The installer offers the container option and says
-what it buys. Tailscale is also not the only thing that fits this shape — a plain WireGuard
-container with a config file is the same design with a different image, and the installer can ask
-which.
+changing it is not required to ship an installer. The installer offers the container and says what
+it buys.
+
+### What this needs before it can be built
+
+**One credential, and it has to come from the operator.** A Tailscale auth key for its tailnet, or a
+WireGuard config for its peer. Neither can be generated here and neither can be guessed, and without
+one the container cannot be started, which means the forwarding cannot be proved to work — and a VPN
+container that has never carried a packet is exactly the "verified before being promised" rule in §8
+being broken. The two halves that *can* be proved separately:
+
+- **The forwarder, without any tunnel.** A relay on `vpn_net` reaches `10.73.4.3:9000` today, because
+  the host routes it. That proves `AWS_ENDPOINT=http://vpn:9000` works end to end, and it proves the
+  translation above, without proving the tunnel.
+- **The tunnel, with the credential.** Only then.
 
 ### Open points
 
+- A `vpn` probe for `ProbeSystemHealth`, so a dead tunnel reads as its own named failure rather than
+  as "object storage degraded". It belongs with this work and not before it: there is nothing to
+  probe until the container exists.
 - Which ports to forward is an installer question, since it depends on which services the operator
   put behind the VPN.
-- `TS_AUTHKEY` is a credential in `.env` like the others. An ephemeral, pre-authorised, tagged key
-  is the right kind.
-- Health: the VPN container needs a probe (`tailscale status`), and `ProbeSystemHealth` should gain
-  a `vpn` component so a dead tunnel reads as a named failure rather than "object storage degraded".
+- `TS_AUTHKEY` and a WireGuard private key are credentials in `apps/api/.env` like the others. An
+  ephemeral, pre-authorised, tagged key is the right kind for the first.
 
 ---
 
@@ -635,8 +684,8 @@ In dependency order. Nothing after the first item can be finished before it.
 | 4 | ~~**Two more health probes** — OpenBao, browser worker~~ — **done** as `key_management` (reads the KEK's version through the real driver) and `browser_worker` (`not_configured` when the installation runs none). A `vpn` probe comes with §5 | step 14 cannot verify what it cannot probe |
 | 5 | ~~**Caddy edge** (§4)~~ — **done**. One container, one Caddyfile; `KERN_EDGE_SITE` and `KERN_EDGE_TLS` are the two answers the installer will set. The Cloudflare DNS module waits for the question in §6 | needed for a real certificate, but the stack runs without it |
 | 6 | ~~**`scripts/install.sh`** (§6)~~ — **done**, with `kern:health` as the step-14 command and five departures recorded in §6 | the questions and the ordering |
-| 7 | **VPN container** (§5) | optional; current host VPN keeps working |
-| 8 | **`docs/DEPLOYMENT.md`** rewritten around the installer | the manual steps become the fallback path |
+| 7 | **VPN container** (§5) — **blocked on one credential**: a Tailscale auth key or a WireGuard config, neither of which can be generated here. §5 says what can be proved without it and what cannot. A `vpn` probe comes with it | optional; the current host VPN keeps working |
+| 8 | ~~**`docs/DEPLOYMENT.md`** rewritten around the installer~~ — **done**. `make install` is now section 1 and the manual steps are section 6; a dozen stale facts went with it (bundled MinIO containers that do not exist, OpenBao in dev mode, two Horizon supervisors where there are three, `REVERB_HOST` described as the browser's address) | the manual steps become the fallback path |
 
 Items 2, 3 and 4 are small and independently useful — worth doing even if the installer stalls.
 
@@ -652,12 +701,19 @@ Items 2, 3 and 4 are small and independently useful — worth doing even if the 
   is tested against the version we pin, the IP answer must offer `tls internal` and say the browser
   will warn. Do not advertise automatic trusted TLS for an IP.
 - **`caddy-dns/cloudflare` against the pinned Caddy version** — build it and issue once against a
-  real zone before this path ships.
+  real zone before this path ships. **Still not built**, for exactly this reason: there is no zone or
+  token here to test against. The installer's third TLS answer covers the Cloudflare case with a
+  certificate the operator already has, which needs no module (§6).
 - **A 6-day certificate lifetime** means renewal failure becomes visible in days, not months. If the
   `shortlived` profile is used, renewal needs monitoring, not just automation.
 - **Cloudflare proxying and WebSockets** — `/app/` must survive the orange cloud.
 - **Whether `kern:env` can replace the `cat` in `make env`** — it needs composer to have run, so the
-  installer may need both: `cat` before `composer install`, `kern:env` after.
+  installer may need both: `cat` before `composer install`, `kern:env` after. **Settled by building
+  it:** `scripts/install.sh` uses `cat`, because nothing in the flow runs composer on the host at all
+  — the image vendors itself — so there is never a moment where `kern:env` could run and `cat` could
+  not. The command stays what it is for: seeing the variables a newly installed package added.
+- **The VPN container carrying a packet** (§5). Blocked on a credential from the operator; until then
+  nothing about it is promised.
 
 ## 9. Out of scope
 
