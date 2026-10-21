@@ -33,8 +33,6 @@ use Tests\TestCase;
  * *not* leave only that bank, or changing banks means clearing the filter first and choosing again.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

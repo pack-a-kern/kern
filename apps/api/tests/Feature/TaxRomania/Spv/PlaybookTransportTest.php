@@ -23,8 +23,8 @@ use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
 
-    config()->set('spv.browser_worker.base_url', 'http://browser-worker.test');
-    config()->set('spv.browser_worker.auth_token', 'test-token');
+    config()->set('browser_worker.url', 'http://browser-worker.test');
+    config()->set('browser_worker.auth_token', 'test-token');
 });
 
 it('is the transport the application resolves', function (): void {
@@ -104,7 +104,7 @@ it('calls without a token when none is configured, rather than refusing on the w
     // The worker decides whether it wants one: a deployment that trusts the network it is on
     // configures neither side. The client this replaces refused instead, which is why a missing
     // token surfaced as a 500 rather than a call the worker would have accepted.
-    config()->set('spv.browser_worker.auth_token', '');
+    config()->set('browser_worker.auth_token', '');
 
     Http::fake([
         '*/v1/sessions' => Http::response(['session_id' => 'abc', 'expires_at' => '2026-10-06T10:00:00+00:00']),

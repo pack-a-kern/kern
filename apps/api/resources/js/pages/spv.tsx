@@ -37,6 +37,7 @@ import { getActiveSubjectId } from '../lib/subjectStore';
 import { formatDateTime } from '../lib/format';
 import { reportApiFailure } from '../lib/apiErrors';
 import { apiRequest } from '../lib/http';
+import { obj, str } from '../lib/json';
 
 /** What the server says a connection is. Mirrors `ShowSpvConnectionsController`. */
 interface Connection {
@@ -82,14 +83,6 @@ type SignIn =
     | { step: 'closed' }
     | { step: 'credentials'; connection: Connection; sessionId: string }
     | { step: 'challenge'; connection: Connection; sessionId: string };
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    return typeof row[key] === 'string' ? row[key] : '';
-}
 
 function parse(payload: unknown): Connection[] {
     const body = obj(payload);

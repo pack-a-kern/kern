@@ -49,16 +49,6 @@ export const vBoolean: Validator<boolean> = (value, path = '') => {
     return value;
 };
 
-export function vLiteral<T extends string>(literal: T): Validator<T> {
-    return (value, path = '') => {
-        if (value !== literal) {
-            fail(path, `expected literal ${literal}`);
-        }
-
-        return literal;
-    };
-}
-
 export function vEnum<T extends string>(values: readonly T[]): Validator<T> {
     return (value, path = '') => {
         if (typeof value !== 'string' || !(values as readonly string[]).includes(value)) {

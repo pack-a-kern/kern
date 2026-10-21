@@ -43,12 +43,12 @@ networks:
 
 services:
   mailpit:
-    image: axllent/mailpit:v1.31.1
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
     networks:
       - app_net
       - dev_net
     ports:
-      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
     read_only: true
     tmpfs:
       - /tmp:mode=1777
@@ -93,10 +93,15 @@ services:
   # ignores the bind-mounted source entirely, so every PHP or config edit needs a container recreate
   # before the browser sees it. Production is unaffected — the file is mounted here, never baked
   # into an image. See that file's header for the full explanation.
+  # Mail goes to Mailpit, in all three of the processes that send it — the queue sends every queued
+  # notification, including the email-verification code. Not to the log, which is where `.env`'s
+  # `MAIL_MAILER=log` would put it: in full, readable by anyone who can read the log, and delivered to
+  # nobody. Open http://localhost:8025 to read it.
   app:
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
+      MAIL_MAILER: smtp
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
     volumes:
@@ -110,10 +115,21 @@ services:
     ports:
       - "${VITE_DEV_PORT:-5173}:5173"
 
+  # The migrations on this host, not the copy baked into the image — the same reason as the services
+  # around it. Without this, `make migrate` would apply whatever migrations the image was built with.
+  migrate:
+    volumes:
+      - ./apps/api:/var/www/html
+      - ./packages:/var/packages
+    read_only: false
+
   queue:
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
     volumes:
       - ./apps/api:/var/www/html
       # The local packages, where composer's symlink from vendor/kern/* points once the
@@ -127,6 +143,9 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
     volumes:
       - ./apps/api:/var/www/html
       # The local packages, where composer's symlink from vendor/kern/* points once the

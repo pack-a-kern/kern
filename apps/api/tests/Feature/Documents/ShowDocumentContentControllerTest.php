@@ -24,8 +24,6 @@ use RuntimeException;
  * document's original bytes back to its owner.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

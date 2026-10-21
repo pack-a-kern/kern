@@ -6,6 +6,7 @@ namespace Kern\Platform\Console\Commands\Access;
 
 use Illuminate\Console\Command;
 use Kern\Platform\Access\Services\AccessCatalogue;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Models\User;
 
 /**
@@ -50,10 +51,8 @@ final class GrantPlatformRoleCommand extends Command
         if ($this->option('revoke')) {
             // Guarded the same way the HTTP endpoint is: an installation with no super
             // administrator can only be repaired from here, and this *is* here.
-            $remaining = User::role($role)->where('id', '!=', $user->getKey())->count();
-
-            if ($role === 'SUPER_ADMIN' && $remaining === 0) {
-                $this->warn('This is the last SUPER_ADMIN. Revoking it leaves nobody able to grant roles through the UI.');
+            if ($role === SuperAdministratorRole::NAME && SuperAdministratorRole::activeHoldersOtherThan($user) === 0) {
+                $this->warn(sprintf('This is the last %s. Revoking it leaves nobody able to grant roles through the UI.', SuperAdministratorRole::NAME));
 
                 if (! $this->confirm('Revoke anyway?', false)) {
                     return self::FAILURE;

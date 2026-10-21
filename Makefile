@@ -4,8 +4,11 @@
 # docs/handoff/001-docker-topology.md "How to verify"). Nothing aspirational.
 
 SERVICE ?= app
+# The group the PHP image's `appuser` runs as (docker/php/Dockerfile) — the one other reader `make env`
+# lets at the environment file.
+APP_GID ?= 10001
 
-.PHONY: install env certs up down build logs shell test lint fresh compose-file
+.PHONY: install env tls-ca pins test-installer up down build logs shell test lint fresh compose-file migrate
 
 ## Refuse to run compose without a service list.
 ##
@@ -43,25 +46,41 @@ install:
 ## shape to keep until an installation deliberately moves one off this machine.
 env:
 	@test ! -e apps/api/.env || { echo "apps/api/.env exists — not overwriting it."; exit 1; }
-	@cat apps/api/.env.example packages/*/.env.example > apps/api/.env
+	@umask 077 && cat apps/api/.env.example packages/*/.env.example > apps/api/.env
+	@# Readable by its owner and by the app containers' group, which reads it through the dev source
+	@# mount (Vite takes the VITE_* values from it) — and by no other account on the host. Changing
+	@# the group needs root or membership of it; without either the file stays open to everyone, and
+	@# that is said rather than left to be found.
+	@if chgrp $(APP_GID) apps/api/.env 2>/dev/null; then chmod 640 apps/api/.env; \
+	else chmod 644 apps/api/.env; \
+	echo "apps/api/.env is readable by every account on this host: run \`sudo chgrp $(APP_GID) apps/api/.env && sudo chmod 640 apps/api/.env\`."; fi
 	@echo "Wrote apps/api/.env. Fill in every empty value — APP_KEY, the passwords, the tokens — before \`make up\`."
 
-## Generate the edge's TLS certificate and key. Usage: make certs [HOST=kern.example.ro]
+## Write this installation's CA certificate to kern-ca.crt. Usage: make tls-ca
 ##
-## Neither file is in git — a private key must never be, and a certificate without its key is what
-## used to make a fresh clone fail to start the edge with nothing saying why. Self-signed, so
-## browsers warn; see docs/INSTALLER-PLAN.md §4 for what a real certificate needs.
-certs:
-	@scripts/generate-certs.sh $(HOST)
+## Every certificate in the stack is issued by the `certs` service from one private CA, the edge's
+## included when the site is reached by IP. Import this file once into a browser or a device as a
+## trusted authority and the site stops warning — renewals included, since they come from the same CA.
+## The certificate only: the CA's key never leaves its volume.
+tls-ca: compose-file
+	@docker compose exec -T certs cat /certs/public/ca.crt > kern-ca.crt
+	@echo "Wrote kern-ca.crt — import it as a trusted certificate authority where you open the site."
+
+## Which pinned images have a newer build upstream. Usage: make pins
+##
+## Every image is pinned by tag and digest, so a tag rebuilt with OS patches changes nothing here until
+## the pin is moved. This lists the pins that are behind and changes nothing — see scripts/pins.sh.
+pins:
+	@sh scripts/pins.sh
+
+## The installer's answers, fed to its own functions and read back from the environment file they
+## write — into a scratch file, never apps/api/.env. See scripts/tests/install-optional-services.sh.
+test-installer:
+	@sh scripts/tests/install-optional-services.sh
 
 ## Start the full stack in the background.
 up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
-	@test -f docker/caddy/certs/kern.crt -a -f docker/caddy/certs/kern.key || { \
-		echo "docker/caddy/certs is missing a certificate or its key, and the edge will not start."; \
-		echo "Run \`make certs\` — neither file is in git."; \
-		exit 1; \
-	}
 	docker compose up -d
 
 ## Stop and remove containers (volumes are kept).
@@ -143,8 +162,14 @@ check-php:
 ##
 ## Points at `kern_test`, never the development database. `Tests\TestCase` refuses anything else —
 ## the suite runs `migrate:fresh`, and a run against `kern` destroys every row in it.
+## The suites create and drop their tables, which the application's own database role cannot: it owns
+## nothing, and the owner's password is blanked inside the running app (docs/SECURITY-FINDINGS.md, the
+## audit hash finding, part A). So they run as the owner, read from the environment file on the host and
+## handed to the container by name — never on a command line, where `ps` would show it.
+AS_DB_OWNER = DB_USERNAME="$$(sed -n 's/^DB_OWNER_USERNAME=//p' apps/api/.env)" DB_PASSWORD="$$(sed -n 's/^DB_OWNER_PASSWORD=//p' apps/api/.env)"
+
 check-php-pg:
-	docker compose exec -T $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=pgsql DB_DATABASE=kern_test vendor/bin/pest'
+	@$(AS_DB_OWNER) docker compose exec -T -e DB_USERNAME -e DB_PASSWORD $(SERVICE) sh -c 'APP_ENV=testing DB_CONNECTION=pgsql DB_DATABASE=kern_test vendor/bin/pest'
 
 ## Each package's own suite: Laravel booted with that package and nothing else.
 ##
@@ -163,7 +188,7 @@ check-php-pg:
 check-packages:
 	@for p in audit platform documents legislation tax-romania; do \
 		echo "── kern/$$p"; \
-		docker compose exec -T $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
+		$(AS_DB_OWNER) docker compose exec -T -e DB_USERNAME -e DB_PASSWORD $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
 	done
 
 ## Install each package's dev dependencies, and create the database its suite migrates into.
@@ -213,6 +238,14 @@ smoke:
 	@curl -sk -o /dev/null -w 'login page: %{http_code}\n' https://127.0.0.1/login
 	@curl -sk -o /dev/null -w 'settings api (expect 401 when signed out): %{http_code}\n' \
 		-H 'Accept: application/json' https://127.0.0.1/api/v1/settings
+
+## Apply the migrations, then set the application's database role up to match.
+##
+## Its own container, as the database's owner — the running application connects as a role that owns
+## nothing and so cannot create a table (`kern:db:grant-app-role` says why). `docker compose exec app
+## php artisan migrate` therefore fails with "permission denied", by design: this is the way in.
+migrate: compose-file
+	docker compose run --rm migrate
 
 ## Destroy everything, including volumes, and start clean.
 fresh: compose-file

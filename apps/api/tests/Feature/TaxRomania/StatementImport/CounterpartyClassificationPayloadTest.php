@@ -31,8 +31,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialAccount;
  * dropped by the dialect would pass the other test and send nothing.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
@@ -40,11 +38,11 @@ beforeEach(function (): void {
 
     // A provider that exists, consents given, and nothing actually dialled.
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'openai',
-        'ai.providers.env_fallback.base_url' => 'https://model.test',
-        'ai.providers.env_fallback.model' => 'test-model',
-        'ai.providers.env_fallback.api_key' => 'k',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'openai',
+        'ai.providers.defaults.base_url' => 'https://model.test',
+        'ai.providers.defaults.model' => 'test-model',
+        'ai.providers.defaults.api_key' => 'k',
     ]);
 
 });
@@ -118,7 +116,6 @@ function boundSubject(?string $displayName): array
  */
 function classifiedRows(string $subjectId, array $lines): array
 {
-
     $account = FinancialAccount::create([
         'tax_subject_id' => $subjectId,
         'kind' => AccountKind::GENERAL,

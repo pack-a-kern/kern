@@ -12,6 +12,7 @@ use Kern\Documents\Enums\TransactionImportState;
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\Queries\ResolveTransactionImportState;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Http\Controllers\Wallet\Concerns\RespondsToCategoryDirection;
 use Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction;
@@ -19,6 +20,7 @@ use Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput;
 use Kern\TaxRomania\Wallet\DataTransferObjects\TransactionSplitInput;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Exceptions\CategoryDirectionException;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
 /**
@@ -96,7 +98,7 @@ final class CreateTransactionFromDocumentController
             // Signed minor units, so the direction is the sign — a receipt is negative, a refund or
             // an incoming invoice positive. A separate direction field would let the two disagree.
             'amount_minor' => ['required', 'integer', 'not_in:0'],
-            'currency_code' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency_code' => ['required', ...CurrencyCode::rules()],
             'booked_at' => ['required', 'date'],
             'description' => ['required', 'string', 'max:500'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
@@ -106,6 +108,10 @@ final class CreateTransactionFromDocumentController
             // proposed can always be accepted.
             'category' => ['sometimes', 'nullable', Rule::in($categories->codes())],
         ]);
+
+        // Tenant-scoped lookup, as the other two endpoints that take an account do: another subject's
+        // account 404s here rather than being written as a foreign key.
+        FinancialAccount::query()->findOrFail((string) $validated['account_id']);
 
         $extractionId = $this->extractionId($validated, $model);
 

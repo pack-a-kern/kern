@@ -26,11 +26,28 @@ services:
     networks:
       - browser_net
     environment:
-      # The only variable this service receives. Never `env_file`: it sits on a network carrying no
+      # The only variables this service receives. Never `env_file`: it sits on a network carrying no
       # database or object-store credentials, and handing it the whole environment would undo that.
-      # Unset is a working configuration — see `BROWSER_AUTH_MODE` in its own README.
-      BROWSER_AUTH_MODE: "${BROWSER_AUTH_MODE:-network}"
+      #
+      # `token` unless an installation decides otherwise — the worker's own default. This used to
+      # default to `network`, on the reasoning that only `app` can reach the port; but the worker runs
+      # whatever playbook it is sent, against any site the playbook names, with this server's internet
+      # access, and "only one container can reach it" is a property of today's network, not a lock.
+      # The same token is in `app`'s environment, which sends it on every request; with none set the
+      # worker refuses everything, and `kern:health` reports it down. `network` stays available, as a
+      # line someone writes on purpose.
+      BROWSER_AUTH_MODE: "${BROWSER_AUTH_MODE:-token}"
       BROWSER_AUTH_TOKEN: "${BROWSER_WORKER_TOKEN:-}"
+      # How many browsers may be open at once, every taxpayer and every connection together. Sized to
+      # the 2 GB limit below — raise the two together. See the worker's README.
+      BROWSER_MAX_SESSIONS: "${BROWSER_MAX_SESSIONS:-4}"
+      # HTTPS, with the certificate docker/certs issues it: every request carries the token, and a
+      # sign-in the person's SPV credentials. A renewed one is loaded without a restart, so open
+      # sessions survive it (apps/browser-worker/src/tlsListener.ts).
+      BROWSER_TLS_CERT: /run/kern/tls/server.crt
+      BROWSER_TLS_KEY: /run/kern/tls/server.key
+    volumes:
+      - tls_browser_worker:/run/kern/tls:ro
     shm_size: "1gb"
     read_only: true
     tmpfs:
@@ -40,13 +57,17 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    depends_on:
+      certs:
+        condition: service_healthy
     healthcheck:
       # Probed with node rather than curl: node is the one binary this image is
       # guaranteed to keep (curl comes from the Playwright base and is not ours to rely on),
       # matching python-api's `python -c` convention. Port/path must track
       # apps/browser-worker/src/server.ts (PORT, default 8090) and routes/health.ts (/health).
       # Verified live: returns 200.
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      # Over TLS, checked against the stack's CA like any other caller — 127.0.0.1 is on the certificate.
+      test: ["CMD", "node", "-e", "require('https').get({host:'127.0.0.1',port:8090,path:'/health',ca:require('fs').readFileSync('/run/kern/tls/ca.crt')},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -57,3 +78,23 @@ services:
           cpus: "2.00"
           memory: 2048M
     restart: unless-stopped
+
+  # Its certificate, from the stack's CA, for the image's `pwuser`.
+  certs:
+    environment:
+      KERN_CERT_browser_worker: "1001:1001:browser-worker,localhost,127.0.0.1"
+    volumes:
+      - tls_browser_worker:/certs/out/browser_worker
+
+  # Its TLS address and the stack's CA, for the PHP containers — all three read the same config, and
+  # only `app` is on `browser_net` to call it. Listed here because they are true only with this worker:
+  # one you run elsewhere is BROWSER_WORKER_URL and BROWSER_WORKER_CA_CERT in `.env` instead.
+  app: &calls-browser-worker
+    environment:
+      BROWSER_WORKER_URL: https://browser-worker:8090
+      BROWSER_WORKER_CA_CERT: /run/kern/tls-ca/ca.crt
+  queue: *calls-browser-worker
+  scheduler: *calls-browser-worker
+
+volumes:
+  tls_browser_worker:

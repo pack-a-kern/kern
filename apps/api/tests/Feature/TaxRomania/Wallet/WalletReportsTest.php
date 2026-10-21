@@ -38,8 +38,6 @@ beforeEach(function (): void {
  * anything.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

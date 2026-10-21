@@ -8,11 +8,7 @@ use Kern\Audit\ChainVerificationFailureReason;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Audit\Services\ChainVerifier;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
@@ -26,17 +22,6 @@ beforeEach(function (): void {
             'Requires a real Postgres connection (DB_CONNECTION=pgsql) — see docs/handoff/006-audit-chain.md.',
         );
     }
-
-    // Creating a TaxSubject/User provisions a per-subject DEK, so these tests need a key service.
-    // Use the in-memory fake rather than live OpenBao: this suite is testing the audit chain, not
-    // KMS integration, and a unit-level dependency on a running service makes it fragile.
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher(
-        new ConfigBlindIndexKeyProvider(
-            json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-            1,
-        ),
-    ));
 });
 
 /**

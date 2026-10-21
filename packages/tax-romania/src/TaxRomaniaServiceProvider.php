@@ -8,6 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
+use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
@@ -138,6 +139,8 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $dependents->declare('tax_rule_sources', 'source_section_id');
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
+
+        ConfiguredRateLimit::register('statement-import-model-per-subject', 'statement_import.rate_limits.model_per_subject', ConfiguredRateLimit::perTenant());
 
         $this->publishes(
             array_combine(

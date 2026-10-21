@@ -32,7 +32,6 @@ use Kern\TaxRomania\Wallet\Models\TransactionSplit;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**

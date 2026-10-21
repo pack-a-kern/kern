@@ -18,8 +18,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * A deposit is at a bank, and the bank is its name: chosen from the imported list, never typed.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

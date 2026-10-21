@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Subjects\Services;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 
 /**
@@ -50,11 +49,7 @@ final readonly class SubjectAllowance
 
     public function ownedBy(string $userId): int
     {
-        return SubjectMembership::query()
-            ->where('user_id', $userId)
-            ->where('role', MembershipRole::OWNER->value)
-            ->whereNull('revoked_at')
-            ->count();
+        return SubjectMembership::query()->where('user_id', $userId)->owned()->count();
     }
 
     /** @param list<string> $roles */

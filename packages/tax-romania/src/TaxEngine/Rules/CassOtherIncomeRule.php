@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Rules;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -85,7 +86,7 @@ final class CassOtherIncomeRule implements TaxRuleContract
 
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
-        $minimumWage = $input->parameters->get(self::MINIMUM_WAGE)->asMoney('RON');
+        $minimumWage = $input->parameters->get(self::MINIMUM_WAGE)->asMoney(CurrencyCode::BASE);
         $rate = $input->parameters->get(self::RATE)->asDecimalRate();
         $wageMultiples = WageThresholds::ascendingFrom($input->parameters->get(self::BANDS)->asJson());
 
@@ -95,7 +96,7 @@ final class CassOtherIncomeRule implements TaxRuleContract
          * the fix. What qualifies was already decided upstream: the producer excludes salary and pension, which
          * an employer withholds and declares.
          */
-        $income = Money::zero('RON');
+        $income = Money::zero(CurrencyCode::BASE);
         $counted = 0;
 
         foreach ($input->facts as $fact) {

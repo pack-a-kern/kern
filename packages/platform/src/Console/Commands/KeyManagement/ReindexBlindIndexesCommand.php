@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kern\Platform\Console\Commands\KeyManagement;
 
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexReindexer;
 use Kern\Platform\Crypto\BlindIndex\DataTransferObjects\ReindexOutcome;
@@ -17,8 +17,9 @@ use Kern\Platform\Crypto\BlindIndex\DataTransferObjects\ReindexOutcome;
  * Recomputes every blind index under the current blind-index key version.
  *
  * The batch job ADR 0002 requires: "rotation means recomputing every blind index under the new
- * version before the old one retires — a real batch job, not a config flag flip". Rotating the key is
- * two lines of configuration; this is what makes the rotation true. Until it has run, a lookup by
+ * version before the old one retires — a real batch job, not a config flag flip". The key lives in
+ * the KMS (docs/adr/0020-blind-index-key-in-the-kms.md), so rotating it is one operator command there
+ * — `bao write -f transit/keys/blind-index/rotate` — and this is what makes the rotation true. Until it has run, a lookup by
  * email, CNP, counterparty or tag name hashes the search term under the new key and compares it
  * against indexes written under the old one, which matches nothing — the row is not gone, it is
  * unfindable, which is worse because nothing reports it.
@@ -27,9 +28,12 @@ use Kern\Platform\Crypto\BlindIndex\DataTransferObjects\ReindexOutcome;
  * written. So this can be run before a rotation (it does nothing), after one (it does all of it), or
  * again after being interrupted (it does the rest).
  *
+ * It is also the one step of moving to a KMS-held key: indexes written under the key the environment
+ * file used to carry are recomputed from their encrypted values, which is all this ever needed.
+ *
  * The number that matters is the last column. Every index this cannot recompute is a row that still
- * depends on the old key, so the old key must stay in `CRYPTO_BLIND_INDEX_KEYS` until that number is
- * zero everywhere. The command fails when it is not, rather than reporting success with a footnote.
+ * depends on the old key version, so that version must stay in the KMS — no `min_decryption_version`
+ * raised past it — until that number is zero everywhere. The command fails when it is not, rather than reporting success with a footnote.
  */
 final class ReindexBlindIndexesCommand extends Command
 {
@@ -38,12 +42,11 @@ final class ReindexBlindIndexesCommand extends Command
 
     protected $signature = 'kern:keys:reindex-blind-indexes';
 
-    protected $description = 'Recompute every blind index under the current key version, so the previous one can be removed.';
+    protected $description = 'Recompute every blind index under the current key version, so nothing depends on the previous one.';
 
-    public function handle(Container $container, ConfigRepository $config, AuditChainService $audit): int
+    public function handle(Container $container, BlindIndexHasher $hasher, AuditChainService $audit): int
     {
-        $version = $config->get('crypto.blind_index.current_version');
-        $version = is_int($version) ? $version : 0;
+        $version = $hasher->currentVersion();
 
         $this->line(sprintf('Current blind-index key version: %d.', $version));
 
@@ -94,7 +97,7 @@ final class ReindexBlindIndexesCommand extends Command
                 $stuck,
                 $version,
             ));
-            $this->warn('Keep the previous key in CRYPTO_BLIND_INDEX_KEYS until this reaches zero.');
+            $this->warn('Keep the previous key version in the KMS until this reaches zero.');
 
             return self::FAILURE;
         }
@@ -103,7 +106,7 @@ final class ReindexBlindIndexesCommand extends Command
         $this->info(sprintf('%d index(es) rewritten. Every blind index is on version %d.', $rewritten, $version));
 
         if ($version > 1) {
-            $this->line('Any earlier key may now be removed from CRYPTO_BLIND_INDEX_KEYS.');
+            $this->line('Nothing depends on an earlier key version any more.');
         }
 
         return self::SUCCESS;

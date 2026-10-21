@@ -56,7 +56,7 @@ import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatMinor } from '../../lib/format';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { cn } from '../../lib/utils';
 import {
@@ -71,7 +71,6 @@ import {
     type Bank,
     type DepositFacts,
     type DepositFormOptions,
-    formatMinor,
 } from '../../types/wallet';
 
 /**

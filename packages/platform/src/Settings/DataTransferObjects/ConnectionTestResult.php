@@ -5,84 +5,44 @@ declare(strict_types=1);
 namespace Kern\Platform\Settings\DataTransferObjects;
 
 /**
- * The outcome of `Kern\Platform\Settings\Services\TestAiProviderConnection` — a real, useful answer
- * to "does this configuration actually work," never a boolean alone. `$error` is a closed,
- * stable machine-readable code a settings screen branches on — and is the *only* thing a UI should
- * render, translated on its own side.
+ * The outcome of `Kern\Platform\Settings\Services\TestAiProviderConnection`, as the screen sees it:
+ * connected (and how quickly), not configured, or did not connect.
  *
- * `$message` is a diagnostic detail for logs and API consumers, deliberately not localised: no
- * user-facing copy is written in code (`BLUEPRINT.md` §19.1), and a screen that prints it would be
- * showing English to a Romanian operator. Never carries the API key or any raw provider response
- * body (§4.10/§12).
+ * No reason for a failure, on purpose — see {@see \Kern\Platform\Settings\Enums\AiProviderFailure},
+ * which is where it goes instead. "Not configured" is the one distinct failure kept, because it
+ * describes this installation's own settings and nothing about any address.
  */
 final readonly class ConnectionTestResult
 {
     private function __construct(
         public bool $success,
         public ?string $error,
-        public ?string $message,
-        public ?int $status,
         public ?int $latencyMs,
     ) {
     }
 
     public static function success(int $latencyMs): self
     {
-        return new self(true, null, null, null, $latencyMs);
+        return new self(true, null, $latencyMs);
     }
 
     public static function notConfigured(): self
     {
-        return new self(
-            false,
-            'not_configured',
-            'The AI provider is not configured (missing base URL or model, and no fallback is set).',
-            null,
-            null,
-        );
+        return new self(false, 'not_configured', null);
     }
 
-    public static function connectionFailed(string $message): self
+    public static function failed(): self
     {
-        return new self(false, 'connection_failed', $message, null, null);
+        return new self(false, 'failed', null);
     }
 
-    public static function authenticationFailed(): self
-    {
-        return new self(false, 'authentication_failed', 'The provider rejected the credentials.', null, null);
-    }
-
-    public static function providerError(int $status): self
-    {
-        return new self(false, 'provider_error', sprintf('The provider returned HTTP %d.', $status), $status, null);
-    }
-
-    public static function invalidResponse(): self
-    {
-        return new self(
-            false,
-            'invalid_response',
-            'The provider returned a response that does not match the expected chat-completions shape.',
-            null,
-            null,
-        );
-    }
-
-    /** @return array<string, mixed> */
+    /** @return array{success: bool, error?: string, latency_ms?: int} */
     public function toArray(): array
     {
         $payload = ['success' => $this->success];
 
         if ($this->error !== null) {
             $payload['error'] = $this->error;
-        }
-
-        if ($this->message !== null) {
-            $payload['message'] = $this->message;
-        }
-
-        if ($this->status !== null) {
-            $payload['status'] = $this->status;
         }
 
         if ($this->latencyMs !== null) {

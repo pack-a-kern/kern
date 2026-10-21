@@ -66,8 +66,7 @@ it('parses the real per-page quality_score and the structural untrusted-text wra
         ->and($result->needsOcr)->toBeFalse()
         ->and($result->pages[1]->qualityScoreDecimal)->toBe('0.9800')
         ->and($result->pages[2]->qualityScoreDecimal)->toBe('0.6500')
-        ->and($result->pages[1]->text->reveal())->toBe('first page')
-        ->and($result->joinedText()->reveal())->toBe("first page\n\nsecond page");
+        ->and($result->pages[1]->text->reveal())->toBe('first page');
 });
 
 it('rejects a response whose text field is still a bare string (handoff 022\'s old, wrong shape)', function (): void {

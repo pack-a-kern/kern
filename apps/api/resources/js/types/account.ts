@@ -1,3 +1,5 @@
+import { nullableStr, str } from '../lib/json';
+
 /**
  * Shapes for the "My account" screens.
  *
@@ -27,18 +29,6 @@ export interface TaxSubject {
     displayCurrency: string;
     /** When the picture last changed, or null for a taxpayer showing its initials. */
     avatarUpdatedAt: string | null;
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
 }
 
 function asRecord(payload: unknown, what: string): Record<string, unknown> {
@@ -71,6 +61,13 @@ export interface SubjectsPage {
     perPage: number;
     total: number;
     lastPage: number;
+}
+
+/** How many other sessions a password change signed out. */
+export function parsePasswordChange(payload: unknown): number {
+    const revoked = asRecord(payload, 'PasswordChange').revoked_count;
+
+    return typeof revoked === 'number' ? revoked : 0;
 }
 
 export function parseSubjectsPage(payload: unknown): SubjectsPage {

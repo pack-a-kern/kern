@@ -27,8 +27,8 @@ use Kern\Legislation\Retrieval\Query\RetrievalResult;
  * whose *known* dates exclude the requested date is dropped by the query, because that is a
  * confirmed non-match rather than an unknown.
  *
- * Gated by `auth:web` only. Legislation is public law, not tenant data — there is no `{subject}`
- * and nothing here is scoped to one. It is behind authentication at all because an unauthenticated
+ * Gated by `auth:web` and a per-account throttle, nothing more. Legislation is public law, not tenant
+ * data — there is no `{subject}` and nothing here is scoped to one. It is gated at all because an
  * endpoint that runs an embedding model per call is an easy way to burn a server.
  */
 final class SearchLegislationController

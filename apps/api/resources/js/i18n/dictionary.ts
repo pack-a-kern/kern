@@ -39,7 +39,6 @@ export interface Dictionary {
     shell: {
         appTagline: string;
         openMenu: string;
-        closeMenu: string;
         collapseSidebar: string;
         expandSidebar: string;
         changeTheme: string;
@@ -64,15 +63,11 @@ export interface Dictionary {
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;
         paletteDescriptions: Record<PaletteName, string>;
-        themeLight: string;
-        themeDark: string;
-        themeSystem: string;
         changeLanguage: string;
         languageRo: string;
         languageEn: string;
         account: string;
         signOut: string;
-        activeSubject: string;
         noActiveSubject: string;
         taxSubject: string;
         fiscalSnapshot: string;
@@ -80,7 +75,6 @@ export interface Dictionary {
         nextDeadline: string;
         searchSubjects: string;
         noSubjectsFound: string;
-        manageSubjects: string;
     };
     common: {
         loading: string;
@@ -89,7 +83,6 @@ export interface Dictionary {
         cancel: string;
         close: string;
         open: string;
-        view: string;
         /** The destructive action's own label — never "OK", which says nothing about what happens. */
         delete: string;
         edit: string;
@@ -103,8 +96,6 @@ export interface Dictionary {
         selectedCount: string;
         /** The header checkbox's label — select-all acts on this page only. */
         selectPage: string;
-        loadMore: string;
-        loadingMore: string;
     };
     /**
      * A cron expression said in words. `{minutes}`, `{hours}`, `{minute}`, `{time}`, `{day}` are
@@ -139,11 +130,9 @@ export interface Dictionary {
     auth: {
         signInTitle: string;
         registerTitle: string;
-        accountCreated: string;
+        /** The same answer for every address, so the form never says whether one has an account. */
+        registrationAnswered: string;
         mfaCodeLabel: string;
-        mfaCodeHint: string;
-        mfaCodePlaceholder: string;
-        confirm: string;
         back: string;
         emailLabel: string;
         passwordLabel: string;
@@ -196,34 +185,6 @@ export interface Dictionary {
     dashboard: {
         title: string;
         lede: string;
-    };
-    subjects: {
-        title: string;
-        loading: string;
-        loadError: string;
-        activate: string;
-        active: string;
-        loadMore: string;
-        empty: string;
-        registerNew: string;
-        registerTitle: string;
-        registerEncryptionNote: string;
-        displayNameLabel: string;
-        firstNameLabel: string;
-        lastNameLabel: string;
-        cnpLabel: string;
-        birthDateLabel: string;
-        countyCodeLabel: string;
-        localityLabel: string;
-        addressLabel: string;
-        submit: string;
-        submitting: string;
-        cancel: string;
-        requiredFieldsError: string;
-        cnpFormatError: string;
-        birthDateFormatError: string;
-        duplicateCnpError: string;
-        genericError: string;
     };
     documentsCapture: {
         /** Shown for a queued upload that failed without the server sending its own message. */
@@ -291,7 +252,6 @@ export interface Dictionary {
         emptyFiltered: string;
         description: string;
         newDocument: string;
-        liveNotice: string;
         /** Shown when the list fell back to this device's cache because the server was unreachable. */
         offline: string;
         empty: string;
@@ -332,7 +292,6 @@ export interface Dictionary {
     documentsReview: {
         /** The panel listing what was made from a document, and the control on each row. */
         derivatives: string;
-        derivativeMade: string;
         derivativeOpen: string;
         /** Shown in place of a `proposed_fields` value that cannot be serialised for display. */
         unrenderableValue: string;
@@ -343,17 +302,12 @@ export interface Dictionary {
         documentIdLabel: string;
         typeLabel: string;
         statusLabel: string;
-        rejectedLabel: string;
         /** Alt text for the image preview — copy, so it belongs here rather than in the markup. */
         previewAlt: string;
         page: string;
         previewPdfTitle: string;
         back: string;
         source: string;
-        sourceHint: string;
-        zoomIn: string;
-        zoomOut: string;
-        rotate: string;
         quarantineNotice: string;
         rejectedNotice: string;
         loadingPreview: string;
@@ -372,7 +326,6 @@ export interface Dictionary {
         rename: string;
         actions: string;
         renameSave: string;
-        renameCancel: string;
         renameSuggestion: string;
         renameUseSuggestion: string;
         renameFailed: string;
@@ -444,7 +397,6 @@ export interface Dictionary {
         transactionCounterparty: string;
         transactionCreated: string;
         transactionFailed: string;
-        historyTitle: string;
         historyHint: string;
         scansTitle: string;
         noScans: string;
@@ -539,12 +491,6 @@ export interface Dictionary {
         IF: string;
         SRL: string;
     };
-    membershipRole: {
-        OWNER: string;
-        ADMIN: string;
-        ACCOUNTANT: string;
-        VIEWER: string;
-    };
     /** Failure copy shared by every screen; keyed by `ApiError.reason` where one exists. */
     errors: {
         network: string;
@@ -588,7 +534,6 @@ export interface Dictionary {
             /** The system's own name for the source every taxpayer has. Never a stored value. */
             generalSource: string;
             unknownBalance: string;
-            sources: Record<string, string | undefined>;
             kinds: Record<string, string | undefined>;
             frequencies: Record<string, string | undefined>;
             rateTypes: Record<string, string | undefined>;
@@ -674,9 +619,6 @@ export interface Dictionary {
             forgetHint: string;
             forgotten: string;
             willReplace: string;
-            applyToAll: string;
-            addTag: string;
-            removeTag: string;
             title: string;
             description: string;
             search: string;
@@ -691,12 +633,8 @@ export interface Dictionary {
             survivingName: string;
             survivingHelp: string;
             merged: string;
-            editIn: string;
-            editOut: string;
             category: string;
-            categoryHelp: string;
             tags: string;
-            noTags: string;
             ruleSaved: string;
             saveFailed: string;
             empty: string;
@@ -756,9 +694,7 @@ export interface Dictionary {
             attention: string;
             attentionHint: string;
             needsTreatment: string;
-            needsTreatmentAction: string;
             possibleDuplicates: string;
-            duplicatesAction: string;
             allClear: string;
             largest: string;
             largestHint: string;
@@ -768,18 +704,10 @@ export interface Dictionary {
             noCounterparty: string;
             title: string;
             description: string;
-            period: string;
-            byTag: string;
-            byTagHint: string;
-            byBank: string;
-            byBankHint: string;
-            byCategory: string;
-            byCategoryHint: string;
             noBank: string;
             untagged: string;
             moneyIn: string;
             moneyOut: string;
-            total: string;
             empty: string;
             loadFailed: string;
         };
@@ -836,8 +764,6 @@ export interface Dictionary {
                 openOne: string;
                 next: string;
                 choose: string;
-                /** Under the picker once a file is chosen: `{name}` is substituted. */
-                chosen: string;
                 drop: string;
                 hint: string;
                 uploading: string;
@@ -871,7 +797,6 @@ export interface Dictionary {
                 debit: string;
                 credit: string;
                 decimal: string;
-                thousands: string;
                 currency: string;
                 currencyHint: string;
                 bank: string;
@@ -879,7 +804,6 @@ export interface Dictionary {
                 /** Beside the bank when it was guessed, by where the guess came from. */
                 bankFromIban: string;
                 bankFromAi: string;
-                fixedCurrency: string;
                 description: string;
                 counterparty: string;
                 /** Asked per direction: a statement names the two sides of a payment differently. */
@@ -888,7 +812,6 @@ export interface Dictionary {
                 reference: string;
                 referenceOut: string;
                 referenceIn: string;
-                orHere: string;
                 chainHint: string;
                 /** The picker at the end of a chip row, and what a chip's remove button is called. */
                 addPlace: string;
@@ -901,9 +824,6 @@ export interface Dictionary {
                 descriptionHint: string;
                 referenceHint: string;
                 thenSeparator: string;
-                referenceFallbackOut: string;
-                referenceFallbackIn: string;
-                referenceFallbackHint: string;
                 bankRequired: string;
                 currencyRequired: string;
                 dropLines: string;
@@ -916,10 +836,7 @@ export interface Dictionary {
                 suggestionUnavailable: string;
                 /** `{reason}` is substituted, in words — see `aiReasons`. */
                 suggestionFailed: string;
-                sheet: string;
                 none: string;
-                suggested: string;
-                preview: string;
                 /** The raw grid, kept as the secondary view behind the rebuilt one. */
                 raw: string;
                 /** The first transactions, rebuilt by the server from the choices so far. */
@@ -936,26 +853,14 @@ export interface Dictionary {
                 /** `{warning}` is the converter's own sentence. */
                 convertedWarning: string;
                 apply: string;
-                /** `{parsed}` and `{total}` are substituted. */
-                unusable: string;
             };
             review: {
                 /** Asks again only about rows still without a category; edits are kept. */
                 askAgain: string;
                 title: string;
                 hint: string;
-                /**
-                 * The arithmetic behind the transaction count: 12 522 lines becoming 1 700
-                 * transactions is either exactly right or badly wrong, and only the numbers side by
-                 * side say which.
-                 */
-                statLines: string;
                 statTransactions: string;
-                statFolded: string;
-                statSkipped: string;
                 statDuplicates: string;
-                statAi: string;
-                statRules: string;
                 fileLine: string;
                 answeredOf: string;
                 statAnswered: string;
@@ -988,7 +893,6 @@ export interface Dictionary {
                 /** `{count}` is substituted. */
                 selected: string;
                 setCategory: string;
-                addTag: string;
                 exclude: string;
                 include: string;
                 /** `{count}` is substituted. */
@@ -1004,10 +908,6 @@ export interface Dictionary {
                 imported: string;
                 skipped: string;
                 skippedHint: string;
-                undo: string;
-                undone: string;
-                undoTitle: string;
-                undoHint: string;
             };
             /** `{count}` is substituted. */
             failedPartial: string;
@@ -1057,15 +957,7 @@ export interface Dictionary {
             deleted: string;
         };
         walletDeposits: {
-            title: string;
-            description: string;
             columns: {
-                deposit: string;
-                principal: string;
-                rate: string;
-                /** Gross interest over the whole term — what the deposit will have earned by then. */
-                interestAtMaturity: string;
-                opened: string;
                 maturity: string;
                 status: string;
             };
@@ -1081,15 +973,7 @@ export interface Dictionary {
             receivedSoFar: string;
             noRate: string;
             notComputed: string;
-            notComputedHint: string;
-            /** How the RON figure behind the interest gets its provenance, and when. */
-            interestHint: string;
-            add: string;
-            addHint: string;
-            added: string;
-            addFailed: string;
             form: {
-                institution: string;
                 principal: string;
                 principalHint: string;
                 /** Which source the deposit's money came out of — the movement that keeps totals honest. */
@@ -1101,7 +985,6 @@ export interface Dictionary {
                 bankPlaceholder: string;
                 bankEmpty: string;
                 currency: string;
-                openedAt: string;
                 /** The length a deposit is bought as; the maturity date is derived from it. */
                 term: string;
                 termMonths: string;
@@ -1129,7 +1012,6 @@ export interface Dictionary {
                 country: string;
                 /** The filter that turns the list into a worklist. */
                 unclassified: string;
-                classified: string;
                 allStatuses: string;
                 /** The empty option on the form: recording now, answering from the worklist later. */
                 later: string;
@@ -1173,7 +1055,6 @@ export interface Dictionary {
                 labelDirection: string;
                 labelStatus: string;
                 counterparty: string;
-                allCounterparties: string;
                 allDirections: string;
                 directionIn: string;
                 directionOut: string;
@@ -1189,7 +1070,6 @@ export interface Dictionary {
                 manage: string;
                 manageHint: string;
                 rename: string;
-                merge: string;
                 mergeConfirm: string;
                 /** `{count}` tags are being folded into one. */
                 mergeManyHint: string;
@@ -1198,12 +1078,9 @@ export interface Dictionary {
                 renamed: string;
                 merged: string;
                 deleted: string;
-                exists: string;
                 failed: string;
                 deleteTitle: string;
                 deleteHint: string;
-                /** `{count}` is substituted. */
-                usedOn: string;
             };
             bank: {
                 label: string;
@@ -1232,7 +1109,6 @@ export interface Dictionary {
             };
             /** The two rows of the toolbar, each named by what its controls do. */
             toolbar: {
-                view: string;
                 filter: string;
                 /** The first view: the ledger itself, beside `duplicates.filter`. */
                 ledger: string;
@@ -1247,7 +1123,6 @@ export interface Dictionary {
             saved: string;
             saveFailed: string;
             addFailed: string;
-            statuses: Record<string, string | undefined>;
             form: {
                 account: string;
                 amount: string;
@@ -1341,8 +1216,6 @@ export interface Dictionary {
             /** How many rule outputs the year produced, and the heading over the ring. */
             rulesApplied: string;
             composition: string;
-            /** Under the ring's percentage. Short, because the hole it sits in is 66px across. */
-            ofTotal: string;
             totalOwedLabel: string;
             incomeAssessed: string;
             assessmentStatus: string;
@@ -1397,9 +1270,6 @@ export interface Dictionary {
             matchedBy: string;
             byWords: string;
             byMeaning: string;
-            semanticUnavailable: string;
-            copyCitation: string;
-            citationCopied: string;
             /** Opens the law a hit is in, at the date searched. */
             openInLaw: string;
             laws: {
@@ -1483,7 +1353,6 @@ export interface Dictionary {
                 inThisPart: string;
                 thisVersion: string;
                 allVersions: string;
-                source: string;
                 sourceHint: string;
                 openSource: string;
                 /** The consolidation already on screen, in the versions panel. */
@@ -1625,9 +1494,6 @@ export interface Dictionary {
             genericError: string;
         };
         settingsProfile: {
-            title: string;
-            description: string;
-            blockedOn: string;
             retry: string;
             loadFailed: string;
             accountTitle: string;
@@ -1650,12 +1516,12 @@ export interface Dictionary {
             changePassword: string;
             saving: string;
             passwordChanged: string;
+            /** `{count}` is substituted — the other sessions a password change signed out. */
+            otherSessionsEnded: string;
             passwordFailed: string;
             passkeyOnly: string;
         };
         settingsSecurity: {
-            title: string;
-            description: string;
             loadFailed: string;
             factorsTitle: string;
             factorsDescription: string;
@@ -1689,9 +1555,6 @@ export interface Dictionary {
                 mfaSub: string;
                 on: string;
                 off: string;
-                passkeys: string;
-                recoveryCodes: string;
-                recoveryCodesSub: string;
                 sessions: string;
                 sessionsSub: string;
             };
@@ -1754,21 +1617,12 @@ export interface Dictionary {
             closeHint: string;
             statusChanged: string;
             statusFailed: string;
-            addNote: string;
             types: Record<string, string | undefined>;
             roles: Record<string, string | undefined>;
             statuses: Record<string, string | undefined>;
             columns: { subject: string; type: string; role: string; status: string; currency: string; ai: string };
             stats: {
                 total: string;
-                active: string;
-                owned: string;
-                ownedSub: string;
-                ai: string;
-                aiSub: string;
-                encryption: string;
-                encryptionSub: string;
-                perSubject: string;
             };
             add: string;
             added: string;
@@ -1799,14 +1653,6 @@ export interface Dictionary {
             continueLabel: string;
         };
         settingsPrivacy: {
-            title: string;
-            description: string;
-            retry: string;
-            loadFailed: string;
-            noSubjects: string;
-            consentTitle: string;
-            consentDescription: string;
-            consentRowHint: string;
             consentNotice: string;
             consentGranted: string;
             consentRevoked: string;
@@ -1829,9 +1675,7 @@ export interface Dictionary {
         adminSettings: {
             title: string;
             description: string;
-            blockedOn: string;
-            source: { database: string; inherited: string; explain: string };
-            readOnlyNotice: string;
+            source: { database: string; inherited: string };
             save: string;
             saving: string;
             saved: string;
@@ -1841,18 +1685,15 @@ export interface Dictionary {
             testing: string;
             testOk: string;
             testFailed: string;
-            secretSet: string;
             secretUnset: string;
             secretReplace: string;
             currencyAdd: string;
             currencyRemove: string;
             currencyNone: string;
             currencyChosen: string;
-            clearOverride: string;
             forbidden: string;
             loadFailed: string;
             retry: string;
-            configPath: string;
             saveFailed: string;
             ai: {
                 choose: string;
@@ -1862,18 +1703,22 @@ export interface Dictionary {
                 modelsLoaded: string;
                 modelsFailed: string;
                 keyOptional: string;
+                /** Under the key in the connection dialog, for a provider that needs one. */
+                keyHint: string;
                 testHint: string;
-                /**
-                 * Keyed by the `reason` codes `Kern\Platform\Settings\Services\FetchAiProviderModels`
-                 * returns. Indexed so an unrecognised code falls back rather than crashing the page;
-                 * every code the service can emit is listed, and adding one there fails the build here.
-                 */
-                keyPending: string;
+                /** The toast description for a failed test: the reason is in the log, not here. */
+                failedHint: string;
                 replaceKey: string;
-                replaceKeyTitle: string;
-                replaceKeyHint: string;
-                /** Keyed by ConnectionTestResult's `error` codes. */
-                testReasons: Record<string, string | undefined>;
+                /** The button on the address field that opens the connection dialog. */
+                changeConnection: string;
+                connectionTitle: string;
+                connectionHint: string;
+                connectionSaved: string;
+                /**
+                 * Keyed by the `reason` codes `ModelListResult` returns — only the ones about this
+                 * installation; everything that depends on what answered is `failed`. Indexed so an
+                 * unrecognised code falls back rather than crashing the page.
+                 */
                 modelReasons: Record<string, string | undefined>;
             };
             cancel: string;
@@ -1926,11 +1771,9 @@ export interface Dictionary {
             };
             scheduler: {
                 title: string;
-                description: string;
                 alive: string;
                 stalled: string;
                 never: string;
-                lastBeat: string;
                 /** "{seconds}s ago, limit {limit}s" — the staleness rule made visible. */
                 age: string;
             };
@@ -2001,7 +1844,6 @@ export interface Dictionary {
             /** What a dot, a dash and an empty cell mean. */
             legend: string;
             valuesTitle: string;
-            valuesHint: string;
             parameter: string;
             /** Beside a value that has a warning to read. */
             look: string;
@@ -2035,7 +1877,6 @@ export interface Dictionary {
         adminUsers: {
             title: string;
             description: string;
-            blockedOn: string;
             forbidden: string;
             loadFailed: string;
             retry: string;
@@ -2065,18 +1906,10 @@ export interface Dictionary {
             mfaPasskeys: string;
             mfaTotp: string;
             members: string;
-            notEnforced: string;
-            rolesTitle: string;
-            rolesDescription: string;
-            /** States that recording a role and enforcing one are not the same thing here. */
-            rolesNotice: string;
-            enforcedTitle: string;
-            enforcedDescription: string;
             edit: string;
             editTitle: string;
             editNotice: string;
             cancel: string;
-            save: string;
             saving: string;
             saved: string;
             saveFailed: string;
@@ -2121,22 +1954,6 @@ export interface Dictionary {
                 permissionsSub: string;
                 mfa: string;
                 mfaSub: string;
-                settingsAdmins: string;
-                settingsAdminsSub: string;
-                rolesEnforced: string;
-                rolesEnforcedSub: string;
-                yes: string;
-                no: string;
-            };
-            enforced: {
-                active: string;
-                planned: string;
-                settingsAdmin: string;
-                settingsAdminHint: string;
-                tenancy: string;
-                tenancyHint: string;
-                rolePermissions: string;
-                rolePermissionsHint: string;
             };
         };
         adminOperations: {
@@ -2193,7 +2010,6 @@ export interface Dictionary {
                 triggers: Record<string, string | undefined>;
             };
             cancel: string;
-            confirm: string;
         };
         /**
          * The queue, read from Horizon — a different population from `adminOperations`, which is
@@ -2282,6 +2098,8 @@ export interface Dictionary {
             keyVersion: string;
             /** Why no request payload is shown — this is a design property, not a gap. */
             noPayloadNotice: string;
+            /** Shown to a reader whose role reaches the account and system lines only. */
+            taxpayerLinesHidden: string;
             ranges: Record<string, string | undefined>;
             columns: {
                 time: string;

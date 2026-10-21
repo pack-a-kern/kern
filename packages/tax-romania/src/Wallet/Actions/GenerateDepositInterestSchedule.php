@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use Kern\TaxRomania\Wallet\Events\DepositInterestEventRecorded;
 use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
@@ -42,7 +43,6 @@ final readonly class GenerateDepositInterestSchedule
 {
     public const string CALCULATION_VERSION = 'wallet.deposit-interest.v1';
 
-    private const string RON = 'RON';
 
     public function __construct(
         private DepositInterestCalculator $calculator,
@@ -100,7 +100,7 @@ final readonly class GenerateDepositInterestSchedule
                     continue;
                 }
 
-                $fxAnnotation = $account->currency_code === self::RON
+                $fxAnnotation = $account->currency_code === CurrencyCode::BASE
                     ? null
                     // `tryAnnotate`, not `annotate`: the schedule spans the deposit's whole life,
                     // so most periods end on a date the BNR has not published a rate for yet. Those

@@ -10,9 +10,4 @@ enum TaskRunStatus: string
     case RUNNING = 'RUNNING';
     case SUCCEEDED = 'SUCCEEDED';
     case FAILED = 'FAILED';
-
-    public function isTerminal(): bool
-    {
-        return $this !== self::RUNNING;
-    }
 }

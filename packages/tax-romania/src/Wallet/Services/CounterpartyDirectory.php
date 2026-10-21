@@ -53,9 +53,23 @@ final readonly class CounterpartyDirectory
     /** The index a counterparty name is found by, or null when there is no name to find it with. */
     public function indexFor(?string $counterparty): ?string
     {
-        $name = trim($counterparty ?? '');
+        return $this->indexesFor([$counterparty])[0];
+    }
 
-        return $name === '' ? null : $this->blindIndex->compute(Normalizer::text($name));
+    /**
+     * The same, for every counterparty in a statement at once — one request to the key manager, not
+     * one per row.
+     *
+     * @param  list<?string>  $counterparties
+     * @return list<?string> in the same order; null where there is no name
+     */
+    public function indexesFor(array $counterparties): array
+    {
+        return $this->blindIndex->computeEach(array_map(static function (?string $counterparty): ?string {
+            $name = trim($counterparty ?? '');
+
+            return $name === '' ? null : Normalizer::text($name);
+        }, $counterparties));
     }
 
     /**

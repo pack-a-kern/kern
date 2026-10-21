@@ -2,19 +2,9 @@
 
 declare(strict_types=1);
 
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
 use Kern\TaxRomania\TaxEngine\Repositories\TaxFactRepository;
-
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    $provider = new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR), 1);
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 it('builds snapshots only for the requested subject, even without a bound TenantContext', function (): void {
     $subjectA = TaxSubject::factory()->create();

@@ -20,17 +20,94 @@ none.
 """
 
 import threading
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Final
+from typing import Final, Protocol, cast
 
+import huggingface_hub
 import numpy as np
+import numpy.typing as npt
 import onnxruntime as ort
-from huggingface_hub import snapshot_download
 from tokenizers import Tokenizer
 
 from processing.embeddings.config import EmbeddingSettings
 
 _TOKENIZER_FILE: Final = "tokenizer.json"
+
+# What this module uses of the three libraries, and nothing more.
+#
+# onnxruntime ships no types, and some of tokenizers' and huggingface_hub's are incomplete, so under
+# strict checking every value they return was `Unknown` — and so was everything computed from it,
+# which is to say the whole of this file. Each library enters through one `cast` to these, below;
+# past that line the file is checked like any other, and a library that changes one of these
+# signatures fails the tests that load the real model rather than going unnoticed.
+
+
+class _ModelInput(Protocol):
+    @property
+    def name(self) -> str: ...
+
+
+class _Session(Protocol):
+    def get_inputs(self) -> Sequence[_ModelInput]: ...
+
+    def run(
+        self, output_names: None, input_feed: Mapping[str, npt.NDArray[np.int64]]
+    ) -> Sequence[npt.ArrayLike]: ...
+
+
+class _SessionOptions(Protocol):
+    intra_op_num_threads: int
+    graph_optimization_level: object
+
+
+class _OptimizationLevels(Protocol):
+    @property
+    def ORT_ENABLE_ALL(self) -> object: ...
+
+
+class _OnnxRuntime(Protocol):
+    @property
+    def GraphOptimizationLevel(self) -> _OptimizationLevels: ...
+
+    def SessionOptions(self) -> _SessionOptions: ...
+
+    def InferenceSession(
+        self, path: str, *, sess_options: _SessionOptions, providers: list[str]
+    ) -> _Session: ...
+
+
+class _Encoding(Protocol):
+    @property
+    def ids(self) -> list[int]: ...
+
+    @property
+    def attention_mask(self) -> list[int]: ...
+
+    @property
+    def type_ids(self) -> list[int]: ...
+
+
+class _Tokenizer(Protocol):
+    def enable_truncation(self, max_length: int) -> None: ...
+
+    def enable_padding(self) -> None: ...
+
+    def encode_batch(self, inputs: list[str]) -> list[_Encoding]: ...
+
+
+class _Download(Protocol):
+    def __call__(
+        self, *, repo_id: str, revision: str, cache_dir: str, allow_patterns: list[str]
+    ) -> str: ...
+
+
+_onnxruntime = cast("_OnnxRuntime", ort)
+
+# The one exception, and only to this rule: `snapshot_download`'s own signature carries unknown
+# parts (an untyped `user_agent` dict, a tqdm class), so even naming it is `partially unknown`.
+# This line is where it gets a type; nothing after it is unchecked.
+_download = cast("_Download", huggingface_hub.snapshot_download)  # pyright: ignore[reportUnknownMemberType]
 
 
 class EmbeddingModelError(RuntimeError):
@@ -48,8 +125,8 @@ class EmbeddingModel:
     def __init__(self, settings: EmbeddingSettings) -> None:
         self._settings = settings
         self._lock = threading.Lock()
-        self._session: ort.InferenceSession | None = None
-        self._tokenizer: Tokenizer | None = None
+        self._session: _Session | None = None
+        self._tokenizer: _Tokenizer | None = None
 
     @property
     def identifier(self) -> str:
@@ -69,7 +146,7 @@ class EmbeddingModel:
             try:
                 local = (
                     Path(
-                        snapshot_download(
+                        _download(
                             repo_id=self._settings.model_id,
                             revision=self._settings.revision,
                             cache_dir=self._settings.cache_dir,
@@ -90,17 +167,17 @@ class EmbeddingModel:
             except Exception as cause:
                 raise EmbeddingModelError(f"model download failed: {cause}") from cause
 
-            options = ort.SessionOptions()
+            options = _onnxruntime.SessionOptions()
             options.intra_op_num_threads = self._settings.intra_op_threads
-            options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            options.graph_optimization_level = _onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
             try:
-                session = ort.InferenceSession(
+                session = _onnxruntime.InferenceSession(
                     str(local / self._settings.onnx_file),
                     sess_options=options,
                     providers=["CPUExecutionProvider"],
                 )
-                tokenizer = Tokenizer.from_file(str(local / _TOKENIZER_FILE))
+                tokenizer = cast("_Tokenizer", Tokenizer.from_file(str(local / _TOKENIZER_FILE)))
             except Exception as cause:
                 raise EmbeddingModelError(f"model load failed: {cause}") from cause
 

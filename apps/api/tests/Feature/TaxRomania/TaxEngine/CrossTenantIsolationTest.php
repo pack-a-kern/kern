@@ -2,12 +2,8 @@
 
 declare(strict_types=1);
 
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -22,11 +18,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxFact;
  * (that repository's own tests prove the explicit-filter path; this test proves the underlying
  * model-level guard a less careful caller would still hit).
  */
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    $provider = new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR), 1);
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 /**
  * @return array{0: User, 1: TaxSubject}

@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchAiModels, listAiProviders, listSettings, testAiConnection, updateSettingsGroup } from './settingsApi';
+import {
+    fetchAiModels,
+    listAiProviders,
+    listSettings,
+    replaceAiConnection,
+    testAiConnection,
+    updateSettingsGroup,
+} from './settingsApi';
 
 /**
  * `apiRequest` already prefixes `/api`, so a client passing `/api/v1/...` produces
@@ -82,14 +89,14 @@ describe('settings API paths', () => {
     });
 
     it('reads the connection result from the real ConnectionTestResult shape', async () => {
-        mockFetch({ success: false, error: 'authentication_failed', message: 'Bad key', latency_ms: 12 });
+        mockFetch({ success: true, latency_ms: 12 });
 
-        await expect(testAiConnection()).resolves.toEqual({
-            success: false,
-            error: 'authentication_failed',
-            message: 'Bad key',
-            latencyMs: 12,
-        });
+        await expect(testAiConnection()).resolves.toEqual({ success: true, error: null, latencyMs: 12 });
+
+        // A failure carries no reason — that is in the server log.
+        mockFetch({ success: false, error: 'failed' });
+
+        await expect(testAiConnection()).resolves.toEqual({ success: false, error: 'failed', latencyMs: null });
     });
 });
 
@@ -127,40 +134,36 @@ describe('AI provider catalogue and model discovery', () => {
         expect(url).toBe('/api/v1/settings/ai/providers');
     });
 
-    it('sends a draft API key in the body, never in the URL', async () => {
+    it('asks for models by provider alone, never sending an address or a key', async () => {
+        // The server lists from the saved address with its saved key; sending either was how the
+        // stored key used to reach an address nobody saved it with.
         const fetchMock = mockFetch({ ok: true, models: ['gpt-4o'], reason: null });
 
-        await fetchAiModels({ provider: 'openai', baseUrl: 'https://api.openai.com', apiKey: 'sk-secret' });
+        await fetchAiModels('openai');
 
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 
         expect(url).toBe('/api/v1/settings/ai/models');
-        expect(url).not.toContain('sk-secret');
         expect(init.method).toBe('POST');
-        expect(jsonBody(init)).toEqual({
-            provider: 'openai',
-            base_url: 'https://api.openai.com',
-            api_key: 'sk-secret',
-        });
-    });
-
-    it('omits blank draft fields so the server falls back to the saved configuration', async () => {
-        const fetchMock = mockFetch({ ok: true, models: [], reason: null });
-
-        await fetchAiModels({ provider: 'ollama', baseUrl: null, apiKey: null });
-
-        const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-        expect(jsonBody(init)).toEqual({ provider: 'ollama' });
+        expect(jsonBody(init)).toEqual({ provider: 'openai' });
     });
 
     it('reports a failed listing as a value rather than throwing', async () => {
-        mockFetch({ ok: false, models: [], reason: 'authentication_failed' });
+        mockFetch({ ok: false, models: [], reason: 'failed' });
 
-        await expect(fetchAiModels({ provider: 'openai', baseUrl: null, apiKey: null })).resolves.toEqual({
-            ok: false,
-            models: [],
-            reason: 'authentication_failed',
-        });
+        await expect(fetchAiModels('openai')).resolves.toEqual({ ok: false, models: [], reason: 'failed' });
+    });
+
+    it('saves the address and the key together, an empty key as none', async () => {
+        const fetchMock = mockFetch({});
+
+        await replaceAiConnection('http://10.73.4.5:11434', '');
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+
+        expect(url).toBe('/api/v1/settings/ai/connection');
+        expect(init.method).toBe('PUT');
+        expect(jsonBody(init)).toEqual({ base_url: 'http://10.73.4.5:11434', api_key: null });
     });
 
     it('rejects a catalogue response that is not shaped like one', async () => {

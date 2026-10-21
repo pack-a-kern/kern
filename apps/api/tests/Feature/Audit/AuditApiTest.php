@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
@@ -27,7 +28,6 @@ beforeEach(function (): void {
         );
     }
 
-    bootstrapIdentityCryptoForTests();
 });
 
 /** `$response->json(...)` is `mixed`; these narrow it once so the assertions read plainly. */
@@ -201,4 +201,77 @@ it('is closed to a user who is not a settings administrator', function (): void 
 
     $this->actingAs($user)->getJson('/api/v1/audit/events')->assertForbidden();
     $this->actingAs($user)->getJson('/api/v1/audit/summary')->assertForbidden();
+});
+
+/*
+ * `audit.view` reaches the account and system lines; the lines on a taxpayer's chain need
+ * `audit.view.taxpayers` too, which ADMIN does not hold as shipped.
+ */
+
+/** Appends `$count` events with no taxpayer — the system chain. */
+function seedSystemEvents(int $count, string $eventType = 'ROLE_CHANGED'): void
+{
+    $service = app(AuditChainService::class);
+
+    for ($i = 0; $i < $count; $i++) {
+        $service->record(AuditEventInput::occurringNow(
+            subjectId: null,
+            actorId: null,
+            eventType: $eventType,
+            resourceType: 'user',
+            resourceId: null,
+            payloadHash: $service->hashPayload(['i' => $i]),
+        ));
+    }
+}
+
+function auditAdministrator(): User
+{
+    settingsAdminUser();
+    $admin = User::factory()->create();
+    $admin->assignRole('ADMIN');
+
+    return $admin;
+}
+
+it('shows an administrator the account and system lines, and no taxpayer’s', function (): void {
+    $subjectId = seedAuditChain(3, 'DocumentUploaded');
+    seedSystemEvents(2);
+    $admin = auditAdministrator();
+
+    $page = $this->actingAs($admin)->getJson('/api/v1/audit/events')->assertOk();
+    /** @var list<array<string, mixed>> $events */
+    $events = $page->json('events');
+
+    expect($events)->toHaveCount(2)
+        ->and(array_filter(array_column($events, 'subject_id'), static fn (mixed $id): bool => $id !== null))->toBe([])
+        ->and($page->json('reach'))->toBe('accounts_and_system');
+
+    // Asked for that taxpayer by id, it finds nothing — not even whether there is a trail.
+    $this->actingAs($admin)->getJson('/api/v1/audit/events?subject_id=' . $subjectId)
+        ->assertOk()
+        ->assertJsonPath('total', 0);
+
+    $summary = $this->actingAs($admin)->getJson('/api/v1/audit/summary')->assertOk();
+
+    expect(auditInt($summary->json('events_total')))->toBe(2)
+        ->and($summary->json('event_types'))->toBe(['ROLE_CHANGED'])
+        ->and(auditInt($summary->json('integrity.chains_checked')))->toBe(1)
+        ->and($summary->json('reach'))->toBe('accounts_and_system');
+});
+
+it('shows a super administrator every line', function (): void {
+    seedAuditChain(3, 'DocumentUploaded');
+    seedSystemEvents(2);
+    $superAdmin = settingsAdminUser();
+
+    $this->actingAs($superAdmin)->getJson('/api/v1/audit/events')
+        ->assertOk()
+        ->assertJsonPath('total', 5)
+        ->assertJsonPath('reach', 'everything');
+
+    $summary = $this->actingAs($superAdmin)->getJson('/api/v1/audit/summary')->assertOk();
+
+    expect($summary->json('event_types'))->toContain('DocumentUploaded', 'ROLE_CHANGED')
+        ->and(auditInt($summary->json('integrity.chains_checked')))->toBe(2);
 });

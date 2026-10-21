@@ -7,6 +7,7 @@ namespace Kern\Platform\Http\Controllers\Settings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Settings\Enums\SettingGroup;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Enums\SettingType;
@@ -72,6 +73,12 @@ final readonly class UpdateSettingsGroupController
 
             if ($key->isReadOnly()) {
                 $errors["settings.{$rawKey}"] = ['This setting cannot be changed once data exists.'];
+
+                continue;
+            }
+
+            if ($key->isSetOnlyWithItsPair()) {
+                $errors["settings.{$rawKey}"] = ['The provider address and key are changed together, in the connection dialog.'];
 
                 continue;
             }
@@ -172,7 +179,7 @@ final readonly class UpdateSettingsGroupController
                 continue;
             }
 
-            if (preg_match('/^[A-Z]{3}$/', $code) !== 1) {
+            if (! CurrencyCode::isValid($code)) {
                 return null;
             }
 

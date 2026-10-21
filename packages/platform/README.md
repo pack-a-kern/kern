@@ -164,9 +164,32 @@ key, so it exercises the third table), load a wallet page, and run `rewrap-deks 
 it should report nothing behind.
 
 Only now may an old KEK version be deleted in the KMS, and `rewrap-deks` reporting zero is the
-evidence for it: it is what proves no `encrypted_dek` still depends on that version.
+evidence for it: it is what proves no `encrypted_dek` still depends on that version. Deleting one
+(`min_decryption_version` on the key's config) takes the root token: the application's own token
+cannot, by design — see ADR 0002.
 
-### The blind-index key — the HMAC key, in the environment
+### A taxpayer's data key — not rotatable yet
+
+Each taxpayer's DEK is created once and never replaced; rotating the KEK only re-wraps it. There is
+no command that makes a leaked DEK useless (ADR 0002, "A subject's DEK is never rotated").
+
+If you have reason to think a plaintext DEK left the server — a memory dump, a core file, a debug log
+that should not exist — until DEK rotation is built:
+
+1. Close the way it left. A plaintext DEK exists only in a running process's memory.
+2. Rotate the KEK and rewrap (above). It does not help the leaked key, but if the leak reached the
+   KMS side too, it protects every other taxpayer.
+3. Treat that taxpayer's encrypted data — CNP, names, documents — as readable by whoever holds the
+   key, and record it as an incident. There is no remedy in the application today: crypto-shredding
+   a taxpayer (destroying its wrapped DEK, `BLUEPRINT.md` §25) is the design but has no command yet,
+   and it would not be a fix either — it destroys the data for its owner as well.
+
+### The blind-index key — the HMAC key, in the KMS
+
+It sits beside the KEK, under its own name (`OPENBAO_BLIND_INDEX_KEY_NAME`, default `blind-index`),
+and never leaves it: the application asks the KMS for each index, which is why a copy of the database
+and of the environment file together reveal nothing (`docs/adr/0020-blind-index-key-in-the-kms.md`).
+The application's token can compute with it and read its version — it cannot rotate it.
 
 This one has a window. A blind index is `HMAC-SHA-256(key, value)`, so the moment the current version
 changes, every stored index is a hash under a key nothing searches with any more: **sign-in by email,
@@ -174,50 +197,39 @@ duplicate-CNP detection, counterparty matching and tag lookup by name all stop m
 reindex finishes. Existing sessions are unaffected. Plan it accordingly — on a small installation it
 is seconds, and the reindex is the whole of it.
 
-```
-openssl rand -base64 32
-```
-
-Put the new key in `CRYPTO_BLIND_INDEX_KEYS` **beside the old one**, and make it current:
+With the root token, inside the `openbao` container:
 
 ```
-CRYPTO_BLIND_INDEX_KEYS={"1":"<the existing key>","2":"<the new key>"}
-CRYPTO_BLIND_INDEX_CURRENT_VERSION=2
+bao write -f transit/keys/blind-index/rotate
 ```
 
-Both, because the outgoing key has to stay readable until every index has been rewritten. Compact
-JSON, no spaces — a value containing a space has to be quoted or the environment file is rejected
-whole.
+then, at once:
 
 ```
-docker compose up -d --force-recreate app queue scheduler reverb
 docker compose exec app php artisan kern:keys:reindex-blind-indexes
 ```
 
-A recreate, not a restart: the environment file is read at boot.
+No recreate: nothing in the environment changed. The previous version stays in the KMS, which is what
+lets a row that could not be recomputed still be matched by nothing worse than a missing index.
 
 `reindex-blind-indexes` walks every blind-indexed column, recomputes each index from the ciphertext
 beside it, and prints examined / rewritten / could not recompute per column. **The last column must be
 zero.** It exits non-zero otherwise, and if it does, stop here — every index it could not recompute is
-a row that is only findable under the old key.
+a row that is only findable under the old key version.
 
-Once it is zero, drop the old key and recreate again:
+Run it a second time: it should report nothing rewritten and nothing stuck. **Then check:** sign in
+with an email address — that is the blind index doing its job.
 
-```
-CRYPTO_BLIND_INDEX_KEYS={"2":"<the new key>"}
-```
+**Never trim old versions of this key** (`min_decryption_version`, `min_available_version`) while any
+index may still depend on them.
 
-```
-docker compose up -d --force-recreate app queue scheduler reverb
-docker compose exec app php artisan kern:keys:reindex-blind-indexes
-```
+### Moving an installation off the environment-file key
 
-The second run should report nothing rewritten and nothing stuck. **Then check:** sign in with an
-email address — that is the blind index doing its job.
-
-**Keep the old key value until that final run is clean.** Removing it while any index still depends on
-it makes those rows permanently unfindable: the index cannot be recomputed without the key that
-produced it, and there is no way back once the key is gone.
+An installation from before the key moved has its indexes under the key `CRYPTO_BLIND_INDEX_KEYS` used
+to hold. Deploy, then run `kern:keys:reindex-blind-indexes` straight away — it recomputes every index
+from its encrypted value under the KMS key, and sign-in by email does not match until it has. Then
+delete `CRYPTO_BLIND_INDEX_KEYS` and `CRYPTO_BLIND_INDEX_CURRENT_VERSION` from the environment file;
+nothing reads them.
 
 ### Why both commands exist at all
 

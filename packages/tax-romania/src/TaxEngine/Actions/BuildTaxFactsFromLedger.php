@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\TaxEngine\Actions;
 
 use Illuminate\Config\Repository as ConfigRepository;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\Enums\FxConversionMethod;
 use Kern\TaxRomania\TaxEngine\Enums\RoundingMode;
@@ -109,7 +110,7 @@ final readonly class BuildTaxFactsFromLedger
              * `PREVIOUS_BANKING_DAY` because BNR publishes one rate per working day, so a Saturday has none
              * of its own — and the provenance of which day was used is recorded beside the amount.
              */
-            $conversion = $original->currencyCode === 'RON'
+            $conversion = $original->currencyCode === CurrencyCode::BASE
                 ? null
                 : $this->fx->convertToRon(
                     amount: $original,

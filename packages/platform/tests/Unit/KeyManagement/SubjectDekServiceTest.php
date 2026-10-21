@@ -47,6 +47,21 @@ final class CountingKeyManagementService implements KeyManagementService
     {
         return $this->inner->rotateKek();
     }
+
+    public function accessSecondsRemaining(): ?int
+    {
+        return $this->inner->accessSecondsRemaining();
+    }
+
+    public function blindIndexes(array $normalizedValues): array
+    {
+        return $this->inner->blindIndexes($normalizedValues);
+    }
+
+    public function currentBlindIndexKeyVersion(): int
+    {
+        return $this->inner->currentBlindIndexKeyVersion();
+    }
 }
 
 it('generates a random 256-bit DEK on first use and persists only the wrapped form', function (): void {
@@ -104,24 +119,4 @@ it('unwraps again for a subject whose wrapped DEK already existed (e.g. a fresh 
 
     expect($rehydrated)->toBe($original)
         ->and($counting->unwrapCalls)->toBe(1);
-});
-
-it('forgetAll() drops the cache, forcing a fresh unwrap on next use', function (): void {
-    $repository = new InMemoryDekRepository();
-    $kms = new InMemoryKeyManagementService();
-    $repository->save('subject-1', $kms->wrapDataKey(random_bytes(32)));
-
-    $counting = new CountingKeyManagementService($kms);
-    $service = new SubjectDekService($counting, $repository);
-
-    $service->plaintextDekFor('subject-1');
-    expect($counting->unwrapCalls)->toBe(1);
-
-    $service->plaintextDekFor('subject-1');
-    expect($counting->unwrapCalls)->toBe(1); // still cached
-
-    $service->forgetAll();
-
-    $service->plaintextDekFor('subject-1');
-    expect($counting->unwrapCalls)->toBe(2);
 });

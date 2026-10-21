@@ -76,10 +76,4 @@ enum DocumentStage: string
             },
         };
     }
-
-    /** Whether the pipeline still has work to do, so a screen knows to expect another event. */
-    public function isInFlight(): bool
-    {
-        return $this === self::CHECKING || $this === self::QUEUED || $this === self::PROCESSING;
-    }
 }

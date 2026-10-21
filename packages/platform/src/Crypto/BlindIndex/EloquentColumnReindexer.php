@@ -57,18 +57,34 @@ final readonly class EloquentColumnReindexer implements BlindIndexReindexer
         ($this->query)()
             ->orderBy('id')
             ->chunkById($batch, function (mixed $rows) use (&$examined, &$rewritten, &$unrecomputable): void {
+                /** @var list<Model> $recomputable */
+                $recomputable = [];
+                /** @var list<string> $values */
+                $values = [];
+
                 /** @var iterable<Model> $rows */
                 foreach ($rows as $row) {
                     $examined++;
                     $value = ($this->normalize)($row);
 
                     if ($value === null || $value === '') {
-                        $unrecomputable++;
+                        // Stuck only if an index is there: a row that never had one — an empty
+                        // counterparty, say — depends on no key version, and counting it would make
+                        // a finished re-index report failure forever.
+                        if ($row->getAttribute($this->indexColumn) !== null) {
+                            $unrecomputable++;
+                        }
 
                         continue;
                     }
 
-                    $index = $this->hasher->compute($value);
+                    $recomputable[] = $row;
+                    $values[] = $value;
+                }
+
+                // One request to the key manager per batch, not per row.
+                foreach ($this->hasher->computeMany($values) as $i => $index) {
+                    $row = $recomputable[$i];
 
                     if ($row->getAttribute($this->indexColumn) === $index) {
                         continue;

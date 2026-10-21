@@ -30,7 +30,8 @@ decrypting every row: logging in by email, and detecting a duplicate CNP across 
    by AAD to `subject_id | table | field | record_uuid` (§4.2) — moving a ciphertext to a
    different row, table, or subject must fail to decrypt.
 
-2. **One global, versioned blind-index key**, distinct from every DEK. Used only to compute
+2. **One global, versioned blind-index key**, distinct from every DEK — held in the KMS beside the
+   KEK, never in the environment ([ADR 0020](0020-blind-index-key-in-the-kms.md)). Used only to compute
    `HMAC-SHA-256(index_key, normalized_value)` (§4.4) for fields that must be looked up by exact
    value across the whole table: email (login), CNP (duplicate-subject detection), IBAN. This key
    is global *by necessity*: a per-subject key would make "does this CNP already exist under a
@@ -75,8 +76,9 @@ rather than quietly worked around in code.
 - AAD binding defeats a specific, realistic attack: an attacker with write access copying a
   ciphertext blob from one row/table/subject to another to make it decrypt somewhere it doesn't
   belong.
-- Key rotation is scoped: a compromised per-subject DEK rotates independently of the global index
-  key and of every other subject's DEK.
+- Key rotation can be scoped: the format records a DEK version on every value, so a compromised
+  per-subject DEK could be rotated independently of the global index key and of every other
+  subject's DEK. *Could* — see the last point below: that rotation is not built.
 
 **Bad — and this must stay documented, not quietly accepted:**
 - **The global blind-index key is a deliberate, permanent weakening of tenant isolation for
@@ -108,6 +110,26 @@ rather than quietly worked around in code.
 - Envelope encryption alone does not protect against the case §4.1 already names as
   unsolvable: a server that is fully compromised *while* actively serving decrypted data to a
   legitimate request has the plaintext in memory regardless of how it's stored at rest.
+- **A subject's DEK is never rotated** (recorded 2026-10-20, from the security audit). Every value is
+  sealed with DEK version 1 (`EnvelopeCipher::seal()`), and the two rotations that exist move the
+  *wrappers* — the KEK and its rewrap — never a DEK's own bytes. So a plaintext DEK that leaked, from
+  a memory dump or a core file, opens that subject's data for good: nothing makes it stale. The wire
+  format already carries the version a value was sealed under, so DEK rotation is an addition, not a
+  format change — a new version per subject and a resumable re-encryption of its fields and objects,
+  the same shape as the other two. Not built: a plaintext DEK exists only in memory while it is used,
+  and whoever can read that memory has the plaintext it protects anyway. What to do meanwhile is in
+  the platform README's key runbook.
+- **The application's KMS token can unwrap every subject's DEK.** Per-subject DEKs bound what one
+  leaked *DEK* exposes; they do not bound what the *token* exposes. Transit is called with one key
+  and no per-subject `context`, so the token unwraps any wrapped DEK it is handed — and it has to,
+  because one application serves every subject and must open each of them. Binding a context per
+  subject would change nothing while that is so. What envelope encryption protects is a database
+  copy *without* the token; a compromised application server has the token, and with it everything.
+  That is the honest boundary, and nothing in this design should be described as narrower.
+- **Old KEK versions are retired with the root token, not the application's.** Trimming them
+  (`min_decryption_version`) is a key-config write the application's scoped token is not granted, on
+  purpose: deleting a key version is destructive and irreversible, and it belongs to an operator
+  who has read `rewrap-deks` report zero, not to the process that would need it to keep working.
 
 ## Alternatives considered
 

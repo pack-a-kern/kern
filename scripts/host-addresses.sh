@@ -1,11 +1,11 @@
 #!/bin/sh
 # Every address this host answers on, one per line — the addresses someone could type into a browser.
 #
-# Two callers need the same list and must not disagree about it: `scripts/generate-certs.sh` puts it
-# in the certificate's subjectAltName, and `scripts/install.sh` offers the first one as the default
+# Two uses of the same list, which must not disagree: `scripts/install.sh` writes it into TLS_EDGE_NAMES,
+# the names docker/certs puts in the edge's certificate, and offers the first one as the default
 # answer to "how will this be reached?". A certificate that covers a different set of addresses than
-# the installation answers on produces a second, different browser warning on top of the self-signed
-# one, which reads like a worse problem than it is.
+# the installation answers on produces a second, different browser warning on top of the first, which
+# reads like a worse problem than it is.
 #
 # Filtered by interface name rather than by address range. Docker's own bridges carry addresses no
 # client outside this host can reach, and `ip` lists interfaces that are DOWN as well — a first

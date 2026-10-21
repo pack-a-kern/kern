@@ -3,12 +3,8 @@
 declare(strict_types=1);
 
 use Kern\Legislation\Models\SourceSection;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Providers\EloquentFiscalParameterProvider;
@@ -48,11 +44,6 @@ use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
  * not just between two subjects of the same type, which
  * `tests/Feature/TaxRomania/TaxEngine/CrossTenantIsolationTest.php` already covers.
  */
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    $provider = new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR), 1);
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 function makePfaTaxAssessor(): TaxAssessor
 {

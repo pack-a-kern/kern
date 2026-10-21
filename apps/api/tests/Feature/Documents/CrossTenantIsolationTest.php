@@ -24,8 +24,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * `docs/handoff/011-identity-tenancy.md` built holds for this module's own table.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

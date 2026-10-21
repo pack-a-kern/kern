@@ -23,8 +23,12 @@ return [
             'system.settings.view',
             // PUT /api/v1/settings/group/{group}, PUT/DELETE/POST /api/v1/settings/ai*.
             'system.settings.manage',
-            // GET /api/v1/audit/*.
+            // GET /api/v1/audit/* — the account and system lines: sign-ins, roles, settings, operations.
             'audit.view',
+            // The lines tied to a taxpayer, in the same screen (`Kern\Audit\Queries\AuditReach`). Who
+            // did what to whose tax file, and when — kept apart from `audit.view` so a role that runs the
+            // installation does not also learn how each person deals with their taxes.
+            'audit.view.taxpayers',
             // GET /api/v1/admin/users, and the role/permission mutations beside it.
             'users.view',
             'users.manage',

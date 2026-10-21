@@ -120,4 +120,16 @@ return [
         'max_tags_per_row' => (int) env('STATEMENT_IMPORT_MAX_TAGS_PER_ROW', 3),
     ],
 
+    /*
+     * How often a taxpayer's imports may ask the model again — for the form, or for the rows still
+     * unanswered. Each ask is a round of calls to a provider that may bill for them, and nothing about
+     * a person reading a review screen needs more than a few a minute.
+     */
+    'rate_limits' => [
+        'model_per_subject' => [
+            'max_attempts' => (int) env('STATEMENT_IMPORT_MODEL_RATE_LIMIT_MAX_ATTEMPTS', 10),
+            'decay_seconds' => (int) env('STATEMENT_IMPORT_MODEL_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
+    ],
+
 ];

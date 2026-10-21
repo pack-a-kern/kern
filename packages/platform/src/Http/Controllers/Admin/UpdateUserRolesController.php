@@ -10,14 +10,17 @@ use Illuminate\Validation\Rule;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Access\Services\AccessCatalogue;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
 
 /**
  * `PUT /api/v1/admin/users/{user}/roles` — replaces a user's platform roles.
  *
- * Two guards that are not optional here:
+ * Three guards that are not optional here:
  *
+ *  - **Only a super administrator changes who is one** (`SuperAdministratorRole`) — granting it,
+ *    to anyone including themselves, and removing it. `users.manage` alone changes the other roles.
  *  - **You cannot remove your own last administrative role.** Locking yourself out of the only
  *    screen that can grant roles back is a one-click, irreversible mistake, and break-glass is an
  *    environment edit plus a container restart — not a recovery an operator should need.
@@ -29,8 +32,6 @@ use Kern\Platform\Identity\Models\User;
  */
 final class UpdateUserRolesController
 {
-    private const string SUPER_ADMIN = 'SUPER_ADMIN';
-
     public function __invoke(
         Request $request,
         User $user,
@@ -52,23 +53,28 @@ final class UpdateUserRolesController
 
         /** @var list<string> $roles */
         $roles = array_values(array_unique($validated['roles']));
-        $before = $user->getRoleNames()->all();
+        $before = array_values(array_filter($user->getRoleNames()->all(), is_string(...)));
 
         $actor = $request->user();
+        abort_unless($actor !== null, 401);
 
-        if ($actor !== null && $actor->getKey() === $user->getKey() && $roles === []) {
+        if (! SuperAdministratorRole::allowsChange($actor, $before, $roles)) {
+            return SuperAdministratorRole::refusal();
+        }
+
+        if ($actor->getKey() === $user->getKey() && $roles === []) {
             abort(422, 'You cannot remove your own last platform role.');
         }
 
-        if (in_array(self::SUPER_ADMIN, $before, true) && ! in_array(self::SUPER_ADMIN, $roles, true)) {
-            $remaining = User::role(self::SUPER_ADMIN)->where('id', '!=', $user->getKey())->count();
+        if (in_array(SuperAdministratorRole::NAME, $before, true) && ! in_array(SuperAdministratorRole::NAME, $roles, true)) {
+            $remaining = SuperAdministratorRole::activeHoldersOtherThan($user);
 
             abort_if($remaining === 0, 422, 'This is the last super administrator; grant the role to someone else first.');
         }
 
         $user->syncRoles($roles);
 
-        $actorKey = $actor?->getKey();
+        $actorKey = $actor->getKey();
         $actorId = is_scalar($actorKey) ? (string) $actorKey : null;
         $userKey = $user->getKey();
         $userId = is_scalar($userKey) ? (string) $userKey : '';

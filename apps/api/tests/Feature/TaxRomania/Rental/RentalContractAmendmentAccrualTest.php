@@ -34,7 +34,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 function activatedAmendmentSubject(): TaxSubject

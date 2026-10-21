@@ -9,6 +9,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use Kern\Platform\Config\RequiredConfig;
+use Kern\Platform\Http\CertificateAuthority;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Settings\Infrastructure\SystemDekRepository;
 
@@ -63,37 +65,27 @@ final class KeyManagementServiceProvider extends ServiceProvider
 
     private static function makeOpenBaoService(Application $app): OpenBaoTransitKeyManagementService
     {
-        $repository = $app->make(ConfigRepository::class);
+        $config = $app->make(RequiredConfig::class);
+        $token = $config->optionalString('crypto.kms.openbao.token');
+        $tokenFile = $config->optionalString('crypto.kms.openbao.token_file');
+
+        // Refused while building, as every other missing value is, rather than on the first request.
+        if ($token === null && $tokenFile === null) {
+            throw new InvalidArgumentException(
+                'Missing config value: one of "crypto.kms.openbao.token" or "crypto.kms.openbao.token_file".',
+            );
+        }
 
         return new OpenBaoTransitKeyManagementService(
             $app->make(HttpFactory::class),
-            self::stringConfig($repository, 'crypto.kms.openbao.address'),
-            self::stringConfig($repository, 'crypto.kms.openbao.token'),
-            self::stringConfig($repository, 'crypto.kms.openbao.transit_mount'),
-            self::stringConfig($repository, 'crypto.kms.openbao.tax_subject_kek_name'),
-            self::intConfig($repository, 'crypto.kms.openbao.timeout_seconds'),
+            $config->string('crypto.kms.openbao.address'),
+            $token,
+            $tokenFile,
+            CertificateAuthority::verifyOption($app->make(ConfigRepository::class), 'crypto.kms.openbao.ca_cert'),
+            $config->string('crypto.kms.openbao.transit_mount'),
+            $config->string('crypto.kms.openbao.tax_subject_kek_name'),
+            $config->string('crypto.kms.openbao.blind_index_key_name'),
+            $config->positiveInt('crypto.kms.openbao.timeout_seconds'),
         );
-    }
-
-    private static function stringConfig(ConfigRepository $config, string $key): string
-    {
-        $value = $config->get($key);
-
-        if (! is_string($value) || $value === '') {
-            throw new InvalidArgumentException(sprintf('Missing or invalid config value "%s".', $key));
-        }
-
-        return $value;
-    }
-
-    private static function intConfig(ConfigRepository $config, string $key): int
-    {
-        $value = $config->get($key);
-
-        if (! is_int($value)) {
-            throw new InvalidArgumentException(sprintf('Missing or invalid config value "%s".', $key));
-        }
-
-        return $value;
     }
 }

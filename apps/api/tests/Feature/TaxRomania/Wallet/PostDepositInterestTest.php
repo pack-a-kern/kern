@@ -24,10 +24,6 @@ use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
-
 /** A monthly-paying deposit whose first periods are already in the past. */
 function maturedDeposit(): string
 {

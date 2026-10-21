@@ -22,7 +22,13 @@ describe('parseImportNotice', () => {
             created_at: '2026-09-21T10:00:00+00:00',
         });
 
-        expect(notice).toMatchObject({ id: 'n-1', kind: 'IMPORTED', importId: 'import-1', importedCount: 10, read: false });
+        expect(notice).toMatchObject({
+            id: 'n-1',
+            kind: 'IMPORTED',
+            importId: 'import-1',
+            importedCount: 10,
+            read: false,
+        });
     });
 
     it('reads a broadcast notice, whose fields sit beside the id', () => {

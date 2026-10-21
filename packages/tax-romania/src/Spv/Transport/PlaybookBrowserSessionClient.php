@@ -10,6 +10,7 @@ use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use Kern\Platform\Http\StackService;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
 use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
@@ -17,6 +18,7 @@ use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Exceptions\SpvPortalAutomationUnavailableException;
 use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerAtCapacityException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 use Throwable;
@@ -46,9 +48,8 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
     public function __construct(
         private HttpFactory $http,
         private ConfigRepository $config,
-        private string $baseUrl,
+        private StackService $worker,
         private int $timeoutSeconds,
-        private string $authToken,
     ) {
     }
 
@@ -250,23 +251,19 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
      */
     private function dispatch(string $method, string $path, array $body): Response
     {
-        if ($this->baseUrl === '') {
+        if (! $this->worker->isConfigured()) {
             throw SpvWorkerUnavailableException::authenticationNotConfigured();
         }
 
-        $request = $this->http->timeout($this->timeoutSeconds)->asJson();
-
-        // Sent only when there is one. The worker decides whether it wants a token; a deployment
-        // that trusts the network it is on configures neither side, and this must not refuse on its
-        // behalf — which is what the client it replaces did.
-        if ($this->authToken !== '') {
-            $request = $request->withToken($this->authToken);
-        }
+        // The token is sent only when there is one. The worker decides whether it wants a token; a
+        // deployment that trusts the network it is on configures neither side, and this must not
+        // refuse on its behalf — which is what the client it replaces did.
+        $request = $this->worker->request($this->http, $this->timeoutSeconds)->asJson();
 
         try {
             $response = $method === 'delete'
-                ? $request->delete(rtrim($this->baseUrl, '/') . $path)
-                : $request->post(rtrim($this->baseUrl, '/') . $path, $body);
+                ? $request->delete($this->worker->url($path))
+                : $request->post($this->worker->url($path), $body);
         } catch (ConnectionException $exception) {
             throw SpvWorkerUnavailableException::requestFailed($exception);
         } catch (Throwable $exception) {
@@ -295,6 +292,11 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
             $message = is_array($body) && is_string($body['message'] ?? null) ? $body['message'] : '';
 
             throw SpvRunFailedException::because($message);
+        }
+
+        // Full, which passes on its own — not unreachable, which it used to be reported as.
+        if ($response->status() === 503 && $response->json('error') === 'at_capacity') {
+            throw SpvWorkerAtCapacityException::create();
         }
 
         if ($response->failed()) {

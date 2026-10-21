@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use Kern\Platform\Identity\Actions\EraseUser;
 use Kern\Platform\Identity\Models\User;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
+// Changing roles/status, erasing and impersonating now sit behind `verify-recent`; a real admin
+// steps up with their password first. These tests assert the erased-tombstone guard, not that gate,
+// so step up before each.
+beforeEach(fn () => verifySession());
 
 /**
  * An account that has been through `EraseUser`.
@@ -68,4 +71,26 @@ it('refuses to act as an erased account', function (): void {
     $this->actingAs($administrator)
         ->postJson("/api/v1/admin/users/{$erased->id}/impersonate")
         ->assertStatus(422);
+});
+
+it('ends every membership the erased account held', function (): void {
+    $administrator = settingsAdminUser();
+    $target = User::factory()->create();
+    $subject = TaxSubject::factory()->create();
+
+    SubjectMembership::grantOwnership($subject->id, $target->id);
+
+    app(EraseUser::class)($target, $administrator->id);
+
+    expect(SubjectMembership::query()->where('user_id', $target->id)->exists())->toBeFalse();
+});
+
+it('takes away every platform role the erased account held', function (): void {
+    $administrator = settingsAdminUser();
+    $target = User::factory()->create();
+    $target->assignRole('ADMIN');
+
+    app(EraseUser::class)($target, $administrator->id);
+
+    expect($target->refresh()->getRoleNames()->all())->toBe([]);
 });

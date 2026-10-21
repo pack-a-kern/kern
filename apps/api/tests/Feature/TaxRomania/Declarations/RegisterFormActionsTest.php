@@ -21,7 +21,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('registers a form definition and an ACTIVE form version applicable to a fiscal year range', function (): void {

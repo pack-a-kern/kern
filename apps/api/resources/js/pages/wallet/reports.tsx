@@ -44,14 +44,19 @@ import {
     StatGrid,
     Tabs,
 } from '../../components/panel';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { useRememberedState } from '../../hooks/useRememberedState';
-import { formatCompact, formatDate } from '../../lib/format';
-import { formatMinor } from '../../types/wallet';
+import { formatCompact, formatDate, formatMinor } from '../../lib/format';
+import { num, obj, str } from '../../lib/json';
 
 interface TagRow {
     tagId: string;
@@ -144,18 +149,6 @@ interface Reports {
     attention: Attention;
     from: string;
     to: string;
-}
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    return typeof row[key] === 'string' ? row[key] : '';
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    return typeof row[key] === 'number' ? row[key] : 0;
 }
 
 function parseTotals(value: unknown): Totals[] {
@@ -412,8 +405,7 @@ export default function WalletReports(): JSX.Element {
      * goes in `title` on every one of them, which is the bargain `formatCompact` is documented to
      * require: nothing here is a figure anybody pays, and nothing here hides one either.
      */
-    const short = (minor: number, code: string = currency): string =>
-        `${formatCompact(minor / 100, locale)} ${code}`;
+    const short = (minor: number, code: string = currency): string => `${formatCompact(minor / 100, locale)} ${code}`;
 
     /** The same pair as a cell: short enough to scan, exact on hover. */
     const figure = (minor: number, code: string = currency): JSX.Element => (
@@ -666,7 +658,8 @@ export default function WalletReports(): JSX.Element {
                             // Shortened by the app's own helper rather than a rule of this chart's
                             // own: a year of axis labels at full precision is a column of digits
                             // nobody reads, and `12,3 K` here should read like `12,3 K` anywhere.
-                            callback: (value) => formatCompact(typeof value === 'number' ? value : Number(value), locale),
+                            callback: (value) =>
+                                formatCompact(typeof value === 'number' ? value : Number(value), locale),
                         },
                     },
                 },
@@ -1068,7 +1061,12 @@ export default function WalletReports(): JSX.Element {
                                                     </td>
                                                     <td className="col-figure is-in">
                                                         <CellLabel
-                                                            icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
+                                                            icon={
+                                                                <ArrowDownLeft
+                                                                    className="size-3.5"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            }
                                                         >
                                                             {t((d) => d.pages.walletReports.moneyIn)}
                                                         </CellLabel>
@@ -1076,7 +1074,9 @@ export default function WalletReports(): JSX.Element {
                                                     </td>
                                                     <td className="col-figure is-out">
                                                         <CellLabel
-                                                            icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
+                                                            icon={
+                                                                <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                                                            }
                                                         >
                                                             {t((d) => d.pages.walletReports.moneyOut)}
                                                         </CellLabel>
@@ -1380,7 +1380,12 @@ export default function WalletReports(): JSX.Element {
                                                     </td>
                                                     <td className="col-figure is-in">
                                                         <CellLabel
-                                                            icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
+                                                            icon={
+                                                                <ArrowDownLeft
+                                                                    className="size-3.5"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            }
                                                         >
                                                             {t((d) => d.pages.walletReports.moneyIn)}
                                                         </CellLabel>
@@ -1388,7 +1393,9 @@ export default function WalletReports(): JSX.Element {
                                                     </td>
                                                     <td className="col-figure is-out">
                                                         <CellLabel
-                                                            icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
+                                                            icon={
+                                                                <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                                                            }
                                                         >
                                                             {t((d) => d.pages.walletReports.moneyOut)}
                                                         </CellLabel>
@@ -1417,9 +1424,7 @@ export default function WalletReports(): JSX.Element {
                                                 String(reports.attention.unclassifiedCount),
                                             )}
                                             note={reports.attention.unclassifiedMinor
-                                                .map((total) =>
-                                                    short(total.totalMinor, total.currencyCode),
-                                                )
+                                                .map((total) => short(total.totalMinor, total.currencyCode))
                                                 .join(' · ')}
                                             onClick={() => {
                                                 router.visit('/wallet/transactions');
@@ -1493,7 +1498,6 @@ function Change(props: { percent: number | null; note: string; invert?: boolean 
         </>
     );
 }
-
 
 /** One thing to go and fix, as a row that goes there. */
 function AttentionRow(props: {

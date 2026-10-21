@@ -25,8 +25,6 @@ use RuntimeException;
  * `docs/handoff/030-pwa-frontend.md`'s Key decision #2 found missing entirely.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

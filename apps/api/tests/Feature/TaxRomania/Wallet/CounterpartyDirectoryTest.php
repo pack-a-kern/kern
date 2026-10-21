@@ -30,8 +30,6 @@ use Tests\TestCase;
  * and which of them contain the text somebody just typed.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

@@ -17,6 +17,7 @@ use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\HttpEmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider;
 use Kern\Legislation\Storage\RawSourceObjectStore;
+use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 
 /**
@@ -103,6 +104,8 @@ final class LegislationServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
+
+        ConfiguredRateLimit::register('legislation-search-per-user', 'legislation.rate_limits.search_per_user', ConfiguredRateLimit::perUser());
 
         $this->publishes([
             __DIR__ . '/../config/legislation.php' => config_path('legislation.php'),

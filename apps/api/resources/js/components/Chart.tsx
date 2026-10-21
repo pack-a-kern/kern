@@ -1,10 +1,4 @@
-import {
-    Chart as ChartJS,
-    registerables,
-    type ChartConfiguration,
-    type ChartType,
-    type TooltipModel,
-} from 'chart.js';
+import { Chart as ChartJS, registerables, type ChartConfiguration, type ChartType, type TooltipModel } from 'chart.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 
 ChartJS.register(...registerables);

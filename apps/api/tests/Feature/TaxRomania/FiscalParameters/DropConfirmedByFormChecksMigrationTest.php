@@ -27,7 +27,6 @@ beforeEach(function (): void {
 });
 
 it('takes the form check off an approved value and leaves everything else it rests on', function (): void {
-    bootstrapIdentityCryptoForTests();
     $wage = FiscalParameter::factory()->create(['code' => 'RO.MIN_WAGE', 'value_type' => 'MONEY']);
     $version = insertApprovedFiscalParameterVersion($wage->id, FiscalParameterVersion::factory()->create()->source_section_id, [
         'valid_from' => '2023-10-01',

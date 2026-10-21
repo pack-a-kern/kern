@@ -45,9 +45,15 @@ final class InMemoryKeyManagementService implements KeyManagementService
 
     private int $currentVersion = 1;
 
+    /** @var array<int, string> version => raw 32-byte HMAC key. */
+    private array $blindIndexKeys;
+
+    private int $blindIndexVersion = 1;
+
     public function __construct()
     {
         $this->keys = [1 => random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES)];
+        $this->blindIndexKeys = [1 => random_bytes(32)];
     }
 
     public function wrapDataKey(string $plaintextDek): WrappedDataKey
@@ -106,5 +112,37 @@ final class InMemoryKeyManagementService implements KeyManagementService
         $this->keys[$this->currentVersion] = random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
 
         return $this->currentVersion;
+    }
+
+    /** Nothing to expire: there is no credential in memory. */
+    public function accessSecondsRemaining(): ?int
+    {
+        return null;
+    }
+
+    public function blindIndexes(array $normalizedValues): array
+    {
+        $key = $this->blindIndexKeys[$this->blindIndexVersion];
+
+        return array_map(static fn (string $value): string => hash_hmac('sha256', $value, $key), $normalizedValues);
+    }
+
+    public function currentBlindIndexKeyVersion(): int
+    {
+        return $this->blindIndexVersion;
+    }
+
+    /**
+     * What an operator does in the real KMS before `kern:keys:reindex-blind-indexes`.
+     *
+     * Not on the contract: the application cannot rotate this key — its token has no such capability —
+     * so only a test, standing in for that operator, needs to.
+     */
+    public function rotateBlindIndexKey(): int
+    {
+        $this->blindIndexVersion++;
+        $this->blindIndexKeys[$this->blindIndexVersion] = random_bytes(32);
+
+        return $this->blindIndexVersion;
     }
 }

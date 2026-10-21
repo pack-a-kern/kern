@@ -154,10 +154,7 @@ function Changed({ section }: { section: LawSection }): JSX.Element | null {
         <div className="border-info/30 bg-info/5 text-muted-foreground my-1.5 rounded-r-md border-l-2 px-2.5 py-1.5 text-xs">
             {section.amendedOn === null ? null : (
                 <span className="text-info font-semibold">
-                    {t((d) => d.pages.legislation.law.amended).replace(
-                        '{date}',
-                        formatDate(section.amendedOn, locale),
-                    )}
+                    {t((d) => d.pages.legislation.law.amended).replace('{date}', formatDate(section.amendedOn, locale))}
                 </span>
             )}
             <ProvisionNotes notes={section.notes} />

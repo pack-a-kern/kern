@@ -7,14 +7,10 @@ namespace Tests\Feature\TaxRomania\Subjects\CrossTenantIsolationTest;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Tenancy\TenantScope;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -30,13 +26,6 @@ use Tests\Feature\TaxRomania\Subjects\Fixtures\ScopedFixtureRecord;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $blindIndexProvider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($blindIndexProvider));
 
     Schema::dropIfExists('scoped_fixture_records');
     Schema::create('scoped_fixture_records', function (Blueprint $table): void {

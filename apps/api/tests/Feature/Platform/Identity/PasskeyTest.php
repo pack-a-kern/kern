@@ -21,7 +21,6 @@ use Webauthn\PublicKeyCredentialRequestOptions;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**
@@ -45,6 +44,11 @@ function registerAndLogin(TestCase $test, string $email = 'ion@example.com', str
     $user->save();
 
     carryCookiesFrom($test->postJson('/api/v1/auth/login', ['email' => $email, 'password' => $password])->assertOk());
+
+    // Registering a passkey is behind `verify-recent` (a session alone must not be able to add a
+    // factor and bootstrap past step-up). A real client steps up with its password first; these
+    // tests exercise the ceremony, not that gate, so mark the session verified here.
+    verifySession();
 
     return $user;
 }

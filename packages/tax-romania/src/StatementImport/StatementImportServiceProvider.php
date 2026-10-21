@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\Http\StackService;
 use Kern\TaxRomania\StatementImport\Gateways\HttpStatementParseGateway;
 use Kern\TaxRomania\StatementImport\Gateways\StatementParseGateway;
 
@@ -27,9 +28,8 @@ final class StatementImportServiceProvider extends ServiceProvider
 
             return new HttpStatementParseGateway(
                 $app->make(HttpFactory::class),
-                $config->string('services.processing.base_url'),
+                StackService::processing($config),
                 $config->integer('statement_import.parser.timeout_seconds'),
-                $config->string('services.processing.auth_token'),
             );
         });
     }

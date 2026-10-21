@@ -22,8 +22,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * require.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

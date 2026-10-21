@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
 use Kern\TaxRomania\Rules\StreamSource;
@@ -65,7 +66,7 @@ final class OpenAccountController
             'currency_code' => [
                 'required_if:kind,' . AccountKind::CASH->value,
                 'required_if:kind,' . AccountKind::TERM_DEPOSIT->value,
-                'sometimes', 'nullable', 'string', 'size:3', 'regex:/^[A-Z]{3}$/',
+                'sometimes', 'nullable', ...CurrencyCode::rules(),
             ],
             // A cash holding is a declared value; every other kind receives transactions instead.
             // Both directions in the validator, so the caller gets a field-level message rather

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -9,10 +10,6 @@ use Kern\Platform\Identity\Enums\MfaMethodType;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Support\SessionRegistrar;
 use OTPHP\TOTP;
-
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 /**
  * `$response->json()` is `mixed`; narrowed once so the TOTP helper gets the non-empty string it
@@ -83,6 +80,7 @@ it('leaves no orphaned session row behind when TOTP is confirmed', function (): 
     $user = User::factory()->create();
 
     $this->actingAs($user);
+    verifySession(); // enrolling an authenticator is behind `verify-recent`
 
     $secret = totpSecret($this->postJson('/api/v1/auth/mfa/totp/enroll')->assertOk()->json('secret'));
 
@@ -98,6 +96,7 @@ it('removes recovery codes when the authenticator app is disabled', function ():
     $user = User::createWithEmail('disable-' . Str::random(6) . '@example.test', Hash::make('a-long-enough-password'));
 
     $this->actingAs($user);
+    verifySession(); // enrolling an authenticator is behind `verify-recent`
 
     $secret = totpSecret($this->postJson('/api/v1/auth/mfa/totp/enroll')->assertOk()->json('secret'));
     $code = TOTP::createFromSecret($secret)->now();
@@ -115,6 +114,7 @@ it('refuses to disable the authenticator without the current password', function
     $user = User::createWithEmail('guard-' . Str::random(6) . '@example.test', Hash::make('a-long-enough-password'));
 
     $this->actingAs($user);
+    verifySession(); // enrolling an authenticator is behind `verify-recent`
 
     $secret = totpSecret($this->postJson('/api/v1/auth/mfa/totp/enroll')->assertOk()->json('secret'));
     $code = TOTP::createFromSecret($secret)->now();
@@ -125,4 +125,32 @@ it('refuses to disable the authenticator without the current password', function
         ->assertJsonValidationErrors('current_password');
 
     expect($user->mfaMethods()->where('type', MfaMethodType::TOTP)->exists())->toBeTrue();
+});
+
+it('stamps last_used_at on an authenticated request, so a session in use is not pruned as idle', function (): void {
+    // Before this, `last_used_at` moved only at login and rotation, so the hourly prune measured
+    // idleness from login and deleted the ledger row of a session someone was still using — taking it
+    // out of the device list and beyond the reach of "sign out everywhere".
+    $user = User::factory()->create();
+    $user->password_hash = Hash::make('correct-horse-battery-staple');
+    $user->save();
+
+    carryCookiesFrom(
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email_ciphertext,
+            'password' => 'correct-horse-battery-staple',
+        ])->assertOk()
+    );
+
+    $sessionId = DB::table('user_sessions')->where('user_id', $user->getKey())->value('id');
+    expect($sessionId)->not->toBeNull();
+
+    // Hours of real use, with no login or rotation to move the ledger clock on their own.
+    $this->travel(5)->hours();
+    carryCookiesFrom($this->getJson('/api/v1/me')->assertOk());
+
+    $lastUsed = DB::table('user_sessions')->where('id', $sessionId)->value('last_used_at');
+    expect($lastUsed)->toBeString();
+    $stampedAt = is_scalar($lastUsed) ? (string) $lastUsed : '';
+    expect(Carbon::parse($stampedAt)->greaterThan(now('UTC')->subMinute()))->toBeTrue();
 });

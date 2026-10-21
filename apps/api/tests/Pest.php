@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Legislation\Models\SourceSection;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
@@ -26,6 +25,20 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 uses(TestCase::class)->in('Feature');
+
+/**
+ * The in-memory key manager, for every feature test that does not bind its own.
+ *
+ * A default rather than something each suite remembers: forty-nine tests across the tax engine,
+ * settings, FX and documents never did, resolved the real OpenBao binding, and failed on its missing
+ * token in every run of `make test` — not on what they were written to check. A test that wants the
+ * real binding builds it itself (the OpenBao client tests) or forgets this instance first
+ * (`ProbeSystemHealthTest`'s "cannot even be built"). A suite's own `beforeEach` runs after this one,
+ * so it can still put its own fake in place.
+ */
+uses()->beforeEach(function (): void {
+    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
+})->in('Feature');
 
 /**
  * Database isolation, applied per-directory rather than globally — deliberately.
@@ -46,6 +59,7 @@ uses(RefreshDatabase::class)->in('Feature/Legislation');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/FiscalParameters');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Subjects');
 uses(RefreshDatabase::class)->in('Feature/Platform/Identity');
+uses(RefreshDatabase::class)->in('Feature/Platform/Security');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/TaxEngine');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Wallet');
 uses(RefreshDatabase::class)->in('Feature/Documents');
@@ -97,28 +111,6 @@ uses()->afterEach(function (): void {
 
     DB::statement('TRUNCATE users, tax_subjects, audit_events, audit_chain_heads RESTART IDENTITY CASCADE');
 })->in('Feature/Audit');
-
-/**
- * Swaps the real OpenBao-backed `KeyManagementService` and the config-driven `BlindIndexHasher`
- * for fakes with a random in-process key, exactly the pattern
- * `tests/Feature/TaxRomania/Subjects/BlindIndexLookupTest.php` established first. Every `Feature/
- * Domain/Identity` test needs this: `Kern\Platform\Identity\Models\User::createWithEmail()` and
- * `Kern\Platform\Identity\Models\UserMfaMethod`'s encrypted TOTP secret both go through
- * `Kern\Platform\Crypto\Casts\Encrypted`, which resolves a real `KeyManagementService` — no live
- * OpenBao is reachable from the container this suite runs in. A random per-run blind-index key is
- * safe here (unlike production, ADR 0002) because no test needs its blind indexes to remain
- * stable across separate test runs.
- */
-function bootstrapIdentityCryptoForTests(): void
-{
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-}
 
 /**
  * Marks the current test session as having just proved its second factor, so a route behind
@@ -346,7 +338,7 @@ function settingsAdminUser(): User
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $user = User::factory()->create();
-    $user->assignRole('SUPER_ADMIN');
+    $user->assignRole(SuperAdministratorRole::NAME);
 
     return $user;
 }
@@ -570,4 +562,77 @@ function yearlyFixture(string $name): string
     }
 
     return $contents;
+}
+
+/**
+ * A loopback port nothing is listening on, so a connection to it is refused at once rather than waiting
+ * out a timeout. Asked of the kernel rather than hard-coded: a port that happens to be in use on the
+ * machine running the suite would make a "nothing answers" test pass for the wrong reason.
+ */
+function portNobodyIsListeningOn(): int
+{
+    $server = stream_socket_server('tcp://127.0.0.1:0');
+
+    if ($server === false) {
+        throw new RuntimeException('Could not open a socket to find a free port.');
+    }
+
+    $name = (string) stream_socket_get_name($server, false);
+    fclose($server);
+
+    return (int) substr($name, (int) strrpos($name, ':') + 1);
+}
+
+/** What a stub clamd says to every connection: the reply to `zPING`. */
+const CLAMD_PONG = 'fwrite($c, "PONG\0");';
+
+/** What a stub SMTP server says: a greeting, `250` to everything, `221` to `QUIT`. */
+const SMTP_GREETING = 'fwrite($c, "220 stub ESMTP\r\n"); while (($l = fgets($c)) !== false) { if (strtoupper(substr($l, 0, 4)) === "QUIT") { fwrite($c, "221 bye\r\n"); break; } fwrite($c, "250 stub\r\n"); }';
+
+/**
+ * A TCP server in a child process, running `$perConnection` (PHP, with the connection as `$c`) for every
+ * connection, on a free loopback port.
+ *
+ * A child rather than a socket in this process: the probe under test blocks reading the reply, so
+ * nothing in this process could be there to send it. It answers every connection rather than one, so
+ * the readiness check here does not use up the one the test is about to make. Skips the test when no
+ * child can be started — the healthy case is then unreachable, not failed.
+ *
+ * @return array{0: int, 1: resource} the port, and the process for {@see stopStubServer()}
+ */
+function startStubServer(string $perConnection): array
+{
+    $port = portNobodyIsListeningOn();
+
+    $process = proc_open(
+        [PHP_BINARY, '-r', '$s = stream_socket_server("tcp://127.0.0.1:' . $port . '"); while ($c = stream_socket_accept($s, 30)) { ' . $perConnection . ' fclose($c); }'],
+        [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']],
+        $pipes,
+    );
+
+    if (! is_resource($process)) {
+        PHPUnit\Framework\Assert::markTestSkipped('No stub server could be started.');
+    }
+
+    for ($attempt = 0; $attempt < 50; $attempt++) {
+        $readiness = @fsockopen('127.0.0.1', $port, $code, $message, 0.2);
+
+        if ($readiness !== false) {
+            fclose($readiness);
+
+            return [$port, $process];
+        }
+
+        usleep(100_000);
+    }
+
+    stopStubServer($process);
+    PHPUnit\Framework\Assert::markTestSkipped('The stub server never started listening.');
+}
+
+/** @param resource $process */
+function stopStubServer($process): void
+{
+    proc_terminate($process);
+    proc_close($process);
 }

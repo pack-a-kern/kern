@@ -70,7 +70,7 @@ import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { useSharedAuth } from '../../lib/sharedProps';
 import { ApiError } from '../../lib/http';
-import type { AccessCatalogue, AdminDirectory, AdminUser } from '../../types/admin';
+import { SUPER_ADMIN_ROLE, type AccessCatalogue, type AdminDirectory, type AdminUser } from '../../types/admin';
 
 type Tab = 'users' | 'roles' | 'permissions';
 
@@ -100,7 +100,7 @@ function initialsFor(email: string): string {
  */
 function roleIcon(role: string): JSX.Element {
     switch (role) {
-        case 'SUPER_ADMIN':
+        case SUPER_ADMIN_ROLE:
             return <ShieldCheck className="size-4" />;
         case 'ACCOUNTANT':
             return <Calculator className="size-4" />;
@@ -194,7 +194,7 @@ export default function AdminUsers(): JSX.Element {
      */
     const auth = useSharedAuth();
     const currentUserId = auth?.user.id ?? '';
-    const isSuperAdmin = auth?.user.roles.includes('SUPER_ADMIN') === true;
+    const isSuperAdmin = auth?.user.roles.includes(SUPER_ADMIN_ROLE) === true;
 
     const [impersonating, setImpersonating] = useState<AdminUser | null>(null);
     const [erasing, setErasing] = useState<AdminUser | null>(null);
@@ -265,7 +265,7 @@ export default function AdminUsers(): JSX.Element {
 
     const total = directory?.users.length ?? 0;
     const withMfa = (directory?.users ?? []).filter((user) => user.passkeys > 0 || user.totp).length;
-    const admins = (directory?.users ?? []).filter((user) => user.roles.includes('SUPER_ADMIN')).length;
+    const admins = (directory?.users ?? []).filter((user) => user.roles.includes(SUPER_ADMIN_ROLE)).length;
 
     /*
      * The one row that changed, rather than the whole directory again.
@@ -562,7 +562,7 @@ export default function AdminUsers(): JSX.Element {
                                                         {user.roles.map((role) => (
                                                             <Pill
                                                                 key={role}
-                                                                tone={role === 'SUPER_ADMIN' ? 'accent' : 'neutral'}
+                                                                tone={role === SUPER_ADMIN_ROLE ? 'accent' : 'neutral'}
                                                             >
                                                                 {t((d) => d.pages.adminUsers.roles[role] ?? role)}
                                                             </Pill>
@@ -709,7 +709,7 @@ export default function AdminUsers(): JSX.Element {
                                     title={t((d) => d.pages.adminUsers.roles[role] ?? role)}
                                     description={t((d) => d.pages.adminUsers.roleHints[role] ?? '')}
                                     aside={
-                                        <Pill tone={role === 'SUPER_ADMIN' ? 'accent' : 'neutral'}>
+                                        <Pill tone={role === SUPER_ADMIN_ROLE ? 'accent' : 'neutral'}>
                                             {t((d) => d.pages.adminUsers.members).replace('{count}', String(members))}
                                         </Pill>
                                     }

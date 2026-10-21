@@ -120,11 +120,6 @@ final readonly class StatementField
         return $this->isIndex() ? (int) $this->value : null;
     }
 
-    public function labelName(): ?string
-    {
-        return $this->isLabel() ? (string) $this->value : null;
-    }
-
     /** @return array<string, mixed> */
     public function toArray(): array
     {

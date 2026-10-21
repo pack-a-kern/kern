@@ -26,7 +26,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('has no password column anywhere on spv_connections', function (): void {

@@ -26,7 +26,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('never stores a submission\'s plaintext external reference or response payload anywhere in the raw row', function (): void {

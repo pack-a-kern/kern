@@ -397,21 +397,4 @@ final readonly class ExtractionSchema
 
         return $names;
     }
-
-    /**
-     * `$fields` with anything the schema does not name removed.
-     *
-     * A parser that learns to read an extra field must have it added here first. Otherwise a key
-     * appears on the review screen that nothing downstream knows what to do with, and the schema
-     * stops describing what is actually stored.
-     *
-     * @param  array<string, mixed>  $fields
-     * @return array<string, mixed>
-     */
-    public function keepKnown(array $fields): array
-    {
-        $known = array_map(static fn (ExtractionField $field): string => $field->name, $this->fields);
-
-        return array_intersect_key($fields, array_flip($known));
-    }
 }

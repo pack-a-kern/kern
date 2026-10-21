@@ -34,19 +34,17 @@ use Tests\TestCase;
  * schedule, and the import belongs finished.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'openai',
-        'ai.providers.env_fallback.base_url' => 'https://model.test',
-        'ai.providers.env_fallback.model' => 'test-model',
-        'ai.providers.env_fallback.api_key' => 'k',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'openai',
+        'ai.providers.defaults.base_url' => 'https://model.test',
+        'ai.providers.defaults.model' => 'test-model',
+        'ai.providers.defaults.api_key' => 'k',
     ]);
 });
 
@@ -327,7 +325,35 @@ it('skips a taxpayer nobody may act for, rather than inventing somebody', functi
     $run = $this->artisan('kern:counterparties:classify');
 
     /** @var PendingCommand $run */
-    $run->expectsOutputToContain('1 taxpayer(s) skipped: nobody holds an unrevoked membership.')
+    $run->expectsOutputToContain('1 taxpayer(s) skipped: nobody holds a membership that opens it.')
+        ->assertSuccessful()
+        ->run();
+
+    Queue::assertNothingPushed();
+});
+
+it('acts only for a member the gate opens to, never for one it would refuse', function (): void {
+    [$user, $subjectId, $accountId] = classifiableSubject();
+
+    spend($this, $user, $subjectId, $accountId, -12_000, 'Mega Image');
+
+    // The owner has left and a VIEWER remains — a role with no rules yet, so it opens nothing. It used
+    // to be chosen all the same, and the job was refused at the gate one call later.
+    SubjectMembership::query()->where('subject_id', $subjectId)->update(['revoked_at' => now('UTC')]);
+    SubjectMembership::create([
+        'subject_id' => $subjectId,
+        'user_id' => User::factory()->create()->id,
+        'role' => MembershipRole::VIEWER,
+        'permissions_json' => [],
+        'valid_from' => now('UTC'),
+    ]);
+    app()->forgetInstance(TenantContext::class);
+    Queue::fake();
+
+    $run = $this->artisan('kern:counterparties:classify');
+
+    /** @var PendingCommand $run */
+    $run->expectsOutputToContain('1 taxpayer(s) skipped: nobody holds a membership that opens it.')
         ->assertSuccessful()
         ->run();
 

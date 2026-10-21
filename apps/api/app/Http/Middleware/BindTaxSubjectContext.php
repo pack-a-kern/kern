@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -42,6 +43,21 @@ final class BindTaxSubjectContext
         $user = $request->user();
 
         abort_unless(is_string($subjectId) && $user !== null, 400, 'A tax subject route parameter and an authenticated user are both required.');
+
+        // A `{subject}` that is not a UUID can only be a 404 — no taxpayer has that id. Answered here,
+        // before the gate, so Postgres is never handed a malformed id to raise a `22P02` on, which
+        // surfaces as a 500 and tells a stranger their guess at least reached the database.
+        abort_unless(Str::isUuid($subjectId), 404);
+
+        // A Postgres `uuid` column compares case-insensitively, so the gate authorises the same
+        // taxpayer however its id is cased — but the raw string is what the per-taxpayer rate limiter
+        // keys on and what controllers hand to the encryption AAD and object keys. Left as the URL
+        // wrote it, re-casing the UUID mints a fresh rate budget and seals data under a key a later,
+        // canonical read cannot reproduce. Canonical UUID form is lower-case, and this middleware is
+        // the one place every subject-scoped route passes through, so settle it here — for the bound
+        // context, and for the `{subject}` the controller reads back.
+        $subjectId = strtolower($subjectId);
+        $request->route()?->setParameter('subject', $subjectId);
 
         $this->context->authorizeAndActivate($user->id, $subjectId);
 

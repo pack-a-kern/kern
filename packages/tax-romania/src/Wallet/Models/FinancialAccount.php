@@ -87,12 +87,6 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
         return $this->hasMany(DepositRatePeriod::class, 'account_id')->orderBy('valid_from');
     }
 
-    /** @return HasMany<DepositInterestEvent, $this> */
-    public function depositInterestEvents(): HasMany
-    {
-        return $this->hasMany(DepositInterestEvent::class, 'account_id')->orderBy('accrual_from');
-    }
-
     public function encryptionSubjectId(): string
     {
         $value = $this->getAttribute('tax_subject_id');

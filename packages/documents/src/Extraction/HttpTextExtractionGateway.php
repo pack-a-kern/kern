@@ -13,6 +13,7 @@ use Kern\Documents\Extraction\DataTransferObjects\PageExtractionResult;
 use Kern\Documents\Extraction\DataTransferObjects\UntrustedDocumentText;
 use Kern\Documents\Extraction\Exceptions\DocumentRejectedByExtractionException;
 use Kern\Documents\Extraction\Exceptions\TextExtractionUnavailableException;
+use Kern\Platform\Http\StackService;
 use Throwable;
 
 /**
@@ -71,9 +72,8 @@ final readonly class HttpTextExtractionGateway implements PdfPageCounter, TextEx
 
     public function __construct(
         private HttpFactory $http,
-        private string $baseUrl,
+        private StackService $service,
         private int $timeoutSeconds,
-        private string $authToken,
     ) {
     }
 
@@ -105,7 +105,7 @@ final readonly class HttpTextExtractionGateway implements PdfPageCounter, TextEx
      */
     private function call($pdfStream, string $path): mixed
     {
-        if ($this->authToken === '') {
+        if (! $this->service->hasToken()) {
             throw TextExtractionUnavailableException::authenticationNotConfigured();
         }
 
@@ -116,11 +116,9 @@ final readonly class HttpTextExtractionGateway implements PdfPageCounter, TextEx
         }
 
         try {
-            $response = $this->http
-                ->timeout($this->timeoutSeconds)
-                ->withToken($this->authToken)
+            $response = $this->service->request($this->http, $this->timeoutSeconds)
                 ->attach('file', $bytes, 'document.pdf')
-                ->post(rtrim($this->baseUrl, '/') . $path);
+                ->post($this->service->url($path));
         } catch (ConnectionException $exception) {
             throw TextExtractionUnavailableException::requestFailed($exception);
         } catch (Throwable $exception) {

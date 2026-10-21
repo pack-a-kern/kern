@@ -17,10 +17,12 @@ import {
 
 const parseId = (text: string): { id: string } => parseJson(text, vObject({ id: vString }));
 
-export async function register(email: string, password: string): Promise<{ id: string }> {
-    const text = await apiRequest('/v1/auth/register', { method: 'POST', body: { email, password } });
-
-    return parseId(text);
+/**
+ * `POST /api/v1/auth/register`. Answers every address alike, with nothing in the body: whether an
+ * account was made, or the address already had one, is not something this form is told.
+ */
+export async function register(email: string, password: string): Promise<void> {
+    await apiRequest('/v1/auth/register', { method: 'POST', body: { email, password } });
 }
 
 export async function login(email: string, password: string): Promise<LoginResult> {

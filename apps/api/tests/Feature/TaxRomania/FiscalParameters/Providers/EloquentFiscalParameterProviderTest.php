@@ -68,7 +68,6 @@ it('throws when two versions overlap for the same date', function (): void {
 });
 
 it('answers with the approved value where a candidate was proposed beside it', function (): void {
-    bootstrapIdentityCryptoForTests();
     $parameter = FiscalParameter::factory()->create(['code' => 'RO.TEST.APPROVED_FIRST']);
     $approved = FiscalParameterVersion::factory()->create([
         'fiscal_parameter_id' => $parameter->id,

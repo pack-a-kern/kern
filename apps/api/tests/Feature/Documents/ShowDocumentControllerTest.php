@@ -18,8 +18,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * §16 expects the PWA frontend to call after a Reverb progress event, and never document content.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

@@ -17,7 +17,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * and who may change, which is the only thing a second kind of owner actually decides.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
     Storage::fake('avatars');
 
     app()->instance(\Kern\Platform\Uploads\Contracts\UploadScanner::class, new class () implements \Kern\Platform\Uploads\Contracts\UploadScanner {
@@ -76,17 +75,18 @@ it('lets an owner give a taxpayer a picture, and serves it back', function (): v
 });
 
 /*
- * Everyone who works on the taxpayer sees the same card, so the picture is readable at any role. It
- * is the one thing on this table that is not ciphertext, and the route is what limits it instead.
+ * Everyone the taxpayer opens for sees the same card — today its owners, since a role without rules
+ * opens nothing (MembershipAuthorizationTest). It is the one thing on this table that is not
+ * ciphertext, and the route is what limits it instead.
  */
-it('serves the picture to any live member', function (): void {
+it('serves the picture to every owner of the taxpayer', function (): void {
     $subject = assessableSubject();
 
     $this->actingAs(subjectOwner())
         ->post("/api/v1/subjects/{$subject->id}/avatar", ['avatar' => subjectAvatarUpload()])
         ->assertOk();
 
-    $this->actingAs(subjectMember($subject, MembershipRole::VIEWER))
+    $this->actingAs(subjectMember($subject, MembershipRole::OWNER))
         ->get("/api/v1/subjects/{$subject->id}/avatar")
         ->assertOk();
 });
@@ -109,7 +109,7 @@ it('refuses the picture to somebody with no membership', function (): void {
 
 it('refuses the picture once a membership is revoked', function (): void {
     $subject = assessableSubject();
-    $member = subjectMember($subject, MembershipRole::VIEWER);
+    $member = subjectMember($subject, MembershipRole::OWNER);
 
     $this->actingAs(subjectOwner())
         ->post("/api/v1/subjects/{$subject->id}/avatar", ['avatar' => subjectAvatarUpload()])

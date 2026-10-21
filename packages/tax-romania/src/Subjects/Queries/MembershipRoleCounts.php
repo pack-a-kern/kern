@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Subjects\Queries;
 
-use Illuminate\Support\Facades\DB;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 
 /**
  * How many distinct people hold each membership role right now.
@@ -25,9 +25,8 @@ final readonly class MembershipRoleCounts
     {
         $counts = [];
 
-        // Only memberships in force: a revoked one is history, not access.
-        $rows = DB::table('subject_memberships')
-            ->whereNull('revoked_at')
+        $rows = SubjectMembership::query()
+            ->active()
             ->groupBy('role')
             ->selectRaw('role, count(distinct user_id) as members')
             ->pluck('members', 'role')

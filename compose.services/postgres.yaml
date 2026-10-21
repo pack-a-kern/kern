@@ -13,7 +13,23 @@ services:
   # Data layer — no host ports, data_net is internal (no outbound Internet).
   # -------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg18-trixie
+    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c930220cb9bf2f956d10a8f909cf9973d9672ca0278aef2c1e6facccad2e0
+    # TLS, with the certificate docker/certs issues it, and no connection over the network without it
+    # (docker/postgres/pg_hba.conf). The image's own entrypoint still runs — it initialises a new
+    # volume and drops to the `postgres` user — behind the watcher that tells the server to reload a
+    # renewed certificate: SIGHUP, which Postgres answers by reading it again, with no restart.
+    init: true
+    entrypoint: ["sh", "/usr/local/bin/kern-tls", "run", "HUP", "--", "docker-entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/run/kern/tls/server.crt
+      - -c
+      - ssl_key_file=/run/kern/tls/server.key
+      - -c
+      - hba_file=/etc/kern/pg_hba.conf
     networks:
       - data_net
     # Created with the credentials the APPLICATION connects with, not with names of its own. The
@@ -22,8 +38,10 @@ services:
     # place to keep the password in step.
     environment:
       POSTGRES_DB: ${DB_DATABASE:-kern}
-      POSTGRES_USER: ${DB_USERNAME:-kern}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD — see apps/api/.env.example}
+      # The owner — the role the image creates on first boot, which creates every table. Not what the
+      # application connects as: that is DB_USERNAME, created by `migrate` (kern:db:grant-app-role).
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-kern}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD — see apps/api/.env.example}
     volumes:
       # Postgres 18's own image changed convention: mount the parent
       # `/var/lib/postgresql`, not `/var/lib/postgresql/data` — the image
@@ -33,6 +51,9 @@ services:
       # entrypoint recommends.
       - postgres_data:/var/lib/postgresql
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/postgres/pg_hba.conf:/etc/kern/pg_hba.conf:ro
+      - tls_postgres:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
     read_only: true
     tmpfs:
       - /tmp:mode=1777
@@ -51,6 +72,13 @@ services:
       - SETUID
       - SETGID
       - DAC_OVERRIDE
+      # For the two signals that cross from root to the `postgres` user: the watcher's reload, and the
+      # stop signal `init` passes on. Without it neither arrives — the reload silently, and a stop as a
+      # kill ten seconds later.
+      - KILL
+    depends_on:
+      certs:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
@@ -64,21 +92,29 @@ services:
           memory: 1024M
     restart: unless-stopped
 
+  # Its certificate, from the stack's CA: the uid and gid are the image's `postgres` user, which is the
+  # only owner Postgres accepts a key from with no group access.
+  certs:
+    environment:
+      KERN_CERT_postgres: "999:999:postgres,localhost,127.0.0.1"
+    volumes:
+      - tls_postgres:/certs/out/postgres
+
   # The four PHP processes cannot boot without this, so the dependency lives here rather
   # than in compose.yaml: leave this file out of COMPOSE_FILE and both the service and
-  # every wait for it disappear together.
-  app:
+  # every wait for it disappear together. The ones that connect do so over TLS, checking the
+  # certificate is the stack's and is for `postgres` (verify-full) — set here because it is true of
+  # this server; one you run elsewhere is described in DB_SSLMODE and DB_SSLROOTCERT instead.
+  app: &connects-to-postgres
     depends_on:
       postgres:
         condition: service_healthy
-  queue:
-    depends_on:
-      postgres:
-        condition: service_healthy
-  scheduler:
-    depends_on:
-      postgres:
-        condition: service_healthy
+    environment:
+      DB_SSLMODE: verify-full
+      DB_SSLROOTCERT: /run/kern/tls-ca/ca.crt
+  queue: *connects-to-postgres
+  scheduler: *connects-to-postgres
+  migrate: *connects-to-postgres
   reverb:
     depends_on:
       postgres:
@@ -86,3 +122,4 @@ services:
 
 volumes:
   postgres_data:
+  tls_postgres:

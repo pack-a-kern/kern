@@ -26,9 +26,6 @@ use RuntimeException;
  * re-wrapped DEK still opens everything it opened before, and the write can only ever move a row
  * onto a *newer* version of a key it already had.
  */
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 /** @return object{encrypted_dek: string|null, dek_kek_version: int|null} */
 function dek(string $table, string $id): object

@@ -11,24 +11,23 @@ method pickles a reference to this function by its import path, so it must
 be importable as `processing.documents._worker.extract_worker`.
 """
 
-import contextlib
 import io
-import resource
 from multiprocessing.connection import Connection
 
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
+from processing.isolation import limit_memory
+
 # One page: (mediabox width in points, mediabox height in points, extracted text).
 WorkerPage = tuple[float, float, str]
 
-# Sent back to the parent as exactly one `(status, payload)` message:
+# Sent back to the parent as exactly one `(status, payload)` message (`processing.isolation`):
 #   ("ok", list[WorkerPage])   - success
 #   ("encrypted", None)        - PDF is encrypted; never decrypted, never given /pages access
 #   ("too_many_pages", int)    - page count, which exceeded the configured limit
 #   ("malformed", str)         - a pypdf-recognised parse failure, with its message
 #   ("error", str)             - an exception pypdf itself does not define; still reported
-WorkerResult = tuple[str, int | str | list[WorkerPage] | None]
 
 
 def count_worker(pdf_bytes: bytes, max_memory_bytes: int, conn: Connection) -> None:
@@ -40,8 +39,7 @@ def count_worker(pdf_bytes: bytes, max_memory_bytes: int, conn: Connection) -> N
     only needs to refuse an over-long document should never pay for reading
     it. Same isolation, same one-message contract, same never-raises rule.
     """
-    with contextlib.suppress(ValueError, OSError):
-        resource.setrlimit(resource.RLIMIT_AS, (max_memory_bytes, max_memory_bytes))
+    limit_memory(max_memory_bytes)
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         if reader.is_encrypted:
@@ -64,14 +62,11 @@ def extract_worker(
     pdf_bytes: bytes, max_pages: int, max_memory_bytes: int, conn: Connection
 ) -> None:
     """Parses `pdf_bytes` and extracts every page's text, entirely in this
-    process. Sends exactly one `WorkerResult` tuple back and exits. Never
+    process. Sends exactly one `(status, payload)` message back and exits. Never
     raises out of this function — every failure path is reported through
     `conn`, because there is nothing else listening once this process ends.
     """
-    # Best-effort: some sandboxes refuse RLIMIT_AS. The wall-clock timeout
-    # applied by the parent still bounds the worst case either way.
-    with contextlib.suppress(ValueError, OSError):
-        resource.setrlimit(resource.RLIMIT_AS, (max_memory_bytes, max_memory_bytes))
+    limit_memory(max_memory_bytes)
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         if reader.is_encrypted:

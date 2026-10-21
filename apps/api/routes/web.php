@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\RecordCspViolationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Kern\Platform\Identity\Services\RegistrationPolicy;
@@ -23,6 +24,12 @@ use Kern\Platform\Identity\Services\RegistrationPolicy;
  */
 Route::get('/', fn () => Inertia::render('home'))->name('home');
 
+// The Content-Security-Policy's report address. Unauthenticated because a browser sends these on its
+// own, from the login page as much as any other; throttled because anyone can.
+Route::post('/csp-report', RecordCspViolationController::class)
+    ->middleware('throttle:60,1')
+    ->name('csp-report');
+
 /*
  * `registrationOpen` is passed here rather than shared globally: only this screen asks the
  * question, and a shared prop would put a `settings` query on every Inertia response in the
@@ -33,8 +40,8 @@ Route::get('/login', fn (RegistrationPolicy $registration) => Inertia::render('a
 ]))->name('login');
 
 /*
- * The verification screen sits inside `auth` and outside `verified`, which is the whole point: it is
- * where `verified` sends people, so being held there by it would be a loop. It draws itself from
+ * The verification screen is on `RequireVerifiedEmail`'s allowed list, which is the whole point: it is
+ * where that middleware sends people, so being held there by it would be a loop. It draws itself from
  * `GET /api/v1/auth/email/verification` rather than from a prop, so opening it costs nothing and
  * refreshing it does not send a second code.
  */
@@ -42,7 +49,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/verify-email', fn () => Inertia::render('auth/verify-email'))->name('verify-email');
 });
 
-Route::middleware(['auth', 'verified'])->group(function (): void {
+Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
 
     Route::get('/documents', fn () => Inertia::render('documents/inbox'))->name('documents.inbox');

@@ -21,7 +21,6 @@ use Tests\TestCase;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 function loggedInUser(TestCase $test, string $email = 'ion@example.com', string $password = 'correct-horse-battery-staple'): User
@@ -271,4 +270,39 @@ it('lets an account sign itself out with nothing asked', function (): void {
     forgetVerification();
 
     carryCookiesFrom($this->postJson('/api/v1/auth/logout')->assertOk());
+});
+
+/*
+ * A password change ends every other session.
+ *
+ * The usual reason to change a password is suspecting someone else has it. If their session kept
+ * working, the change would protect nothing in exactly that case — so the other device here must stop
+ * working in the store, not only be marked in the list, while the session that made the change stays.
+ */
+it('signs out every other session when the password changes, and keeps this one', function (): void {
+    $user = loggedInUser($this);
+    $currentSessionId = UserSession::query()->where('revoked_at', null)->sole()->id;
+
+    UserSession::query()->create([
+        'id' => 'stolen-device-session-id',
+        'user_id' => $user->id,
+        'ip_address' => '10.0.0.9',
+        'user_agent' => 'stolen-device',
+        'last_used_at' => now('UTC'),
+        'created_at' => now('UTC'),
+    ]);
+    $this->app['session']->getHandler()->write('stolen-device-session-id', 'payload');
+
+    $response = carryCookiesFrom($this->putJson('/api/v1/me/password', [
+        'current_password' => 'correct-horse-battery-staple',
+        'password' => 'a-much-longer-replacement',
+        'password_confirmation' => 'a-much-longer-replacement',
+    ])->assertOk());
+
+    expect($response->json('revoked_count'))->toBe(1)
+        ->and(UserSession::query()->findOrFail('stolen-device-session-id')->revoked_at)->not->toBeNull()
+        ->and($this->app['session']->getHandler()->read('stolen-device-session-id'))->toBe('')
+        ->and(UserSession::query()->findOrFail($currentSessionId)->revoked_at)->toBeNull();
+
+    $this->getJson('/api/v1/auth/sessions')->assertOk();
 });

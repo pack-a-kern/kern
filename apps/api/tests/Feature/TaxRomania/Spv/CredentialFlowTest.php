@@ -27,9 +27,12 @@ use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Events\SpvAuthChallengeRequired;
 use Kern\TaxRomania\Spv\Events\SpvAuthenticated;
 use Kern\TaxRomania\Spv\Exceptions\InvalidSpvSessionTransitionException;
+use Kern\TaxRomania\Spv\Exceptions\SpvAlreadySignedInException;
 use Kern\TaxRomania\Spv\Exceptions\SpvChallengeExpiredException;
 use Kern\TaxRomania\Spv\Exceptions\SpvPortalAutomationUnavailableException;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerAtCapacityException;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
+use Kern\TaxRomania\Spv\Models\SpvSession;
 use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
@@ -42,8 +45,7 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
-    config(['spv.browser_worker.auth_token' => 'test-worker-secret']);
+    config(['browser_worker.auth_token' => 'test-worker-secret']);
     config(['spv.challenge_ttl_seconds' => 300]);
 });
 
@@ -280,4 +282,82 @@ it('destroys a session idempotently', function (): void {
     expect($again->state)->toBe(SpvSessionState::DESTROYED);
 
     Http::assertSentCount(2); // create + exactly one DELETE — the second destroy() call is a no-op.
+});
+
+/** A session row for `$connection` in `$state`, open until `$expiresAt` — as the flow above leaves one. */
+function spvSessionIn(SpvConnection $connection, SpvSessionState $state, string $ref, ?\Illuminate\Support\Carbon $expiresAt = null): SpvSession
+{
+    return SpvSession::create([
+        'tax_subject_id' => $connection->tax_subject_id,
+        'connection_id' => $connection->id,
+        'browser_session_ref' => $ref,
+        'state' => $state,
+        'created_at' => now('UTC'),
+        'expires_at' => $expiresAt ?? now('UTC')->addMinutes(15),
+    ]);
+}
+
+it('refuses a second sign-in on a connection that is signed in, and opens no browser', function (): void {
+    // The screen never offers it; this is the same rule for a request that did not come from the screen.
+    Http::fake();
+
+    $user = spvUserWithMfa();
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($user, $subject);
+    $connection = spvConnectionFor($subject);
+    spvSessionIn($connection, SpvSessionState::AUTHENTICATED, 'signed-in');
+
+    expect(fn () => app(InitiateSpvAuthAttempt::class)($user, $connection->id))
+        ->toThrow(SpvAlreadySignedInException::class);
+
+    Http::assertNothingSent();
+});
+
+it('signs in again once the signed-in sitting has expired', function (): void {
+    Http::fake([
+        '*/v1/sessions' => Http::response(['session_id' => 'fresh', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+    ]);
+
+    $user = spvUserWithMfa();
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($user, $subject);
+    $connection = spvConnectionFor($subject);
+    spvSessionIn($connection, SpvSessionState::AUTHENTICATED, 'stale', now('UTC')->subMinute());
+
+    expect(app(InitiateSpvAuthAttempt::class)($user, $connection->id)->browser_session_ref)->toBe('fresh');
+});
+
+it('closes a sign-in left unfinished before starting the next, so its browser is not left open', function (string $state): void {
+    // The tab closed after the first step: its browser is still open on the worker until the worker's TTL.
+    Http::fake([
+        '*/v1/sessions/abandoned' => Http::response([], 204),
+        '*/v1/sessions' => Http::response(['session_id' => 'fresh', 'expires_at' => now('UTC')->addMinutes(15)->toIso8601String()], 201),
+    ]);
+
+    $user = spvUserWithMfa();
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($user, $subject);
+    $connection = spvConnectionFor($subject);
+    $abandoned = spvSessionIn($connection, SpvSessionState::from($state), 'abandoned');
+
+    $fresh = app(InitiateSpvAuthAttempt::class)($user, $connection->id);
+
+    expect($fresh->browser_session_ref)->toBe('fresh')
+        ->and($abandoned->fresh()?->state)->toBe(SpvSessionState::DESTROYED);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && str_ends_with($request->url(), '/v1/sessions/abandoned'));
+})->with(['CREATED', 'AWAITING_USER_CHALLENGE']);
+
+it('reports a worker at capacity as busy, not as unreachable', function (): void {
+    // It used to arrive as "the browser worker is not reachable", which sent a person looking for a
+    // network fault while the worker was answering perfectly.
+    Http::fake(['*/v1/sessions' => Http::response(['error' => 'at_capacity'], 503)]);
+
+    $user = spvUserWithMfa();
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($user, $subject);
+    $connection = spvConnectionFor($subject);
+
+    expect(fn () => app(InitiateSpvAuthAttempt::class)($user, $connection->id))
+        ->toThrow(SpvWorkerAtCapacityException::class);
 });

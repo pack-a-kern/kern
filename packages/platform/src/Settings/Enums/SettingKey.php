@@ -137,7 +137,6 @@ enum SettingKey: string
 
     // Display-only. See isReadOnly().
     case FX_DECIMAL_SCALE = 'fx.decimal_scale';
-    case CRYPTO_BLIND_INDEX_VERSION = 'crypto.blind_index_current_version';
     case CRYPTO_KMS_DRIVER = 'crypto.kms_driver';
     case SECURITY_HASH_DRIVER = 'security.hash_driver';
 
@@ -153,13 +152,24 @@ enum SettingKey: string
     }
 
     /**
+     * The provider's address and its key: written together or not at all, and only by
+     * `ReplaceAiConnectionController`.
+     *
+     * A key is only ever sent to the address it was saved with. When the two could be changed apart,
+     * a new address with the key left as it was sent the stored key wherever that address pointed —
+     * so the general settings update refuses both, as it refuses a read-only key.
+     */
+    public function isSetOnlyWithItsPair(): bool
+    {
+        return in_array($this, [self::AI_BASE_URL, self::AI_API_KEY], true);
+    }
+
+    /**
      * Values that cannot be changed safely once data exists, and are therefore refused by the
      * **server**, not merely disabled in the UI. A disabled input is a hint; a rejected write is a
      * control.
      *
      * Each would silently corrupt existing data rather than fail loudly:
-     *  - blind-index version: every stored index was computed with the current key, so changing it
-     *    breaks login-by-email and duplicate-CNP detection — as "no such record", not an error.
      *  - FX decimal scale: 17 763 rates are already stored at the current scale.
      *  - KMS driver / hash driver: existing ciphertexts and password hashes were produced by the
      *    current one and cannot be read or verified by another.
@@ -168,7 +178,6 @@ enum SettingKey: string
     {
         return in_array($this, [
             self::FX_DECIMAL_SCALE,
-            self::CRYPTO_BLIND_INDEX_VERSION,
             self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER,
         ], true);
@@ -206,7 +215,6 @@ enum SettingKey: string
             self::IDENTITY_REGISTRATION_ENABLED, self::IDENTITY_EMAIL_VERIFICATION_REQUIRED,
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
             self::SECURITY_SESSION_LIFETIME_MINUTES, self::SECURITY_STEP_UP_WINDOW_SECONDS,
-            self::CRYPTO_BLIND_INDEX_VERSION,
             self::CRYPTO_KMS_DRIVER, self::SECURITY_HASH_DRIVER => SettingGroup::SECURITY,
         };
     }
@@ -215,11 +223,11 @@ enum SettingKey: string
     public function configPath(): string
     {
         return match ($this) {
-            self::AI_ENABLED => 'ai.providers.env_fallback.enabled',
-            self::AI_PROVIDER => 'ai.providers.env_fallback.provider',
-            self::AI_BASE_URL => 'ai.providers.env_fallback.base_url',
-            self::AI_MODEL => 'ai.providers.env_fallback.model',
-            self::AI_API_KEY => 'ai.providers.env_fallback.api_key',
+            self::AI_ENABLED => 'ai.providers.defaults.enabled',
+            self::AI_PROVIDER => 'ai.providers.defaults.provider',
+            self::AI_BASE_URL => 'ai.providers.defaults.base_url',
+            self::AI_MODEL => 'ai.providers.defaults.model',
+            self::AI_API_KEY => 'ai.providers.defaults.api_key',
             self::AI_EXTRACTION_MAX_TOKENS => 'ai.documents.max_tokens',
             self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai.documents.timeout_seconds',
             self::AI_SUPPORTS_ENHANCEMENT => 'ai.providers.supports_enhancement',
@@ -251,7 +259,6 @@ enum SettingKey: string
             self::SECURITY_WEBAUTHN_TIMEOUT_MS => 'webauthn.timeout_ms',
             self::SECURITY_SESSION_LIFETIME_MINUTES => 'session.lifetime',
             self::SECURITY_STEP_UP_WINDOW_SECONDS => 'identity.step_up.window_seconds',
-            self::CRYPTO_BLIND_INDEX_VERSION => 'crypto.blind_index.current_version',
             self::CRYPTO_KMS_DRIVER => 'crypto.kms.driver',
             self::SECURITY_HASH_DRIVER => 'hashing.driver',
         };

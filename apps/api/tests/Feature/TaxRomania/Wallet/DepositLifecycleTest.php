@@ -44,8 +44,6 @@ beforeEach(function (): void {
  * date would make this file pass until that day and fail from then on.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

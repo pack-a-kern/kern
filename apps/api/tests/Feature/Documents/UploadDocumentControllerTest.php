@@ -31,8 +31,6 @@ use Tests\Fakes\UnwritableDisk;
  * end through real HTTP, real Eloquent, and a fake (but real-`Filesystem`-backed) quarantine disk.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

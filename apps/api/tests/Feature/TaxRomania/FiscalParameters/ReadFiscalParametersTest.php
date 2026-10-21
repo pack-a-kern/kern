@@ -167,10 +167,10 @@ function decisions(): void
 function usingReader(): void
 {
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'custom',
-        'ai.providers.env_fallback.base_url' => 'https://ai.test',
-        'ai.providers.env_fallback.model' => 'reader-1',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'custom',
+        'ai.providers.defaults.base_url' => 'https://ai.test',
+        'ai.providers.defaults.model' => 'reader-1',
         'ai.legislation.reader' => 'reader-1',
         'ai.legislation.from_year' => 2023,
     ]);
@@ -466,7 +466,6 @@ it('takes a number from the points under the paragraph named, and one the law wr
 
 it('reads a rule where it was approved, so a year whose paragraph no longer says it proposes nothing', function (): void {
     $this->travelTo('2024-06-01');
-    bootstrapIdentityCryptoForTests();
     $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2024-01-01');
     heading($version, 'Titlul IV Capitolul IV', [
         // The paragraph the rule rested on, rewritten: it no longer sets a quota of expenses.

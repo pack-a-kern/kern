@@ -40,7 +40,15 @@ return [
             'path' => env('REVERB_SERVER_PATH', ''),
             'hostname' => env('REVERB_HOST'),
             'options' => [
-                'tls' => [],
+                // TLS with the certificate docker/certs issues the `reverb` container, which compose
+                // names; unset, plain. Clients are not asked for a certificate of their own
+                // (`verify_peer` on a server means exactly that): the edge and the publishers are
+                // identified by the app key and secret, not by a certificate.
+                'tls' => [
+                    'local_cert' => env('REVERB_TLS_CERT'),
+                    'local_pk' => env('REVERB_TLS_KEY'),
+                    'verify_peer' => false,
+                ],
             ],
             'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
             'scaling' => [

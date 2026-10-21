@@ -14,10 +14,4 @@ enum StatementFormat: string
     case XLSX = 'XLSX';
     case XLS = 'XLS';
     case PDF = 'PDF';
-
-    /** A workbook is the only kind with sheets to choose between. */
-    public function hasSheets(): bool
-    {
-        return $this === self::XLSX || $this === self::XLS;
-    }
 }

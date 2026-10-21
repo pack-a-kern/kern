@@ -45,6 +45,17 @@ final class KeyManagementException extends RuntimeException
         ));
     }
 
+    /**
+     * The token file this installation is configured to read is missing or empty.
+     *
+     * Its own case because nothing about the request is wrong: the key manager has not published a
+     * token yet, or the volume it publishes to is not mounted here. Never carries the path's contents.
+     */
+    public static function tokenUnavailable(string $operation): self
+    {
+        return new self(sprintf('KMS token file is missing or empty: operation="%s"', $operation));
+    }
+
     public static function unreachable(string $operation): self
     {
         return new self(sprintf('KMS transit endpoint unreachable: operation="%s"', $operation));

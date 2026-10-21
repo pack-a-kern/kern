@@ -22,6 +22,7 @@ choosing a decimal separator, and that choice belongs to the column matching a p
 import collections
 import csv
 import io
+import itertools
 import re
 import zipfile
 from dataclasses import dataclass, field
@@ -183,7 +184,10 @@ def _read_csv(content: bytes, settings: StatementParseSettings) -> ParsedStateme
         delimiter = max(_DELIMITERS, key=first.count)
 
     rows = [
-        [cell.strip() for cell in row] for row in csv.reader(io.StringIO(text), delimiter=delimiter)
+        [cell.strip() for cell in row]
+        for row in itertools.islice(
+            csv.reader(io.StringIO(text), delimiter=delimiter), _row_ceiling(settings)
+        )
     ]
 
     return _assemble("CSV", rows, settings)
@@ -193,6 +197,8 @@ def _read_xlsx(
     content: bytes, sheet: str | None, settings: StatementParseSettings
 ) -> ParsedStatement:
     import openpyxl
+
+    _refuse_if_it_unpacks_too_far(content, settings)
 
     try:
         # `read_only` streams rather than building the whole sheet; `data_only` takes the value a
@@ -213,7 +219,10 @@ def _read_xlsx(
 
         rows = [
             _trim_trailing_empties([_cell_text(value) for value in row])
-            for row in worksheet.iter_rows(values_only=True, max_col=settings.max_columns)
+            # Bounded at the source, like the other readers, rather than read whole and counted.
+            for row in worksheet.iter_rows(
+                values_only=True, max_row=_row_ceiling(settings), max_col=settings.max_columns
+            )
         ]
     finally:
         workbook.close()
@@ -254,7 +263,7 @@ def _read_xls(
 
     rows: list[list[str]] = []
 
-    for index in range(worksheet.nrows):
+    for index in range(min(worksheet.nrows, _row_ceiling(settings))):
         values = worksheet.row_values(index, end_colx=settings.max_columns)
         types = worksheet.row_types(index, end_colx=settings.max_columns)
         row: list[str] = []
@@ -378,6 +387,33 @@ def _read_pdf(content: bytes, settings: StatementParseSettings) -> ParsedStateme
         warnings=sorted(set(parsed.warnings + warnings)),
         labels_by_amount_column=parsed.labels_by_amount_column,
     )
+
+
+def _refuse_if_it_unpacks_too_far(content: bytes, settings: StatementParseSettings) -> None:
+    """Refuses a workbook whose zip index says it unpacks past the ceiling, before opening it.
+
+    Needed even with the row limit: `openpyxl.load_workbook` itself, in read-only mode, spent nine
+    seconds and some 400 MB on a 48 KB workbook whose sheet was five million empty rows — before a
+    single row was asked for. The index can lie, but `zipfile` never reads past the size it
+    declares, so a lying entry arrives truncated and fails to parse rather than unpacking further.
+    """
+    try:
+        unpacked = sum(entry.file_size for entry in zipfile.ZipFile(io.BytesIO(content)).infolist())
+    except zipfile.BadZipFile as exc:
+        raise UnsupportedFormatError("The workbook could not be opened.") from exc
+
+    if unpacked > settings.max_unpacked_bytes:
+        raise FileTooLargeError("The file is too large to read.")
+
+
+def _row_ceiling(settings: StatementParseSettings) -> int:
+    """How many rows a reader takes before it stops: one past the limit.
+
+    One past, so `_assemble` still sees that there were too many and refuses the file as it always
+    did — but having read only that far. Reading every row first and counting afterwards is how a
+    sheet of millions of empty rows filled the memory before the limit was ever checked.
+    """
+    return settings.max_rows + 1
 
 
 def _trim_trailing_empties(row: list[str]) -> list[str]:

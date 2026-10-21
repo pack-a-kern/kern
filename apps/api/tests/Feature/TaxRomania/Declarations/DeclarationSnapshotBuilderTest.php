@@ -20,7 +20,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('produces an identical hash for the same content regardless of totals key order', function (): void {

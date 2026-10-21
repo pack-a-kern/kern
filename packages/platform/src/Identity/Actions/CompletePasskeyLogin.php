@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Identity\Actions;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Support\Webauthn\Exceptions\PasskeyVerificationException;
 use Kern\Platform\Identity\Support\Webauthn\PasskeyManager;
+use Kern\Platform\Security\RecordSecurityEvent;
+use Kern\Platform\Security\SecurityEventType;
 use Throwable;
 
 /**
@@ -24,6 +24,7 @@ final readonly class CompletePasskeyLogin
     public function __construct(
         private AuditChainService $audit,
         private PasskeyManager $passkeys,
+        private RecordSecurityEvent $securityLog,
     ) {
     }
 
@@ -56,14 +57,6 @@ final readonly class CompletePasskeyLogin
 
     private function recordFailure(): void
     {
-        DB::table('security_events')->insert([
-            'id' => (string) Str::ulid(),
-            'event_type' => 'LOGIN_FAILED',
-            'user_id' => null,
-            'subject_id' => null,
-            'context_json' => json_encode(['method' => 'passkey'], JSON_THROW_ON_ERROR),
-            'occurred_at' => now('UTC'),
-            'created_at' => now('UTC'),
-        ]);
+        ($this->securityLog)(SecurityEventType::LOGIN_FAILED, null, null, ['method' => 'passkey']);
     }
 }

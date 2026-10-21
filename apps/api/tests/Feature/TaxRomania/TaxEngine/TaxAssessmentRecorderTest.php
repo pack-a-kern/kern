@@ -2,11 +2,7 @@
 
 declare(strict_types=1);
 
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantScope;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -20,12 +16,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Services\TaxAssessmentRecorder;
 use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
 use Kern\TaxRomania\TaxRules\TaxRuleVersion;
-
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    $provider = new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR), 1);
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 it('persists a computed assessment result as tax_assessments + tax_assessment_lines rows', function (): void {
     $subject = TaxSubject::factory()->create();

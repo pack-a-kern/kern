@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Kern\Platform\Http\Controllers\Auth\Concerns\EstablishesAuthenticatedSession;
 use Kern\Platform\Identity\Actions\AttemptPasswordLogin;
 use Kern\Platform\Identity\Exceptions\InvalidCredentialsException;
+use Kern\Platform\Identity\Support\PendingMfaLogin;
 use Kern\Platform\Identity\Support\SessionRegistrar;
 
 /**
@@ -26,8 +27,6 @@ use Kern\Platform\Identity\Support\SessionRegistrar;
 final class LoginController
 {
     use EstablishesAuthenticatedSession;
-
-    private const string PENDING_MFA_SESSION_KEY = 'auth.mfa_pending';
 
     public function __invoke(
         Request $request,
@@ -46,7 +45,7 @@ final class LoginController
         }
 
         if ($result->mfaRequired) {
-            $request->session()->put(self::PENDING_MFA_SESSION_KEY, [
+            $request->session()->put(PendingMfaLogin::SESSION_KEY, [
                 'user_id' => $result->user->id,
                 'expires_at' => now('UTC')->addSeconds(config()->integer('identity.mfa.pending_ttl_seconds'))->timestamp,
             ]);

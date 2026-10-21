@@ -149,7 +149,7 @@ never receive Laravel DB credentials. No container receives `/var/run/docker.soc
 ## 7. See also
 
 - `docs/adr/0001-modular-monolith.md` — why modules, not services; why Python is separate anyway.
-- `docs/adr/0002-envelope-encryption.md` — per-subject DEK + global blind-index key.
+- `docs/adr/0002-envelope-encryption.md` — per-subject DEK + global blind-index key; `0020` moves the latter into the KMS.
 - `docs/adr/0003-playwright-for-spv-pf.md` — API-first, Playwright only where no API exists.
 - `docs/adr/0004-tax-engine-deterministic.md` — why `TaxEngine` is the sole source of figures.
 - `docs/adr/0005-external-document-ai.md` — local text-layer first, external OCR gated.

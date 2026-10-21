@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Settings\Services;
 
+use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Settings\DataTransferObjects\AiProviderPublicView;
-use Kern\Platform\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Repositories\SettingsRepository;
 
 /**
- * The application service behind the `/api/v1/settings/ai` HTTP surface: reads the current
- * (redacted) configuration, applies an update, and clears the stored API key — each write
- * recording exactly one tamper-evident audit event (`BLUEPRINT.md` §4.8) naming *who* changed
+ * The application service behind `PUT /api/v1/settings/ai/connection`: replaces the provider's
+ * address and key together — each write recording exactly one tamper-evident audit event (`BLUEPRINT.md` §4.8) naming *who* changed
  * *what*, **never the value of the secret itself** (`BLUEPRINT.md` §4.10 — only whether the key
  * changed, never its bytes, not even hashed into the audit payload).
  *
@@ -56,49 +55,37 @@ final readonly class AiProviderSettingsService
         );
     }
 
-    public function update(UpdateAiProviderSettingsInput $input, string $actorUserId): AiProviderPublicView
+    /**
+     * The provider's address and its key, replaced together — the only way either changes.
+     *
+     * A null key is "this provider takes none", stored as no key: there is no other source it could
+     * fall back to any more (`config/ai/providers.php` `defaults`). Never the old key: an address the
+     * key was not saved with is exactly where it must not go.
+     */
+    public function replaceConnection(string $baseUrl, ?string $apiKey, string $actorUserId): AiProviderPublicView
     {
-        $this->settings->set(SettingKey::AI_ENABLED, $input->enabled ? 'true' : 'false', $actorUserId);
-        $this->settings->set(SettingKey::AI_PROVIDER, $input->provider, $actorUserId);
-        $this->settings->set(SettingKey::AI_BASE_URL, $input->baseUrl, $actorUserId);
-        $this->settings->set(SettingKey::AI_MODEL, $input->model, $actorUserId);
+        DB::transaction(function () use ($baseUrl, $apiKey, $actorUserId): void {
+            $this->settings->set(SettingKey::AI_BASE_URL, $baseUrl, $actorUserId);
 
-        $apiKeyChanged = $input->apiKey !== null;
+            if ($apiKey === null) {
+                $this->settings->clear(SettingKey::AI_API_KEY, $actorUserId);
+            } else {
+                $this->settings->set(SettingKey::AI_API_KEY, $apiKey, $actorUserId);
+            }
 
-        if ($apiKeyChanged) {
-            $this->settings->set(SettingKey::AI_API_KEY, $input->apiKey, $actorUserId);
-        }
-
-        $this->audit->record(AuditEventInput::occurringNow(
-            subjectId: null,
-            actorId: $actorUserId,
-            eventType: 'AiProviderSettingsUpdated',
-            resourceType: 'Setting',
-            resourceId: 'ai',
-            payloadHash: $this->audit->hashPayload([
-                'enabled' => $input->enabled,
-                'provider' => $input->provider,
-                'base_url' => $input->baseUrl,
-                'model' => $input->model,
-                'api_key_changed' => $apiKeyChanged,
-            ]),
-        ));
-
-        return $this->currentView();
-    }
-
-    public function clearApiKey(string $actorUserId): AiProviderPublicView
-    {
-        $this->settings->clear(SettingKey::AI_API_KEY, $actorUserId);
-
-        $this->audit->record(AuditEventInput::occurringNow(
-            subjectId: null,
-            actorId: $actorUserId,
-            eventType: 'AiApiKeySettingCleared',
-            resourceType: 'Setting',
-            resourceId: 'ai',
-            payloadHash: $this->audit->hashPayload(['cleared' => true]),
-        ));
+            // Whether a key was set, never the key — not even hashed (BLUEPRINT.md §4.10).
+            $this->audit->record(AuditEventInput::occurringNow(
+                subjectId: null,
+                actorId: $actorUserId,
+                eventType: 'AiProviderConnectionReplaced',
+                resourceType: 'Setting',
+                resourceId: 'ai',
+                payloadHash: $this->audit->hashPayload([
+                    'base_url' => $baseUrl,
+                    'api_key_set' => $apiKey !== null,
+                ]),
+            ));
+        });
 
         return $this->currentView();
     }

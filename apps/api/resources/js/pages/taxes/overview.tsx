@@ -35,6 +35,7 @@ import { formatAmount, formatCompact, formatDateTime, formatPercent } from '../.
 import { apiRequest, apiRequestBinary } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { themeColor } from '../../lib/themeColor';
+import { obj, str } from '../../lib/json';
 
 /**
  * One line of a draft assessment: a figure and the reasoning behind it.
@@ -134,14 +135,6 @@ function grouped(assessment: Assessment): Group[] {
         }));
 }
 
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    return typeof row[key] === 'string' ? row[key] : '';
-}
-
 function int(row: Record<string, unknown>, key: string): number {
     return typeof row[key] === 'number' ? row[key] : 0;
 }
@@ -176,9 +169,10 @@ function parse(payload: unknown): Assessment {
                 taxMinor: int(row, 'tax_minor'),
                 explanationKey: str(row, 'explanation_key'),
                 incomeMinor: typeof row.income_minor === 'number' ? row.income_minor : null,
-                baseReached: typeof row.base_reached === 'object' && row.base_reached !== null
-                    ? (row.base_reached as Record<string, string>)
-                    : null,
+                baseReached:
+                    typeof row.base_reached === 'object' && row.base_reached !== null
+                        ? (row.base_reached as Record<string, string>)
+                        : null,
             };
         }),
     };
@@ -337,7 +331,6 @@ export default function TaxesOverview(): JSX.Element {
 
     const composition = compositionOf(assessment);
 
-
     /*
      * The assessment already on file for this year.
      *
@@ -428,10 +421,10 @@ export default function TaxesOverview(): JSX.Element {
 
         try {
             // `apiRequest` already carries the step-up retry; wrapping it again would ask twice.
-            const text = await apiRequest(
-                `/v1/subjects/${encodeURIComponent(subjectId)}/tax/assessments${path}`,
-                { method: 'POST', body: { fiscal_year: Number(year) } },
-            );
+            const text = await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/tax/assessments${path}`, {
+                method: 'POST',
+                body: { fiscal_year: Number(year) },
+            });
 
             setLoaded({ year, assessment: parse(JSON.parse(text)), years: loaded?.years ?? [] });
         } catch (cause: unknown) {
@@ -577,8 +570,7 @@ export default function TaxesOverview(): JSX.Element {
                                 <DropdownMenuContent align="end" className="w-52">
                                     <DropdownMenuItem
                                         disabled={
-                                            working || loading || subjectId === null ||
-                                            assessment?.status === 'FINAL'
+                                            working || loading || subjectId === null || assessment?.status === 'FINAL'
                                         }
                                         onSelect={() => {
                                             void assess();
@@ -660,11 +652,7 @@ export default function TaxesOverview(): JSX.Element {
                                     <TooltipTrigger asChild>
                                         <div
                                             className="stat-value-lead mt-4 w-fit cursor-default"
-                                            aria-label={formatAmount(
-                                                totalOwedMinor(assessment) / 100,
-                                                'RON',
-                                                locale,
-                                            )}
+                                            aria-label={formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
                                         >
                                             {formatCompact(totalOwedMinor(assessment) / 100, locale)} RON
                                         </div>
@@ -747,7 +735,6 @@ export default function TaxesOverview(): JSX.Element {
                                           ? t((d) => d.pages.taxes.draftHint)
                                           : t((d) => d.pages.taxes.yearStillOpen).replace('{year}', year)}
                                 </p>
-
                             </section>
                         </div>
 
@@ -792,13 +779,11 @@ export default function TaxesOverview(): JSX.Element {
                                                 >
                                                     {taxIcon(group.taxCode)}
                                                 </span>
-                                                <h3 className="text-xs font-semibold">
-                                                    {taxName(group.taxCode, t)}
-                                                </h3>
+                                                <h3 className="text-xs font-semibold">{taxName(group.taxCode, t)}</h3>
                                                 <span className="money-badge" style={taxBadgeStyle(group.taxCode)}>
                                                     {formatAmount(group.totalMinor / 100, 'RON', locale)}
                                                 </span>
-                                                </div>
+                                            </div>
 
                                             {group.components.map((line) => (
                                                 <div
@@ -806,9 +791,7 @@ export default function TaxesOverview(): JSX.Element {
                                                     key={`${line.taxCode}-${line.categoryCode}`}
                                                 >
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-semibold">
-                                                            {line.categoryCode}
-                                                        </p>
+                                                        <p className="text-xs font-semibold">{line.categoryCode}</p>
 
                                                         {/* The rule's own words for what it concluded. A figure
                                                             arriving with its reasoning is the point of this
@@ -872,9 +855,8 @@ export default function TaxesOverview(): JSX.Element {
                                                                     line.baseReached.deducted_minor === undefined
                                                                         ? (line.baseReached.deducted ?? '')
                                                                         : formatAmount(
-                                                                              Number(
-                                                                                  line.baseReached.deducted_minor,
-                                                                              ) / 100,
+                                                                              Number(line.baseReached.deducted_minor) /
+                                                                                  100,
                                                                               'RON',
                                                                               locale,
                                                                           ),
@@ -909,69 +891,64 @@ export default function TaxesOverview(): JSX.Element {
                                     title={t((d) => d.pages.taxes.composition)}
                                     icon={<ChartPie className="size-4" />}
                                 >
-                                        {/*
+                                    {/*
                                             A ring, with every slice named beside it. Three parts of one sum
                                             is what a ring is for, and the hole carries the figure the slices
                                             are shares of — which is why the total is not repeated in the list.
                                         */}
-                                        <div className="flex items-center gap-4">
-                                            <div className="chart-donut-mid">
-                                                <Chart
-                                                    config={compositionConfig}
-                                                    label={t((d) => d.pages.taxes.composition)}
-                                                />
-                                                <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                                                    <div>
-                                                        {/* Context, not an amount to act on, and the hole is
+                                    <div className="flex items-center gap-4">
+                                        <div className="chart-donut-mid">
+                                            <Chart
+                                                config={compositionConfig}
+                                                label={t((d) => d.pages.taxes.composition)}
+                                            />
+                                            <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                                                <div>
+                                                    {/* Context, not an amount to act on, and the hole is
                                                             95px — so it may be shortened, with the exact
                                                             figure a hover away. */}
-                                                        <p className="text-sm font-semibold tabular-nums">
-                                                            {formatCompact(totalOwedMinor(assessment) / 100, locale)}
-                                                        </p>
-                                                        <p className="note donut-note">RON</p>
-                                                    </div>
+                                                    <p className="text-sm font-semibold tabular-nums">
+                                                        {formatCompact(totalOwedMinor(assessment) / 100, locale)}
+                                                    </p>
+                                                    <p className="note donut-note">RON</p>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            <dl className="grid min-w-0 flex-1 gap-3">
-                                                {composition.map((slice) => (
-                                                    <div className="min-w-0" key={slice.taxCode}>
-                                                        <dt className="flex items-center gap-2 text-xs">
-                                                            <span
-                                                                className="size-2.5 shrink-0 rounded-full"
-                                                                style={{ background: sliceTint(slice.taxCode) }}
-                                                            />
-                                                            <span className="truncate">
-                                                                {taxName(slice.taxCode, t)}
-                                                            </span>
-                                                            <span className="text-muted-foreground ml-auto tabular-nums">
-                                                                {formatPercent(
-                                                                    shareOf(slice.minor, assessment),
+                                        <dl className="grid min-w-0 flex-1 gap-3">
+                                            {composition.map((slice) => (
+                                                <div className="min-w-0" key={slice.taxCode}>
+                                                    <dt className="flex items-center gap-2 text-xs">
+                                                        <span
+                                                            className="size-2.5 shrink-0 rounded-full"
+                                                            style={{ background: sliceTint(slice.taxCode) }}
+                                                        />
+                                                        <span className="truncate">{taxName(slice.taxCode, t)}</span>
+                                                        <span className="text-muted-foreground ml-auto tabular-nums">
+                                                            {formatPercent(shareOf(slice.minor, assessment), locale)}
+                                                        </span>
+                                                    </dt>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <dd
+                                                                className="mt-0.5 w-fit cursor-default text-sm font-semibold tabular-nums"
+                                                                aria-label={formatAmount(
+                                                                    slice.minor / 100,
+                                                                    'RON',
                                                                     locale,
                                                                 )}
-                                                            </span>
-                                                        </dt>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <dd
-                                                                    className="mt-0.5 w-fit cursor-default text-sm font-semibold tabular-nums"
-                                                                    aria-label={formatAmount(
-                                                                        slice.minor / 100,
-                                                                        'RON',
-                                                                        locale,
-                                                                    )}
-                                                                >
-                                                                    {formatCompact(slice.minor / 100, locale)} RON
-                                                                </dd>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side="left">
-                                                                {formatAmount(slice.minor / 100, 'RON', locale)}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </div>
-                                                ))}
-                                            </dl>
-                                        </div>
+                                                            >
+                                                                {formatCompact(slice.minor / 100, locale)} RON
+                                                            </dd>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left">
+                                                            {formatAmount(slice.minor / 100, 'RON', locale)}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    </div>
                                 </Panel>
 
                                 {/* What a figure here does not yet account for. Each is a heading and the

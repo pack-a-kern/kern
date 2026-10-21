@@ -32,7 +32,6 @@ use Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('attaches a full FX provenance chain to a non-RON deposit\'s interest event', function (): void {

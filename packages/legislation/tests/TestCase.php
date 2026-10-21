@@ -36,6 +36,12 @@ abstract class TestCase extends Testbench
 
     protected function defineEnvironment($app): void
     {
+        // In memory, never the stack's Redis: these tests run inside the app container, whose
+        // CACHE_STORE, SESSION_DRIVER and QUEUE_CONNECTION name it, and this skeleton's Redis
+        // configuration knows nothing of its TLS.
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('session.driver', 'array');
+        $app['config']->set('queue.default', 'sync');
         $app['config']->set('database.default', 'pgsql');
         $app['config']->set('database.connections.pgsql', [
             'driver' => 'pgsql',

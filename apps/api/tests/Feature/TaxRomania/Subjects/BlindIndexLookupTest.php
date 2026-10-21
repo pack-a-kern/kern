@@ -6,10 +6,7 @@ namespace Tests\Feature\TaxRomania\Subjects\BlindIndexLookupTest;
 
 use Illuminate\Support\Facades\Artisan;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Database\Factories\TaxSubjectFactory;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -32,13 +29,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
 });
 
 it('finds a user by email despite case and surrounding-whitespace differences', function (): void {

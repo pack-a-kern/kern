@@ -6,7 +6,6 @@ namespace Kern\TaxRomania\Subjects\Queries;
 
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
@@ -42,11 +41,7 @@ final readonly class FindSubjectByCnp
             return ['registered' => false, 'mine' => false, 'subjectId' => null];
         }
 
-        $mine = SubjectMembership::query()
-            ->where('subject_id', $subject->id)
-            ->where('user_id', $userId)
-            ->whereNull('revoked_at')
-            ->exists();
+        $mine = SubjectMembership::opens($userId, $subject->id);
 
         return [
             'registered' => true,
@@ -54,16 +49,5 @@ final readonly class FindSubjectByCnp
             // Only ever handed back for a taxpayer the caller already holds — it is their own id.
             'subjectId' => $mine ? $subject->id : null,
         ];
-    }
-
-    /** True when the caller owns it, rather than merely having been given access. */
-    public function ownedBy(string $subjectId, string $userId): bool
-    {
-        return SubjectMembership::query()
-            ->where('subject_id', $subjectId)
-            ->where('user_id', $userId)
-            ->where('role', MembershipRole::OWNER->value)
-            ->whereNull('revoked_at')
-            ->exists();
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Settings\Enums\SettingType;
 
 /**
@@ -76,7 +77,7 @@ final readonly class CurrencyCatalogue
             return $this->enabled();
         }
 
-        $all = array_values(array_unique([SettingType::BASE_CURRENCY, ...$codes]));
+        $all = array_values(array_unique([CurrencyCode::BASE, ...$codes]));
         sort($all);
 
         return $all;

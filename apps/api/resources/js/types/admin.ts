@@ -1,3 +1,11 @@
+import { nullableStr, num, str } from '../lib/json';
+
+/**
+ * The platform role that may hand out roles, impersonate and erase — `SuperAdministratorRole::NAME` on
+ * the server. Named once here, so the screen and the rules it mirrors cannot spell it two ways.
+ */
+export const SUPER_ADMIN_ROLE = 'SUPER_ADMIN';
+
 /** Shapes returned by `GET /api/v1/admin/users`. */
 export interface AdminUser {
     id: string;
@@ -35,24 +43,6 @@ export interface AdminDirectory {
      * screen must say so rather than imply the roles are doing work.
      */
     enforcement: { rolesEnforced: boolean; settingsAdmins: number };
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : 0;
 }
 
 export function parseAdminDirectory(payload: unknown): AdminDirectory {

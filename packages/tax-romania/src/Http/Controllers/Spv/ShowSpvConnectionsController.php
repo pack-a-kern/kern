@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Http\Controllers\Spv;
 
 use Illuminate\Http\JsonResponse;
-use Kern\TaxRomania\Spv\Enums\SpvSessionState;
 use Kern\TaxRomania\Spv\Models\SpvConnection;
 use Kern\TaxRomania\Spv\Models\SpvSession;
 use Kern\TaxRomania\Spv\Models\SpvSyncRun;
@@ -32,22 +31,12 @@ final class ShowSpvConnectionsController
 
         // The newest run per connection, for "last checked" beside each. One query for the page
         // rather than one per row: a taxpayer has a handful of connections and this is a listing.
-        /*
-         * The signed-in browser per connection, if there is one.
-         *
-         * `expires_at` filters here rather than on the client: the worker drops a session at its own TTL
-         * and tells nobody, so a row still saying AUTHENTICATED can describe a browser that is gone.
-         * A screen comparing timestamps itself would be right only until the tab was left open.
-         */
+        // The signed-in browser per connection, if there is one — decided here, not by a screen
+        // comparing timestamps, which would be right only until the tab was left open.
         $liveSessions = [];
 
         /** @var SpvSession $session */
-        foreach (SpvSession::query()
-            ->where('state', SpvSessionState::AUTHENTICATED)
-            ->whereNull('destroyed_at')
-            ->where('expires_at', '>', now('UTC'))
-            ->orderByDesc('created_at')
-            ->get() as $session) {
+        foreach (SpvSession::query()->live()->get() as $session) {
             $liveSessions[$session->connection_id] ??= $session;
         }
 

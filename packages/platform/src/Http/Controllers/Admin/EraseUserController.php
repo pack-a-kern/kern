@@ -6,6 +6,7 @@ namespace Kern\Platform\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Actions\EraseUser;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
@@ -26,11 +27,11 @@ final class EraseUserController
     {
         $administrator = $request->user();
         abort_unless($administrator !== null, 401);
-        abort_unless($administrator->hasRole('SUPER_ADMIN'), 403);
+        abort_unless(SuperAdministratorRole::isHeldBy($administrator), 403);
 
         $target = User::query()->findOrFail($user);
         abort_if($target->id === $administrator->id, 422, 'You cannot erase your own account.');
-        abort_if($target->hasRole('SUPER_ADMIN'), 403, 'A super administrator cannot be erased.');
+        abort_if(SuperAdministratorRole::isHeldBy($target), 403, 'A super administrator cannot be erased.');
         // Already a tombstone; erasing it again would write a second event about nothing.
         abort_if($target->status === UserStatus::DELETED, 422, 'This account has already been erased.');
 

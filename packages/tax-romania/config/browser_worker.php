@@ -23,6 +23,12 @@ return [
     'url' => env('BROWSER_WORKER_URL'),
 
     /*
+     * The CA its certificate is checked against, when that is a private one — the stack's own for the
+     * bundled worker, which compose sets. Empty, the system's (Kern\Platform\Http\CertificateAuthority).
+     */
+    'ca_cert' => env('BROWSER_WORKER_CA_CERT'),
+
+    /*
      * How long this installation waits on a single worker call.
      *
      * It has to outlast the slowest thing a playbook can ask for, or the application gives up on a run

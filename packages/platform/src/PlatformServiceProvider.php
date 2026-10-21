@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace Kern\Platform;
 
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\Console\Commands\Database\GrantApplicationRoleCommand;
+use Kern\Platform\Console\Commands\Database\UpdateExtensionsCommand;
 use Kern\Platform\Console\Commands\Environment\BuildEnvironmentFileCommand;
 use Kern\Platform\Console\Commands\KeyManagement\ReindexBlindIndexesCommand;
 use Kern\Platform\Console\Commands\KeyManagement\RewrapDeksCommand;
 use Kern\Platform\Console\Commands\KeyManagement\RotateKekCommand;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use Kern\Platform\Crypto\BlindIndex\Contracts\BlindIndexKeyProvider;
 use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
@@ -50,17 +48,6 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->register(KeyManagementServiceProvider::class);
         $this->app->register(SettingsServiceProvider::class);
         $this->app->register(IdentityServiceProvider::class);
-
-        $this->app->singleton(BlindIndexKeyProvider::class, static function (Application $app): BlindIndexKeyProvider {
-            $config = $app->make(ConfigRepository::class);
-            $keysJson = $config->get('crypto.blind_index.keys');
-            $currentVersion = $config->get('crypto.blind_index.current_version');
-
-            return new ConfigBlindIndexKeyProvider(
-                is_string($keysJson) ? $keysJson : '',
-                is_int($currentVersion) ? $currentVersion : 0,
-            );
-        });
 
         $this->app->singleton(BlindIndexHasher::class);
 
@@ -98,6 +85,8 @@ final class PlatformServiceProvider extends ServiceProvider
                 ReindexBlindIndexesCommand::class,
                 RotateKekCommand::class,
                 RewrapDeksCommand::class,
+                GrantApplicationRoleCommand::class,
+                UpdateExtensionsCommand::class,
             ]);
         }
 

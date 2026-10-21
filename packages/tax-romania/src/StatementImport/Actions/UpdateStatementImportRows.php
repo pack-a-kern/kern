@@ -9,7 +9,6 @@ use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
 use Kern\TaxRomania\StatementImport\Exceptions\ImportNotOpenException;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
-use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
@@ -111,11 +110,5 @@ final readonly class UpdateStatementImportRows
         });
 
         return $changed;
-    }
-
-    /** The direction of a staged row's money, for a screen filtering the categories it offers. */
-    public static function directionOf(StatementImportRow $row): ?MoneyDirection
-    {
-        return $row->amount_minor === null ? null : MoneyDirection::ofAmount($row->amount_minor);
     }
 }

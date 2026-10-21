@@ -7,11 +7,7 @@ namespace Tests\Feature\TaxRomania\Subjects\RegisterPfSubjectTest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\Services\ChainVerifier;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
@@ -21,13 +17,6 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
 });
 
 function registrationInput(string $userId, string $cnp = '1900101221144'): RegisterPfSubjectInput

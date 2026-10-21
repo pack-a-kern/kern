@@ -63,6 +63,7 @@ import {
     type DocumentType,
     documentTypeLabel,
 } from '../../types/documents';
+import { statusToneClass } from '../../components/panel/statusTone';
 
 /**
  * Every document this tax subject owns.
@@ -850,13 +851,4 @@ function stageTone(stage: DocumentStage): StatusTone {
         DONE: 'ok',
         REJECTED: 'bad',
     }[stage] as StatusTone;
-}
-
-function statusToneClass(tone: StatusTone): string {
-    return {
-        ok: 'text-success',
-        warn: 'text-warning',
-        bad: 'text-destructive',
-        idle: 'text-muted-foreground',
-    }[tone];
 }

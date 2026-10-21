@@ -2,6 +2,9 @@ import React, { type ReactNode, useEffect, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
+import { addMonths } from '../lib/depositTerm';
+import { formatDate } from '../lib/format';
+
 export type DatePickerMode = 'single' | 'range';
 /**
  * An ISO date, or the literal `today`.
@@ -302,11 +305,11 @@ export function DatePicker(props: DatePickerProps) {
     const currentRange =
         props.mode === 'range' ? (draft as DateRangeValue) : { from: draft as string | null, to: null };
 
-    const formattedValue = props.mode === 'single' ? formatDate(props.value, locale) : formatRange(props.value, locale);
+    const formattedValue = props.mode === 'single' ? formatDay(props.value, locale) : formatRange(props.value, locale);
 
     const draftFormatted =
         props.mode === 'single'
-            ? formatDate(draft as string | null, locale)
+            ? formatDay(draft as string | null, locale)
             : formatRange(draft as DateRangeValue, locale);
 
     const commit = () => {
@@ -962,7 +965,7 @@ function DateField({
             <span className="min-w-0">
                 <span className={'block text-2xs uppercase tracking-[.08em] text-ink-400'}>{label}</span>
                 <span className={'mt-0.5 block truncate text-xs font-semibold'}>
-                    {formatDate(value, locale) || 'Select date'}
+                    {formatDay(value, locale) || 'Select date'}
                 </span>
             </span>
             <CalendarDays className="size-3.5 shrink-0 text-ink-400" />
@@ -1139,19 +1142,16 @@ function weekdayLabels(locale: string, weekStartsOn: 0 | 1) {
     return weekStartsOn === 1 ? [...days.slice(1), days[0]] : days;
 }
 
-function formatDate(value: string | null, locale: string) {
-    if (!value) return '';
-    const { year, month, day } = parseISO(value);
-    return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(
-        new Date(year, month - 1, day),
-    );
+/** The app's one date format ({@link formatDate}), or nothing for a field left empty. */
+function formatDay(value: string | null, locale: string) {
+    return value ? formatDate(value, locale) : '';
 }
 
 function formatRange(value: DateRangeValue, locale: string) {
     if (!value.from && !value.to) return '';
-    if (value.from && value.to) return `${formatDate(value.from, locale)} – ${formatDate(value.to, locale)}`;
-    if (value.from) return `From ${formatDate(value.from, locale)}`;
-    return `Until ${formatDate(value.to, locale)}`;
+    if (value.from && value.to) return `${formatDay(value.from, locale)} – ${formatDay(value.to, locale)}`;
+    if (value.from) return `From ${formatDay(value.from, locale)}`;
+    return `Until ${formatDay(value.to, locale)}`;
 }
 
 /**
@@ -1176,12 +1176,6 @@ function addDays(value: string, amount: number) {
     const { year, month, day } = parseISO(value);
     const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + amount);
-    return toISODate(date);
-}
-
-function addMonths(value: string, amount: number) {
-    const { year, month, day } = parseISO(value);
-    const date = new Date(year, month - 1 + amount, day);
     return toISODate(date);
 }
 

@@ -11,18 +11,17 @@ use Kern\Platform\Settings\Repositories\SettingsRepository;
 
 /**
  * The single place that decides "what AI provider configuration is in effect right now" —
- * consulted fresh on every call, never cached beyond one resolution, so a setting saved through
- * `PUT /api/v1/settings/ai` takes effect on the very next call with no restart
+ * consulted fresh on every call, never cached beyond one resolution, so a setting saved on the
+ * settings screen takes effect on the very next call with no restart
  * (`docs/handoff/041-settings-module.md`).
  *
- * Per-field fallback, not all-or-nothing: each of `enabled`/`provider`/`base_url`/`model`/
- * `api_key` falls back independently to `config('ai.providers.env_fallback.*')` only when that
- * specific `settings` row does not exist yet — an existing deployment relying on `AI_*` env vars
- * keeps working unchanged until an administrator explicitly overrides one field through the API.
+ * From the database only, with `config('ai.providers.defaults')` — off, nothing set — for a field
+ * never saved. There used to be a per-field fallback to `AI_*` environment variables, which let an
+ * address from one source travel with a key from the other; see that config block.
  *
  * Used both by `Kern\Documents\ExternalAi\RequestExternalDocumentExtraction` (the document
  * pipeline) and, redacted, by `Kern\Platform\Settings\Services\AiProviderSettingsService` (the
- * settings screen) — the fallback logic lives in exactly one place.
+ * settings screen) — so there is one answer to the question, not two.
  */
 final readonly class ResolveAiProviderCredentials
 {
@@ -36,20 +35,27 @@ final readonly class ResolveAiProviderCredentials
         // literal was `'true'` while the update endpoint stored `'1'`, so this switch read as off
         // however it was set.
         $enabled = SettingType::decodeBoolean($this->settings->get(SettingKey::AI_ENABLED))
-            ?? (bool) config('ai.providers.env_fallback.enabled', false);
+            ?? (bool) config('ai.providers.defaults.enabled', false);
+
+        $savedBaseUrl = $this->settings->get(SettingKey::AI_BASE_URL);
 
         return new AiProviderCredentials(
             enabled: $enabled,
-            provider: $this->settings->get(SettingKey::AI_PROVIDER) ?? $this->stringFallback('provider'),
-            baseUrl: $this->settings->get(SettingKey::AI_BASE_URL) ?? $this->stringFallback('base_url'),
-            model: $this->settings->get(SettingKey::AI_MODEL) ?? $this->stringFallback('model'),
-            apiKey: $this->settings->get(SettingKey::AI_API_KEY) ?? $this->stringFallback('api_key'),
+            provider: $this->settings->get(SettingKey::AI_PROVIDER) ?? $this->stringDefault('provider'),
+            baseUrl: $savedBaseUrl ?? $this->stringDefault('base_url'),
+            model: $this->settings->get(SettingKey::AI_MODEL) ?? $this->stringDefault('model'),
+            // The key comes from wherever the address came from, and from nowhere else: a saved
+            // address with no saved key has no key, never the default one. Pairing them per field
+            // is how a key used to reach an address it was never saved with.
+            apiKey: $savedBaseUrl !== null
+                ? $this->settings->get(SettingKey::AI_API_KEY)
+                : $this->stringDefault('api_key'),
         );
     }
 
-    private function stringFallback(string $field): ?string
+    private function stringDefault(string $field): ?string
     {
-        $value = config("ai.providers.env_fallback.{$field}");
+        $value = config("ai.providers.defaults.{$field}");
 
         return is_string($value) && $value !== '' ? $value : null;
     }

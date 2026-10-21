@@ -34,7 +34,7 @@ import {
     EventTime,
 } from '../components/panel';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
-import { formatDateTime } from '../lib/format';
+import { formatDateTime, formatNumber } from '../lib/format';
 import AppShell from '../components/AppShell';
 import Pagination from '../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedState';
@@ -200,20 +200,23 @@ function AdminAuditBody(): JSX.Element {
     return (
         <>
             <div className="page-stack">
+                {summary !== null && !summary.reachesTaxpayers && (
+                    <p className="note">{t((d) => d.pages.adminAudit.taxpayerLinesHidden)}</p>
+                )}
                 <StatGrid>
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.total)}
-                        value={summary === null ? '—' : summary.eventsTotal.toLocaleString()}
+                        value={summary === null ? '—' : formatNumber(summary.eventsTotal, locale)}
                         icon={<ScrollText className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.last24h)}
-                        value={summary === null ? '—' : summary.events24h.toLocaleString()}
+                        value={summary === null ? '—' : formatNumber(summary.events24h, locale)}
                         icon={<Clock className="size-3.5" aria-hidden="true" />}
                     />
                     <Stat
                         label={t((d) => d.pages.adminAudit.stats.actors)}
-                        value={summary === null ? '—' : summary.actors24h.toLocaleString()}
+                        value={summary === null ? '—' : formatNumber(summary.actors24h, locale)}
                         sub={t((d) => d.pages.adminAudit.stats.actorsSub)}
                         icon={<UsersRound className="size-3.5" aria-hidden="true" />}
                     />
@@ -239,7 +242,7 @@ function AdminAuditBody(): JSX.Element {
                             summary === null
                                 ? undefined
                                 : t((d) => d.pages.adminAudit.stats.integritySub)
-                                      .replace('{events}', summary.integrity.eventsVerified.toLocaleString())
+                                      .replace('{events}', formatNumber(summary.integrity.eventsVerified, locale))
                                       .replace('{chains}', String(summary.integrity.chainsChecked))
                         }
                     />

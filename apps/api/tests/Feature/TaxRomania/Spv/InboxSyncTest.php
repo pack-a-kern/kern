@@ -33,10 +33,9 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
     config(['spv.anaf_api.client_certificate_path' => '/etc/spv/certs/fixture.p12']);
     config(['spv.anaf_api.client_certificate_password' => 'fixture-password']);
-    config(['spv.browser_worker.auth_token' => 'test-worker-secret']);
+    config(['browser_worker.auth_token' => 'test-worker-secret']);
 });
 
 /** See `tests/Feature/TaxRomania/Spv/CredentialFlowTest.php`'s identical helper docblock. */

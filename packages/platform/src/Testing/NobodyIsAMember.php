@@ -13,4 +13,9 @@ final readonly class NobodyIsAMember implements TenantGate
     {
         return null;
     }
+
+    public function tenantsFor(string $userId): array
+    {
+        return [];
+    }
 }

@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Operations\Services;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Config\RequiredConfig;
 use Kern\TaxRomania\Operations\DataTransferObjects\SchedulerStatus;
 use Throwable;
 
@@ -37,13 +38,14 @@ final readonly class ProbeSchedulerStatus
 {
     public function __construct(
         private ConfigRepository $config,
+        private RequiredConfig $required,
         private CacheRepository $cache,
     ) {
     }
 
     public function __invoke(): SchedulerStatus
     {
-        $maxAge = $this->intConfig('operations.scheduler.heartbeat_max_age_seconds', 180);
+        $maxAge = $this->required->positiveInt('operations.scheduler.heartbeat_max_age_seconds');
 
         try {
             $beatAt = $this->lastBeatTimestamp();
@@ -129,12 +131,5 @@ final readonly class ProbeSchedulerStatus
         $modified = @filemtime($path);
 
         return $modified === false ? null : $modified;
-    }
-
-    private function intConfig(string $key, int $fallback): int
-    {
-        $value = $this->config->get($key);
-
-        return is_int($value) && $value > 0 ? $value : $fallback;
     }
 }

@@ -53,3 +53,26 @@ class StatementParseSettings(BaseSettings):
         description="How many rows a column's shape is measured over. The shape is a summary for "
         "the model that matches columns, and reading every row to build it buys nothing.",
     )
+    max_unpacked_bytes: int = Field(
+        default=52_428_800,  # 50 MiB
+        gt=0,
+        description="Ceiling on what a workbook unpacks to, read from the zip's own index before "
+        "anything is opened. A statement of the most rows this accepts unpacks to a few megabytes; "
+        "past this, the file is a decompression bomb or not a statement, and is refused at once "
+        "instead of costing a worker process its memory and its budget first.",
+    )
+    parse_timeout_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        description="Wall-clock budget for reading one file in its isolated worker process. "
+        "Longer than a document's, because a statement PDF's tables are slower to find than its "
+        "text. Exceeding it kills the worker — the decompression-bomb defence "
+        "(processing.isolation).",
+    )
+    max_worker_memory_bytes: int = Field(
+        default=536_870_912,  # 512 MiB
+        gt=0,
+        description="RLIMIT_AS inside the isolated worker, so a file that unpacks to more than "
+        "this fails on its own instead of taking the service's memory, and every other request, "
+        "with it.",
+    )

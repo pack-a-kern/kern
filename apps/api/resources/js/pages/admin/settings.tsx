@@ -6,6 +6,7 @@ import {
     getPlatformData,
     listAiProviders,
     listSettings,
+    replaceAiConnection,
     listSystemHealth,
     testAiConnection,
     updateSettingsGroup,
@@ -35,6 +36,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { Switch } from '../../components/ui/switch';
 import Checkbox from '../../components/Checkbox';
+import { useFormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { ApiError } from '../../lib/http';
@@ -393,6 +395,7 @@ export default function AdminSettings(): JSX.Element {
                                         void save(group);
                                     }}
                                     describeFailure={describeFailure}
+                                    onReloaded={setGroups}
                                 />
                             ))}
 
@@ -430,6 +433,8 @@ interface GroupPanelProps {
     onDiscard: () => void;
     onSave: () => void;
     describeFailure: (cause: unknown) => string;
+    /** Settings saved outside the group save — the AI connection dialog — hand back the fresh state. */
+    onReloaded: (groups: SettingGroupPayload[]) => void;
 }
 
 function GroupPanel(props: GroupPanelProps): JSX.Element {
@@ -459,6 +464,7 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
                 drafts={props.drafts}
                 onDraft={props.onDraft}
                 describeFailure={props.describeFailure}
+                onReloaded={props.onReloaded}
                 actions={actions}
             />
         );
@@ -610,19 +616,6 @@ function UploadLimitsPanel(props: {
 }
 
 /**
- * Splits a base URL into the scheme and everything after it.
- *
- * The stored value stays a whole URL — that is what the server validates and what every provider
- * preset supplies. The scheme is only *presented* separately, so the field holds the part someone
- * actually edits. Defaults to `https` while the value is empty or carries no scheme yet.
- */
-function splitUrl(value: string): { scheme: string; rest: string } {
-    const match = /^(https?):\/\/(.*)$/.exec(value);
-
-    return match === null ? { scheme: 'https', rest: value } : { scheme: match[1] ?? 'https', rest: match[2] ?? '' };
-}
-
-/**
  * The AI group, with the affordances a plain key/value list cannot give: a preset picker that fills
  * in the endpoint, a model list read from the provider itself, and a key that is replaced through a
  * dialog rather than by typing over a masked box.
@@ -633,6 +626,7 @@ function AiPanel(props: {
     drafts: Draft;
     onDraft: (key: string, value: string) => void;
     describeFailure: (cause: unknown) => string;
+    onReloaded: (groups: SettingGroupPayload[]) => void;
     actions: ReactNode;
 }): JSX.Element {
     const { t } = useTranslation();
@@ -640,7 +634,7 @@ function AiPanel(props: {
     const [loadingModels, setLoadingModels] = useState(false);
     const [testing, setTesting] = useState(false);
     const [connection, setConnection] = useState<{ tone: StatusTone; label: string } | null>(null);
-    const [keyDialogOpen, setKeyDialogOpen] = useState(false);
+    const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
 
     const settingOf = (key: string): Setting | undefined => props.group.settings.find((s) => s.key === key);
     const valueOf = (key: string): string => props.drafts[key] ?? settingOf(key)?.value ?? '';
@@ -650,9 +644,12 @@ function AiPanel(props: {
     const baseUrlSetting = settingOf('ai.base_url');
     const providerKey = valueOf('ai.provider');
     const preset = props.providers.find((candidate) => candidate.key === providerKey);
-    const baseUrl = valueOf('ai.base_url');
-    const apiKeyDraft = props.drafts['ai.api_key'] ?? '';
+    // The saved address, never a draft: it changes only with its key, in the connection dialog.
+    const baseUrl = baseUrlSetting?.value ?? '';
     const apiKeySetting = settingOf('ai.api_key');
+    // A provider picked but not saved yet offers its own address in the dialog; otherwise the saved one.
+    const dialogAddress =
+        preset?.baseUrl != null && providerKey !== (providerSetting?.value ?? '') ? preset.baseUrl : baseUrl;
     const enabledSetting = settingOf('ai.enabled');
     const maxTokensSetting = settingOf('ai.extraction_max_tokens');
     const timeoutSetting = settingOf('ai.extraction_timeout_seconds');
@@ -682,9 +679,10 @@ function AiPanel(props: {
         setLiveModels(null);
         setConnection(null);
 
-        // Only prefill; never overwrite a URL the operator typed for a preset that has none.
-        if (chosen?.baseUrl != null) {
-            props.onDraft('ai.base_url', chosen.baseUrl);
+        // The address is not drafted here: it is saved only with its key. A preset with an address of
+        // its own opens the connection dialog with that address filled in.
+        if (chosen?.baseUrl != null && chosen.baseUrl !== baseUrl) {
+            setConnectionDialogOpen(true);
         }
 
         // The saved model almost certainly does not exist on a different provider.
@@ -699,11 +697,7 @@ function AiPanel(props: {
         setLoadingModels(true);
 
         try {
-            const result = await fetchAiModels({
-                provider: providerKey,
-                baseUrl: baseUrl === '' ? null : baseUrl,
-                apiKey: apiKeyDraft === '' ? null : apiKeyDraft,
-            });
+            const result = await fetchAiModels(providerKey);
 
             if (!result.ok) {
                 toast.error(
@@ -756,9 +750,7 @@ function AiPanel(props: {
             setConnection({ tone: 'bad', label: t((d) => d.pages.adminSettings.testFailed) });
             toast.error(
                 t((d) => d.pages.adminSettings.testFailed),
-                {
-                    ...(result.message !== null ? { description: result.message } : {}),
-                },
+                { description: t((d) => d.pages.adminSettings.ai.failedHint) },
             );
         } catch (cause: unknown) {
             setConnection({ tone: 'bad', label: t((d) => d.pages.adminSettings.testFailed) });
@@ -902,32 +894,24 @@ function AiPanel(props: {
                                 ) : null
                             }
                         >
+                            {/* Read-only, like the key beside it: the address changes only with its key,
+                                in the connection dialog, so a key is never sent to an address it was
+                                not saved with. */}
                             <PanelInput
                                 id="ai.base_url"
-                                value={splitUrl(baseUrl).rest}
-                                placeholder="api.example.com"
-                                autoComplete="off"
-                                // Plain text, not a control: it states the scheme the stored value
-                                // carries. It follows the value rather than dictating it, so the
-                                // self-hosted preset — which is reached over http — shows `http://`
-                                // instead of a fixed `https://` that would be a lie.
-                                addonStart={
-                                    <>
-                                        <LinkIcon className="size-3.5" />
-                                        {`${splitUrl(baseUrl).scheme}://`}
-                                    </>
+                                readOnly
+                                icon={<LinkIcon className="size-3.5" />}
+                                value={baseUrl === '' ? t((d) => d.pages.adminSettings.secretUnset) : baseUrl}
+                                actionEnd={
+                                    <PanelButton
+                                        onClick={() => {
+                                            setConnectionDialogOpen(true);
+                                        }}
+                                    >
+                                        <PencilIcon className="size-3.5" aria-hidden="true" />
+                                        {t((d) => d.pages.adminSettings.ai.changeConnection)}
+                                    </PanelButton>
                                 }
-                                onChange={(event) => {
-                                    const typed = event.target.value;
-                                    const pasted = /^(https?):\/\//.exec(typed);
-
-                                    // Pasting a whole URL adopts its scheme instead of producing
-                                    // `https://http://host`.
-                                    props.onDraft(
-                                        'ai.base_url',
-                                        pasted === null ? `${splitUrl(baseUrl).scheme}://${typed}` : typed,
-                                    );
-                                }}
                             />
                         </Field>
                     </FieldSpan>
@@ -943,23 +927,20 @@ function AiPanel(props: {
                             }
                         >
                             {/* A stored key is never sent to the browser, so there is nothing to
-                                edit in place — the field shows what is on file and replacing it is
-                                a deliberate, separate act, fused to the field rather than floating
-                                beside it. */}
+                                edit in place — the field shows what is on file, and replacing it is
+                                the same dialog as the address, because the two are saved together. */}
                             <PanelInput
                                 readOnly
                                 icon={<KeyRoundIcon className="size-3.5" />}
                                 value={
-                                    apiKeyDraft !== ''
-                                        ? t((d) => d.pages.adminSettings.ai.keyPending)
-                                        : apiKeySetting?.has_value === true
-                                          ? `•••••••• ${apiKeySetting.hint ?? ''}`.trim()
-                                          : t((d) => d.pages.adminSettings.secretUnset)
+                                    apiKeySetting?.has_value === true
+                                        ? `•••••••• ${apiKeySetting.hint ?? ''}`.trim()
+                                        : t((d) => d.pages.adminSettings.secretUnset)
                                 }
                                 actionEnd={
                                     <PanelButton
                                         onClick={() => {
-                                            setKeyDialogOpen(true);
+                                            setConnectionDialogOpen(true);
                                         }}
                                     >
                                         <KeyRound className="size-3.5" aria-hidden="true" />
@@ -1066,37 +1047,74 @@ function AiPanel(props: {
                 </FieldGrid>
             </Panel>
 
-            <ReplaceKeyDialog
-                open={keyDialogOpen}
-                onOpenChange={setKeyDialogOpen}
-                onSubmit={(value) => {
-                    props.onDraft('ai.api_key', value);
+            <ConnectionDialog
+                open={connectionDialogOpen}
+                onOpenChange={setConnectionDialogOpen}
+                initialAddress={dialogAddress}
+                keyOptional={preset !== undefined && !preset.requiresApiKey}
+                describeFailure={props.describeFailure}
+                onSaved={(groups) => {
+                    setConnection(null);
+                    setLiveModels(null);
+                    props.onReloaded(groups);
                 }}
             />
         </>
     );
 }
 
-function ReplaceKeyDialog(props: {
+/**
+ * The provider's address and its key, saved together and at once — not drafted into the group save.
+ *
+ * Together because a key must only ever go to the address it was saved with; at once because there
+ * is nothing to stage — the server refuses either one through the group save. An empty key means the
+ * provider takes none. The address is checked on the server, whose answer is shown under the field.
+ */
+function ConnectionDialog(props: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (value: string) => void;
+    initialAddress: string;
+    keyOptional: boolean;
+    describeFailure: (cause: unknown) => string;
+    onSaved: (groups: SettingGroupPayload[]) => void;
 }): JSX.Element {
     const { t } = useTranslation();
-    const [value, setValue] = useState('');
+    const [address, setAddress] = useState(props.initialAddress);
+    const [key, setKey] = useState('');
+    const [saving, setSaving] = useState(false);
+    const errors = useFormErrors();
+
+    const save = async (): Promise<void> => {
+        setSaving(true);
+        errors.reset();
+
+        try {
+            await replaceAiConnection(address.trim(), key);
+            props.onSaved(await listSettings());
+            toast.success(t((d) => d.pages.adminSettings.ai.connectionSaved));
+            props.onOpenChange(false);
+        } catch (cause: unknown) {
+            // A refused address names the field; anything else is a toast.
+            if (!errors.capture(cause)) {
+                toast.error(props.describeFailure(cause));
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <PanelDialog
             open={props.open}
             onOpenChange={(open) => {
-                if (!open) {
-                    setValue('');
-                }
-
+                // Opened fresh every time, from what is saved — never a half-typed key from last time.
+                setAddress(props.initialAddress);
+                setKey('');
+                errors.reset();
                 props.onOpenChange(open);
             }}
-            title={t((d) => d.pages.adminSettings.ai.replaceKeyTitle)}
-            description={t((d) => d.pages.adminSettings.ai.replaceKeyHint)}
+            title={t((d) => d.pages.adminSettings.ai.connectionTitle)}
+            description={t((d) => d.pages.adminSettings.ai.connectionHint)}
             actions={
                 <>
                     <PanelButton
@@ -1110,29 +1128,59 @@ function ReplaceKeyDialog(props: {
                     </PanelButton>
                     <PanelButton
                         primary
-                        disabled={value === ''}
+                        disabled={address.trim() === '' || saving}
                         onClick={() => {
-                            props.onSubmit(value);
-                            props.onOpenChange(false);
+                            void save();
                         }}
                     >
-                        <KeyRound className="size-3.5" aria-hidden="true" />
-                        {t((d) => d.pages.adminSettings.ai.replaceKey)}
+                        <Check className="size-3.5" aria-hidden="true" />
+                        {saving ? t((d) => d.pages.adminSettings.saving) : t((d) => d.pages.adminSettings.save)}
                     </PanelButton>
                 </>
             }
         >
-            <Field label={t((d) => d.pages.adminSettings.settingLabels['ai.api_key'] ?? 'ai.api_key')}>
-                <PanelInput
-                    type="password"
-                    autoComplete="new-password"
-                    value={value}
-                    placeholder="sk-••••••••••••"
-                    onChange={(event) => {
-                        setValue(event.target.value);
-                    }}
-                />
-            </Field>
+            <FieldGrid>
+                <FieldSpan>
+                    <Field
+                        label={t((d) => d.pages.adminSettings.settingLabels['ai.base_url'] ?? 'ai.base_url')}
+                        error={errors.get('base_url')}
+                    >
+                        <PanelInput
+                            id="ai.connection.base_url"
+                            value={address}
+                            placeholder="https://api.example.com"
+                            autoComplete="off"
+                            icon={<LinkIcon className="size-3.5" />}
+                            onChange={(event) => {
+                                setAddress(event.target.value);
+                            }}
+                        />
+                    </Field>
+                </FieldSpan>
+                <FieldSpan>
+                    <Field
+                        label={t((d) => d.pages.adminSettings.settingLabels['ai.api_key'] ?? 'ai.api_key')}
+                        hint={
+                            props.keyOptional
+                                ? t((d) => d.pages.adminSettings.ai.keyOptional)
+                                : t((d) => d.pages.adminSettings.ai.keyHint)
+                        }
+                        error={errors.get('api_key')}
+                    >
+                        <PanelInput
+                            id="ai.connection.api_key"
+                            type="password"
+                            autoComplete="new-password"
+                            value={key}
+                            placeholder="sk-••••••••••••"
+                            icon={<KeyRoundIcon className="size-3.5" />}
+                            onChange={(event) => {
+                                setKey(event.target.value);
+                            }}
+                        />
+                    </Field>
+                </FieldSpan>
+            </FieldGrid>
         </PanelDialog>
     );
 }
@@ -1301,7 +1349,12 @@ function formatSetting(setting: Setting, draft: string | undefined): string {
  * every foreign amount converts to it, so the server pins it whatever is saved here, and offering it
  * as something to remove would be offering a choice that is not one. The hint below says so.
  */
-function CurrencyChoice(props: { id: string; value: string; disabled: boolean; onChange: (next: string) => void }): JSX.Element {
+function CurrencyChoice(props: {
+    id: string;
+    value: string;
+    disabled: boolean;
+    onChange: (next: string) => void;
+}): JSX.Element {
     const { t } = useTranslation();
     const [available, setAvailable] = useState<string[] | null>(null);
 
@@ -1402,12 +1455,7 @@ function SettingField(props: {
             }
         >
             {isCurrencyList ? (
-                <CurrencyChoice
-                    id={setting.key}
-                    value={shown}
-                    disabled={setting.read_only}
-                    onChange={props.onDraft}
-                />
+                <CurrencyChoice id={setting.key} value={shown} disabled={setting.read_only} onChange={props.onDraft} />
             ) : isBoolean ? (
                 <div className="flex h-8 items-center">
                     <Switch

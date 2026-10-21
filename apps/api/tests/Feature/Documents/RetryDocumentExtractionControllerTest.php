@@ -28,8 +28,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * has nothing to work with.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

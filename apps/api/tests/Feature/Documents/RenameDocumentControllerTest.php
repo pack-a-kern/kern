@@ -18,8 +18,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * `PATCH /api/v1/subjects/{subject}/documents/{document}` and the naming rules around it.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

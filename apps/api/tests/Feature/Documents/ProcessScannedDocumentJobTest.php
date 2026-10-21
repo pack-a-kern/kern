@@ -46,7 +46,7 @@ beforeEach(function (): void {
 
     // `ai.enabled` fails closed by default, and a document nobody may send is refused before any
     // provider is reached — which would make every test here about the wrong thing.
-    config(['ai.providers.env_fallback.enabled' => true]);
+    config(['ai.providers.defaults.enabled' => true]);
 });
 
 function putOriginal(Document $document, string $content): ObjectKey

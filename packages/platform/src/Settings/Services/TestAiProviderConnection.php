@@ -7,13 +7,17 @@ namespace Kern\Platform\Settings\Services;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Kern\Platform\Settings\DataTransferObjects\ConnectionTestResult;
-use Kern\Platform\Settings\DataTransferObjects\TestConnectionOverrides;
+use Kern\Platform\Settings\Enums\AiProviderFailure;
 
 /**
- * `POST /api/v1/settings/ai/test-connection` — actually calls the configured (or, with
- * `$overrides`, a not-yet-saved draft) provider with a trivial chat-completions request and
- * reports success/failure with a useful, classified error, per the task's explicit requirement:
+ * `POST /api/v1/settings/ai/test-connection` — actually calls the configured provider with a trivial
+ * chat-completions request and reports whether it connected, per the task's explicit requirement:
  * "without this the user gets no feedback until a document silently fails hours later."
+ *
+ * **Only the saved address, with the key saved alongside it.** It used to take a draft address, and
+ * fill in the stored key when none was typed — which sent the key to whatever address an
+ * administrator named. Why a failure is reported without its reason is
+ * {@see AiProviderFailure}'s docblock.
  *
  * Speaks the OpenAI-compatible `/v1/chat/completions` wire protocol `docs/adr/
  * 0007-provider-agnostic-ai.md` standardises on and `apps/processing/src/processing/ai/client.py`
@@ -36,13 +40,13 @@ final readonly class TestAiProviderConnection
     ) {
     }
 
-    public function __invoke(?TestConnectionOverrides $overrides = null): ConnectionTestResult
+    public function __invoke(): ConnectionTestResult
     {
         $credentials = ($this->resolveCredentials)();
 
-        $baseUrl = $this->firstNonNull($overrides?->baseUrl, $credentials->baseUrl);
-        $apiKey = $this->firstNonNull($overrides?->apiKey, $credentials->apiKey);
-        $model = $this->firstNonNull($overrides?->model, $credentials->model);
+        $baseUrl = $credentials->baseUrl;
+        $apiKey = $credentials->apiKey;
+        $model = $credentials->model;
 
         if ($baseUrl === null || $model === null) {
             return ConnectionTestResult::notConfigured();
@@ -67,35 +71,35 @@ final readonly class TestAiProviderConnection
                 $dialect->pingBody($model),
             );
         } catch (ConnectionException) {
-            // Never include the underlying exception message here: Guzzle/Http-client connection
-            // exceptions can embed the request URI including query strings, and — while base_url
-            // is not itself secret — no code path in this class should ever get in the habit of
-            // forwarding raw transport-exception text to an HTTP response (BLUEPRINT.md §4.10).
-            return ConnectionTestResult::connectionFailed('Could not reach the configured base URL.');
+            // Never the underlying exception message: Guzzle/Http-client connection exceptions can
+            // embed the request URI, and no transport-exception text is forwarded (BLUEPRINT.md §4.10).
+            return $this->failed(AiProviderFailure::UNREACHABLE);
         }
 
         $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         if ($response->status() === 401 || $response->status() === 403) {
-            return ConnectionTestResult::authenticationFailed();
+            return $this->failed(AiProviderFailure::REJECTED_CREDENTIALS, $response->status());
         }
 
         if ($response->failed()) {
-            return ConnectionTestResult::providerError($response->status());
+            return $this->failed(AiProviderFailure::PROVIDER_ERROR, $response->status());
         }
 
         $body = $response->json();
         $content = is_array($body) ? data_get($body, $dialect->replyTextPath()) : null;
 
         if (! is_string($content)) {
-            return ConnectionTestResult::invalidResponse();
+            return $this->failed(AiProviderFailure::INVALID_RESPONSE);
         }
 
         return ConnectionTestResult::success($latencyMs);
     }
 
-    private function firstNonNull(?string $override, ?string $fallback): ?string
+    private function failed(AiProviderFailure $reason, ?int $httpStatus = null): ConnectionTestResult
     {
-        return $override ?? $fallback;
+        $reason->log('test-connection', $httpStatus);
+
+        return ConnectionTestResult::failed();
     }
 }

@@ -5,15 +5,16 @@
 # Laravel only through its internal HTTP API / signed job payloads / object
 # storage references (docs/AGENTS.md §6, BLUEPRINT.md §1.2).
 #
-# Base image and uv version pinned per docs/reference/verified-versions.md
-# and docs/DEPENDENCY-POLICY.md — do not float either.
+# Base image and uv version pinned by exact tag and digest per
+# docs/reference/verified-versions.md and docs/DEPENDENCY-POLICY.md — do not
+# float either; `make pins` reports a newer build.
 
-FROM python:3.14-slim-trixie AS base
+FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS base
 
 # uv: copied as a static binary from Astral's own image (their documented
-# pattern), pinned to the exact release verified 2026-09-07
-# (github.com/astral-sh/uv/releases -> 0.12.10).
-COPY --from=ghcr.io/astral-sh/uv:0.12.10 /uv /uvx /usr/local/bin/
+# pattern), pinned to the exact release and digest
+# verified 2026-10-20 (github.com/astral-sh/uv/releases -> 0.12.24).
+COPY --from=ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a /uv /uvx /usr/local/bin/
 
 # ---------------------------------------------------------------------------
 # Stage: deps — resolve the real, locked dependency set and install the
@@ -31,7 +32,7 @@ RUN uv sync --frozen --no-dev
 # ---------------------------------------------------------------------------
 # Stage: runtime — the actual python-api / python-worker image.
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim-trixie AS runtime
+FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS runtime
 
 RUN groupadd --gid 10001 appuser \
     && useradd --uid 10001 --gid appuser --no-create-home --shell /usr/sbin/nologin appuser

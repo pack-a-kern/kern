@@ -42,7 +42,7 @@ import { useRememberedPaging, useRememberedState } from '../../hooks/useRemember
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import type { QueueJob, QueueJobsPage } from '../../types/operations';
 
@@ -197,7 +197,7 @@ function AdminJobsBody(): JSX.Element {
 
     /** Horizon unreachable means unknown, so a missing count is an em dash and never a zero. */
     const count = (value: number | null | undefined): string =>
-        typeof value === 'number' ? value.toLocaleString() : '—';
+        typeof value === 'number' ? formatNumber(value, locale) : '—';
 
     /** A job's one meaningful timestamp, whichever stage it reached. */
     const occurredAt = (job: QueueJob): string | null => job.failedAt ?? job.completedAt ?? job.queuedAt;
@@ -235,7 +235,7 @@ function AdminJobsBody(): JSX.Element {
                         label={t((d) => d.pages.adminJobs.queue.longestWait)}
                         value={
                             typeof queue?.maxWaitSeconds === 'number'
-                                ? queue.maxWaitSeconds.toLocaleString() + t((d) => d.pages.adminJobs.queue.seconds)
+                                ? formatNumber(queue.maxWaitSeconds, locale) + t((d) => d.pages.adminJobs.queue.seconds)
                                 : '—'
                         }
                         sub={`${t((d) => d.pages.adminJobs.queue.completed)}: ${count(queue?.completed)}`}
@@ -247,11 +247,7 @@ function AdminJobsBody(): JSX.Element {
                         icon={<Gauge className="size-4" />}
                         tone="success"
                         label={t((d) => d.pages.adminJobs.queue.throughput)}
-                        value={
-                            typeof queue?.throughput === 'number'
-                                ? queue.throughput.toLocaleString(undefined, { maximumFractionDigits: 1 })
-                                : '—'
-                        }
+                        value={typeof queue?.throughput === 'number' ? formatNumber(queue.throughput, locale, 1) : '—'}
                         sub={t((d) => d.pages.adminJobs.queue.throughputSub)}
                     />
                 </StatGrid>

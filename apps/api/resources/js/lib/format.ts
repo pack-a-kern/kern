@@ -112,9 +112,33 @@ export function formatBytes(bytes: number, locale: string): string {
     }
 }
 
-/** An amount in its currency, in the reader's conventions — "4.050 lei", "RON 4,050". */
+/**
+ * An amount in its currency, in the reader's conventions — "4.050,00 lei", "RON 4,050.00".
+ *
+ * A figure whose currency is not known is still a figure. `Intl.NumberFormat` throws a RangeError on
+ * anything that is not a three-letter code, and an empty one reaches here whenever a source has no
+ * currency of its own — an imported statement read into an account that never had one, for instance.
+ * Throwing takes down the whole screen over a missing label, so the number is shown plainly instead
+ * and the currency is simply absent, which is the truth about that row.
+ */
 export function formatAmount(amount: number, currency: string, locale: string): string {
-    return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+    const known = /^[A-Za-z]{3}$/.test(currency);
+
+    return new Intl.NumberFormat(locale, {
+        ...(known ? { style: 'currency' as const, currency: currency.toUpperCase() } : {}),
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
+}
+
+/** An amount held in minor units (bani, cents), as the API sends money; a dash where there is none. */
+export function formatMinor(minor: number | null, currency: string, locale: string): string {
+    return minor === null ? '—' : formatAmount(minor / 100, currency, locale);
+}
+
+/** A count or a measure, in the reader's conventions — "12.480", "12,480". */
+export function formatNumber(value: number, locale: string, maximumFractionDigits = 0): string {
+    return new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);
 }
 
 /**
@@ -140,6 +164,6 @@ export function formatCompact(amount: number, locale: string): string {
 }
 
 /** A rate given as a fraction — `0.1` — as a percent, "10%". */
-export function formatPercent(fraction: number, locale: string): string {
-    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(fraction);
+export function formatPercent(fraction: number, locale: string, maximumFractionDigits = 2): string {
+    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits }).format(fraction);
 }

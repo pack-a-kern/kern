@@ -21,4 +21,13 @@ interface TenantGate
 {
     /** The role this user holds for this tenant, or null where they hold none. */
     public function roleFor(string $userId, string $tenantId): ?string;
+
+    /**
+     * Every tenant this user may act for — the same answer `roleFor()` gives, for all of them at once,
+     * for a screen that lists them. Asked here rather than of the application's tables, so a module
+     * listing "my tenants" cannot answer differently from the rule that opens one.
+     *
+     * @return list<string>
+     */
+    public function tenantsFor(string $userId): array;
 }

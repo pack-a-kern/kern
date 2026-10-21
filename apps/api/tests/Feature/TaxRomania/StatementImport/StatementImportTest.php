@@ -20,10 +20,12 @@ use Kern\Platform\Tenancy\TenantScope;
 use Kern\Platform\Testing\InMemoryDekRepository;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Banks\Models\Bank;
+use Kern\TaxRomania\StatementImport\Actions\RequestColumnSuggestion;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\ParsedStatementFile;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementColumn;
 use Kern\TaxRomania\StatementImport\Enums\StatementFormat;
 use Kern\TaxRomania\StatementImport\Enums\StatementImportStatus;
+use Kern\TaxRomania\StatementImport\Exceptions\ImportNotOpenException;
 use Kern\TaxRomania\StatementImport\Exceptions\StatementParseUnavailableException;
 use Kern\TaxRomania\StatementImport\Exceptions\StatementRejectedException;
 use Kern\TaxRomania\StatementImport\Gateways\StatementParseGateway;
@@ -53,8 +55,6 @@ use Tests\TestCase;
  * back out again.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     // Asking a model about counterparties can be turned off for an installation, and the machine
     // running the suite may have it off. What the suite checks is the behaviour, not the operator's
     // choice, so it is pinned on here and turned off by the one test that is about it.
@@ -880,6 +880,79 @@ it('refuses to ask again once an import is written', function (): void {
 });
 
 /*
+ * Asking the model again, at most so often per taxpayer.
+ *
+ * Each ask is a round of calls to a provider that may bill for them. Counted per taxpayer, not per
+ * address: two people behind one office router are two budgets, and the one asking in a loop spends
+ * only their own. Refused asks count too — the throttle stands in front of the controller.
+ */
+it('limits how often a taxpayer may ask the model again, and only that taxpayer', function (): void {
+    config(['statement_import.rate_limits.model_per_subject.max_attempts' => 2]);
+
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-limita.csv');
+    $ask = "/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}";
+    [$other, $otherSubjectId, $otherAccountId] = importer();
+    $theirs = startImport($this, $other, $otherSubjectId, $otherAccountId, 'extras-alt-contribuabil.csv');
+
+    Queue::fake();
+
+    $this->actingAs($user)->postJson("{$ask}/mapping/suggest")->assertStatus(202);
+    // The same budget for the rows: one more ask of either kind is the limit.
+    $this->actingAs($user)->postJson("{$ask}/suggestions")->assertStatus(409);
+    $this->actingAs($user)->postJson("{$ask}/mapping/suggest")->assertStatus(429);
+
+    $this->actingAs($other)
+        ->postJson("/api/v1/subjects/{$otherSubjectId}/wallet/imports/{$theirs->id}/mapping/suggest")
+        ->assertStatus(202);
+});
+
+/*
+ * The upload budget, which was always meant per taxpayer and was in fact per address.
+ *
+ * The throttle ran before the taxpayer was known, so its key fell back to the IP: one taxpayer
+ * uploading a year of statements blocked every other one behind the same router.
+ */
+it('counts uploads per taxpayer, not per address', function (): void {
+    config(['documents.rate_limits.upload_per_subject.max_attempts' => 1]);
+
+    [$user, $subjectId, $accountId] = importer();
+    [$other, $otherSubjectId, $otherAccountId] = importer();
+    $upload = static fn (string $subject, string $account, string $name): array => [
+        "/api/v1/subjects/{$subject}/wallet/imports",
+        ['file' => statementFile($name), 'account_id' => $account],
+    ];
+
+    $this->actingAs($user)->post(...$upload($subjectId, $accountId, 'extras-intai.csv'))->assertStatus(202);
+    $this->actingAs($user)->post(...$upload($subjectId, $accountId, 'extras-prea-mult.csv'))->assertStatus(429);
+    $this->actingAs($other)->post(...$upload($otherSubjectId, $otherAccountId, 'extras-vecin.csv'))->assertStatus(202);
+});
+
+/*
+ * Two presses at once.
+ *
+ * Both read the import while it is still open and both pass that check; the claim is what decides.
+ * Simulated by handing the action an import read before another request moved it to READING — the
+ * state the second of two simultaneous presses is in.
+ */
+it('reads the file once when the columns are asked for twice at the same moment', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-doua-apasari.csv');
+    $readBeforeTheOtherPress = StatementImport::withoutGlobalScope(TenantScope::class)->findOrFail($import->id);
+
+    StatementImport::withoutGlobalScope(TenantScope::class)
+        ->whereKey($import->id)
+        ->update(['status' => StatementImportStatus::READING->value]);
+
+    Queue::fake();
+
+    expect(fn () => app(RequestColumnSuggestion::class)($readBeforeTheOtherPress))
+        ->toThrow(ImportNotOpenException::class);
+
+    Queue::assertNotPushed(ReadStatementFile::class);
+});
+
+/*
  * A statement takes minutes to read and to classify, and nobody should have to keep the page open to
  * find out it is their turn. The person who started it is told — and only they are.
  */
@@ -944,10 +1017,10 @@ function fakeReader(): FakeParseGateway
 function convertingProvider(string $subjectId, int $status = 200, ?array $reply = null): void
 {
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'ollama',
-        'ai.providers.env_fallback.base_url' => 'https://gateway.test',
-        'ai.providers.env_fallback.model' => 'any',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'ollama',
+        'ai.providers.defaults.base_url' => 'https://gateway.test',
+        'ai.providers.defaults.model' => 'any',
         'ai.providers.supports_conversion' => true,
     ]);
     app(DocumentAiConsentGate::class)->grant($subjectId);
@@ -1091,10 +1164,10 @@ it('does not read again an import refused for what the file is', function (): vo
 function mappingProvider(string $subjectId, array $reply): void
 {
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'ollama',
-        'ai.providers.env_fallback.base_url' => 'https://gateway.test',
-        'ai.providers.env_fallback.model' => 'any',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'ollama',
+        'ai.providers.defaults.base_url' => 'https://gateway.test',
+        'ai.providers.defaults.model' => 'any',
     ]);
     app(DocumentAiConsentGate::class)->grant($subjectId);
 

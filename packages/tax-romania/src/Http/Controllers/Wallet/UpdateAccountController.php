@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
 use Kern\TaxRomania\Rules\StreamSource;
 use Kern\TaxRomania\Wallet\Actions\UpdateFinancialAccount;
@@ -71,7 +72,7 @@ final class UpdateAccountController
             'starts_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date'],
             // Editable on any kind: it pre-fills the transaction form and nothing that calculates
             // reads it. A deposit's own currency travels with its terms, and this sets both.
-            'currency_code' => ['sometimes', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency_code' => ['sometimes', ...CurrencyCode::rules()],
 
             // Deposit terms, accepted only for an account that is one. A whole replacement rather
             // than a partial edit: the rate periods must cover the term without a gap, and that is

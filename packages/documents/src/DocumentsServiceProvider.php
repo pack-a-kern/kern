@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\Documents;
 
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Kern\Documents\Consent\DocumentAiConsentGate;
@@ -27,10 +24,11 @@ use Kern\Documents\Quarantine\QuarantineObjectStore;
 use Kern\Documents\Scanning\ClamdVirusScanner;
 use Kern\Documents\Scanning\ScannerBackedUploadScanner;
 use Kern\Documents\Scanning\VirusScanner;
+use Kern\Platform\Http\StackService;
 use Kern\Platform\KeyManagement\SubjectDekService;
+use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
-use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Uploads\Contracts\UploadScanner;
 
 /**
@@ -98,9 +96,8 @@ final class DocumentsServiceProvider extends ServiceProvider
 
             return new HttpTextExtractionGateway(
                 $app->make(HttpFactory::class),
-                $config->string('services.processing.base_url'),
+                StackService::processing($config),
                 $config->integer('documents.text_extraction.timeout_seconds'),
-                $config->string('services.processing.auth_token'),
             );
         });
 
@@ -154,21 +151,10 @@ final class DocumentsServiceProvider extends ServiceProvider
             __DIR__ . '/../config/ai/documents.php' => config_path('ai/documents.php'),
         ], 'kern-documents-config');
 
-        RateLimiter::for('documents-upload-per-subject', function (Request $request): Limit {
-            $maxAttempts = config('documents.rate_limits.upload_per_subject.max_attempts');
-            $decaySeconds = config('documents.rate_limits.upload_per_subject.decay_seconds');
-            // Keyed on the tenant the request acts for, read from the bound context rather than from
-            // a route parameter whose name is the application's. The tenant middleware has already
-            // run by the time a route's own throttle does; the IP is the answer for an upload that
-            // somehow arrives without one.
-            $context = $this->app->make(TenantContext::class);
-            $key = $context->hasActiveTenant() ? $context->currentTenantId() : (string) $request->ip();
-
-            return new Limit(
-                $key,
-                is_int($maxAttempts) ? $maxAttempts : 30,
-                is_int($decaySeconds) ? $decaySeconds : 60,
-            );
-        });
+        ConfiguredRateLimit::register(
+            'documents-upload-per-subject',
+            'documents.rate_limits.upload_per_subject',
+            ConfiguredRateLimit::perTenant(),
+        );
     }
 }

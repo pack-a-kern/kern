@@ -27,10 +27,14 @@ final readonly class ComponentHealth
         return new self($key, 'degraded', $detail);
     }
 
-    /** The service is not configured for this installation — not a failure. */
-    public static function notConfigured(string $key): self
+    /**
+     * The service is not configured for this installation — not a failure. `$detail` says what is
+     * there instead, where that is worth knowing: mail written to the log is not mail, but it is a
+     * choice an installation may make, and failing the install over it would refuse that choice.
+     */
+    public static function notConfigured(string $key, ?string $detail = null): self
     {
-        return new self($key, 'not_configured', null);
+        return new self($key, 'not_configured', $detail);
     }
 
     /**

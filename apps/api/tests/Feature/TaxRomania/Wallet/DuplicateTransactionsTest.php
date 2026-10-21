@@ -32,8 +32,6 @@ use Kern\TaxRomania\Wallet\Models\TransactionSplit;
  * decides, and where merging has to keep every piece of evidence the discarded rows carried.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

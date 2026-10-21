@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\FiscalParameters\Reading;
 
 use DateTimeImmutable;
-use Kern\TaxRomania\FiscalParameters\ParameterCheck;
 
 /**
  * One value as a source states it, for one period — before the law is searched for it.
@@ -37,20 +36,5 @@ final readonly class Reading
     public function key(): string
     {
         return implode('|', [$this->parameterCode, $this->validFrom->format('Y-m-d'), $this->validUntil?->format('Y-m-d') ?? '', json_encode($this->value, JSON_THROW_ON_ERROR)]);
-    }
-
-    /** @param array<string, mixed> $detail */
-    public function withCheck(ParameterCheck $check, array $detail = []): self
-    {
-        return new self(
-            $this->parameterCode,
-            $this->validFrom,
-            $this->validUntil,
-            $this->value,
-            $this->lawValues,
-            $this->origin,
-            [...$this->checks, ['kind' => $check->value, ...$detail]],
-            $this->sourceSectionId,
-        );
     }
 }

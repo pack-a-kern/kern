@@ -6,10 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
-
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
  * `$response->json(...)` is `mixed`; this narrows one user row once so each assertion reads
@@ -43,6 +41,23 @@ it('lists accounts with their MFA posture and memberships', function (): void {
         ->and($row['passkeys'])->toBe(0)
         ->and($row['totp'])->toBeFalse()
         ->and($row['memberships'])->toBe([]);
+});
+
+it('lists the memberships in force, not the ones revoked', function (): void {
+    $admin = settingsAdminUser();
+
+    foreach ([[MembershipRole::OWNER, null], [MembershipRole::VIEWER, now('UTC')]] as [$role, $revokedAt]) {
+        SubjectMembership::create([
+            'subject_id' => TaxSubject::factory()->create()->id,
+            'user_id' => $admin->id,
+            'role' => $role,
+            'permissions_json' => [],
+            'valid_from' => now('UTC'),
+            'revoked_at' => $revokedAt,
+        ]);
+    }
+
+    expect(directoryRow($this, $admin)['memberships'])->toBe([MembershipRole::OWNER->value]);
 });
 
 it('decrypts the email so the directory is usable, and returns no other encrypted field', function (): void {

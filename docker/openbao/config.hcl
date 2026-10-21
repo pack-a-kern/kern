@@ -11,13 +11,16 @@
 
 ui = false
 
-# Plain HTTP, and deliberately so: this listener is reachable only from `app_net`, the same network
-# boundary that already protects Postgres and Redis, and nothing outside the compose network can
-# address it. TLS here would mean a certificate to issue, mount and rotate for a hop that never
-# leaves the host — see docs/handoff/001-docker-topology.md on the same decision for Postgres.
+# TLS, with a certificate nobody has to handle. What crosses this listener is the application's token
+# and every data key it unwraps, in the clear — so it was plain HTTP only while it seemed that a
+# certificate meant a person issuing, mounting and renewing one. It does not: docker/certs issues this
+# server's certificate from the stack's CA and renews it before it expires, the startup script reloads
+# it (docker/openbao/entrypoint.sh), and the containers that call this server verify against that CA.
+# The listener is on `kms_net`, which only those containers join.
 listener "tcp" {
-  address     = "0.0.0.0:8200"
-  tls_disable = true
+  address       = "0.0.0.0:8200"
+  tls_cert_file = "/run/kern/tls/server.crt"
+  tls_key_file  = "/run/kern/tls/server.key"
 }
 
 # `/openbao/file` rather than a path of our own choosing: the image already creates it owned by the
@@ -30,7 +33,7 @@ storage "file" {
 
 # Where the server tells clients it lives. Without it, operations that redirect (and the CLI's own
 # calls from inside the container) can end up pointing at 127.0.0.1 from a caller's perspective.
-api_addr = "http://openbao:8200"
+api_addr = "https://openbao:8200"
 
 # No `disable_mlock` here: OpenBao 2.6.2 removed mlock support altogether and refuses to start with
 # the setting present at all — "OpenBao has dropped support for mlock. Please remove", verified

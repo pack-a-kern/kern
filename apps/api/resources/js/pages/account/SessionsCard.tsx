@@ -63,10 +63,7 @@ function deviceName(session: SessionSummary, t: <T>(select: (dictionary: Diction
  * Revoking is the one destructive action on this page and is always explicit — changing a password
  * deliberately does not revoke anything, so the two questions stay separate.
  */
-export default function SessionsCard(props: {
-    sessions: SessionSummary[] | null;
-    onChanged: () => void;
-}): JSX.Element {
+export default function SessionsCard(props: { sessions: SessionSummary[] | null; onChanged: () => void }): JSX.Element {
     const { t } = useTranslation();
     const [busy, setBusy] = useState(false);
 
@@ -80,7 +77,11 @@ export default function SessionsCard(props: {
             toast.success(t((d) => d.pages.settingsSecurity.sessionRevoked));
             props.onChanged();
         } catch (cause: unknown) {
-            reportApiFailure(cause, t, t((d) => d.pages.settingsSecurity.revokeFailed));
+            reportApiFailure(
+                cause,
+                t,
+                t((d) => d.pages.settingsSecurity.revokeFailed),
+            );
         } finally {
             setBusy(false);
         }
@@ -94,7 +95,11 @@ export default function SessionsCard(props: {
             toast.success(t((d) => d.pages.settingsSecurity.othersRevoked).replace('{count}', String(count)));
             props.onChanged();
         } catch (cause: unknown) {
-            reportApiFailure(cause, t, t((d) => d.pages.settingsSecurity.revokeFailed));
+            reportApiFailure(
+                cause,
+                t,
+                t((d) => d.pages.settingsSecurity.revokeFailed),
+            );
         } finally {
             setBusy(false);
         }

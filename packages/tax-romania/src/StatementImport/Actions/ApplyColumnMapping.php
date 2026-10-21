@@ -110,9 +110,12 @@ final readonly class ApplyColumnMapping
         );
 
         $existing = $this->existingByFingerprint($import->account_id, array_values(array_filter($fingerprints)));
-        $ruleFor = $this->rulesFor($rows);
+        // Every counterparty in the file, indexed in one request and used twice: to look up the
+        // remembered answers in one query, and for each row below.
+        $counterpartyIndexes = $this->rules->indexesFor(array_column($rows, 'counterparty'));
+        $ruleFor = $this->rules->forIndexes(array_values(array_unique(array_filter($counterpartyIndexes, is_string(...)))));
 
-        DB::transaction(function () use ($import, $form, $source, $rows, $built, $fingerprints, $existing, $ruleFor, $parsed): void {
+        DB::transaction(function () use ($import, $form, $source, $rows, $built, $fingerprints, $existing, $counterpartyIndexes, $ruleFor, $parsed): void {
             // Replace, never append: a person who fixes one column and applies the mapping again is
             // correcting this import, not adding a second copy of the statement to it.
             StatementImportRow::query()->where('import_id', $import->id)->delete();
@@ -122,7 +125,7 @@ final readonly class ApplyColumnMapping
             foreach ($rows as $index => $row) {
                 $fingerprint = $fingerprints[$index] ?? null;
                 $duplicateId = $fingerprint === null ? null : ($existing[$fingerprint] ?? null);
-                $counterpartyIndex = $this->rules->indexFor($row['counterparty']);
+                $counterpartyIndex = $counterpartyIndexes[$index];
                 $rule = $counterpartyIndex === null || $row['amount_minor'] === null
                     ? null
                     : ($ruleFor[CounterpartyDirectory::key($counterpartyIndex, MoneyDirection::ofAmount($row['amount_minor']))] ?? null);
@@ -284,26 +287,5 @@ final readonly class ApplyColumnMapping
             static fn (int $index): string => $headers[$index] ?? '',
             range(0, max(array_keys($headers))),
         );
-    }
-
-    /**
-     * The remembered answers for every counterparty in the file, in one query.
-     *
-     * @param  list<array<string, mixed>>  $rows
-     * @return array<string, \Kern\TaxRomania\Wallet\Models\Counterparty>
-     */
-    private function rulesFor(array $rows): array
-    {
-        $indexes = [];
-
-        foreach ($rows as $row) {
-            $index = $this->rules->indexFor(is_string($row['counterparty'] ?? null) ? $row['counterparty'] : null);
-
-            if ($index !== null) {
-                $indexes[$index] = true;
-            }
-        }
-
-        return $this->rules->forIndexes(array_keys($indexes));
     }
 }

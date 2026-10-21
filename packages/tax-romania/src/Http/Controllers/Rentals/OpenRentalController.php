@@ -12,6 +12,7 @@ use Kern\Documents\Enums\TransactionImportState;
 use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\Queries\ResolveTransactionImportState;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Rental\Actions\OpenRental;
 use Kern\TaxRomania\Rental\DataTransferObjects\OpenRentalInput;
@@ -50,7 +51,7 @@ final class OpenRentalController
             // No "after today" here, unlike a deposit's maturity: a rental that has already ended is
             // a real contract whose years were owed, and recording one is how those years get counted.
             'end_date' => ['sometimes', 'nullable', 'date', 'after:start_date'],
-            'currency_code' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency_code' => ['required', ...CurrencyCode::rules()],
             'rent_minor' => ['required', 'integer', 'min:1'],
             'payment_frequency' => ['required', Rule::enum(RentalPaymentFrequency::class)],
             'payment_day' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:31'],

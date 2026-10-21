@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Approval\ApprovalStatus;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
@@ -33,11 +29,6 @@ use Tests\Fixtures\TaxEngine\Rules\SyntheticPercentageOfBaseRule;
  * (`docs/AGENTS.md` §2) — `SyntheticPercentageOfBaseRule` reads its one number from a
  * `fiscal_parameter_versions` row this test creates itself, never a real Romanian rate.
  */
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-    $provider = new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR), 1);
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 function makeTaxAssessor(): TaxAssessor
 {

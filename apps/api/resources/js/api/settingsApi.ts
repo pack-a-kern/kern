@@ -42,12 +42,13 @@ export async function updateSettingsGroup(
  * `POST /api/v1/settings/ai/test-connection` — calls the configured provider for real.
  *
  * Response shape is `Kern\Platform\Settings\DataTransferObjects\ConnectionTestResult::toArray()`:
- * `success` always, plus `error`, `message`, `status` and `latency_ms` when present.
+ * `success`, plus `latency_ms` on success or `error` — `not_configured` or `failed` — otherwise. Why
+ * it failed is in the server log and deliberately not here: whoever presses the button chose the
+ * address, and a reason would say whether anything answers at it.
  */
 export interface AiConnectionTest {
     success: boolean;
     error: string | null;
-    message: string | null;
     latencyMs: number | null;
 }
 
@@ -63,7 +64,6 @@ export async function testAiConnection(): Promise<AiConnectionTest> {
     return {
         success: candidate.success === true,
         error: typeof candidate.error === 'string' ? candidate.error : null,
-        message: typeof candidate.message === 'string' ? candidate.message : null,
         latencyMs: typeof candidate.latency_ms === 'number' ? candidate.latency_ms : null,
     };
 }
@@ -79,14 +79,24 @@ export async function listAiProviders(): Promise<AiProvider[]> {
 }
 
 /**
- * `POST /api/v1/settings/ai/models` — asks the provider which models it serves.
+ * `PUT /api/v1/settings/ai/connection` — the provider's address and its key, saved together.
  *
- * POST, not GET: the draft API key travels in the body so it never reaches a URL, an access log,
- * or browser history. Any omitted field falls back to the saved configuration server-side, so the
- * button also works for a provider whose key is stored and never sent back to the browser.
+ * The only way either changes: a key only ever goes to the address it was saved with. An empty key
+ * means the provider takes none — never "keep the saved one".
+ */
+export async function replaceAiConnection(baseUrl: string, apiKey: string): Promise<void> {
+    await apiRequest('/v1/settings/ai/connection', {
+        method: 'PUT',
+        body: { base_url: baseUrl, api_key: apiKey === '' ? null : apiKey },
+    });
+}
+
+/**
+ * `POST /api/v1/settings/ai/models` — asks the saved provider which models it serves.
  *
- * Failure is a value, not a thrown error — "this provider cannot list models" is an ordinary
- * outcome, and the operator can always type a model name by hand.
+ * Always the saved address and key; `provider` only chooses how the request is shaped, for a provider
+ * picked on the form but not yet saved. Failure is a value, not a thrown error — "this provider cannot
+ * list models" is an ordinary outcome, and the operator can always type a model name by hand.
  */
 export interface AiModelList {
     ok: boolean;
@@ -94,22 +104,10 @@ export interface AiModelList {
     reason: string | null;
 }
 
-export async function fetchAiModels(draft: {
-    provider: string;
-    baseUrl: string | null;
-    apiKey: string | null;
-}): Promise<AiModelList> {
-    const body: Record<string, string> = { provider: draft.provider };
-
-    if (draft.baseUrl !== null && draft.baseUrl !== '') {
-        body.base_url = draft.baseUrl;
-    }
-
-    if (draft.apiKey !== null && draft.apiKey !== '') {
-        body.api_key = draft.apiKey;
-    }
-
-    const result: unknown = JSON.parse(await apiRequest('/v1/settings/ai/models', { method: 'POST', body }));
+export async function fetchAiModels(provider: string): Promise<AiModelList> {
+    const result: unknown = JSON.parse(
+        await apiRequest('/v1/settings/ai/models', { method: 'POST', body: { provider } }),
+    );
 
     if (typeof result !== 'object' || result === null) {
         throw new TypeError('Model list returned an unexpected response.');

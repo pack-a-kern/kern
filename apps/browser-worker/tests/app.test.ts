@@ -19,9 +19,10 @@ const TEST_TOKEN = "test-internal-token";
 async function withServer(
   fn: (baseUrl: string) => Promise<void>,
   token: string | undefined = TEST_TOKEN,
+  maxSessions = 8,
 ): Promise<void> {
   const { factory } = createFakeBrowserContextFactory();
-  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory });
+  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions });
   const server: Server = createServer(
     createApp(manager, { authMode: "token", internalAuthToken: token, concurrency: 1, maxWaiting: 4 }),
   );
@@ -97,4 +98,31 @@ test("an inbound X-Request-Id is echoed back unchanged", async () => {
 
     assert.equal(response.headers.get("x-request-id"), "given-by-the-caller");
   });
+});
+
+test("a session past the ceiling is refused as at capacity, the way a full run queue is", async () => {
+  const playbook = {
+    version: 1,
+    name: "example",
+    allow: ["example.test"],
+    sequences: { noop: [{ waitFor: { any: [{ selector: "body", outcome: "ready" }], timeout: 2000 } }] },
+  };
+  const open = (baseUrl: string): Promise<Response> =>
+    fetch(`${baseUrl}/v1/sessions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${TEST_TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({ playbook }),
+    });
+
+  await withServer(
+    async (baseUrl) => {
+      assert.equal((await open(baseUrl)).status, 201);
+
+      const refused = await open(baseUrl);
+      assert.equal(refused.status, 503);
+      assert.deepEqual(await refused.json(), { error: "at_capacity" });
+    },
+    TEST_TOKEN,
+    1,
+  );
 });

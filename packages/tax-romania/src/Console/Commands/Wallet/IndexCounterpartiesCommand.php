@@ -42,8 +42,14 @@ final class IndexCounterpartiesCommand extends Command
             ->whereNotNull('counterparty_ciphertext')
             ->orderBy('id')
             ->chunkById(self::CHUNK, function ($transactions) use ($rules, &$indexed): void {
-                foreach ($transactions as $transaction) {
-                    $index = $rules->indexFor((string) $transaction->counterparty_ciphertext);
+                // One request to the key manager per chunk, not per transaction.
+                $indexes = $rules->indexesFor(array_values(array_map(
+                    static fn ($transaction): string => (string) $transaction->counterparty_ciphertext,
+                    $transactions->all(),
+                )));
+
+                foreach (array_values($transactions->all()) as $i => $transaction) {
+                    $index = $indexes[$i];
 
                     if ($index === null) {
                         continue;

@@ -165,12 +165,26 @@ return [
          * Counted separately from the code budget above so neither can exhaust the other.
          */
         'step_up_password_per_user' => ['max_attempts' => 5, 'decay_seconds' => 300],
+        // Changing the password re-checks the *current* one — the same non-rotating secret the
+        // step-up password gate guards, on a session that by the premise may not be the owner's. The
+        // same tight leash: five every five minutes keeps a fumble recoverable and a guesser nowhere.
+        // Its own key, so it neither drains nor is drained by the step-up budget.
+        'change_password_per_user' => ['max_attempts' => 5, 'decay_seconds' => 300],
         'passkey_ceremony_per_ip' => ['max_attempts' => 20, 'decay_seconds' => 60],
         'register_per_ip' => ['max_attempts' => 10, 'decay_seconds' => 300],
+        // The mail telling an account's owner that someone tried to register their address again —
+        // one an hour per account, however often the form is sent, so it cannot fill an inbox.
+        'registration_notice_per_account' => ['max_attempts' => 1, 'decay_seconds' => 3600],
         // Submitting a code, and asking for another. The first stops a six-digit code being guessed;
         // the second stops somebody else's inbox being used as a weapon.
         'email_verify_per_user' => ['max_attempts' => 5, 'decay_seconds' => 60],
         'email_resend_per_user' => ['max_attempts' => 3, 'decay_seconds' => 300],
+        /*
+         * An administrator's calls that leave this server or start work on it — testing an AI
+         * connection, listing its models, saving it, searching the legislation portal, running an
+         * operation. Already behind a permission; this is for the script that loops, not the person.
+         */
+        'operator_calls_per_user' => ['max_attempts' => 20, 'decay_seconds' => 60],
     ],
 
 ];

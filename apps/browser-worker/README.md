@@ -102,6 +102,7 @@ Two things follow, both enforced here rather than left to the caller:
 | `BROWSER_SESSION_TTL_MS` | `900000` | |
 | `BROWSER_CONCURRENCY` | `1` | each run holds a browser and several hundred megabytes |
 | `BROWSER_MAX_WAITING` | `8` | beyond this, a run is refused rather than queued |
+| `BROWSER_MAX_SESSIONS` | `4` | browsers open at once, for every caller together; beyond this a new one is refused `503 at_capacity` and the open ones keep working. Sized to the container's memory |
 
 `token` is the default deliberately: a missing variable must never be the thing that removes the
 only guard in front of a browser.

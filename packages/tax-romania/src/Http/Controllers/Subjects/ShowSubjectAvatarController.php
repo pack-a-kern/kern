@@ -33,19 +33,11 @@ final class ShowSubjectAvatarController
         $viewerKey = $viewer->getKey();
 
         abort_unless(
-            is_scalar($viewerKey) && $this->belongsTo((string) $viewerKey, $subject->encryptionSubjectId()),
+            is_scalar($viewerKey) && SubjectMembership::opens((string) $viewerKey, $subject->encryptionSubjectId()),
             403,
         );
 
         return $avatar->of($subject);
     }
 
-    private function belongsTo(string $userId, string $subjectId): bool
-    {
-        return SubjectMembership::query()
-            ->where('user_id', $userId)
-            ->where('subject_id', $subjectId)
-            ->whereNull('revoked_at')
-            ->exists();
-    }
 }

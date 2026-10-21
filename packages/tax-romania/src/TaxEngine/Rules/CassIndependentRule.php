@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Rules;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -58,7 +59,7 @@ final class CassIndependentRule implements TaxRuleContract
 
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
-        $minimumWage = $input->parameters->get(self::MINIMUM_WAGE)->asMoney('RON');
+        $minimumWage = $input->parameters->get(self::MINIMUM_WAGE)->asMoney(CurrencyCode::BASE);
         $rate = $input->parameters->get(self::RATE)->asDecimalRate();
         $bounds = $input->parameters->get(self::BOUNDS)->asJson();
 
@@ -74,7 +75,7 @@ final class CassIndependentRule implements TaxRuleContract
             );
         }
 
-        $income = Money::zero('RON');
+        $income = Money::zero(CurrencyCode::BASE);
         $counted = 0;
 
         foreach ($input->facts as $fact) {
@@ -90,7 +91,7 @@ final class CassIndependentRule implements TaxRuleContract
         $cap = WageThresholds::wagesToMoney($minimumWage, $capWages);
 
         // No independent income is not income below the floor. The floor raises a base; it does not create one.
-        $base = $income->isPositive() ? $income->max($floor)->min($cap) : Money::zero('RON');
+        $base = $income->isPositive() ? $income->max($floor)->min($cap) : Money::zero(CurrencyCode::BASE);
         $contribution = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);
 
         $trace = new CalculationTrace(

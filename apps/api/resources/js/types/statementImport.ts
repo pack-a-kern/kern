@@ -1,4 +1,5 @@
 import type { TaxCategory } from './wallet';
+import { nullableNum, nullableStr, num, obj, str } from '../lib/json';
 
 /**
  * A bank statement on its way from a file to transactions.
@@ -228,26 +229,6 @@ export interface StatementImportPage {
     total: number;
     page: number;
     perPage: number;
-}
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    return typeof row[key] === 'string' ? row[key] : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    return typeof row[key] === 'string' ? row[key] : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    return typeof row[key] === 'number' ? row[key] : 0;
-}
-
-function nullableNum(row: Record<string, unknown>, key: string): number | null {
-    return typeof row[key] === 'number' ? row[key] : null;
 }
 
 const STATUSES: StatementImportStatus[] = ['READING', 'MAPPING', 'REVIEW', 'IMPORTING', 'IMPORTED', 'FAILED'];

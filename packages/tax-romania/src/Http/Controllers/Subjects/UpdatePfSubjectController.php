@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\TaxRomania\Subjects\Actions\UpdatePfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\UpdatePfSubjectInput;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
@@ -28,7 +27,7 @@ final class UpdatePfSubjectController
         abort_unless($user !== null, 401);
 
         $model = TaxSubject::query()->findOrFail($subject);
-        abort_unless($this->owns($user->id, $subject), 403);
+        abort_unless(SubjectMembership::owns($user->id, $subject), 403);
 
         $data = $request->validate([
             'display_name' => ['sometimes', 'string', 'max:255'],
@@ -49,15 +48,5 @@ final class UpdatePfSubjectController
         ), $user->id);
 
         return response()->json(['id' => $model->id]);
-    }
-
-    private function owns(string $userId, string $subjectId): bool
-    {
-        return SubjectMembership::query()
-            ->where('user_id', $userId)
-            ->where('subject_id', $subjectId)
-            ->where('role', MembershipRole::OWNER->value)
-            ->whereNull('revoked_at')
-            ->exists();
     }
 }

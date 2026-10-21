@@ -8,12 +8,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\Audit\Queries\AuditEventQuery;
+use Kern\Audit\Queries\AuditReach;
 
 /**
  * `GET /api/v1/audit/events` — a page of the append-only audit trail, newest first.
  *
- * Behind the settings-admin gate: the trail names every actor and every resource touched across
- * all tax subjects, so it is strictly more revealing than any single screen it records.
+ * Behind the settings-admin gate: the trail names every actor and every resource touched, so it is
+ * strictly more revealing than any single screen it records. The lines tied to a taxpayer are left out
+ * for a reader without `audit.view.taxpayers` ({@see AuditReach}) — a `subject_id` filter included,
+ * which then finds nothing rather than saying whether that taxpayer has a trail.
  *
  * `anchor` freezes the window being paged through; `AuditEventQuery` explains why a growing log
  * needs one before it can offer page numbers at all.
@@ -37,7 +40,10 @@ final class ShowAuditEventsController
             'per_page' => ['nullable', 'integer', Rule::in(self::PAGE_SIZES)],
         ]);
 
-        return response()->json($query->page(
+        $reach = AuditReach::for($request->user());
+
+        return response()->json([...$query->page(
+            $reach,
             [
                 'q' => $validated['q'] ?? null,
                 'event_type' => $validated['event_type'] ?? null,
@@ -47,6 +53,6 @@ final class ShowAuditEventsController
             ],
             isset($validated['per_page']) ? (int) $validated['per_page'] : self::DEFAULT_PAGE_SIZE,
             isset($validated['page']) ? (int) $validated['page'] : 1,
-        ));
+        ), 'reach' => $reach->value]);
     }
 }

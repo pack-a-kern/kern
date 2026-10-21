@@ -5,10 +5,9 @@
 # somebody generated once, and the edge stops being C code with a CVE chain this image had to purge
 # package by package (docker/nginx/Dockerfile did exactly that for libgd/libheif).
 #
-# Exact tags per docs/DEPENDENCY-POLICY.md §1. Alpine, because the edge needs no Debian package: the
-# healthcheck uses busybox's own wget and nothing else is installed on top.
-# `2.11.7-alpine` and `2.11.7-builder-alpine` verified present 2026-10-15 via
-# https://hub.docker.com/v2/repositories/library/caddy/tags — see docs/reference/verified-versions.md.
+# Exact tag plus digest per docs/DEPENDENCY-POLICY.md §1 — `make pins` reports a newer build of either.
+# Alpine, because the edge needs no Debian package: the healthcheck uses busybox's own wget and nothing
+# else is installed on top. Both verified 2026-10-20 — see docs/reference/verified-versions.md.
 
 # Stage: builder — Caddy rebuilt with one DNS provider module compiled in.
 #
@@ -31,22 +30,46 @@
 #
 # Pinned to an exact module version like every other dependency. `v0.2.4`, released 2026-03-23,
 # resolved from the Go module proxy on 2026-10-15 — see docs/reference/verified-versions.md.
-FROM caddy:2.11.7-builder-alpine AS builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare@v0.2.4
+#
+# And one more module, for the same proxy: Cloudflare's address ranges, as a source of trusted proxies.
+# Behind the proxy every connection comes from Cloudflare, so the visitor's own address is only in the
+# `CF-Connecting-IP` header — believable from Cloudflare and from nobody else. The module fetches the
+# ranges Cloudflare publishes and refreshes them, so the list is never a copy here that ages. Used
+# only when the Caddyfile's `KERN_EDGE_TRUSTED_PROXIES` names it. The module has no tagged release;
+# this is its latest commit (2023-11-30, f53b62aa13cb), resolved from the Go module proxy 2026-10-20.
+#
+# ## Built from a committed go.mod, not `xcaddy build --with`
+#
+# `--with` pins the two modules it names and nothing under them: the rest of the graph — some 150
+# libraries — was resolved again on every build, and this binary holds the DNS token and every TLS key.
+# docker/caddy/build/ commits the whole graph with its hashes; `-mod=readonly` fails the build rather
+# than resolve anything not written there, and `go mod verify` checks each download against go.sum.
+# To move a version: `go get` it in that directory with this builder image, `go mod tidy`, commit both.
+FROM caddy:2.11.7-builder-alpine@sha256:d718a1d1431403c4a46698f33ad1c0f9dd5dd7fe2bae654d1027d275b6fb5fd7 AS builder
+WORKDIR /src
+COPY docker/caddy/build/ ./
+RUN go mod download \
+    && go mod verify \
+    && CGO_ENABLED=0 go build -mod=readonly -trimpath -ldflags '-w -s' -o /usr/bin/caddy .
 
-FROM caddy:2.11.7-alpine
+FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
 
-# The rebuilt binary, replacing the base image's. Copied before the user is created below, because
-# that step strips a file capability from this binary and so has to run after it is in place.
+# The rebuilt binary, replacing the base image's — and with it the file capability the base image's
+# binary carries (`cap_net_bind_service=ep`, for binding 80 and 443). A plain `go build` sets none.
+# That matters: a binary with an *effective* file capability cannot be exec'd at all under
+# `cap_drop: [ALL]`, which fails as `exec /usr/bin/caddy: operation not permitted` with no further
+# explanation. This one binds 8080 and 8443 and never needs it. Until the build moved off xcaddy, which
+# sets the capability on purpose, a `setcap -r` below removed it.
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
 # A non-root user, no home, no shell. Caddy listens on the unprivileged 8080/8443 (see the
 # Caddyfile's global options) specifically so no capability has to be added back after
 # `cap_drop: [ALL]` in compose.yaml — the host maps 80 and 443 onto them.
 #
-# 10001 is also the uid `scripts/generate-certs.sh` writes the certificate pair for. The pair is
-# bind-mounted from the host read-only, and a private key that only root can read is a key this
-# process cannot read: the edge would start, fail to load TLS and take the site down with it.
+# 10001 is also the uid the stack's CA (docker/certs) issues the edge's certificate for, and the one
+# a pair the installer copies into docker/caddy/certs is made readable by. Both are mounted read-only,
+# and a private key that only root can read is a key this process cannot read: the edge would start,
+# fail to load TLS and take the site down with it.
 #
 # /data holds the TLS state — Caddy's own CA when `tls internal` is used, and ACME account keys and
 # certificates when a domain is configured — so it is a named volume in compose, not a tmpfs:
@@ -54,15 +77,7 @@ COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # directory, which stays empty here because the Caddyfile turns the admin API off.
 RUN addgroup -g 10001 -S caddy \
     && adduser -u 10001 -S -G caddy -H -D -s /sbin/nologin caddy \
-    && chown -R caddy:caddy /data /config \
-    && setcap -r /usr/bin/caddy
-
-# Why that `setcap -r`: the base image grants the binary `cap_net_bind_service=ep` so that a
-# non-root Caddy can bind ports 80 and 443. This one binds 8080 and 8443, so it never needs the
-# capability — and a binary carrying an *effective* file capability cannot be exec'd at all under
-# `cap_drop: [ALL]`, which fails as `exec /usr/bin/caddy: operation not permitted` with no further
-# explanation. Measured, not assumed: the container would not start until this line existed.
-# `libcap` is already in the base image; nothing is installed to do this.
+    && chown -R caddy:caddy /data /config
 
 COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
 

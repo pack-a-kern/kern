@@ -26,12 +26,4 @@ final readonly class NativeTextExtractionResult
         public array $pages,
     ) {
     }
-
-    public function joinedText(): UntrustedDocumentText
-    {
-        return UntrustedDocumentText::join(array_values(array_map(
-            static fn (PageExtractionResult $page): UntrustedDocumentText => $page->text,
-            $this->pages,
-        )));
-    }
 }

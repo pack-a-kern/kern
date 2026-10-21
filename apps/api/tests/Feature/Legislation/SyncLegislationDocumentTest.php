@@ -249,7 +249,6 @@ it('refuses rather than guesses when no act matches', function (): void {
 });
 
 it('shows the law, its text on a date, and a provision\'s history', function (): void {
-    bootstrapIdentityCryptoForTests();
     portal();
     app(SyncLegislationDocument::class)('LEGE', 227, 2015);
     $law = fiscalCode();
@@ -385,7 +384,6 @@ it('tells apart acts sharing a number by the portal id, and refuses without one'
 it('finds acts on the portal by title or by number, and says which are read already', function (): void {
     governmentDecisionPortal();
 
-    bootstrapIdentityCryptoForTests();
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
@@ -407,7 +405,6 @@ it('finds acts on the portal by title or by number, and says which are read alre
 });
 
 it('searches the portal only for those who may read a law in', function (): void {
-    bootstrapIdentityCryptoForTests();
     Artisan::call('kern:access:sync');
 
     $this->actingAs(User::factory()->create())->getJson('/api/v1/legislation/portal?title=codul%20fiscal')->assertForbidden();
@@ -415,7 +412,6 @@ it('searches the portal only for those who may read a law in', function (): void
 
 it('imports the act chosen on the screen, through the task, to the end', function (): void {
     governmentDecisionPortal();
-    bootstrapIdentityCryptoForTests();
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
@@ -431,7 +427,6 @@ it('imports the act chosen on the screen, through the task, to the end', functio
 
 it('filters a portal search to one type', function (): void {
     governmentDecisionPortal();
-    bootstrapIdentityCryptoForTests();
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
@@ -498,7 +493,6 @@ it('dates a wording by its article\'s note when the article was replaced whole',
 });
 
 it('deletes a law read in by mistake, with every consolidation and provision it brought', function (): void {
-    bootstrapIdentityCryptoForTests();
     portal();
     app(SyncLegislationDocument::class)('LEGE', 227, 2015);
     $law = fiscalCode();
@@ -521,7 +515,6 @@ it('deletes a law read in by mistake, with every consolidation and provision it 
 });
 
 it('refuses to delete a law a fiscal value rests on, and says how many', function (): void {
-    bootstrapIdentityCryptoForTests();
     portal();
     app(SyncLegislationDocument::class)('LEGE', 227, 2015);
     $law = fiscalCode();
@@ -542,7 +535,6 @@ it('refuses to delete a law a fiscal value rests on, and says how many', functio
 });
 
 it('does not delete an exchange-rate source through the law route, and refuses a person who may not run operations', function (): void {
-    bootstrapIdentityCryptoForTests();
     portal();
     app(SyncLegislationDocument::class)('LEGE', 227, 2015);
     $law = fiscalCode();

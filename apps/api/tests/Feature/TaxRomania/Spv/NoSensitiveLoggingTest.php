@@ -37,8 +37,7 @@ const SECRET_CODE = '918273';
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
-    config(['spv.browser_worker.auth_token' => 'test-worker-secret']);
+    config(['browser_worker.auth_token' => 'test-worker-secret']);
 });
 
 it('never writes the submitted password or challenge code to the log, across success and failure paths', function (): void {

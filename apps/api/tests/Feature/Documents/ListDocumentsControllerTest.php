@@ -29,8 +29,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
  * person's documents out of the browser database of whichever device uploaded them.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

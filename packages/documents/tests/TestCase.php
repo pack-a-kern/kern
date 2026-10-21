@@ -40,6 +40,12 @@ abstract class TestCase extends Testbench
 
     protected function defineEnvironment($app): void
     {
+        // In memory, never the stack's Redis: these tests run inside the app container, whose
+        // CACHE_STORE, SESSION_DRIVER and QUEUE_CONNECTION name it, and this skeleton's Redis
+        // configuration knows nothing of its TLS.
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('session.driver', 'array');
+        $app['config']->set('queue.default', 'sync');
         $app['config']->set('database.default', 'pgsql');
         $app['config']->set('database.connections.pgsql', [
             'driver' => 'pgsql',
@@ -57,12 +63,6 @@ abstract class TestCase extends Testbench
         // A workspace, not a taxpayer.
         $app['config']->set('tenancy.column', 'workspace_id');
         $app['config']->set('tenancy.table', null);
-
-        $app['config']->set('crypto.blind_index.keys', json_encode(
-            ['1' => base64_encode(str_repeat("\x22", 32))],
-            JSON_THROW_ON_ERROR,
-        ));
-        $app['config']->set('crypto.blind_index.current_version', 1);
 
         $app['config']->set('filesystems.disks.objects', ['driver' => 'local', 'root' => $app->storagePath('kern-objects')]);
         $app['config']->set('objectstore.disk', 'objects');

@@ -8,7 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\TaxRomania\Subjects\Actions\ChangeSubjectStatus;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -27,7 +26,7 @@ final class ChangeSubjectStatusController
         abort_unless($user !== null, 401);
 
         $model = TaxSubject::query()->findOrFail($subject);
-        abort_unless($this->owns($user->id, $subject), 403);
+        abort_unless(SubjectMembership::owns($user->id, $subject), 403);
 
         $data = $request->validate([
             'status' => ['required', Rule::enum(SubjectStatus::class)],
@@ -40,15 +39,5 @@ final class ChangeSubjectStatusController
         $change($model, $status, $user->id);
 
         return response()->json(['id' => $model->id, 'status' => $status->value]);
-    }
-
-    private function owns(string $userId, string $subjectId): bool
-    {
-        return SubjectMembership::query()
-            ->where('user_id', $userId)
-            ->where('subject_id', $subjectId)
-            ->where('role', MembershipRole::OWNER->value)
-            ->whereNull('revoked_at')
-            ->exists();
     }
 }

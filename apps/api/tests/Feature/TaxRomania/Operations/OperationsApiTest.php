@@ -18,8 +18,6 @@ use Kern\TaxRomania\Operations\Models\TaskRun;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     Artisan::call('kern:access:sync');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 });

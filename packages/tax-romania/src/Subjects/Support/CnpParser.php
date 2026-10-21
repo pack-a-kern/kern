@@ -75,18 +75,6 @@ final readonly class CnpParser
         );
     }
 
-    /** True when the CNP is one this application accepts, for callers that do not want an exception. */
-    public static function isValid(string $cnp): bool
-    {
-        try {
-            self::parse($cnp);
-
-            return true;
-        } catch (InvalidCnpException) {
-            return false;
-        }
-    }
-
     private static function assertChecksum(string $digits): void
     {
         $sum = 0;

@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { formatBytes, formatDateTime, formatWhen } from '../format';
+import {
+    formatAmount,
+    formatBytes,
+    formatDateTime,
+    formatMinor,
+    formatNumber,
+    formatPercent,
+    formatWhen,
+} from '../format';
 
 describe('formatBytes', () => {
     it('uses kilobytes below a megabyte', () => {
@@ -85,5 +93,45 @@ describe('formatWhen', () => {
 
     it('returns the input unchanged rather than rendering NaN', () => {
         expect(formatWhen('not a date', 'en-GB')).toBe('not a date');
+    });
+});
+
+describe('formatAmount and formatMinor', () => {
+    it("writes money in the reader's language, always to the ban", () => {
+        expect(formatAmount(4050, 'RON', 'ro-RO')).toBe(
+            new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'RON', minimumFractionDigits: 2 }).format(
+                4050,
+            ),
+        );
+        expect(formatMinor(405000, 'RON', 'ro-RO')).toBe(formatAmount(4050, 'RON', 'ro-RO'));
+        expect(formatMinor(405000, 'EUR', 'en-GB')).toBe('€4,050.00');
+    });
+
+    it('shows a figure whose currency is unknown as a plain number, rather than throwing', () => {
+        expect(formatAmount(4050, '', 'en-GB')).toBe('4,050.00');
+        expect(formatAmount(4050, 'not-a-code', 'en-GB')).toBe('4,050.00');
+    });
+
+    it('shows a dash where there is no amount', () => {
+        expect(formatMinor(null, 'RON', 'ro-RO')).toBe('—');
+    });
+});
+
+describe('formatNumber', () => {
+    it("follows the language it is given, not the browser's", () => {
+        expect(formatNumber(12480, 'ro-RO')).toBe('12.480');
+        expect(formatNumber(12480, 'en-GB')).toBe('12,480');
+    });
+
+    it('rounds to whole numbers unless asked for more', () => {
+        expect(formatNumber(2.46, 'en-GB')).toBe('2');
+        expect(formatNumber(2.46, 'en-GB', 1)).toBe('2.5');
+    });
+});
+
+describe('formatPercent', () => {
+    it('takes how many decimals a screen wants', () => {
+        expect(formatPercent(0.1234, 'en-GB')).toBe('12.34%');
+        expect(formatPercent(0.1234, 'en-GB', 0)).toBe('12%');
     });
 });

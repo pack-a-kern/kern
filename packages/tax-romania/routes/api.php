@@ -196,10 +196,13 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::put('wallet/imports/{import}/mapping', UpdateStatementImportMappingController::class)
         ->where('import', '[0-9a-f-]{36}');
     // Asking the model again — for the form, or for the rows still unanswered — without re-uploading.
+    // One budget for both, per taxpayer: each is a round of calls to a provider that may bill for them.
     Route::post('wallet/imports/{import}/mapping/suggest', RequestColumnSuggestionController::class)
-        ->where('import', '[0-9a-f-]{36}');
+        ->where('import', '[0-9a-f-]{36}')
+        ->middleware('throttle:statement-import-model-per-subject');
     Route::post('wallet/imports/{import}/suggestions', RequestRowSuggestionsController::class)
-        ->where('import', '[0-9a-f-]{36}');
+        ->where('import', '[0-9a-f-]{36}')
+        ->middleware('throttle:statement-import-model-per-subject');
     Route::patch('wallet/imports/{import}/rows', UpdateStatementImportRowsController::class)
         ->where('import', '[0-9a-f-]{36}');
     Route::post('wallet/imports/{import}/commit', CommitStatementImportController::class)
@@ -276,7 +279,7 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
  * `verify-recent`: an assessment reads a year of somebody's finances and writes figures they may file, which
  * is the kind of act that gate exists for.
  */
-Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'verified', 'tax-subject'])->group(function (): void {
+Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])->group(function (): void {
     /*
      * Reading the year's assessment back needs no step-up: it returns figures already recorded, which the
      * taxpayer's own screens show anyway. Computing one does, because it writes.
@@ -354,7 +357,8 @@ Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): voi
         // respectively, inside the controllers — the `where` clauses below only keep obviously
         // malformed paths from reaching them.
         Route::post('tasks/{task}/run', RunOperationTaskController::class)
-            ->where('task', '[a-z_.]+');
+            ->where('task', '[a-z_.]+')
+            ->middleware('throttle:operator-calls-per-user');
         Route::put('tasks/{task}', UpdateScheduledTaskController::class)
             ->where('task', '[a-z_.]+');
 

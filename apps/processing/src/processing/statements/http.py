@@ -26,7 +26,8 @@ from processing.statements.errors import (
     TooManyRowsError,
     UnsupportedFormatError,
 )
-from processing.statements.parse import check_statement, describe_columns, parse_statement
+from processing.statements.isolated import check_statement_isolated, parse_statement_isolated
+from processing.statements.parse import describe_columns
 from processing.statements.schemas import (
     CheckStatementResponse,
     ColumnPayload,
@@ -85,7 +86,9 @@ async def check(
     content = await file.read()
 
     try:
-        file_format = await run_in_threadpool(check_statement, content, StatementParseSettings())
+        file_format = await run_in_threadpool(
+            check_statement_isolated, content, StatementParseSettings()
+        )
     except StatementParseError as exc:
         return _refusal(exc, "statement_check_rejected")
 
@@ -111,14 +114,15 @@ async def parse(
 ) -> ParseStatementResponse | JSONResponse:
     """Reads the file into rows and describes its columns.
 
-    Runs in a thread rather than on the event loop: every reader here is synchronous and a large
-    workbook takes seconds, which would otherwise block every other request in the service.
+    Read in a disposable process (`processing.statements.isolated`), so a file that unpacks to more
+    than its memory allows fails alone; waited on from a thread, so the wait does not block every
+    other request in the service.
     """
     content = await file.read()
     settings = StatementParseSettings()
 
     try:
-        statement = await run_in_threadpool(parse_statement, content, sheet, settings)
+        statement = await run_in_threadpool(parse_statement_isolated, content, sheet, settings)
     except StatementParseError as exc:
         return _refusal(exc, "statement_parse_rejected")
 

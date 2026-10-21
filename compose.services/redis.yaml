@@ -10,7 +10,7 @@
 
 services:
   redis:
-    image: redis:8-trixie
+    image: redis:8.10.2-trixie@sha256:5c02d7c0f8d75af45958c0294a8004f2e14b42df98a1103e3a669aa7ec787be6
     # The password is read from the environment at start, NOT interpolated into argv by compose.
     #
     # Two reasons, both learned the hard way. Interpolating it here bakes the secret into the
@@ -23,12 +23,18 @@ services:
     # place; `docker/redis/entrypoint.sh` also refuses to start on an unset or placeholder value,
     # so a misconfiguration fails loudly at boot instead of at the first request.
     command: ["/usr/local/bin/kern-redis-entrypoint.sh"]
+    # Reaps the certificate watcher the entrypoint starts (docker/tls/kern-tls.sh), and passes the stop
+    # signal on to redis-server.
+    init: true
     networks:
       - app_net
       - data_net
     volumes:
       - redis_data:/data
       - ./docker/redis/entrypoint.sh:/usr/local/bin/kern-redis-entrypoint.sh:ro
+      # TLS only — the key and certificate docker/certs issues it, and the watcher that reloads them.
+      - tls_redis:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
     read_only: true
     tmpfs:
       - /tmp:mode=1777
@@ -41,13 +47,28 @@ services:
       # `redis` user. Confirmed by a real boot test: without SETPCAP,
       # setpriv itself fails ("apply bounding set: Operation not
       # permitted") before redis ever starts. 2026-09-07.
+      # These are root's, for the moment before the drop — chowning the
+      # data directory, then setpriv itself. redis-server runs as `redis`
+      # with every capability cleared (CapEff 0, verified 2026-10-20); it
+      # ran as root until docker/redis/entrypoint.sh handed over to the
+      # image's entrypoint instead of starting redis-server directly.
       - CHOWN
       - SETUID
       - SETGID
       - DAC_OVERRIDE
       - SETPCAP
+      # For the stop signal `init` passes on from root to the `redis` user. Without it the signal does
+      # not arrive, and a stop is a kill ten seconds later.
+      - KILL
+    depends_on:
+      certs:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      # The password in `REDISCLI_AUTH`, which redis-cli reads, and not after `-a`: this runs every ten
+      # seconds, and `-a` put the password on redis-cli's command line each time — readable by any
+      # account on the host with `ps`, for as long as the check ran. The shell sees the variable's
+      # name here, never its value.
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli --tls --cacert /run/kern/tls/ca.crt ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -61,21 +82,29 @@ services:
           memory: 256M
     restart: unless-stopped
 
+  # Its certificate, from the stack's CA, handed to the image's `redis` user.
+  certs:
+    environment:
+      KERN_CERT_redis: "999:999:redis,localhost,127.0.0.1"
+    volumes:
+      - tls_redis:/certs/out/redis
+
   # The four PHP processes cannot boot without this, so the dependency lives here rather
   # than in compose.yaml: leave this file out of COMPOSE_FILE and both the service and
-  # every wait for it disappear together.
-  app:
+  # every wait for it disappear together. The ones that use it connect over TLS, checking the
+  # certificate against the stack's CA — set here because it is true of this server; one you run
+  # elsewhere is described in REDIS_SCHEME and REDIS_CA_CERT instead.
+  app: &connects-to-redis
     depends_on:
       redis:
         condition: service_healthy
-  queue:
-    depends_on:
-      redis:
-        condition: service_healthy
-  scheduler:
-    depends_on:
-      redis:
-        condition: service_healthy
+    environment:
+      REDIS_SCHEME: tls
+      REDIS_CA_CERT: /run/kern/tls-ca/ca.crt
+  queue: *connects-to-redis
+  scheduler: *connects-to-redis
+  # Booting the framework reads the stored settings through the cache, so a migration needs Redis too.
+  migrate: *connects-to-redis
   reverb:
     depends_on:
       redis:
@@ -83,3 +112,4 @@ services:
 
 volumes:
   redis_data:
+  tls_redis:

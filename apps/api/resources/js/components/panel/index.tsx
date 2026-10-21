@@ -1394,32 +1394,6 @@ export function SearchInput(props: {
     );
 }
 
-/** A flat underline tab rail. */
-export function TabRail<T extends string>(props: {
-    value: T;
-    onChange: (value: T) => void;
-    tabs: Array<{ value: T; label: string }>;
-}): JSX.Element {
-    return (
-        <div className="tab-rail" role="tablist">
-            {props.tabs.map((tab) => (
-                <button
-                    key={tab.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab.value === props.value}
-                    className="tab-item"
-                    onClick={() => {
-                        props.onChange(tab.value);
-                    }}
-                >
-                    {tab.label}
-                </button>
-            ))}
-        </div>
-    );
-}
-
 /**
  * A permission-matrix cell.
  *

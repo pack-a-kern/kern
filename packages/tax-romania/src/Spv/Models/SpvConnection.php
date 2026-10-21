@@ -68,10 +68,4 @@ final class SpvConnection extends Model implements EncryptsWithSubjectDek
     {
         return $this->hasMany(SpvSession::class, 'connection_id');
     }
-
-    /** @return HasMany<SpvSyncRun, $this> */
-    public function syncRuns(): HasMany
-    {
-        return $this->hasMany(SpvSyncRun::class, 'connection_id');
-    }
 }

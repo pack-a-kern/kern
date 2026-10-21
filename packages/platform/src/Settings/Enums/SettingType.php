@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Settings\Enums;
 
+use Kern\Platform\Money\CurrencyCode;
+
 /**
  * The value shape of a setting — drives both server-side validation and the input a settings
  * screen renders. `SECRET` is never returned to a client (`docs/handoff/041-settings-module.md`);
@@ -67,16 +69,6 @@ enum SettingType: string
     }
 
     /**
-     * The currency this product is denominated in, which is in every list whether it was chosen or not.
-     *
-     * A Romanian tax application without lei is not a configuration, it is a broken install: the
-     * fiscal parameters are in RON, the assessment is in RON, and every foreign amount is converted
-     * to it. So it is pinned here rather than guarded at each of the places that would otherwise
-     * have to check.
-     */
-    public const string BASE_CURRENCY = 'RON';
-
-    /**
      * A stored string back to the codes it names — upper-cased, deduplicated, base currency first.
      *
      * Tolerant of the spacing a person types and of an empty list, which decodes to the base
@@ -87,12 +79,12 @@ enum SettingType: string
      */
     public static function decodeCurrencyList(?string $stored): array
     {
-        $codes = [self::BASE_CURRENCY];
+        $codes = [CurrencyCode::BASE];
 
         foreach (explode(',', $stored ?? '') as $candidate) {
             $code = strtoupper(trim($candidate));
 
-            if (preg_match('/^[A-Z]{3}$/', $code) === 1 && ! in_array($code, $codes, true)) {
+            if (CurrencyCode::isValid($code) && ! in_array($code, $codes, true)) {
                 $codes[] = $code;
             }
         }

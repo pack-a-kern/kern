@@ -45,6 +45,11 @@ cd "$ROOT"
 
 ENV_FILE="apps/api/.env"
 ENV_MODE=600
+# The CA certificates of remote services signed by a private CA, and where the PHP containers see them.
+TRUSTED_DIR="docker/tls/trusted"
+TRUSTED_MOUNT="/run/kern/tls-trusted"
+# The user the edge runs as (docker/caddy/Dockerfile): a key of your own for it has to be readable by it.
+EDGE_UID=10001
 
 # Memory limits, from the compose files that set them: compose.yaml (edge 128, app 512,
 # queue 2048 by QUEUE_MEMORY_LIMIT, scheduler 128, reverb 256) and one per optional service. Summed
@@ -133,6 +138,45 @@ ask_secret() {
     printf '\n'
 }
 
+# The address of a service on another machine, which must be `https://`.
+#
+# What crosses these connections is the key vault's token and every data key it unwraps, every
+# document, the processing plane's text and the SPV sign-in — in clear text over `http://`, readable
+# by anything on the path. A VPN does encrypt it, but that is a property of today's network and not
+# something this installation can check, so it is not an answer the installer takes. A server with a
+# certificate from a private CA is fine: its CA is asked for next.
+ask_https_address() {
+    while :; do
+        ask_required "$1" ''
+        case "$ANSWER" in
+            https://*) return 0 ;;
+        esac
+        echo '  It must start with https:// — tokens and documents cross this connection, and over'
+        echo '  http:// anyone on the network path can read them. Give the server a certificate'
+        echo '  (one from a private CA is fine) and use its https:// address.'
+    done
+}
+
+# The certificate of the CA a remote service's certificate is signed by, when that is a private one —
+# copied to docker/tls/trusted/<name>.crt, which the PHP containers mount, and the path inside them is
+# the answer. Empty, for a certificate any browser would trust. Verification is never switched off.
+ask_ca_file() {
+    while :; do
+        ask "$1 — its CA certificate file, if it is signed by a private CA (empty if not)" ''
+        [ -n "$ANSWER" ] || return 0
+
+        if [ -f "$ANSWER" ] && openssl x509 -noout -in "$ANSWER" >/dev/null 2>&1; then
+            mkdir -p "$TRUSTED_DIR"
+            cp "$ANSWER" "$TRUSTED_DIR/$2.crt"
+            chmod 644 "$TRUSTED_DIR/$2.crt"
+            ANSWER="$TRUSTED_MOUNT/$2.crt"
+            return 0
+        fi
+
+        echo "  $ANSWER is not a readable PEM certificate."
+    done
+}
+
 CHOICE=''
 
 # A numbered menu. `choose "<question>" <default> "<option>" "<option>" …`
@@ -188,8 +232,13 @@ confirm() {
 #
 # The value arrives through the environment rather than as an awk `-v`, which would read a
 # backslash in a password as an escape, and is never interpolated into a pattern.
+#
+# The temporary copy is created private, under a umask of its own, rather than made private after it
+# is written: `chmod` afterwards left every one of some thirty rewrites readable by every user on the
+# host for as long as the write took. Scoped to this subshell because a umask is inherited — set for
+# the whole script it would reach `npm ci` and the image builds, whose files keep their mode.
 set_env() {
-    KERN_ENV_VALUE="$2" awk -v key="$1" '
+    (umask 077 && KERN_ENV_VALUE="$2" awk -v key="$1" '
         BEGIN { written = 0 }
         !written && (index($0, key "=") == 1 || index($0, "# " key "=") == 1) {
             print key "=" ENVIRON["KERN_ENV_VALUE"]
@@ -198,7 +247,7 @@ set_env() {
         }
         { print }
         END { if (!written) print key "=" ENVIRON["KERN_ENV_VALUE"] }
-    ' "$ENV_FILE" > "$ENV_FILE.tmp"
+    ' "$ENV_FILE" > "$ENV_FILE.tmp")
 
     mv "$ENV_FILE.tmp" "$ENV_FILE"
     chmod "$ENV_MODE" "$ENV_FILE"
@@ -253,8 +302,15 @@ SITE_URL=''
 EDGE_SITE=''
 EDGE_TLS=''
 EDGE_ACME_DNS=''
+EDGE_TRUSTED_PROXIES=''
+EDGE_CLIENT_IP_HEADERS=''
+EDGE_HSTS=''
+# One year, the common minimum; the name only. Written whole because the Caddyfile takes the line.
+HSTS_LINE='Strict-Transport-Security max-age=31536000'
 EDGE_DNS_TOKEN=''
 TLS_NOTE=''
+EDGE_CERT_FILE=''
+EDGE_KEY_FILE=''
 
 DB_LOCAL=yes
 DB_HOST=postgres
@@ -269,7 +325,8 @@ REDIS_PORT_ANSWER=6379
 REDIS_PASS=''
 
 VAULT_LOCAL=yes
-VAULT_ADDR='http://openbao:8200'
+VAULT_ADDR=''
+VAULT_CA=''
 VAULT_TOKEN=''
 
 CLAMAV_LOCAL=yes
@@ -277,17 +334,20 @@ CLAMAV_HOST_ANSWER=clamav
 CLAMAV_PORT_ANSWER=3310
 
 STORAGE_ENDPOINT=''
+STORAGE_CA=''
 STORAGE_KEY=''
 STORAGE_SECRET=''
 STORAGE_BUCKET=kern-documents
 STORAGE_QUARANTINE=kern-quarantine
 
 PROCESSING_MODE=local
-PROCESSING_URL_ANSWER='http://python-api:8000'
+PROCESSING_URL_ANSWER=''
+PROCESSING_CA=''
 PROCESSING_TOKEN=''
 
 BROWSER_MODE=local
-BROWSER_URL_ANSWER='http://browser-worker:8090'
+BROWSER_URL_ANSWER=''
+BROWSER_CA=''
 BROWSER_TOKEN=''
 
 MAIL_MODE=log
@@ -304,7 +364,7 @@ ask_how_it_is_reached() {
     DEFAULT_ADDRESS=$(scripts/host-addresses.sh 2>/dev/null | head -n 1 || true)
 
     choose 'How will this installation be reached?' 1 \
-        'An IP address — self-signed TLS, and browsers will warn' \
+        "An IP address — a certificate from this installation's own CA, and browsers warn until it is trusted" \
         "A domain name, with ports 80 and 443 reachable from the internet — Let's Encrypt, renewed by the edge" \
         "A domain name behind Cloudflare's proxy — Let's Encrypt proved through DNS, renewed by the edge" \
         'A domain name, with a certificate you already have — including a Cloudflare Origin certificate'
@@ -314,11 +374,11 @@ ask_how_it_is_reached() {
             ask_required 'The address people will type' "$DEFAULT_ADDRESS"
             SITE_HOST="$ANSWER"
             # Both KERN_EDGE_* stay unset: that is the Caddyfile's own default — every address this
-            # machine has, presented with the self-signed pair generated below. There is no name in
+            # machine has, presented with the certificate docker/certs issues it. There is no name in
             # `:8443` for a public certificate authority to issue a certificate for, and Let's
             # Encrypt's IP certificates are not confirmed working against the Caddy version this
             # repository pins (docs/INSTALLER-PLAN.md §8), so this answer does not pretend otherwise.
-            TLS_NOTE='self-signed — a browser will warn, which is the honest state of a server reached by IP'
+            TLS_NOTE="from this installation's own CA — a browser warns until that CA is trusted on it (make tls-ca)"
             ;;
         2)
             ask_required 'The domain name' ''
@@ -326,6 +386,7 @@ ask_how_it_is_reached() {
             EDGE_SITE="$SITE_HOST"
             ask_required 'An email address for the certificate authority' ''
             EDGE_TLS="$ANSWER"
+            EDGE_HSTS="$HSTS_LINE"
             TLS_NOTE="Let's Encrypt, obtained on the first request to $SITE_HOST and renewed by the edge"
             ;;
         3)
@@ -348,19 +409,36 @@ ask_how_it_is_reached() {
             ask_secret 'Cloudflare API token'
             EDGE_DNS_TOKEN="$ANSWER"
             EDGE_ACME_DNS='acme_dns cloudflare {env.KERN_EDGE_DNS_TOKEN}'
+            # Every connection now comes from Cloudflare, so the visitor's address is the one it
+            # puts in CF-Connecting-IP — believed from Cloudflare's own ranges only (the Caddyfile's
+            # `servers` block). Without it, login throttles pool every visitor behind a few of
+            # Cloudflare's addresses, and every session shows one of them.
+            EDGE_TRUSTED_PROXIES='trusted_proxies cloudflare'
+            EDGE_CLIENT_IP_HEADERS='client_ip_headers CF-Connecting-IP'
+            EDGE_HSTS="$HSTS_LINE"
             TLS_NOTE="Let's Encrypt, proved through Cloudflare's DNS and renewed by the edge"
             ;;
         4)
             ask_required 'The domain name' ''
             SITE_HOST="$ANSWER"
             EDGE_SITE="$SITE_HOST"
-            # The path inside the container, which is where compose mounts docker/caddy/certs. The
-            # self-signed pair generated below lands there, so this answer starts working
-            # immediately and the operator replaces the two files with theirs — a Cloudflare Origin
-            # certificate is valid for fifteen years and needs no renewal, which is why it is worth
-            # offering beside ACME rather than instead of it.
-            EDGE_TLS='/etc/caddy/certs/kern.crt /etc/caddy/certs/kern.key'
-            TLS_NOTE='your own certificate at docker/caddy/certs/kern.crt and kern.key'
+            # Copied to docker/caddy/certs, which compose mounts at /etc/caddy/certs — a Cloudflare
+            # Origin certificate is valid for fifteen years and needs no renewal, which is why it is
+            # worth offering beside ACME rather than instead of it. Not there yet, the edge presents
+            # the one docker/certs issues for this name until it is, and the deployment guide says how
+            # to switch.
+            ask 'Your certificate file (empty if you do not have it yet)' ''
+            if [ -n "$ANSWER" ]; then
+                EDGE_CERT_FILE="$ANSWER"
+                ask_required 'Its private key file' ''
+                EDGE_KEY_FILE="$ANSWER"
+                EDGE_TLS='/etc/caddy/certs/kern.crt /etc/caddy/certs/kern.key'
+                TLS_NOTE='your own certificate, copied to docker/caddy/certs'
+            else
+                TLS_NOTE="from this installation's own CA until yours is in docker/caddy/certs — see docs/DEPLOYMENT.md"
+            fi
+            # No HSTS: the deployment guide says to set KERN_EDGE_HSTS once the certificate is one a
+            # browser trusts, which is not something this script can see.
             ;;
     esac
 }
@@ -383,9 +461,11 @@ ask_database() {
     DB_PORT="$ANSWER"
     ask 'Database name' kern
     DB_NAME="$ANSWER"
-    ask 'User' kern
+    # The owner: the role that creates the tables. The application does not connect as it — `migrate`
+    # creates a role of its own for that, with a generated password, so this role needs CREATEROLE.
+    ask 'User that owns the database' kern
     DB_USER="$ANSWER"
-    ask_secret 'Password'
+    ask_secret 'Its password'
     DB_PASS="$ANSWER"
 }
 
@@ -421,8 +501,10 @@ ask_vault() {
     fi
 
     VAULT_LOCAL=no
-    ask_required 'Address' 'http://10.73.4.4:8200'
+    ask_https_address 'Address'
     VAULT_ADDR="$ANSWER"
+    ask_ca_file 'The key vault' openbao
+    VAULT_CA="$ANSWER"
     # Not generated: an external vault's token is issued by that vault. It must already allow
     # encrypt, decrypt and a read of the key's metadata on the transit mount — `kern:health` at the
     # end of this run is what proves it does, and the install fails there if it does not.
@@ -456,8 +538,10 @@ ask_object_storage() {
     printf '  There is no option to install this here: this repository ships no object-storage\n'
     printf '  service, so it is an address you already have.\n\n'
 
-    ask_required 'Endpoint' 'http://10.73.4.3:9000'
+    ask_https_address 'Endpoint'
     STORAGE_ENDPOINT="$ANSWER"
+    ask_ca_file 'The object storage' object-storage
+    STORAGE_CA="$ANSWER"
     ask_required 'Access key' ''
     STORAGE_KEY="$ANSWER"
     ask_secret 'Secret key'
@@ -468,53 +552,64 @@ ask_object_storage() {
     STORAGE_QUARANTINE="$ANSWER"
 }
 
-ask_processing() {
-    choose 'Document AI — reads PDFs and bank statements' 1 \
-        'Install the processing plane here (1 GB of memory)' \
-        'Use a processing plane I already run' \
-        'Skip it — no AI features'
+# A service of the stack that an installation may run here, reach elsewhere, or go without — the
+# processing plane and the browser worker ask the same three things. Answers in SERVICE_MODE
+# (local, remote or skip), SERVICE_URL, SERVICE_CA and SERVICE_TOKEN.
+#
+#   $1 the question  $2 $3 $4 the three choices  $5 what its CA is called  $6 the CA's file name
+#   $7 how its token is asked for
+#
+# Here, the token is generated: both ends read it from the one environment file. Elsewhere, it is
+# asked, not generated — the other end already has its copy.
+ask_optional_service() {
+    choose "$1" 1 "$2" "$3" "$4"
+
+    SERVICE_URL=''
+    SERVICE_CA=''
+    SERVICE_TOKEN=''
 
     case "$CHOICE" in
         1)
-            PROCESSING_MODE=local
-            PROCESSING_TOKEN=$(openssl rand -hex 32)
+            SERVICE_MODE=local
+            SERVICE_TOKEN=$(openssl rand -hex 32)
             ;;
         2)
-            PROCESSING_MODE=remote
-            ask_required 'Address' ''
-            PROCESSING_URL_ANSWER="$ANSWER"
-            # Asked, not generated: both ends present the same secret, and the other end already
-            # has its copy.
-            ask_secret 'The shared secret that processing plane expects'
-            PROCESSING_TOKEN="$ANSWER"
+            SERVICE_MODE=remote
+            ask_https_address 'Address'
+            SERVICE_URL="$ANSWER"
+            ask_ca_file "$5" "$6"
+            SERVICE_CA="$ANSWER"
+            ask_secret "$7"
+            SERVICE_TOKEN="$ANSWER"
             ;;
-        3) PROCESSING_MODE=skip ;;
+        3) SERVICE_MODE=skip ;;
     esac
 }
 
+ask_processing() {
+    ask_optional_service 'Document AI — reads PDFs and bank statements' \
+        'Install the processing plane here (1 GB of memory)' \
+        'Use a processing plane I already run' \
+        'Skip it — no AI features' \
+        'The processing plane' processing 'The shared secret that processing plane expects'
+
+    PROCESSING_MODE="$SERVICE_MODE"
+    PROCESSING_URL_ANSWER="$SERVICE_URL"
+    PROCESSING_CA="$SERVICE_CA"
+    PROCESSING_TOKEN="$SERVICE_TOKEN"
+}
+
 ask_browser_worker() {
-    choose 'SPV automation — the browser robot that signs in to ANAF' 1 \
+    ask_optional_service 'SPV automation — the browser robot that signs in to ANAF' \
         'Install the browser worker here (2 GB of memory, 3.6 GB of disk)' \
         'Use a browser worker I already run' \
-        'Skip it — no SPV automation'
+        'Skip it — no SPV automation' \
+        'The browser worker' browser-worker 'The token that worker expects'
 
-    case "$CHOICE" in
-        1)
-            # No token generated. A locally installed worker sits alone on `browser_net` with
-            # nothing else able to reach its port, which is what `BROWSER_AUTH_MODE=network` — the
-            # mode compose.services/browser.yaml sets — means. A token in the environment that
-            # nothing checks would read like protection that is not there.
-            BROWSER_MODE=local
-            ;;
-        2)
-            BROWSER_MODE=remote
-            ask_required 'Address' ''
-            BROWSER_URL_ANSWER="$ANSWER"
-            ask_secret 'The token that worker expects'
-            BROWSER_TOKEN="$ANSWER"
-            ;;
-        3) BROWSER_MODE=skip ;;
-    esac
+    BROWSER_MODE="$SERVICE_MODE"
+    BROWSER_URL_ANSWER="$SERVICE_URL"
+    BROWSER_CA="$SERVICE_CA"
+    BROWSER_TOKEN="$SERVICE_TOKEN"
 }
 
 ask_mail() {
@@ -643,20 +738,49 @@ print_summary() {
 # Writing the environment file
 # ---------------------------------------------------------------------------
 
+# `<host>,<every address of this machine>,localhost,127.0.0.1`, each once.
+edge_certificate_names() {
+    # shellcheck disable=SC2046
+    printf '%s\n' "$1" $(scripts/host-addresses.sh 2>/dev/null || true) localhost 127.0.0.1 \
+        | awk 'NF && !seen[$0]++' | paste -sd, -
+}
+
+# What an ask_optional_service answer puts in the environment file.
+#
+#   $1 the mode  $2 $3 $4 the address, CA and token variables  $5 $6 $7 their values
+#
+# Here, only the token: the address is the compose default. Skipped, the address is written empty
+# rather than left pointing at a container that will not exist — an address that was never set is
+# what makes the service's row of `kern:health` read "not installed" instead of "down".
+write_optional_service() {
+    case "$1" in
+        local)
+            set_env "$4" "$7"
+            ;;
+        remote)
+            set_env "$2" "$5"
+            set_env "$3" "$6"
+            set_env "$4" "$7"
+            ;;
+        skip)
+            set_env "$2" ''
+            ;;
+    esac
+}
+
 write_environment_file() {
     # The application's `.env.example` followed by the one every installed package ships, which is
     # the whole environment with the sentence that explains each variable intact. `cat`, not
     # `php artisan kern:env`, which does the same thing properly but needs composer to have run and
     # a container to run in — neither exists yet. The command is the one to use afterwards, after
     # installing a package, to see the variables it added.
-    cat apps/api/.env.example packages/*/.env.example > "$ENV_FILE"
+    (umask 077 && cat apps/api/.env.example packages/*/.env.example > "$ENV_FILE")
     chmod "$ENV_MODE" "$ENV_FILE"
 
     # Generated, never typed, never printed. `openssl rand -hex` rather than base64 for anything
     # compose interpolates: a `$` in a password makes compose read the rest of it as another
     # variable's name.
     set_env APP_KEY "base64:$(openssl rand -base64 32)"
-    set_env CRYPTO_BLIND_INDEX_KEYS "{\"1\":\"$(openssl rand -base64 32)\"}"
     set_env REVERB_APP_ID "$(openssl rand -hex 16)"
 
     REVERB_KEY=$(openssl rand -hex 20)
@@ -679,8 +803,16 @@ write_environment_file() {
     # stops the edge from starting at all.
     if [ -n "$EDGE_SITE" ]; then
         set_env KERN_EDGE_SITE "$EDGE_SITE"
+    fi
+
+    if [ -n "$EDGE_TLS" ]; then
         set_env KERN_EDGE_TLS "$EDGE_TLS"
     fi
+
+    # The names on the certificate docker/certs issues the edge: the address that was answered, every
+    # other address this host has — a client typing one the certificate does not cover gets a second
+    # warning on top of the first — and localhost, for `make smoke`.
+    set_env TLS_EDGE_NAMES "$(edge_certificate_names "$SITE_HOST")"
 
     # Same reasoning again, and it is the reason the directive is a variable at all: written empty
     # it is an `acme_dns` with no provider, which stops the edge from starting.
@@ -689,15 +821,29 @@ write_environment_file() {
         set_env KERN_EDGE_DNS_TOKEN "$EDGE_DNS_TOKEN"
     fi
 
+    # Behind Cloudflare only. Empty, the visitor's address is the connection's — see the Caddyfile.
+    if [ -n "$EDGE_TRUSTED_PROXIES" ]; then
+        set_env KERN_EDGE_TRUSTED_PROXIES "$EDGE_TRUSTED_PROXIES"
+        set_env KERN_EDGE_CLIENT_IP_HEADERS "$EDGE_CLIENT_IP_HEADERS"
+    fi
+
+    # Only for a certificate a browser trusts — see the Caddyfile's header block.
+    if [ -n "$EDGE_HSTS" ]; then
+        set_env KERN_EDGE_HSTS "$EDGE_HSTS"
+    fi
+
+    # Two roles, and two passwords: the owner, which `migrate` connects as to create the tables, and
+    # the application's own (DB_USERNAME), which owns nothing — `migrate` creates it with this password.
     if [ "$DB_LOCAL" = yes ]; then
-        set_env DB_PASSWORD "$(openssl rand -hex 24)"
+        set_env DB_OWNER_PASSWORD "$(openssl rand -hex 24)"
     else
         set_env DB_HOST "$DB_HOST"
         set_env DB_PORT "$DB_PORT"
         set_env DB_DATABASE "$DB_NAME"
-        set_env DB_USERNAME "$DB_USER"
-        set_env DB_PASSWORD "$DB_PASS"
+        set_env DB_OWNER_USERNAME "$DB_USER"
+        set_env DB_OWNER_PASSWORD "$DB_PASS"
     fi
+    set_env DB_PASSWORD "$(openssl rand -hex 24)"
 
     if [ "$REDIS_LOCAL" = yes ]; then
         set_env REDIS_PASSWORD "$(openssl rand -hex 24)"
@@ -707,13 +853,12 @@ write_environment_file() {
         set_env REDIS_PASSWORD "$REDIS_PASS"
     fi
 
-    if [ "$VAULT_LOCAL" = yes ]; then
-        # The id of the token the vault's own entrypoint then issues against a policy covering the
-        # four transit paths the application calls. Generated here because the container is created
-        # with it, so both halves read the same value from this file.
-        set_env OPENBAO_TOKEN "$(openssl rand -hex 32)"
-    else
+    # The bundled vault issues, publishes and replaces the application's token itself
+    # (docker/openbao/entrypoint.sh), so nothing is written for it here: a token in this file would be
+    # one more copy of a secret, in the file most likely to be copied.
+    if [ "$VAULT_LOCAL" = no ]; then
         set_env OPENBAO_ADDR "$VAULT_ADDR"
+        set_env OPENBAO_CA_CERT "$VAULT_CA"
         set_env OPENBAO_TOKEN "$VAULT_TOKEN"
     fi
 
@@ -723,36 +868,16 @@ write_environment_file() {
     fi
 
     set_env AWS_ENDPOINT "$STORAGE_ENDPOINT"
+    set_env AWS_CA_CERT "$STORAGE_CA"
     set_env AWS_ACCESS_KEY_ID "$STORAGE_KEY"
     set_env AWS_SECRET_ACCESS_KEY "$STORAGE_SECRET"
     set_env AWS_BUCKET "$STORAGE_BUCKET"
     set_env QUARANTINE_BUCKET "$STORAGE_QUARANTINE"
 
-    case "$PROCESSING_MODE" in
-        local)
-            set_env INTERNAL_SERVICE_AUTH_TOKEN "$PROCESSING_TOKEN"
-            ;;
-        remote)
-            set_env PROCESSING_URL "$PROCESSING_URL_ANSWER"
-            set_env INTERNAL_SERVICE_AUTH_TOKEN "$PROCESSING_TOKEN"
-            ;;
-        skip)
-            # Empty rather than left pointing at a container that will not exist: an address that
-            # was never set is what makes the `processing` row of `kern:health` read "not installed"
-            # instead of "down".
-            set_env PROCESSING_URL ''
-            ;;
-    esac
-
-    case "$BROWSER_MODE" in
-        remote)
-            set_env BROWSER_WORKER_URL "$BROWSER_URL_ANSWER"
-            set_env BROWSER_WORKER_TOKEN "$BROWSER_TOKEN"
-            ;;
-        skip)
-            set_env BROWSER_WORKER_URL ''
-            ;;
-    esac
+    write_optional_service "$PROCESSING_MODE" PROCESSING_URL PROCESSING_CA_CERT INTERNAL_SERVICE_AUTH_TOKEN \
+        "$PROCESSING_URL_ANSWER" "$PROCESSING_CA" "$PROCESSING_TOKEN"
+    write_optional_service "$BROWSER_MODE" BROWSER_WORKER_URL BROWSER_WORKER_CA_CERT BROWSER_WORKER_TOKEN \
+        "$BROWSER_URL_ANSWER" "$BROWSER_CA" "$BROWSER_TOKEN"
 
     if [ "$MAIL_MODE" = smtp ]; then
         set_env MAIL_MAILER smtp
@@ -777,14 +902,29 @@ in_app() {
     docker compose exec -T app "$@"
 }
 
+# The schema, as the database's owner, in a container of its own — then the application's role, set up
+# to match. The running application connects as a role that cannot create a table, so this is the only
+# way a migration can run (compose.yaml's `migrate` service). Queue and scheduler are restarted after,
+# because on a first install they started before the role they connect as existed.
+migrate() {
+    docker compose run --rm -T migrate
+    docker compose restart queue scheduler >/dev/null
+}
+
+# The value of one line in the environment file, or nothing.
+env_value() {
+    sed -n "s/^$1=//p" "$ENV_FILE" | head -n 1
+}
+
 wait_for_database() {
-    # The application's own connection, not the container's healthcheck: an external database has no
-    # container here, and what has to be true is that the application can reach it. `db:monitor`
-    # connects and reports, and fails if it cannot.
+    # A connection from the stack, not the container's healthcheck: an external database has no
+    # container here, and what has to be true is that the stack can reach it. As the owner, through
+    # `migrate` — on a first install the application's own role does not exist until the migrations
+    # have run. `db:monitor` connects and reports, and fails if it cannot.
     attempt=0
 
     while [ "$attempt" -lt 60 ]; do
-        if in_app php artisan db:monitor >/dev/null 2>&1; then
+        if docker compose run --rm -T migrate php artisan db:monitor >/dev/null 2>&1; then
             printf '  the database answered\n'
 
             return 0
@@ -802,21 +942,17 @@ install_from_answers() {
     write_environment_file
     printf '  %s, mode %s\n' "$ENV_FILE" "$ENV_MODE"
 
-    step 'Generating the TLS certificate and key'
-    # Always, whichever TLS answer was given. For the IP answer it is the certificate the edge
-    # serves; for the "certificate I already have" answer it is what makes the site work until the
-    # operator drops theirs in; and for the ACME answer it is never used, but `make up` refuses to
-    # start without the pair on disk and compose mounts that directory either way.
-    #
-    # The address that was answered, plus every other address this host has — a client typing one
-    # the certificate does not cover gets a second, different browser warning on top of the
-    # self-signed one, which reads like a worse problem than it is. Deliberately unquoted: the
-    # helper prints one address per line and each is its own argument.
-    if [ -f docker/caddy/certs/kern.crt ] && [ -f docker/caddy/certs/kern.key ]; then
-        printf '  there is already a pair at docker/caddy/certs — keeping it\n'
-    else
-        # shellcheck disable=SC2046
-        scripts/generate-certs.sh "$SITE_HOST" $(scripts/host-addresses.sh 2>/dev/null || true)
+    # A certificate of your own for the edge (the fourth TLS answer), where compose mounts it. Every
+    # other certificate is issued by docker/certs when the stack starts.
+    if [ -n "$EDGE_CERT_FILE" ]; then
+        step 'Copying your certificate for the edge'
+        (umask 077 && mkdir -p docker/caddy/certs && cp "$EDGE_KEY_FILE" docker/caddy/certs/kern.key)
+        cp "$EDGE_CERT_FILE" docker/caddy/certs/kern.crt
+        # Mode 600 keeps the key from everyone else on the host, and the edge is not root: a key only
+        # root can read is one it cannot load, and the site does not start.
+        chown "$EDGE_UID" docker/caddy/certs/kern.key 2>/dev/null \
+            || die "docker/caddy/certs/kern.key must belong to uid $EDGE_UID, the edge's user. Run the installer as root, or: sudo chown $EDGE_UID docker/caddy/certs/kern.key"
+        printf '  docker/caddy/certs/kern.crt and kern.key\n'
     fi
 
     step 'Building the frontend assets'
@@ -833,10 +969,10 @@ install_from_answers() {
     step 'Waiting for the database'
     wait_for_database
 
-    step 'Running the migrations'
+    step "Running the migrations, and setting up the application's database role"
     # Never on container start: a schema change applied by a restart is a schema change nobody
     # decided to apply.
-    in_app php artisan migrate --force
+    migrate
 
     step 'Creating the roles and permissions'
     # Before the administrator: `kern:admin:create` grants a role, and a role has to exist as a row
@@ -858,14 +994,54 @@ repair() {
     grep -q '^COMPOSE_FILE=' "$ENV_FILE" \
         || die "$ENV_FILE has no COMPOSE_FILE line, so compose would start a stack with no database. Copy the line from apps/api/.env.example."
 
+    # An installation from before the application had a database role of its own: the one role it
+    # had becomes the owner, which is what it always was, and the application gets a new role with a
+    # generated password. `migrate` below creates it.
+    if [ -z "$(env_value DB_OWNER_USERNAME)" ]; then
+        step 'Giving the application a database role of its own'
+        set_env DB_OWNER_USERNAME "$(env_value DB_USERNAME)"
+        set_env DB_OWNER_PASSWORD "$(env_value DB_PASSWORD)"
+        set_env DB_USERNAME kern_app
+        set_env DB_PASSWORD "$(openssl rand -hex 24)"
+        printf '  the owner stays %s; the application connects as kern_app\n' "$(env_value DB_OWNER_USERNAME)"
+    fi
+
+    # An installation from before docker/certs issued the edge its certificate: the names it answers on
+    # are the ones `scripts/generate-certs.sh` was given — APP_URL's host, and this machine's addresses.
+    if [ -z "$(env_value TLS_EDGE_NAMES)" ]; then
+        step "Naming the edge's certificate"
+        site_host=$(env_value APP_URL | sed 's|^[a-z]*://||; s|[:/].*$||')
+        set_env TLS_EDGE_NAMES "$(edge_certificate_names "$site_host")"
+        printf '  %s\n' "$(env_value TLS_EDGE_NAMES)"
+    fi
+
+    # A service this installation runs itself gets its address from its compose file, at `https://` —
+    # an older file still holds the `http://` one that was the default, which nothing reads any more.
+    for pair in openbao.yaml:OPENBAO_ADDR python.yaml:PROCESSING_URL browser.yaml:BROWSER_WORKER_URL; do
+        case ":$(env_value COMPOSE_FILE):" in
+            *":compose.services/${pair%%:*}:"*) [ -z "$(env_value "${pair#*:}")" ] || set_env "${pair#*:}" '' ;;
+        esac
+    done
+
+    # Not refused here, as the questions refuse it: this installation already depends on the address,
+    # and a repair that stops on it leaves the installation broken rather than safer.
+    for variable in OPENBAO_ADDR AWS_ENDPOINT PROCESSING_URL BROWSER_WORKER_URL; do
+        case "$(env_value "$variable")" in
+            http://*)
+                printf '\n  WARNING: %s is %s — not encrypted. Tokens and documents cross it in clear text;\n' "$variable" "$(env_value "$variable")"
+                printf '  give that server a certificate and change it to https:// (a private CA goes in %s).\n' "$TRUSTED_DIR"
+                ;;
+        esac
+    done
+
     step 'Starting the stack'
     docker compose up -d
 
     step 'Waiting for the database'
     wait_for_database
 
-    step 'Running any migrations that have not run'
-    in_app php artisan migrate --force
+    step "Running any migrations that have not run, and the application's database role"
+    migrate
 
     step 'Bringing the roles and permissions up to date'
     in_app php artisan kern:access:sync
@@ -900,6 +1076,12 @@ finish() {
 }
 
 # ---------------------------------------------------------------------------
+
+# Loaded rather than run — by scripts/tests/install-optional-services.sh, which calls the functions
+# above with its own answers and its own environment file. Nothing below this line runs then.
+if [ "${KERN_INSTALL_LIBRARY:-}" = yes ]; then
+    return 0
+fi
 
 heading 'Kern installer'
 

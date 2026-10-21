@@ -60,17 +60,6 @@ final class SubjectDekService
         return $this->cache[$subjectId] = $this->kms->unwrapDataKey($wrapped);
     }
 
-    /**
-     * Drop every cached plaintext DEK. Not required in normal php-fpm request handling (a fresh
-     * `Application` container is built per request, so a scoped binding is already torn down
-     * naturally — BLUEPRINT.md's runtime is php-fpm, not a persistent worker), but exposed for
-     * long-running processes (queue workers, `schedule:work`) that must call this between jobs.
-     */
-    public function forgetAll(): void
-    {
-        $this->cache = [];
-    }
-
     private static function generateDek(): string
     {
         return random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);

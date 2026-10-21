@@ -20,7 +20,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
 /** The natural counterpart to connecting SPV — a user must be able to disconnect it. */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('revokes a connection and records an audit event', function (): void {

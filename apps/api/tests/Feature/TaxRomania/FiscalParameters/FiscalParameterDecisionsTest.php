@@ -20,7 +20,6 @@ use Spatie\Permission\PermissionRegistrar;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
     Artisan::call('kern:access:sync');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 });

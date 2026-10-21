@@ -9,6 +9,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Kern\Platform\Config\RequiredConfig;
 use Kern\TaxRomania\Operations\Services\ProbeSchedulerStatus;
 
 /**
@@ -129,7 +130,7 @@ it('degrades to stalled rather than failing the whole overview', function (): vo
 
     Config::set('operations.scheduler.heartbeat_path', '/nonexistent/scheduler-heartbeat');
 
-    $status = (new ProbeSchedulerStatus(app(ConfigRepository::class), $cache))();
+    $status = (new ProbeSchedulerStatus(app(ConfigRepository::class), app(RequiredConfig::class), $cache))();
 
     expect($status->alive)->toBeFalse()
         ->and($status->lastBeatAt)->toBeNull();

@@ -32,10 +32,23 @@ final readonly class RequestColumnSuggestion
             throw ImportNotOpenException::forImport($import->id);
         }
 
-        $import->status = StatementImportStatus::READING;
-        $import->failure_reason = null;
-        $import->ai_failure_reason = null;
-        $import->save();
+        // Claimed with the status it was read in, as one conditional UPDATE: two presses at once both
+        // pass the check above, and only the one that moves the row gets to read the file and ask the
+        // model. The other is refused exactly as if it had come a moment later.
+        $claimed = StatementImport::query()
+            ->whereKey($import->id)
+            ->where('status', $import->status->value)
+            ->update([
+                'status' => StatementImportStatus::READING->value,
+                'failure_reason' => null,
+                'ai_failure_reason' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            throw ImportNotOpenException::forImport($import->id);
+        }
+
+        $import->refresh();
 
         ReadStatementFile::dispatch($import->id);
 

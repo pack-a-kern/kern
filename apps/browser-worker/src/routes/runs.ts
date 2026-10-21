@@ -9,7 +9,8 @@ import { PlaybookInvalidError, sequenceOf, validatePlaybook } from "../playbook/
 import { QueueFullError, type RunQueue } from "../runs/queue.js";
 import type { Stats } from "../runs/stats.js";
 import type { BrowserContextHandle } from "../sessions/browserContextFactory.js";
-import type { SessionManager } from "../sessions/sessionManager.js";
+import { SessionLimitError, type SessionManager } from "../sessions/sessionManager.js";
+import type { BrowserSession } from "../sessions/types.js";
 
 /**
  * The generic API: open a browser, run a sequence of a playbook in it, close it.
@@ -46,7 +47,11 @@ export function createRunRouter(
       return;
     }
 
-    const session = await sessions.create(playbook.context);
+    const session = await openSession(sessions, playbook, res);
+
+    if (session === null) {
+      return;
+    }
 
     stats.recordBrowser();
 
@@ -98,7 +103,11 @@ export function createRunRouter(
       return;
     }
 
-    const session = await sessions.create(playbook.context);
+    const session = await openSession(sessions, playbook, res);
+
+    if (session === null) {
+      return;
+    }
 
     stats.recordBrowser();
 
@@ -190,6 +199,22 @@ async function execute(
 }
 
 /**
+ * A browser for this playbook, or the refusal already sent and null — the session ceiling included.
+ *
+ * One place for both routes that open a browser, so the ceiling cannot be honoured by one and not the
+ * other.
+ */
+async function openSession(sessions: SessionManager, playbook: Playbook, res: Response): Promise<BrowserSession | null> {
+  try {
+    return await sessions.create(playbook.context);
+  } catch (error) {
+    respondToFailure(error, res, null);
+
+    return null;
+  }
+}
+
+/**
  * One place every failure leaves by.
  *
  * Each kind gets the status that says whose problem it is — a playbook that does not parse is the
@@ -218,7 +243,9 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
     return;
   }
 
-  if (error instanceof QueueFullError) {
+  // Two ceilings, one answer: too many runs waiting, or too many browsers open. Either way the caller's
+  // remedy is the same — try again shortly — and nothing already running is affected.
+  if (error instanceof QueueFullError || error instanceof SessionLimitError) {
     res.status(503).json({ error: "at_capacity" });
 
     return;

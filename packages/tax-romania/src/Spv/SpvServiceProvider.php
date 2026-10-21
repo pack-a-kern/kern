@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
+use Kern\Platform\Http\StackService;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\Transport\AnafCertificateApiTransport;
 use Kern\TaxRomania\Spv\Transport\PlaybookBrowserSessionClient;
@@ -30,9 +31,8 @@ final class SpvServiceProvider extends ServiceProvider
             return new PlaybookBrowserSessionClient(
                 $app->make(HttpFactory::class),
                 $config,
-                $config->string('browser_worker.url'),
+                StackService::browserWorker($config),
                 $config->integer('browser_worker.timeout_seconds'),
-                $config->string('browser_worker.auth_token'),
             );
         });
 

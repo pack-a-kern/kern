@@ -9,8 +9,8 @@
 | PHP / Composer | Tight constraint on a **verified** minor, e.g. `"laravel/framework": "^13.23"` — never `*`, never `dev-*`, never an unbounded `>=` | `composer.lock` **committed** | `composer install --no-interaction --prefer-dist` |
 | Node / npm | **Exact** versions, e.g. `"vite": "7.1.4"` — no `^`, no `~`, no `latest` | `package-lock.json` **committed** | `npm ci` (never `npm install`) |
 | Python / uv | Explicit lower+upper bound, e.g. `fastapi>=0.141,<0.142` | `uv.lock` **committed** | `uv sync --frozen` |
-| Docker (dev) | Exact tag, e.g. `php:8.5-fpm-trixie` — never `latest` | — | — |
-| Docker (prod) | **Digest pinned**: `image@sha256:…` per §3.4 | — | — |
+| Docker | Exact tag **and** digest, e.g. `php:8.5.11-fpm-trixie@sha256:…` — in compose and every Dockerfile, never `latest`, never a floating `8-trixie` | the digest | `make pins` reports a newer build of a pinned tag |
+| Go (edge) | The whole graph in `docker/caddy/build/go.mod` | `go.sum` **committed** | `go build -mod=readonly` |
 
 A dependency whose version cannot be pinned does not get added.
 
@@ -40,8 +40,9 @@ a first-party Laravel/official package → a well-maintained third-party package
 
 ### Caddy modules are dependencies too
 
-The edge's binary is rebuilt by `xcaddy` with provider modules compiled in (`docker/caddy/Dockerfile`),
-so each one is pinned to an exact module version, recorded in
+The edge's binary is rebuilt with provider modules compiled in (`docker/caddy/Dockerfile`), from a
+module graph committed whole in `docker/caddy/build/go.mod` and `go.sum` — each module pinned to an
+exact version, everything under them locked by hash, recorded in
 `docs/reference/verified-versions.md`, and justified the same way. A module is added only when a
 question in `scripts/install.sh` selects it: compiling a provider nothing can choose is the
 "for later" code `docs/CODE-QUALITY.md` forbids, and it is also one more Go dependency in a binary

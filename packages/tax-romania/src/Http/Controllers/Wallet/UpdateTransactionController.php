@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Wallet\Actions\UpdateFinancialTransaction;
 use Kern\TaxRomania\Wallet\Exceptions\SystemTransactionException;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
@@ -37,7 +38,7 @@ final class UpdateTransactionController
             'description' => ['sometimes', 'string', 'max:500'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:200'],
             // A payment typed in the wrong currency is the same payment with a mistake in it.
-            'currency_code' => ['sometimes', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency_code' => ['sometimes', ...CurrencyCode::rules()],
             // Null clears the bank: "no bank" is an answer a select has to be able to give.
             'bank_id' => ['sometimes', 'nullable', 'uuid'],
             // The whole set, not an addition: the form shows every tag the row has.

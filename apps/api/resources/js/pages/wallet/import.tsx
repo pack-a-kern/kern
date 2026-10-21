@@ -69,10 +69,11 @@ import {
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
+import { formatMinor, formatNumber } from '../../lib/format';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import { cn } from '../../lib/utils';
-import { categoriesFor, formatMinor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
+import { categoriesFor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
 import type {
     StatementClassification,
@@ -1609,7 +1610,7 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
                     <div key={stat.label} className="min-w-0">
                         <dt className="note leading-tight">{stat.label}</dt>
                         <dd className="text-lg font-semibold tabular-nums">
-                            {stat.value === null ? '—' : stat.value.toLocaleString(locale)}
+                            {stat.value === null ? '—' : formatNumber(stat.value, locale)}
                         </dd>
                     </div>
                 ))}
@@ -1637,10 +1638,7 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
 /** Says the table was made by the provider's converter, and passes on what it warned about. */
 function ConversionNote({ conversion }: { conversion: StatementConversion }): JSX.Element {
     const { t, locale } = useTranslation();
-    const seconds =
-        conversion.milliseconds === null
-            ? '—'
-            : new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(conversion.milliseconds / 1000);
+    const seconds = conversion.milliseconds === null ? '—' : formatNumber(conversion.milliseconds / 1000, locale, 1);
 
     return (
         <div className="mb-4 space-y-1 text-sm text-muted-foreground">
@@ -1697,9 +1695,9 @@ function ReviewOverview({
         current.linesRead === 0
             ? null
             : t((d) => d.pages.walletImports.review.fileLine)
-                  .replace('{lines}', current.linesRead.toLocaleString(locale))
-                  .replace('{folded}', current.linesFolded.toLocaleString(locale))
-                  .replace('{skipped}', current.linesSkipped.toLocaleString(locale));
+                  .replace('{lines}', formatNumber(current.linesRead, locale))
+                  .replace('{folded}', formatNumber(current.linesFolded, locale))
+                  .replace('{skipped}', formatNumber(current.linesSkipped, locale));
 
     const done = classification?.batches.length ?? 0;
     const expected = classification?.expected ?? null;
@@ -1750,20 +1748,20 @@ function ReviewOverview({
                 <Fact
                     icon={<FileSpreadsheet className="size-3.5" aria-hidden="true" />}
                     label={t((d) => d.pages.walletImports.review.statTransactions)}
-                    value={current.rowCount.toLocaleString(locale)}
+                    value={formatNumber(current.rowCount, locale)}
                 />
                 <Fact
                     icon={<CopyCheck className="size-3.5" aria-hidden="true" />}
                     label={t((d) => d.pages.walletImports.review.statDuplicates)}
-                    value={current.duplicateCount.toLocaleString(locale)}
+                    value={formatNumber(current.duplicateCount, locale)}
                     quiet={current.duplicateCount === 0}
                 />
                 <Fact
                     icon={<ListChecks className="size-3.5" aria-hidden="true" />}
                     label={t((d) => d.pages.walletImports.review.statAnswered)}
                     value={t((d) => d.pages.walletImports.review.answeredOf)
-                        .replace('{answered}', answered.toLocaleString(locale))
-                        .replace('{total}', current.rowCount.toLocaleString(locale))}
+                        .replace('{answered}', formatNumber(answered, locale))
+                        .replace('{total}', formatNumber(current.rowCount, locale))}
                     quiet={answered === 0}
                     marked={answered >= current.rowCount && current.rowCount > 0}
                     bar={current.rowCount === 0 ? null : answered / current.rowCount}

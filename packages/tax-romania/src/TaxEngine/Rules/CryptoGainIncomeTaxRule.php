@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Rules;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -54,7 +55,7 @@ final class CryptoGainIncomeTaxRule implements TaxRuleContract
 
         // Only crypto gains. The assessor hands every rule the whole year, for `CassOtherIncomeRule`'s
         // sake; a rule about one category has to pick its own out, or it taxes a dividend as a crypto gain.
-        $gains = Money::zero('RON');
+        $gains = Money::zero(CurrencyCode::BASE);
         $counted = 0;
 
         foreach ($input->facts as $fact) {
@@ -71,7 +72,7 @@ final class CryptoGainIncomeTaxRule implements TaxRuleContract
          * producer has already done by the time these facts exist — and a total at or below zero owes
          * nothing rather than generating a credit.
          */
-        $base = $gains->isPositive() ? $gains : Money::zero('RON');
+        $base = $gains->isPositive() ? $gains : Money::zero(CurrencyCode::BASE);
         $tax = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);
 
         $trace = new CalculationTrace(

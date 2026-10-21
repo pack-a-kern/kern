@@ -99,20 +99,21 @@ return [
 
 
     /*
-     * The provider, address, model and key used until an administrator saves them in Settings → AI.
+     * What the provider settings are before an administrator saves them in Settings → AI: off, and
+     * nothing to connect to.
      *
-     * Read by Kern\Platform\Settings\Services\ResolveAiProviderCredentials only for a field whose
-     * `settings` row does not exist yet: once saved through the API (stored in the `settings` table,
-     * encrypted when sensitive), the database value wins without a restart. Named like
-     * apps/processing's own AI_* variables for operator familiarity only — the two containers'
-     * environments are independent, never a shared value.
+     * Constants, not environment variables. These five used to be `AI_ENABLED`, `AI_PROVIDER`,
+     * `AI_BASE_URL`, `AI_MODEL` and `AI_API_KEY`, each falling back on its own — so an address saved
+     * on the screen could be paired with a key from the environment file, and that key sent to it.
+     * The connection is now set in one place, the database, with the address and the key always
+     * written together (`Kern\Platform\Http\Controllers\Settings\ReplaceAiConnectionController`).
      */
-    'env_fallback' => [
-        'enabled' => filter_var(env('AI_ENABLED', false), FILTER_VALIDATE_BOOL),
-        'provider' => env('AI_PROVIDER'),
-        'base_url' => env('AI_BASE_URL'),
-        'model' => env('AI_MODEL'),
-        'api_key' => env('AI_API_KEY'),
+    'defaults' => [
+        'enabled' => false,
+        'provider' => null,
+        'base_url' => null,
+        'model' => null,
+        'api_key' => null,
     ],
 
     // Whether the endpoint implements the `docscanner` extension, which cleans up a photographed

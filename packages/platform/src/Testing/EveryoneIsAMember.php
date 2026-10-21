@@ -20,4 +20,10 @@ final readonly class EveryoneIsAMember implements TenantGate
     {
         return 'member';
     }
+
+    /** None to list: "everyone is a member" names no tenants, it only never refuses one. */
+    public function tenantsFor(string $userId): array
+    {
+        return [];
+    }
 }

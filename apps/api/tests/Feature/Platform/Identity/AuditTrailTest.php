@@ -21,7 +21,6 @@ use OTPHP\TOTP;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**
@@ -65,6 +64,7 @@ it('records MFA enrollment, a pending-MFA login, and the MFA challenge success',
     $user->password_hash = Hash::make('correct-horse-battery-staple');
     $user->save();
     $this->postJson('/api/v1/auth/login', ['email' => 'ion@example.com', 'password' => 'correct-horse-battery-staple'])->assertOk();
+    verifySession(); // enrolling an authenticator is behind `verify-recent`
 
     $secret = jsonString($this->postJson('/api/v1/auth/mfa/totp/enroll'), 'secret');
     $this->postJson('/api/v1/auth/mfa/totp/confirm', ['code' => TOTP::createFromSecret($secret)->now()])->assertOk();
@@ -111,6 +111,7 @@ it('never records a TOTP secret, password, or recovery code in the audit payload
     $user->password_hash = Hash::make('correct-horse-battery-staple');
     $user->save();
     $this->postJson('/api/v1/auth/login', ['email' => 'ion@example.com', 'password' => 'correct-horse-battery-staple'])->assertOk();
+    verifySession(); // enrolling an authenticator is behind `verify-recent`
 
     $secret = jsonString($this->postJson('/api/v1/auth/mfa/totp/enroll'), 'secret');
     $codes = jsonStringList(

@@ -23,7 +23,6 @@ use OTPHP\TOTP;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /** @return array{0: User, 1: non-empty-string} */

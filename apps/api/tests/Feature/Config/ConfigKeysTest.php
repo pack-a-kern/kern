@@ -103,7 +103,7 @@ it('points every database setting at a configuration key that exists', function 
  */
 it('names every environment variable the application reads in .env.example', function (): void {
     $frameworkFiles = ['app', 'auth', 'broadcasting', 'cache', 'database', 'filesystems', 'hashing', 'logging', 'mail', 'queue', 'services', 'session', 'horizon', 'reverb', 'permission', 'webauthn'];
-    $addedToFrameworkFiles = '/^(HORIZON_(AI|DEFAULT)_|AI_|PROCESSING_URL$|INTERNAL_SERVICE_AUTH_TOKEN$|QUARANTINE_BUCKET$)/';
+    $addedToFrameworkFiles = '/^(HORIZON_(AI|DEFAULT)_|AI_|PROCESSING_(URL|CA_CERT)$|INTERNAL_SERVICE_AUTH_TOKEN$|QUARANTINE_BUCKET$|AWS_CA_CERT$|DB_SSLROOTCERT$|REDIS_(SCHEME|CA_CERT)$|REVERB_(CA_CERT|TLS_CERT|TLS_KEY)$)/';
 
     $declared = EnvironmentVariables::declaredIn(base_path('.env.example'));
 

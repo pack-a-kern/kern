@@ -13,6 +13,8 @@ Read in this order when you join the project:
 | `handoff/` | One note per completed task — how to continue someone else's work. |
 | `reference/` | Verified external facts: versions, endpoints, formats. |
 | `DEPLOYMENT.md` | Running this on a real server: `make install`, what each container is, every variable, and what is not production-ready yet. |
+| `SECURITY-FINDINGS.md` | Twenty findings from five audits of 2026-10-19, numbered to work through one at a time, plus the controls that were verified sound. |
+| `PLANNED-FEATURES.md` | Features agreed on and still to design together: sharing a taxpayer, backups. A plan, not a record. |
 | `INSTALLER-PLAN.md` | Planned work: one command to install on a fresh server. A plan, not a record. |
 
 ## Rules for these documents

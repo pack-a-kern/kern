@@ -1,0 +1,4 @@
+# The CA certificates of remote services signed by a private CA, copied here by the installer
+# (scripts/install.sh, ask_ca_file). Public certificates, but this installation's own, so not committed.
+*
+!.gitignore

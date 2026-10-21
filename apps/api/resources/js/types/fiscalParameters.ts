@@ -1,3 +1,5 @@
+import { nullableStr, obj, str } from '../lib/json';
+
 /**
  * Shapes returned by `/api/v1/fiscal-parameters` — the values a tax is computed from, each as read
  * from an official text, with the paragraph of the law it rests on.
@@ -69,26 +71,8 @@ export interface FiscalParameterBoard {
     years: number[];
 }
 
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-        ? (value as Record<string, unknown>)
-        : {};
-}
-
 function list(value: unknown): unknown[] {
     return Array.isArray(value) ? value : [];
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
 }
 
 /** Every scalar beside `kind`, which is what a check or a miss is about. */

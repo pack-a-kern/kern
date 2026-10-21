@@ -3,16 +3,22 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\BindTaxSubjectContext;
+use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Kern\Platform\Identity\Exceptions\AccountSuspendedException;
+use Kern\Platform\Identity\Http\Middleware\EndInactiveAccountSession;
+use Kern\Platform\Identity\Http\Middleware\RecordSessionActivity;
 use Kern\Platform\Identity\Http\Middleware\RequiresRecentVerification;
 use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
@@ -20,8 +26,10 @@ use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Services\ScheduledTaskRegistry;
+use Kern\TaxRomania\Spv\Exceptions\SpvAlreadySignedInException;
 use Kern\TaxRomania\Spv\Exceptions\SpvRunFailedException;
 use Kern\TaxRomania\Spv\Exceptions\SpvSignInRequiredException;
+use Kern\TaxRomania\Spv\Exceptions\SpvWorkerAtCapacityException;
 use Kern\TaxRomania\Spv\Exceptions\SpvWorkerUnavailableException;
 use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousTaxRuleVersionException;
 use Kern\TaxRomania\TaxEngine\Exceptions\FiscalYearIsFinalException;
@@ -32,6 +40,7 @@ use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRulesRegisteredException;
 use Kern\TaxRomania\TaxEngine\Exceptions\NoTaxRuleVersionInForceException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -53,14 +62,37 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            // Before Inertia, so a suspended account's page request never renders with its data.
+            EndInactiveAccountSession::class,
+            // After the inactive-account check, so a session about to be revoked is not stamped as
+            // active: records `last_used_at` on each authenticated request, keeping the session ledger
+            // true so the prune does not delete a session its owner is still using.
+            RecordSessionActivity::class,
+            // On the whole group, not on route groups that each have to remember it: four routes once
+            // did not, and answered an unverified account. It passes guests through and allows the
+            // verification screen by name — see its allowed set.
+            RequireVerifiedEmail::class,
+            // Before Inertia renders the page: the nonce it allows has to exist when @vite writes its tags.
+            ContentSecurityPolicy::class,
             HandleInertiaRequests::class,
         ]);
+        /*
+         * The order the framework sorts these into, wherever each is declared: signed in, then a
+         * confirmed address, then the taxpayer, then the throttle, then the URL's models.
+         *
+         * An unverified account is told so before the taxpayer it named is even checked. The taxpayer
+         * comes before the throttle because a limit counted per taxpayer has to know which one it is:
+         * the framework puts its throttle ahead of route middleware, so without this the context was
+         * still empty and every "per taxpayer" budget fell back to the address — one budget for an
+         * office behind one router. And all of it before route-model binding, so a refused request
+         * never loads the document or taxpayer its URL names.
+         */
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: RequireVerifiedEmail::class);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: BindTaxSubjectContext::class);
+        // Posted by the browser itself, which holds no CSRF token for it — see that controller.
+        $middleware->validateCsrfTokens(except: ['csp-report']);
         $middleware->alias([
             'tax-subject' => BindTaxSubjectContext::class,
-            // Applied to the authenticated groups in routes/web.php and to the package's own routes,
-            // never globally: a guest must be told to sign in, and the verification screen and the
-            // endpoints it calls have to stay reachable. See that middleware's allowed set.
-            'verified' => RequireVerifiedEmail::class,
             // Marked on the individual routes that need it, never on a group: the list of sensitive
             // acts is short, and a group that grew would quietly start demanding a code for reads.
             'verify-recent' => RequiresRecentVerification::class,
@@ -196,10 +228,36 @@ return Application::configure(basePath: dirname(__DIR__))
         // cross-tenant access attempt, not a server fault. Rendered centrally so every module's
         // HTTP layer gets the same 403 without importing the exception into its own controllers
         // to catch it (docs/AGENTS.md §6).
+        // A login or a session belonging to an account that is no longer active. 403 with a closed reason,
+        // so the sign-in screen can say it in the reader's language; the sentence is for the log. A page
+        // navigation is sent to the sign-in screen instead, because a person needs to arrive somewhere.
+        $exceptions->render(fn (AccountSuspendedException $exception, Request $request) => $request->expectsJson()
+            ? response()->json(['message' => $exception->getMessage(), 'reason' => 'ACCOUNT_SUSPENDED'], 403)
+            : redirect()->route('login'));
+
         $exceptions->render(fn (UnauthorizedTenantAccessException $exception): JsonResponse => response()->json(
             ['message' => 'You do not have access to this tax subject.'],
             403,
         ));
+
+        // `findOrFail` and route-model binding throw `ModelNotFoundException`, which the framework
+        // converts to a 404 carrying its default message — the fully-qualified model class — as the
+        // previous exception, before any render callback runs. That message hands a caller the
+        // application's internal namespace for a record that does not exist. A miss is a 404 and
+        // nothing more; the class and id stay in the log. Only these model-backed 404s are rewritten
+        // (so a deliberate 404 message elsewhere is kept), and only for JSON/API callers — a web
+        // navigation still falls through to the error page.
+        $exceptions->render(function (NotFoundHttpException $exception, Request $request): ?JsonResponse {
+            if (! $exception->getPrevious() instanceof ModelNotFoundException) {
+                return null;
+            }
+
+            if (! ($request->is('api/*') || $request->expectsJson())) {
+                return null;
+            }
+
+            return response()->json(['message' => 'Not found.'], 404);
+        });
 
         /*
          * The worker ran the playbook and a step did not work out — usually a selector matching nothing
@@ -310,5 +368,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (SpvWorkerUnavailableException $exception): JsonResponse => response()->json(
             ['message' => $exception->getMessage(), 'reason' => 'SPV_WORKER_UNAVAILABLE'],
             502,
+        ));
+
+        // The worker is full and says so. 503, the worker's own answer, passed on: it is the dependency,
+        // working, telling the caller to come back — a different thing to do from fixing a network.
+        $exceptions->render(fn (SpvWorkerAtCapacityException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'SPV_WORKER_BUSY'],
+            503,
+        ));
+
+        // A second sign-in on a connection that is signed in. 409: a request against a state, which the
+        // screen already reflects by not offering it.
+        $exceptions->render(fn (SpvAlreadySignedInException $exception): JsonResponse => response()->json(
+            ['message' => $exception->getMessage(), 'reason' => 'SPV_ALREADY_SIGNED_IN'],
+            409,
         ));
     })->create();

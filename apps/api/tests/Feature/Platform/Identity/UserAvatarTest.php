@@ -10,7 +10,6 @@ use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
 use Kern\Platform\Uploads\RefusingUploadScanner;
 
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
     Storage::fake('avatars');
 
     /*

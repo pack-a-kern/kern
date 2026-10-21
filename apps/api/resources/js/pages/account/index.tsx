@@ -193,7 +193,9 @@ export default function AccountPage(): JSX.Element {
                         // In place rather than refetching: the upload is already accepted by the
                         // time this runs, and the rest of the card has not changed.
                         onAvatarChange={(version) => {
-                            setProfile((current) => (current === null ? current : { ...current, avatarUpdatedAt: version }));
+                            setProfile((current) =>
+                                current === null ? current : { ...current, avatarUpdatedAt: version },
+                            );
                         }}
                     />
                     <PasswordCard hasPassword={profile?.hasPassword ?? false} describeFailure={describeFailure} />

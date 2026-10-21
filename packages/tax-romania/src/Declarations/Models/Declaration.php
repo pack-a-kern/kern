@@ -6,7 +6,6 @@ namespace Kern\TaxRomania\Declarations\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\Platform\Tenancy\ScopedToTenant;
 use Kern\TaxRomania\Declarations\Enums\DeclarationKind;
@@ -117,17 +116,5 @@ final class Declaration extends Model
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class, 'form_version_id');
-    }
-
-    /** @return BelongsTo<Declaration, $this> */
-    public function supersedes(): BelongsTo
-    {
-        return $this->belongsTo(self::class, 'supersedes_declaration_id');
-    }
-
-    /** @return HasMany<DeclarationSubmission, $this> */
-    public function submissions(): HasMany
-    {
-        return $this->hasMany(DeclarationSubmission::class, 'declaration_id');
     }
 }

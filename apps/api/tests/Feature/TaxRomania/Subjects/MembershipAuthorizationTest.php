@@ -5,28 +5,19 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\Subjects\MembershipAuthorizationTest;
 
 use Illuminate\Support\Facades\Artisan;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Security\SecurityEvent;
+use Kern\Platform\Security\SecurityEventType;
+use Kern\Platform\Tenancy\Contracts\TenantGate;
 use Kern\Platform\Tenancy\Exceptions\NoTenantContextException;
 use Kern\Platform\Tenancy\Exceptions\UnauthorizedTenantAccessException;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
-use Kern\TaxRomania\Subjects\Models\SecurityEvent;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $blindIndexProvider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($blindIndexProvider));
 });
 
 it('resolves the exact role a membership grants', function (): void {
@@ -36,7 +27,7 @@ it('resolves the exact role a membership grants', function (): void {
     SubjectMembership::create([
         'subject_id' => $subject->id,
         'user_id' => $user->id,
-        'role' => MembershipRole::ACCOUNTANT,
+        'role' => MembershipRole::OWNER,
         'permissions_json' => [],
         'valid_from' => now('UTC'),
     ]);
@@ -47,7 +38,7 @@ it('resolves the exact role a membership grants', function (): void {
     expect($context->currentTenantId())->toBe($subject->id)
         // The platform holds the role as the application's own word for it, not as this enum:
         // a tenant context that knew `MembershipRole` would know what a taxpayer is.
-        ->and($context->currentRole())->toBe(MembershipRole::ACCOUNTANT->value)
+        ->and($context->currentRole())->toBe(MembershipRole::OWNER->value)
         ->and($context->hasActiveTenant())->toBeTrue();
 });
 
@@ -63,7 +54,7 @@ it('denies access and records a security event when no membership exists at all'
     $event = SecurityEvent::query()->where('user_id', $user->id)->where('subject_id', $subject->id)->first();
 
     expect($event)->not->toBeNull()
-        ->and($event?->event_type)->toBe('CROSS_TENANT_ACCESS_DENIED');
+        ->and($event?->event_type)->toBe(SecurityEventType::CROSS_TENANT_ACCESS_DENIED);
 });
 
 it('loses access immediately once a membership is revoked, exactly as if it never existed', function (): void {
@@ -73,7 +64,7 @@ it('loses access immediately once a membership is revoked, exactly as if it neve
     $membership = SubjectMembership::create([
         'subject_id' => $subject->id,
         'user_id' => $user->id,
-        'role' => MembershipRole::VIEWER,
+        'role' => MembershipRole::OWNER,
         'permissions_json' => [],
         'valid_from' => now('UTC'),
     ]);
@@ -95,3 +86,64 @@ it('throws instead of returning a stale or default subject when nothing has been
         ->and(fn () => $context->currentRole())->toThrow(NoTenantContextException::class)
         ->and($context->hasActiveTenant())->toBeFalse();
 });
+
+/**
+ * A membership in each role that has no rules yet, on a taxpayer someone else owns.
+ *
+ * @return array{User, TaxSubject}
+ */
+function memberWithoutRules(MembershipRole $role): array
+{
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $subject = TaxSubject::factory()->create();
+
+    foreach ([[$owner, MembershipRole::OWNER], [$member, $role]] as [$user, $held]) {
+        SubjectMembership::create([
+            'subject_id' => $subject->id,
+            'user_id' => $user->id,
+            'role' => $held,
+            'permissions_json' => [],
+            'valid_from' => now('UTC'),
+        ]);
+    }
+
+    return [$member, $subject];
+}
+
+/*
+ * The roles with a name and no rules. Until sharing defines what each may do, holding one opens
+ * nothing: a VIEWER used to be able to change and delete everything an owner could, because nothing
+ * read the role at all.
+ */
+dataset('roles without rules', [
+    'ADMIN' => [MembershipRole::ADMIN],
+    'ACCOUNTANT' => [MembershipRole::ACCOUNTANT],
+    'VIEWER' => [MembershipRole::VIEWER],
+]);
+
+it('opens a taxpayer for its owner alone, and records each other role it refuses', function (MembershipRole $role): void {
+    [$member, $subject] = memberWithoutRules($role);
+
+    expect(fn () => app(TenantContext::class)->authorizeAndActivate($member->id, $subject->id))
+        ->toThrow(UnauthorizedTenantAccessException::class);
+
+    expect(SecurityEvent::query()->where('user_id', $member->id)->where('subject_id', $subject->id)->value('context_json'))
+        ->toBe(['reason' => 'role_without_rules']);
+})->with('roles without rules');
+
+it('refuses a role without rules both reading and changing the taxpayer over HTTP', function (MembershipRole $role): void {
+    [$member, $subject] = memberWithoutRules($role);
+
+    $this->actingAs($member)->getJson("/api/v1/subjects/{$subject->id}/wallet/accounts")->assertForbidden();
+    $this->actingAs($member)->postJson("/api/v1/subjects/{$subject->id}/wallet/accounts", [])->assertForbidden();
+    $this->actingAs($member)->get("/api/v1/subjects/{$subject->id}/avatar")->assertForbidden();
+})->with('roles without rules');
+
+it('does not list a taxpayer a membership would not open', function (MembershipRole $role): void {
+    [$member, $subject] = memberWithoutRules($role);
+
+    expect($this->actingAs($member)->getJson('/api/v1/subjects')->assertOk()->json('data.*.id'))
+        ->not->toContain($subject->id)
+        ->and(app(TenantGate::class)->tenantsFor($member->id))->toBe([]);
+})->with('roles without rules');

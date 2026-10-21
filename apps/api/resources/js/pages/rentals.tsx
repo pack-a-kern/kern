@@ -40,11 +40,10 @@ import RentalDialog from '../components/rentals/RentalDialog';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
 import { describeApiFailure } from '../lib/apiErrors';
-import { formatDate } from '../lib/format';
+import { formatDate, formatMinor } from '../lib/format';
 import { emptyRentalForm, rentalFormFor, type RentalForm } from '../lib/rentalForm';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import type { RentalList, RentalSummary } from '../types/rentals';
-import { formatMinor } from '../types/wallet';
 
 /** How many earlier years a row lists under this year's figure. */
 const EARLIER_YEARS_SHOWN = 2;

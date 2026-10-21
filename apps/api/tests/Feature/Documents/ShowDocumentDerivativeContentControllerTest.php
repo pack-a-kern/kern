@@ -28,8 +28,6 @@ use RuntimeException;
  * written, encrypted, recorded, and reachable by nothing.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

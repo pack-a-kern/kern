@@ -35,10 +35,19 @@ use Kern\Platform\Tenancy\TenantScope;
  * quarantined bytes are never even read by the real `EncryptedObjectStore` before that.
  *
  * **This job throwing is the mechanism, not a bug**, whenever `VirusScanner::scan()` cannot produce
- * a verdict: Laravel's queue retry/backoff takes over, and the part simply never advances past
- * `QUARANTINE` — no code path here ever writes `SCANNED` on anything but an actual clean verdict.
- * This is `docs/AGENTS.md` §21.4's "unreachable scanner blocks" requirement, satisfied structurally
- * rather than by an explicit check.
+ * a verdict: the part never advances past `QUARANTINE` — no code path here ever writes `SCANNED` on
+ * anything but an actual clean verdict. This is `docs/AGENTS.md` §21.4's "unreachable scanner blocks"
+ * requirement, satisfied structurally rather than by an explicit check.
+ *
+ * **And then it tries again, on its own** ({@see tries()}, {@see backoff()}). It used to say the queue's
+ * retry would, but every supervisor runs one attempt, and it was dispatched once — so a scanner that
+ * restarted for half a minute left every upload in that half-minute in quarantine until an
+ * administrator found the failed jobs. The waits ride out a restart; after the last, the job is a
+ * failed job, retried from Operations as before.
+ *
+ * Safe to run again at any point: an infected verdict returns rather than throws, so it is never
+ * repeated, and a part already out of quarantine is left alone — a retry after the bytes were promoted
+ * would otherwise look for them where they no longer are, and fail every attempt.
  *
  * Resolves models via `withoutGlobalScope(TenantScope::class)` — this job is the system's own
  * trusted pipeline acting on a specific, already-known part, not a user request; there is no
@@ -53,6 +62,21 @@ final class ScanQuarantinedPart implements ShouldQueue
 
     public function __construct(public readonly string $documentPartId)
     {
+    }
+
+    /** One more attempt than there are waits between them. */
+    public function tries(): int
+    {
+        return count($this->backoff()) + 1;
+    }
+
+    /** @return list<int> seconds before each new attempt — `documents.clamav.retry_backoff_seconds` */
+    public function backoff(): array
+    {
+        /** @var list<int> $seconds */
+        $seconds = config('documents.clamav.retry_backoff_seconds');
+
+        return $seconds;
     }
 
     public function handle(
@@ -70,6 +94,12 @@ final class ScanQuarantinedPart implements ShouldQueue
             : Document::withoutGlobalScope(TenantScope::class)->find($part->document_id);
 
         if ($part === null || $document === null) {
+            return;
+        }
+
+        // Already decided by an earlier attempt — clean and promoted, or rejected. Running again is a
+        // retry after a later step failed, and there is nothing left in quarantine to read.
+        if ($part->status !== DocumentStatus::QUARANTINE) {
             return;
         }
 

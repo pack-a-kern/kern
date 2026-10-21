@@ -13,6 +13,11 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Holds an account that has not proved it can read its own address at the verification screen.
  *
+ * On the whole `web` group, which the JSON API runs inside too (`bootstrap/app.php`), so it reaches
+ * every route without a list of groups to keep — and ahead of the taxpayer, the throttle and
+ * route-model binding in the priority list, so a refused request is not checked, counted, or allowed
+ * to load the records its URL names.
+ *
  * ## What it deliberately does not do
  *
  * It does not authenticate. A request with no user passes straight through, because refusing it here
@@ -37,7 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
 final readonly class RequireVerifiedEmail
 {
     /** Reachable with an unverified address. Everything else is not. */
-    private const array ALLOWED_ROUTES = [
+    public const array ALLOWED_ROUTES = [
         // The screen itself, and the request it makes to draw itself. Leaving the second one out is
         // the subtle version of this mistake: the page loads and then cannot say anything about why
         // the person is on it.
@@ -48,6 +53,9 @@ final readonly class RequireVerifiedEmail
         // The way out. Without it, somebody whose address can no longer receive mail is held on a
         // screen they cannot act on and cannot leave.
         'auth.logout',
+        // Sent by the browser on its own, about the page rather than the account. Refusing it would
+        // only lose the report.
+        'csp-report',
     ];
 
     public function __construct(private EmailVerificationPolicy $policy)

@@ -6,19 +6,21 @@ namespace Kern\Platform\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Settings\DataTransferObjects\ModelListResult;
 use Kern\Platform\Settings\Services\FetchAiProviderModels;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
 
 /**
- * `POST /api/v1/settings/ai/models` — asks the provider which models it serves.
+ * `POST /api/v1/settings/ai/models` — asks the saved provider which models it serves.
  *
- * POST rather than GET because the request body carries a draft `api_key`: an operator listing
- * models for a key they have typed but not yet saved must not have that key end up in a URL, a
- * server access log, or the browser's history (BLUEPRINT.md §4.10).
+ * Always the saved address with the key saved alongside it. It used to take a draft address and fill
+ * in the stored key when none was typed, which sent the key to whatever address an administrator
+ * named — so an address or key in the body is refused, not ignored. Setting up a new provider is
+ * saving its address and key first (`ReplaceAiConnectionController`), then listing.
  *
- * Every field is optional; an omitted one falls back to the currently saved configuration, so the
- * button also works for an already-configured provider whose key is stored and never re-sent to
- * the browser.
+ * `provider` may still be given: it only chooses how the request is shaped — which path, which
+ * header — for the provider picked on the form but not yet saved. It never changes where the request
+ * goes or which key it carries.
  */
 final class ListAiModelsController
 {
@@ -29,22 +31,17 @@ final class ListAiModelsController
     ): JsonResponse {
         $validated = $request->validate([
             'provider' => ['nullable', 'string', 'max:64'],
-            'base_url' => ['nullable', 'url', 'max:2048'],
-            'api_key' => ['nullable', 'string', 'min:1', 'max:4096'],
+            'base_url' => ['prohibited'],
+            'api_key' => ['prohibited'],
         ]);
 
         $credentials = $resolveCredentials();
-
         $provider = $validated['provider'] ?? $credentials->provider;
-        $baseUrl = $validated['base_url'] ?? $credentials->baseUrl;
-        $apiKey = $validated['api_key'] ?? $credentials->apiKey;
 
-        if ($provider === null || $baseUrl === null) {
-            return response()->json(
-                ['ok' => false, 'models' => [], 'reason' => 'not_configured'],
-            );
+        if ($provider === null || $credentials->baseUrl === null) {
+            return response()->json(ModelListResult::notConfigured()->toArray());
         }
 
-        return response()->json($fetchModels($provider, $baseUrl, $apiKey)->toArray());
+        return response()->json($fetchModels($provider, $credentials->baseUrl, $credentials->apiKey)->toArray());
     }
 }

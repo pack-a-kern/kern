@@ -12,10 +12,9 @@ use RuntimeException;
 /**
  * "Which `TaxSubject`s can this `User` currently access, and under what role" — the read model
  * `docs/handoff/030-pwa-frontend.md`'s dashboard subject picker needs and, per that handoff's Key
- * decision #1, had no backend endpoint for. Driven entirely by `subject_memberships`: a revoked
- * membership (`revoked_at` not null) never appears, identically to `Kern\TaxRomania\Subjects\Tenancy\
- * TenantContext::authorizeAndActivate()`'s own denial rule (`docs/handoff/011-identity-
- * tenancy.md`).
+ * decision #1, had no backend endpoint for. Driven entirely by `subject_memberships`, through the same
+ * `opening()` rule `MembershipTenantGate` applies: a membership that would not open its taxpayer —
+ * revoked, or in a role without rules yet — never appears.
  *
  * Deliberately reads `SubjectMembership`/`TaxSubject` directly rather than through
  * `TenantContext` — this query answers "which subjects could I activate," a question that must be
@@ -39,7 +38,7 @@ final class ListSubjectsForUser
     {
         $memberships = SubjectMembership::query()
             ->where('user_id', $userId)
-            ->whereNull('revoked_at')
+            ->opening()
             ->orderBy('id')
             ->paginate($perPage, ['*'], 'page', $page);
 
@@ -72,7 +71,7 @@ final class ListSubjectsForUser
                 status: $subject->status,
                 role: $membership->role,
                 // Stored in clear, so no decrypt: it is a preference, not personal data.
-                displayCurrency: $subject->display_currency,
+                displayCurrency: $subject->displayCurrency(),
                 // Same: a timestamp, and the cache key for the picture's URL.
                 avatarUpdatedAt: $subject->avatarUpdatedAt(),
             );

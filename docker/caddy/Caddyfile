@@ -46,6 +46,21 @@
 		# port that is not published, and waits for it to fail before falling back. This becomes
 		# `h1 h2 h3` the day the UDP port is published with the TCP one.
 		protocols h1 h2
+
+		# Whose word to take for the visitor's address. Empty — the default, and right for every
+		# installation reached directly — means nobody's: the address is the connection's, and a
+		# forged `X-Forwarded-For` or `CF-Connecting-IP` changes nothing (tried, 2026-10-20). Behind
+		# Cloudflare's proxy every connection is Cloudflare's, so login throttles would pool every
+		# visitor behind a few addresses and every session would show one of Cloudflare's; there the
+		# installer writes
+		#
+		#   KERN_EDGE_TRUSTED_PROXIES=trusted_proxies cloudflare
+		#   KERN_EDGE_CLIENT_IP_HEADERS=client_ip_headers CF-Connecting-IP
+		#
+		# so the header is believed from Cloudflare's published ranges (docker/caddy/Dockerfile) and
+		# from no one else. Whole directives, for the reason `KERN_EDGE_ACME_DNS` is one.
+		{$KERN_EDGE_TRUSTED_PROXIES}
+		{$KERN_EDGE_CLIENT_IP_HEADERS}
 	}
 }
 
@@ -80,13 +95,15 @@
 
 # The site address and the certificate are the two things an installation decides, so they are the
 # two things read from the environment. The defaults are what this repository has today: every name
-# on port 8443, with the self-signed pair `make certs` writes.
+# on port 8443, with the certificate docker/certs issues it from this installation's own CA.
 {$KERN_EDGE_SITE::8443} {
 	# TLS. Without it the login password crosses the internet in clear text.
 	#
-	# The default pair is self-signed, so a browser warns — the honest state of an installation
-	# reached by IP address. One variable changes the answer, because which answer is right belongs
-	# to the installation and not to this file:
+	# The default is the certificate docker/certs issues the edge, for every name in TLS_EDGE_NAMES,
+	# from this installation's own CA — renewed before it ends, and picked up by restarting the edge
+	# (docker/tls/kern-tls.sh). A browser warns until that CA is imported (`make tls-ca`), which is
+	# the honest state of an installation reached by IP address. One variable changes the answer,
+	# because which answer is right belongs to the installation and not to this file:
 	#
 	#   KERN_EDGE_TLS="internal"              Caddy's own CA: still untrusted, but it renews itself
 	#   KERN_EDGE_TLS="<email address>"       ACME — also needs KERN_EDGE_SITE set to a domain
@@ -94,7 +111,7 @@
 	#
 	# ACME needs KERN_EDGE_SITE to be a domain name: there is no name in `:8443` to get a
 	# certificate for. See docs/INSTALLER-PLAN.md §4 for the full table of answers.
-	tls {$KERN_EDGE_TLS:/etc/caddy/certs/kern.crt /etc/caddy/certs/kern.key}
+	tls {$KERN_EDGE_TLS:/run/kern/tls/server.crt /run/kern/tls/server.key}
 
 	# stdout only — container logs are the collection point (BLUEPRINT.md §23). Request bodies are
 	# never logged (docs/AGENTS.md §1.12), and Caddy redacts the Authorization and Cookie headers
@@ -106,10 +123,17 @@
 
 	log_skip /healthz
 
-	# HSTS is deliberately NOT set while the certificate is untrusted: it would pin browsers to
-	# HTTPS for a certificate they refuse, which makes the site unreachable rather than warned
-	# about. It becomes safe, and belongs here, once the installer has obtained a real one.
 	header {
+		# HSTS, only once the certificate is trusted: set on a self-signed one, it pins browsers to
+		# HTTPS for a certificate they refuse, and the site becomes unreachable instead of warned
+		# about — with no "proceed anyway". So it is a whole line from the environment, empty by
+		# default, the same way `{$KERN_EDGE_ACME_DNS}` is above:
+		#
+		#   KERN_EDGE_HSTS=Strict-Transport-Security max-age=31536000
+		#
+		# The installer writes it for the two answers that obtain a certificate from Let's Encrypt.
+		# Not `includeSubDomains`: this installation vouches for its own name, not for every name under it.
+		{$KERN_EDGE_HSTS}
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
@@ -149,23 +173,35 @@
 	# proxy has no read timeout, where nginx's default 60 seconds would drop a WebSocket that is
 	# idle by design between events.
 	handle /app/* {
-		reverse_proxy reverb:8080
+		# Over TLS, checked against the stack's CA: Reverb's certificate is issued by docker/certs for
+		# the name `reverb`, and the edge mounts the CA at this path (compose.yaml).
+		reverse_proxy https://reverb:8080 {
+			transport http {
+				tls_trust_pool file /run/kern/tls-ca/ca.crt
+			}
+		}
 	}
 
 	handle {
 		root * /var/www/html/public
 
-		# `app:9000` is resolved per request. nginx needed `resolver 127.0.0.11` and an
-		# intermediate variable to get this, because a static `fastcgi_pass` makes it refuse to
-		# start at all when the app container is down, and then holds the address it first
-		# resolved across that container's restarts.
+		# A unix socket on the `php_socket` volume, which only this container and `app` mount —
+		# php-fpm no longer listens on any network (docker/php/www.conf says why). A socket also
+		# has no address to resolve, so an app restart needs nothing from the edge: the next
+		# request finds the new socket at the same path.
 		#
 		# nginx also passed a `REQUEST_ID` FastCGI parameter. Nothing in PHP has ever read it, and
 		# the convention the other two services follow is the `X-Request-Id` header
 		# (apps/processing, apps/browser-worker) — so it is dropped rather than carried over
 		# unread. If the edge should ever stamp a correlation id, it is that header.
-		php_fastcgi app:9000 {
+		php_fastcgi unix//run/php/fpm.sock {
 			read_timeout 60s
+			# The address PHP sees is the client's as decided above, not the connection's. Caddy's
+			# FastCGI transport fills REMOTE_ADDR from the connection even when it trusts a proxy
+			# (fastcgi.go, 2.11.7), so without this line the trusted proxies change nothing PHP can
+			# read. With none configured `{client_ip}` *is* the connection's address, so this is a
+			# no-op everywhere but behind a proxy named there.
+			env REMOTE_ADDR {client_ip}
 		}
 
 		# Static assets under public/. Everything that is not a file on disk has already gone to

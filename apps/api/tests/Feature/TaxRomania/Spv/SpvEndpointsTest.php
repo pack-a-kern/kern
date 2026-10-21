@@ -25,7 +25,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /** @return array{0: User, 1: string} */
@@ -324,4 +323,43 @@ it('tells the screen whether a signed-in browser is open, which is what gates re
     $this->actingAs($user, 'web')
         ->getJson("/api/v1/subjects/{$subjectId}/spv/connections")
         ->assertJsonPath('connections.0.session', null);
+});
+
+it('answers a second sign-in on a signed-in connection with a reason the screen can say', function (): void {
+    [$user, $subjectId] = connectedUser();
+    $connectionId = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", ['auth_method' => 'USER_PASSWORD_OTP', 'username' => 'contribuabil.test'])
+        ->assertCreated()
+        ->json('id');
+    assert(is_string($connectionId));
+
+    SpvSession::query()->withoutGlobalScopes()->create([
+        'tax_subject_id' => $subjectId,
+        'connection_id' => $connectionId,
+        'browser_session_ref' => 'signed-in',
+        'state' => SpvSessionState::AUTHENTICATED,
+        'created_at' => now('UTC'),
+        'expires_at' => now('UTC')->addMinutes(15),
+    ]);
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections/{$connectionId}/session")
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'SPV_ALREADY_SIGNED_IN');
+});
+
+it('answers a full worker as busy, with a reason the screen can say', function (): void {
+    \Illuminate\Support\Facades\Http::fake(['*/v1/sessions' => \Illuminate\Support\Facades\Http::response(['error' => 'at_capacity'], 503)]);
+
+    [$user, $subjectId] = connectedUser();
+    $connectionId = $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections", ['auth_method' => 'USER_PASSWORD_OTP', 'username' => 'contribuabil.test'])
+        ->assertCreated()
+        ->json('id');
+    assert(is_string($connectionId));
+
+    $this->actingAs($user, 'web')
+        ->postJson("/api/v1/subjects/{$subjectId}/spv/connections/{$connectionId}/session")
+        ->assertStatus(503)
+        ->assertJsonPath('reason', 'SPV_WORKER_BUSY');
 });

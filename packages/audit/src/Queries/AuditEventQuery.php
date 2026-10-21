@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\DB;
  * while they read it, and events arriving meanwhile simply are not in it. The client sends the
  * anchor back with each page and drops it when a filter changes.
  *
+ * What one reader sees at all is an {@see AuditReach}: every query below starts from it.
+ *
  * Ordered by `occurred_at`, not by `sequence`: `sequence` is per chain (`chain_key`), so ordering
  * across chains by it interleaves unrelated counters. `id` breaks ties, so the order is total.
  */
@@ -39,19 +41,19 @@ final readonly class AuditEventQuery
      * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
      * @return array{events: list<array<string, mixed>>, total: int, page: int, per_page: int, anchor: string|null}
      */
-    public function page(array $filters, int $perPage, int $page): array
+    public function page(AuditReach $reach, array $filters, int $perPage, int $page): array
     {
         // Fixed before anything is counted or read, so the total and every page describe the same
         // set of rows — see the class docblock.
-        $anchor = ($filters['anchor'] ?? null) ?? $this->newestOccurredAt($filters);
+        $anchor = ($filters['anchor'] ?? null) ?? $this->newestOccurredAt($reach, $filters);
         $filters['anchor'] = $anchor;
 
-        $total = $this->filtered($filters)->count();
+        $total = $this->filtered($reach, $filters)->count();
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min(max($page, 1), $pages);
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = $this->filtered($filters)
+        $rows = $this->filtered($reach, $filters)
             ->orderByDesc('a.occurred_at')
             ->orderByDesc('a.id')
             ->forPage($page, $perPage)
@@ -76,9 +78,9 @@ final readonly class AuditEventQuery
      *
      * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
      */
-    private function newestOccurredAt(array $filters): ?string
+    private function newestOccurredAt(AuditReach $reach, array $filters): ?string
     {
-        $newest = $this->filtered($filters)->max('a.occurred_at');
+        $newest = $this->filtered($reach, $filters)->max('a.occurred_at');
 
         return is_scalar($newest) ? (string) $newest : null;
     }
@@ -86,20 +88,20 @@ final readonly class AuditEventQuery
     /**
      * @return array{events_total: int, events_24h: int, actors_24h: int, event_types: list<string>}
      */
-    public function summary(): array
+    public function summary(AuditReach $reach): array
     {
         $since = now('UTC')->subDay();
 
-        $counts = (array) DB::table('audit_events')
+        $counts = (array) $this->visible($reach)
             ->selectRaw('count(*) as total')
             ->selectRaw('count(*) filter (where occurred_at >= ?) as recent', [$since])
             ->selectRaw('count(distinct actor_id) filter (where occurred_at >= ?) as actors', [$since])
             ->first();
 
-        $types = DB::table('audit_events')
+        $types = $this->visible($reach)
             ->distinct()
-            ->orderBy('event_type')
-            ->pluck('event_type')
+            ->orderBy('a.event_type')
+            ->pluck('a.event_type')
             ->all();
 
         return [
@@ -111,11 +113,41 @@ final readonly class AuditEventQuery
     }
 
     /**
+     * The chains whose lines this reader sees, at most `$limit`, for the integrity check — so it never
+     * reports on a chain the reader cannot read.
+     *
+     * @return list<string>
+     */
+    public function chainKeys(AuditReach $reach, int $limit): array
+    {
+        $keys = $this->visible($reach)
+            ->distinct()
+            ->orderBy('a.chain_key')
+            ->limit($limit)
+            ->pluck('a.chain_key')
+            ->all();
+
+        return array_values(array_filter($keys, is_string(...)));
+    }
+
+    /** The lines `$reach` lets this reader see, before any filter. */
+    private function visible(AuditReach $reach): QueryBuilder
+    {
+        $query = DB::table('audit_events as a');
+
+        if ($reach === AuditReach::AccountsAndSystem) {
+            $query->whereNull('a.subject_id');
+        }
+
+        return $query;
+    }
+
+    /**
      * @param  array{q?: string|null, event_type?: string|null, subject_id?: string|null, since?: string|null, anchor?: string|null}  $filters
      */
-    private function filtered(array $filters): QueryBuilder
+    private function filtered(AuditReach $reach, array $filters): QueryBuilder
     {
-        $query = DB::table('audit_events as a')
+        $query = $this->visible($reach)
             ->select([
                 'a.id', 'a.chain_key', 'a.sequence', 'a.subject_id', 'a.actor_id',
                 'a.event_type', 'a.resource_type', 'a.resource_id', 'a.occurred_at',

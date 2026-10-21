@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
@@ -25,15 +26,15 @@ use RuntimeException;
 /**
  * The read side of the wallet: what `/dashboard`, `/wallet/accounts` and `/wallet/transactions` show.
  *
- * Every query here relies on `ScopedToTenant`'s global scope for tenancy — there is no
- * `where('tax_subject_id', …)` in this class, and there must not be one. Repeating the filter by
- * hand is how a query eventually gets written without it; the scope applies to every model read
+ * Every model read here relies on `ScopedToTenant`'s global scope for tenancy — the scope applies
  * whether the author remembered or not (`docs/handoff/011-identity-tenancy.md`).
  *
- * Balances and interest are read through the plain query builder against
- * `account_balance_snapshots` and `deposit_interest_events`. Those two tables carry no encrypted
- * columns and are aggregated, never listed row by row, so loading Eloquent models to sum them would
- * buy nothing.
+ * The aggregates are the exception, and the reason this paragraph exists. They are read through the
+ * plain query builder, because they carry no encrypted columns and are summed, never listed — and
+ * the plain query builder has no global scope. A `DB::table('financial_transactions')` filtered only
+ * by `account_id` sums every row pointing at those accounts, including one another subject managed
+ * to write there. So a raw query over a table that has `tax_subject_id` filters on it by hand, as
+ * `movedOutOfReach()` and `balancesByAccount()` do.
  */
 final readonly class WalletQuery
 {
@@ -900,19 +901,9 @@ final readonly class WalletQuery
         return $owed;
     }
 
-    /**
-     * The subject's chosen display currency, or RON.
-     *
-     * Falls back rather than throwing if the subject row cannot be read: a dashboard that refuses
-     * to render because a preference is missing is worse than one that adds up in lei.
-     */
     private function displayCurrency(): string
     {
-        $configured = DB::table('tax_subjects')
-            ->where('id', $this->tenant->currentTenantId())
-            ->value('display_currency');
-
-        return is_string($configured) && $configured !== '' ? strtoupper($configured) : 'RON';
+        return TaxSubject::displayCurrencyOf($this->tenant->currentTenantId());
     }
 
 
@@ -1040,6 +1031,7 @@ final readonly class WalletQuery
         }
 
         $days = DB::table('financial_transactions')
+            ->where('tax_subject_id', $this->tenant->currentTenantId())
             ->whereIn('account_id', array_keys($kinds))
             ->groupBy('account_id', 'currency_code', 'booked_at')
             ->orderBy('booked_at')

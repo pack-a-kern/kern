@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Identity;
 
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Access\Services\AccessCatalogue;
@@ -29,11 +27,13 @@ use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Identity\Contracts\VerificationSender;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\PendingMfaLogin;
 use Kern\Platform\Identity\Support\Verification\MailVerificationSender;
 use Kern\Platform\Identity\Support\Webauthn\ChallengeStore;
 use Kern\Platform\Identity\Support\Webauthn\PasskeyManager;
 use Kern\Platform\Identity\Support\Webauthn\WebauthnCredentialRepository;
 use Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer;
+use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Uploads\RefusingUploadScanner;
@@ -168,6 +168,9 @@ final class IdentityServiceProvider extends ServiceProvider
     public function boot(): void
     {
         PackageRoutes::load(__DIR__ . '/../../routes/identity.php');
+        // Words this package writes outside the application — mail — where the interface's
+        // dictionaries cannot reach. `platform::registration.*` and so on.
+        $this->loadTranslationsFrom(__DIR__ . '/../../lang', 'platform');
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -179,7 +182,7 @@ final class IdentityServiceProvider extends ServiceProvider
             ]);
         }
 
-        $this->registerRateLimiter('login-per-account-ip', 'login_per_account_ip', function (Request $request): string {
+        ConfiguredRateLimit::register('login-per-account-ip', 'identity.rate_limits.login_per_account_ip', function (Request $request): string {
             $email = $request->string('email')->toString();
             $index = $email === ''
                 ? 'no-email'
@@ -188,57 +191,40 @@ final class IdentityServiceProvider extends ServiceProvider
             return $index . '|' . $request->ip();
         });
 
-        $this->registerRateLimiter('login-per-ip', 'login_per_ip', static fn (Request $request): string => (string) $request->ip());
+        ConfiguredRateLimit::register('login-per-ip', 'identity.rate_limits.login_per_ip', static fn (Request $request): string => (string) $request->ip());
 
+        /*
+         * One budget per account, from however many addresses the guesses come. Before the code is
+         * entered nobody is signed in, so the account is the one the pending login is for; keyed on
+         * account and address together, as this was, a password holder got five guesses per address.
+         */
         $perAuthenticatedUser = static function (Request $request): string {
-            $user = $request->user();
-            $identifier = $user?->getAuthIdentifier();
-            $identifierString = is_string($identifier) ? $identifier : null;
+            $identifier = $request->user()?->getAuthIdentifier();
 
-            return $identifierString !== null
-                ? $identifierString . '|' . $request->ip()
-                : (string) $request->ip();
+            return (is_string($identifier) ? $identifier : null)
+                ?? PendingMfaLogin::userId($request)
+                ?? (string) $request->ip();
         };
 
-        $this->registerRateLimiter('mfa-challenge-per-user', 'mfa_challenge_per_user', $perAuthenticatedUser);
+        ConfiguredRateLimit::register('mfa-challenge-per-user', 'identity.rate_limits.mfa_challenge_per_user', $perAuthenticatedUser);
 
         // Step-up submits the same kind of code against the same secret, so it is keyed identically —
         // with its own budget, because exhausting one must not lock a person out of the other.
-        $this->registerRateLimiter('step-up-per-user', 'step_up_per_user', $perAuthenticatedUser);
+        ConfiguredRateLimit::register('step-up-per-user', 'identity.rate_limits.step_up_per_user', $perAuthenticatedUser);
 
-        $this->registerRateLimiter('passkey-ceremony-per-ip', 'passkey_ceremony_per_ip', static fn (Request $request): string => (string) $request->ip());
+        ConfiguredRateLimit::register('passkey-ceremony-per-ip', 'identity.rate_limits.passkey_ceremony_per_ip', static fn (Request $request): string => (string) $request->ip());
 
-        $this->registerRateLimiter('register-per-ip', 'register_per_ip', static fn (Request $request): string => (string) $request->ip());
+        ConfiguredRateLimit::register('register-per-ip', 'identity.rate_limits.register_per_ip', static fn (Request $request): string => (string) $request->ip());
 
         /*
          * Keyed per account, not per IP. A code belongs to one account, so guessing at it from many
          * addresses must still exhaust one budget — and asking for another code is a request to send
          * mail somewhere, which is throttled by whose inbox it lands in, not by who asked.
          */
-        $perUser = static function (Request $request): string {
-            $identifier = $request->user()?->getAuthIdentifier();
+        $perUser = ConfiguredRateLimit::perUser();
 
-            // Falls back to the address when there is no account, which on these two routes cannot
-            // happen — both are behind `auth:web` — but a limiter that keys on an empty string would
-            // pool every caller into one bucket, and that is the failure worth making impossible.
-            return is_string($identifier) ? $identifier : (string) $request->ip();
-        };
-
-        $this->registerRateLimiter('email-verify-per-user', 'email_verify_per_user', $perUser);
-        $this->registerRateLimiter('email-resend-per-user', 'email_resend_per_user', $perUser);
-    }
-
-    private function registerRateLimiter(string $name, string $configKey, callable $keyResolver): void
-    {
-        RateLimiter::for($name, function (Request $request) use ($configKey, $keyResolver): Limit {
-            $maxAttempts = config("identity.rate_limits.{$configKey}.max_attempts");
-            $decaySeconds = config("identity.rate_limits.{$configKey}.decay_seconds");
-
-            return new Limit(
-                $keyResolver($request),
-                is_int($maxAttempts) ? $maxAttempts : 5,
-                is_int($decaySeconds) ? $decaySeconds : 60,
-            );
-        });
+        ConfiguredRateLimit::register('email-verify-per-user', 'identity.rate_limits.email_verify_per_user', $perUser);
+        ConfiguredRateLimit::register('email-resend-per-user', 'identity.rate_limits.email_resend_per_user', $perUser);
+        ConfiguredRateLimit::register('operator-calls-per-user', 'identity.rate_limits.operator_calls_per_user', $perUser);
     }
 }

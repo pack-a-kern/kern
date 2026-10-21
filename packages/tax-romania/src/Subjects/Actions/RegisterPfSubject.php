@@ -10,7 +10,6 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Enums\SubjectType;
 use Kern\TaxRomania\Subjects\Exceptions\DuplicateCnpException;
@@ -116,14 +115,7 @@ final readonly class RegisterPfSubject
                 'anaf_tax_office_code' => $input->anafTaxOfficeCode,
             ]);
 
-            SubjectMembership::create([
-                'subject_id' => $subject->id,
-                'user_id' => $input->registeringUserId,
-                'role' => MembershipRole::OWNER,
-                'permissions_json' => [],
-                'valid_from' => now('UTC'),
-                'revoked_at' => null,
-            ]);
+            SubjectMembership::grantOwnership($subject->id, $input->registeringUserId);
 
             $this->audit->record(AuditEventInput::occurringNow(
                 subjectId: $subject->id,

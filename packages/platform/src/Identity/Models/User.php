@@ -113,6 +113,18 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
         'email_verified_at',
     ];
 
+    /**
+     * The column's database default, repeated here so a model that was just created knows it too.
+     *
+     * Without it a fresh `User` reads `status` as null until it is reloaded, and every check for
+     * `ACTIVE` — the login refusal, `EndInactiveAccountSession` — would treat a new account as suspended.
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'status' => 'ACTIVE',
+    ];
+
     /** @var array<string, string> */
     protected $casts = [
         'email_ciphertext' => Encrypted::class,

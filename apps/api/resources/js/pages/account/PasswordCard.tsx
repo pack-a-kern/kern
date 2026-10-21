@@ -23,12 +23,24 @@ export default function PasswordCard(props: {
         setSaving(true);
 
         try {
-            await changePassword({ currentPassword: current, password: next, passwordConfirmation: confirmation });
+            const revoked = await changePassword({
+                currentPassword: current,
+                password: next,
+                passwordConfirmation: confirmation,
+            });
             errors.reset();
             setCurrent('');
             setNext('');
             setConfirmation('');
-            toast.success(t((d) => d.pages.settingsProfile.passwordChanged));
+            toast.success(
+                t((d) => d.pages.settingsProfile.passwordChanged),
+                {
+                    description:
+                        revoked > 0
+                            ? t((d) => d.pages.settingsProfile.otherSessionsEnded).replace('{count}', String(revoked))
+                            : undefined,
+                },
+            );
         } catch (cause: unknown) {
             // A wrong current password, or one that fails the strength rules, is named by the
             // server — shown on the field rather than in a toast the person cannot act on.

@@ -20,17 +20,4 @@ namespace Kern\Platform\Identity\Enums;
 enum VerificationChannel: string
 {
     case EMAIL = 'EMAIL';
-
-    /**
-     * What a person is told the code went to, as a translation key rather than a sentence.
-     *
-     * The wording lives in the dictionaries with everything else a person reads; this only says which
-     * entry. Nothing user-facing is written in PHP.
-     */
-    public function descriptionKey(): string
-    {
-        return match ($this) {
-            self::EMAIL => 'channels.email',
-        };
-    }
 }

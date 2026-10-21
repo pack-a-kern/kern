@@ -86,10 +86,16 @@ Route::prefix('v1/auth')->group(function (): void {
             ->name('auth.email.resend')
             ->middleware('throttle:email-resend-per-user');
 
+        // Adding a login factor is a sensitive act, so it sits behind `verify-recent` like the rest.
+        // Without it a stolen session could enrol its own passkey or authenticator, then satisfy
+        // `step-up` with the factor it just added — and so clear every gate that trusts step-up,
+        // without ever producing the account's password. `verify-recent` is answerable by password,
+        // which an account with no factor yet still has and a session thief does not, so the loop
+        // closes at enrolment.
         Route::post('passkeys/registration/options', [PasskeyRegistrationController::class, 'options'])
-            ->middleware('throttle:passkey-ceremony-per-ip');
+            ->middleware(['throttle:passkey-ceremony-per-ip', 'verify-recent']);
         Route::post('passkeys/registration', [PasskeyRegistrationController::class, 'store'])
-            ->middleware('throttle:passkey-ceremony-per-ip');
+            ->middleware(['throttle:passkey-ceremony-per-ip', 'verify-recent']);
 
         /*
          * Proving the second factor again inside a live session, for whatever
@@ -101,10 +107,18 @@ Route::prefix('v1/auth')->group(function (): void {
             ->middleware('throttle:step-up-per-user');
 
         Route::get('mfa/status', MfaStatusController::class);
-        Route::post('mfa/totp/enroll', [TotpController::class, 'enroll']);
-        Route::post('mfa/totp/confirm', [TotpController::class, 'confirm']);
+        // Enrolling and confirming an authenticator, and minting fresh recovery codes, are gated by
+        // `verify-recent` for the same reason as the passkey routes above: a session alone must not be
+        // able to add a factor and bootstrap itself past step-up. Disabling (`DELETE mfa/totp`) is not
+        // listed here because it already demands the current password in its controller — the same
+        // proof `verify-recent` would ask for.
+        Route::post('mfa/totp/enroll', [TotpController::class, 'enroll'])
+            ->middleware('verify-recent');
+        Route::post('mfa/totp/confirm', [TotpController::class, 'confirm'])
+            ->middleware('verify-recent');
         Route::delete('mfa/totp', DisableTotpController::class);
-        Route::post('mfa/recovery-codes/regenerate', [RecoveryCodeController::class, 'regenerate']);
+        Route::post('mfa/recovery-codes/regenerate', [RecoveryCodeController::class, 'regenerate'])
+            ->middleware('verify-recent');
 
         /*
          * Listing is open; ending is not.
@@ -158,16 +172,21 @@ Route::prefix('v1/admin')->middleware(['auth:web'])->group(function (): void {
         Route::get('access', ShowAccessCatalogueController::class);
     });
 
+    // `verify-recent` on each mutating route, not on the group: these acts — minting an account with
+    // a password, changing roles, suspending, erasing, impersonating — are the most powerful in the
+    // installation, and a stolen or walked-away admin session must not reach them on a cookie alone.
+    // Marked per route rather than on the group so a read like avatar-removal below is never swept in,
+    // and so a route added later must opt in deliberately.
     Route::middleware('permission:users.manage')->group(function (): void {
-        Route::post('users', CreateUserController::class);
+        Route::post('users', CreateUserController::class)->middleware('verify-recent');
         // Removal only — choosing a face is the account holder's own, on `v1/me/avatar` below.
         Route::delete('users/{user}/avatar', RemoveUserAvatarController::class);
-        Route::put('users/{user}/roles', UpdateUserRolesController::class);
-        Route::put('users/{user}/status', UpdateUserStatusController::class);
+        Route::put('users/{user}/roles', UpdateUserRolesController::class)->middleware('verify-recent');
+        Route::put('users/{user}/status', UpdateUserStatusController::class)->middleware('verify-recent');
         // Erasing a person and acting as one are not role changes: both check SUPER_ADMIN
         // themselves, on top of the `users.manage` permission this group already requires.
-        Route::delete('users/{user}', EraseUserController::class);
-        Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start']);
+        Route::delete('users/{user}', EraseUserController::class)->middleware('verify-recent');
+        Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start'])->middleware('verify-recent');
     });
 });
 

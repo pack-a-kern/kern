@@ -1,3 +1,5 @@
+import { obj } from '../lib/json';
+
 /**
  * The bell's notices (`Kern\Platform\Http\Controllers\Notifications\ListNotificationsController`).
  *
@@ -30,10 +32,6 @@ export interface NotificationFeed {
 
 const IMPORT_NOTICE_TYPE = 'statement-import';
 
-function asRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
 function asCount(value: unknown): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
@@ -47,14 +45,20 @@ function asString(value: unknown): string | null {
  * broadcast carries them at the top level beside `id` and `type`.
  */
 export function parseImportNotice(raw: unknown): ImportNotice | null {
-    const row = asRecord(raw);
-    const data = 'data' in row ? asRecord(row.data) : row;
+    const row = obj(raw);
+    const data = 'data' in row ? obj(row.data) : row;
     const id = asString(row.id);
     const kind = KINDS.find((known) => known === data.kind);
     const subjectId = asString(data.subject_id);
     const importId = asString(data.import_id);
 
-    if (row.type !== IMPORT_NOTICE_TYPE || id === null || kind === undefined || subjectId === null || importId === null) {
+    if (
+        row.type !== IMPORT_NOTICE_TYPE ||
+        id === null ||
+        kind === undefined ||
+        subjectId === null ||
+        importId === null
+    ) {
         return null;
     }
 
@@ -73,7 +77,7 @@ export function parseImportNotice(raw: unknown): ImportNotice | null {
 }
 
 export function parseNotificationFeed(raw: unknown): NotificationFeed {
-    const body = asRecord(raw);
+    const body = obj(raw);
     const rows = Array.isArray(body.notifications) ? body.notifications : [];
 
     return {

@@ -3,21 +3,14 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Repositories\SettingsRepository;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\FetchAiProviderModels;
 use Kern\Platform\Settings\Services\TestAiProviderConnection;
-
-/**
- * Swap the OpenBao-backed KMS for the in-memory fake. Encrypting a user's fields and the stored
- * API key would otherwise make real HTTP calls to the transit engine — which `Http::fake()` would
- * intercept along with the provider traffic these tests are actually about.
- */
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 it('lists models from an OpenAI-compatible provider', function (): void {
     Http::fake([
@@ -58,11 +51,19 @@ it('sends the Anthropic key and version headers, not a bearer token', function (
         && ! $request->hasHeader('Authorization'));
 });
 
-it('reports a rejected key distinctly from an unreachable host', function (): void {
+it('reports a rejected key only as failed, and writes the reason to the log', function (): void {
+    // The screen must not tell a refused key from an unreachable host: whoever presses the button chose
+    // the address, and the difference would say whether anything answers there.
     Http::fake(['*' => Http::response(['error' => 'nope'], 401)]);
 
-    expect(app(FetchAiProviderModels::class)('openai', 'https://api.openai.com', 'bad')->reason)
-        ->toBe('authentication_failed');
+    /** @var list<array<string, mixed>> $logged */
+    $logged = [];
+    Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$logged): void {
+        $logged[] = $event->context;
+    });
+
+    expect(app(FetchAiProviderModels::class)('openai', 'https://api.openai.com', 'bad')->reason)->toBe('failed')
+        ->and($logged)->toContain(['operation' => 'list-models', 'reason' => 'rejected_credentials', 'http_status' => 401]);
 });
 
 it('reports an empty model list as a failure, not as a working provider', function (): void {
@@ -71,7 +72,7 @@ it('reports an empty model list as a failure, not as a working provider', functi
     Http::fake(['*' => Http::response(['data' => []])]);
 
     expect(app(FetchAiProviderModels::class)('openai', 'https://api.openai.com', 'sk-test')->reason)
-        ->toBe('no_models');
+        ->toBe('failed');
 });
 
 it('refuses to guess for a provider that publishes no model list', function (): void {
@@ -116,23 +117,36 @@ it('still pings OpenAI-compatible providers on /v1/chat/completions', function (
     expect(app(TestAiProviderConnection::class)()->toArray()['success'])->toBeTrue();
 });
 
-it('keeps a draft API key out of the request URL when listing models', function (): void {
+it('lists models from the saved address with the key saved alongside it, whichever provider is named', function (): void {
+    // `provider` only shapes the request for a provider picked but not yet saved; where it goes, and
+    // with which key, is the saved connection's.
     $admin = settingsAdminUser();
+    $settings = app(SettingsRepository::class);
+    $settings->set(SettingKey::AI_BASE_URL, 'https://api.openai.com', $admin->id);
+    $settings->set(SettingKey::AI_API_KEY, 'sk-saved', $admin->id);
 
     Http::fake(['*' => Http::response(['data' => [['id' => 'gpt-4o']]])]);
 
-
     $this->actingAs($admin)
-        ->postJson('/api/v1/settings/ai/models', [
-            'provider' => 'openai',
-            'base_url' => 'https://api.openai.com',
-            'api_key' => 'sk-secret-draft',
-        ])
+        ->postJson('/api/v1/settings/ai/models', ['provider' => 'openai'])
         ->assertOk()
         ->assertJsonPath('models', ['gpt-4o']);
 
-    Http::assertSent(fn (Request $request): bool => ! str_contains($request->url(), 'sk-secret-draft'));
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/models'
+        && $request->hasHeader('Authorization', 'Bearer sk-saved'));
 });
+
+it('refuses an address or key sent to the model list', function (string $field): void {
+    // Each used to be a way to send the stored key to an address an administrator named.
+    $admin = settingsAdminUser();
+    Http::fake();
+
+    $this->actingAs($admin)
+        ->postJson('/api/v1/settings/ai/models', ['provider' => 'openai', $field => 'https://attacker.example'])
+        ->assertStatus(422);
+
+    Http::assertNothingSent();
+})->with(['base_url', 'api_key']);
 
 it('does not let an ordinary user probe arbitrary hosts through the model list endpoint', function (): void {
     $user = ordinaryUser();
@@ -147,6 +161,25 @@ it('does not let an ordinary user probe arbitrary hosts through the model list e
         ->assertForbidden();
 
     Http::assertNothingSent();
+});
+
+/*
+ * The calls an administrator makes to the provider, at most so often per account.
+ *
+ * Already behind a permission; this is for the script that loops. One budget for test, list and save,
+ * because each is a request to the same provider with the same key.
+ */
+it('limits how often one administrator may call the provider, and only that administrator', function (): void {
+    config(['identity.rate_limits.operator_calls_per_user.max_attempts' => 2]);
+
+    $admin = settingsAdminUser();
+    Http::fake(['*' => Http::response(['data' => [['id' => 'gpt-4o']]])]);
+
+    $this->actingAs($admin)->postJson('/api/v1/settings/ai/models', ['provider' => 'openai'])->assertOk();
+    $this->actingAs($admin)->postJson('/api/v1/settings/ai/test-connection', ['provider' => 'openai'])->assertOk();
+    $this->actingAs($admin)->postJson('/api/v1/settings/ai/models', ['provider' => 'openai'])->assertStatus(429);
+
+    $this->actingAs(settingsAdminUser())->postJson('/api/v1/settings/ai/models', ['provider' => 'openai'])->assertOk();
 });
 
 it('serves the preset catalogue to an administrator without exposing any secret', function (): void {

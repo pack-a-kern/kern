@@ -20,21 +20,16 @@ return [
     'routing' => [
         'prefix' => env('KERN_ROUTE_PREFIX', 'api'),
         /*
-         * `verified` here rather than on each authenticated route: the gate has to cover every JSON
-         * endpoint every package ships, and a list maintained per route is a list with a hole in it.
-         * It passes a guest straight through, so signing in and registering are unaffected, and it
-         * allows the verification endpoints by name — see
-         * `Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail`.
-         *
-         * This file is the *published* copy and it wins over the package's own default, which is why
-         * the same line exists in both: adding it only to the package's `config/kern.php` left the gate
-         * applied to no route at all, and the test that asked a closed endpoint for data got a 200.
+         * No `verified` here. It used to be — here and in the package's copy, because this published
+         * file wins — and still left the application's own `routes/api.php` without it, four routes
+         * answering an unverified account. It is on the `web` group itself now (`bootstrap/app.php`),
+         * which every route here and there runs inside.
          */
-        'middleware' => ['web', 'verified'],
+        'middleware' => ['web'],
 
         'tenant' => [
             'prefix' => 'v1/subjects/{subject}',
-            'middleware' => ['auth:web', 'tax-subject', 'verified'],
+            'middleware' => ['auth:web', 'tax-subject'],
         ],
     ],
 

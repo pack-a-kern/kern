@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\ValueObjects;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Wallet\ValueObjects\Exceptions\CurrencyMismatchException;
 use Kern\TaxRomania\Wallet\ValueObjects\Exceptions\InvalidMoneyException;
 use Stringable;
@@ -44,7 +45,7 @@ final readonly class Money implements Stringable
 
     public static function fromMinorUnits(int $minorUnits, string $currencyCode): self
     {
-        if (! preg_match('/^[A-Z]{3}$/', $currencyCode)) {
+        if (! CurrencyCode::isValid($currencyCode)) {
             throw InvalidMoneyException::forCurrencyCode($currencyCode);
         }
 

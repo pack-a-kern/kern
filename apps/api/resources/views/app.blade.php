@@ -4,6 +4,10 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        {{-- The Content-Security-Policy nonce, for the scripts that insert `<style>` elements of their
+             own — Vite's dev client reads this tag by name, and resources/js/lib/cspNonce.ts hands it
+             to Radix. Empty when the policy is off. --}}
+        <meta property="csp-nonce" nonce="{{ Vite::cspNonce() }}">
 
         {{-- PWA (`BLUEPRINT.md` §1.4/§17) — installable app shell metadata. Service worker
              registration lives in `resources/js/lib/registerServiceWorker.ts`, called from

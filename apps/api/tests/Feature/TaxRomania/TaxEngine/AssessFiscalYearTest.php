@@ -33,9 +33,7 @@ use Kern\TaxRomania\TaxRules\TaxRuleVersion;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
-
 
 it('builds a fact per ledger entry, proposed rather than confirmed', function (): void {
     $subject = assessableSubject();

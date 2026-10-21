@@ -21,7 +21,6 @@ use RuntimeException;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 function freshDraftDeclaration(): Declaration

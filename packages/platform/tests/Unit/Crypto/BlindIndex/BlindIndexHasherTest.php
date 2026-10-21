@@ -4,25 +4,14 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Tests\Unit\Crypto\BlindIndex\BlindIndexHasherTest;
 
-use InvalidArgumentException;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
-
-function keysJson(int ...$versions): string
-{
-    $keys = [];
-
-    foreach ($versions as $version) {
-        $keys[(string) $version] = base64_encode(random_bytes(32));
-    }
-
-    return json_encode($keys, JSON_THROW_ON_ERROR);
-}
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 
 it('is deterministic for the same normalized value and key version', function (): void {
-    $provider = new ConfigBlindIndexKeyProvider(keysJson(1), currentVersion: 1);
-    $hasher = new BlindIndexHasher($provider);
+    $hasher = new BlindIndexHasher(new InMemoryKeyManagementService());
 
     $value = Normalizer::cnp('1 900101 234567');
 
@@ -30,39 +19,102 @@ it('is deterministic for the same normalized value and key version', function ()
 });
 
 it('produces a different index for a different normalized value', function (): void {
-    $provider = new ConfigBlindIndexKeyProvider(keysJson(1), currentVersion: 1);
-    $hasher = new BlindIndexHasher($provider);
+    $hasher = new BlindIndexHasher(new InMemoryKeyManagementService());
 
     expect($hasher->compute('1900101234567'))->not->toBe($hasher->compute('1900101234568'));
 });
 
 it('is not a bare hash — two different keys produce two different indexes for the same value', function (): void {
-    $providerA = new ConfigBlindIndexKeyProvider(keysJson(1), currentVersion: 1);
-    $providerB = new ConfigBlindIndexKeyProvider(keysJson(1), currentVersion: 1);
-
-    $indexA = (new BlindIndexHasher($providerA))->compute('1900101234567');
-    $indexB = (new BlindIndexHasher($providerB))->compute('1900101234567');
+    $indexA = (new BlindIndexHasher(new InMemoryKeyManagementService()))->compute('1900101234567');
+    $indexB = (new BlindIndexHasher(new InMemoryKeyManagementService()))->compute('1900101234567');
 
     expect($indexA)->not->toBe($indexB)
         ->and($indexA)->not->toBe(hash('sha256', '1900101234567'));
 });
 
-it('computes under a specific historical version for rotation re-indexing', function (): void {
-    $provider = new ConfigBlindIndexKeyProvider(keysJson(1, 2), currentVersion: 2);
-    $hasher = new BlindIndexHasher($provider);
+it('computes a batch in order, matching one at a time', function (): void {
+    // An import indexes every row in one request; that must not be a different index from the one a
+    // single lookup computes, or a row imported in a batch could never be found again.
+    $hasher = new BlindIndexHasher(new InMemoryKeyManagementService());
 
-    $underV1 = $hasher->computeWithVersion('value', 1);
-    $underV2 = $hasher->computeWithVersion('value', 2);
-    $currentDefault = $hasher->compute('value');
-
-    expect($underV1)->not->toBe($underV2)
-        ->and($currentDefault)->toBe($underV2);
+    expect($hasher->computeMany(['a', 'b', 'c']))
+        ->toBe([$hasher->compute('a'), $hasher->compute('b'), $hasher->compute('c')]);
 });
 
-it('rejects a current version with no matching key', function (): void {
-    new ConfigBlindIndexKeyProvider(keysJson(1), currentVersion: 2);
-})->throws(InvalidArgumentException::class);
+it('computes under the new version once the key is rotated', function (): void {
+    $kms = new InMemoryKeyManagementService();
+    $hasher = new BlindIndexHasher($kms);
+    $before = $hasher->compute('value');
 
-it('rejects a key that does not decode to 32 bytes', function (): void {
-    new ConfigBlindIndexKeyProvider(json_encode(['1' => base64_encode('too-short')], JSON_THROW_ON_ERROR), currentVersion: 1);
-})->throws(InvalidArgumentException::class);
+    $kms->rotateBlindIndexKey();
+
+    expect($hasher->compute('value'))->not->toBe($before)
+        ->and($hasher->currentVersion())->toBe(2);
+});
+
+
+/** The in-memory key manager, counting how many times it was asked for blind indexes. */
+function countingKms(): KeyManagementService
+{
+    return new class () implements KeyManagementService {
+        public int $blindIndexRequests = 0;
+
+        private InMemoryKeyManagementService $inner;
+
+        public function __construct()
+        {
+            $this->inner = new InMemoryKeyManagementService();
+        }
+
+        public function wrapDataKey(string $plaintextDek): WrappedDataKey
+        {
+            return $this->inner->wrapDataKey($plaintextDek);
+        }
+
+        public function unwrapDataKey(WrappedDataKey $wrapped): string
+        {
+            return $this->inner->unwrapDataKey($wrapped);
+        }
+
+        public function currentKekVersion(): int
+        {
+            return $this->inner->currentKekVersion();
+        }
+
+        public function rotateKek(): int
+        {
+            return $this->inner->rotateKek();
+        }
+
+        public function accessSecondsRemaining(): ?int
+        {
+            return $this->inner->accessSecondsRemaining();
+        }
+
+        public function blindIndexes(array $normalizedValues): array
+        {
+            $this->blindIndexRequests++;
+
+            return $this->inner->blindIndexes($normalizedValues);
+        }
+
+        public function currentBlindIndexKeyVersion(): int
+        {
+            return $this->inner->currentBlindIndexKeyVersion();
+        }
+    };
+}
+
+it('keeps the gaps where a value has nothing to index, and asks the key manager once', function (): void {
+    // Every batch caller — a statement's fingerprints, its counterparties — has rows with nothing to
+    // index. They must come back as null in their place, and the rest in one request, not one each.
+    $kms = countingKms();
+    $hasher = new BlindIndexHasher($kms);
+
+    $indexes = $hasher->computeEach(['a', null, 'b', null]);
+
+    expect($kms->blindIndexRequests)->toBe(1)
+        ->and($indexes[1])->toBeNull()
+        ->and($indexes[3])->toBeNull()
+        ->and([$indexes[0], $indexes[2]])->toBe($hasher->computeMany(['a', 'b']));
+});

@@ -36,7 +36,6 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**

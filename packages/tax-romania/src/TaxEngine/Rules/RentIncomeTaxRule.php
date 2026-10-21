@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Rules;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -72,7 +73,7 @@ final class RentIncomeTaxRule implements TaxRuleContract
          * say so — summing blindly taxed a dividend as rent the first time this ran against real data, and
          * produced a confident figure for a landlord who owns nothing.
          */
-        $gross = Money::zero('RON');
+        $gross = Money::zero(CurrencyCode::BASE);
         $counted = 0;
 
         foreach ($input->facts as $fact) {
@@ -90,7 +91,7 @@ final class RentIncomeTaxRule implements TaxRuleContract
          * rounding mode nobody chose is a figure nobody can reproduce.
          */
         $deduction = $quota === null
-            ? Money::zero('RON')
+            ? Money::zero(CurrencyCode::BASE)
             : $gross->multipliedByDecimal($quota, RoundingMode::HALF_UP);
         $base = $gross->subtract($deduction);
         $tax = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);

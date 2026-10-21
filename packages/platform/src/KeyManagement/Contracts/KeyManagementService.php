@@ -56,4 +56,42 @@ interface KeyManagementService
      * @throws KeyManagementException on any transport, auth, or KMS-side failure.
      */
     public function rotateKek(): int;
+
+    /**
+     * How long this installation's own access to the KMS has left, in seconds, or null when it does
+     * not expire.
+     *
+     * Not a property of the key: of the credential the application presents. It is reported because a
+     * credential that lapses takes every encrypted read with it, and an expiry nobody can see is how
+     * that nearly happened (docker/openbao/entrypoint.sh).
+     *
+     * @throws KeyManagementException on any transport, auth, or KMS-side failure.
+     */
+    public function accessSecondsRemaining(): ?int;
+
+    /**
+     * The blind index of each value: `HMAC-SHA-256(blind_index_key, value)`, as lowercase hex, in the
+     * order given (BLUEPRINT.md §4.4).
+     *
+     * Computed by the KMS, under a key that never leaves it, so a copy of the database and of the
+     * environment file together still cannot be brute-forced offline — a CNP has few enough possible
+     * values that a key held beside the data would make that a matter of minutes
+     * (docs/adr/0020-blind-index-key-in-the-kms.md). One request for the whole list: an import
+     * indexes every row it reads.
+     *
+     * @param list<string> $normalizedValues already normalised by the caller (`Normalizer`).
+     *
+     * @return list<string>
+     *
+     * @throws KeyManagementException on any transport, auth, or KMS-side failure.
+     */
+    public function blindIndexes(array $normalizedValues): array;
+
+    /**
+     * The blind-index key version `blindIndexes()` uses right now. Rotating it (in the KMS, by an
+     * operator) makes every stored index stale until `kern:keys:reindex-blind-indexes` has run.
+     *
+     * @throws KeyManagementException on any transport, auth, or KMS-side failure.
+     */
+    public function currentBlindIndexKeyVersion(): int;
 }

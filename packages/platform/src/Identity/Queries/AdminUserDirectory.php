@@ -6,6 +6,7 @@ namespace Kern\Platform\Identity\Queries;
 
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
  * The people who can sign in, for Administration → Users & roles.
@@ -20,6 +21,10 @@ use Kern\Platform\Identity\Models\User;
 final readonly class AdminUserDirectory
 {
     private const int MAX_USERS = 200;
+
+    public function __construct(private TenantMemberships $memberships)
+    {
+    }
 
     /**
      * @return array{users: list<array<string, mixed>>, truncated: bool}
@@ -41,7 +46,7 @@ final readonly class AdminUserDirectory
         $passkeys = $this->countBy('user_passkeys', $ids);
         $totp = $this->confirmedTotpUserIds($ids);
         $lastSeen = $this->lastSeenAt($ids);
-        $memberships = $this->membershipsByUser($ids);
+        $memberships = $this->memberships->rolesByUser($ids);
         $platformRoles = $this->platformRolesByUser($ids);
 
         /** @var list<array<string, mixed>> $rows */
@@ -138,39 +143,9 @@ final readonly class AdminUserDirectory
     }
 
     /**
-     * @param  list<string>  $ids
-     * @return array<string, list<string>>
-     */
-    private function membershipsByUser(array $ids): array
-    {
-        if ($ids === []) {
-            return [];
-        }
-
-        $rows = DB::table('subject_memberships')
-            ->whereIn('user_id', $ids)
-            ->whereNull('revoked_at')
-            ->get(['user_id', 'role']);
-
-        $byUser = [];
-
-        foreach ($rows as $row) {
-            $fields = (array) $row;
-            $userId = $fields['user_id'] ?? null;
-            $role = $fields['role'] ?? null;
-
-            if (is_scalar($userId) && is_scalar($role)) {
-                $byUser[(string) $userId][] = (string) $role;
-            }
-        }
-
-        return $byUser;
-    }
-
-    /**
-     * Platform roles (`config/access.php`), as opposed to the per-tax-subject memberships above.
-     * Read through the pivot rather than by hydrating every user's relation, which would be one
-     * query per row.
+     * Platform roles (`config/access.php`), as opposed to the per-tenant memberships
+     * {@see TenantMemberships} answers. Read through the pivot rather than by hydrating every user's
+     * relation, which would be one query per row.
      *
      * @param  list<string>  $ids
      * @return array<string, list<string>>

@@ -24,9 +24,10 @@ import {
  * disagree about the disc's size. The classes stay the caller's; what is inside it does not.
  */
 function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; className: string }): JSX.Element {
-    const picture = subject === undefined || subject.avatarUpdatedAt === null
-        ? null
-        : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt);
+    const picture =
+        subject === undefined || subject.avatarUpdatedAt === null
+            ? null
+            : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt);
 
     if (picture !== null) {
         return (

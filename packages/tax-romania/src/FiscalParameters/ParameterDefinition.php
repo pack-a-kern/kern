@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\FiscalParameters;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
 
 /** One value looked for, as `config/fiscal_parameters.php` describes it. */
@@ -45,7 +46,7 @@ final readonly class ParameterDefinition
      * @param  list<int>  $numbers  percentages in hundredths, wages and lei as stated
      * @return array<string, mixed>
      */
-    public function value(array $numbers, bool $range = false, string $currency = 'RON'): array
+    public function value(array $numbers, bool $range = false, string $currency = CurrencyCode::BASE): array
     {
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => ['value' => sprintf('%d.%02d', intdiv($numbers[0], 100), $numbers[0] % 100)],

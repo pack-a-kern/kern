@@ -88,7 +88,10 @@ export default function Login(): JSX.Element {
                 return t((d) => d.auth.rateLimited);
             }
 
-            return firstFieldError ?? cause.message;
+            // A named refusal, in the reader's language — `ACCOUNT_SUSPENDED` is the one sign-in can meet.
+            const named = cause.reason === undefined ? undefined : t((d) => d.errors.reasons)[cause.reason];
+
+            return firstFieldError ?? named ?? cause.message;
         }
 
         return fallback;
@@ -139,7 +142,7 @@ export default function Login(): JSX.Element {
                 await register(email, password);
                 setMode('password');
                 setPassword('');
-                setInfo(t((d) => d.auth.accountCreated));
+                setInfo(t((d) => d.auth.registrationAnswered));
             },
             (d) => d.auth.genericRegisterError,
         );

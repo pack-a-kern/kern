@@ -10,7 +10,6 @@ use Kern\Platform\Identity\Avatars\AvatarUpload;
 use Kern\Platform\Identity\Avatars\RemoveAvatar;
 use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
-use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
@@ -76,14 +75,7 @@ final class UpdateSubjectAvatarController
 
         $userId = (string) $key;
 
-        $owns = SubjectMembership::query()
-            ->where('user_id', $userId)
-            ->where('subject_id', $subject->encryptionSubjectId())
-            ->where('role', MembershipRole::OWNER->value)
-            ->whereNull('revoked_at')
-            ->exists();
-
-        abort_unless($owns, 403);
+        abort_unless(SubjectMembership::owns($userId, $subject->encryptionSubjectId()), 403);
 
         return $userId;
     }

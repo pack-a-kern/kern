@@ -88,7 +88,7 @@ final class ClassifyCounterpartiesCommand extends Command
         if ($unowned > 0) {
             // Named rather than silent: a taxpayer nobody may act for looks exactly like a taxpayer
             // with nothing to do, and that is how a task stops working unnoticed.
-            $this->warn(sprintf('%d taxpayer(s) skipped: nobody holds an unrevoked membership.', $unowned));
+            $this->warn(sprintf('%d taxpayer(s) skipped: nobody holds a membership that opens it.', $unowned));
         }
 
         return self::SUCCESS;
@@ -97,15 +97,16 @@ final class ClassifyCounterpartiesCommand extends Command
     /**
      * Somebody who may act for this taxpayer, preferring whoever owns it.
      *
-     * The gate is asked separately, in `authorizeAndActivate`; this only chooses who to ask about. A
-     * revoked membership is not a principal, which is why it is excluded here rather than left for
-     * the gate to refuse one call later.
+     * The gate is asked separately, in `authorizeAndActivate`; this only chooses who to ask about,
+     * from the same memberships the gate opens to. A revoked one, or one in a role without rules, is
+     * not a principal — chosen here, it was refused one call later and the taxpayer's names were
+     * never asked about, although its owner was there to act for.
      */
     private function ownerOf(string $subjectId): ?string
     {
         $membership = SubjectMembership::query()
             ->where('subject_id', $subjectId)
-            ->whereNull('revoked_at')
+            ->opening()
             ->orderByRaw('case when role = ? then 0 else 1 end', [MembershipRole::OWNER->value])
             ->first();
 

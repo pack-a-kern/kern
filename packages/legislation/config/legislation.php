@@ -47,6 +47,17 @@ return [
         'batch' => (int) env('LEGISLATION_EMBEDDING_BATCH', 256),
     ],
 
+    /*
+     * Searches per account. Each one embeds the query on this server's CPU; typing a question and
+     * refining it a few times is far inside this, a loop is not.
+     */
+    'rate_limits' => [
+        'search_per_user' => [
+            'max_attempts' => (int) env('LEGISLATION_SEARCH_RATE_LIMIT_MAX_ATTEMPTS', 30),
+            'decay_seconds' => (int) env('LEGISLATION_SEARCH_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
+    ],
+
     'notes' => [
         /*
          * What the portal's notes ("Notă") say about when a provision applies. The consolidation's

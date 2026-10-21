@@ -1,5 +1,5 @@
 import { ApiError, apiRequest, apiRequestBinary, apiUpload } from '../lib/http';
-import { type NumberedPage, type CursorPage, parseJson, vBoolean, vObject, vString } from '../lib/validate';
+import { type NumberedPage, type CursorPage, parseJson, vObject, vString } from '../lib/validate';
 import {
     parseAcceptedExtraction,
     parseCorrectedExtraction,
@@ -228,22 +228,6 @@ export async function deleteDocument(subjectId: string, documentId: string): Pro
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(documentId)}`, {
         method: 'DELETE',
     });
-}
-
-export async function grantDocumentAiConsent(subjectId: string): Promise<boolean> {
-    const text = await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/document-ai-consent`, {
-        method: 'POST',
-    });
-
-    return parseJson(text, vObject({ consented: vBoolean })).consented;
-}
-
-export async function revokeDocumentAiConsent(subjectId: string): Promise<boolean> {
-    const text = await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/document-ai-consent`, {
-        method: 'DELETE',
-    });
-
-    return parseJson(text, vObject({ consented: vBoolean })).consented;
 }
 
 /**

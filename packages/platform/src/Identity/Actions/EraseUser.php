@@ -10,6 +10,7 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
  * Erases a person from this installation, as far as the record permits.
@@ -30,12 +31,13 @@ use Kern\Platform\Identity\Models\User;
  * | sessions | deleted — signed out everywhere, at once |
  * | passkeys, authenticator, recovery codes | deleted — nothing can authenticate as them again |
  * | memberships | deleted — access to every taxpayer ends |
+ * | platform roles and permissions | removed — a tombstone that still held `SUPER_ADMIN` counted as one, so the guard on removing the last super administrator counted it too |
  * | email, password | replaced by a tombstone; the blind index is randomised, so the address can neither be found by searching for it nor collide with a later registration |
  * | status | `DELETED` |
  */
 final readonly class EraseUser
 {
-    public function __construct(private AuditChainService $audit)
+    public function __construct(private AuditChainService $audit, private TenantMemberships $memberships)
     {
     }
 
@@ -47,10 +49,11 @@ final readonly class EraseUser
             $user->mfaMethods()->delete();
             $user->recoveryCodes()->delete();
 
-            // Memberships belong to the Subjects module, and this one does not import its models —
-            // the same plain-table crossing `security_events` already uses
-            // (docs/handoff/011-identity-tenancy.md, key decision #9).
-            DB::table('subject_memberships')->where('user_id', $user->id)->delete();
+            // Memberships are the application's, so the application ends them.
+            $this->memberships->removeAllFor($user->id);
+
+            $user->syncRoles([]);
+            $user->syncPermissions([]);
 
             // A random index rather than null: the column is unique, and an index left intact would
             // still answer "is this address registered?" to anyone who cared to ask.

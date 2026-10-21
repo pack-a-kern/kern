@@ -14,9 +14,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * `POST`/`DELETE /api/v1/subjects/{subject}/document-ai-consent` — ADR 0005's consent gate, the
  * HTTP surface a future settings screen calls.
  */
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 /** @return array{0: User, 1: TaxSubject} */
 function memberAndSubject(): array

@@ -18,17 +18,53 @@ use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
  * `tests/Feature/Platform/KeyManagement/OpenBaoLiveIntegrationTest.php` separately proves the same
  * class against a real dev-mode OpenBao, guarded behind an env var since CI does not start one.
  */
-function makeService(): OpenBaoTransitKeyManagementService
+function makeService(?string $tokenFile = null, ?string $caCertFile = null): OpenBaoTransitKeyManagementService
 {
     return new OpenBaoTransitKeyManagementService(
         app(HttpFactory::class),
         'http://openbao.test',
         'test-token',
+        $tokenFile,
+        $caCertFile ?? true,
         'transit',
         'tax-subject-kek',
+        'blind-index',
         5,
     );
 }
+
+/*
+ * The server is verified, always.
+ *
+ * What crosses this connection is the token and every data key it unwraps. The bundled server's
+ * certificate is signed by a CA it issues itself, so the client is pointed at that CA's file; with none
+ * configured it uses the system's trust store — and in neither case is verification turned off.
+ */
+it('verifies the server against the CA it is configured with', function (): void {
+    $verify = null;
+    Http::fake(function ($request, array $options) use (&$verify) {
+        $verify = $options['verify'] ?? null;
+
+        return Http::response(['data' => ['ciphertext' => 'vault:v1:abc123']]);
+    });
+
+    makeService(caCertFile: '/run/kern/openbao/ca.crt')->wrapDataKey(random_bytes(32));
+
+    expect($verify)->toBe('/run/kern/openbao/ca.crt');
+});
+
+it('verifies the server against the system trust store when no CA is configured', function (): void {
+    $verify = null;
+    Http::fake(function ($request, array $options) use (&$verify) {
+        $verify = $options['verify'] ?? null;
+
+        return Http::response(['data' => ['ciphertext' => 'vault:v1:abc123']]);
+    });
+
+    makeService()->wrapDataKey(random_bytes(32));
+
+    expect($verify)->toBeTrue();
+});
 
 it('wraps a plaintext DEK via the transit encrypt endpoint', function (): void {
     Http::fake([
@@ -129,3 +165,92 @@ it('throws KeyManagementException, not a raw connection exception, when the host
 
     makeService()->wrapDataKey(random_bytes(32));
 })->throws(KeyManagementException::class);
+
+it('reads the token from the file on every call, so a replaced token is used at once', function (): void {
+    // The bundled server publishes a new token before the old one expires; a queue worker that
+    // read it once at start-up would keep presenting the old one until it was revoked.
+    $file = tempnam(sys_get_temp_dir(), 'kern-openbao-token');
+    file_put_contents($file, "first-token\n");
+
+    Http::fake([
+        'openbao.test/v1/transit/keys/tax-subject-kek' => Http::response(['data' => ['latest_version' => 1]]),
+    ]);
+
+    $service = makeService($file);
+    $service->currentKekVersion();
+    file_put_contents($file, 'second-token');
+    $service->currentKekVersion();
+
+    $sent = Http::recorded()->map(fn (array $pair): string => $pair[0]->header('Authorization')[0] ?? '');
+
+    expect($sent->all())->toBe(['Bearer first-token', 'Bearer second-token']);
+
+    unlink($file);
+});
+
+it('refuses to fall back to the environment token when the file is configured but missing', function (): void {
+    // Falling back would keep presenting a token the server has already replaced and will revoke.
+    Http::fake();
+
+    expect(fn () => makeService('/nonexistent/kern-openbao-token')->currentKekVersion())
+        ->toThrow(KeyManagementException::class, 'token file is missing or empty');
+
+    Http::assertNothingSent();
+});
+
+it('reports how long the token has left', function (): void {
+    Http::fake([
+        'openbao.test/v1/auth/token/lookup-self' => Http::response(['data' => ['ttl' => 2_160_000, 'expire_time' => '2026-11-20T14:09:23Z']]),
+    ]);
+
+    expect(makeService()->accessSecondsRemaining())->toBe(2_160_000);
+});
+
+it('reports a token that never expires as null, not as zero seconds left', function (): void {
+    Http::fake([
+        'openbao.test/v1/auth/token/lookup-self' => Http::response(['data' => ['ttl' => 0, 'expire_time' => null]]),
+    ]);
+
+    expect(makeService()->accessSecondsRemaining())->toBeNull();
+});
+
+it('computes blind indexes in one batch request and returns them as hex, in order', function (): void {
+    $first = random_bytes(32);
+    $second = random_bytes(32);
+
+    Http::fake([
+        'openbao.test/v1/transit/hmac/blind-index/sha2-256' => Http::response(['data' => ['batch_results' => [
+            ['hmac' => 'vault:v1:' . base64_encode($first)],
+            ['hmac' => 'vault:v1:' . base64_encode($second)],
+        ]]]),
+    ]);
+
+    expect(makeService()->blindIndexes(['a', 'b']))->toBe([bin2hex($first), bin2hex($second)]);
+
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['batch_input'] === [
+        ['input' => base64_encode('a')],
+        ['input' => base64_encode('b')],
+    ]);
+});
+
+it('sends nothing for an empty batch', function (): void {
+    Http::fake();
+
+    expect(makeService()->blindIndexes([]))->toBe([]);
+
+    Http::assertNothingSent();
+});
+
+it('refuses a batch with an item that failed, rather than skipping it', function (): void {
+    // A missing index is a missing row: an import would store a fingerprint nothing can match.
+    Http::fake([
+        'openbao.test/v1/transit/hmac/blind-index/sha2-256' => Http::response(['data' => ['batch_results' => [
+            ['hmac' => 'vault:v1:' . base64_encode(random_bytes(32))],
+            ['error' => 'something went wrong'],
+        ]]]),
+    ]);
+
+    expect(fn () => makeService()->blindIndexes(['a', 'b']))
+        ->toThrow(KeyManagementException::class, 'malformed: operation="hmac"');
+});

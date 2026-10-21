@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\TaxEngine\Repositories;
 
 use Illuminate\Support\Collection;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxFactSnapshot;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
@@ -56,12 +57,12 @@ final readonly class TaxFactRepository
             distributedAt: $fact->distributed_at?->toDateTimeImmutable(),
             contractDate: $fact->contract_date?->toDateTimeImmutable(),
             transactionDate: $fact->transaction_date?->toDateTimeImmutable(),
-            grossAmountRon: Money::ofMinorUnits($fact->ron_amount_minor, 'RON'),
+            grossAmountRon: Money::ofMinorUnits($fact->ron_amount_minor, CurrencyCode::BASE),
             deductibleAmountRon: $fact->deductible_amount_ron_minor !== null
-                ? Money::ofMinorUnits($fact->deductible_amount_ron_minor, 'RON')
+                ? Money::ofMinorUnits($fact->deductible_amount_ron_minor, CurrencyCode::BASE)
                 : null,
             withheldTaxRon: $fact->withheld_tax_ron_minor !== null
-                ? Money::ofMinorUnits($fact->withheld_tax_ron_minor, 'RON')
+                ? Money::ofMinorUnits($fact->withheld_tax_ron_minor, CurrencyCode::BASE)
                 : null,
             status: $fact->status,
         );

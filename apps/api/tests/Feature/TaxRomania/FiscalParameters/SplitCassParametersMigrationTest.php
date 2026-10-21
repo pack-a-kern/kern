@@ -15,7 +15,6 @@ beforeEach(function (): void {
 });
 
 it('moves each CASS value to the rule of the income it applies to, keeping its approval', function (): void {
-    bootstrapIdentityCryptoForTests();
     $cap = FiscalParameter::factory()->create(['code' => 'RO.CASS.BASE_CAP_WAGES', 'value_type' => 'INTEGER']);
     $bands = FiscalParameter::factory()->create(['code' => 'RO.CASS.BASE_WAGES', 'value_type' => 'JSON']);
     $old = insertApprovedFiscalParameterVersion($cap->id, FiscalParameterVersion::factory()->create()->source_section_id, ['valid_from' => '2022-01-01', 'value_json' => json_encode(['value' => 12])]);

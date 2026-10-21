@@ -72,7 +72,7 @@ import { useFormErrors } from '../../hooks/useFormErrors';
 import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatMinor } from '../../lib/format';
 import { cn } from '../../lib/utils';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import {
@@ -90,7 +90,6 @@ import {
     type TransactionPage,
     type TransactionSummary,
     bankLabel,
-    formatMinor,
 } from '../../types/wallet';
 
 /**

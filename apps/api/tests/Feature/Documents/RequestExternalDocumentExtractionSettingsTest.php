@@ -14,15 +14,16 @@ use Kern\Documents\ExternalAi\RequestExternalDocumentExtraction;
 use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
-use Kern\Platform\Settings\DataTransferObjects\UpdateAiProviderSettingsInput;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
 use Kern\Platform\Settings\Services\AiProviderSettingsService;
 use Kern\Platform\Testing\InMemoryDekRepository;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 
 /**
  * `docs/handoff/041-settings-module.md` requirement #4: `RequestExternalDocumentExtraction` takes
- * its AI provider configuration from the settings store, falls back to env only when nothing has
- * been saved, and picks up a change on the very next document with **no restart** — proven here by
+ * its AI provider configuration from the settings store, with the configured defaults only for a
+ * field never saved — and never the default key beside a saved address — and picks up a change on the very next document with **no restart** — proven here by
  * calling the very same, already-resolved `RequestExternalDocumentExtraction` instance twice in
  * one process, with a settings change in between, exactly as an admin saving the settings screen
  * while the application keeps running would produce.
@@ -54,9 +55,19 @@ function sendableDocument(): Document
     return $document->fresh(['parts']) ?? $document;
 }
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
+/** What the settings screen does: the connection through its dialog, the rest through the group save. */
+function saveAiProvider(bool $enabled, string $provider, string $baseUrl, string $model, ?string $apiKey): void
+{
+    $actor = fakeUserId();
+    app(AiProviderSettingsService::class)->replaceConnection($baseUrl, $apiKey, $actor);
 
+    $settings = app(SettingsRepository::class);
+    $settings->set(SettingKey::AI_ENABLED, $enabled ? '1' : '0', $actor);
+    $settings->set(SettingKey::AI_PROVIDER, $provider, $actor);
+    $settings->set(SettingKey::AI_MODEL, $model, $actor);
+}
+
+beforeEach(function (): void {
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
@@ -125,13 +136,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
 
     // 2. An administrator saves settings through the same API path a real request would use —
     // no restart, no cache to bust.
-    app(AiProviderSettingsService::class)->update(new UpdateAiProviderSettingsInput(
-        enabled: true,
-        provider: 'openai',
-        baseUrl: 'https://api.openai.example',
-        model: 'gpt-5',
-        apiKey: 'sk-first-key',
-    ), fakeUserId());
+    saveAiProvider(true, 'openai', 'https://api.openai.example', 'gpt-5', 'sk-first-key');
 
     // 3. The very next call, on the same $action instance, now succeeds and forwards the
     // freshly-saved credentials.
@@ -143,13 +148,7 @@ it('picks up a settings change on the very next call, with no restart, no re-res
         ->and($provider->received[0]->credentials->apiKey)->toBe('sk-first-key');
 
     // 4. The provider is changed again — still no restart — and the next call reflects it.
-    app(AiProviderSettingsService::class)->update(new UpdateAiProviderSettingsInput(
-        enabled: true,
-        provider: 'anthropic',
-        baseUrl: 'https://api.anthropic.example',
-        model: 'test-model-x',
-        apiKey: 'sk-second-key',
-    ), fakeUserId());
+    saveAiProvider(true, 'anthropic', 'https://api.anthropic.example', 'test-model-x', 'sk-second-key');
 
     $action($document);
     expect($provider->received)->toHaveCount(2);
@@ -158,26 +157,22 @@ it('picks up a settings change on the very next call, with no restart, no re-res
         ->and($provider->received[1]->credentials->apiKey)->toBe('sk-second-key');
 
     // 5. Disabling it again immediately refuses the next document, again with no restart.
-    app(AiProviderSettingsService::class)->update(new UpdateAiProviderSettingsInput(
-        enabled: false,
-        provider: 'anthropic',
-        baseUrl: 'https://api.anthropic.example',
-        model: 'test-model-x',
-        apiKey: null,
-    ), fakeUserId());
+    saveAiProvider(false, 'anthropic', 'https://api.anthropic.example', 'test-model-x', null);
 
     expect(fn () => $action($document))
         ->toThrow(ExternalDocumentAiProviderNotConfiguredException::class);
     expect($provider->received)->toHaveCount(2);
 });
 
-it('falls back to the env-configured provider only until a setting is explicitly saved', function (): void {
+it('never pairs the default key with a saved address', function (): void {
+    // The leak this rule closes: a key from one source travelling with an address from the other. Here
+    // the defaults stand in for the environment variables that used to feed them.
     config([
-        'ai.providers.env_fallback.enabled' => true,
-        'ai.providers.env_fallback.provider' => 'env-openai',
-        'ai.providers.env_fallback.base_url' => 'https://env.example.test',
-        'ai.providers.env_fallback.model' => 'env-model',
-        'ai.providers.env_fallback.api_key' => 'sk-from-env',
+        'ai.providers.defaults.enabled' => true,
+        'ai.providers.defaults.provider' => 'default-openai',
+        'ai.providers.defaults.base_url' => 'https://default.example.test',
+        'ai.providers.defaults.model' => 'default-model',
+        'ai.providers.defaults.api_key' => 'sk-default',
     ]);
 
     $document = sendableDocument();
@@ -189,21 +184,13 @@ it('falls back to the env-configured provider only until a setting is explicitly
     $action = app(RequestExternalDocumentExtraction::class);
     $action($document);
 
-    expect($provider->received[0]->credentials->provider)->toBe('env-openai')
-        ->and($provider->received[0]->credentials->apiKey)->toBe('sk-from-env');
+    expect($provider->received[0]->credentials->baseUrl)->toBe('https://default.example.test')
+        ->and($provider->received[0]->credentials->apiKey)->toBe('sk-default');
 
-    // An explicit save overrides the env fallback for that field going forward — existing
-    // deployments relying on env vars keep working until an admin opts into the database value.
-    app(AiProviderSettingsService::class)->update(new UpdateAiProviderSettingsInput(
-        enabled: true,
-        provider: 'db-openai',
-        baseUrl: 'https://db.example.test',
-        model: 'env-model',
-        apiKey: null,
-    ), fakeUserId());
+    // A new address saved with no key: the default key must not go with it.
+    app(AiProviderSettingsService::class)->replaceConnection('https://db.example.test', null, fakeUserId());
 
     $action($document);
-    expect($provider->received[1]->credentials->provider)->toBe('db-openai')
-        // api_key was never saved to the database, so it still falls back to env.
-        ->and($provider->received[1]->credentials->apiKey)->toBe('sk-from-env');
+    expect($provider->received[1]->credentials->baseUrl)->toBe('https://db.example.test')
+        ->and($provider->received[1]->credentials->apiKey)->toBeNull();
 });

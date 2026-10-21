@@ -7,6 +7,8 @@ namespace Kern\Platform\Http\Controllers\Admin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Access\Services\AccessCatalogue;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Actions\CreateUserAccount;
 use Kern\Platform\Identity\Exceptions\EmailAlreadyRegisteredException;
 
@@ -16,12 +18,13 @@ use Kern\Platform\Identity\Exceptions\EmailAlreadyRegisteredException;
  * The generated password comes back in this one response and is never retrievable again. It is not
  * logged: the sanitiser redacts password-shaped values, and nothing here writes it anywhere.
  *
- * Granting `SUPER_ADMIN` is reserved to a super administrator. Otherwise `users.manage` — which
- * every administrator holds — would be a way to mint the one role they were not given.
+ * Granting `SUPER_ADMIN` is reserved to a super administrator, by the same rule the roles screen
+ * applies (`SuperAdministratorRole`). Otherwise `users.manage`, given to any other role, would be a
+ * way to mint the one role it was not given.
  */
 final class CreateUserController
 {
-    public function __invoke(Request $request, CreateUserAccount $create): JsonResponse
+    public function __invoke(Request $request, CreateUserAccount $create, AccessCatalogue $catalogue): JsonResponse
     {
         $administrator = $request->user();
         abort_unless($administrator !== null, 401);
@@ -29,17 +32,15 @@ final class CreateUserController
         $data = $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],
             'roles' => ['array'],
-            'roles.*' => ['string', Rule::in(['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'VIEWER'])],
+            'roles.*' => ['string', Rule::in($catalogue->roles())],
         ]);
 
         /** @var list<string> $roles */
         $roles = array_values(array_filter($data['roles'] ?? [], is_string(...)));
 
-        abort_if(
-            in_array('SUPER_ADMIN', $roles, true) && ! $administrator->hasRole('SUPER_ADMIN'),
-            403,
-            'Only a super administrator may grant that role.',
-        );
+        if (! SuperAdministratorRole::allowsChange($administrator, [], $roles)) {
+            return SuperAdministratorRole::refusal();
+        }
 
         try {
             $created = $create($data['email'], $roles, $administrator->id);

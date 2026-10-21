@@ -14,10 +14,6 @@ use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Models\DepositTerms;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
-
 /**
  * A user with an active membership on a fresh subject, and that subject's id.
  *
@@ -52,6 +48,37 @@ it('refuses wallet reads for a subject the user has no membership on', function 
     $this->actingAs($user)
         ->getJson("/api/v1/subjects/{$other->getKey()}/wallet/accounts")
         ->assertForbidden();
+});
+
+it('answers a malformed account_id with a validation error, not a 500', function (string $accountId): void {
+    // A non-UUID account id must be a field error: the id-check closure used to query it regardless,
+    // handing Postgres a value it cannot cast to `uuid` and surfacing a `22P02` as a 500.
+    [$user, $subjectId] = walletSubject();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+            'account_id' => $accountId,
+            'amount_minor' => 1000,
+            'currency_code' => 'RON',
+            'booked_at' => '2025-01-01',
+            'description' => 'x',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('account_id');
+})->with([
+    'a non-UUID string' => ['not-a-uuid'],
+    'an empty string' => [''],
+]);
+
+it('answers a missing record with a bare 404, never the internal model class name', function (): void {
+    [$user, $subjectId] = walletSubject();
+
+    // A well-formed id that matches nothing: the default message would name
+    // `Kern\TaxRomania\Wallet\Models\FinancialTransaction`, handing a caller the internal namespace.
+    $this->actingAs($user)
+        ->deleteJson("/api/v1/subjects/{$subjectId}/wallet/transactions/01a15f00-0000-7000-8000-000000000000")
+        ->assertNotFound()
+        ->assertExactJson(['message' => 'Not found.']);
 });
 
 it('opens a source through the action, encrypting its name at rest', function (): void {
@@ -106,6 +133,46 @@ it('totals balances per currency and never sums across them', function (): void 
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
         ->assertJsonPath('totals.holdings.other.amounts.RON', 72_480_00)
         ->assertJsonPath('totals.holdings.other.amounts.EUR', 1_200_00);
+});
+
+it('does not count a row another subject wrote against this account', function (): void {
+    // Such a row can no longer be made through the API, but one already exists wherever the old
+    // document-to-transaction gap was used. The balance must be this subject's money, so it sums only
+    // this subject's rows — not every row that happens to point at the account.
+    $openAndPost = function (\Kern\Platform\Identity\Models\User $user, string $subjectId): array {
+        $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
+            'display_name' => 'Sursa',
+            'kind' => AccountKind::OTHER->value,
+            'currency_code' => 'RON',
+        ])->assertCreated();
+
+        $accountId = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")
+            ->json('accounts.0.id');
+
+        $transactionId = $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+            'account_id' => $accountId,
+            'amount_minor' => 1_000_00,
+            'currency_code' => 'RON',
+            'booked_at' => '2026-01-01',
+            'description' => 'Intrare',
+        ])->assertCreated()->json('id');
+
+        return [$accountId, $transactionId];
+    };
+
+    [$victim, $victimSubject] = walletSubject();
+    [$attacker, $attackerSubject] = walletSubject();
+
+    [$victimAccount] = $openAndPost($victim, $victimSubject);
+    [, $attackerTransaction] = $openAndPost($attacker, $attackerSubject);
+
+    // The state the gap left behind: the attacker's row, pointing at the victim's account.
+    \Illuminate\Support\Facades\DB::table('financial_transactions')
+        ->where('id', $attackerTransaction)
+        ->update(['account_id' => $victimAccount]);
+
+    $this->actingAs($victim)->getJson("/api/v1/subjects/{$victimSubject}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.other.amounts.RON', 1_000_00);
 });
 
 it('rejects a deposit whose maturity precedes its opening', function (): void {

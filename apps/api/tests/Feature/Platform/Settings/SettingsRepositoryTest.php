@@ -28,9 +28,6 @@ function fakeUserId(): string
  * other key is stored as plain text — a raw-database assertion proves which is which, per
  * `docs/AGENTS.md` §8/`BLUEPRINT.md` §21.4's "encrypted column raw DB assertions" requirement.
  */
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 it('returns null for a key that has never been set', function (): void {
     expect(app(SettingsRepository::class)->get(SettingKey::AI_PROVIDER))->toBeNull();

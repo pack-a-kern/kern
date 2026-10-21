@@ -8,11 +8,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\StatementImport\Enums\StatementImportStatus;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
@@ -39,27 +40,26 @@ use RuntimeException;
  * encrypted column (an email), one on a table that used to hold no copy of its value at all (a
  * counterparty rule), and one computed per file rather than per row (an import fingerprint).
  */
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
 
 /**
- * Replaces the hasher with one holding both key versions, the newer of them current.
+ * What an operator does in the KMS: a new version of the blind-index key, now the current one.
  *
- * Both, because that is what a real rotation looks like mid-flight: `CRYPTO_BLIND_INDEX_KEYS` keeps
- * the outgoing key until every index has been recomputed, which is exactly what the command decides.
+ * The outgoing version stays in the KMS, as it does in OpenBao, which is what a real rotation looks
+ * like mid-flight — and the command is what decides when nothing depends on it any more.
  */
 function rotateBlindIndexKey(): void
 {
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode([
-            '1' => base64_encode(random_bytes(32)),
-            '2' => base64_encode(random_bytes(32)),
-        ], JSON_THROW_ON_ERROR),
-        2,
-    );
+    // Larastan resolves `app(X::class)` to the bound concrete — the OpenBao service in this
+    // environment — which would make the guard below look impossible. The point of the guard is
+    // exactly that the binding should be the in-memory one, so type the handle as the contract.
+    /** @var KeyManagementService $kms */
+    $kms = app(KeyManagementService::class);
 
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
+    if (! $kms instanceof InMemoryKeyManagementService) {
+        throw new RuntimeException('These tests rotate the in-memory key service tests/Pest.php binds for every feature test.');
+    }
+
+    $kms->rotateBlindIndexKey();
 }
 
 /** @return array{0: User, 1: TaxSubject} */
@@ -222,3 +222,33 @@ function fingerprintFor(StatementImport $import, StatementImportRow $row): strin
 
     return $fingerprints[0] ?? throw new RuntimeException('No fingerprint computed.');
 }
+
+it('does not count a row with nothing to index as stuck on the old key', function (): void {
+    // A transaction with no counterparty never had a counterparty index. It depends on no key version,
+    // and counting it as "could not recompute" made a finished re-index exit non-zero forever.
+    [, $subject] = subjectWithOwner();
+
+    $account = app(\Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount::class)(new \Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput(
+        taxSubjectId: $subject->id,
+        kind: AccountKind::GENERAL,
+        displayName: 'Cont curent',
+        currencyCode: 'RON',
+    ));
+
+    $transaction = app(\Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction::class)(new \Kern\TaxRomania\Wallet\DataTransferObjects\RecordFinancialTransactionInput(
+        taxSubjectId: $subject->id,
+        accountId: $account->id,
+        bookedAt: '2026-01-10',
+        amountMinor: -1000,
+        currencyCode: 'RON',
+        description: 'Retragere numerar',
+        counterparty: '',
+    ));
+
+    expect(DB::table('financial_transactions')->where('id', $transaction->id)->value('counterparty_blind_index'))->toBeNull();
+
+    rotateBlindIndexKey();
+
+    expect(Artisan::call('kern:keys:reindex-blind-indexes'))->toBe(0)
+        ->and(Artisan::output())->not->toContain('could not be recomputed');
+});

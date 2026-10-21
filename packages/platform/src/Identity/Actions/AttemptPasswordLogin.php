@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Kern\Platform\Identity\Actions;
 
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Identity\DataTransferObjects\PasswordLoginResult;
 use Kern\Platform\Identity\Enums\MfaMethodType;
+use Kern\Platform\Identity\Enums\UserStatus;
+use Kern\Platform\Identity\Exceptions\AccountSuspendedException;
 use Kern\Platform\Identity\Exceptions\InvalidCredentialsException;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Security\RecordSecurityEvent;
+use Kern\Platform\Security\SecurityEventType;
 
 /**
  * Verifies an email + password pair and reports whether MFA must follow before a session can be
@@ -34,8 +37,10 @@ use Kern\Platform\Identity\Models\User;
  */
 final readonly class AttemptPasswordLogin
 {
-    public function __construct(private AuditChainService $audit)
-    {
+    public function __construct(
+        private AuditChainService $audit,
+        private RecordSecurityEvent $securityLog,
+    ) {
     }
 
     public function __invoke(string $email, string $password): PasswordLoginResult
@@ -49,6 +54,12 @@ final readonly class AttemptPasswordLogin
             $this->recordFailure($user?->id);
 
             throw InvalidCredentialsException::create();
+        }
+
+        // After the password, so a stranger still learns nothing; before MFA, so a suspended account
+        // is not asked for a code it can never use.
+        if ($user->status !== UserStatus::ACTIVE) {
+            throw AccountSuspendedException::create();
         }
 
         $mfaRequired = $user->mfaMethods()
@@ -79,15 +90,7 @@ final readonly class AttemptPasswordLogin
             payloadHash: $this->audit->hashPayload(['method' => 'password']),
         ));
 
-        DB::table('security_events')->insert([
-            'id' => (string) Str::ulid(),
-            'event_type' => 'LOGIN_FAILED',
-            'user_id' => $userId,
-            'subject_id' => null,
-            'context_json' => json_encode(['method' => 'password'], JSON_THROW_ON_ERROR),
-            'occurred_at' => now('UTC'),
-            'created_at' => now('UTC'),
-        ]);
+        ($this->securityLog)(SecurityEventType::LOGIN_FAILED, $userId, null, ['method' => 'password']);
     }
 
     private function dummyHash(): string

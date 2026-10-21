@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Operations\Services;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\DB;
 use Kern\Documents\Enums\DocumentStatus;
+use Kern\Platform\Config\RequiredConfig;
 use Kern\TaxRomania\Operations\DataTransferObjects\FreshnessItem;
 use Throwable;
 
@@ -32,7 +32,7 @@ use Throwable;
 final readonly class ProbeDataFreshness
 {
     public function __construct(
-        private ConfigRepository $config,
+        private RequiredConfig $required,
         private Migrator $migrator,
     ) {
     }
@@ -74,7 +74,7 @@ final readonly class ProbeDataFreshness
         $ageDays = (int) CarbonImmutable::parse($latest)->startOfDay()
             ->diffInDays(CarbonImmutable::now()->startOfDay(), absolute: true);
 
-        $maxAge = $this->intConfig('operations.freshness.fx_max_age_days', 4);
+        $maxAge = $this->required->positiveInt('operations.freshness.fx_max_age_days');
 
         return new FreshnessItem(
             key: 'fx_rates',
@@ -139,7 +139,7 @@ final readonly class ProbeDataFreshness
      */
     private function stuckDocuments(): FreshnessItem
     {
-        $minutes = $this->intConfig('operations.freshness.document_stuck_after_minutes', 60);
+        $minutes = $this->required->positiveInt('operations.freshness.document_stuck_after_minutes');
         $cutoff = CarbonImmutable::now()->subMinutes($minutes);
 
         $terminal = [DocumentStatus::READY->value, DocumentStatus::REJECTED->value];
@@ -192,12 +192,5 @@ final readonly class ProbeDataFreshness
 
             return new FreshnessItem($key, 'idle', null, null);
         }
-    }
-
-    private function intConfig(string $key, int $fallback): int
-    {
-        $value = $this->config->get($key);
-
-        return is_int($value) && $value > 0 ? $value : $fallback;
     }
 }

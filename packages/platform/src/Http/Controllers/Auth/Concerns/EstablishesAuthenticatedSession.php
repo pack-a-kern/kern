@@ -6,6 +6,8 @@ namespace Kern\Platform\Http\Controllers\Auth\Concerns;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Kern\Platform\Identity\Enums\UserStatus;
+use Kern\Platform\Identity\Exceptions\AccountSuspendedException;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Support\SessionRegistrar;
 
@@ -24,6 +26,12 @@ trait EstablishesAuthenticatedSession
 {
     private function establishSessionFor(Request $request, User $user, SessionRegistrar $sessions): void
     {
+        // Checked here as well as in `AttemptPasswordLogin`, because this is the one door all three
+        // logins share: the MFA step and a passkey reach it without passing through the password check.
+        if ($user->status !== UserStatus::ACTIVE) {
+            throw AccountSuspendedException::create();
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
 

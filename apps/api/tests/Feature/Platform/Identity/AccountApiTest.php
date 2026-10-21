@@ -5,10 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Hash;
 use Kern\Platform\Identity\Models\User;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
-
 function userWithPassword(string $password): User
 {
     return User::createWithEmail('holder-' . uniqid() . '@example.test', Hash::make($password));
@@ -63,6 +59,45 @@ it('refuses to change the password without the current one', function (): void {
     ])->assertStatus(422)->assertJsonValidationErrors('current_password');
 
     expect(Hash::check('correct-horse-battery', (string) $user->fresh()?->password_hash))->toBeTrue();
+});
+
+it('throttles repeated wrong current-password guesses', function (): void {
+    // The current-password check is a brute-force oracle for a non-rotating secret from a session
+    // that may not be the owner's. Five wrong tries are answered, the sixth is turned away with 429.
+    $user = userWithPassword('correct-horse-battery');
+
+    foreach (range(1, 5) as $attempt) {
+        $this->actingAs($user)->putJson('/api/v1/me/password', [
+            'current_password' => 'wrong-guess-' . $attempt,
+            'password' => 'a-much-longer-replacement',
+            'password_confirmation' => 'a-much-longer-replacement',
+        ])->assertStatus(422);
+    }
+
+    $this->actingAs($user)->putJson('/api/v1/me/password', [
+        'current_password' => 'wrong-again',
+        'password' => 'a-much-longer-replacement',
+        'password_confirmation' => 'a-much-longer-replacement',
+    ])->assertStatus(429);
+});
+
+it('forgives the budget once the password is proved, so a fumble never locks the owner out', function (): void {
+    $user = userWithPassword('correct-horse-battery');
+
+    // A few fat-fingered tries, then the right one — which must still go through and clear the count.
+    foreach (range(1, 3) as $attempt) {
+        $this->actingAs($user)->putJson('/api/v1/me/password', [
+            'current_password' => 'typo-' . $attempt,
+            'password' => 'a-much-longer-replacement',
+            'password_confirmation' => 'a-much-longer-replacement',
+        ])->assertStatus(422);
+    }
+
+    $this->actingAs($user)->putJson('/api/v1/me/password', [
+        'current_password' => 'correct-horse-battery',
+        'password' => 'a-much-longer-replacement',
+        'password_confirmation' => 'a-much-longer-replacement',
+    ])->assertOk();
 });
 
 it('rejects a short or unconfirmed password', function (): void {

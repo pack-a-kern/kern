@@ -8,10 +8,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Http\Controllers\Auth\Concerns\EstablishesAuthenticatedSession;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Support\SessionRegistrar;
+use Kern\Platform\Identity\Support\StepUpPolicy;
 
 /**
  * Signing in as someone else, and coming back.
@@ -47,16 +49,17 @@ final class ImpersonationController
         string $user,
         SessionRegistrar $sessions,
         AuditChainService $audit,
+        StepUpPolicy $stepUp,
     ): JsonResponse {
         $administrator = $request->user();
         abort_unless($administrator !== null, 401);
-        abort_unless($administrator->hasRole('SUPER_ADMIN'), 403);
+        abort_unless(SuperAdministratorRole::isHeldBy($administrator), 403);
         abort_if($request->session()->has(self::SESSION_KEY), 409, 'Already acting as another user.');
 
         $target = User::query()->findOrFail($user);
 
         abort_if($target->id === $administrator->id, 422, 'You are already signed in as yourself.');
-        abort_if($target->hasRole('SUPER_ADMIN'), 403, 'A super administrator cannot be impersonated.');
+        abort_if(SuperAdministratorRole::isHeldBy($target), 403, 'A super administrator cannot be impersonated.');
         abort_if($target->status !== UserStatus::ACTIVE, 422, 'Only an active account can be impersonated.');
 
         // Recorded before the switch, with the administrator as the actor — afterwards the session
@@ -73,12 +76,16 @@ final class ImpersonationController
         $administratorId = $administrator->id;
 
         $this->establishSessionFor($request, $target, $sessions);
+        // The administrator's own recent step-up must not carry into the target's session: regenerate
+        // keeps the session's data, so without this the admin's proof would clear the target's
+        // step-up gates (SPV, assessments, session revocation) without the target's own factor.
+        $stepUp->clear($request->session());
         $request->session()->put(self::SESSION_KEY, $administratorId);
 
         return response()->json(['impersonating' => $target->id]);
     }
 
-    public function stop(Request $request, SessionRegistrar $sessions, AuditChainService $audit): JsonResponse
+    public function stop(Request $request, SessionRegistrar $sessions, AuditChainService $audit, StepUpPolicy $stepUp): JsonResponse
     {
         $impersonatorId = $request->session()->get(self::SESSION_KEY);
         abort_unless(is_string($impersonatorId), 409, 'This session is not impersonating anyone.');
@@ -98,6 +105,9 @@ final class ImpersonationController
 
         $request->session()->forget(self::SESSION_KEY);
         $this->establishSessionFor($request, $administrator, $sessions);
+        // Coming back, the target's step-up (if any was proved while impersonating) must not linger on
+        // the administrator's restored session either. Each identity proves itself on its own.
+        $stepUp->clear($request->session());
 
         return response()->json(['impersonating' => null]);
     }

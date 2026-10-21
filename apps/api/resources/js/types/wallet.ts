@@ -1,3 +1,5 @@
+import { nullableNum, nullableStr, num, obj, str } from '../lib/json';
+
 /**
  * Shapes returned by `/api/v1/subjects/{subject}/wallet/*`.
  *
@@ -406,8 +408,6 @@ export const ACCOUNT_KINDS = ['GENERAL', 'CASH', 'TERM_DEPOSIT', 'BROKER', 'CRYP
  */
 export const STREAM_KINDS = ['GENERAL', 'BROKER', 'CRYPTO', 'OTHER'] as const;
 
-export type StreamKind = (typeof STREAM_KINDS)[number];
-
 /**
  * The kinds a person can actually open.
  *
@@ -435,7 +435,7 @@ export function sourceName(account: { kind: string; displayName: string }, gener
 /**
  * The currency this product is denominated in, which no setting can remove.
  *
- * Mirrors `Kern\Platform\Settings\Enums\SettingType::BASE_CURRENCY`. A list of *offered*
+ * Mirrors `Kern\Platform\Money\CurrencyCode::BASE`. A list of *offered*
  * currencies is a setting and comes from `useCurrencies()`; this is the one code that is not a
  * choice, and it is here so a default never has to reach for a list it does not have — a form
  * builder outside a component cannot call a hook.
@@ -458,64 +458,6 @@ export const PAYMENT_FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNU
  * deposits endpoint sends the configured default, which the form shows read-only. The labels for
  * every case still live in the dictionaries, because that value has to be rendered.
  */
-
-/**
- * Minor units to a display string — the one place the integer becomes a decimal.
- *
- * `locale` is required rather than defaulting to `ro-RO`: this app ships in two languages, and a
- * default would quietly format an English page with Romanian separators. Callers pass the locale
- * `useTranslation()` already gives them.
- */
-export function formatMinor(minor: number | null, currency: string, locale: string): string {
-    if (minor === null) {
-        return '—';
-    }
-
-    /*
-     * A figure whose currency is not known is still a figure.
-     *
-     * `Intl.NumberFormat` throws a RangeError on anything that is not a three-letter code, and an
-     * empty one reaches here whenever a source has no currency of its own — an imported statement
-     * read into an account that never had one, for instance. Throwing takes down the whole screen
-     * over a missing label, so the number is shown plainly instead and the currency is simply
-     * absent, which is the truth about that row.
-     */
-    const known = /^[A-Za-z]{3}$/.test(currency);
-
-    return new Intl.NumberFormat(locale, {
-        ...(known ? { style: 'currency' as const, currency: currency.toUpperCase() } : {}),
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(minor / 100);
-}
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : 0;
-}
-
-function nullableNum(row: Record<string, unknown>, key: string): number | null {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : null;
-}
 
 function money(value: unknown): Record<string, number> {
     const source = obj(value);

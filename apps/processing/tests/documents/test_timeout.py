@@ -3,7 +3,6 @@ defence. Every test here exercises a genuinely hostile or failing input,
 not a happy-path stub.
 """
 
-import multiprocessing
 import time
 from multiprocessing.connection import Connection
 
@@ -22,13 +21,13 @@ from processing.documents.errors import (
     TooManyPagesError,
 )
 
-# `_receive_within_timeout` is intentionally private; it is imported here to
-# test the EOFError -> MalformedPdfError conversion directly, because the
-# only way to exercise that branch through the public API would be to
-# actually crash a real worker process (e.g. via the kernel OOM-killer),
-# which is not something a test suite can trigger deterministically.
+# `_run` is intentionally private; it is imported here to test the
+# worker-died -> MalformedPdfError conversion directly, because the only way
+# to exercise that branch through the public API would be to actually crash
+# a real worker process (e.g. via the kernel OOM-killer), which is not
+# something a test suite can trigger deterministically.
 from processing.documents.timeout import (
-    _receive_within_timeout,  # pyright: ignore[reportPrivateUsage]
+    _run,  # pyright: ignore[reportPrivateUsage]
     parse_and_extract_pages,
 )
 
@@ -116,14 +115,7 @@ def _die_without_sending(_pdf_bytes: bytes, _unused: int, conn: Connection) -> N
 
 
 def test_a_worker_that_dies_without_a_result_is_reported_as_malformed_not_eof() -> None:
-    """`_receive_within_timeout` must convert a raw `EOFError` (the pipe
-    closing with nothing sent) into a `MalformedPdfError`, never let it
-    escape as an unhandled `EOFError`."""
-    ctx = multiprocessing.get_context("spawn")
-    parent_conn, child_conn = ctx.Pipe(duplex=False)
-    process = ctx.Process(target=_die_without_sending, args=(b"", 0, child_conn), daemon=True)
-    process.start()
-    child_conn.close()
-
+    """A worker whose pipe closes with nothing sent must surface as a
+    `MalformedPdfError`, never as an unhandled `EOFError`."""
     with pytest.raises(MalformedPdfError, match="terminated unexpectedly"):
-        _receive_within_timeout(parent_conn, process, timeout_seconds=5.0)
+        _run(_die_without_sending, (b"", 0), 5.0)

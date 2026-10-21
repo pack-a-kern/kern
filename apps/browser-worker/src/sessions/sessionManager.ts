@@ -7,6 +7,24 @@ import type { BrowserSession, SessionStatus } from "./types.js";
 export interface SessionManagerOptions {
   readonly ttlMs: number;
   readonly createBrowserContext: BrowserContextFactory;
+  /**
+   * How many browsers may be open at once, across every caller and every playbook.
+   *
+   * Each session is its own Chromium and a few hundred megabytes, and nothing upstream bounds how many
+   * are asked for: one taxpayer can have several connections, an installation many taxpayers, and a
+   * future integration will bring its own. Without a ceiling here, enough of them filled the
+   * container's memory and took every caller's browser down at once. With it, the one past the limit
+   * is told the worker is at capacity and every open session keeps working.
+   */
+  readonly maxSessions: number;
+}
+
+/** Thrown by `create()` when `maxSessions` browsers are already open — answered as `at_capacity`. */
+export class SessionLimitError extends Error {
+  public constructor(public readonly limit: number) {
+    super(`The worker already has ${String(limit)} browser sessions open.`);
+    this.name = "SessionLimitError";
+  }
 }
 
 interface TrackedSession {
@@ -31,11 +49,15 @@ export class SessionManager {
   private readonly sessions = new Map<string, TrackedSession>();
   private readonly ttlMs: number;
   private readonly createBrowserContext: BrowserContextFactory;
+  private readonly maxSessions: number;
+  /** Browsers being launched and not yet in `sessions` — counted, so two requests at once cannot both take the last slot. */
+  private launching = 0;
   private readonly sweepTimer: NodeJS.Timeout;
 
   constructor(options: SessionManagerOptions) {
     this.ttlMs = options.ttlMs;
     this.createBrowserContext = options.createBrowserContext;
+    this.maxSessions = options.maxSessions;
     this.sweepTimer = setInterval(
       () => void this.sweepExpired(),
       Math.min(this.ttlMs, MAX_SWEEP_INTERVAL_MS),
@@ -44,7 +66,24 @@ export class SessionManager {
   }
 
   async create(context?: RunContext): Promise<BrowserSession> {
-    const handle = await this.createBrowserContext(context);
+    if (this.sessions.size + this.launching >= this.maxSessions) {
+      // An expired session the next sweep would close is not a reason to refuse one that is wanted now.
+      await this.sweepExpired();
+    }
+
+    if (this.sessions.size + this.launching >= this.maxSessions) {
+      throw new SessionLimitError(this.maxSessions);
+    }
+
+    this.launching++;
+    let handle: BrowserContextHandle;
+
+    try {
+      handle = await this.createBrowserContext(context);
+    } finally {
+      this.launching--;
+    }
+
     const createdAt = new Date();
     const session: BrowserSession = {
       id: randomUUID(),

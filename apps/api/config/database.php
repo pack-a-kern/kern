@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 use Illuminate\Support\Str;
 
+/*
+ * TLS to Redis, for both connections below. `tls` with the bundled server, which accepts nothing else,
+ * and compose sets both for the containers that use it — the scheme, and the stack's CA that the
+ * server's certificate is checked against. Unset, a plain connection, for a server that speaks no TLS.
+ */
+$redisTls = [
+    'scheme' => env('REDIS_SCHEME') ?: null,
+    'context' => env('REDIS_CA_CERT') ? ['cafile' => env('REDIS_CA_CERT')] : null,
+];
+
 return [
 
     /*
@@ -59,6 +69,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // The CA the server's certificate is checked against, for `verify-full` — the stack's own
+            // for the bundled server, which compose sets.
+            'sslrootcert' => env('DB_SSLROOTCERT'),
         ],
 
     ],
@@ -106,6 +119,7 @@ return [
             'username' => env('REDIS_USERNAME'),
             'password' => env('REDIS_PASSWORD'),
             'port' => env('REDIS_PORT', '6379'),
+            ...$redisTls,
             'database' => env('REDIS_DB', '0'),
             'max_retries' => env('REDIS_MAX_RETRIES', 3),
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
@@ -119,6 +133,7 @@ return [
             'username' => env('REDIS_USERNAME'),
             'password' => env('REDIS_PASSWORD'),
             'port' => env('REDIS_PORT', '6379'),
+            ...$redisTls,
             'database' => env('REDIS_CACHE_DB', '1'),
             'max_retries' => env('REDIS_MAX_RETRIES', 3),
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),

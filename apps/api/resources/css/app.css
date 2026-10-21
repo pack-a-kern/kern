@@ -2149,11 +2149,7 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  * `color-mix`, so it follows a retheme instead of pinning two hex values that would drift from everything else.
  */
 .stat-primary {
-    background: linear-gradient(
-        118deg,
-        var(--primary),
-        color-mix(in srgb, var(--primary) 72%, var(--info))
-    );
+    background: linear-gradient(118deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--info)));
     border-color: transparent;
     color: var(--primary-foreground);
     box-shadow: var(--elevation-float);
@@ -3248,39 +3244,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     height: 12px;
     flex-shrink: 0;
     opacity: 0.6;
-}
-
-/* Tabs — a flat underline rail, not the boxed default. */
-.tab-rail {
-    display: flex;
-    gap: 22px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 22px;
-}
-.tab-item {
-    position: relative;
-    border: 0;
-    background: transparent;
-    padding: 9px 1px 10px;
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--muted-foreground);
-    cursor: pointer;
-}
-.tab-item:hover {
-    color: var(--foreground);
-}
-.tab-item[aria-selected='true'] {
-    color: var(--foreground);
-}
-.tab-item[aria-selected='true']::after {
-    content: '';
-    position: absolute;
-    inset-inline: 0;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--foreground);
 }
 
 /* Identity cell: initials disc, name, secondary line. */

@@ -16,27 +16,42 @@ services:
   # and `docker/openbao/entrypoint.sh` initialises, unseals and configures it on every boot — see that
   # script for why none of that can live in a separate container any more.
   openbao:
-    image: openbao/openbao:2.6.2
+    image: openbao/openbao:2.6.4@sha256:cf2340fc9a22cb9358ca0defd1f39b65673836bd23fe2bb8984a07e11fe13ef4
     entrypoint: ["sh", "/openbao/entrypoint.sh"]
+    # Its own network, not `app_net`: that one also carries Reverb, Redis and, in development, Mailpit,
+    # none of which ever calls the key manager — and what crosses this listener is the token and every
+    # data key it unwraps. Only the three containers below join it.
     networks:
-      - app_net
+      - kms_net
     environment:
-      # The CLI calls the server from inside this container, over the plain-HTTP listener — without
-      # this it defaults to https://127.0.0.1:8200 and fails (a real health-check failure, 2026-09-07).
-      BAO_ADDR: http://127.0.0.1:8200
-      # The token the application presents. The startup script issues it against a policy covering the
-      # four transit paths the application actually calls and nothing else — it is no longer the root
-      # token, which now exists only inside the volume. One place the value is written down, still.
-      KERN_APP_TOKEN: ${OPENBAO_TOKEN:?set OPENBAO_TOKEN — see apps/api/.env.example}
+      # For the CLI inside this container — the startup script and the healthcheck — over the same TLS
+      # listener as everyone else, trusting the stack's CA (docker/certs). 127.0.0.1 is on the certificate.
+      BAO_ADDR: https://127.0.0.1:8200
+      BAO_CACERT: /run/kern/tls/ca.crt
+      # The application's token is issued, published and replaced by the startup script — see the long
+      # comment there. This is read once, and only on an installation that still has a token in `.env`
+      # from before that: it is adopted so nothing is cut off, then replaced like any other.
+      KERN_APP_TOKEN: ${OPENBAO_TOKEN:-}
+      # Replace the token once it has this many days left, checking this often. Seven days of margin
+      # means a check that fails — the server busy, the disk full — has six more chances before it matters.
+      KERN_APP_TOKEN_ROTATE_DAYS: ${OPENBAO_TOKEN_ROTATE_DAYS:-7}
+      KERN_APP_TOKEN_CHECK_SECONDS: ${OPENBAO_TOKEN_CHECK_SECONDS:-86400}
       # Both must agree with what the application is configured with; the policy is written from them,
       # so a mismatch fails closed rather than granting something wider.
       KERN_KEK_NAME: ${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek}
+      KERN_BLIND_INDEX_KEY_NAME: ${OPENBAO_BLIND_INDEX_KEY_NAME:-blind-index}
       KERN_TRANSIT_MOUNT: ${OPENBAO_TRANSIT_MOUNT:-transit}
     volumes:
       # The master key lives here. Losing this volume is losing every encrypted value in the database.
       # `/openbao/file` is the path the image creates and owns, so the volume is writable by the user
       # the server runs as without a chown step.
       - openbao_data:/openbao/file
+      # Where the application's token is published. Written here, read by the PHP containers below.
+      - openbao_app_token:/openbao/app-token
+      # The listener's key and certificate, issued by docker/certs into a volume only this container
+      # reads, and the watcher that reloads a renewed one.
+      - tls_openbao:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
       - ./docker/openbao/config.hcl:/openbao/config.hcl:ro
       - ./docker/openbao/entrypoint.sh:/openbao/entrypoint.sh:ro
     read_only: true
@@ -49,6 +64,9 @@ services:
     # capability would now grant something nothing asks for.
     cap_drop:
       - ALL
+    depends_on:
+      certs:
+        condition: service_healthy
     healthcheck:
       # Reads the KEK, not `bao status`. Status answers "the server is running and unsealed", which it
       # did for fourteen hours after the panic while holding no transit engine and no key — healthy,
@@ -57,7 +75,7 @@ services:
       # Authenticated as the application, with the application's own token, reading the one path it
       # needs. So "healthy" means precisely "the application can reach its key" — not "a server is
       # listening", which is what `bao status` meant while this container held no key at all.
-      test: ["CMD", "sh", "-c", "BAO_TOKEN=\"$$KERN_APP_TOKEN\" bao read ${OPENBAO_TRANSIT_MOUNT:-transit}/keys/${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek} >/dev/null 2>&1"]
+      test: ["CMD", "sh", "-c", "BAO_TOKEN=\"$$(cat /openbao/app-token/token)\" bao read ${OPENBAO_TRANSIT_MOUNT:-transit}/keys/${OPENBAO_TAX_SUBJECT_KEK_NAME:-tax-subject-kek} >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,7 +89,51 @@ services:
           memory: 256M
     restart: unless-stopped
 
+  # Its certificate, from the stack's CA: the uid and gid are the image's `openbao` user, and the names
+  # are what its callers and its own CLI connect to.
+  certs:
+    environment:
+      KERN_CERT_openbao: "100:1000:openbao,localhost,127.0.0.1"
+    volumes:
+      - tls_openbao:/certs/out/openbao
+
+  # The three containers that call the key manager: on its network, at its TLS address, verifying it
+  # against the stack's CA and reading its token from the file beside it — both on every call, so a
+  # replaced token or a renewed CA is in use at once, with no restart. Listed here, not in
+  # compose.yaml, because they exist only with this server: an installation pointing at its own OpenBao
+  # leaves this file out and sets OPENBAO_ADDR, OPENBAO_TOKEN and, for a private CA, OPENBAO_CA_CERT in
+  # `.env` instead. Reverb never decrypts, so it is not here.
+  app: &reads-openbao-token
+    networks:
+      - kms_net
+    environment:
+      OPENBAO_ADDR: https://openbao:8200
+      OPENBAO_CA_CERT: /run/kern/tls-ca/ca.crt
+      OPENBAO_TOKEN_FILE: /run/kern/openbao/token
+    volumes:
+      - openbao_app_token:/run/kern/openbao:ro
+  queue: *reads-openbao-token
+  scheduler: *reads-openbao-token
+
+networks:
+  # The key manager and its three callers, and nothing else. Internal: nothing on it reaches the
+  # internet, and nothing outside the stack reaches it.
+  kms_net:
+    driver: bridge
+    internal: true
+
 volumes:
   # The master key, and the unseal key that opens it. Losing this volume is losing every
   # encrypted value in the database.
   openbao_data:
+  # The application's token, in memory only: it never reaches a disk, a snapshot or a backup, and the
+  # startup script publishes it again after every boot. uid 100 / gid 1000 is the `openbao` user of
+  # the image pinned above — the only writer. Readable by everyone who mounts it, which is the point:
+  # the mount is the boundary, and only the containers above have it.
+  openbao_app_token:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=64k,uid=100,gid=1000,mode=0755"
+  tls_openbao:

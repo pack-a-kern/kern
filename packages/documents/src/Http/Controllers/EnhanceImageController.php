@@ -10,9 +10,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Kern\Documents\Consent\DocumentAiConsentGate;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
+use Kern\Platform\Tenancy\TenantContext;
 use RuntimeException;
 
 /**
@@ -29,8 +31,13 @@ use RuntimeException;
  * anywhere before ClamAV has seen them. The alternative was enhancing after the scan and replacing
  * the stored object, which keeps that rule but leaves the person waiting on a queue for a picture
  * they are looking at. That trade was made deliberately (see `docs/adr/0005`), and the exposure is
- * bounded: the bytes are validated as a real image here first, and the provider is one the operator
- * already sends every document to.
+ * bounded: the bytes are validated as a real image here first, and they go only to a provider this
+ * subject has consented to.
+ *
+ * **Consent is checked first, before the file is even read.** It is per subject, not per
+ * installation: an operator having configured a provider says nothing about whether this taxpayer
+ * agreed to their documents leaving. This endpoint once skipped the check on that reasoning, and a
+ * subject that had never consented — or had revoked it — had its photographs sent anyway.
  */
 final class EnhanceImageController
 {
@@ -40,7 +47,18 @@ final class EnhanceImageController
         ResolveAiProviderCredentials $resolveCredentials,
         AiProviderCatalogue $catalogue,
         HttpFactory $http,
+        DocumentAiConsentGate $consent,
+        TenantContext $tenant,
     ): JsonResponse {
+        // From the bound tenant, not the route string: the membership middleware has already proved
+        // this is the caller's subject, and the gate must ask about exactly that one.
+        if (! $consent->isConsented($tenant->currentTenantId())) {
+            return response()->json([
+                'message' => 'This taxpayer has not agreed to documents being sent to the AI provider.',
+                'reason' => 'AI_CONSENT_REQUIRED',
+            ], 409);
+        }
+
         if (! $catalogue->supportsEnhancement()) {
             return response()->json([
                 'message' => 'This provider cannot enhance documents.',

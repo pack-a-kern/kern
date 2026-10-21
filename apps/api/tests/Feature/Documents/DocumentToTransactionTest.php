@@ -28,8 +28,6 @@ use Tests\TestCase;
  * of `QUARANTINE` would be testing the refusal, not the bridge.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
@@ -201,6 +199,31 @@ it('refuses to use another subject document as evidence', function (): void {
             'description' => 'Kaufland',
         ])
         ->assertNotFound();
+});
+
+it('refuses to post into another subject account, and writes nothing there', function (): void {
+    // The document is the attacker's own and READY; only the account is someone else's. That is the
+    // case the endpoint used to accept: the row was written with A's id and B's account, and B's
+    // balance summed it.
+    [$userA, $subjectA] = bridgeSubject();
+    [$userB, $subjectB] = bridgeSubject();
+
+    $accountB = bridgeAccount($this, $userB, $subjectB);
+    $documentA = Document::factory()->status(DocumentStatus::READY)->create(['tax_subject_id' => $subjectA]);
+    acceptedReading($documentA->id);
+
+    $this->actingAs($userA)
+        ->postJson("/api/v1/subjects/{$subjectA}/documents/{$documentA->id}/transaction", [
+            'account_id' => $accountB,
+            'amount_minor' => 500000,
+            'currency_code' => 'RON',
+            'booked_at' => '2026-03-04',
+            'description' => 'Kaufland',
+        ])
+        ->assertNotFound();
+
+    // Unscoped on purpose: the question is whether a row exists anywhere, not whether A can see it.
+    expect(DB::table('financial_transactions')->where('account_id', $accountB)->count())->toBe(0);
 });
 
 it('refuses a zero amount, as every other way of recording a transaction does', function (): void {

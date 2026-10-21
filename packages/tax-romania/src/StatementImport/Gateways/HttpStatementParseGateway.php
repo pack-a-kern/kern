@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\StatementImport\Gateways;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Kern\Platform\Http\StackService;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\ParsedStatementFile;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementColumn;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementLabelGroup;
@@ -32,9 +33,8 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
 {
     public function __construct(
         private HttpFactory $http,
-        private string $baseUrl,
+        private StackService $service,
         private int $timeoutSeconds,
-        private string $authToken,
     ) {
     }
 
@@ -58,16 +58,14 @@ final readonly class HttpStatementParseGateway implements StatementParseGateway
      */
     private function send(string $action, string $contents, ?string $sheet): array
     {
-        if ($this->authToken === '') {
+        if (! $this->service->hasToken()) {
             throw StatementParseUnavailableException::authenticationNotConfigured();
         }
 
-        $endpoint = rtrim($this->baseUrl, '/') . '/v1/statements/' . $action;
+        $endpoint = $this->service->url('/v1/statements/' . $action);
 
         try {
-            $request = $this->http
-                ->timeout($this->timeoutSeconds)
-                ->withToken($this->authToken)
+            $request = $this->service->request($this->http, $this->timeoutSeconds)
                 // The filename is a placeholder on purpose: the reader decides the format from the
                 // bytes, and the real name is a person's own and has no business in a request body.
                 ->attach('file', $contents, 'statement');

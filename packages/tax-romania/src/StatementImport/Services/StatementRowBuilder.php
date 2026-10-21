@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\StatementImport\Services;
 
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\BuiltStatementRows;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementField;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\StatementForm;
@@ -423,7 +424,7 @@ final readonly class StatementRowBuilder
     {
         $value = strtoupper($this->field($form->currency, $cells, $labels));
 
-        if (preg_match('/^[A-Z]{3}$/', $value) === 1) {
+        if (CurrencyCode::isValid($value)) {
             return $value;
         }
 

@@ -163,8 +163,3 @@ export function subscribeToUserNotifications(userId: string, onNotice: (notice: 
         getEcho().leave(channelName);
     };
 }
-
-export function disconnectEcho(): void {
-    echo?.disconnect();
-    echo = null;
-}

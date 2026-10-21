@@ -21,8 +21,6 @@ export async function updateUserStatus(userId: string, status: string): Promise<
     await apiRequest(`/v1/admin/users/${userId}/status`, { method: 'PUT', body: { status } });
 }
 
-
-
 /** `DELETE /api/v1/admin/users/{id}/avatar` — takes somebody else's picture down. Removal only:
  *  choosing a face is the account holder's own, through `removeOwnAvatar`'s neighbour in `accountApi`. */
 export async function removeUserAvatar(userId: string): Promise<void> {

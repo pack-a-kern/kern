@@ -283,3 +283,50 @@ it('adds the scan to the subject audit chain without naming the malware', functi
         // No person scanned this. Recording the uploader would read as though they had.
         ->and($event->actor_id)->toBeNull();
 });
+
+it('tries again on its own while the scanner is unreachable, one attempt more than there are waits', function (): void {
+    // Every supervisor runs one attempt, and the job is dispatched once — so without its own retries a
+    // scanner restarting for half a minute left every upload in that half-minute in quarantine.
+    $job = new ScanQuarantinedPart('any-part');
+
+    expect($job->backoff())->toBe([30, 120, 300, 600])
+        ->and($job->tries())->toBe(5);
+
+    config(['documents.clamav.retry_backoff_seconds' => [10, 20]]);
+
+    expect($job->tries())->toBe(3);
+});
+
+it('promotes the document on a later attempt, once the scanner answers again', function (): void {
+    Event::fake([DocumentScanned::class]);
+
+    $document = Document::factory()->create();
+    putInQuarantine($document, FileFixtures::minimalPdf());
+
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::unavailable());
+
+    expect(fn () => ScanQuarantinedPart::dispatchSync(partId($document)))
+        ->toThrow(VirusScannerUnavailableException::class);
+
+    // The retry: same job, scanner back.
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::CLEAN));
+
+    ScanQuarantinedPart::dispatchSync(partId($document));
+
+    expect($document->refresh()->status)->toBe(DocumentStatus::SCANNED)
+        ->and(DocumentScan::query()->where('document_id', $document->id)->count())->toBe(1);
+});
+
+it('leaves a part already out of quarantine alone, so a retry after a later failure cannot fail for ever', function (): void {
+    // Its bytes were promoted on the first attempt; a second would look for them in quarantine, where
+    // they no longer are.
+    $document = Document::factory()->create();
+    putInQuarantine($document, FileFixtures::minimalPdf());
+    $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::CLEAN));
+
+    ScanQuarantinedPart::dispatchSync(partId($document));
+    ScanQuarantinedPart::dispatchSync(partId($document));
+
+    expect($document->refresh()->status)->toBe(DocumentStatus::SCANNED)
+        ->and(DocumentScan::query()->where('document_id', $document->id)->count())->toBe(1);
+});

@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
@@ -38,7 +39,7 @@ final class UpdateDisplayCurrencyController
         $validated = $request->validate([
             // Uppercase enforced rather than normalised: silently rewriting input is how "eur" and
             // "EUR" become two different stored preferences.
-            'display_currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'display_currency' => ['required', ...CurrencyCode::rules()],
         ]);
 
         $model = TaxSubject::query()->findOrFail($tenant->currentTenantId());

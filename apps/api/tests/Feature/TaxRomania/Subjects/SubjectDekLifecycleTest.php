@@ -6,11 +6,7 @@ namespace Tests\Feature\TaxRomania\Subjects\SubjectDekLifecycleTest;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Enums\SubjectType;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
@@ -25,13 +21,6 @@ use RuntimeException;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $blindIndexProvider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($blindIndexProvider));
 });
 
 /**

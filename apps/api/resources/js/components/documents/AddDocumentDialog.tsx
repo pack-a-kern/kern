@@ -276,7 +276,15 @@ export default function AddDocumentDialog({
                 }),
             );
         } catch (cause) {
-            setPickError(cause instanceof ApiError ? cause.message : t((d) => d.documentsCapture.enhanceFailed));
+            // A named refusal in the reader's language (no consent, no provider); the server's English
+            // sentence only when there is no code to translate.
+            const named =
+                cause instanceof ApiError && cause.reason !== undefined
+                    ? t((d) => d.errors.reasons)[cause.reason]
+                    : undefined;
+            setPickError(
+                named ?? (cause instanceof ApiError ? cause.message : t((d) => d.documentsCapture.enhanceFailed)),
+            );
         } finally {
             setEnhancing(null);
         }

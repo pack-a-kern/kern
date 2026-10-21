@@ -30,6 +30,7 @@ use RuntimeException;
  * @property string $secret_ciphertext
  * @property \Illuminate\Support\Carbon|null $confirmed_at
  * @property \Illuminate\Support\Carbon|null $last_used_at
+ * @property int|null $last_used_step the time step of the last code accepted — see `CompleteMfaChallenge`
  */
 final class UserMfaMethod extends Model implements EncryptsWithSubjectDek
 {
@@ -51,6 +52,7 @@ final class UserMfaMethod extends Model implements EncryptsWithSubjectDek
         'secret_ciphertext' => Encrypted::class,
         'confirmed_at' => 'datetime',
         'last_used_at' => 'datetime',
+        'last_used_step' => 'integer',
     ];
 
     public function isConfirmed(): bool

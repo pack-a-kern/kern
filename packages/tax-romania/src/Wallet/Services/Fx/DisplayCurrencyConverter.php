@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Services\Fx;
 
 use DateTimeImmutable;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Fx\Services\FxRateQuery;
 use Kern\TaxRomania\Wallet\DataTransferObjects\ConvertedTotal;
 
@@ -107,7 +108,7 @@ final readonly class DisplayCurrencyConverter
             ];
         }
 
-        if ($displayCurrency !== 'RON' && $displayRate['date'] !== '') {
+        if ($displayCurrency !== CurrencyCode::BASE && $displayRate['date'] !== '') {
             // The display currency's own rate is part of the arithmetic, so it is part of the
             // evidence too.
             $used[$displayCurrency] = [
@@ -130,7 +131,7 @@ final readonly class DisplayCurrencyConverter
      */
     private function perUnitRate(string $currency, DateTimeImmutable $asOf): ?array
     {
-        if ($currency === 'RON') {
+        if ($currency === CurrencyCode::BASE) {
             return ['decimal' => '1', 'date' => '', 'source' => ''];
         }
 

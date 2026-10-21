@@ -15,6 +15,11 @@ services:
     read_only: false
     command:
       [
+        "sh",
+        "/usr/local/bin/kern-tls",
+        "run",
+        "TERM",
+        "--",
         "uvicorn",
         "processing.main:app",
         "--host",

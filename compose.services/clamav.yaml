@@ -14,7 +14,7 @@ services:
   # Document intake — ClamAV (BLUEPRINT.md §14.1)
   # -------------------------------------------------------------------------
   clamav:
-    image: clamav/clamav:1.5-debian13-slim
+    image: clamav/clamav:1.5.4-debian13-slim@sha256:d7ede3cefeaf3b8a72ebcdee849d13f504bbca3f3b3cfade5bc7b6ee06a4f62c
     networks:
       - processing_net
     volumes:

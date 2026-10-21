@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '../i18n';
+import { formatNumber } from '../lib/format';
 
 /**
  * The pager that sits in a card's foot: a range summary, a rows-per-page choice, numbered pages and
@@ -62,7 +63,7 @@ export default function Pagination(props: {
     const totalPages = Math.max(1, Math.ceil(props.total / props.pageSize));
     const first = props.total === 0 ? 0 : (props.page - 1) * props.pageSize + 1;
     const last = Math.min(props.page * props.pageSize, props.total);
-    const format = (value: number): string => value.toLocaleString(locale);
+    const format = (value: number): string => formatNumber(value, locale);
 
     // Nothing to page through, so nothing to say about it. The empty state above already says the
     // list is empty; a foot reading "0–0 of 0" under it says so a second time, and offers a page

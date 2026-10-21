@@ -30,7 +30,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 function activatedSubject(): TaxSubject

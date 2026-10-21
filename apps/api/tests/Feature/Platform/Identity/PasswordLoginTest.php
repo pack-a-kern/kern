@@ -18,7 +18,6 @@ use Kern\Platform\Identity\Models\UserSession;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 function createUserWithPassword(string $email, string $password): User

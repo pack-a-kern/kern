@@ -18,8 +18,6 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
  * controller at all.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

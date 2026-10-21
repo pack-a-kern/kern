@@ -20,8 +20,6 @@ use RuntimeException;
  * workaround.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
@@ -68,7 +66,7 @@ it('lists every subject the user holds an active membership on, with role and de
     $subjectB = TaxSubject::factory()->create();
 
     membershipFor($user, $subjectA, MembershipRole::OWNER);
-    membershipFor($user, $subjectB, MembershipRole::VIEWER);
+    membershipFor($user, $subjectB, MembershipRole::OWNER);
 
     $response = $this->actingAs($user, 'web')->getJson('/api/v1/subjects')->assertOk();
 

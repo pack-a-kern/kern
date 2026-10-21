@@ -8,12 +8,8 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Kern\Audit\Services\ChainVerifier;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
@@ -42,13 +38,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialAccount;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
 });
 
 it('never stores a PFA subject\'s plaintext trade name, registration number, or address anywhere in the raw tables', function (): void {

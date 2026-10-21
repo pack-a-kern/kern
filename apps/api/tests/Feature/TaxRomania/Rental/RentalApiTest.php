@@ -25,8 +25,6 @@ use Tests\TestCase;
  * transaction exists anywhere in this file, and none needs to.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

@@ -22,12 +22,10 @@ use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
  * `Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine` already sets for a child row "reached only
  * through its owning parent, tenancy enforced one level up") — a direct, unauthenticated query
  * against that table is not a scenario `ScopedToTenant` can guard, by design; every sanctioned
- * read path (`$declaration->submissions()`) goes through an already-tenant-scoped `Declaration`
- * first.
+ * read path reaches its `Declaration` first (`$submission->declaration()`), which is tenant-scoped.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**

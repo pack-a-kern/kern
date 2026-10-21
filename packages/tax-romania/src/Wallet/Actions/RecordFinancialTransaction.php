@@ -161,16 +161,21 @@ final readonly class RecordFinancialTransaction
     }
 
     /**
-     * Refuses a holding source.
+     * Refuses a source that is not this subject's, and a holding source.
+     *
+     * The lookup is tenant-scoped, so another subject's account is simply not found — and not found
+     * must refuse. This used to read "no account, nothing to object to", and the row was then written
+     * with this subject's id and the other subject's account, where that account's balance summed it.
+     * The controllers check first; this is the backstop for any caller that does not.
      *
      * Cash and term deposits carry their entries from their own declaration, so there is no
      * meaningful "add a transaction" on either — see {@see HoldingSourceException}.
      */
     private function assertSourceAcceptsTransactions(string $accountId): void
     {
-        $account = FinancialAccount::query()->find($accountId);
+        $account = FinancialAccount::query()->findOrFail($accountId);
 
-        if ($account !== null && $account->kind->isHolding()) {
+        if ($account->kind->isHolding()) {
             throw HoldingSourceException::forKind($account->kind);
         }
     }

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Identity\Actions;
 
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Identity\Enums\MfaMethodType;
@@ -15,6 +14,8 @@ use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserMfaMethod;
 use Kern\Platform\Identity\Models\UserRecoveryCode;
 use Kern\Platform\Identity\Support\Totp\TotpVerifier;
+use Kern\Platform\Security\RecordSecurityEvent;
+use Kern\Platform\Security\SecurityEventType;
 
 /**
  * The second step of a password login that required MFA (`Kern\Platform\Identity\Actions\
@@ -29,12 +30,20 @@ use Kern\Platform\Identity\Support\Totp\TotpVerifier;
  * A matched recovery code has `used_at` set in the same request, before returning — a replay of
  * the identical code string fails on the very next attempt because `UserRecoveryCode::query()`
  * here only ever considers `whereNull('used_at')` rows.
+ *
+ * An authenticator code is single-use too, by its time step. A code stays valid for its own period
+ * and the skew either side, about 90 seconds, and nothing used to remember it had been used — so one
+ * code seen over a shoulder, or relayed by a page that asked for it, signed in again behind its owner.
+ * The step of every accepted code is kept, and a code from that step or an earlier one is refused as
+ * a wrong code would be. Claimed with one conditional `UPDATE`, so two requests carrying the same code
+ * at the same moment cannot both pass.
  */
 final readonly class CompleteMfaChallenge
 {
     public function __construct(
         private AuditChainService $audit,
         private TotpVerifier $totp,
+        private RecordSecurityEvent $securityLog,
     ) {
     }
 
@@ -69,14 +78,21 @@ final readonly class CompleteMfaChallenge
             return false;
         }
 
-        if (! $this->totp->verify($method->secret_ciphertext, $code)) {
+        $step = $this->totp->matchingStep($method->secret_ciphertext, $code);
+
+        if ($step === null) {
             return false;
         }
 
-        $method->last_used_at = now('UTC');
-        $method->save();
+        $claimed = UserMfaMethod::query()
+            ->whereKey($method->id)
+            ->where(
+                /** @param Builder<UserMfaMethod> $query */
+                static fn (Builder $query): Builder => $query->whereNull('last_used_step')->orWhere('last_used_step', '<', $step),
+            )
+            ->update(['last_used_step' => $step, 'last_used_at' => now('UTC')]);
 
-        return true;
+        return $claimed === 1;
     }
 
     private function verifyRecoveryCode(User $user, string $code): bool
@@ -130,14 +146,6 @@ final readonly class CompleteMfaChallenge
             payloadHash: $this->audit->hashPayload(['method' => 'mfa']),
         ));
 
-        DB::table('security_events')->insert([
-            'id' => (string) Str::ulid(),
-            'event_type' => 'MFA_CHALLENGE_FAILED',
-            'user_id' => $user->id,
-            'subject_id' => null,
-            'context_json' => json_encode(['method' => 'mfa'], JSON_THROW_ON_ERROR),
-            'occurred_at' => now('UTC'),
-            'created_at' => now('UTC'),
-        ]);
+        ($this->securityLog)(SecurityEventType::MFA_CHALLENGE_FAILED, $user->id, null, ['method' => 'mfa']);
     }
 }

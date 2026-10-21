@@ -21,8 +21,6 @@ use Kern\Platform\Testing\InMemoryKeyManagementService;
  * be auto-confirmed, at the model level, independent of any job or controller.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

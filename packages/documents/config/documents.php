@@ -31,6 +31,13 @@ return [
         'connect_timeout_seconds' => (float) env('CLAMAV_CONNECT_TIMEOUT_SECONDS', 5),
         'stream_timeout_seconds' => (float) env('CLAMAV_STREAM_TIMEOUT_SECONDS', 30),
         'chunk_size' => (int) env('CLAMAV_CHUNK_SIZE', 65536),
+        // How long to wait before each new attempt when the scanner could not give a verdict — one
+        // attempt more than there are waits. Rides out a scanner restart (an update, a reboot)
+        // without a person; after the last, the job is a failed job an administrator can retry.
+        'retry_backoff_seconds' => array_map(
+            intval(...),
+            explode(',', (string) env('CLAMAV_RETRY_BACKOFF_SECONDS', '30,120,300,600')),
+        ),
     ],
 
     // The native-PDF-text-extraction HTTP endpoint (docs/handoff/024-extraction-endpoint.md).

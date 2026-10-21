@@ -7,7 +7,6 @@ namespace Kern\TaxRomania\Declarations\Models;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\TaxRomania\Database\Factories\FormVersionFactory;
 use Kern\TaxRomania\Declarations\Enums\FormVersionStatus;
@@ -63,12 +62,6 @@ final class FormVersion extends Model
         'schema_json' => 'array',
         'status' => FormVersionStatus::class,
     ];
-
-    /** @return BelongsTo<FormDefinition, $this> */
-    public function formDefinition(): BelongsTo
-    {
-        return $this->belongsTo(FormDefinition::class, 'form_definition_id');
-    }
 
     /**
      * Whether `$fiscalYear` falls inside this version's declared reporting range. Returns `true`

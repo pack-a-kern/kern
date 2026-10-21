@@ -8,10 +8,6 @@ use Kern\Platform\Identity\Services\RegistrationPolicy;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Repositories\SettingsRepository;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
-
 function closeRegistration(): void
 {
     app(SettingsRepository::class)->set(SettingKey::IDENTITY_REGISTRATION_ENABLED, 'false', null);
@@ -61,7 +57,7 @@ it('accepts the first account even when registration is closed', function (): vo
     $this->postJson('/api/v1/auth/register', [
         'email' => 'first-owner@example.test',
         'password' => 'a-sufficiently-long-password',
-    ])->assertCreated();
+    ])->assertAccepted();
 });
 
 it('accepts a registration while it is open', function (): void {
@@ -70,5 +66,5 @@ it('accepts a registration while it is open', function (): void {
     $this->postJson('/api/v1/auth/register', [
         'email' => 'newcomer@example.test',
         'password' => 'a-sufficiently-long-password',
-    ])->assertCreated();
+    ])->assertAccepted();
 });

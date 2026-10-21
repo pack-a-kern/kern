@@ -2,11 +2,7 @@
 
 declare(strict_types=1);
 
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\ConfigBlindIndexKeyProvider;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
-use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Kern\TaxRomania\Subjects\Exceptions\SubjectLimitReachedException;
@@ -19,15 +15,6 @@ use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
  * the action directly — a cap that only the HTTP route respects is not a cap, and this is the test
  * that would notice if it moved.
  */
-beforeEach(function (): void {
-    app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
-
-    $provider = new ConfigBlindIndexKeyProvider(
-        json_encode(['1' => base64_encode(random_bytes(32))], JSON_THROW_ON_ERROR),
-        1,
-    );
-    app()->instance(BlindIndexHasher::class, new BlindIndexHasher($provider));
-});
 
 /** @param list<string> $roles */
 function allowanceInput(string $userId, string $cnp, array $roles): RegisterPfSubjectInput

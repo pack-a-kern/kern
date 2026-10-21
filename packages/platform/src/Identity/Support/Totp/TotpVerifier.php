@@ -44,8 +44,20 @@ final class TotpVerifier
 
     public function verify(string $secret, string $code, ?int $now = null): bool
     {
+        return $this->matchingStep($secret, $code, $now) !== null;
+    }
+
+    /**
+     * Which time step `$code` belongs to, or null if it matches none inside the skew.
+     *
+     * The step is what makes a code single-use: a caller that remembers the last step it accepted can
+     * refuse that one and every earlier one, which a yes or no cannot express. Counted the way the
+     * code itself is, the Unix time divided by the period.
+     */
+    public function matchingStep(string $secret, string $code, ?int $now = null): ?int
+    {
         if ($code === '') {
-            return false;
+            return null;
         }
 
         $totp = $this->build($secret);
@@ -62,11 +74,11 @@ final class TotpVerifier
             }
 
             if ($totp->verify($code, $candidateTimestamp)) {
-                return true;
+                return intdiv($candidateTimestamp, $period);
             }
         }
 
-        return false;
+        return null;
     }
 
     private function build(string $secret): TOTP

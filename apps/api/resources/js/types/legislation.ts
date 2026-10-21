@@ -1,3 +1,5 @@
+import { nullableNum, nullableStr, num, obj, str } from '../lib/json';
+
 /**
  * Shapes returned by `/api/v1/legislation/search`.
  *
@@ -36,34 +38,6 @@ export interface LegislationSearchResult {
     asOf: string;
     confirmed: LegislationHit[];
     dateUnknown: LegislationHit[];
-}
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : 0;
-}
-
-function nullableNum(row: Record<string, unknown>, key: string): number | null {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : null;
 }
 
 function parseHit(payload: unknown): LegislationHit {

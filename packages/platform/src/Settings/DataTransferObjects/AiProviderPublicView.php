@@ -7,8 +7,8 @@ namespace Kern\Platform\Settings\DataTransferObjects;
 use Carbon\CarbonImmutable;
 
 /**
- * The API-safe view of the AI provider settings — the exact shape `GET`/`PUT
- * /api/v1/settings/ai` return. **Never carries the API key itself**, only whether one is set and
+ * The API-safe view of the AI provider settings — the exact shape
+ * `PUT /api/v1/settings/ai/connection` returns. **Never carries the API key itself**, only whether one is set and
  * its last four characters, per the task's explicit requirement that a settings screen must never
  * be able to display or recover a secret it stores.
  */

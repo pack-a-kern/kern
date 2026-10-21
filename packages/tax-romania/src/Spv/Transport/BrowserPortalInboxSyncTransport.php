@@ -84,20 +84,12 @@ final readonly class BrowserPortalInboxSyncTransport implements SpvInboxSyncTran
     /**
      * The signed-in browser for this connection, or a refusal naming what to do about it.
      *
-     * `expires_at` is checked here rather than trusted: the worker drops a session at its own TTL
-     * without telling anybody, so a row that still says AUTHENTICATED may describe a browser that no
-     * longer exists. Asking the worker and being told "no such session" would work too, and would cost
-     * a round trip to learn something already written down.
+     * Read from the row (`SpvSession::live()`) rather than by asking the worker: being told "no such
+     * session" would work too, and would cost a round trip to learn something already written down.
      */
     private function liveSessionFor(SpvConnection $connection): SpvSession
     {
-        $session = SpvSession::query()
-            ->where('connection_id', $connection->id)
-            ->where('state', SpvSessionState::AUTHENTICATED)
-            ->whereNull('destroyed_at')
-            ->where('expires_at', '>', now('UTC'))
-            ->orderByDesc('created_at')
-            ->first();
+        $session = SpvSession::query()->where('connection_id', $connection->id)->live()->first();
 
         if (! $session instanceof SpvSession) {
             throw SpvSignInRequiredException::noLiveSession();

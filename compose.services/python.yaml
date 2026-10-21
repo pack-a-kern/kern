@@ -15,10 +15,22 @@ services:
     build:
       context: .
       dockerfile: docker/python/Dockerfile
-    command: ["uvicorn", "processing.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      # Named, not inferred. A Dockerfile's default target is its last stage, which here is `test` —
+      # pytest, ruff, pyright and pip-audit installed, and no USER line — so this service ran as root
+      # with the test tools beside it until 2026-10-20. The browser worker had the same bug.
+      target: runtime
+    # HTTPS, with the certificate docker/certs issues it (UVICORN_SSL_* below). uvicorn reads it once,
+    # at start, so a renewed one is picked up by exiting and `restart` starting it again — a second,
+    # once a year. `init` reaps the watcher (docker/tls/kern-tls.sh).
+    init: true
+    command: ["sh", "/usr/local/bin/kern-tls", "run", "TERM", "--", "uvicorn", "processing.main:app", "--host", "0.0.0.0", "--port", "8000"]
     networks:
       - processing_net
     environment:
+      # uvicorn reads every option from a UVICORN_* variable as well, so the development command in
+      # python.dev.yaml gets the same certificate without repeating it.
+      UVICORN_SSL_CERTFILE: /run/kern/tls/server.crt
+      UVICORN_SSL_KEYFILE: /run/kern/tls/server.key
       # Shared secret with the app/queue/scheduler/reverb containers' own
       # INTERNAL_SERVICE_AUTH_TOKEN the application containers get from apps/api/.env — BLUEPRINT.md §4.10,
       # docs/handoff/024-extraction-endpoint.md. processing.internal_auth.require_internal_auth
@@ -54,8 +66,17 @@ services:
       STATEMENT_PARSE_MAX_FILE_SIZE_BYTES: ${STATEMENT_PARSE_MAX_FILE_SIZE_BYTES:-10485760}
       STATEMENT_PARSE_MAX_PDF_PAGES: ${STATEMENT_PARSE_MAX_PDF_PAGES:-60}
       STATEMENT_PARSE_MAX_PREAMBLE_ROWS: ${STATEMENT_PARSE_MAX_PREAMBLE_ROWS:-20}
+      # The decompression-bomb defence for statements (processing.isolation): what a workbook may
+      # unpack to, checked from its zip index before it is opened, and the memory and time the
+      # disposable process that reads each file is given. Past any of them the file is refused as too
+      # large, and the service itself is untouched.
+      STATEMENT_PARSE_MAX_UNPACKED_BYTES: ${STATEMENT_PARSE_MAX_UNPACKED_BYTES:-52428800}
+      STATEMENT_PARSE_MAX_WORKER_MEMORY_BYTES: ${STATEMENT_PARSE_MAX_WORKER_MEMORY_BYTES:-536870912}
+      STATEMENT_PARSE_PARSE_TIMEOUT_SECONDS: ${STATEMENT_PARSE_PARSE_TIMEOUT_SECONDS:-60}
     volumes:
       - embedding_cache:/var/cache/embeddings
+      - tls_python_api:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
     read_only: true
     tmpfs:
       - /tmp:mode=1777
@@ -63,8 +84,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    depends_on:
+      certs:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      # Over TLS, checked against the stack's CA like any other caller — 127.0.0.1 is on the certificate.
+      test: ["CMD", "python", "-c", "import ssl, urllib.request; urllib.request.urlopen('https://127.0.0.1:8000/health', timeout=3, context=ssl.create_default_context(cafile='/run/kern/tls/ca.crt'))"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -80,6 +105,24 @@ services:
           memory: ${PYTHON_API_MEMORY:-1G}
     restart: unless-stopped
 
+  # Its certificate, from the stack's CA, for the runtime image's `appuser`.
+  certs:
+    environment:
+      KERN_CERT_python_api: "10001:10001:python-api,localhost,127.0.0.1"
+    volumes:
+      - tls_python_api:/certs/out/python_api
+
+  # Its TLS address and the stack's CA, for the PHP containers — all three read the same config; `app`
+  # and `queue` are the ones on `processing_net` that call it. Listed here because they are true only
+  # with this service: one you run elsewhere is PROCESSING_URL and PROCESSING_CA_CERT in `.env` instead.
+  app: &calls-processing
+    environment:
+      PROCESSING_URL: https://python-api:8000
+      PROCESSING_CA_CERT: /run/kern/tls-ca/ca.crt
+  queue: *calls-processing
+  scheduler: *calls-processing
+
 volumes:
   # ~2.3 GB of embedding model weights, downloaded once and reused across recreates.
   embedding_cache:
+  tls_python_api:

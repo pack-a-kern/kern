@@ -14,7 +14,12 @@ Checked: **2026-09-07**
 | Laravel 13 bug fixes until | Q3 2027 | same |
 | Laravel 13 security until | 2028-03-17 | same |
 | PHP 8.5 released | 2025-11-20, active support to 2027-12-31 | php.net/supported-versions.php |
-| Target PHP | **8.5** (latest tag at check: 8.5.10) | hub.docker.com/_/php |
+| Target PHP | **8.5** (pinned tag: 8.5.12) | hub.docker.com/_/php |
+
+> **Security bump 2026-10-22:** pinned `8.5.11` → `8.5.12` for CVE-2026-109618 / CVE-2026-109619,
+> critical unauthenticated RCE in PHP core (CVSS v4 9.2), patched in 8.5.12 / 8.4.27 / 8.3.36 /
+> 8.2.35 on 2026-10-21. All PHP ≤ 8.5.11 is affected; this image serves via php-fpm, not the
+> higher-risk mod_php. Digest updated on both `FROM` stages in `docker/php/Dockerfile`.
 
 `php:8.5-fpm-trixie` builds `sodium` (shared, enabled) and compiles `--with-password-argon2`.
 **Therefore ADR 0002's XChaCha20-Poly1305 and Argon2id need no custom PHP build** — only
@@ -44,7 +49,7 @@ Checked: **2026-09-07**
 
 | Fact | Value |
 |------|-------|
-| Target | **3.14** (`python:3.14-slim-trixie`) |
+| Target | **3.14** (`python:3.14.8-slim-trixie`) |
 | pypdf 6.18.0 — **license: BSD-3-Clause** (checked 2026-09-08, from the wheel's own `METADATA`: `License-Expression: BSD-3-Clause`, and PyPI JSON `info.license_expression`) | pure-Python wheel, explicit `Programming Language :: Python :: 3.14` classifier ✓ — no ABI/wheel risk at all |
 | FastAPI 0.141.1 / Pydantic 2.13.5 / qdrant-client 1.19 | 3.14 ✓ |
 | opencv-python-headless 5.0.0.93 | abi3 (cp37+) ✓ |
@@ -62,22 +67,37 @@ and extract it (§14.3).
 
 ## Caddy modules compiled into the edge
 
+The whole module graph — these two, Caddy v2.11.7 and everything under them — is locked in
+`docker/caddy/build/go.mod` and `go.sum` (2026-10-20), and the build refuses to resolve anything not
+written there. Before that, `xcaddy build --with` pinned these two and re-resolved the rest on every build.
+
 | Module | Version |
 |--------|---------|
-| `github.com/caddy-dns/cloudflare` | `v0.2.4` (released 2026-03-23; resolved from the Go module proxy 2026-10-15, latest of five tags). Apache-2.0. Compiled in by `xcaddy` in `docker/caddy/Dockerfile`, and confirmed present as `dns.providers.cloudflare` in `caddy list-modules` on the built image. It is what lets an installation behind Cloudflare's proxy prove its name through DNS, which is the only ACME challenge that reaches a server the proxy answers for. |
+| `github.com/caddy-dns/cloudflare` | `v0.2.4` (released 2026-03-23; resolved from the Go module proxy 2026-10-15, latest of five tags). Apache-2.0. Compiled in from `docker/caddy/build/go.mod`, and confirmed present as `dns.providers.cloudflare` in `caddy list-modules` on the built image. It is what lets an installation behind Cloudflare's proxy prove its name through DNS, which is the only ACME challenge that reaches a server the proxy answers for. |
+| `github.com/WeidiDeng/caddy-cloudflare-ip` | `v0.0.0-20231130002422-f53b62aa13cb` — no tagged release; its latest commit (2023-11-30), resolved from the Go module proxy 2026-10-20. Apache-2.0. Compiled in from `docker/caddy/build/go.mod` and confirmed present as `http.ip_sources.cloudflare` in `caddy list-modules` on the built image. Supplies Cloudflare's published address ranges as trusted proxies, refreshed at runtime, for an installation behind Cloudflare's proxy (`KERN_EDGE_TRUSTED_PROXIES`). Untagged and quiet since 2023: worth replacing with a maintained source if one appears. |
 
-## Container images (tags confirmed present)
+## Container images (tag and digest)
 
-| Service | Image |
-|---------|-------|
-| edge | `caddy:2.11.7-alpine`, built from `caddy:2.11.7-builder-alpine` (both checked 2026-10-15; released 2026-10-06) |
-| app / queue / scheduler / reverb | `php:8.5-fpm-trixie` |
-| postgres | `pgvector/pgvector:pg18-trixie` (Postgres 18 + pgvector 0.8.6) |
-| redis | `redis:8-trixie` |
-| minio | `minio/minio` (last release 2025-09-07 — see STATUS known issues). **Not in any compose file**: this deployment points at a MinIO it does not run |
-| openbao | `openbao/openbao:2.6.2` |
-| clamav | `clamav/clamav:1.5-debian13-slim` |
-| python | `python:3.14-slim-trixie` |
+Every image is pinned by exact tag **and** digest, in compose and in every Dockerfile — a tag is rebuilt
+upstream with new OS patches under the same name, and only a digest names one build. `make pins` asks
+each registry whether the tag now points at a newer build; moving a pin is a deliberate change, checked
+like a version bump (§2 of DEPENDENCY-POLICY.md). All rows checked 2026-10-20.
+
+| Service | Image | Notes |
+|---------|-------|-------|
+| edge | `caddy:2.11.7-alpine@sha256:d8542f48…`, built in `caddy:2.11.7-builder-alpine@sha256:d718a1d1…` (Go 1.27.3) | 2.11.7 latest (released 2026-10-06) |
+| app / queue / scheduler / reverb | `php:8.5.11-fpm-trixie@sha256:36b66e02…`, `composer:2.10.3@sha256:af98f42d…` | 8.5.11 latest 8.5; 8.6 is RC only |
+| postgres | `pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c9302…` (Postgres 18.6, pgvector 0.8.7, 2026-10-01) | Moved 2026-10-21 from 0.8.6: an IVFFlat build overflow (this schema indexes with HNSW) and `avg` over no rows. The extension's objects follow on the next `make migrate`, which runs `kern:db:update-extensions` |
+| redis | `redis:8.10.2-trixie@sha256:5c02d7c0…` | from 8.10.1: 8.10.2 (2026-10-07) is a security release |
+| openbao | `openbao/openbao:2.6.4@sha256:cf2340fc…` | from 2.6.2: 2.6.3 and 2.6.4 (2026-10-01) carry security fixes. 2.7.1 exists — a minor step, later. Tried first on a copy of the data volume (unseal, KEK, encrypt/decrypt) |
+| clamav | `clamav/clamav:1.5.4-debian13-slim@sha256:d7ede3ce…` | 1.5.4 rebuilt 2026-10-19 with Debian patches |
+| python | `python:3.14.8-slim-trixie@sha256:fbecd461…`, `ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e…` | 3.14.8 latest 3.14; 3.15.0 (2026-10-17) too new. uv from 0.12.10, same series (0.13 exists) |
+| browser-worker | `mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30…` | 1.64.1 exists — needs the npm package moved with it and the SPV flow retested; its own step |
+| certs | `alpine:3.24.2@sha256:294b683c…` (released 2026-09-18), plus Alpine's `openssl` — 3.5.9 at the check | the stack's own CA (`docker/certs`) |
+| mailpit (dev) | `axllent/mailpit:v1.31.6@sha256:23fe39e8…` | from v1.31.1: v1.31.2 fixed GHSA-2vgv-6hcp-mf43 |
+| minio | `minio/minio` (last release 2025-09-07 — see STATUS known issues) | **not in any compose file**: this deployment points at a MinIO it does not run |
+
+The full digests are the ones in the files; the short forms here are for reading.
 
 ## Postgres extensions required
 

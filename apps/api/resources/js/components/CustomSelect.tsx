@@ -570,9 +570,7 @@ function DefaultOption({
             <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{option.label}</span>
                 {option.description !== undefined && (
-                    <span className="text-muted-foreground mt-0.5 block truncate text-2xs">
-                        {option.description}
-                    </span>
+                    <span className="text-muted-foreground mt-0.5 block truncate text-2xs">{option.description}</span>
                 )}
             </span>
 

@@ -49,11 +49,12 @@ final readonly class RowFingerprint
     public function forRows(array $rows, string $accountId, ?string $bankId): array
     {
         $seen = [];
-        $fingerprints = [];
+        /** @var list<?string> $inputs what each row's fingerprint is computed from; null where it has none */
+        $inputs = [];
 
         foreach ($rows as $row) {
             if ($row['booked_at'] === null || $row['amount_minor'] === null) {
-                $fingerprints[] = null;
+                $inputs[] = null;
 
                 continue;
             }
@@ -76,9 +77,11 @@ final readonly class RowFingerprint
             $occurrence = ($seen[$base] ?? 0) + 1;
             $seen[$base] = $occurrence;
 
-            $fingerprints[] = $this->blindIndex->compute($base . '|' . $occurrence);
+            $inputs[] = $base . '|' . $occurrence;
         }
 
-        return $fingerprints;
+        // One request to the key manager for the whole statement, rather than one per row: the key
+        // lives there, and a statement is thousands of rows.
+        return $this->blindIndex->computeEach($inputs);
     }
 }

@@ -35,7 +35,11 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Off: `true` makes the framework register `GET` and `PUT storage/{path}` with none of the
+            // application's middleware, over a folder that holds the profile pictures. Answered only
+            // for a signed URL, and nothing here signs one — every file the application hands out
+            // goes through its own controller, with its own checks.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
@@ -49,6 +53,9 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            // The CA the endpoint's certificate is checked against, for one signed by a private CA;
+            // the system's otherwise. Never off: every document crosses this connection.
+            'http' => ['verify' => env('AWS_CA_CERT') ?: true],
             'throw' => false,
             'report' => false,
         ],
@@ -87,6 +94,9 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            // The CA the endpoint's certificate is checked against, for one signed by a private CA;
+            // the system's otherwise. Never off: every document crosses this connection.
+            'http' => ['verify' => env('AWS_CA_CERT') ?: true],
             'throw' => false,
             'report' => false,
         ],

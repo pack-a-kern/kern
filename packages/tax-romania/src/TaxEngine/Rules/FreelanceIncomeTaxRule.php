@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\TaxEngine\Rules;
 
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\TaxEngine\Attributes\TaxRule as TaxRuleAttribute;
 use Kern\TaxRomania\TaxEngine\Contracts\TaxRuleContract;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\CalculationStep;
@@ -54,8 +55,8 @@ final class FreelanceIncomeTaxRule implements TaxRuleContract
     {
         $rate = $input->parameters->get(self::RATE)->asDecimalRate();
 
-        $gross = Money::zero('RON');
-        $deductible = Money::zero('RON');
+        $gross = Money::zero(CurrencyCode::BASE);
+        $deductible = Money::zero(CurrencyCode::BASE);
         $counted = 0;
         $anyDeductible = false;
 
@@ -79,7 +80,7 @@ final class FreelanceIncomeTaxRule implements TaxRuleContract
          * is not quietly turned into a credit against something else.
          */
         $base = $gross->subtract($deductible);
-        $base = $base->isPositive() ? $base : Money::zero('RON');
+        $base = $base->isPositive() ? $base : Money::zero(CurrencyCode::BASE);
 
         $tax = $base->multipliedByDecimal($rate, RoundingMode::HALF_UP);
 

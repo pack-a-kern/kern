@@ -7,12 +7,15 @@ namespace Tests\Feature\Platform\Identity\EmailVerificationTest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Actions\ConfirmEmailVerification;
 use Kern\Platform\Identity\Actions\RequestEmailVerification;
 use Kern\Platform\Identity\Contracts\VerificationSender;
 use Kern\Platform\Identity\Enums\VerificationChannel;
 use Kern\Platform\Identity\Exceptions\InvalidVerificationCodeException;
+use Kern\Platform\Identity\Http\Middleware\RequireVerifiedEmail;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserVerificationChallenge;
 use Kern\Platform\Settings\Enums\SettingKey;
@@ -40,8 +43,6 @@ final class CapturedCode
  * those is a separate chance to get it wrong.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     // A sender that keeps the code instead of mailing it. The real one decrypts an address and hands
     // the code to Laravel's mailer; neither is what these tests are about, and a fake here is what
     // lets them assert on the code itself.
@@ -173,6 +174,59 @@ it('closes every other endpoint with a code a caller can read', function (): voi
     $this->getJson('/api/v1/me')
         ->assertStatus(409)
         ->assertJson(['code' => 'EMAIL_NOT_VERIFIED']);
+});
+
+function madeUpParameter(?string $constraint): string
+{
+    // A value the route's own `where` accepts, or the router answers 404 before any middleware runs and
+    // the route would look open when it was never reached.
+    foreach ([(string) Str::uuid(), 'a', '1'] as $candidate) {
+        if ($constraint === null || preg_match('/^(?:' . $constraint . ')$/', $candidate) === 1) {
+            return $candidate;
+        }
+    }
+
+    throw new RuntimeException("No made-up value fits the route constraint {$constraint}.");
+}
+
+/*
+ * Every route, not a sample of them.
+ *
+ * The gate used to be named on route groups, and four routes in a group that did not name it answered
+ * an unverified account. Asking each route the application has — whatever registered it, now or later —
+ * is what keeps that from coming back quietly. The URL's parameters are made up: the gate runs before
+ * route-model binding, so a refused request never gets as far as looking them up.
+ */
+it('closes every route the application has, except the ones the verification screen needs', function (): void {
+    requireVerification();
+
+    signIn(unverifiedUser());
+
+    $open = [];
+
+    foreach (Route::getRoutes()->getRoutes() as $route) {
+        if (! in_array('web', $route->gatherMiddleware(), true)
+            && ! in_array('horizon', $route->gatherMiddleware(), true)) {
+            continue;
+        }
+
+        if (in_array($route->getName(), RequireVerifiedEmail::ALLOWED_ROUTES, true)) {
+            continue;
+        }
+
+        $method = collect($route->methods())->first(static fn (string $m): bool => $m !== 'HEAD') ?? 'GET';
+        $uri = '/' . ltrim((string) preg_replace_callback(
+            '/\{(\w+)\??\}/',
+            static fn (array $match): string => madeUpParameter($route->wheres[$match[1]] ?? null),
+            $route->uri(),
+        ), '/');
+
+        if ($this->json($method, $uri)->getStatusCode() !== 409) {
+            $open[] = "{$method} {$uri}";
+        }
+    }
+
+    expect($open)->toBe([]);
 });
 
 it('lets a verified account through', function (): void {

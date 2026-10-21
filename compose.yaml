@@ -21,32 +21,24 @@
 # here.
 #
 # Network segmentation (see docs/handoff/001-docker-topology.md for the full
-# matrix and the reasoning behind the two extra `app`/`queue`/`scheduler`/
-# `reverb` -> data_net attachments beyond BLUEPRINT.md §3.3's literal list):
+# matrix and the reasoning behind the extra `app`/`queue`/`scheduler` -> data_net
+# attachments beyond BLUEPRINT.md §3.3's literal list; reverb left data_net on 2026-10-19):
 #   edge_net        edge, app, reverb                              — not internal
 #   app_net         app, queue, scheduler, reverb,          — internal
 #                   redis, openbao
 #   processing_net  app, python-api,                        — not internal
 #                   clamav
 #   data_net        postgres, redis, app, queue,            — internal
-#                   scheduler, reverb
+#                   scheduler
 #   browser_net     app, browser-worker                     — not internal
 #
 # Networks stay declared here, all five, because every one of them has a member that is always
 # present: app alone joins edge_net, app_net, processing_net, browser_net and data_net. A
 # compose.services/ file only references them.
 #
-# Production digest pinning (§3.4 "immutable image tags through digest in
-# production"): this file pins exact tags for reproducible local/dev builds
-# per docs/DEPENDENCY-POLICY.md. A production deploy additionally locks each
-# image to its digest, e.g.:
-#
-#   postgres:
-#     image: pgvector/pgvector:pg18-trixie@sha256:78bf48b801e792f99e3ac62b5036fd3876e9be48afda16c1e331af1c75ceb2ff
-#
-# (digest verified 2026-09-07 — see the handoff note for the full table).
-# Do not add digests to the tags below; that is a production overlay
-# decision for whoever builds the deploy pipeline, not this dev-shape file.
+# Every image, here and in each Dockerfile, is pinned by exact tag and digest (docs/DEPENDENCY-POLICY.md
+# §1): a tag is rebuilt upstream under the same name, and only the digest names the build that was
+# tested. `make pins` reports a pin whose tag has moved on; moving it is a change like any other.
 
 networks:
   edge_net:
@@ -69,6 +61,15 @@ volumes:
   app_storage:
   app_bootstrap_cache:
   caddy_data:
+  # php-fpm's socket, and nothing else. Mounted by `app` and `edge` only — see docker/php/www.conf.
+  php_socket:
+  # The stack's certificate authority (the `certs` service below). Its key, which nothing else mounts;
+  # and its certificate, which every caller verifies a service against.
+  tls_ca_key:
+  tls_ca:
+  # Each service's own key and certificate, which only that service and `certs` mount.
+  tls_edge:
+  tls_reverb:
 
 x-php-image: &php-image
   build:
@@ -76,7 +77,8 @@ x-php-image: &php-image
     dockerfile: docker/php/Dockerfile
     target: runtime
   # The one file this installation is configured in — see apps/api/.env.example. Every variable in
-  # it is handed to these four containers as a real environment variable, and Laravel prefers a real
+  # it is handed to app, queue and scheduler as a real environment variable (reverb takes a short list
+  # of names instead — see that service), and Laravel prefers a real
   # environment variable over anything a `.env` inside the image might say.
   #
   # Deliberately the whole file rather than a list of names: this block used to enumerate sixty
@@ -91,19 +93,36 @@ x-php-image: &php-image
     - apps/api/.env
   # Not configuration — every one of these is already in the file above, and takes its value from it.
   # They are named again only so that an EMPTY one stops the stack, which is what `:?` does. Without
-  # a key the application cannot encrypt; without blind-index keys it cannot look up an encrypted
-  # column; with an empty Reverb secret it would publish events under a secret anyone can guess. A
-  # deployment that is missing one of these must fail to start, not start and fail later.
+  # a key the application cannot encrypt; with an empty Reverb secret it would publish events under a
+  # secret anyone can guess. A deployment that is missing one of these must fail to start, not start
+  # and fail later. (The blind-index key is no longer one of them: it lives in the key manager.)
   environment:
     APP_NAME: ${APP_NAME:?set APP_NAME — see apps/api/.env.example}
     APP_KEY: ${APP_KEY:?set APP_KEY — see apps/api/.env.example}
-    CRYPTO_BLIND_INDEX_KEYS: ${CRYPTO_BLIND_INDEX_KEYS:?set CRYPTO_BLIND_INDEX_KEYS — see apps/api/.env.example}
     REVERB_APP_ID: ${REVERB_APP_ID:?set REVERB_APP_ID — see apps/api/.env.example}
     REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY — see apps/api/.env.example}
     REVERB_APP_SECRET: ${REVERB_APP_SECRET:?set REVERB_APP_SECRET — see apps/api/.env.example}
+    # The database owner's credentials are in the file above, and the running application must not
+    # have them: it connects as DB_USERNAME, a role that owns nothing (kern:db:grant-app-role), and
+    # an owner's password in its environment would hand that back to anyone who reached it. Only
+    # `migrate` below gets them.
+    DB_OWNER_USERNAME: ""
+    DB_OWNER_PASSWORD: ""
+    # The list of certificates `certs` issued and when each ends, published beside its CA — the
+    # `certificates` row of `kern:health`.
+    TLS_STATUS_FILE: /run/kern/tls-ca/status
+    # Reverb speaks TLS (the `reverb` service below), so an event is published over it, checked
+    # against the stack's CA. Facts of this file, not settings: the service is always here.
+    REVERB_SCHEME: https
+    REVERB_CA_CERT: /run/kern/tls-ca/ca.crt
   volumes: &php-volumes
     - app_storage:/var/www/html/storage
     - app_bootstrap_cache:/var/www/html/bootstrap/cache
+    # The stack's CA, which every connection to a service in it is verified against — see `certs`.
+    - tls_ca:/run/kern/tls-ca:ro
+    # And the CAs of services elsewhere that are signed by a private one, which the installer copies
+    # here — OPENBAO_CA_CERT, AWS_CA_CERT, PROCESSING_CA_CERT and BROWSER_WORKER_CA_CERT name a file in it.
+    - ./docker/tls/trusted:/run/kern/tls-trusted:ro
   read_only: true
   tmpfs:
     - /tmp:mode=1777
@@ -114,6 +133,84 @@ x-php-image: &php-image
   restart: unless-stopped
 
 services:
+  # -------------------------------------------------------------------------
+  # Certificates — every internal service's, issued and renewed here
+  # -------------------------------------------------------------------------
+  # docker/certs/entrypoint.sh: one private CA, a certificate for each service that names itself in a
+  # `KERN_CERT_<name>` variable — set by that service's own compose file, beside the volume it is
+  # written into — and a daily check that renews whatever is near the end. Each service reloads its own
+  # (docker/tls/kern-tls.sh), so nothing here needs the Docker socket.
+  certs:
+    build:
+      context: docker/certs
+    # On no network at all: it is reached through volumes, and reaches nothing.
+    network_mode: none
+    # Reaps nothing, but stops at once: a shell as PID 1 ignores the stop signal until its sleep ends.
+    init: true
+    environment:
+      # The edge's certificate: the user it runs as (docker/caddy/Dockerfile) and every name it is
+      # reached by — written by the installer, defaulting to this machine alone.
+      KERN_CERT_edge: "10001:10001:${TLS_EDGE_NAMES:-localhost,127.0.0.1}"
+      # Reverb's, for the `appuser` of the PHP image: the name the edge and the publishers connect to.
+      KERN_CERT_reverb: "10001:10001:reverb,localhost,127.0.0.1"
+      KERN_TLS_CA_DAYS: ${TLS_CA_DAYS:-3650}
+      KERN_TLS_CERT_DAYS: ${TLS_CERT_DAYS:-365}
+      KERN_TLS_RENEW_DAYS: ${TLS_RENEW_DAYS:-30}
+      KERN_TLS_CHECK_SECONDS: ${TLS_CHECK_SECONDS:-86400}
+    volumes:
+      - tls_ca_key:/certs/ca
+      - tls_ca:/certs/public
+      - tls_edge:/certs/out/edge
+      - tls_reverb:/certs/out/reverb
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # To hand each service its key: owned by the user that service runs as, readable by nobody else.
+      - CHOWN
+    healthcheck:
+      # Written once every certificate has been issued, so a service that waits for this finds its own.
+      test: ["CMD", "test", "-f", "/tmp/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 32M
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Schema changes — run on purpose, never on start
+  # -------------------------------------------------------------------------
+  # `docker compose run --rm migrate` (`make migrate`, and the installer). Connects as the database's
+  # owner, the one role that may create and alter tables; applies the migrations; brings each Postgres
+  # extension up to the version its image ships; then creates or updates the application's own role and
+  # grants it rows and nothing more. In the `tools` profile so
+  # `up` never starts it: a schema change applied by a restart is one nobody decided to apply.
+  migrate:
+    <<: *php-image
+    profiles: ["tools"]
+    # The application's password goes to the role command on standard input, from the environment —
+    # `printf` is a shell builtin, so it is on no command line. The shell sees the variable's name.
+    command:
+      - sh
+      - -c
+      - php artisan migrate --force && php artisan kern:db:update-extensions && printf '%s\n' "$$KERN_APP_DB_PASSWORD" | php artisan kern:db:grant-app-role --stdin "$$KERN_APP_DB_USERNAME"
+    networks:
+      - data_net
+    environment:
+      DB_USERNAME: ${DB_OWNER_USERNAME:?set DB_OWNER_USERNAME — see apps/api/.env.example}
+      DB_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD — see apps/api/.env.example}
+      KERN_APP_DB_USERNAME: ${DB_USERNAME:?set DB_USERNAME — see apps/api/.env.example}
+      KERN_APP_DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD — see apps/api/.env.example}
+    restart: "no"
+
   # -------------------------------------------------------------------------
   # Edge
   # -------------------------------------------------------------------------
@@ -136,19 +233,42 @@ services:
       # global options explain why the whole directive is a variable rather than just the provider.
       - KERN_EDGE_ACME_DNS
       - KERN_EDGE_DNS_TOKEN
+      # The HSTS header, whole, once the certificate is trusted — see the Caddyfile's header block.
+      - KERN_EDGE_HSTS
+      # Whose word to take for the visitor's address — Cloudflare's, behind its proxy, and nobody's
+      # otherwise. See the Caddyfile's `servers` block.
+      - KERN_EDGE_TRUSTED_PROXIES
+      - KERN_EDGE_CLIENT_IP_HEADERS
+    # Caddy reads a certificate from a file once, at start, and its admin API is off — so a renewed
+    # one is picked up by exiting, and `restart` starting it again with the new one: a second or two,
+    # once a year. `init` reaps the watcher (docker/tls/kern-tls.sh).
+    init: true
+    command: ["sh", "/usr/local/bin/kern-tls", "run", "TERM", "--", "caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     volumes:
-      # TLS material. The edge is published on a public IP, so plain HTTP would put the login
-      # password on the wire in clear text. Both halves are gitignored and written by `make certs`;
-      # the pair is self-signed, so a browser warns until the installer obtains a real one.
+      # TLS. The edge is published on a public IP, so plain HTTP would put the login password on the
+      # wire in clear text. Its certificate is issued by `certs` for every name in TLS_EDGE_NAMES,
+      # into a volume only the edge reads; a browser warns until this installation's CA is imported
+      # (`make tls-ca`), or until a domain gets one from Let's Encrypt instead (KERN_EDGE_TLS).
+      - tls_edge:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
+      # The stack's CA, which the edge checks Reverb's certificate against.
+      - tls_ca:/run/kern/tls-ca:ro
+      # A certificate of your own, for the installer's fourth TLS answer — copied here by the
+      # installer, gitignored, and named by KERN_EDGE_TLS.
       - ./docker/caddy/certs:/etc/caddy/certs:ro
       # Caddy's TLS state: its own CA under `tls internal`, and the ACME account key and
       # certificates once a domain is configured. A named volume and not a tmpfs, because
       # re-issuing on every restart is how an installation reaches Let's Encrypt's rate limit.
       - caddy_data:/data
+      # The only way in to php-fpm. Read-only is enough: connecting to a socket is not a write to
+      # the filesystem it sits on.
+      - php_socket:/run/php:ro
     networks:
       - edge_net
     depends_on:
       app:
+        condition: service_healthy
+      certs:
         condition: service_healthy
     read_only: true
     tmpfs:
@@ -180,6 +300,14 @@ services:
   # -------------------------------------------------------------------------
   app:
     <<: *php-image
+    volumes:
+      - app_storage:/var/www/html/storage
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache
+      - tls_ca:/run/kern/tls-ca:ro
+      - ./docker/tls/trusted:/run/kern/tls-trusted:ro
+      # php-fpm's socket — the edge mounts the same volume. Listed here and not in the shared anchor,
+      # because queue, scheduler and reverb run no php-fpm and have no business holding the way in.
+      - php_socket:/run/php
     networks:
       - edge_net
       - app_net
@@ -196,7 +324,7 @@ services:
     extra_hosts:
       - "${AI_ENDPOINT_HOST:-ai-endpoint.invalid}:${AI_ENDPOINT_IP:-127.0.0.1}"
     healthcheck:
-      # Proves php-fpm's port accepts connections. It does NOT prove the pool answers a request —
+      # Proves php-fpm's socket accepts connections. It does NOT prove the pool answers a request —
       # see below for why there is nothing better here, and `/healthz` on the edge plus `make smoke`
       # for the checks that do exercise a real request.
       #
@@ -211,7 +339,7 @@ services:
       # Probed with php rather than /dev/tcp: this image's /bin/sh is dash and /dev/tcp is a bash
       # builtin — the same reason reverb's check is written this way, and the same trap that once
       # reported a listening Reverb as unhealthy.
-      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000, $$e, $$s, 3) ? 0 : 1);"]
+      test: ["CMD", "php", "-r", "exit(@fsockopen('unix:///run/php/fpm.sock', -1, $$e, $$s, 3) ? 0 : 1);"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -270,6 +398,8 @@ services:
       # `bootstrap/cache`, failed on every tick, and its heartbeat went silent.
       - app_storage:/var/www/html/storage
       - app_bootstrap_cache:/var/www/html/bootstrap/cache
+      - tls_ca:/run/kern/tls-ca:ro
+      - ./docker/tls/trusted:/run/kern/tls-trusted:ro
       - ./docker/php/scheduler-healthcheck.php:/usr/local/bin/scheduler-healthcheck.php:ro
     healthcheck:
       # Asserts the schedule *ran*, via a heartbeat file the schedule itself touches every minute
@@ -291,14 +421,64 @@ services:
 
   reverb:
     <<: *php-image
-    command: ["php", "artisan", "reverb:start"]
+    # Not the whole environment file. Reverb is the one PHP process the internet reaches directly
+    # (`handle /app/*` in the Caddyfile), and it holds a WebSocket open for anyone — so it is the one
+    # where a bug matters most, and the one that needs least. It authenticates publishers with its own
+    # secret and never decides who may listen (the app does that, on /broadcasting/auth), so it has no
+    # use for the database, Redis, object storage, the AI keys or the internal service token. Before
+    # this it held every one of them.
+    #
+    # Names only: each value still comes from apps/api/.env, which stays the one file a value is
+    # written in (ADR 0017). A variable Reverb reads that is missing here falls back to its default in
+    # config/reverb.php — `REVERB_SCALING_ENABLED` is off, which is what lets it run without Redis.
+    env_file: []
+    # TLS with the certificate `certs` issues it, behind the watcher that restarts it on a renewal:
+    # Reverb reads its certificate once, at start, and the browsers it serves reconnect on their own.
+    init: true
+    command: ["sh", "/usr/local/bin/kern-tls", "run", "TERM", "--", "php", "artisan", "reverb:start"]
+    environment:
+      - REVERB_TLS_CERT=/run/kern/tls/server.crt
+      - REVERB_TLS_KEY=/run/kern/tls/server.key
+      - APP_NAME
+      - APP_ENV
+      - APP_DEBUG
+      # The fallback for REVERB_ALLOWED_ORIGINS in config/reverb.php.
+      - APP_URL
+      - LOG_CHANNEL
+      - LOG_STACK
+      - LOG_LEVEL
+      - REVERB_APP_ID
+      - REVERB_APP_KEY
+      - REVERB_APP_SECRET
+      - REVERB_HOST
+      - REVERB_PORT
+      - REVERB_SCHEME
+      - REVERB_SERVER_HOST
+      - REVERB_SERVER_PORT
+      - REVERB_ALLOWED_ORIGINS
+      - REVERB_SCALING_ENABLED
+      # Boot reads stored settings from the cache and then the database, and gives up quietly when it
+      # cannot reach them. An in-process cache keeps that from being a Redis connection attempt.
+      - CACHE_STORE=array
+    # Its own list, which replaces the shared one: its key and certificate and the watcher, beside the
+    # two writable volumes every PHP process needs. Not the stack's CA, which it never checks anything
+    # against.
+    volumes:
+      - app_storage:/var/www/html/storage
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache
+      - tls_reverb:/run/kern/tls:ro
+      - ./docker/tls/kern-tls.sh:/usr/local/bin/kern-tls:ro
+    depends_on:
+      certs:
+        condition: service_healthy
     networks:
       # edge_net so the edge can proxy the browser's WebSocket handshake to it (see
       # docker/caddy/Caddyfile, `handle /app/*`). Without this the edge cannot resolve
       # `reverb` at all and every client falls back to no live updates, silently.
       - edge_net
+      # app_net so `app` and `queue` can publish to it. Not data_net: it holds no credential for
+      # anything there, and a network it has no use for is only a route for whoever takes it over.
       - app_net
-      - data_net
     healthcheck:
       # Reverb exposes no documented HTTP health route as of this check
       # (2026-09-07) — this only proves the WebSocket port accepts TCP

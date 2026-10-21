@@ -7,7 +7,9 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Http\Controllers\Wallet\Concerns\RespondsToCategoryDirection;
 use Kern\TaxRomania\Wallet\Actions\RecordFinancialTransaction;
@@ -50,7 +52,15 @@ final class RecordTransactionController
             // to `RecordFinancialTransaction`'s own guard, which is the backstop for an importer
             // that never passed through a form.
             'account_id' => ['required', 'uuid', function (string $attribute, mixed $value, Closure $fail): void {
-                $account = FinancialAccount::query()->find(is_string($value) ? $value : '');
+                // The `uuid` rule already rejects anything that is not a well-formed id, but a
+                // closure still runs after a failed rule — so query only a real UUID. Handing
+                // `find()` an empty string or a non-UUID lets Postgres raise a `22P02` that escapes
+                // validation as a 500; a malformed id must be the `uuid` rule's own 422 instead.
+                if (! is_string($value) || ! Str::isUuid($value)) {
+                    return;
+                }
+
+                $account = FinancialAccount::query()->find($value);
 
                 if ($account !== null && $account->kind->isHolding()) {
                     $fail("A {$account->kind->value} source does not receive transactions.");
@@ -59,7 +69,7 @@ final class RecordTransactionController
             // Signed minor units: money out is negative, money in positive. A separate
             // "direction" field would let the sign and the direction disagree.
             'amount_minor' => ['required', 'integer', 'not_in:0'],
-            'currency_code' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency_code' => ['required', ...CurrencyCode::rules()],
             'booked_at' => ['required', 'date'],
             'description' => ['required', 'string', 'max:255'],
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:255'],

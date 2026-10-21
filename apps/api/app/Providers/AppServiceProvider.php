@@ -5,12 +5,35 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Laravel\Horizon\Horizon;
 
 final class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->keepTestsOffSharedServices();
+    }
+
+    public function boot(): void
+    {
+        $this->closeHorizonsDashboard();
+    }
+
+    /**
+     * Horizon's own dashboard (`/horizon`, and the 22 routes under it) is shut to everyone.
+     *
+     * The package always registers it, with no setting to leave it out, and lets in whoever its auth
+     * callback allows. Its default allows everyone when `APP_ENV` is `local` — signed out included —
+     * and nobody otherwise. `compose.dev.yaml` makes `local` the value whenever `.env` has none, so one
+     * missing line put every job's payload, and a button that re-runs jobs, on a public address.
+     *
+     * Nothing here uses the dashboard: the Operations screen reads the same queues and failed jobs
+     * itself, under this application's permissions (`Kern\TaxRomania\Operations`). So the answer is
+     * no, for every request, in every environment. Horizon still runs the jobs; only its page is shut.
+     */
+    private function closeHorizonsDashboard(): void
+    {
+        Horizon::auth(static fn (): bool => false);
     }
 
     /**

@@ -29,16 +29,17 @@ use Kern\Legislation\Http\Controllers\ShowProvisionHistoryController;
  * Legislation search (`/legislation`) — hybrid lexical + semantic retrieval over ingested sources
  * (`BLUEPRINT.md` §15.2).
  *
- * `auth:web` and nothing more: this is public law, not tenant data, so there is no `{subject}` to
- * bind and no per-subject permission to check. It is behind authentication at all because each call
- * runs an embedding model, and an unauthenticated endpoint that does that is a free way to burn the
- * server's CPU.
+ * No `{subject}` and no permission: this is public law, not tenant data. It is behind authentication
+ * and a per-account throttle because each call runs an embedding model, and an endpoint that does
+ * that without either is a free way to burn the server's CPU.
  */
-Route::get('v1/legislation/search', SearchLegislationController::class)->middleware('auth:web');
+Route::get('v1/legislation/search', SearchLegislationController::class)
+    ->middleware(['auth:web', 'throttle:legislation-search-per-user']);
 
 // Finding an act on the portal to read it: a search that reaches out to legislatie.just.ro, so for
 // the same people who may start reading one.
-Route::get('v1/legislation/portal', SearchPortalController::class)->middleware(['auth:web', 'permission:operations.run']);
+Route::get('v1/legislation/portal', SearchPortalController::class)
+    ->middleware(['auth:web', 'permission:operations.run', 'throttle:operator-calls-per-user']);
 
 // The laws read, each with its consolidations, its text on a date and a provision's history — the
 // same public law, behind the same authentication and for the same reason.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Subjects\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
@@ -53,5 +54,72 @@ final class SubjectMembership extends Model
     public function isActive(): bool
     {
         return $this->revoked_at === null;
+    }
+
+    /**
+     * Memberships in force: not revoked. A revoked one is history, not access — the one definition
+     * every other scope, the gate and every count starts from.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('revoked_at');
+    }
+
+    /**
+     * Memberships that open their taxpayer: not revoked, and in a role that has rules
+     * ({@see MembershipRole::opening()}). One definition for the gate and for every list of "my
+     * taxpayers", so a membership that opens nothing is not shown as one that does.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOpening(Builder $query): Builder
+    {
+        return $query
+            ->active()
+            ->whereIn('role', array_map(static fn (MembershipRole $role): string => $role->value, MembershipRole::opening()));
+    }
+
+    /**
+     * Memberships that own their taxpayer: not revoked, and OWNER — what an owner-only action asks
+     * for (its status, its details, its picture), which stays the owner's whatever sharing adds.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOwned(Builder $query): Builder
+    {
+        return $query->active()->where('role', MembershipRole::OWNER->value);
+    }
+
+    /** True when this user holds a membership that opens this taxpayer. */
+    public static function opens(string $userId, string $subjectId): bool
+    {
+        return self::query()->where('user_id', $userId)->where('subject_id', $subjectId)->opening()->exists();
+    }
+
+    /** True when this user owns this taxpayer. */
+    public static function owns(string $userId, string $subjectId): bool
+    {
+        return self::query()->where('user_id', $userId)->where('subject_id', $subjectId)->owned()->exists();
+    }
+
+    /**
+     * Makes this user the owner of a taxpayer they have just registered — the one way an owner's
+     * membership is written, whichever kind of taxpayer it is.
+     */
+    public static function grantOwnership(string $subjectId, string $userId): self
+    {
+        return self::create([
+            'subject_id' => $subjectId,
+            'user_id' => $userId,
+            'role' => MembershipRole::OWNER,
+            'permissions_json' => [],
+            'valid_from' => now('UTC'),
+            'revoked_at' => null,
+        ]);
     }
 }

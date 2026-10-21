@@ -9,8 +9,6 @@ use Kern\Platform\Identity\Models\UserSession;
 use Tests\TestCase;
 
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     // Fixed so "live" and "expired" are the test's statements rather than the suite's timing.
     Config::set('session.lifetime', 120);
     Config::set('identity.sessions.prune_grace_minutes', 60);

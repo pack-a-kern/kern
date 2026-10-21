@@ -105,19 +105,6 @@ enum SniffedFileType: string
         return null;
     }
 
-    /**
-     * Whether the file carries its own readable text.
-     *
-     * A PDF may (its text layer, extracted locally); a CSV *is* text; a photograph never does and
-     * can only be looked at. A workbook is neither: it is read by the statement parser, which
-     * produces rows rather than prose, so it never enters the text pipeline. This is what routes a part through
-     * `Kern\Documents\Jobs\ProcessScannedDocument`.
-     */
-    public function hasTextLayer(): bool
-    {
-        return $this === self::PDF || $this === self::CSV;
-    }
-
     public function isImage(): bool
     {
         return $this === self::JPEG || $this === self::PNG;

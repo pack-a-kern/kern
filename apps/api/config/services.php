@@ -24,6 +24,8 @@ return [
      */
     'processing' => [
         'base_url' => env('PROCESSING_URL'),
+        // The CA its certificate is checked against — Kern\Platform\Http\CertificateAuthority.
+        'ca_cert' => env('PROCESSING_CA_CERT'),
 
         // Sent as `Authorization: Bearer <token>`, and must equal the Python service's own
         // `INTERNAL_SERVICE_AUTH_TOKEN` — compose wires the same value into both containers. Empty by

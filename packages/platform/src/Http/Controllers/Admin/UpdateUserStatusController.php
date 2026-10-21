@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Platform\Access\SuperAdministratorRole;
+use Kern\Platform\Identity\Actions\RevokeAllSessions;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
 
@@ -22,8 +24,12 @@ use Kern\Platform\Identity\Models\User;
  */
 final class UpdateUserStatusController
 {
-    public function __invoke(Request $request, User $user, AuditChainService $audit): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        User $user,
+        AuditChainService $audit,
+        RevokeAllSessions $revokeAll,
+    ): JsonResponse {
         $validated = $request->validate([
             'status' => ['required', Rule::enum(UserStatus::class)],
         ]);
@@ -46,9 +52,29 @@ final class UpdateUserStatusController
             'This account has been erased and cannot be changed.',
         );
 
+        // Only a super administrator may change a super administrator's status — the same rule erasure
+        // and role changes already enforce. `users.manage` alone is not enough: an installation that
+        // grants it to ADMIN would otherwise let an ordinary administrator suspend the super
+        // administrators and lock the top role out from below it. (Suspending the *last* active super
+        // administrator needs no separate guard: the only actor this check admits is another super
+        // administrator, who is themselves active, so one always remains — and nobody may suspend
+        // their own account, above.)
+        if (SuperAdministratorRole::isHeldBy($user)) {
+            abort_unless(
+                $actor !== null && SuperAdministratorRole::isHeldBy($actor),
+                403,
+                'Only a super administrator may change a super administrator\'s status.',
+            );
+        }
+
         $before = $user->status;
         $user->status = $status;
         $user->save();
+
+        // A suspension that left the sessions alive would be a label, not a lock.
+        if ($status !== UserStatus::ACTIVE) {
+            $revokeAll($user, null);
+        }
 
         $actorKey = $actor?->getKey();
         $actorId = is_scalar($actorKey) ? (string) $actorKey : null;

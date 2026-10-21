@@ -12,8 +12,6 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     // The command refuses to assign a role that has no row, so the catalogue has to exist first —
     // which is the ordering the installer follows too: `kern:access:sync` before `kern:admin:create`.
     Artisan::call('kern:access:sync');

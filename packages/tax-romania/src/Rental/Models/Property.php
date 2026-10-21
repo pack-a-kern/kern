@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Rental\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Kern\Platform\Crypto\Casts\Encrypted;
 use Kern\Platform\Crypto\Concerns\FillsSubjectForeignKeyFirst;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
@@ -60,12 +59,6 @@ final class Property extends Model implements EncryptsWithSubjectDek
         'cadastral_ref_ciphertext' => Encrypted::class,
         'acquired_at' => 'date',
     ];
-
-    /** @return HasMany<RentalContract, $this> */
-    public function rentalContracts(): HasMany
-    {
-        return $this->hasMany(RentalContract::class, 'property_id');
-    }
 
     public function encryptionSubjectId(): string
     {

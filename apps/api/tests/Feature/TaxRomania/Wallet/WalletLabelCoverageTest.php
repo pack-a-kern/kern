@@ -7,7 +7,6 @@ use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Enums\InterestMethod;
 use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
 use Kern\TaxRomania\Wallet\Enums\RateType;
-use Kern\TaxRomania\Wallet\Enums\RecordSource;
 
 /**
  * Every wallet enum the API can return must have a label in every locale.
@@ -76,10 +75,11 @@ function walletEnumValues(): array
 {
     return [
         'kinds' => array_map(static fn (AccountKind $case): string => $case->value, AccountKind::cases()),
-        'sources' => array_map(static fn (RecordSource $case): string => $case->value, RecordSource::cases()),
         'frequencies' => array_map(static fn (PaymentFrequency $case): string => $case->value, PaymentFrequency::cases()),
         'rateTypes' => array_map(static fn (RateType $case): string => $case->value, RateType::cases()),
         'interestMethods' => array_map(static fn (InterestMethod $case): string => $case->value, InterestMethod::cases()),
+        // No `sources` entry: a record's source is never shown as a word — the screens only ask
+        // whether it is SYSTEM — so its labels were removed with the other texts nothing showed.
         // No `dayCounts` entry: the convention is never rendered. It is applied server-side from
         // `config/wallet.php` and never offered, shown or returned to a screen, so there are no
         // labels for it to cover — the test below guards the configured value instead.

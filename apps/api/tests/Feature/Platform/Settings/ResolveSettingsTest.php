@@ -68,7 +68,7 @@ it('gives no hint at all for a short secret, rather than most of it', function (
     expect(app(ResolveSettings::class)->one(SettingKey::AI_API_KEY)->hint)->toBeNull();
 });
 
-it('marks the four unsafe-to-change settings read-only', function (): void {
+it('marks the three unsafe-to-change settings read-only', function (): void {
     $readOnly = array_values(array_filter(
         SettingKey::cases(),
         fn (SettingKey $k): bool => app(ResolveSettings::class)->one($k)->readOnly,
@@ -77,7 +77,6 @@ it('marks the four unsafe-to-change settings read-only', function (): void {
     expect(array_map(fn (SettingKey $k): string => $k->value, $readOnly))
         ->toEqualCanonicalizing([
             'fx.decimal_scale',
-            'crypto.blind_index_current_version',
             'crypto.kms_driver',
             'security.hash_driver',
         ]);

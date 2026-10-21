@@ -69,7 +69,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
 import type {
@@ -95,6 +95,7 @@ import {
     type StatusTone,
 } from '../../components/panel';
 import { Button } from '@/components/ui/button';
+import { statusToneClass } from '../../components/panel/statusTone';
 
 /** Statuses for which `GET .../documents/{document}/content` can return bytes
  * (`Kern\Documents\Http\Controllers\ShowDocumentContentController::CONTENT_AVAILABLE_STATUSES`). */
@@ -137,21 +138,6 @@ function SummaryFact({ icon, label, children }: { icon: ReactNode; label: string
             <div className="fact-value">{children}</div>
         </div>
     );
-}
-
-/**
- * A status tone as a text colour, for the dot-and-label form the tables use.
- *
- * The same treatment as the inbox: the dot carries the colour and the label stays text, so the two
- * screens describe a document's state identically.
- */
-function statusToneClass(tone: StatusTone): string {
-    return {
-        ok: 'text-success',
-        warn: 'text-warning',
-        bad: 'text-destructive',
-        idle: 'text-muted-foreground',
-    }[tone];
 }
 
 function documentTone(status: DocumentSummary['status']): StatusTone {
@@ -410,8 +396,8 @@ function ReadingCost({ extraction }: { extraction: DocumentExtractionSummary }):
         extraction.promptTokens === null && extraction.completionTokens === null
             ? null
             : t((d) => d.documentsReview.tokensUsed)
-                  .replace('{prompt}', (extraction.promptTokens ?? 0).toLocaleString(locale))
-                  .replace('{completion}', (extraction.completionTokens ?? 0).toLocaleString(locale)),
+                  .replace('{prompt}', formatNumber(extraction.promptTokens ?? 0, locale))
+                  .replace('{completion}', formatNumber(extraction.completionTokens ?? 0, locale)),
     ].filter((line): line is string => line !== null);
 
     return (

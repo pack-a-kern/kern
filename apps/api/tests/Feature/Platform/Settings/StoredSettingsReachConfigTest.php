@@ -24,7 +24,6 @@ use Kern\Platform\Settings\Services\StoredSettingsOverlay;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 it('points every setting at a configuration key some config file actually declares', function (): void {

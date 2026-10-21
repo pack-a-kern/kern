@@ -28,13 +28,18 @@ function liveService(): OpenBaoTransitKeyManagementService
     $address = getenv('OPENBAO_TEST_ADDR');
     $token = getenv('OPENBAO_TEST_TOKEN');
     $keyName = getenv('OPENBAO_TEST_KEK_NAME');
+    // The bundled server's CA, for a run against it over TLS — the file it publishes to the app.
+    $caCert = getenv('OPENBAO_TEST_CA_CERT');
 
     return new OpenBaoTransitKeyManagementService(
         app(HttpFactory::class),
         is_string($address) ? $address : '',
         is_string($token) ? $token : '',
+        null,
+        is_string($caCert) && $caCert !== '' ? $caCert : true,
         'transit',
         is_string($keyName) && $keyName !== '' ? $keyName : 'kern-crypto-core-test-kek',
+        'blind-index',
         5,
     );
 }

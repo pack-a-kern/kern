@@ -36,7 +36,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
-import { formatDate } from '../lib/format';
+import { formatDate, formatMinor, formatPercent } from '../lib/format';
 import { getActiveSubjectId } from '../lib/subjectStore';
 import { useCurrencies } from '../lib/sharedProps';
 import { themeColor } from '../lib/themeColor';
@@ -44,7 +44,6 @@ import { cn } from '../lib/utils';
 import {
     addHoldings,
     BASE_CURRENCY,
-    formatMinor,
     type Holding,
     type NetWorth,
     type WalletOverview as Overview,
@@ -147,8 +146,7 @@ export default function Dashboard(): JSX.Element {
 
     const converted = (total: NetWorth): string => formatMinor(total.amountMinor, total.currencyCode, locale);
 
-    const percent = (share: number): string =>
-        new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(share);
+    const percent = (share: number): string => formatPercent(share, locale, 0);
 
     /** A holding's converted figure, or zero in the display currency when it holds nothing. */
     const holdingValue = (holding: Holding | undefined): string =>

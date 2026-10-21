@@ -30,6 +30,11 @@ return [
                 'scheme' => env('REVERB_SCHEME', 'https'),
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
+            // The CA Reverb's certificate is checked against when an event is published — the stack's
+            // own, which compose sets; the system's when unset.
+            'client_options' => [
+                'verify' => env('REVERB_CA_CERT') ?: true,
+            ],
         ],
 
         'log' => [

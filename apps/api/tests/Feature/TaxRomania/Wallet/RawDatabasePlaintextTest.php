@@ -25,7 +25,6 @@ use Kern\TaxRomania\Wallet\Enums\AccountKind;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
-    bootstrapIdentityCryptoForTests();
 });
 
 /**

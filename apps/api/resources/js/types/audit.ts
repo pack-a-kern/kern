@@ -1,3 +1,5 @@
+import { nullableStr, num, str } from '../lib/json';
+
 /**
  * Shapes returned by `/api/v1/audit/*`.
  *
@@ -37,30 +39,14 @@ export interface AuditSummary {
     events24h: number;
     actors24h: number;
     eventTypes: string[];
+    /** False for a role that sees the account and system lines only (`audit.view.taxpayers`). */
+    reachesTaxpayers: boolean;
     integrity: {
         ok: boolean;
         chainsChecked: number;
         eventsVerified: number;
         broken: { chainKey: string; sequence: number | null; reason: string | null } | null;
     };
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : '';
-}
-
-function nullableStr(row: Record<string, unknown>, key: string): string | null {
-    const value = row[key];
-
-    return typeof value === 'string' ? value : null;
-}
-
-function num(row: Record<string, unknown>, key: string): number {
-    const value = row[key];
-
-    return typeof value === 'number' ? value : 0;
 }
 
 export function parseAuditPage(payload: unknown): AuditPage {
@@ -126,6 +112,7 @@ export function parseAuditSummary(payload: unknown): AuditSummary {
         eventTypes: Array.isArray(body.event_types)
             ? body.event_types.filter((entry): entry is string => typeof entry === 'string')
             : [],
+        reachesTaxpayers: body.reach === 'everything',
         integrity: {
             ok: integrity.ok === true,
             chainsChecked: num(integrity, 'chains_checked'),

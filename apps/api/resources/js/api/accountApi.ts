@@ -1,18 +1,27 @@
 import { apiRequest, apiUpload } from '../lib/http';
-import { type Profile, type SubjectsPage, parseProfile, parseSubjectsPage } from '../types/account';
+import {
+    type Profile,
+    type SubjectsPage,
+    parsePasswordChange,
+    parseProfile,
+    parseSubjectsPage,
+} from '../types/account';
 
 /** `GET /api/v1/me` — the signed-in account. */
 export async function getProfile(): Promise<Profile> {
     return parseProfile(JSON.parse(await apiRequest('/v1/me')));
 }
 
-/** `PUT /api/v1/me/password` — the current password is required even on an authenticated session. */
+/**
+ * `PUT /api/v1/me/password` — the current password is required even on an authenticated session.
+ * Every other session is signed out; resolves to how many were.
+ */
 export async function changePassword(input: {
     currentPassword: string;
     password: string;
     passwordConfirmation: string;
-}): Promise<void> {
-    await apiRequest('/v1/me/password', {
+}): Promise<number> {
+    const body = await apiRequest('/v1/me/password', {
         method: 'PUT',
         body: {
             current_password: input.currentPassword,
@@ -20,6 +29,8 @@ export async function changePassword(input: {
             password_confirmation: input.passwordConfirmation,
         },
     });
+
+    return parsePasswordChange(JSON.parse(body));
 }
 
 /** `GET /api/v1/subjects` — the tax subjects this account is a member of. */
@@ -177,9 +188,7 @@ export async function uploadSubjectAvatar(subjectId: string, file: File): Promis
     const body = new FormData();
     body.append('avatar', file);
 
-    const response: unknown = JSON.parse(
-        await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/avatar`, body),
-    );
+    const response: unknown = JSON.parse(await apiUpload(`/v1/subjects/${encodeURIComponent(subjectId)}/avatar`, body));
 
     if (typeof response !== 'object' || response === null) {
         return null;

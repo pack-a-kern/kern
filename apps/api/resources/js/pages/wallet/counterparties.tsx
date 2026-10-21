@@ -46,8 +46,10 @@ import { useRememberedPaging } from '../../hooks/useRememberedState';
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { categoriesFor, parseTaxCategories, type Tag, type TaxCategory } from '../../types/wallet';
 import { useTranslation } from '../../i18n';
+import { formatNumber } from '../../lib/format';
 import { apiRequest } from '../../lib/http';
 import { getActiveSubjectId } from '../../lib/subjectStore';
+import { obj, str } from '../../lib/json';
 
 /** One direction's remembered answer, or nothing where nobody has decided yet. */
 interface Rule {
@@ -79,14 +81,6 @@ interface Listing {
     total: number;
     categories: TaxCategory[];
     tags: Record<string, string>;
-}
-
-function obj(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-}
-
-function str(row: Record<string, unknown>, key: string): string {
-    return typeof row[key] === 'string' ? row[key] : '';
 }
 
 function parseRule(value: unknown): Rule | null {
@@ -473,7 +467,7 @@ export default function WalletCounterparties(): JSX.Element {
                                         <CellLabel icon={<ArrowLeftRight className="size-3.5" aria-hidden="true" />}>
                                             {t((d) => d.pages.walletCounterparties.rows)}
                                         </CellLabel>
-                                        {party.rows.toLocaleString(locale)}
+                                        {formatNumber(party.rows, locale)}
                                     </td>
                                     {/* In and out, as the two directions rather than two words: the
                                         pair is the only thing on this row a reader compares, and the
@@ -690,7 +684,7 @@ export default function WalletCounterparties(): JSX.Element {
                         {picked.map((party) => (
                             <li key={party.name} className="flex items-baseline justify-between gap-3 py-2">
                                 <span className="truncate text-xs font-semibold">{party.name}</span>
-                                <span className="note">{party.rows.toLocaleString(locale)}</span>
+                                <span className="note">{formatNumber(party.rows, locale)}</span>
                             </li>
                         ))}
                     </ul>

@@ -12,6 +12,7 @@ use Kern\Platform\Crypto\Casts\Encrypted;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use Kern\Platform\Identity\Avatars\HasAvatar;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Database\Factories\TaxSubjectFactory;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
@@ -108,6 +109,23 @@ final class TaxSubject extends Model implements EncryptsWithSubjectDek, HasAvata
         $this->save();
     }
 
+    /** The currency this taxpayer's totals are shown in: its own choice, or lei. */
+    public function displayCurrency(): string
+    {
+        return self::currencyOrBase($this->getAttribute('display_currency'));
+    }
+
+    /**
+     * The same, for a taxpayer not loaded — one column, nothing decrypted.
+     *
+     * Lei rather than a refusal where the row cannot be read: a dashboard that will not render
+     * because a preference is missing is worse than one that adds up in lei.
+     */
+    public static function displayCurrencyOf(string $subjectId): string
+    {
+        return self::currencyOrBase(self::query()->whereKey($subjectId)->value('display_currency'));
+    }
+
     /** The cache key an image URL carries, as the wire shape wants it, or null when there is none. */
     public function avatarUpdatedAt(): ?string
     {
@@ -125,5 +143,13 @@ final class TaxSubject extends Model implements EncryptsWithSubjectDek, HasAvata
     public function avatarOwnerType(): string
     {
         return 'tax_subject';
+    }
+
+    /** Trimmed: the column is `char(3)`, and Postgres pads an empty one to three spaces. */
+    private static function currencyOrBase(mixed $stored): string
+    {
+        $code = is_string($stored) ? strtoupper(trim($stored)) : '';
+
+        return $code !== '' ? $code : CurrencyCode::BASE;
     }
 }

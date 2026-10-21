@@ -1,8 +1,9 @@
 # TaxOS România — app / queue / scheduler / reverb image (Laravel 13, PHP 8.5).
 #
 # Base image, PHP extensions and Composer version are all pinned per
-# docs/reference/verified-versions.md and docs/DEPENDENCY-POLICY.md. Do not
-# float any tag in this file.
+# docs/reference/verified-versions.md and docs/DEPENDENCY-POLICY.md — each image
+# by exact tag and digest, so a rebuild of the tag upstream changes nothing here
+# until `make pins` reports it and the pin is moved. Do not float any tag.
 #
 # sodium (XChaCha20-Poly1305) and --with-password-argon2 (Argon2id) already
 # ship enabled in php:8.5-fpm-trixie — see verified-versions.md. Do not
@@ -18,7 +19,7 @@
 # Stage: ext-builder — compile the four required PHP extensions in isolation
 # from a build toolchain, so the final runtime image never carries a compiler.
 # ---------------------------------------------------------------------------
-FROM php:8.5-fpm-trixie AS ext-builder
+FROM php:8.5.12-fpm-trixie@sha256:f665ad19c093eee54db3a03c89102d6828b1bbf4f327689e5947a8686c6585a1 AS ext-builder
 
 # Exact apt candidate versions for trixie, checked 2026-09-07 (see handoff
 # "Sources consulted"). Pinning apt packages by version, per
@@ -57,7 +58,7 @@ RUN docker-php-ext-configure gd --with-jpeg --with-webp \
 # ---------------------------------------------------------------------------
 # Stage: composer — pinned Composer binary, used only to vendor apps/api.
 # ---------------------------------------------------------------------------
-FROM composer:2.10.3 AS composer-bin
+FROM composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac AS composer-bin
 
 # ---------------------------------------------------------------------------
 # Stage: vendor — install PHP dependencies against the real lockfile.
@@ -86,7 +87,7 @@ RUN composer install \
 # ---------------------------------------------------------------------------
 # Stage: runtime — the actual app/queue/scheduler/reverb image.
 # ---------------------------------------------------------------------------
-FROM php:8.5-fpm-trixie AS runtime
+FROM php:8.5.12-fpm-trixie@sha256:f665ad19c093eee54db3a03c89102d6828b1bbf4f327689e5947a8686c6585a1 AS runtime
 
 # Extensions compiled in ext-builder, copied in (no compiler in this stage).
 COPY --from=ext-builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions
@@ -116,8 +117,8 @@ COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 RUN groupadd --gid 10001 appuser \
     && useradd --uid 10001 --gid appuser --no-create-home --shell /usr/sbin/nologin appuser \
-    && mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chown -R appuser:appuser /var/www/html
+    && mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache /run/php \
+    && chown -R appuser:appuser /var/www/html /run/php
 
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
 COPY --from=vendor --chown=appuser:appuser /var/www/html/vendor /var/www/html/vendor
@@ -140,7 +141,6 @@ RUN composer dump-autoload --optimize --no-dev --classmap-authoritative \
     && rm -f /usr/bin/composer
 
 USER appuser
-EXPOSE 9000
 CMD ["php-fpm", "--nodaemonize"]
 
 # ---------------------------------------------------------------------------

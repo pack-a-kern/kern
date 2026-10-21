@@ -11,6 +11,7 @@ use Kern\Platform\Http\Controllers\Auth\Concerns\EstablishesAuthenticatedSession
 use Kern\Platform\Identity\Actions\CompleteMfaChallenge;
 use Kern\Platform\Identity\Exceptions\InvalidMfaCodeException;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Identity\Support\PendingMfaLogin;
 use Kern\Platform\Identity\Support\SessionRegistrar;
 
 /**
@@ -23,8 +24,6 @@ final class MfaChallengeController
 {
     use EstablishesAuthenticatedSession;
 
-    private const string PENDING_MFA_SESSION_KEY = 'auth.mfa_pending';
-
     public function __invoke(
         Request $request,
         CompleteMfaChallenge $complete,
@@ -35,10 +34,10 @@ final class MfaChallengeController
         ]);
 
         /** @var array{user_id: string, expires_at: int}|null $pending */
-        $pending = $request->session()->get(self::PENDING_MFA_SESSION_KEY);
+        $pending = $request->session()->get(PendingMfaLogin::SESSION_KEY);
 
         if ($pending === null || $pending['expires_at'] < now('UTC')->timestamp) {
-            $request->session()->forget(self::PENDING_MFA_SESSION_KEY);
+            $request->session()->forget(PendingMfaLogin::SESSION_KEY);
 
             throw ValidationException::withMessages(['code' => ['No pending login to complete. Please sign in again.']]);
         }
@@ -51,7 +50,7 @@ final class MfaChallengeController
             throw ValidationException::withMessages(['code' => [$exception->getMessage()]]);
         }
 
-        $request->session()->forget(self::PENDING_MFA_SESSION_KEY);
+        $request->session()->forget(PendingMfaLogin::SESSION_KEY);
         $this->establishSessionFor($request, $user, $sessions);
 
         return response()->json(['id' => $user->id]);

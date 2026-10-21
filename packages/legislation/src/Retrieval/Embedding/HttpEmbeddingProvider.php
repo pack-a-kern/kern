@@ -7,6 +7,8 @@ namespace Kern\Legislation\Retrieval\Embedding;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Kern\Legislation\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
+use Kern\Platform\Config\RequiredConfig;
+use Kern\Platform\Http\StackService;
 use RuntimeException;
 use Throwable;
 
@@ -42,6 +44,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
     public function __construct(
         private readonly HttpFactory $http,
         private readonly ConfigRepository $config,
+        private readonly RequiredConfig $required,
     ) {
     }
 
@@ -55,11 +58,15 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
             return [];
         }
 
-        $token = $this->stringConfig('services.processing.auth_token');
+        $service = StackService::processing($this->config);
 
-        if ($token === '') {
-            // Same failure this module already uses for "no provider": the caller is expected to
-            // leave chunks unembedded rather than treat it as retryable.
+        // Same failure this module already uses for "no provider": the caller is expected to leave
+        // chunks unembedded rather than treat it as retryable.
+        if (! $service->isConfigured()) {
+            throw new EmbeddingProviderNotConfiguredException('The embedding service address is not configured.');
+        }
+
+        if (! $service->hasToken()) {
             throw new EmbeddingProviderNotConfiguredException(
                 'The embedding service authentication token is not configured.',
             );
@@ -68,7 +75,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
         $vectors = [];
 
         foreach (array_chunk($texts, $this->batchSize()) as $batch) {
-            foreach ($this->embedBatch($batch, $token, $purpose) as $vector) {
+            foreach ($this->embedBatch($batch, $service, $purpose) as $vector) {
                 $vectors[] = $vector;
             }
         }
@@ -105,14 +112,12 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
      * @param  list<string>  $batch
      * @return list<EmbeddingVector>
      */
-    private function embedBatch(array $batch, string $token, EmbeddingPurpose $purpose): array
+    private function embedBatch(array $batch, StackService $service, EmbeddingPurpose $purpose): array
     {
         try {
-            $response = $this->http
-                ->timeout($this->intConfig('ai.embeddings.timeout_seconds'))
-                ->withToken($token)
+            $response = $service->request($this->http, $this->required->positiveInt('ai.embeddings.timeout_seconds'))
                 ->acceptJson()
-                ->post($this->baseUrl() . '/v1/embeddings', [
+                ->post($service->url('/v1/embeddings'), [
                     'texts' => $batch,
                     'input_type' => $purpose->value,
                 ]);
@@ -140,7 +145,7 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
             $this->reportedModel = $model;
         }
 
-        $expected = $this->intConfig('ai.embeddings.dimension');
+        $expected = $this->required->positiveInt('ai.embeddings.dimension');
         $vectors = [];
 
         foreach ($rows as $row) {
@@ -166,38 +171,9 @@ final class HttpEmbeddingProvider implements EmbeddingProvider
         return $vectors;
     }
 
-    private function baseUrl(): string
-    {
-        return rtrim($this->stringConfig('services.processing.base_url'), '/');
-    }
-
     /** @return int<1, max> */
     private function batchSize(): int
     {
-        return max(1, $this->intConfig('ai.embeddings.batch_size'));
-    }
-
-    private function stringConfig(string $key): string
-    {
-        $value = $this->config->get($key);
-
-        return is_string($value) ? $value : '';
-    }
-
-    /**
-     * A positive whole number from config, or a refusal naming the key.
-     *
-     * No fallback of its own: this used to carry defaults that disagreed with config — a dimension of
-     * 1024 here against 384 there — and a fallback that is never used is still read, and believed.
-     */
-    private function intConfig(string $key): int
-    {
-        $value = $this->config->get($key);
-
-        if (! is_int($value) || $value <= 0) {
-            throw new RuntimeException("Missing or invalid config value \"{$key}\".");
-        }
-
-        return $value;
+        return max(1, $this->required->positiveInt('ai.embeddings.batch_size'));
     }
 }

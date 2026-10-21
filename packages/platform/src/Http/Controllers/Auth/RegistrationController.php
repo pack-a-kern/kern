@@ -6,9 +6,8 @@ namespace Kern\Platform\Http\Controllers\Auth;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use Kern\Platform\Identity\Actions\RegisterUser;
-use Kern\Platform\Identity\Exceptions\EmailAlreadyRegisteredException;
+use Illuminate\Support\Facades\Hash;
+use Kern\Platform\Identity\Jobs\RegisterAccount;
 use Kern\Platform\Identity\Services\RegistrationPolicy;
 
 /**
@@ -19,10 +18,19 @@ use Kern\Platform\Identity\Services\RegistrationPolicy;
  *
  * Closed instances refuse here rather than only hiding the link: the endpoint is reachable with a
  * terminal whatever the interface shows, so a switch enforced in the page is not a switch.
+ *
+ * ## The same answer for every address
+ *
+ * It used to say "already registered" for an address with an account, so anyone could ask whether a
+ * given person keeps their taxes here — and collect the ones who do, to try passwords on. Now every
+ * valid request gets the same 202 with an empty body, in the same time: the password is hashed here,
+ * whichever address it is, and everything that differs — an account made, or its owner told someone
+ * tried — happens afterwards in `Jobs\RegisterAccount`, where nobody is waiting on it. An
+ * administrator opening an account still hears that an address is taken; that screen is theirs alone.
  */
 final class RegistrationController
 {
-    public function __invoke(Request $request, RegisterUser $register, RegistrationPolicy $policy): JsonResponse
+    public function __invoke(Request $request, RegistrationPolicy $policy): JsonResponse
     {
         // Before validation: a closed instance owes a stranger the same answer whatever they typed,
         // and validating first would let one probe field rules through a door that is shut.
@@ -33,14 +41,10 @@ final class RegistrationController
             'password' => ['nullable', 'string', 'min:12', 'max:255'],
         ]);
 
-        try {
-            $user = $register($data['email'], $data['password'] ?? null);
-        } catch (EmailAlreadyRegisteredException $exception) {
-            throw ValidationException::withMessages(['email' => [$exception->getMessage()]]);
-        }
+        $password = $data['password'] ?? null;
 
-        return response()->json([
-            'id' => $user->id,
-        ], 201);
+        RegisterAccount::dispatch($data['email'], $password !== null ? Hash::make($password) : null);
+
+        return response()->json([], 202);
     }
 }

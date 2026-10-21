@@ -1,6 +1,3 @@
-# TaxOS România — spv-browser image (BLUEPRINT.md §13, Playwright worker for
-# the PF SPV portal flow).
-#
 # Base image ships Chromium/Firefox/WebKit already installed and matched to
 # a pinned Playwright driver version — using it instead of installing
 # browsers ourselves avoids a second, independently-drifting version to
@@ -23,7 +20,7 @@
 # typescript-eslint, @types/*) so `npm run build` (tsc) can run. This stage
 # is never shipped.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS build
+FROM mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 AS build
 
 WORKDIR /app
 COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
@@ -41,7 +38,7 @@ RUN npm run build
 # which is why every devDependency — and every future CVE in one — ended up
 # in a container whose only job is to run `node dist/server.js`.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS runtime
+FROM mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 AS runtime
 
 WORKDIR /app
 COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
@@ -85,7 +82,7 @@ CMD ["node", "dist/server.js"]
 #
 # Never used as a runtime image.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS test
+FROM mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 AS test
 
 WORKDIR /app
 

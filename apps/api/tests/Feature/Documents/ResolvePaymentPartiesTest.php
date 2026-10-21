@@ -20,8 +20,6 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  * as the counterparty, because the bank was the only other name on the page.
  */
 beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-
     $this->app->instance(
         SubjectDekService::class,
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),

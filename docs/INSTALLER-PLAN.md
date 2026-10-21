@@ -15,15 +15,15 @@ that assumes it is local:
 
 | Service | Variable | Default today | Declared in |
 |---|---|---|---|
-| PostgreSQL | `DB_HOST` / `DB_PORT` | `postgres` | `apps/api/.env.example:44` |
-| Redis | `REDIS_HOST` / `REDIS_PORT` | `redis` | `apps/api/.env.example:56` |
-| OpenBao | `OPENBAO_ADDR` | `http://openbao:8200` | `packages/platform/.env.example:34` |
+| PostgreSQL | `DB_HOST` / `DB_PORT` | `postgres`, TLS `verify-full` against the stack's CA (set by compose) | `apps/api/.env.example:44` |
+| Redis | `REDIS_HOST` / `REDIS_PORT` | `redis`, TLS only, against the stack's CA (set by compose) | `apps/api/.env.example:56` |
+| OpenBao | `OPENBAO_ADDR` | `https://openbao:8200`, against the stack's CA (set by compose) | `packages/platform/.env.example:34` |
 | ClamAV | `CLAMAV_HOST` / `CLAMAV_PORT` | `clamav` | `packages/documents/.env.example:23` |
-| Processing plane | `PROCESSING_URL` | `http://python-api:8000` | `apps/api/.env.example:159` |
-| Browser worker | `BROWSER_WORKER_URL` | `http://browser-worker:8090` | `packages/tax-romania/.env.example:41` |
-| Object storage | `AWS_ENDPOINT` | empty — already remote in this deployment | `apps/api/.env.example:131` |
+| Processing plane | `PROCESSING_URL` | `https://python-api:8000`, against the stack's CA (set by compose) | `apps/api/.env.example:159` |
+| Browser worker | `BROWSER_WORKER_URL` | `https://browser-worker:8090`, against the stack's CA (set by compose) | `packages/tax-romania/.env.example:41` |
+| Object storage | `AWS_ENDPOINT` | empty — already remote in this deployment; the installer takes `https://` only, and `AWS_CA_CERT` for a private CA | `apps/api/.env.example:131` |
 | Mail | `MAIL_HOST` / `MAIL_PORT` | `mailpit` | `apps/api/.env.example:146` |
-| AI provider | `AI_BASE_URL`, `AI_ENABLED` | empty, `false` | `packages/platform/.env.example:113` |
+| AI provider | none — set on the settings screen only (2026-10-19: the `AI_*` variables were removed, see `docs/SECURITY-FINDINGS.md` #10) | off | `packages/platform/config/ai/providers.php` `defaults` |
 
 `apps/api/.env.example:42` already states the intent: *"DB_HOST to its address and leave that
 container out."*
@@ -287,7 +287,7 @@ something a person made once.
 |---|---|---|---|
 | **Domain, ports 80/443 reachable** | ACME HTTP-01 / TLS-ALPN-01 | yes | **yes** |
 | **Domain behind Cloudflare (proxied)** | ACME **DNS-01** with a CF API token | yes | **yes** |
-| **IP address** | `tls internal` — Caddy's own local CA | **no**, warning | yes, but the warning stays |
+| **IP address** | the certificate `docker/certs` issues it, from this installation's own CA (2026-10-20; it was a hand-made self-signed pair) | **no**, warning — until the CA is imported (`make tls-ca`) | **yes**, the edge restarts on it |
 | **IP address, real certificate** | Let's Encrypt IP certificate | yes | yes — **unverified, see §7** |
 | **Bring your own** | `tls <crt> <key>` | depends | no |
 
@@ -315,11 +315,15 @@ it: the token and the code that speaks to Cloudflare's API are two separate thin
 had only the first. `docker/caddy/Dockerfile` is now two stages:
 
 ```
-FROM caddy:2.11.7-builder-alpine AS builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare@v0.2.4
-FROM caddy:2.11.7-alpine
+FROM caddy:2.11.7-builder-alpine@sha256:… AS builder
+COPY docker/caddy/build/ ./          # main.go, go.mod, go.sum — the whole module graph
+RUN go mod verify && go build -mod=readonly -o /usr/bin/caddy .
+FROM caddy:2.11.7-alpine@sha256:…
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 ```
+
+(It began as `xcaddy build --with`, which pinned the named module and re-resolved everything under it
+on each build; the committed go.mod replaced it on 2026-10-20.)
 
 Pinned to an exact module version like every other dependency, recorded in
 `docs/reference/verified-versions.md`, with the rule behind it in `docs/DEPENDENCY-POLICY.md` §4:
@@ -599,7 +603,8 @@ once the image exists.
    (`docs/DEPLOYMENT.md:315`).
 7. **Build images**, then **start**.
 8. **Wait for the database** on its healthcheck, not a sleep.
-9. **Migrate** — `php artisan migrate --force`.
+9. **Migrate** — `docker compose run --rm migrate`: the migrations as the database's owner, then the
+   application's own limited role (`kern:db:grant-app-role`).
 10. **Initialise the key vault.** For a local OpenBao its entrypoint already does the transit mount,
     the KEK and the scoped token. For an external one, the installer must verify the mount exists
     and the token can wrap and unwrap, and fail loudly if not — a wrong token here is discovered
@@ -616,9 +621,9 @@ once the image exists.
     It refuses if `kern:access:sync` has not run, so step 11 comes first.
 13. **Obtain the certificate.** Caddy does this on first request; the installer waits for it and
     reports what was issued, or says plainly that an IP answer means a browser warning. Until the
-    edge is Caddy, and as the fallback afterwards, this is `scripts/generate-certs.sh` — which the
-    installer calls before step 7, since the edge image is built with the certificate mounted and
-    `make up` refuses to start without it.
+    edge is Caddy, and as the fallback afterwards, this was `scripts/generate-certs.sh`. Since
+    2026-10-20 it is the `certs` container, which issues the edge's certificate for `TLS_EDGE_NAMES`
+    (written by the installer) and every internal service's, and renews them — `DEPLOYMENT.md` §5.
 14. **Health check** — `ProbeSystemHealth`, printed per component. A `degraded` component is a
     non-zero exit with the component named; `not_configured` is printed and passes, because it
     names a service this installation was told not to run.
@@ -626,7 +631,10 @@ once the image exists.
 ### Re-running it
 
 The script must be safe to run twice. It refuses if `.env` exists, and offers `--repair`, which
-skips questions and re-runs steps 8–14 only. Nothing in the flow is allowed to overwrite a `.env`
+skips questions and re-runs steps 8–14 only. It also brings an older `.env` up to date: it names the
+edge's certificate (`TLS_EDGE_NAMES`, from `APP_URL`'s host and this machine's addresses), clears the
+`http://` address of a service this installation runs itself, and warns about any `http://` address
+left for one elsewhere — warns, not refuses, since the installation already depends on it. Nothing in the flow is allowed to overwrite a `.env`
 holding real credentials, which is already the rule `kern:env` follows.
 
 ### Files — as built

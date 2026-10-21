@@ -106,6 +106,20 @@ final class StepUpPolicy
     }
 
     /**
+     * Withdraw this session's step-up, so the next sensitive act must prove itself afresh.
+     *
+     * The marker belongs to whoever proved it, and when the person behind a session changes under it
+     * — an administrator starting or stopping impersonation — one person's recent proof must not be
+     * spent as the other's. `markVerified` writes through the session, destroying it withdraws the
+     * marker; this is the explicit withdrawal for the case where the session lives on but its owner
+     * does not.
+     */
+    public function clear(Session $session): void
+    {
+        $session->forget(self::VERIFIED_AT_KEY);
+    }
+
+    /**
      * Whether this session's last proof is still inside the window.
      *
      * An absent marker is the normal state of a session that has never been asked, and is false here

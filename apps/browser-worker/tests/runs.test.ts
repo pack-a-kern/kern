@@ -26,7 +26,7 @@ async function withServer(
   fn: (baseUrl: string) => Promise<void>,
   options: { readonly authMode?: "token" | "network"; readonly maxWaiting?: number } = {},
 ): Promise<void> {
-  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext });
+  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext, maxSessions: 8 });
   const server: Server = createServer(
     createApp(manager, {
       authMode: options.authMode ?? "token",

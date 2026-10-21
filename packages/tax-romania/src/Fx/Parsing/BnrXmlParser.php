@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxDay;
 use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxRate;
 use Kern\TaxRomania\Fx\Parsing\Exceptions\InvalidBnrXmlException;
@@ -125,7 +126,7 @@ final class BnrXmlParser
 
             $currency = strtoupper(trim($rateNode->getAttribute('currency')));
 
-            if (! preg_match('/^[A-Z]{3}$/', $currency)) {
+            if (! CurrencyCode::isValid($currency)) {
                 throw InvalidBnrXmlException::invalidCurrencyCode($currency, $dateAttribute);
             }
 

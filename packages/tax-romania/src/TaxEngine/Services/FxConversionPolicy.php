@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\TaxEngine\Services;
 
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
+use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Fx\DataTransferObjects\FxRateWithProvenance;
 use Kern\TaxRomania\Fx\Exceptions\FxRateNotFoundException;
 use Kern\TaxRomania\Fx\Services\FxRateQuery;
@@ -73,7 +74,7 @@ final readonly class FxConversionPolicy
             FxConversionMethod::ANNUAL_AVERAGE => $this->annualAverage($amount->currencyCode, (int) $asOf->format('Y'), $sourceCode),
         };
 
-        $converted = $amount->convertedTo('RON', 2, $rate, $roundingMode);
+        $converted = $amount->convertedTo(CurrencyCode::BASE, 2, $rate, $roundingMode);
 
         return new FxConversionResult(
             originalAmount: $amount,

@@ -10,10 +10,6 @@ use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
 
-beforeEach(function (): void {
-    bootstrapIdentityCryptoForTests();
-});
-
 /**
  * A subject with one stream source and one unclassified transaction in it.
  *

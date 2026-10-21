@@ -32,7 +32,7 @@ async function withServer(fn: (baseUrl: string, lines: string[]) => Promise<void
     lines.push(args.map(String).join(" "));
   };
 
-  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext });
+  const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext, maxSessions: 8 });
   const server: Server = createServer(
     createApp(manager, { authMode: "token", internalAuthToken: TEST_TOKEN, concurrency: 1, maxWaiting: 4 }),
   );
