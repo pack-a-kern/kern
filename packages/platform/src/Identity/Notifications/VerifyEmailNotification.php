@@ -14,13 +14,11 @@ use Illuminate\Notifications\Notification;
  * on, and a code that expires in ten minutes is not one of them. It would also put the code in a
  * table this application does not encrypt.
  *
- * ## Why the wording is here and not in the dictionaries
+ * ## Where the wording is
  *
- * Everything a person reads *in the application* is translated, and this is not in the application —
- * it is in their inbox, before they have a session, with no locale to read from. Laravel's own
- * `trans()` would use the server's default, which is not a translation so much as a guess. So the
- * subject and body are the framework's mail language lines, which ship translated, and the only
- * thing this class writes is the code itself.
+ * Not in the interface's dictionaries — this is read in an inbox, not in the application — but in
+ * `platform::verification.mail`. It is sent in the server's locale: the person has no session yet,
+ * so nothing tells this class which language they read.
  *
  * ## What is not in it
  *
@@ -49,10 +47,10 @@ final class VerifyEmailNotification extends Notification
         $minutes = (int) max(1, round($this->ttlSeconds / 60));
 
         return (new MailMessage())
-            ->subject(__('Confirm your email address'))
-            ->line(__('Enter this code to confirm your email address:'))
+            ->subject(__('platform::verification.mail.subject'))
+            ->line(__('platform::verification.mail.intro'))
             ->line($this->code)
-            ->line(__('The code is valid for :minutes minutes.', ['minutes' => $minutes]))
-            ->line(__('If you did not ask for this, you can ignore this message.'));
+            ->line(__('platform::verification.mail.validity', ['minutes' => $minutes]))
+            ->line(__('platform::verification.mail.ignore'));
     }
 }

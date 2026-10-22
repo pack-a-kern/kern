@@ -45,13 +45,13 @@ final readonly class AvatarUpload
         $file = $request->file('avatar');
 
         if (! $file instanceof UploadedFile) {
-            abort(422, 'No file was uploaded.');
+            abort(422, __('platform::account.avatar.missing'));
         }
 
         $bytes = file_get_contents($file->getRealPath());
 
         if ($bytes === false) {
-            abort(422, 'The upload could not be read.');
+            abort(422, __('platform::account.avatar.unreadable'));
         }
 
         return $bytes;

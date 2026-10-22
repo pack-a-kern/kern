@@ -45,7 +45,7 @@ final class DisableTotpController
 
             if (! Hash::check((string) $validated['current_password'], $currentHash)) {
                 throw ValidationException::withMessages([
-                    'current_password' => [__('The current password is incorrect.')],
+                    'current_password' => [__('platform::auth.current_password_incorrect')],
                 ]);
             }
         }
@@ -57,7 +57,7 @@ final class DisableTotpController
 
         if (! $enrolled) {
             throw ValidationException::withMessages([
-                'totp' => [__('This account has no confirmed authenticator app enrolled.')],
+                'totp' => [__('platform::auth.no_authenticator_enrolled')],
             ]);
         }
 

@@ -97,7 +97,7 @@ final class EmailVerificationController
         } catch (InvalidVerificationCodeException) {
             // Through the validator so the screen shows it against the field the person typed in,
             // rather than as a banner they have to connect to it themselves.
-            throw ValidationException::withMessages(['code' => __('The verification code is not valid.')]);
+            throw ValidationException::withMessages(['code' => __('platform::verification.code_invalid')]);
         }
 
         return response()->json(['verified' => true]);

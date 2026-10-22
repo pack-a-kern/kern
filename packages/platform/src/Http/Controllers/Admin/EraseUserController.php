@@ -30,10 +30,10 @@ final class EraseUserController
         abort_unless(SuperAdministratorRole::isHeldBy($administrator), 403);
 
         $target = User::query()->findOrFail($user);
-        abort_if($target->id === $administrator->id, 422, 'You cannot erase your own account.');
-        abort_if(SuperAdministratorRole::isHeldBy($target), 403, 'A super administrator cannot be erased.');
+        abort_if($target->id === $administrator->id, 422, __('platform::admin.erase.self'));
+        abort_if(SuperAdministratorRole::isHeldBy($target), 403, __('platform::admin.erase.super_administrator'));
         // Already a tombstone; erasing it again would write a second event about nothing.
-        abort_if($target->status === UserStatus::DELETED, 422, 'This account has already been erased.');
+        abort_if($target->status === UserStatus::DELETED, 422, __('platform::admin.erase.already_erased'));
 
         $erase($target, $administrator->id);
 

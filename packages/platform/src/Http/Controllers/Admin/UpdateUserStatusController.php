@@ -40,7 +40,7 @@ final class UpdateUserStatusController
         abort_if(
             $actor !== null && $actor->getKey() === $user->getKey() && $status !== UserStatus::ACTIVE,
             422,
-            'You cannot suspend your own account.',
+            __('platform::admin.status.self'),
         );
 
         // An erased account is a tombstone: its password, passkeys and authenticator are gone, so
@@ -49,7 +49,7 @@ final class UpdateUserStatusController
         abort_if(
             $user->status === UserStatus::DELETED,
             422,
-            'This account has been erased and cannot be changed.',
+            __('platform::admin.erased_account'),
         );
 
         // Only a super administrator may change a super administrator's status — the same rule erasure
@@ -63,7 +63,7 @@ final class UpdateUserStatusController
             abort_unless(
                 $actor !== null && SuperAdministratorRole::isHeldBy($actor),
                 403,
-                'Only a super administrator may change a super administrator\'s status.',
+                __('platform::admin.status.super_administrator_only'),
             );
         }
 

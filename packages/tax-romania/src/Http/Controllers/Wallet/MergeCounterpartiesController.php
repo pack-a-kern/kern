@@ -44,7 +44,7 @@ final class MergeCounterpartiesController
 
         if (count($parties) !== count(array_unique($ids))) {
             return response()->json([
-                'message' => 'One of the counterparties could not be found.',
+                'message' => __('tax-romania::wallet.counterparty_not_found'),
                 'reason' => 'COUNTERPARTY_NOT_FOUND',
             ], 404);
         }

@@ -55,7 +55,7 @@ final class UpdatePasswordController
         if (RateLimiter::tooManyAttempts($budget['key'], $budget['attempts'])) {
             // 429, the answer login and step-up already give and `lib/apiErrors.ts` translates. A 422
             // here would read as "that password is wrong", which it is not.
-            throw new ThrottleRequestsException('Too many attempts.');
+            throw new ThrottleRequestsException(__('platform::auth.too_many_attempts'));
         }
 
         if ($current === '' || ! Hash::check((string) $validated['current_password'], $current)) {
@@ -64,7 +64,7 @@ final class UpdatePasswordController
             // Attributed to `current_password` so the form marks the right field, and phrased so it
             // never distinguishes "wrong password" from "no password set" (a passkey-only account).
             throw ValidationException::withMessages([
-                'current_password' => [__('The current password is incorrect.')],
+                'current_password' => [__('platform::auth.current_password_incorrect')],
             ]);
         }
 

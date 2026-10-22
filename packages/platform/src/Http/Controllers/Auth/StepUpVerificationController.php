@@ -74,7 +74,7 @@ final class StepUpVerificationController
             throw ValidationException::withMessages([
                 // Not on `code` or `password`: the dialog translates an error on the field it asked
                 // about into "that was not right", and this is a different thing entirely.
-                'factor' => ['This account has nothing enrolled to confirm with.'],
+                'factor' => [__('platform::auth.nothing_to_confirm_with')],
             ]);
         }
 
@@ -115,14 +115,14 @@ final class StepUpVerificationController
         if (RateLimiter::tooManyAttempts($budget['key'], $budget['attempts'])) {
             // 429, as the route's own throttle answers and as `lib/apiErrors.ts` already translates.
             // A 422 here would have been shown as "that password is wrong", which it is not.
-            throw new ThrottleRequestsException('Too many attempts.');
+            throw new ThrottleRequestsException(__('platform::auth.too_many_attempts'));
         }
 
         if (! Hash::check($data['password'], (string) $user->password_hash)) {
             RateLimiter::hit($budget['key'], $budget['decay']);
             $this->record($audit, $user, 'AuthStepUpFailed');
 
-            throw ValidationException::withMessages(['password' => ['That password is not correct.']]);
+            throw ValidationException::withMessages(['password' => [__('platform::auth.password_incorrect')]]);
         }
 
         // Spent attempts are forgiven on success, as a login's are: the budget exists to slow guessing,

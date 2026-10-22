@@ -128,6 +128,8 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        // The sentences this package's HTTP layer answers with. `tax-romania::wallet.*` and so on.
+        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'tax-romania');
 
         $this->declareWhatMustNeverBeLogged();
 

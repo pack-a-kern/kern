@@ -43,7 +43,7 @@ final class UpdateUserRolesController
         abort_if(
             $user->status === UserStatus::DELETED,
             422,
-            'This account has been erased and cannot be changed.',
+            __('platform::admin.erased_account'),
         );
 
         $validated = $request->validate([
@@ -63,13 +63,13 @@ final class UpdateUserRolesController
         }
 
         if ($actor->getKey() === $user->getKey() && $roles === []) {
-            abort(422, 'You cannot remove your own last platform role.');
+            abort(422, __('platform::admin.roles.own_last_role'));
         }
 
         if (in_array(SuperAdministratorRole::NAME, $before, true) && ! in_array(SuperAdministratorRole::NAME, $roles, true)) {
             $remaining = SuperAdministratorRole::activeHoldersOtherThan($user);
 
-            abort_if($remaining === 0, 422, 'This is the last super administrator; grant the role to someone else first.');
+            abort_if($remaining === 0, 422, __('platform::admin.roles.last_super_administrator'));
         }
 
         $user->syncRoles($roles);

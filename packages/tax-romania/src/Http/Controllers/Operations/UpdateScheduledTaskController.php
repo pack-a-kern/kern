@@ -37,7 +37,7 @@ final class UpdateScheduledTaskController
         $operation = OperationTask::tryFrom($task);
 
         abort_if($operation === null, 404);
-        abort_unless($operation->isScheduled(), 422, 'This task is not on the schedule.');
+        abort_unless($operation->isScheduled(), 422, __('tax-romania::operations.not_scheduled'));
 
         $validated = $request->validate(['enabled' => ['required', 'boolean']]);
         $enabled = (bool) $validated['enabled'];

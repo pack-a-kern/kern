@@ -168,8 +168,8 @@ final class IdentityServiceProvider extends ServiceProvider
     public function boot(): void
     {
         PackageRoutes::load(__DIR__ . '/../../routes/identity.php');
-        // Words this package writes outside the application — mail — where the interface's
-        // dictionaries cannot reach. `platform::registration.*` and so on.
+        // Words this package writes itself rather than the interface's dictionaries: mail, and the
+        // sentences its HTTP layer answers with. `platform::registration.*`, `platform::admin.*` and so on.
         $this->loadTranslationsFrom(__DIR__ . '/../../lang', 'platform');
 
         if ($this->app->runningInConsole()) {

@@ -36,7 +36,7 @@ final class ShowLawTextController
             is_string($validated['provision'] ?? null) ? $validated['provision'] : null,
         );
 
-        abort_if($text === null, 404, 'No consolidation of this law covers that date.');
+        abort_if($text === null, 404, __('legislation::laws.no_consolidation_for_date'));
 
         return response()->json(['as_of' => $asOf->format('Y-m-d'), ...$text]);
     }

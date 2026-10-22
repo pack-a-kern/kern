@@ -39,7 +39,7 @@ final class MfaChallengeController
         if ($pending === null || $pending['expires_at'] < now('UTC')->timestamp) {
             $request->session()->forget(PendingMfaLogin::SESSION_KEY);
 
-            throw ValidationException::withMessages(['code' => ['No pending login to complete. Please sign in again.']]);
+            throw ValidationException::withMessages(['code' => [__('platform::auth.no_pending_login')]]);
         }
 
         $user = User::query()->findOrFail($pending['user_id']);

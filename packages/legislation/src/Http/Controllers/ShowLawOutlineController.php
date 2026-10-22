@@ -22,7 +22,7 @@ final class ShowLawOutlineController
         $asOf = is_string($validated['as_of'] ?? null) ? new DateTimeImmutable($validated['as_of']) : new DateTimeImmutable('today');
         $outline = $library->outline($law, $asOf);
 
-        abort_if($outline === null, 404, 'No consolidation of this law covers that date.');
+        abort_if($outline === null, 404, __('legislation::laws.no_consolidation_for_date'));
 
         return response()->json(['as_of' => $asOf->format('Y-m-d'), ...$outline]);
     }

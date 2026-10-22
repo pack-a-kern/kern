@@ -102,6 +102,8 @@ final class LegislationServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        // The sentences this package's HTTP layer answers with. `legislation::laws.*`.
+        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'legislation');
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
 

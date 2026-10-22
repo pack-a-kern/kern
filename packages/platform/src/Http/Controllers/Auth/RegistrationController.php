@@ -34,7 +34,7 @@ final class RegistrationController
     {
         // Before validation: a closed instance owes a stranger the same answer whatever they typed,
         // and validating first would let one probe field rules through a door that is shut.
-        abort_unless($policy->isOpen(), 403, 'Registration is closed on this instance.');
+        abort_unless($policy->isOpen(), 403, __('platform::auth.registration_closed'));
 
         $data = $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],

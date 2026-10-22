@@ -49,7 +49,7 @@ final class SearchPortalController
                 ? $search->byNumber((int) $query['number'], (int) $year)
                 : $search->byTitle(trim((string) ($query['title'] ?? '')), $year);
         } catch (PortalAnswerException|UnexpectedStatusException|ConnectionException) {
-            return response()->json(['message' => 'legislatie.just.ro did not answer the search.'], 502);
+            return response()->json(['message' => __('legislation::laws.portal_unreachable')], 502);
         }
 
         $type = $query['type'] ?? null;

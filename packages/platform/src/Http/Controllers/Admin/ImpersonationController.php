@@ -54,13 +54,13 @@ final class ImpersonationController
         $administrator = $request->user();
         abort_unless($administrator !== null, 401);
         abort_unless(SuperAdministratorRole::isHeldBy($administrator), 403);
-        abort_if($request->session()->has(self::SESSION_KEY), 409, 'Already acting as another user.');
+        abort_if($request->session()->has(self::SESSION_KEY), 409, __('platform::admin.impersonation.already'));
 
         $target = User::query()->findOrFail($user);
 
-        abort_if($target->id === $administrator->id, 422, 'You are already signed in as yourself.');
-        abort_if(SuperAdministratorRole::isHeldBy($target), 403, 'A super administrator cannot be impersonated.');
-        abort_if($target->status !== UserStatus::ACTIVE, 422, 'Only an active account can be impersonated.');
+        abort_if($target->id === $administrator->id, 422, __('platform::admin.impersonation.self'));
+        abort_if(SuperAdministratorRole::isHeldBy($target), 403, __('platform::admin.impersonation.super_administrator'));
+        abort_if($target->status !== UserStatus::ACTIVE, 422, __('platform::admin.impersonation.inactive'));
 
         // Recorded before the switch, with the administrator as the actor — afterwards the session
         // belongs to someone else, and an event written then would name the wrong person.
@@ -88,7 +88,7 @@ final class ImpersonationController
     public function stop(Request $request, SessionRegistrar $sessions, AuditChainService $audit, StepUpPolicy $stepUp): JsonResponse
     {
         $impersonatorId = $request->session()->get(self::SESSION_KEY);
-        abort_unless(is_string($impersonatorId), 409, 'This session is not impersonating anyone.');
+        abort_unless(is_string($impersonatorId), 409, __('platform::admin.impersonation.not_impersonating'));
 
         $administrator = User::query()->findOrFail($impersonatorId);
         $current = $request->user();

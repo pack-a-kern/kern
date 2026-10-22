@@ -54,14 +54,14 @@ final class EnhanceImageController
         // this is the caller's subject, and the gate must ask about exactly that one.
         if (! $consent->isConsented($tenant->currentTenantId())) {
             return response()->json([
-                'message' => 'This taxpayer has not agreed to documents being sent to the AI provider.',
+                'message' => __('documents::enhancement.no_consent'),
                 'reason' => 'AI_CONSENT_REQUIRED',
             ], 409);
         }
 
         if (! $catalogue->supportsEnhancement()) {
             return response()->json([
-                'message' => 'This provider cannot enhance documents.',
+                'message' => __('documents::enhancement.provider_cannot_enhance'),
                 'reason' => 'ENHANCEMENT_UNAVAILABLE',
             ], 409);
         }
@@ -87,7 +87,7 @@ final class EnhanceImageController
 
         if ($type === null || ! $type->isImage()) {
             return response()->json([
-                'message' => 'Only a photograph can be enhanced.',
+                'message' => __('documents::enhancement.not_an_image'),
                 'reason' => 'NOT_AN_IMAGE',
             ], 422);
         }
@@ -96,7 +96,7 @@ final class EnhanceImageController
 
         if (! $credentials->enabled || $credentials->baseUrl === null || $credentials->model === null) {
             return response()->json([
-                'message' => 'No AI provider is configured.',
+                'message' => __('documents::enhancement.no_provider'),
                 'reason' => 'ENHANCEMENT_UNAVAILABLE',
             ], 409);
         }
@@ -125,14 +125,14 @@ final class EnhanceImageController
             // Never forward transport-exception text: it can embed the request URI, and this one
             // carries somebody's document.
             return response()->json([
-                'message' => 'The enhancement service could not be reached.',
+                'message' => __('documents::enhancement.unreachable'),
                 'reason' => 'ENHANCEMENT_FAILED',
             ], 502);
         }
 
         if ($response->failed()) {
             return response()->json([
-                'message' => 'The enhancement service refused the image.',
+                'message' => __('documents::enhancement.refused'),
                 'reason' => 'ENHANCEMENT_FAILED',
             ], 502);
         }
@@ -148,7 +148,7 @@ final class EnhanceImageController
             ]);
 
             return response()->json([
-                'message' => 'The enhancement service returned no image.',
+                'message' => __('documents::enhancement.no_image'),
                 'reason' => 'ENHANCEMENT_FAILED',
             ], 502);
         }

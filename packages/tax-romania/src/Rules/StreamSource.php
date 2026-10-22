@@ -28,7 +28,7 @@ final class StreamSource implements ValidationRule
         $account = FinancialAccount::query()->find(is_string($value) ? $value : '');
 
         if ($account === null) {
-            $fail('The selected source does not exist.');
+            $fail(__('tax-romania::wallet.source_missing'));
 
             return;
         }

@@ -41,7 +41,7 @@ final class AiProviderAddress implements ValidationRule
             && (($matches['port'] ?? '') === '' || ((int) $matches['port'] >= 1 && (int) $matches['port'] <= 65535));
 
         if (! $valid) {
-            $fail('The address must be http:// or https://, a host, an optional port and an optional plain path — no query, fragment, credentials, encoded characters or "..".');
+            $fail(__('platform::settings.ai_provider_address'));
         }
     }
 }
