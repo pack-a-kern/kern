@@ -11,9 +11,14 @@ export function registerServiceWorker(): void {
     }
 
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {
+        navigator.serviceWorker.register('/sw.js').catch(async () => {
             // Registration failures (e.g. served over plain HTTP in a dev tunnel) are non-fatal —
-            // see module docblock.
+            // see module docblock. But a worker installed earlier stays in charge of every page
+            // after a failure like this, and if the failure is a certificate the browser no longer
+            // accepts, that worker can never fetch its own update either. Remove it: no worker is
+            // better than one that cannot be replaced.
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
         });
     });
 }

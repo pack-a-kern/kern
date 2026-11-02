@@ -213,9 +213,10 @@ export default function Login(): JSX.Element {
         <>
             <Head title={t((d) => d.auth.signInTitle)} />
 
-            <div className="bg-background min-h-dvh lg:grid lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1.08fr)]">
-                <main className="bg-card flex min-h-dvh flex-col">
-                    <header className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
+            <div className="auth-page bg-background min-h-dvh lg:grid lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1.08fr)]">
+                <main className="bg-background lg:bg-card relative isolate flex min-h-dvh flex-col overflow-hidden">
+                    <AuthBackdrop compact />
+                    <header className="relative flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
                         <div className="flex items-center gap-2.5">
                             <span className="bg-foreground text-background grid size-9 place-items-center rounded-[11px] text-xs font-bold">
                                 T
@@ -235,294 +236,299 @@ export default function Login(): JSX.Element {
                         </div>
                     </header>
 
-                    <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
+                    <div className="relative flex flex-1 justify-center px-4 pt-6 pb-6 sm:px-8 lg:items-center lg:py-8">
                         <section className="w-full max-w-[420px]">
-                            <div className="mb-7">
+                            <div className="mb-6 px-1 lg:mb-7 lg:px-0">
                                 <span className="head-chip mb-3 inline-flex items-center gap-1.5">
                                     <span className="bg-accent-500 size-1.5 rounded-full" aria-hidden="true" />
                                     {heading[mode].eyebrow}
                                 </span>
-                                <h1 className="text-[26px] font-semibold tracking-[-0.045em]">{heading[mode].title}</h1>
-                                <p className="text-muted-foreground mt-1.5 text-xs leading-5">
+                                <h1 className="text-[30px] leading-tight font-semibold tracking-[-0.045em] lg:text-[26px]">
+                                    {heading[mode].title}
+                                </h1>
+                                <p className="text-muted-foreground mt-1.5 text-sm leading-6 lg:text-xs lg:leading-5">
                                     {heading[mode].subtitle}
                                 </p>
                             </div>
 
-                            <ErrorText message={error} />
-                            {info !== null && (
-                                <Alert className="border-success/30 bg-success/10 text-success mb-4">
-                                    <AlertDescription className="text-success">{info}</AlertDescription>
-                                </Alert>
-                            )}
+                            <div className="auth-card">
+                                <ErrorText message={error} />
+                                {info !== null && (
+                                    <Alert className="border-success/30 bg-success/10 text-success mb-4">
+                                        <AlertDescription className="text-success">{info}</AlertDescription>
+                                    </Alert>
+                                )}
 
-                            {(mode === 'password' || mode === 'register') && (
-                                <form
-                                    onSubmit={(event) =>
-                                        void (mode === 'register'
-                                            ? handleRegisterSubmit(event)
-                                            : handlePasswordSubmit(event))
-                                    }
-                                    className="space-y-4"
-                                >
-                                    <Field
-                                        label={t((d) => d.auth.emailLabel)}
-                                        error={errors.get('email')}
-                                        htmlFor="email"
+                                {(mode === 'password' || mode === 'register') && (
+                                    <form
+                                        onSubmit={(event) =>
+                                            void (mode === 'register'
+                                                ? handleRegisterSubmit(event)
+                                                : handlePasswordSubmit(event))
+                                        }
+                                        className="space-y-4"
                                     >
-                                        <PanelInput
-                                            id="email"
-                                            icon={<AtSignIcon className="size-3.5" />}
-                                            type="email"
-                                            autoComplete="email"
-                                            required
-                                            value={email}
-                                            onChange={(event) => {
-                                                setEmail(event.target.value);
-                                                errors.clear('email');
-                                            }}
-                                        />
-                                    </Field>
+                                        <Field
+                                            label={t((d) => d.auth.emailLabel)}
+                                            error={errors.get('email')}
+                                            htmlFor="email"
+                                        >
+                                            <PanelInput
+                                                id="email"
+                                                icon={<AtSignIcon className="size-3.5" />}
+                                                type="email"
+                                                autoComplete="email"
+                                                required
+                                                value={email}
+                                                onChange={(event) => {
+                                                    setEmail(event.target.value);
+                                                    errors.clear('email');
+                                                }}
+                                            />
+                                        </Field>
 
-                                    <Field
-                                        label={t((d) => d.auth.passwordLabel)}
-                                        error={errors.get('password')}
-                                        htmlFor="password"
-                                    >
-                                        <PanelInput
-                                            id="password"
-                                            icon={<LockIcon className="size-3.5" />}
-                                            type={passwordVisible ? 'text' : 'password'}
-                                            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                                            required
-                                            minLength={mode === 'register' ? 12 : undefined}
-                                            value={password}
-                                            onChange={(event) => {
-                                                setPassword(event.target.value);
-                                                errors.clear('password');
-                                            }}
-                                            actionEnd={
+                                        <Field
+                                            label={t((d) => d.auth.passwordLabel)}
+                                            error={errors.get('password')}
+                                            htmlFor="password"
+                                        >
+                                            <PanelInput
+                                                id="password"
+                                                icon={<LockIcon className="size-3.5" />}
+                                                type={passwordVisible ? 'text' : 'password'}
+                                                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                                                required
+                                                minLength={mode === 'register' ? 12 : undefined}
+                                                value={password}
+                                                onChange={(event) => {
+                                                    setPassword(event.target.value);
+                                                    errors.clear('password');
+                                                }}
+                                                actionEnd={
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        className="max-lg:size-9"
+                                                        aria-label={t((d) =>
+                                                            passwordVisible ? d.auth.hidePassword : d.auth.showPassword,
+                                                        )}
+                                                        aria-pressed={passwordVisible}
+                                                        onClick={() => {
+                                                            setPasswordVisible(!passwordVisible);
+                                                        }}
+                                                    >
+                                                        {passwordVisible ? (
+                                                            <EyeOff className="size-3.5" />
+                                                        ) : (
+                                                            <Eye className="size-3.5" />
+                                                        )}
+                                                    </Button>
+                                                }
+                                            />
+                                        </Field>
+
+                                        <Button type="submit" disabled={busy} className="h-11 w-full lg:h-10">
+                                            {mode === 'register' ? (
+                                                <UserRoundPlus className="size-4" aria-hidden="true" />
+                                            ) : (
+                                                <LogIn className="size-4" aria-hidden="true" />
+                                            )}
+                                            {mode === 'register'
+                                                ? t((d) => d.auth.submitRegister)
+                                                : t((d) => d.auth.submitSignIn)}
+                                        </Button>
+
+                                        {mode === 'password' && (
+                                            <>
+                                                <div className="flex items-center gap-3 py-1">
+                                                    <span className="bg-border h-px flex-1" />
+                                                    <span className="text-muted-foreground text-2xs">
+                                                        {t((d) => d.auth.orSeparator)}
+                                                    </span>
+                                                    <span className="bg-border h-px flex-1" />
+                                                </div>
+
                                                 <Button
                                                     type="button"
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    aria-label={t((d) =>
-                                                        passwordVisible ? d.auth.hidePassword : d.auth.showPassword,
-                                                    )}
-                                                    aria-pressed={passwordVisible}
-                                                    onClick={() => {
-                                                        setPasswordVisible(!passwordVisible);
-                                                    }}
+                                                    variant="card"
+                                                    disabled={busy}
+                                                    onClick={() => void handlePasskeyLogin()}
+                                                    className="h-11 w-full lg:h-10"
                                                 >
-                                                    {passwordVisible ? (
-                                                        <EyeOff className="size-3.5" />
-                                                    ) : (
-                                                        <Eye className="size-3.5" />
-                                                    )}
+                                                    <KeyRound className="size-4" aria-hidden="true" />
+                                                    {t((d) => d.auth.passkeySignIn)}
                                                 </Button>
-                                            }
-                                        />
-                                    </Field>
-
-                                    <Button type="submit" disabled={busy} className="h-10 w-full">
-                                        {mode === 'register' ? (
-                                            <UserRoundPlus className="size-4" aria-hidden="true" />
-                                        ) : (
-                                            <LogIn className="size-4" aria-hidden="true" />
+                                            </>
                                         )}
-                                        {mode === 'register'
-                                            ? t((d) => d.auth.submitRegister)
-                                            : t((d) => d.auth.submitSignIn)}
-                                    </Button>
+                                    </form>
+                                )}
 
-                                    {mode === 'password' && (
-                                        <>
-                                            <div className="flex items-center gap-3 py-1">
-                                                <span className="bg-border h-px flex-1" />
-                                                <span className="text-muted-foreground text-2xs">
-                                                    {t((d) => d.auth.orSeparator)}
-                                                </span>
-                                                <span className="bg-border h-px flex-1" />
-                                            </div>
-
-                                            <Button
-                                                type="button"
-                                                variant="card"
-                                                disabled={busy}
-                                                onClick={() => void handlePasskeyLogin()}
-                                                className="h-10 w-full"
-                                            >
-                                                <KeyRound className="size-4" aria-hidden="true" />
-                                                {t((d) => d.auth.passkeySignIn)}
-                                            </Button>
-                                        </>
-                                    )}
-                                </form>
-                            )}
-
-                            {(mode === 'mfa' || mode === 'recovery') && (
-                                <>
-                                    <div className="bg-secondary border-border mb-5 flex items-start gap-3 rounded-2xl border p-3">
-                                        <span className="bg-accent-50 text-accent-700 grid size-9 shrink-0 place-items-center rounded-xl">
-                                            <ShieldCheck className="size-4" aria-hidden="true" />
-                                        </span>
-                                        <span>
-                                            <span className="block text-xs font-semibold">
-                                                {t((d) => d.auth.mfaPanelTitle)}
-                                            </span>
-                                            <span className="text-muted-foreground mt-0.5 block text-2xs leading-4">
-                                                {t((d) =>
-                                                    mode === 'mfa' ? d.auth.mfaPanelBody : d.auth.recoveryCodeHint,
-                                                )}
-                                            </span>
-                                        </span>
-                                    </div>
-
-                                    {mode === 'mfa' ? (
-                                        <form
-                                            onSubmit={(event) => {
-                                                event.preventDefault();
-                                                void submitCode(digits.join(''));
-                                            }}
-                                            className="space-y-4"
-                                        >
-                                            <OtpGrid
-                                                digits={digits}
-                                                onChange={(next) => {
-                                                    setDigits(next);
-                                                    errors.clear('code');
-                                                }}
-                                                onComplete={(code) => void submitCode(code)}
-                                                label={t((d) => d.auth.mfaCodeLabel)}
-                                            />
-                                            {errors.get('code') !== undefined && (
-                                                <ErrorText message={errors.get('code') ?? null} />
-                                            )}
-
-                                            <Button
-                                                type="submit"
-                                                disabled={busy || digits.join('').length < OTP_LENGTH}
-                                                className="h-10 w-full"
-                                            >
+                                {(mode === 'mfa' || mode === 'recovery') && (
+                                    <>
+                                        <div className="bg-secondary border-border mb-5 flex items-start gap-3 rounded-2xl border p-3">
+                                            <span className="bg-accent-50 text-accent-700 grid size-9 shrink-0 place-items-center rounded-xl">
                                                 <ShieldCheck className="size-4" aria-hidden="true" />
-                                                {t((d) => d.auth.mfaVerify)}
-                                            </Button>
+                                            </span>
+                                            <span>
+                                                <span className="block text-xs font-semibold">
+                                                    {t((d) => d.auth.mfaPanelTitle)}
+                                                </span>
+                                                <span className="text-muted-foreground mt-0.5 block text-2xs leading-4">
+                                                    {t((d) =>
+                                                        mode === 'mfa' ? d.auth.mfaPanelBody : d.auth.recoveryCodeHint,
+                                                    )}
+                                                </span>
+                                            </span>
+                                        </div>
 
-                                            <div className="flex items-center justify-between text-2xs">
-                                                <button
+                                        {mode === 'mfa' ? (
+                                            <form
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    void submitCode(digits.join(''));
+                                                }}
+                                                className="space-y-4"
+                                            >
+                                                <OtpGrid
+                                                    digits={digits}
+                                                    onChange={(next) => {
+                                                        setDigits(next);
+                                                        errors.clear('code');
+                                                    }}
+                                                    onComplete={(code) => void submitCode(code)}
+                                                    label={t((d) => d.auth.mfaCodeLabel)}
+                                                />
+                                                {errors.get('code') !== undefined && (
+                                                    <ErrorText message={errors.get('code') ?? null} />
+                                                )}
+
+                                                <Button
+                                                    type="submit"
+                                                    disabled={busy || digits.join('').length < OTP_LENGTH}
+                                                    className="h-11 w-full lg:h-10"
+                                                >
+                                                    <ShieldCheck className="size-4" aria-hidden="true" />
+                                                    {t((d) => d.auth.mfaVerify)}
+                                                </Button>
+
+                                                <div className="flex items-center justify-between text-2xs">
+                                                    <button
+                                                        type="button"
+                                                        className="text-accent-700 inline-flex items-center gap-1 font-semibold"
+                                                        onClick={() => {
+                                                            setMode('recovery');
+                                                            setError(null);
+                                                            errors.reset();
+                                                        }}
+                                                    >
+                                                        <KeyRound className="size-3" aria-hidden="true" />
+                                                        {t((d) => d.auth.useRecoveryCode)}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="text-muted-foreground inline-flex items-center gap-1 font-semibold"
+                                                        onClick={leaveSecondStep}
+                                                    >
+                                                        <ArrowLeft className="size-3" aria-hidden="true" />
+                                                        {t((d) => d.auth.back)}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <form
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    void submitCode(recoveryCode);
+                                                }}
+                                                className="space-y-4"
+                                            >
+                                                <Field
+                                                    label={t((d) => d.auth.recoveryCodeLabel)}
+                                                    error={errors.get('code')}
+                                                    htmlFor="recovery-code"
+                                                >
+                                                    <PanelInput
+                                                        id="recovery-code"
+                                                        icon={<KeyRound className="size-3.5" />}
+                                                        className="recovery-field"
+                                                        autoFocus
+                                                        autoComplete="one-time-code"
+                                                        value={recoveryCode}
+                                                        placeholder={t((d) => d.auth.recoveryCodePlaceholder)}
+                                                        onChange={(event) => {
+                                                            // The value itself, not its appearance: codes are
+                                                            // hashed exactly as issued.
+                                                            setRecoveryCode(event.target.value.toUpperCase());
+                                                            errors.clear('code');
+                                                        }}
+                                                    />
+                                                </Field>
+
+                                                <Button
+                                                    type="submit"
+                                                    disabled={busy || recoveryCode.trim() === ''}
+                                                    className="h-11 w-full lg:h-10"
+                                                >
+                                                    <ShieldCheck className="size-4" aria-hidden="true" />
+                                                    {t((d) => d.auth.recoveryVerify)}
+                                                </Button>
+
+                                                <Button
                                                     type="button"
-                                                    className="text-accent-700 inline-flex items-center gap-1 font-semibold"
+                                                    variant="card"
+                                                    className="h-9 w-full"
                                                     onClick={() => {
-                                                        setMode('recovery');
+                                                        setMode('mfa');
                                                         setError(null);
                                                         errors.reset();
                                                     }}
                                                 >
-                                                    <KeyRound className="size-3" aria-hidden="true" />
-                                                    {t((d) => d.auth.useRecoveryCode)}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="text-muted-foreground inline-flex items-center gap-1 font-semibold"
-                                                    onClick={leaveSecondStep}
-                                                >
-                                                    <ArrowLeft className="size-3" aria-hidden="true" />
-                                                    {t((d) => d.auth.back)}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    ) : (
-                                        <form
-                                            onSubmit={(event) => {
-                                                event.preventDefault();
-                                                void submitCode(recoveryCode);
-                                            }}
-                                            className="space-y-4"
-                                        >
-                                            <Field
-                                                label={t((d) => d.auth.recoveryCodeLabel)}
-                                                error={errors.get('code')}
-                                                htmlFor="recovery-code"
-                                            >
-                                                <PanelInput
-                                                    id="recovery-code"
-                                                    icon={<KeyRound className="size-3.5" />}
-                                                    className="recovery-field"
-                                                    autoFocus
-                                                    autoComplete="one-time-code"
-                                                    value={recoveryCode}
-                                                    placeholder={t((d) => d.auth.recoveryCodePlaceholder)}
-                                                    onChange={(event) => {
-                                                        // The value itself, not its appearance: codes are
-                                                        // hashed exactly as issued.
-                                                        setRecoveryCode(event.target.value.toUpperCase());
-                                                        errors.clear('code');
-                                                    }}
-                                                />
-                                            </Field>
+                                                    <Smartphone className="size-4" aria-hidden="true" />
+                                                    {t((d) => d.auth.useAuthenticatorCode)}
+                                                </Button>
+                                            </form>
+                                        )}
+                                    </>
+                                )}
 
-                                            <Button
-                                                type="submit"
-                                                disabled={busy || recoveryCode.trim() === ''}
-                                                className="h-10 w-full"
-                                            >
-                                                <ShieldCheck className="size-4" aria-hidden="true" />
-                                                {t((d) => d.auth.recoveryVerify)}
-                                            </Button>
+                                {mode === 'password' && registrationOpen && (
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        className="mt-4 w-full"
+                                        onClick={() => {
+                                            setMode('register');
+                                            setError(null);
+                                            setInfo(null);
+                                        }}
+                                    >
+                                        {t((d) => d.auth.noAccount)}
+                                    </Button>
+                                )}
 
-                                            <Button
-                                                type="button"
-                                                variant="card"
-                                                className="h-9 w-full"
-                                                onClick={() => {
-                                                    setMode('mfa');
-                                                    setError(null);
-                                                    errors.reset();
-                                                }}
-                                            >
-                                                <Smartphone className="size-4" aria-hidden="true" />
-                                                {t((d) => d.auth.useAuthenticatorCode)}
-                                            </Button>
-                                        </form>
-                                    )}
-                                </>
-                            )}
+                                {mode === 'register' && (
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        className="mt-4 w-full"
+                                        onClick={() => {
+                                            setMode('password');
+                                            setError(null);
+                                        }}
+                                    >
+                                        {t((d) => d.auth.haveAccount)}
+                                    </Button>
+                                )}
+                            </div>
 
-                            {mode === 'password' && registrationOpen && (
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    className="mt-4 w-full"
-                                    onClick={() => {
-                                        setMode('register');
-                                        setError(null);
-                                        setInfo(null);
-                                    }}
-                                >
-                                    {t((d) => d.auth.noAccount)}
-                                </Button>
-                            )}
-
-                            {mode === 'register' && (
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    className="mt-4 w-full"
-                                    onClick={() => {
-                                        setMode('password');
-                                        setError(null);
-                                    }}
-                                >
-                                    {t((d) => d.auth.haveAccount)}
-                                </Button>
-                            )}
-
-                            <p className="text-muted-foreground mt-7 text-center text-2xs leading-4">
+                            <p className="text-muted-foreground mt-6 px-2 text-center text-2xs leading-4 lg:mt-7 lg:px-0">
                                 {t((d) => d.auth.legalNote).replace('{appName}', appName)}
                             </p>
                         </section>
                     </div>
 
-                    <footer className="border-border text-muted-foreground flex min-h-12 items-center justify-between gap-3 border-t px-5 text-2xs sm:px-8">
+                    <footer className="border-border text-muted-foreground hidden min-h-12 items-center justify-between gap-3 border-t px-5 text-2xs sm:px-8 lg:flex">
                         <span>{t((d) => d.auth.footerCopyright).replace('{appName}', appName)}</span>
                     </footer>
                 </main>
@@ -634,6 +640,65 @@ function OtpGrid(props: {
  * It says what protects the account, because that is the question a sign-in screen raises. Hidden
  * below `lg`, where the form is the whole screen and anything else is in its way.
  */
+// The dial's tick ring: every 5°, with a longer mark every 30°.
+const DIAL_TICKS = Array.from({ length: 72 }, (_, i) => {
+    const angle = (i * 5 * Math.PI) / 180;
+    const inner = i % 6 === 0 ? 362 : 372;
+    return {
+        x1: 400 + inner * Math.cos(angle),
+        y1: 400 + inner * Math.sin(angle),
+        x2: 400 + 380 * Math.cos(angle),
+        y2: 400 + 380 * Math.sin(angle),
+        major: i % 6 === 0,
+    };
+});
+
+/**
+ * Decoration only: a grid, two drifting blooms, a light sweep and a slowly turning dial.
+ * `compact` is the phone version, behind the form's header, where the side panel is hidden.
+ */
+function AuthBackdrop({ compact = false }: { compact?: boolean }): JSX.Element {
+    return (
+        <div className={compact ? 'auth-backdrop auth-backdrop-compact lg:hidden' : 'auth-backdrop'} aria-hidden="true">
+            <span className="auth-backdrop-grid" />
+            <span className="auth-backdrop-bloom" />
+            <span className="auth-backdrop-bloom auth-backdrop-bloom-alt" />
+            <span className="auth-backdrop-sweep" />
+            <svg className="auth-dial" viewBox="0 0 800 800">
+                <g className="auth-dial-turn auth-dial-slow">
+                    {DIAL_TICKS.map((tick, i) => (
+                        <line key={i} className={tick.major ? 'auth-dial-tick-major' : 'auth-dial-tick'} {...tick} />
+                    ))}
+                </g>
+                <g className="auth-dial-turn">
+                    <circle className="auth-dial-ring" cx="400" cy="400" r="330" />
+                    <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="305" />
+                    <circle className="auth-dial-trace" cx="400" cy="400" r="330" pathLength="100" />
+                    <circle className="auth-dial-node" cx="400" cy="70" r="4" />
+                    <circle className="auth-dial-node" cx="730" cy="400" r="3" />
+                </g>
+                <g className="auth-dial-turn auth-dial-reverse">
+                    <circle className="auth-dial-ring" cx="400" cy="400" r="250" />
+                    <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="226" />
+                    <circle
+                        className="auth-dial-trace auth-dial-trace-alt"
+                        cx="400"
+                        cy="400"
+                        r="250"
+                        pathLength="100"
+                    />
+                    <circle className="auth-dial-node" cx="150" cy="400" r="3.5" />
+                </g>
+                <circle className="auth-dial-ring" cx="400" cy="400" r="150" />
+                <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="70" />
+                <path className="auth-dial-axis" d="M400 20V780M20 400H780M131 131L669 669M669 131L131 669" />
+                <circle className="auth-dial-ping" cx="400" cy="400" r="6" />
+                <circle className="auth-dial-core" cx="400" cy="400" r="6" />
+            </svg>
+        </div>
+    );
+}
+
 function AuthAside(): JSX.Element {
     const { t } = useTranslation();
 
@@ -645,7 +710,7 @@ function AuthAside(): JSX.Element {
 
     return (
         <aside className="border-border bg-background relative hidden overflow-hidden border-l lg:block">
-            <span className="auth-aside-glow" aria-hidden="true" />
+            <AuthBackdrop />
 
             <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
                 <div className="max-w-[540px]">

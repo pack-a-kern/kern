@@ -4242,14 +4242,265 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     text-transform: none;
 }
 
-/* The wash behind the sign-in panel: two soft brand blooms, no image to ship or theme. */
-.auth-aside-glow {
+/* The backdrop behind the sign-in panel: a grid, two drifting brand blooms, a light sweep and a dial
+ * that turns slowly. Every colour comes from the theme, so it follows light, dark and the palette.
+ * Only transform, opacity and stroke-dashoffset animate — nothing that relayouts or repaints a blur. */
+.auth-backdrop {
     position: absolute;
     inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    --auth-line: color-mix(in srgb, var(--muted-foreground) 32%, transparent);
+}
+
+.auth-backdrop > * {
+    position: absolute;
+}
+
+.auth-backdrop-grid {
+    inset: 0;
+    background-image:
+        linear-gradient(var(--auth-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--auth-line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    opacity: 0.35;
+    mask-image: radial-gradient(ellipse 85% 75% at 75% 45%, #000 15%, transparent 75%);
+}
+
+.auth-backdrop-bloom {
+    top: -15%;
+    right: -25%;
+    width: 75%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand-500) 16%, transparent), transparent 65%);
+    animation: auth-drift 20s ease-in-out infinite alternate;
+}
+
+.auth-backdrop-bloom-alt {
+    top: auto;
+    right: auto;
+    bottom: -30%;
+    left: -20%;
+    width: 60%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand-300) 14%, transparent), transparent 65%);
+    animation: auth-drift-alt 26s ease-in-out infinite alternate;
+}
+
+.auth-backdrop-sweep {
+    top: -50%;
+    left: 0;
+    width: 120px;
+    height: 200%;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card) 45%, transparent), transparent);
+    animation: auth-sweep 22s linear infinite;
+}
+
+.auth-dial {
+    top: 16%;
+    right: -28%;
+    width: min(100%, 900px);
+    aspect-ratio: 1;
+    overflow: visible;
+    animation: auth-dial-in 1.2s ease-out both;
+}
+
+.auth-dial-turn {
+    transform-origin: 400px 400px;
+    animation: auth-turn 110s linear infinite;
+}
+
+.auth-dial-reverse {
+    animation-duration: 140s;
+    animation-direction: reverse;
+}
+
+.auth-dial-slow {
+    animation-duration: 300s;
+}
+
+.auth-dial-ring,
+.auth-dial-axis,
+.auth-dial-tick,
+.auth-dial-tick-major {
+    fill: none;
+    stroke: var(--auth-line);
+    stroke-width: 1;
+}
+
+.auth-dial-dashed {
+    stroke-dasharray: 2 9;
+}
+
+.auth-dial-axis {
+    stroke-dasharray: 3 8;
+    opacity: 0.6;
+}
+
+.auth-dial-tick {
+    opacity: 0.6;
+}
+
+.auth-dial-tick-major {
+    stroke-width: 1.5;
+}
+
+/* pathLength=100 on the circle makes these lengths percentages of the ring, whatever its radius. */
+.auth-dial-trace {
+    fill: none;
+    stroke: var(--brand-500);
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-dasharray: 6 94;
     opacity: 0.55;
-    background:
-        radial-gradient(circle at 68% 30%, color-mix(in srgb, var(--brand-500) 18%, transparent) 0, transparent 28%),
-        radial-gradient(circle at 30% 72%, color-mix(in srgb, var(--brand-500) 10%, transparent) 0, transparent 30%);
+    animation: auth-trace 18s linear infinite;
+}
+
+.auth-dial-trace-alt {
+    stroke: var(--support);
+    animation-duration: 23s;
+    animation-delay: -9s;
+}
+
+.auth-dial-node {
+    fill: var(--brand-500);
+    opacity: 0.45;
+}
+
+.auth-dial-core {
+    fill: var(--brand-500);
+    opacity: 0.3;
+    transform-origin: 400px 400px;
+    animation: auth-pulse 4s ease-in-out infinite;
+}
+
+@keyframes auth-drift {
+    to {
+        transform: translate(-12%, 14%) scale(1.12);
+    }
+}
+
+@keyframes auth-drift-alt {
+    to {
+        transform: translate(18%, -12%);
+    }
+}
+
+@keyframes auth-sweep {
+    0%,
+    20% {
+        transform: translateX(-300px) rotate(30deg);
+    }
+    80%,
+    100% {
+        transform: translateX(1600px) rotate(30deg);
+    }
+}
+
+@keyframes auth-turn {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes auth-trace {
+    to {
+        stroke-dashoffset: -100;
+    }
+}
+
+@keyframes auth-pulse {
+    50% {
+        opacity: 0.12;
+        transform: scale(1.8);
+    }
+}
+
+@keyframes auth-dial-in {
+    from {
+        opacity: 0;
+        transform: translate(40px, 16px);
+    }
+}
+
+/* A ring that leaves the centre every few seconds and fades as it reaches the inner circle. */
+.auth-dial-ping {
+    fill: none;
+    stroke: var(--brand-500);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    transform-origin: 400px 400px;
+    opacity: 0;
+    animation: auth-ping 7s ease-out infinite;
+}
+
+@keyframes auth-ping {
+    0% {
+        opacity: 0.5;
+        transform: scale(1);
+    }
+    70%,
+    100% {
+        opacity: 0;
+        transform: scale(25);
+    }
+}
+
+/* The phone version: the dial peeks in behind the header and fades out above the form. */
+.auth-backdrop-compact {
+    mask-image: linear-gradient(to bottom, #000 0, #000 18%, transparent 52%);
+}
+
+.auth-backdrop-compact .auth-dial {
+    top: -42%;
+    right: -62%;
+    width: 150%;
+    max-width: 720px;
+}
+
+.auth-backdrop-compact .auth-backdrop-bloom {
+    width: 120%;
+    top: -35%;
+    right: -40%;
+}
+
+.auth-backdrop-compact .auth-backdrop-bloom-alt {
+    display: none;
+}
+
+/* Below the side-by-side layout the page is used with a thumb: 44px targets, and 16px text in the
+ * fields, under which iOS Safari zooms the whole page in on focus. */
+@media (max-width: 63.99rem) {
+    .auth-page {
+        --ctl-h: 2.75rem;
+    }
+
+    /* On a phone the form is one raised object on the page ground; beside the panel it needs none. */
+    .auth-card {
+        border: 1px solid var(--border);
+        border-radius: 1.25rem;
+        background: var(--card);
+        padding: 1.25rem;
+        box-shadow:
+            0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent),
+            0 16px 36px -18px color-mix(in srgb, var(--foreground) 22%, transparent);
+    }
+
+    .auth-page input {
+        font-size: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-backdrop *,
+    .auth-backdrop {
+        animation: none;
+    }
+
+    .auth-backdrop-sweep,
+    .auth-dial-ping {
+        display: none;
+    }
 }
 
 /* A fact's caption, with its mark.

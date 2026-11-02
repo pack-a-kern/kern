@@ -1,0 +1,242 @@
+/* The offline page. Standalone: no build asset can be assumed to be cached, so the colours restate
+ * the application's default palette (resources/css/app.css) instead of importing it. */
+:root {
+    --background: #f5f7f9;
+    --card: #ffffff;
+    --foreground: #182230;
+    --muted-foreground: #5d6b7e;
+    --border: #e7ebf0;
+    --brand: #386a96;
+    --brand-strong: #24425f;
+    --brand-soft: #e8eff6;
+    --line: rgba(93, 107, 126, 0.12);
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+        --background: #191a1c;
+        --card: #292b2f;
+        --foreground: #eceef0;
+        --muted-foreground: #a7adb6;
+        --border: #42464d;
+        --brand-strong: #386a96;
+        --brand-soft: #23303d;
+        --line: rgba(167, 173, 182, 0.1);
+        color-scheme: dark;
+    }
+}
+
+:root.dark {
+    --background: #191a1c;
+    --card: #292b2f;
+    --foreground: #eceef0;
+    --muted-foreground: #a7adb6;
+    --border: #42464d;
+    --brand-strong: #386a96;
+    --brand-soft: #23303d;
+    --line: rgba(167, 173, 182, 0.1);
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    overflow: hidden;
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.backdrop > * {
+    position: absolute;
+}
+
+.grid {
+    inset: 0;
+    background-image:
+        linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(circle at 50% 45%, #000 0, transparent 60%);
+}
+
+.bloom {
+    left: 50%;
+    top: 45%;
+    width: 640px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand) 14%, transparent), transparent 65%);
+}
+
+/* Three rings leaving the mark one after another: a signal looking for a reply. */
+.ring {
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    animation: ring 6s ease-out infinite;
+}
+
+.ring-2 {
+    animation-delay: 2s;
+}
+
+.ring-3 {
+    animation-delay: 4s;
+}
+
+@keyframes ring {
+    0% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(5);
+    }
+}
+
+main {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.mark {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card);
+    color: var(--brand);
+    box-shadow:
+        0 1px 2px rgba(24, 34, 48, 0.05),
+        0 14px 32px -16px rgba(24, 34, 48, 0.3);
+}
+
+.mark svg {
+    width: 28px;
+    height: 28px;
+}
+
+h1 {
+    margin: 28px 0 10px;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 650;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+}
+
+p {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 15px;
+    line-height: 1.6;
+    text-wrap: pretty;
+}
+
+button {
+    margin-top: 28px;
+    width: 100%;
+    max-width: 260px;
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--brand-strong);
+    color: #ffffff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        filter 0.15s ease,
+        transform 0.15s ease;
+}
+
+button:hover {
+    filter: brightness(1.12);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+}
+
+.status {
+    margin-top: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #c9822b;
+    box-shadow: 0 0 0 4px rgba(201, 130, 43, 0.16);
+    animation: blink 1.6s ease-in-out infinite;
+}
+
+.status.back .dot {
+    background: #2f8f5b;
+    box-shadow: 0 0 0 4px rgba(47, 143, 91, 0.16);
+    animation: none;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ring,
+    .dot {
+        animation: none;
+    }
+
+    .ring-2,
+    .ring-3 {
+        display: none;
+    }
+}

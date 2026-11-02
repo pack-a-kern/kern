@@ -17,20 +17,22 @@
  *   fiscal data, sessions, or documents cached by the service worker).
  * - Any non-GET request — an upload/mutation is never replayed from a cache.
  * - Inertia page navigations — these carry a per-session CSRF token
- *   (`resources/js/lib/csrf.ts`'s docblock); caching the HTML would serve a stale one. A failed
- *   navigation falls back to the static, session-free `/offline.html` instead of a stale app shell.
+ *   (`resources/js/lib/csrf.ts`'s docblock); caching the HTML would serve a stale one. A navigation
+ *   made while offline gets the static, session-free `/offline.html` instead of a stale app shell.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = `kern-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `kern-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
+// What the offline page loads. Served from the cache, since by definition the network is not there.
+const OFFLINE_ASSETS = ['/offline.css', '/offline.js'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
             const cache = await caches.open(SHELL_CACHE);
-            const urls = new Set([OFFLINE_URL, '/manifest.webmanifest']);
+            const urls = new Set([OFFLINE_URL, ...OFFLINE_ASSETS, '/manifest.webmanifest']);
 
             try {
                 const manifestResponse = await fetch('/build/manifest.json', { cache: 'no-store' });
@@ -113,13 +115,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    if (OFFLINE_ASSETS.includes(url.pathname)) {
+        event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
+
+        return;
+    }
+
     if (url.pathname.startsWith('/build/')) {
         event.respondWith(cacheFirst(request));
 
         return;
     }
 
-    if (request.mode === 'navigate') {
+    // Only while the device says it is offline. Online, the browser navigates on its own: a failure
+    // there is not "no internet" but a certificate it has to ask about, a server that is down, a
+    // proxy — and only the browser can show those. A worker that answered every failed navigation
+    // with the offline page told a person on a working connection that they had none.
+    if (request.mode === 'navigate' && !self.navigator.onLine) {
         event.respondWith(navigationWithOfflineFallback(request));
     }
 });
