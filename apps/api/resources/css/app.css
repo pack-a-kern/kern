@@ -4325,6 +4325,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 .auth-dial-tick-major {
     fill: none;
     stroke: var(--auth-line);
+}
+
+.auth-dial-ring,
+.auth-dial-axis,
+.auth-dial-tick {
     stroke-width: 1;
 }
 
@@ -4471,8 +4476,21 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /* Below the side-by-side layout the page is used with a thumb: 44px targets, and 16px text in the
  * fields, under which iOS Safari zooms the whole page in on focus. */
 @media (max-width: 63.99rem) {
-    .auth-page {
-        --ctl-h: 2.75rem;
+    /* Derived from the token rather than redeclaring it: 34px controls become 44px, the header's
+     * tiles 40px and the button inside a field 36px — each stays in step if the token moves. */
+    .auth-page .ctl {
+        height: calc(var(--ctl-h) + 0.625rem);
+    }
+
+    .auth-page .shell-control {
+        height: calc(var(--ctl-h) + 0.375rem);
+        min-width: calc(var(--ctl-h) + 0.375rem);
+        justify-content: center;
+    }
+
+    .auth-page .input-group-action > * {
+        height: calc(var(--ctl-h) + 0.125rem);
+        width: calc(var(--ctl-h) + 0.125rem);
     }
 
     /* On a phone the form is one raised object on the page ground; beside the panel it needs none. */

@@ -309,7 +309,6 @@ export default function Login(): JSX.Element {
                                                         type="button"
                                                         variant="ghost"
                                                         size="icon-sm"
-                                                        className="max-lg:size-9"
                                                         aria-label={t((d) =>
                                                             passwordVisible ? d.auth.hidePassword : d.auth.showPassword,
                                                         )}

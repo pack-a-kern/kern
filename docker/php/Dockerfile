@@ -149,6 +149,9 @@ CMD ["php-fpm", "--nodaemonize"]
 # stage above stays free of dev tooling.
 # ---------------------------------------------------------------------------
 FROM vendor AS test
+# The runtime's limits, so a test that passes here also fits in production: without this the suite
+# ran under PHP's 128M default against an application configured for 256M.
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-kern.ini
 WORKDIR /var/www/html
 COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-interaction --no-scripts --no-autoloader --prefer-dist

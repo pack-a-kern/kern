@@ -105,7 +105,7 @@ shell:
 test:
 	docker compose build --pull=false app python-api
 	docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
-	docker run --rm -e APP_KEY=$${APP_KEY:-base64:0000000000000000000000000000000000000000=} kern-php-test:local vendor/bin/pest
+	docker run --rm -e APP_KEY=$${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=} kern-php-test:local vendor/bin/pest
 	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
 	docker run --rm kern-python-test:local pytest
 	docker build -f docker/playwright/Dockerfile --target test -t kern-browser-test:local .
@@ -115,7 +115,7 @@ test:
 lint:
 	docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
 	docker run --rm kern-php-test:local vendor/bin/pint --test
-	docker run --rm -e APP_KEY=base64:0000000000000000000000000000000000000000= kern-php-test:local vendor/bin/phpstan analyse
+	docker run --rm -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= kern-php-test:local vendor/bin/phpstan analyse
 	docker build -f docker/python/Dockerfile --target test -t kern-python-test:local .
 	docker run --rm kern-python-test:local ruff check src tests
 	docker run --rm kern-python-test:local pyright
