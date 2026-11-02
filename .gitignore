@@ -11,6 +11,9 @@
 !/.env
 .env.*.local
 
+# Dependencies and the caches tools keep beside them, wherever a tool was run from.
+node_modules/
+
 # Editor / OS noise.
 .DS_Store
 *.swp
