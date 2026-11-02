@@ -12,6 +12,12 @@ declare(strict_types=1);
 // mirrors this config into that table on first use of each code, and re-syncs the mirrored
 // columns (trust_tier/base_url/enabled) every time — this file remains the single source of
 // truth, the DB row is a cache for joins, never edited by hand.
+// How the crawler names itself to the sources that accept a non-browser client. A contact is the
+// operator's own — an address the source can write to about this installation's traffic — so there
+// is no default: unset, the crawler is named without one.
+$crawlerContact = trim((string) env('SOURCES_CRAWLER_CONTACT', ''));
+$crawlerUserAgent = 'Kern-RO-SourceCrawler/1.0' . ($crawlerContact !== '' ? " (contact: {$crawlerContact})" : '');
+
 return [
 
     'entries' => [
@@ -42,7 +48,7 @@ return [
             'trust_tier' => 'B',
             'base_url' => 'https://www.anaf.ro',
             'allowed_hosts' => ['anaf.ro', 'www.anaf.ro', 'static.anaf.ro'],
-            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
+            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
         ],
@@ -51,7 +57,7 @@ return [
             'trust_tier' => 'C',
             'base_url' => 'https://mfinante.gov.ro',
             'allowed_hosts' => ['mfinante.gov.ro'],
-            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
+            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
         ],
@@ -72,7 +78,7 @@ return [
             // 2026-09-15, the daily feed timed out with the default and answered in 0.16s with these.
             // Other sources accept the default, so they declare none.
             'tls_curves' => env('BNR_TLS_CURVES', 'X25519:P-256:P-384'),
-            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
+            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -102,7 +108,7 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.ecb.europa.eu',
             'allowed_hosts' => ['www.ecb.europa.eu'],
-            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
+            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -129,7 +135,7 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.gleif.org',
             'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org'],
-            'user_agent' => 'Kern-RO-SourceCrawler/1.0',
+            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
