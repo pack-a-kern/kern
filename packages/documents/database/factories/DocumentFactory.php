@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\Documents\Database\Factories;
 
+use Closure;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Collection;
 use Kern\Documents\Enums\DocumentSource;
@@ -13,7 +14,7 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentPart;
 use Kern\Documents\ObjectStore\DocumentObjectKind;
 use Kern\Documents\ObjectStore\ObjectKey;
-use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use LogicException;
 
 /**
  * @extends Factory<Document>
@@ -24,10 +25,28 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  *
  * The part is created after the document, not alongside it: a part's encrypted filename is
  * encrypted with the *subject's* DEK, reached through the parent, so the parent has to exist first.
+ *
+ * Which subject a document belongs to by default is not this package's to say: the subject is the
+ * product's model, not this package's. The product registers it with {@link resolveSubjectUsing()};
+ * a test that passes `tax_subject_id` itself needs nothing registered.
  */
 final class DocumentFactory extends Factory
 {
     protected $model = Document::class;
+
+    /** @var (Closure(): mixed)|null */
+    private static ?Closure $subjectResolver = null;
+
+    /**
+     * What `tax_subject_id` defaults to: a factory, a model or an id — anything a factory attribute
+     * may be.
+     *
+     * @param  (Closure(): mixed)|null  $resolver
+     */
+    public static function resolveSubjectUsing(?Closure $resolver): void
+    {
+        self::$subjectResolver = $resolver;
+    }
 
     /**
      * @return array<string, mixed>
@@ -35,7 +54,13 @@ final class DocumentFactory extends Factory
     public function definition(): array
     {
         return [
-            'tax_subject_id' => TaxSubject::factory(),
+            // A closure, so it only runs — and only throws — when the test did not pass one.
+            'tax_subject_id' => static fn (): mixed => self::$subjectResolver !== null
+                ? (self::$subjectResolver)()
+                : throw new LogicException(
+                    'No default subject for a document: pass tax_subject_id, or register one with '
+                    . 'DocumentFactory::resolveSubjectUsing().',
+                ),
             'type' => DocumentType::OTHER,
             'status' => DocumentStatus::QUARANTINE,
             'sha256' => hash('sha256', $this->faker->uuid()),

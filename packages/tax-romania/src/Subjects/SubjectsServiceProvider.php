@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Subjects;
 
 use Illuminate\Support\ServiceProvider;
+use Kern\Documents\Database\Factories\DocumentFactory;
 use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
 use Kern\Platform\KeyManagement\DekRewrapService;
 use Kern\Platform\Tenancy\Contracts\TenantGate;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 use Kern\Platform\Tenancy\Contracts\TenantNames;
 use Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Subjects\Tenancy\MembershipTenantGate;
 use Kern\TaxRomania\Subjects\Tenancy\SubjectMemberships;
 use Kern\TaxRomania\Subjects\Tenancy\SubjectNames;
@@ -37,5 +39,8 @@ final class SubjectsServiceProvider extends ServiceProvider
         $this->app->bind(TenantGate::class, MembershipTenantGate::class);
         $this->app->bind(TenantNames::class, SubjectNames::class);
         $this->app->bind(TenantMemberships::class, SubjectMemberships::class);
+
+        // A document belongs to a taxpayer here; `kern/documents` only knows it belongs to a subject.
+        DocumentFactory::resolveSubjectUsing(static fn () => TaxSubject::factory());
     }
 }
