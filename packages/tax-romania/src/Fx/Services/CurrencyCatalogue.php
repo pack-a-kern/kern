@@ -49,6 +49,18 @@ final readonly class CurrencyCatalogue
     }
 
     /**
+     * Drop the cached available list, so the next read sees the rates just stored.
+     *
+     * Called by the importers after they create a rate. Without it the list read before the first
+     * import — the base currency alone — stood for an hour after the rates arrived, and the
+     * currencies they made available stayed off every screen until the cache was cleared by hand.
+     */
+    public static function forgetAvailable(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
      * Every code there is a stored rate for, plus the base currency, alphabetically.
      *
      * The base currency has no rate against itself and is in the list anyway: it is the one thing

@@ -10,6 +10,7 @@ use Kern\Legislation\Services\SourceIngestionService;
 use Kern\TaxRomania\Fx\DataTransferObjects\FxImportSummary;
 use Kern\TaxRomania\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use Kern\TaxRomania\Fx\Parsing\BnrXmlParser;
+use Kern\TaxRomania\Fx\Services\CurrencyCatalogue;
 use Kern\TaxRomania\Fx\Services\FxRateImporter;
 use RuntimeException;
 
@@ -60,6 +61,11 @@ final readonly class ImportBnrDailyRates
             $summary = $summary->withRate(
                 $this->importer->import($sourceId, $day->date, $rate, $ingested->sourceDocumentVersionId),
             );
+        }
+
+        // A rate stored can be a currency the list did not have yet.
+        if ($summary->created > 0) {
+            CurrencyCatalogue::forgetAvailable();
         }
 
         return $summary;

@@ -13,6 +13,7 @@ use Kern\TaxRomania\Fx\Actions\ImportBnrDailyRates;
 use Kern\TaxRomania\Fx\Exceptions\BnrEndpointNotConfiguredException;
 use Kern\TaxRomania\Fx\Models\FxRate;
 use Kern\TaxRomania\Fx\Models\FxRateAnomaly;
+use Kern\TaxRomania\Fx\Services\CurrencyCatalogue;
 use RuntimeException;
 
 /**
@@ -56,6 +57,18 @@ it('fetches, parses, and imports every currency for the one day in a daily feed'
         ->and($summary->wasNewDocumentVersion)->toBeTrue()
         ->and(FxRate::query()->count())->toBe(3)
         ->and(SourceDocumentVersion::query()->count())->toBe(1);
+});
+
+it('offers the imported currencies at once, not after the cached list expires', function (): void {
+    Http::fake(['https://bnr-fixture.test/daily.xml' => Http::response(dailyFixture('synthetic-daily.xml'), 200, ['Content-Type' => 'application/xml'])]);
+
+    // Read before any rate exists, as a screen opened before the first import does: that caches
+    // the base currency alone, for an hour.
+    expect(app(CurrencyCatalogue::class)->available())->toBe(['RON']);
+
+    app(ImportBnrDailyRates::class)();
+
+    expect(app(CurrencyCatalogue::class)->available())->toBe(['EUR', 'HUF', 'RON', 'USD']);
 });
 
 it('is idempotent end to end: running it twice with unchanged content imports nothing new', function (): void {
