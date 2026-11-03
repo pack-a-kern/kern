@@ -186,7 +186,7 @@ jobs:
         # unaccent/pg_trgm extensions this project needs are present.
         image: pgvector/pgvector:pg18-trixie
         env:
-          POSTGRES_DB: kern
+          POSTGRES_DB: kern_test
           POSTGRES_USER: kern
           POSTGRES_PASSWORD: kern_ci
         ports:
@@ -215,7 +215,7 @@ jobs:
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_DATABASE: kern
+      DB_DATABASE: kern_test
       DB_USERNAME: kern
       DB_PASSWORD: kern_ci
       REDIS_CLIENT: phpredis
