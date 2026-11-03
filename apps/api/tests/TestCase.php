@@ -8,7 +8,10 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Kern\Documents\Scanning\ScanOutcome;
+use Kern\Documents\Scanning\VirusScanner;
 use RuntimeException;
+use Tests\Fakes\FakeVirusScanner;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -106,6 +109,19 @@ abstract class TestCase extends BaseTestCase
          */
         Storage::fake('s3');
         Storage::fake('quarantine');
+
+        /*
+         * The same reasoning, for the two other things a development machine has and CI does not.
+         *
+         * The virus scanner: a test that uploaded a file reached the development ClamAV and passed
+         * only because one was running. Every file is clean here; a test about the scanner binds
+         * its own outcome, and the live tests (`ClamdVirusScannerLiveTest`) build a real client.
+         *
+         * The Vite build: a page rendered in a test read `public/build/manifest.json`, which exists
+         * only where someone ran `npm run build`. What a test checks is the page, not the assets.
+         */
+        $this->app->instance(VirusScanner::class, FakeVirusScanner::returning(ScanOutcome::CLEAN));
+        $this->withoutVite();
     }
 
     /**

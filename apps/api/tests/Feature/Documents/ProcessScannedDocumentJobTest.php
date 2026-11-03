@@ -47,6 +47,10 @@ beforeEach(function (): void {
     // `ai.enabled` fails closed by default, and a document nobody may send is refused before any
     // provider is reached — which would make every test here about the wrong thing.
     config(['ai.providers.defaults.enabled' => true]);
+
+    // The extraction service refuses to be called without its token, and the token is the
+    // installation's — which a machine running the suite may not have. Every call here is faked.
+    config(['services.processing.auth_token' => 'test-processing-token']);
 });
 
 function putOriginal(Document $document, string $content): ObjectKey
