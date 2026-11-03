@@ -146,7 +146,9 @@ jobs:
       # inside the job too): a broken composer.json fails in milliseconds,
       # PHPStan takes the longest.
       - name: composer validate
-        run: composer validate --strict
+        # `--no-check-all`: the kern/* packages are path repositories required at `@dev`, the
+        # one form a path package can take. Everything else `--strict` checks still fails the job.
+        run: composer validate --strict --no-check-all
 
       - name: composer audit
         run: composer audit
@@ -405,13 +407,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "20.19.6"
-          cache: npm
-          cache-dependency-path: apps/browser-worker/package-lock.json
-
+      # No setup-node: the image's own Node (24) is the one production runs, and the test
+      # script's glob needs Node 21 or later.
       - name: npm ci
         run: npm ci
 

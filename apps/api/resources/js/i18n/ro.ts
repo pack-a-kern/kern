@@ -182,8 +182,7 @@ export const ro = {
         legalNote: 'Prin autentificare accepți politicile de securitate și confidențialitate ale {appName}.',
         asideBadge: 'Securizat prin construcție',
         asideTitle: 'Datele tale fiscale, protejate de o autentificare puternică.',
-        asideBody:
-            'Te autentifici cu parola, apoi confirmi din aplicație, dacă ai activat doi pași.',
+        asideBody: 'Te autentifici cu parola, apoi confirmi din aplicație, dacă ai activat doi pași.',
         asideStrongTitle: 'Autentificare puternică',
         asideStrongBody: 'Parolă plus un cod din aplicație.',
         asideDeviceTitle: 'Chei de acces',
@@ -219,8 +218,7 @@ export const ro = {
         queueEmpty: 'Nimic în coadă.',
         retry: 'Reîncearcă',
         remove: 'Elimină',
-        noActiveSubject:
-            'Nu ai niciun contribuabil activ. Alege unul din panou înainte să încarci documente.',
+        noActiveSubject: 'Nu ai niciun contribuabil activ. Alege unul din panou înainte să încarci documente.',
         goToDashboard: 'Mergi la panou',
         statusQueued: 'În așteptare',
         statusUploading: 'Se încarcă…',
@@ -257,8 +255,7 @@ export const ro = {
         deleteSelectedHint:
             'Se șterg fișierele și textul citit. Tranzacțiile create din ele rămân, doar fără document atașat.',
         emptyFiltered: 'Niciun document nu corespunde acestor filtre.',
-        description:
-            'Toate documentele contribuabilului activ, de pe orice dispozitiv.',
+        description: 'Toate documentele contribuabilului activ, de pe orice dispozitiv.',
         newDocument: 'Adaugă document',
         offline: 'Date locale',
         empty: 'Niciun document încă. Apasă „Adaugă document" ca să faci o poză sau să încarci unul.',
@@ -266,11 +263,9 @@ export const ro = {
         review: 'Verifică',
         view: 'Vezi',
         deleteTitle: 'Ștergi documentul?',
-        deleteHint:
-            'Documentul se șterge definitiv. O tranzacție creată din el rămâne, dar fără dovadă atașată.',
+        deleteHint: 'Documentul se șterge definitiv. O tranzacție creată din el rămâne, dar fără dovadă atașată.',
         deleted: 'Documentul a fost șters.',
-        noActiveSubject:
-            'Nu ai niciun contribuabil activ. Alege unul din panou ca să vezi documentele.',
+        noActiveSubject: 'Nu ai niciun contribuabil activ. Alege unul din panou ca să vezi documentele.',
         goToDashboard: 'Mergi la panou',
         filters: {
             allStatuses: 'Toate stările',
@@ -329,8 +324,7 @@ export const ro = {
         loading: 'Se încarcă…',
         empty: 'Încă nu s-a citit nimic din acest document.',
         nameLabel: 'Nume',
-        nameHint:
-            'Numele vine din conținutul documentului. Pune-i unul ușor de recunoscut.',
+        nameHint: 'Numele vine din conținutul documentului. Pune-i unul ușor de recunoscut.',
         originalFilenameLabel: 'Încărcat ca',
         rename: 'Redenumește',
         actions: 'Acțiuni pentru document',
@@ -368,12 +362,10 @@ export const ro = {
                 'Netrimis: citirea cu AI e oprită. Un administrator o poate porni din Setări sistem.',
             NOT_SENT_NOTHING_TO_SEND:
                 'Netrimis: documentul nu are text lizibil, iar imaginea e prea mare ca să fie trimisă. Completează valorile mai jos.',
-            FAILED_UNREACHABLE:
-                'Furnizorul AI nu răspunde. Verifică dacă serviciul merge, apoi încearcă din nou.',
+            FAILED_UNREACHABLE: 'Furnizorul AI nu răspunde. Verifică dacă serviciul merge, apoi încearcă din nou.',
             FAILED_HTTP_STATUS:
                 'Furnizorul AI a răspuns cu o eroare. Dacă se repetă la documente mari, probabil citirea durează mai mult decât permite serviciul.',
-            FAILED_MALFORMED_REPLY:
-                'Furnizorul AI a trimis un răspuns ilizibil. De obicei merge la o nouă încercare.',
+            FAILED_MALFORMED_REPLY: 'Furnizorul AI a trimis un răspuns ilizibil. De obicei merge la o nouă încercare.',
             FAILED_REASONING_BUDGET:
                 'Modelul și-a consumat bugetul gândind și n-a mai răspuns. Un administrator poate mări limita de tokenuri din Setări sistem.',
             FAILED_SCHEMA_VIOLATION:
@@ -390,8 +382,7 @@ export const ro = {
         fieldRequired: 'Obligatoriu',
         fieldOptional: 'Opțional',
         fieldValuePlaceholder: 'Valoare',
-        correctionHint:
-            'Scrie valoarea corectă pentru fiecare câmp. Propunerea AI de mai sus rămâne neschimbată.',
+        correctionHint: 'Scrie valoarea corectă pentru fiecare câmp. Propunerea AI de mai sus rămâne neschimbată.',
         reviewedBy: 'Verificat de',
         loadMore: 'Vezi mai multe',
         noActiveSubject: 'Nu există niciun contribuabil activ.',
@@ -404,8 +395,7 @@ export const ro = {
             'Documentul e în {document}, iar contul în {account}. Suma se înregistrează în {account}, deci trebuie convertită.',
         confidenceLabel: 'Nivel de încredere',
         createTransaction: 'Creează tranzacție',
-        createTransactionHint:
-            'Verifică valorile citite și confirmă. Documentul rămâne atașat ca dovadă.',
+        createTransactionHint: 'Verifică valorile citite și confirmă. Documentul rămâne atașat ca dovadă.',
         importTransaction: 'Importă tranzacția',
         importAwaitingAcceptance: 'Acceptă întâi citirea. Nimic nu devine tranzacție fără acordul tău.',
         importBulkPending: 'Citirea are {count} rânduri de extras. Importul lor în bloc nu e încă disponibil.',
@@ -590,14 +580,12 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Mai încearcă în câteva minute.',
         reasons: {
-            AI_CONSENT_REQUIRED:
-                'Activează AI pentru acest contribuabil ca să poți curăța pozele.',
+            AI_CONSENT_REQUIRED: 'Activează AI pentru acest contribuabil ca să poți curăța pozele.',
             ACCOUNT_SUSPENDED: 'Acest cont este suspendat. Cere unui administrator să-l reactiveze.',
             SUPER_ADMIN_ONLY: 'Doar un super administrator poate acorda sau retrage rolul de super administrator.',
             FAILED_JOB_NOT_REPLAYABLE:
                 'Jobul nu s-a păstrat, a rămas doar eroarea, deci nu are ce rula din nou. Elimin-o din listă.',
-            FISCAL_YEAR_IS_FINAL:
-                'Anul e marcat final. Deblochează-l din Impozite înainte să-i modifici tranzacțiile.',
+            FISCAL_YEAR_IS_FINAL: 'Anul e marcat final. Deblochează-l din Impozite înainte să-i modifici tranzacțiile.',
             FISCAL_YEAR_NOT_CLOSED: 'Un an poate fi marcat final abia după ce s-a încheiat.',
             SPV_WORKER_BUSY: 'Browserul automat e ocupat cu alte conectări. Încearcă din nou peste un minut.',
             SPV_ALREADY_SIGNED_IN: 'Conexiunea e deja autentificată. Reîncarcă pagina.',
@@ -616,23 +604,18 @@ export const ro = {
             SPV_SIGN_IN_REQUIRED: 'Autentifică-te din nou în SPV: portalul a închis sesiunea.',
             VERIFICATION_REQUIRED: 'Această acțiune cere codul din aplicația de autentificare.',
             PASSWORD_CONFIRMATION_REQUIRED: 'Această acțiune îți cere parola.',
-            GENERAL_SOURCE_UNDELETABLE:
-                'Contul General nu poate fi șters: acolo ajunge tot ce nu are alt loc.',
+            GENERAL_SOURCE_UNDELETABLE: 'Contul General nu poate fi șters: acolo ajunge tot ce nu are alt loc.',
             SOURCE_NOT_EMPTY:
                 'Contul are tranzacții și nu poate fi șters, pentru că ele explică sume dintr-un an fiscal. Mută-le sau șterge-le mai întâi.',
             DUPLICATE_CNP: 'Există deja un contribuabil înregistrat cu acest CNP.',
             FISCAL_PARAMETER_NOT_CANDIDATE: 'Valoarea a fost deja decisă. Reîncarcă pagina ca să vezi cum.',
-            FISCAL_PARAMETER_NOT_ITS_SOURCE:
-                'Paragraful ales nu spune această valoare. Alege unul din listă.',
-            FISCAL_PARAMETER_NOTHING_TO_CARRY:
-                'Nimic aprobat pentru anul anterior nu mai apare în legea acestui an.',
+            FISCAL_PARAMETER_NOT_ITS_SOURCE: 'Paragraful ales nu spune această valoare. Alege unul din listă.',
+            FISCAL_PARAMETER_NOTHING_TO_CARRY: 'Nimic aprobat pentru anul anterior nu mai apare în legea acestui an.',
             SUBJECT_CLOSED: 'Contribuabilul e închis. Reactivează-l ca să faci modificări.',
             CURRENCY_REQUIRED:
                 'Extrasul nu spune în ce monedă sunt sumele, iar contul nu are una setată. Alege moneda.',
-            IMPORT_HOLDS_TRANSACTIONS:
-                'Importul se salvează chiar acum. Așteaptă să se termine, apoi îl poți șterge.',
-            READER_UNAVAILABLE:
-                'Serviciul care citește extrasele nu răspunde. Încearcă din nou peste câteva minute.',
+            IMPORT_HOLDS_TRANSACTIONS: 'Importul se salvează chiar acum. Așteaptă să se termine, apoi îl poți șterge.',
+            READER_UNAVAILABLE: 'Serviciul care citește extrasele nu răspunde. Încearcă din nou peste câteva minute.',
             READ_FAILED: 'Citirea extrasului s-a oprit neașteptat. Încearcă din nou.',
             CONVERSION_FAILED:
                 'AI-ul nu a putut transforma PDF-ul în tabel. Încearcă din nou sau descarcă extrasul ca CSV din aplicația băncii.',
@@ -879,8 +862,7 @@ export const ro = {
             lastTwelve: 'Ultimele 12 luni',
             noCounterparty: 'Fără partener',
             title: 'Rapoarte',
-            description:
-                'Un an văzut din trei unghiuri: pe etichete, pe bănci și pe categorii.',
+            description: 'Un an văzut din trei unghiuri: pe etichete, pe bănci și pe categorii.',
             noBank: 'Fără bancă',
             untagged: 'Fără etichetă',
             moneyIn: 'Intrări',
@@ -1105,10 +1087,8 @@ export const ro = {
             allTypes: 'Toate tipurile',
             noMatches: 'Niciun cont de acest tip.',
             emptyTitle: 'Niciun cont încă',
-            emptyHint:
-                'Adaugă un depozit, numerar, un cont de investiții sau crypto. Restul ajunge în General.',
-            deleteSelectedHint:
-                'Fiecare cont se șterge separat. Unul care are încă tranzacții nu poate fi șters.',
+            emptyHint: 'Adaugă un depozit, numerar, un cont de investiții sau crypto. Restul ajunge în General.',
+            deleteSelectedHint: 'Fiecare cont se șterge separat. Unul care are încă tranzacții nu poate fi șters.',
             addHint: 'Numele e criptat cu cheia contribuabilului înainte de salvare.',
             added: 'Contul a fost adăugat.',
             addFailed: 'Contul nu a putut fi adăugat.',
@@ -1118,8 +1098,7 @@ export const ro = {
                 kind: 'Tip',
                 currency: 'Monedă',
                 holdingAmount: 'Sumă deținută',
-                holdingAmountHint:
-                    'Valoarea contului. Nu i se pot adăuga tranzacții.',
+                holdingAmountHint: 'Valoarea contului. Nu i se pot adăuga tranzacții.',
                 startsAt: 'Data începerii',
             },
             deleteTitle: 'Ștergi contul?',
@@ -1160,15 +1139,13 @@ export const ro = {
                 maturityAt: 'Scadență',
                 maturityCalculated: 'Calculată din data deschiderii și termen — {days} zile.',
                 maturityPending: 'Alege data deschiderii și termenul.',
-                maturityMoved:
-                    'Termenul cade în weekend, așa că scadența e în următoarea zi lucrătoare.',
+                maturityMoved: 'Termenul cade în weekend, așa că scadența e în următoarea zi lucrătoare.',
                 annualRate: 'Dobândă anuală (%)',
                 annualRateHint: 'Ex. 5.40 pentru 5,40% pe an.',
                 rateType: 'Tip dobândă',
                 interestMethod: 'Mod de calcul',
                 paymentFrequency: 'Frecvența plății',
-                lockedAfterInterest:
-                    'Nu se mai poate schimba: dobânda e deja înregistrată.',
+                lockedAfterInterest: 'Nu se mai poate schimba: dobânda e deja înregistrată.',
                 closedNotice:
                     'Depozitul a ajuns la scadență: suma și dobânda s-au întors în contul din care a venit. Nu se mai poate modifica.',
             },
@@ -1226,8 +1203,7 @@ export const ro = {
                     'Redenumește o etichetă, unește două sau șterge una. Tranzacțiile își păstrează sumele și categoriile.',
                 rename: 'Redenumește',
                 mergeConfirm: 'Unește',
-                mergeManyHint:
-                    '{count} etichete devin una. Tranzacțiile și regulile trec la numele păstrat.',
+                mergeManyHint: '{count} etichete devin una. Tranzacțiile și regulile trec la numele păstrat.',
                 keepName: 'Păstrează acest nume',
                 empty: 'Nicio etichetă încă. Adaugă una pe o tranzacție.',
                 renamed: 'Eticheta a fost redenumită.',
@@ -1391,8 +1367,7 @@ export const ro = {
             emptyTitle: 'Niciun calcul pentru {year}',
             emptyHint:
                 'Calculează anul ca să vezi cât datorezi și de unde vine fiecare cifră. Nu se depune nimic; poți recalcula oricând.',
-            draftHint:
-                'Calculat din veniturile clasificate de tine, cu reguli încă neaprobate. Nu este o declarație.',
+            draftHint: 'Calculat din veniturile clasificate de tine, cu reguli încă neaprobate. Nu este o declarație.',
             rulesApplied: 'reguli aplicate',
             composition: 'Din ce se compune suma',
             totalOwedLabel: 'Total de plată',
@@ -1419,8 +1394,7 @@ export const ro = {
         },
         legislation: {
             title: 'Legislație',
-            description:
-                'Caută în legile importate, după cuvinte sau după înțeles.',
+            description: 'Caută în legile importate, după cuvinte sau după înțeles.',
             searchPlaceholder: 'Ex.: cât plătesc la sănătate din chirii',
             search: 'Caută',
             searchTitle: 'Găsește o prevedere',
@@ -1728,8 +1702,7 @@ export const ro = {
             cancel: 'Renunță',
             confirm: 'Confirmă',
             secret: 'Cheie secretă',
-            secretHint:
-                'Adaugă cheia în aplicația de autentificare, apoi confirmă cu codul afișat.',
+            secretHint: 'Adaugă cheia în aplicația de autentificare, apoi confirmă cu codul afișat.',
             code: 'Cod din aplicație',
             totpDialogTitle: 'Activează codul din aplicație',
             totpDialogHint: 'Metoda se activează după ce introduci un cod valid.',
@@ -1854,10 +1827,10 @@ export const ro = {
                 encryption: 'Criptare la stocare',
                 encryptionHint: 'Documentele și datele personale sunt criptate cu cheia contribuabilului.',
                 localFirst: 'Prelucrare locală mai întâi',
-                localFirstHint:
-                    'Textul din PDF e citit local; AI-ul extern e folosit doar când nu există text.',
+                localFirstHint: 'Textul din PDF e citit local; AI-ul extern e folosit doar când nu există text.',
                 audit: 'Jurnal de audit',
-                auditHint: 'Fiecare acces și fiecare trimitere externă sunt înregistrate într-un jurnal care nu poate fi modificat.',
+                auditHint:
+                    'Fiecare acces și fiecare trimitere externă sunt înregistrate într-un jurnal care nu poate fi modificat.',
                 logs: 'Jurnale tehnice',
                 logsHint: 'CNP-ul, IBAN-ul și adresele de e-mail sunt eliminate înainte de scriere.',
                 redacted: 'Anonimizate',
@@ -2030,8 +2003,7 @@ export const ro = {
             },
             freshness: {
                 title: 'Prospețimea datelor',
-                description:
-                    'Sunt la zi datele pe care se bazează platforma?',
+                description: 'Sunt la zi datele pe care se bazează platforma?',
                 labels: {
                     fx_rates: 'Cursuri BNR',
                     legislation: 'Legislație',
@@ -2212,8 +2184,7 @@ export const ro = {
             systemRole: 'Rol de sistem, definit în configurație',
             notEnforcedYet: 'încă neverificată nicăieri',
             matrixTitle: 'Matricea de permisiuni',
-            matrixDescription:
-                'Citită din baza de date, deci arată ce e în vigoare acum.',
+            matrixDescription: 'Citită din baza de date, deci arată ce e în vigoare acum.',
             matrixLegend:
                 'Bifă plină: permisiune acordată și verificată efectiv. Bifă punctată: acordată, dar încă nicio rută nu o verifică. Gol: neacordată.',
             tabs: {
@@ -2265,8 +2236,7 @@ export const ro = {
         },
         adminOperations: {
             title: 'Sarcini programate',
-            description:
-                'Sarcinile de întreținere, când rulează fiecare și ce au raportat la fiecare rulare.',
+            description: 'Sarcinile de întreținere, când rulează fiecare și ce au raportat la fiecare rulare.',
             forbidden: 'Nu ai drepturi de administrare pentru sarcini.',
             loadFailed: 'Starea operațiunilor nu a putut fi încărcată.',
             tasks: {
@@ -2287,8 +2257,7 @@ export const ro = {
                 never: 'Niciodată',
                 run: 'Rulează',
                 runTitle: 'Rulează sarcina',
-                runConfirm:
-                    'Sarcina intră în coadă și rulează în fundal. Rezultatul apare în istoric.',
+                runConfirm: 'Sarcina intră în coadă și rulează în fundal. Rezultatul apare în istoric.',
                 runCommand: 'Comandă executată',
                 argumentLabel: {
                     year: 'An fiscal',
@@ -2349,8 +2318,7 @@ export const ro = {
         },
         adminJobs: {
             title: 'Coadă',
-            description:
-                'Ce rulează acum în fundal, citit live din Horizon: în așteptare, terminat și eșuat.',
+            description: 'Ce rulează acum în fundal, citit live din Horizon: în așteptare, terminat și eșuat.',
             forbidden: 'Nu ai drepturi de administrare pentru coadă.',
             loadFailed: 'Coada de lucru nu a putut fi încărcată.',
             emptyHint:

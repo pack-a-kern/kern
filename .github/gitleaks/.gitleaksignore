@@ -15,8 +15,14 @@
 
 # PHP/libsodium constant name (SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES),
 # not a secret value. High-entropy match is coincidental to the constant's name.
-apps/api/app/Support/Crypto/EnvelopeCipher.php:generic-api-key:43
+packages/platform/src/Crypto/EnvelopeCipher.php:generic-api-key:43
 
-# Comment naming the OpenBao/Vault transit key algorithm ("chacha20-poly1305"),
-# not a key or token value.
-docker/openbao/init.sh:generic-api-key:17
+# Made-up AI provider keys a test stores and reads back ("sk-abcdEFGH1234",
+# "sk-abcdEFGH5678") — the shape of a key, never one that was issued.
+apps/api/tests/Feature/Platform/Settings/AiProviderSettingsServiceTest.php:generic-api-key:38
+apps/api/tests/Feature/Platform/Settings/AiSettingsHttpTest.php:generic-api-key:106
+
+# The textbook sample JWT (sub "1234567890"), unsigned by anything real, which the
+# log-redaction tests feed in to prove it never reaches a log line.
+apps/api/tests/Feature/Platform/Logging/SensitiveLogRedactionFeatureTest.php:jwt:27
+packages/platform/tests/Unit/Logging/SensitiveDataProcessorTest.php:jwt:71

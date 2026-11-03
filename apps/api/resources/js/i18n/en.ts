@@ -205,8 +205,7 @@ export const en = {
         offline: 'Offline',
         typeLabel: 'Document type',
         typeHint: 'Can be corrected later, at review.',
-        processingNote:
-            'Once uploaded, a document is virus-scanned and then read. Follow it under "My documents".',
+        processingNote: 'Once uploaded, a document is virus-scanned and then read. Follow it under "My documents".',
         queueNote:
             "The queue lives on this device. An uploaded document stays on the server even if you clear this browser's data.",
         takePhoto: 'Take a photo',
@@ -324,8 +323,7 @@ export const en = {
         loading: 'Loading…',
         empty: 'Nothing has been read from this document yet.',
         nameLabel: 'Name',
-        nameHint:
-            'The name comes from the document’s content. Give it one you will recognise.',
+        nameHint: 'The name comes from the document’s content. Give it one you will recognise.',
         originalFilenameLabel: 'Uploaded as',
         rename: 'Rename',
         actions: 'Document actions',
@@ -371,8 +369,7 @@ export const en = {
             FAILED_MALFORMED_REPLY: 'The AI provider sent an unreadable reply. Trying again usually works.',
             FAILED_REASONING_BUDGET:
                 'The model used its whole budget thinking and never answered. An administrator can raise the token limit under System settings.',
-            FAILED_SCHEMA_VIOLATION:
-                'The reply was missing values this document type requires, so it was discarded.',
+            FAILED_SCHEMA_VIOLATION: 'The reply was missing values this document type requires, so it was discarded.',
             SUCCEEDED: 'Read successfully.',
         },
         accept: 'Accept',
@@ -385,8 +382,7 @@ export const en = {
         fieldRequired: 'Required',
         fieldOptional: 'Optional',
         fieldValuePlaceholder: 'Value',
-        correctionHint:
-            'Enter the correct value for each field. The AI proposal above stays unchanged.',
+        correctionHint: 'Enter the correct value for each field. The AI proposal above stays unchanged.',
         reviewedBy: 'Reviewed by',
         loadMore: 'Load more',
         noActiveSubject: 'There is no active taxpayer.',
@@ -399,11 +395,9 @@ export const en = {
             'The document is in {document} and the account in {account}. The amount is recorded in {account}, so it has to be converted.',
         confidenceLabel: 'Confidence level',
         createTransaction: 'Create transaction',
-        createTransactionHint:
-            'Check the values read and confirm. The document stays attached as evidence.',
+        createTransactionHint: 'Check the values read and confirm. The document stays attached as evidence.',
         importTransaction: 'Import transaction',
-        importAwaitingAcceptance:
-            'Accept the reading first. Nothing becomes a transaction without your approval.',
+        importAwaitingAcceptance: 'Accept the reading first. Nothing becomes a transaction without your approval.',
         importBulkPending: 'This reading holds {count} statement rows. Bulk import is not available yet.',
         createTransactionExisting: 'The transactions from this document have already been imported.',
         createRental: 'Create rental',
@@ -591,8 +585,7 @@ export const en = {
             SUPER_ADMIN_ONLY: 'Only a super administrator can give or remove the super administrator role.',
             FAILED_JOB_NOT_REPLAYABLE:
                 'The job itself was not kept, only its error, so there is nothing to re-run. Discard it to clear the list.',
-            FISCAL_YEAR_IS_FINAL:
-                'That year is marked final. Unlock it under Taxes before changing its transactions.',
+            FISCAL_YEAR_IS_FINAL: 'That year is marked final. Unlock it under Taxes before changing its transactions.',
             FISCAL_YEAR_NOT_CLOSED: 'A year can only be marked final once it has ended.',
             SPV_WORKER_BUSY: 'The browser worker is busy with other sign-ins. Try again in a minute.',
             SPV_ALREADY_SIGNED_IN: 'This connection is already signed in. Refresh the page to see it.',
@@ -619,8 +612,7 @@ export const en = {
                 'This account has transactions and cannot be deleted, because they explain figures in a tax year. Move or delete them first.',
             DUPLICATE_CNP: 'A taxpayer with this CNP is already registered.',
             FISCAL_PARAMETER_NOT_CANDIDATE: 'This value was already decided. Reload the page to see how.',
-            FISCAL_PARAMETER_NOT_ITS_SOURCE:
-                'That paragraph does not state this value. Choose one from the list.',
+            FISCAL_PARAMETER_NOT_ITS_SOURCE: 'That paragraph does not state this value. Choose one from the list.',
             FISCAL_PARAMETER_NOTHING_TO_CARRY: 'Nothing approved for last year still appears in this year’s law.',
             SUBJECT_CLOSED: 'This taxpayer is closed. Reactivate it to make changes.',
             SUBJECT_SUSPENDED: 'This taxpayer is suspended. Reactivate it to make changes.',
@@ -631,8 +623,7 @@ export const en = {
                 'This statement does not say which currency it is in, and the account has none set. Choose a currency.',
             IMPORT_HOLDS_TRANSACTIONS:
                 'This import is being saved right now. Wait for it to finish, then you can delete it.',
-            READER_UNAVAILABLE:
-                'The service that reads statements is not responding. Try again in a few minutes.',
+            READER_UNAVAILABLE: 'The service that reads statements is not responding. Try again in a few minutes.',
             READ_FAILED: 'Reading the statement stopped unexpectedly. Try again.',
             CONVERSION_FAILED:
                 'The AI could not turn this PDF into a table. Try again, or download the statement as CSV from your bank.',
@@ -887,8 +878,7 @@ export const en = {
             lastTwelve: 'Last 12 months',
             noCounterparty: 'No payee',
             title: 'Reports',
-            description:
-                'A year from three angles: by tag, by bank and by category.',
+            description: 'A year from three angles: by tag, by bank and by category.',
             noBank: 'No bank',
             untagged: 'No tag',
             moneyIn: 'In',
@@ -1107,8 +1097,7 @@ export const en = {
             allTypes: 'All types',
             noMatches: 'No accounts of this type.',
             emptyTitle: 'No accounts yet',
-            emptyHint:
-                'Add a deposit, cash, or a brokerage or crypto account. Everything else lands in General.',
+            emptyHint: 'Add a deposit, cash, or a brokerage or crypto account. Everything else lands in General.',
             deleteSelectedHint:
                 'Each account is deleted on its own. One that still has transactions cannot be deleted.',
             addHint: "The name is encrypted under the taxpayer's own key before being stored.",
@@ -1167,8 +1156,7 @@ export const en = {
                 rateType: 'Interest type',
                 interestMethod: 'Interest method',
                 paymentFrequency: 'Payment frequency',
-                lockedAfterInterest:
-                    'Can no longer change: interest is already recorded.',
+                lockedAfterInterest: 'Can no longer change: interest is already recorded.',
                 closedNotice:
                     'This deposit has matured: the amount and interest went back to the account it came from. It can no longer be changed.',
             },
@@ -1226,8 +1214,7 @@ export const en = {
                     'Rename a tag, fold one into another, or remove one. Transactions keep their figures and categories.',
                 rename: 'Rename',
                 mergeConfirm: 'Merge',
-                mergeManyHint:
-                    '{count} tags become one. Transactions and rules move to the name you keep.',
+                mergeManyHint: '{count} tags become one. Transactions and rules move to the name you keep.',
                 keepName: 'Keep this name',
                 empty: 'No tags yet. Add one on a transaction.',
                 renamed: 'Tag renamed.',
@@ -1323,8 +1310,7 @@ export const en = {
             ended: 'Rental ended.',
             saveFailed: 'The rental could not be saved.',
             deleteTitle: 'Delete this rental?',
-            deleteHint:
-                'For a rental added by mistake. A rental that really ended should be ended, not deleted.',
+            deleteHint: 'For a rental added by mistake. A rental that really ended should be ended, not deleted.',
             actions: {
                 rent: 'New rent',
                 end: 'End',
@@ -1391,8 +1377,7 @@ export const en = {
             emptyTitle: 'No calculation for {year} yet',
             emptyHint:
                 'Assess the year to see what you owe and where each figure comes from. Nothing is filed; you can recalculate any time.',
-            draftHint:
-                'Computed from income you classified, using rules not yet approved. Not a filing.',
+            draftHint: 'Computed from income you classified, using rules not yet approved. Not a filing.',
             rulesApplied: 'rules applied',
             composition: 'What the bill is made of',
             totalOwedLabel: 'Total owed',
@@ -1410,8 +1395,7 @@ export const en = {
             checkExpensesTitle: 'Deductible expenses',
             checkCategoriesTitle: 'Your categorisation',
             checkFilingTitle: 'Not a filing',
-            caveatExpenses:
-                'Freelance income is taxed in full: you have no deductible expenses recorded.',
+            caveatExpenses: 'Freelance income is taxed in full: you have no deductible expenses recorded.',
             caveatCategorisation: 'Every figure rests on how you categorised your transactions.',
             caveatNotFiling: 'This is not a return. Nothing here has been submitted to ANAF.',
             title: 'Taxes',
@@ -1419,8 +1403,7 @@ export const en = {
         },
         legislation: {
             title: 'Legislation',
-            description:
-                'Search the imported laws, by words or by meaning.',
+            description: 'Search the imported laws, by words or by meaning.',
             searchPlaceholder: 'e.g. cât plătesc la sănătate din chirii',
             search: 'Search',
             searchTitle: 'Find a provision',
@@ -1814,8 +1797,7 @@ export const en = {
             addHint: 'These details identify the taxpayer to ANAF.',
             cancel: 'Cancel',
             saving: 'Saving…',
-            privacyNote:
-                "CNP, name and address are encrypted with this taxpayer's key and never appear in logs.",
+            privacyNote: "CNP, name and address are encrypted with this taxpayer's key and never appear in logs.",
             fields: {
                 displayName: 'Display name',
                 displayNameHint:
@@ -2254,8 +2236,7 @@ export const en = {
         },
         adminOperations: {
             title: 'Scheduled tasks',
-            description:
-                'Maintenance tasks, when each runs, and what each run reported.',
+            description: 'Maintenance tasks, when each runs, and what each run reported.',
             forbidden: 'You do not have administrator access to scheduled tasks.',
             loadFailed: 'The operations status could not be loaded.',
             tasks: {
@@ -2403,8 +2384,7 @@ export const en = {
         },
         adminAudit: {
             title: 'Audit',
-            description:
-                'The hash-chained log of every action on taxpayer data. It can be verified, not just trusted.',
+            description: 'The hash-chained log of every action on taxpayer data. It can be verified, not just trusted.',
             forbidden: 'You do not have administrator access to the audit log.',
             loadFailed: 'The audit log could not be loaded.',
             empty: 'No events match these filters.',

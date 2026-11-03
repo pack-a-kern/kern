@@ -32,3 +32,7 @@ apps/browser-worker/dist-test
 
 # The installation's environment, and the repository-root symlink that points compose at it.
 .env
+
+# Helpers a person runs by hand, never part of an image — and the legislation explorer's local
+# databases beside them, which are gigabytes every build would otherwise send to the daemon.
+tools/
