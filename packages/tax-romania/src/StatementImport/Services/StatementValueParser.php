@@ -122,8 +122,11 @@ final readonly class StatementValueParser
      *
      * Handles the three ways an export writes a negative — a leading minus, a trailing minus, and
      * parentheses — and strips a currency code or symbol printed in the same cell.
+     *
+     * The two separators rather than a statement's whole form: a deposit read from a CSV is an amount
+     * written the same way, and must be read by the same rule.
      */
-    public function amountMinor(string $value, StatementForm $mapping): ?int
+    public function amountMinor(string $value, string $decimalSeparator, string $thousandsSeparator): ?int
     {
         $raw = trim($value);
 
@@ -135,14 +138,14 @@ final readonly class StatementValueParser
 
         // Everything that is not a digit or a separator: currency codes, symbols, spaces, the signs
         // already accounted for above.
-        $body = preg_replace('/[^\d' . preg_quote($mapping->decimalSeparator . $mapping->thousandsSeparator, '/') . ']/u', '', $raw) ?? '';
+        $body = preg_replace('/[^\d' . preg_quote($decimalSeparator . $thousandsSeparator, '/') . ']/u', '', $raw) ?? '';
 
-        if ($mapping->thousandsSeparator !== '') {
-            $body = str_replace($mapping->thousandsSeparator, '', $body);
+        if ($thousandsSeparator !== '') {
+            $body = str_replace($thousandsSeparator, '', $body);
         }
 
-        if ($mapping->decimalSeparator !== '') {
-            $body = str_replace($mapping->decimalSeparator, '.', $body);
+        if ($decimalSeparator !== '') {
+            $body = str_replace($decimalSeparator, '.', $body);
         }
 
         if ($body === '' || ! is_numeric($body)) {
@@ -168,13 +171,14 @@ final readonly class StatementValueParser
     public function rowAmountMinor(array $row, StatementForm $mapping): ?int
     {
         $cell = static fn (?int $index): string => $index !== null && isset($row[$index]) ? $row[$index] : '';
+        $amount = fn (?int $index): ?int => $this->amountMinor($cell($index), $mapping->decimalSeparator, $mapping->thousandsSeparator);
 
         if ($mapping->amountMode === StatementForm::MODE_SIGNED) {
-            return $this->amountMinor($cell($mapping->amountColumn), $mapping);
+            return $amount($mapping->amountColumn);
         }
 
-        $debit = $this->amountMinor($cell($mapping->debitColumn), $mapping);
-        $credit = $this->amountMinor($cell($mapping->creditColumn), $mapping);
+        $debit = $amount($mapping->debitColumn);
+        $credit = $amount($mapping->creditColumn);
 
         if ($debit !== null && $debit !== 0 && $credit !== null && $credit !== 0) {
             return null;

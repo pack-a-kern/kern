@@ -513,3 +513,20 @@ export function parseStatementImportDetail(payload: unknown): StatementImportDet
         }),
     };
 }
+
+/**
+ * The date shapes the server's parser reads (`StatementForm::DATE_FORMATS`), in the order a
+ * Romanian export uses them. `D MONTH YYYY` is the one a bank writes in words — "12 septembrie
+ * 2026" — and the month names live in the server's config. Shared by every screen that reads a
+ * file's dates: a statement, and a CSV of deposits.
+ */
+export const DATE_FORMATS = [
+    'DD.MM.YYYY',
+    'DD/MM/YYYY',
+    'DD-MM-YYYY',
+    'YYYY-MM-DD',
+    'YYYY/MM/DD',
+    'DD.MM.YY',
+    'MM/DD/YYYY',
+    'D MONTH YYYY',
+];

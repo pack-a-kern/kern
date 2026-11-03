@@ -22,21 +22,24 @@ import {
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { deleteAccount, listAccounts, listBanks, openAccount, updateAccount } from '../../api/walletApi';
+import { deleteAccount, listAccounts, listBanks, openAccount, openDeposits, updateAccount } from '../../api/walletApi';
 import AppShell from '../../components/AppShell';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Pagination from '../../components/Pagination';
 import { bankOptions } from '../../components/wallet/bankOptions';
+import DepositCsvImport, { type DepositCsvState } from '../../components/wallet/DepositCsvImport';
 import { PanelDate } from '../../components/PanelDatePicker';
 import {
     ActionGroup,
+    ButtonGroup,
     CellLabel,
     DataTable,
     EmptyState,
     Field,
     FieldGrid,
+    FieldSpan,
     Page,
     Panel,
     PanelButton,
@@ -206,6 +209,16 @@ export default function WalletAccounts(): JSX.Element {
     // Typed explicitly: `OPENABLE_KINDS[0]` is a const-asserted tuple, so inference would pin
     // `kind` to the literal 'BANK_CURRENT' and reject every other value the select offers.
     const [form, setForm] = useState<AccountForm>(emptyForm());
+    // Adding deposits from a CSV rather than one: the same dialog, the same fields answered once for
+    // the whole file, and the per-deposit ones read from its columns.
+    const [fromCsv, setFromCsv] = useState(false);
+    const [csv, setCsv] = useState<DepositCsvState>({
+        deposits: null,
+        bankFromFile: false,
+        currencyFromFile: false,
+        lines: 0,
+        read: false,
+    });
 
     useEffect(() => {
         if (subjectId === null) {
@@ -304,6 +317,12 @@ export default function WalletAccounts(): JSX.Element {
     // a second place to add one. This is the whole reason `deposits` stopped being its own table.
     const options: DepositFormOptions = loaded?.options ?? { termsMonths: [] };
     const isDeposit = form.kind === 'TERM_DEPOSIT';
+    // Only while adding: a CSV opens deposits, it never edits one.
+    const csvMode = fromCsv && isDeposit && editing === null;
+    // A field the whole file shares, still empty once the file is read, is marked like a column with
+    // no answer: either one keeps every deposit from being added.
+    const missingForFile = (value: string): string | undefined =>
+        csvMode && csv.read && value === '' ? t((d) => d.pages.walletDeposits.csv.missing) : undefined;
     // A cash source is one declared value rather than a container: the form asks for it, and
     // nothing else can ever add to it.
     const isCash = form.kind === 'CASH';
@@ -363,6 +382,16 @@ export default function WalletAccounts(): JSX.Element {
         }
     };
 
+    // Closed without saving, or after: the form goes back to empty, so the next thing opened — an
+    // "Add", or a different source — does not show what was typed into this one.
+    const closeDialog = (): void => {
+        setAdding(false);
+        setEditing(null);
+        setForm(emptyForm());
+        setFromCsv(false);
+        errors.reset();
+    };
+
     const submit = async (): Promise<void> => {
         setSaving(true);
         errors.reset();
@@ -404,9 +433,7 @@ export default function WalletAccounts(): JSX.Element {
             toast.success(
                 editing === null ? t((d) => d.pages.walletAccounts.added) : t((d) => d.pages.walletAccounts.saved),
             );
-            setAdding(false);
-            setEditing(null);
-            setForm(emptyForm());
+            closeDialog();
             // Re-fetch rather than pushing the new row in locally: the server owns the id, and the
             // balance column comes from a snapshot that does not exist yet.
             setReloadKey((current) => current + 1);
@@ -415,6 +442,32 @@ export default function WalletAccounts(): JSX.Element {
             if (!errors.capture(cause)) {
                 toast.error(t((d) => d.pages.walletAccounts.addFailed));
             }
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /** Opens every deposit the file reads as — or none, with the refused lines marked in the preview. */
+    const submitCsv = async (): Promise<void> => {
+        if (csv.deposits === null) {
+            return;
+        }
+
+        setSaving(true);
+        errors.reset();
+
+        try {
+            await openDeposits(subjectId, csv.deposits);
+            toast.success(t((d) => d.pages.walletDeposits.csv.added).replace('{count}', String(csv.deposits.length)));
+            closeDialog();
+            setReloadKey((current) => current + 1);
+        } catch (cause: unknown) {
+            toast.error(
+                t((d) => d.pages.walletDeposits.csv.refused),
+                {
+                    ...(errors.capture(cause) ? {} : { description: describeApiFailure(cause, t) }),
+                },
+            );
         } finally {
             setSaving(false);
         }
@@ -784,13 +837,7 @@ export default function WalletAccounts(): JSX.Element {
                 open={adding || editing !== null}
                 onOpenChange={(next) => {
                     if (!next) {
-                        // Closed without saving: the form goes back to empty, so the next thing
-                        // opened — an "Add", or a different source — does not show what was typed
-                        // into this one.
-                        setAdding(false);
-                        setEditing(null);
-                        setForm(emptyForm());
-                        errors.reset();
+                        closeDialog();
                     }
                 }}
                 title={editing === null ? t((d) => d.pages.walletAccounts.add) : t((d) => d.pages.walletAccounts.edit)}
@@ -798,51 +845,74 @@ export default function WalletAccounts(): JSX.Element {
                 size="lg"
                 actions={
                     <>
-                        <PanelButton
-                            onClick={() => {
-                                setAdding(false);
-                                setEditing(null);
-                                setForm(emptyForm());
-                                errors.reset();
-                            }}
-                        >
+                        <PanelButton onClick={closeDialog}>
                             <X className="size-3.5" aria-hidden="true" />
                             {t((d) => d.common.cancel)}
                         </PanelButton>
-                        <PanelButton
-                            primary
-                            disabled={
-                                saving ||
-                                depositClosed ||
-                                (isDeposit ? form.bank_id === '' : form.display_name.trim() === '') ||
-                                (isCash && form.holding_amount.trim() === '') ||
-                                (isDeposit &&
-                                    (form.principal.trim() === '' ||
-                                        form.annual_rate.trim() === '' ||
-                                        maturityAt === ''))
-                            }
-                            onClick={() => {
-                                void submit();
-                            }}
-                        >
-                            <Check className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.common.save)}
-                        </PanelButton>
+                        {csvMode ? (
+                            <PanelButton
+                                primary
+                                disabled={saving || csv.deposits === null}
+                                onClick={() => {
+                                    void submitCsv();
+                                }}
+                            >
+                                <Check className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletDeposits.csv.submit).replace('{count}', String(csv.lines))}
+                            </PanelButton>
+                        ) : (
+                            <PanelButton
+                                primary
+                                disabled={
+                                    saving ||
+                                    depositClosed ||
+                                    (isDeposit ? form.bank_id === '' : form.display_name.trim() === '') ||
+                                    (isCash && form.holding_amount.trim() === '') ||
+                                    (isDeposit &&
+                                        (form.principal.trim() === '' ||
+                                            form.annual_rate.trim() === '' ||
+                                            maturityAt === ''))
+                                }
+                                onClick={() => {
+                                    void submit();
+                                }}
+                            >
+                                <Check className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.common.save)}
+                            </PanelButton>
+                        )}
                     </>
                 }
             >
                 <FieldGrid>
+                    {isDeposit && editing === null ? (
+                        <FieldSpan>
+                            <ButtonGroup
+                                stretch
+                                value={fromCsv ? 'csv' : 'one'}
+                                onChange={(next) => {
+                                    setFromCsv(next === 'csv');
+                                    errors.reset();
+                                }}
+                                options={[
+                                    { value: 'one', label: t((d) => d.pages.walletDeposits.csv.modeOne) },
+                                    { value: 'csv', label: t((d) => d.pages.walletDeposits.csv.modeCsv) },
+                                ]}
+                            />
+                        </FieldSpan>
+                    ) : null}
+
                     {depositClosed ? (
                         <p className="note sm:col-span-2">{t((d) => d.pages.walletDeposits.form.closedNotice)}</p>
                     ) : null}
 
                     {/* A deposit is at a bank, and that bank is its name: chosen from the list the bank import
                         keeps, never typed, so two deposits at one bank cannot be spelled two ways. */}
-                    {isDeposit ? (
+                    {isDeposit && csvMode && csv.bankFromFile ? null : isDeposit ? (
                         <Field
                             label={t((d) => d.pages.walletDeposits.form.bank)}
                             htmlFor="account-bank"
-                            error={errors.get('bank_id')}
+                            error={errors.get('bank_id') ?? missingForFile(form.bank_id)}
                             hint={
                                 banks.length === 0
                                     ? t((d) => d.pages.walletDeposits.form.bankEmpty)
@@ -910,23 +980,25 @@ export default function WalletAccounts(): JSX.Element {
                         />
                     </Field>
 
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.currency)}
-                        htmlFor="account-currency"
-                        error={errors.get('currency_code')}
-                        {...(isDeposit && termsLocked ? { hint: lockedHint } : {})}
-                    >
-                        <PanelSelect
-                            icon={<Coins className="size-3.5" aria-hidden="true" />}
-                            id="account-currency"
-                            disabled={isDeposit && termsLocked}
-                            value={form.currency_code}
-                            onValueChange={(value) => {
-                                setForm((current) => ({ ...current, currency_code: value }));
-                            }}
-                            options={currencies.map((code) => ({ value: code, label: code }))}
-                        />
-                    </Field>
+                    {csvMode && csv.currencyFromFile ? null : (
+                        <Field
+                            label={t((d) => d.pages.walletAccounts.form.currency)}
+                            htmlFor="account-currency"
+                            error={errors.get('currency_code') ?? missingForFile(form.currency_code)}
+                            {...(isDeposit && termsLocked ? { hint: lockedHint } : {})}
+                        >
+                            <PanelSelect
+                                icon={<Coins className="size-3.5" aria-hidden="true" />}
+                                id="account-currency"
+                                disabled={isDeposit && termsLocked}
+                                value={form.currency_code}
+                                onValueChange={(value) => {
+                                    setForm((current) => ({ ...current, currency_code: value }));
+                                }}
+                                options={currencies.map((code) => ({ value: code, label: code }))}
+                            />
+                        </Field>
+                    )}
 
                     {isCash ? (
                         <Field
@@ -950,7 +1022,24 @@ export default function WalletAccounts(): JSX.Element {
                     {/* A deposit's own start date, and only a deposit's: it is the day interest
                         begins accruing and the left edge of the span its rate periods must cover,
                         not metadata about a folder. */}
-                    {isDeposit ? (
+                    {csvMode ? (
+                        <DepositCsvImport
+                            subjectId={subjectId}
+                            banks={banks}
+                            errors={errors}
+                            onChange={setCsv}
+                            shared={{
+                                bankId: form.bank_id,
+                                currencyCode: form.currency_code,
+                                fundingAccountId: form.funding_account_id,
+                                rateType: form.rate_type,
+                                interestMethod: form.interest_method,
+                                paymentFrequency: form.payment_frequency,
+                            }}
+                        />
+                    ) : null}
+
+                    {isDeposit && !csvMode ? (
                         <Field
                             label={t((d) => d.pages.walletAccounts.form.startsAt)}
                             htmlFor="account-starts"
@@ -1002,93 +1091,101 @@ export default function WalletAccounts(): JSX.Element {
                                 />
                             </Field>
 
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.principal)}
-                                htmlFor="account-principal"
-                                error={errors.get('principal_minor')}
-                                hint={termsLocked ? lockedHint : t((d) => d.pages.walletDeposits.form.principalHint)}
-                            >
-                                <PanelInput
-                                    icon={<Coins className="size-3.5" aria-hidden="true" />}
-                                    id="account-principal"
-                                    disabled={termsLocked}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.principal}
-                                    onChange={(event) => {
-                                        setForm((current) => ({ ...current, principal: event.target.value }));
-                                    }}
-                                />
-                            </Field>
+                            {csvMode ? null : (
+                                <>
+                                    <Field
+                                        label={t((d) => d.pages.walletDeposits.form.principal)}
+                                        htmlFor="account-principal"
+                                        error={errors.get('principal_minor')}
+                                        hint={
+                                            termsLocked
+                                                ? lockedHint
+                                                : t((d) => d.pages.walletDeposits.form.principalHint)
+                                        }
+                                    >
+                                        <PanelInput
+                                            icon={<Coins className="size-3.5" aria-hidden="true" />}
+                                            id="account-principal"
+                                            disabled={termsLocked}
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={form.principal}
+                                            onChange={(event) => {
+                                                setForm((current) => ({ ...current, principal: event.target.value }));
+                                            }}
+                                        />
+                                    </Field>
 
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.annualRate)}
-                                htmlFor="account-rate"
-                                error={errors.get('annual_rate')}
-                                hint={t((d) => d.pages.walletDeposits.form.annualRateHint)}
-                            >
-                                <PanelInput
-                                    id="account-rate"
-                                    disabled={depositClosed}
-                                    icon={<PercentIcon className="size-3.5" />}
-                                    inputMode="decimal"
-                                    value={form.annual_rate}
-                                    onChange={(event) => {
-                                        setForm((current) => ({ ...current, annual_rate: event.target.value }));
-                                    }}
-                                />
-                            </Field>
+                                    <Field
+                                        label={t((d) => d.pages.walletDeposits.form.annualRate)}
+                                        htmlFor="account-rate"
+                                        error={errors.get('annual_rate')}
+                                        hint={t((d) => d.pages.walletDeposits.form.annualRateHint)}
+                                    >
+                                        <PanelInput
+                                            id="account-rate"
+                                            disabled={depositClosed}
+                                            icon={<PercentIcon className="size-3.5" />}
+                                            inputMode="decimal"
+                                            value={form.annual_rate}
+                                            onChange={(event) => {
+                                                setForm((current) => ({ ...current, annual_rate: event.target.value }));
+                                            }}
+                                        />
+                                    </Field>
 
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.term)}
-                                htmlFor="account-term"
-                                hint={t((d) => d.pages.walletDeposits.form.termHint)}
-                            >
-                                <PanelSelect
-                                    icon={<Hourglass className="size-3.5" aria-hidden="true" />}
-                                    id="account-term"
-                                    disabled={depositClosed}
-                                    value={form.term_months}
-                                    onValueChange={(value) => {
-                                        setForm((current) => ({ ...current, term_months: value }));
-                                    }}
-                                    options={options.termsMonths.map((months) => ({
-                                        value: String(months),
-                                        label: termLabel(months),
-                                    }))}
-                                />
-                            </Field>
+                                    <Field
+                                        label={t((d) => d.pages.walletDeposits.form.term)}
+                                        htmlFor="account-term"
+                                        hint={t((d) => d.pages.walletDeposits.form.termHint)}
+                                    >
+                                        <PanelSelect
+                                            icon={<Hourglass className="size-3.5" aria-hidden="true" />}
+                                            id="account-term"
+                                            disabled={depositClosed}
+                                            value={form.term_months}
+                                            onValueChange={(value) => {
+                                                setForm((current) => ({ ...current, term_months: value }));
+                                            }}
+                                            options={options.termsMonths.map((months) => ({
+                                                value: String(months),
+                                                label: termLabel(months),
+                                            }))}
+                                        />
+                                    </Field>
 
-                            {/* Derived, not entered — but shown, because the interest is counted
+                                    {/* Derived, not entered — but shown, because the interest is counted
                                 between the opening date and this one. */}
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.maturityAt)}
-                                htmlFor="account-maturity"
-                                error={errors.get('maturity_at')}
-                                hint={
-                                    termDays === null
-                                        ? t((d) => d.pages.walletDeposits.form.maturityPending)
-                                        : [
-                                              t((d) => d.pages.walletDeposits.form.maturityCalculated).replace(
-                                                  '{days}',
-                                                  String(termDays),
-                                              ),
-                                              ...(movedToWorkingDay
-                                                  ? [t((d) => d.pages.walletDeposits.form.maturityMoved)]
-                                                  : []),
-                                          ].join(' ')
-                                }
-                            >
-                                <PanelInput
-                                    id="account-maturity"
-                                    type="date"
-                                    value={maturityAt}
-                                    disabled
-                                    readOnly
-                                    icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
-                                />
-                            </Field>
+                                    <Field
+                                        label={t((d) => d.pages.walletDeposits.form.maturityAt)}
+                                        htmlFor="account-maturity"
+                                        error={errors.get('maturity_at')}
+                                        hint={
+                                            termDays === null
+                                                ? t((d) => d.pages.walletDeposits.form.maturityPending)
+                                                : [
+                                                      t((d) => d.pages.walletDeposits.form.maturityCalculated).replace(
+                                                          '{days}',
+                                                          String(termDays),
+                                                      ),
+                                                      ...(movedToWorkingDay
+                                                          ? [t((d) => d.pages.walletDeposits.form.maturityMoved)]
+                                                          : []),
+                                                  ].join(' ')
+                                        }
+                                    >
+                                        <PanelInput
+                                            id="account-maturity"
+                                            type="date"
+                                            value={maturityAt}
+                                            disabled
+                                            readOnly
+                                            icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
+                                        />
+                                    </Field>
+                                </>
+                            )}
 
                             <Field
                                 label={t((d) => d.pages.walletDeposits.form.rateType)}

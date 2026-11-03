@@ -35,7 +35,7 @@ final class ShowBanksController
      *
      * @var list<BankKind>
      */
-    private const array OFFERED = [BankKind::BANK, BankKind::FOREIGN_BRANCH, BankKind::UNKNOWN];
+    public const array OFFERED = [BankKind::BANK, BankKind::FOREIGN_BRANCH, BankKind::UNKNOWN];
 
     public function __invoke(Request $request, BankDirectory $banks): JsonResponse
     {

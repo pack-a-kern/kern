@@ -75,14 +75,15 @@ import { getActiveSubjectId } from '../../lib/subjectStore';
 import { cn } from '../../lib/utils';
 import { categoriesFor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
-import type {
-    StatementClassification,
-    StatementConversion,
-    StatementField,
-    StatementForm,
-    StatementFormPreview,
-    StatementImportDetail,
-    StatementImportEvent,
+import {
+    DATE_FORMATS,
+    type StatementClassification,
+    type StatementConversion,
+    type StatementField,
+    type StatementForm,
+    type StatementFormPreview,
+    type StatementImportDetail,
+    type StatementImportEvent,
 } from '../../types/statementImport';
 
 const IMPORTS_PATH = '/wallet/imports';
@@ -93,20 +94,6 @@ const TRANSACTIONS_PATH = '/wallet/transactions';
 // Long enough that a select does not fire a request per keystroke, short enough that the rebuilt
 // preview feels like it is answering you.
 const PREVIEW_DEBOUNCE_MS = 400;
-
-/** The date shapes the reader recognises, offered in the order a Romanian export uses them. */
-// The shapes the reader describes and the parser can read. `D MONTH YYYY` is the one a Romanian
-// bank writes in words — "12 septembrie 2026" — and the month names live in the server's config.
-const DATE_FORMATS = [
-    'DD.MM.YYYY',
-    'DD/MM/YYYY',
-    'DD-MM-YYYY',
-    'YYYY-MM-DD',
-    'YYYY/MM/DD',
-    'DD.MM.YY',
-    'MM/DD/YYYY',
-    'D MONTH YYYY',
-];
 
 /**
  * Reading a bank statement into transactions.

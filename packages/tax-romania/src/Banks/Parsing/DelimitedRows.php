@@ -21,10 +21,13 @@ final class DelimitedRows
     /**
      * CSV as GLEIF writes it: quoted fields that may contain the delimiter or a line break.
      *
+     * The separator is a comma unless the caller says otherwise — a spreadsheet saved in a Romanian
+     * locale writes `;`, because there the comma is the decimal separator.
+     *
      * @param  list<string>  $required
      * @return list<array<string, string>>
      */
-    public static function fromCsv(string $text, array $required, string $file): array
+    public static function fromCsv(string $text, array $required, string $file, string $separator = ','): array
     {
         $stream = fopen('php://temp', 'r+');
 
@@ -39,7 +42,7 @@ final class DelimitedRows
 
         // An empty escape character: RFC 4180 escapes a quote by doubling it, never by backslash,
         // and PHP's default backslash would corrupt a legal name ending in one.
-        while (($record = fgetcsv($stream, null, ',', '"', '')) !== false) {
+        while (($record = fgetcsv($stream, null, $separator, '"', '')) !== false) {
             $records[] = array_map(static fn (?string $cell): string => trim((string) $cell), $record);
         }
 

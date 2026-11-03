@@ -26,6 +26,14 @@ return [
         // for any deposit where the figure has to be exact, and change it per deposit through the
         // API, which still accepts every `DayCountConvention` case.
         'default_day_count' => env('WALLET_DEPOSIT_DEFAULT_DAY_COUNT', 'ACTUAL_365'),
+
+        // Adding deposits from a CSV file. The file is read in memory and never stored, so these are
+        // the whole of what it can cost: a request body this large, and this many deposits opened in
+        // one transaction — each with its own interest schedule and audit event.
+        'import' => [
+            'max_file_bytes' => (int) env('WALLET_DEPOSIT_IMPORT_MAX_FILE_BYTES', 1_048_576),
+            'max_rows' => (int) env('WALLET_DEPOSIT_IMPORT_MAX_ROWS', 200),
+        ],
     ],
 
 ];

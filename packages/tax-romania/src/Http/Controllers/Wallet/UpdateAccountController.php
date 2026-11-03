@@ -7,9 +7,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
-use Kern\TaxRomania\Rules\StreamSource;
 use Kern\TaxRomania\Wallet\Actions\UpdateFinancialAccount;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
@@ -46,6 +44,10 @@ final class UpdateAccountController
         $model = FinancialAccount::query()->findOrFail($account);
         $isDeposit = $model->kind === AccountKind::TERM_DEPOSIT;
 
+        // The constraints a deposit's fields carry everywhere; whether a field may be sent at all
+        // depends on the account, and is decided per field below.
+        $deposit = DepositFields::rules();
+
         $validated = $request->validate([
             // Rejected outright rather than ignored: `kind` decides whether transactions may be
             // recorded against this source at all, so changing it would reinterpret what is already
@@ -69,22 +71,24 @@ final class UpdateAccountController
                 'integer',
             ],
             // A deposit's own dates and currency travel with its terms.
-            'starts_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date'],
+            'starts_at' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['starts_at']],
             // Editable on any kind: it pre-fills the transaction form and nothing that calculates
             // reads it. A deposit's own currency travels with its terms, and this sets both.
-            'currency_code' => ['sometimes', ...CurrencyCode::rules()],
+            'currency_code' => ['sometimes', ...$deposit['currency_code']],
 
             // Deposit terms, accepted only for an account that is one. A whole replacement rather
             // than a partial edit: the rate periods must cover the term without a gap, and that is
             // provable for a replacement and not for a patch.
-            'principal_minor' => [$isDeposit ? 'sometimes' : 'prohibited', 'integer', 'min:1'],
+            'principal_minor' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['principal_minor']],
+            // Not the shared rule's `after:starts_at`: an edit may leave the start out, and the action
+            // checks the pair against the stored start instead.
             'maturity_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date', 'after:today'],
-            'annual_rate' => [$isDeposit ? 'sometimes' : 'prohibited', 'string', 'regex:/^\d{1,3}(\.\d{1,6})?$/'],
-            'rate_type' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(RateType::class)],
-            'interest_method' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(InterestMethod::class)],
-            'payment_frequency' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(PaymentFrequency::class)],
-            'day_count_convention' => [$isDeposit ? 'sometimes' : 'prohibited', Rule::enum(DayCountConvention::class)],
-            'funding_account_id' => [$isDeposit ? 'sometimes' : 'prohibited', 'nullable', 'uuid', new StreamSource()],
+            'annual_rate' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['annual_rate']],
+            'rate_type' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['rate_type']],
+            'interest_method' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['interest_method']],
+            'payment_frequency' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['payment_frequency']],
+            'day_count_convention' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['day_count_convention']],
+            'funding_account_id' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['funding_account_id']],
         ]);
 
         try {

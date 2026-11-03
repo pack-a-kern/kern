@@ -2,6 +2,8 @@ import { apiRequest } from '../lib/http';
 import {
     type AccountList,
     type Bank,
+    type DepositCsv,
+    type DepositCsvColumn,
     type DuplicateGroup,
     type TaxCategory,
     type Tag,
@@ -9,6 +11,7 @@ import {
     type WalletOverview,
     parseAccounts,
     parseBanks,
+    parseDepositCsv,
     parseDuplicateGroups,
     parseTags,
     parseTaxCategories,
@@ -199,6 +202,65 @@ export async function openAccount(subjectId: string, body: OpenAccountRequest): 
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/accounts`, {
         method: 'POST',
         body: { ...body },
+    });
+}
+
+/** How a deposit CSV is written, and which column holds which field. */
+export interface DepositCsvReading {
+    separator: string;
+    dateFormat: string;
+    decimalSeparator: string;
+    mapping: Partial<Record<DepositCsvColumn, string>>;
+}
+
+/**
+ * `POST .../wallet/deposits/csv` — the file's columns and its lines read under the mapping. The file
+ * is read and dropped by the server; nothing is stored, so this is sent again whenever the mapping
+ * changes rather than referred to by an id.
+ */
+export async function readDepositCsv(subjectId: string, file: File, reading: DepositCsvReading): Promise<DepositCsv> {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('separator', reading.separator);
+    body.append('date_format', reading.dateFormat);
+    body.append('decimal_separator', reading.decimalSeparator);
+
+    for (const [field, column] of Object.entries(reading.mapping)) {
+        body.append(`mapping[${field}]`, column);
+    }
+
+    return parseDepositCsv(
+        JSON.parse(
+            await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/deposits/csv`, {
+                method: 'POST',
+                body,
+            }),
+        ),
+    );
+}
+
+/** One deposit exactly as the account form sends it — the bulk endpoint checks it by the same rules. */
+export type DepositRequest = Required<
+    Pick<
+        OpenAccountRequest,
+        | 'bank_id'
+        | 'currency_code'
+        | 'starts_at'
+        | 'principal_minor'
+        | 'maturity_at'
+        | 'annual_rate'
+        | 'rate_type'
+        | 'interest_method'
+        | 'payment_frequency'
+    >
+> &
+    Pick<OpenAccountRequest, 'funding_account_id'>;
+
+/** `POST .../wallet/deposits` — opens every deposit, or none of them when one is refused. */
+export async function openDeposits(subjectId: string, deposits: DepositRequest[]): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/deposits`, {
+        method: 'POST',
+        body: { deposits },
     });
 }
 

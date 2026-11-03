@@ -4,23 +4,13 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantContext;
-use Kern\TaxRomania\Banks\Queries\BankDirectory;
-use Kern\TaxRomania\Rules\StreamSource;
 use Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount;
-use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
-use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
 use Kern\TaxRomania\Wallet\DataTransferObjects\OpenFinancialAccountInput;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
-use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
-use Kern\TaxRomania\Wallet\Enums\InterestMethod;
-use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
-use Kern\TaxRomania\Wallet\Enums\RateType;
 
 /**
  * `POST /api/v1/subjects/{subject}/wallet/accounts` — add an account by hand.
@@ -40,24 +30,23 @@ final class OpenAccountController
         Request $request,
         OpenFinancialAccount $open,
         TenantContext $tenant,
-        ConfigRepository $config,
-        BankDirectory $banks,
+        DepositFields $fields,
     ): JsonResponse {
+        $deposit = DepositFields::rules();
+        // Asked for only when the kind is a deposit, and refused on any other — both directions in
+        // the validator, so the caller gets a field-level message instead of a 500 from the action's
+        // own invariant. The constraints themselves are the deposit's, shared with the CSV import.
+        $depositOnly = ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value];
+        $depositRequired = ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value];
+
         $validated = $request->validate([
-            // A deposit is named after its bank, chosen from the imported list rather than typed —
-            // so its name is never sent, and its bank always is.
             'display_name' => [
                 'required_unless:kind,' . AccountKind::TERM_DEPOSIT->value,
                 'prohibited_if:kind,' . AccountKind::TERM_DEPOSIT->value,
                 'string',
                 'max:120',
             ],
-            'bank_id' => [
-                'required_if:kind,' . AccountKind::TERM_DEPOSIT->value,
-                'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value,
-                'uuid',
-                Rule::exists('ext_banks', 'id')->where('active', true),
-            ],
+            'bank_id' => [...$depositOnly, ...$deposit['bank_id']],
             'kind' => ['required', Rule::enum(AccountKind::class)],
             // ISO 4217, and optional: this is the currency the transaction form pre-fills, not a
             // property of the source. A broker or a crypto exchange holds several at once and
@@ -65,40 +54,24 @@ final class OpenAccountController
             // and "EUR" cannot become two different defaults.
             'currency_code' => [
                 'required_if:kind,' . AccountKind::CASH->value,
-                'required_if:kind,' . AccountKind::TERM_DEPOSIT->value,
-                'sometimes', 'nullable', ...CurrencyCode::rules(),
+                ...$depositRequired,
+                'sometimes', 'nullable', ...$deposit['currency_code'],
             ],
             // A cash holding is a declared value; every other kind receives transactions instead.
-            // Both directions in the validator, so the caller gets a field-level message rather
-            // than a 500 from the action's own invariant.
             'holding_amount_minor' => [
                 'required_if:kind,' . AccountKind::CASH->value,
                 'prohibited_unless:kind,' . AccountKind::CASH->value,
                 'integer',
             ],
-            // A deposit's own start date: the day interest begins accruing, and the left edge of
-            // the span its rate periods must cover.
-            'starts_at' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'date'],
-
-            // Deposit terms. Required together when `kind` is TERM_DEPOSIT and rejected otherwise —
-            // `required_if`/`prohibited_unless` express both directions in the validator, so the
-            // caller gets a field-level message instead of a 500 from the action's own invariant.
-            'principal_minor' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'integer', 'min:1'],
-            // After today as well as after the start: maturity closes a deposit, so one entered
-            // already matured would be settled the night it was typed in. Here, on what a person
-            // enters, and not in `OpenFinancialAccount`: a deposit that matured in the past is a
-            // perfectly valid fact for recording a previous year's interest by other means.
-            'maturity_at' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'date', 'after:starts_at', 'after:today'],
-            // A decimal string, never a float: binary floating point cannot represent 5.40, and
-            // this figure multiplies into a tax return. Percent per annum.
-            'annual_rate' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, 'prohibited_unless:kind,' . AccountKind::TERM_DEPOSIT->value, 'string', 'regex:/^\d{1,3}(\.\d{1,6})?$/'],
-            'rate_type' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, Rule::enum(RateType::class)],
-            'interest_method' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, Rule::enum(InterestMethod::class)],
-            'payment_frequency' => ['required_if:kind,' . AccountKind::TERM_DEPOSIT->value, Rule::enum(PaymentFrequency::class)],
-            // Optional, and the screen never sends it: the convention comes from the bank's
-            // contract, not from a form, so the default lives in `config/wallet.php`.
-            'day_count_convention' => ['sometimes', Rule::enum(DayCountConvention::class)],
-            'funding_account_id' => ['sometimes', 'nullable', 'uuid', new StreamSource()],
+            'starts_at' => [...$depositOnly, ...$deposit['starts_at']],
+            'principal_minor' => [...$depositOnly, ...$deposit['principal_minor']],
+            'maturity_at' => [...$depositOnly, ...$deposit['maturity_at']],
+            'annual_rate' => [...$depositOnly, ...$deposit['annual_rate']],
+            'rate_type' => [...$depositRequired, ...$deposit['rate_type']],
+            'interest_method' => [...$depositRequired, ...$deposit['interest_method']],
+            'payment_frequency' => [...$depositRequired, ...$deposit['payment_frequency']],
+            'day_count_convention' => $deposit['day_count_convention'],
+            'funding_account_id' => $deposit['funding_account_id'],
         ]);
 
         $kind = AccountKind::from((string) $validated['kind']);
@@ -107,108 +80,19 @@ final class OpenAccountController
             taxSubjectId: $tenant->currentTenantId(),
             kind: $kind,
             displayName: $kind === AccountKind::TERM_DEPOSIT
-                ? (string) $banks->find(self::str($validated, 'bank_id'))?->name
-                : self::str($validated, 'display_name'),
-            currencyCode: $this->nullableString($validated, 'currency_code'),
+                ? $fields->displayName($validated)
+                : DepositFields::str($validated, 'display_name'),
+            currencyCode: DepositFields::nullableString($validated, 'currency_code'),
             holdingAmountMinor: array_key_exists('holding_amount_minor', $validated)
-                ? self::int($validated, 'holding_amount_minor')
+                ? DepositFields::int($validated, 'holding_amount_minor')
                 : null,
-            depositTerms: $kind === AccountKind::TERM_DEPOSIT
-                ? $this->depositTerms($validated, $config)
-                : null,
+            depositTerms: $kind === AccountKind::TERM_DEPOSIT ? $fields->terms($validated) : null,
             actorId: $this->actorId($request),
         ));
 
         $key = $account->getKey();
 
         return response()->json(['id' => is_scalar($key) ? (string) $key : ''], 201);
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function nullableString(array $validated, string $key): ?string
-    {
-        $value = $validated[$key] ?? null;
-
-        return is_string($value) && $value !== '' ? $value : null;
-    }
-
-    /**
-     * The deposit half of the form, as the action expects it.
-     *
-     * The screen sends a single annual rate, which becomes one period spanning the whole term so
-     * the coverage check sees an unbroken range. A variable-rate deposit needs the periods
-     * themselves; the action accepts them, the screen does not offer them yet.
-     *
-     * @param  array<string, mixed>  $validated
-     */
-    private function depositTerms(array $validated, ConfigRepository $config): DepositTermsInput
-    {
-        // Narrowed through `self::str()`/`self::int()` rather than cast directly: `$validated`
-        // is `array<string, mixed>`, and a bare cast on `mixed` is a static-analysis error and, on
-        // an array, a runtime one. The validator has already guaranteed these are present and
-        // well-shaped; this only makes that guarantee visible to the type system.
-        $maturityAt = self::str($validated, 'maturity_at');
-        $startsAt = self::str($validated, 'starts_at');
-
-        return new DepositTermsInput(
-            principalMinor: self::int($validated, 'principal_minor'),
-            startsAt: $startsAt,
-            // A deposit is denominated in one currency by definition; the source it sits in may not
-            // be, so the principal carries its own.
-            currencyCode: strtoupper(self::str($validated, 'currency_code')),
-            maturityAt: $maturityAt,
-            rateType: RateType::from(self::str($validated, 'rate_type')),
-            interestMethod: InterestMethod::from(self::str($validated, 'interest_method')),
-            paymentFrequency: PaymentFrequency::from(self::str($validated, 'payment_frequency')),
-            dayCountConvention: $this->dayCountConvention($validated, $config),
-            ratePeriods: [new DepositRatePeriodInput(
-                validFrom: $startsAt,
-                validTo: $maturityAt,
-                annualRateDecimal: self::str($validated, 'annual_rate'),
-            )],
-            fundingAccountId: $this->nullableString($validated, 'funding_account_id'),
-            bankId: $this->nullableString($validated, 'bank_id'),
-        );
-    }
-
-    /** @param array<string, mixed> $validated */
-    private static function str(array $validated, string $key): string
-    {
-        $value = $validated[$key] ?? null;
-
-        return is_scalar($value) ? (string) $value : '';
-    }
-
-    /** @param array<string, mixed> $validated */
-    private static function int(array $validated, string $key): int
-    {
-        $value = $validated[$key] ?? null;
-
-        return is_numeric($value) ? (int) $value : 0;
-    }
-
-    /**
-     * The request's convention if it stated one, otherwise the configured default.
-     *
-     * Falls back to the enum's first case if that config value is mistyped, rather than throwing: a
-     * typo in an environment variable must not make it impossible to open an account.
-     *
-     * @param  array<string, mixed>  $validated
-     */
-    private function dayCountConvention(array $validated, ConfigRepository $config): DayCountConvention
-    {
-        $requested = $validated['day_count_convention'] ?? null;
-
-        if (is_string($requested) && $requested !== '') {
-            return DayCountConvention::from($requested);
-        }
-
-        $configured = $config->get('wallet.deposit.default_day_count');
-
-        return (is_string($configured) ? DayCountConvention::tryFrom($configured) : null)
-            ?? DayCountConvention::cases()[0];
     }
 
     private function actorId(Request $request): ?string

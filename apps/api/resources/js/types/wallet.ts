@@ -781,3 +781,77 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
         maturingTotal: num(body, 'maturing_total'),
     };
 }
+
+/** The deposit fields a CSV column can be named for; everything else is one answer for the file. */
+export const DEPOSIT_CSV_COLUMNS = [
+    'starts_at',
+    'principal',
+    'annual_rate',
+    'term_months',
+    'bank',
+    'currency',
+] as const;
+
+export type DepositCsvColumn = (typeof DEPOSIT_CSV_COLUMNS)[number];
+
+/** What one mapped cell read as: `value` null when the cell is not what its column promised. */
+export interface DepositCsvCell<T> {
+    value: T | null;
+    cell: string;
+}
+
+/** One line of the file, read under the mapping — absent fields are the ones no column was named for. */
+export interface DepositCsvRow {
+    line: number;
+    startsAt: DepositCsvCell<string> | null;
+    principalMinor: DepositCsvCell<number> | null;
+    annualRate: DepositCsvCell<string> | null;
+    termMonths: DepositCsvCell<number> | null;
+    bankId: DepositCsvCell<string> | null;
+    currencyCode: DepositCsvCell<string> | null;
+}
+
+/** `POST wallet/deposits/csv` — the file's columns, its first lines, and every line read. */
+export interface DepositCsv {
+    headers: string[];
+    sample: string[][];
+    rows: DepositCsvRow[];
+}
+
+function csvCell<T>(raw: unknown, read: (value: unknown) => T | null): DepositCsvCell<T> | null {
+    if (raw === null || raw === undefined) {
+        return null;
+    }
+
+    const row = obj(raw);
+
+    return { value: read(row.value), cell: str(row, 'cell') };
+}
+
+const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+const asNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+
+export function parseDepositCsv(payload: unknown): DepositCsv {
+    const body = obj(payload);
+    const strings = (value: unknown): string[] =>
+        Array.isArray(value) ? value.map((entry) => (typeof entry === 'string' ? entry : '')) : [];
+
+    return {
+        headers: strings(body.headers),
+        sample: Array.isArray(body.sample) ? body.sample.map(strings) : [],
+        rows: (Array.isArray(body.rows) ? body.rows : []).map((entry): DepositCsvRow => {
+            const row = obj(entry);
+            const values = obj(row.values);
+
+            return {
+                line: num(row, 'line'),
+                startsAt: csvCell(values.starts_at, asString),
+                principalMinor: csvCell(values.principal_minor, asNumber),
+                annualRate: csvCell(values.annual_rate, asString),
+                termMonths: csvCell(values.term_months, asNumber),
+                bankId: csvCell(values.bank_id, asString),
+                currencyCode: csvCell(values.currency_code, asString),
+            };
+        }),
+    };
+}

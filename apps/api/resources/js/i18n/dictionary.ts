@@ -973,6 +973,34 @@ export interface Dictionary {
             receivedSoFar: string;
             noRate: string;
             notComputed: string;
+            /** Adding many deposits at once, from a CSV, inside the add-deposit dialog. */
+            csv: {
+                modeOne: string;
+                modeCsv: string;
+                file: string;
+                fileHint: string;
+                separator: string;
+                separatorComma: string;
+                separatorSemicolon: string;
+                columnsTitle: string;
+                columnsHint: string;
+                /** A column left unnamed: the field below applies to every deposit. */
+                sameForAll: string;
+                termMonths: string;
+                line: string;
+                ready: string;
+                /** `{cell}` is substituted: the file's own text that could not be read. */
+                unreadable: string;
+                missing: string;
+                reading: string;
+                readFailed: string;
+                pickColumns: string;
+                /** `{count}` is substituted. */
+                submit: string;
+                /** `{count}` is substituted. */
+                added: string;
+                refused: string;
+            };
             form: {
                 principal: string;
                 principalHint: string;
