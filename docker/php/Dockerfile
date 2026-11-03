@@ -164,5 +164,7 @@ WORKDIR /var/www/html
 COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-interaction --no-scripts --no-autoloader --prefer-dist
 COPY apps/api /var/www/html
-RUN composer dump-autoload --optimize
+# An empty .env, as CI's test job makes one: with none at all Laravel's loader warns once per test,
+# and Pest reports every test as a warning instead of a pass. Every value comes from phpunit.xml.
+RUN touch .env && composer dump-autoload --optimize
 

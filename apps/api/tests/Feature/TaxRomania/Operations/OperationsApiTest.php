@@ -15,6 +15,7 @@ use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Models\ScheduledTask;
 use Kern\TaxRomania\Operations\Models\TaskRun;
+use Laravel\Horizon\Contracts\JobRepository;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {
@@ -326,6 +327,12 @@ it('exposes no way to write the official-source allowlist', function (): void {
 });
 
 it('answers 404 for a failed job that does not exist', function (): void {
+    // Horizon's list lives in Redis. An empty one stands in for it, so the contract under test, an
+    // id neither store knows, does not depend on a Redis server being reachable from the suite.
+    $horizon = Mockery::mock(JobRepository::class);
+    $horizon->shouldReceive('getJobs')->andReturn(collect());
+    app()->instance(JobRepository::class, $horizon);
+
     $actor = operationsUser('SUPER_ADMIN');
 
     $this->actingAs($actor)->postJson('/api/v1/operations/failed-jobs/missing/retry')->assertNotFound();
