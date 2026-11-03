@@ -8,7 +8,7 @@ SERVICE ?= app
 # lets at the environment file.
 APP_GID ?= 10001
 
-.PHONY: install env tls-ca pins test-installer up update down build logs shell test lint fresh compose-file migrate
+.PHONY: install env tls-ca pins test-installer vendor up update down build logs shell test lint fresh compose-file migrate
 
 ## Refuse to run compose without a service list.
 ##
@@ -78,6 +78,17 @@ pins:
 test-installer:
 	@sh scripts/tests/install-optional-services.sh
 
+## Install the PHP dependencies into apps/api/vendor, for development.
+##
+## Development mounts apps/api over the image's copy (compose.dev.yaml), so vendor/ has to exist on
+## the host. Composer runs inside the test image rather than on the host: the application needs
+## PHP 8.5 and its extensions to run composer's own scripts, which a host PHP usually is not. As
+## your user, so the files are yours and not root's.
+vendor:
+	docker build -f docker/php/Dockerfile --target test -t kern-php-test:local .
+	docker run --rm -u "$$(id -u):$$(id -g)" -e COMPOSER_HOME=/tmp/composer \
+		-v "$(CURDIR):/src" -w /src/apps/api kern-php-test:local composer install --no-interaction
+
 ## Start the full stack in the background.
 up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
@@ -85,8 +96,9 @@ up: compose-file
 
 ## Move this installation to a published release. Usage: make update VERSION=1.4.0
 ##
-## For an installation that runs published images (KERN_IMAGES in apps/api/.env). Pulls the release
-## first and changes nothing if that fails; then records it, applies the migrations with the new
+## For an installation that runs published images (KERN_IMAGES in apps/api/.env), from a checkout of
+## the release's tag. Pulls the release and checks CI's signature on every image first, and changes
+## nothing if either fails; then records it, applies the migrations with the new
 ## image, and recreates only the services whose image changed. Going back is the same with the older
 ## version, but a migration is not undone by it.
 update: compose-file
@@ -94,7 +106,13 @@ update: compose-file
 		|| { echo "Usage: make update VERSION=1.4.0"; exit 1; }
 	@grep -Eq '^KERN_IMAGES=.+' apps/api/.env \
 		|| { echo "KERN_IMAGES is empty in apps/api/.env: this installation builds its own images (git pull, make build, make up)."; exit 1; }
+	@# The compose files and scripts here must be the release's own: a newer image under older files
+	@# meets mounts, variables and services it was not released with.
+	@[ "$$(git describe --tags --exact-match HEAD 2>/dev/null)" = "v$(VERSION)" ] \
+		|| { echo "This checkout is not on v$(VERSION). First: git fetch --tags && git checkout v$(VERSION)"; exit 1; }
 	KERN_VERSION=$(VERSION) docker compose pull
+	@# Before .env names the new version: a release that fails the check leaves the old one running.
+	KERN_VERSION=$(VERSION) scripts/verify-images.sh
 	@# In place, so the file keeps its owner, group and mode.
 	@t=$$(mktemp apps/api/.env.XXXXXX) \
 		&& awk -v v="$(VERSION)" '/^KERN_VERSION=/ { print "KERN_VERSION=" v; done = 1; next } { print } END { if (!done) print "KERN_VERSION=" v }' apps/api/.env > $$t \

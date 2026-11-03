@@ -31,6 +31,19 @@
 # shell variable for the length of the run (process memory, never a file) and reaches artisan on
 # standard input, which is what `kern:admin:create --stdin` exists for.
 #
+# ## Built here, or pulled
+#
+# By default every image is built on this machine from this checkout, which needs npm and a few GB of
+# build space. With KERN_IMAGES set, nothing is built: the images are the ones CI built, scanned and
+# signed for a release, and they are pulled, checked against their signature and started.
+#
+#     git clone --branch v1.4.0 <repository> && cd <it>
+#     KERN_IMAGES=ghcr.io/<owner> KERN_IMAGES_SIGNER=<owner>/<repository> make install
+#
+# The release is the tag this checkout is on, so the compose files, the scripts and the images always
+# come from the same release. KERN_IMAGES_SIGNER is the repository whose CI must have signed them
+# (scripts/verify-images.sh); an image it did not sign never starts. Later releases: `make update`.
+#
 # ## Re-running it
 #
 # It refuses to overwrite an `apps/api/.env` that already exists, the way `make env` does: that file
@@ -72,6 +85,11 @@ DISK_OPENBAO_GB=1
 DISK_CLAMAV_GB=2
 DISK_PYTHON_GB=2
 DISK_BROWSER_GB=4
+
+# Built here (empty), or pulled from this registry — see "Built here, or pulled" above.
+KERN_IMAGES="${KERN_IMAGES:-}"
+KERN_IMAGES_SIGNER="${KERN_IMAGES_SIGNER:-}"
+KERN_VERSION=''
 
 REPAIR=no
 
@@ -267,9 +285,21 @@ preflight() {
     require_command docker 'nothing in this stack runs without it.'
     require_command openssl 'it is what generates every secret below.'
 
-    # The edge image copies apps/api/public at build time and runs no JavaScript build tool itself
-    # (docker/caddy/Dockerfile), so the assets are built here, on the host, before any image is.
-    require_command npm 'the frontend assets are built before the images, and nothing else builds them.'
+    if [ -n "$KERN_IMAGES" ]; then
+        # The release this checkout is on. A branch is not a release: its compose files could name
+        # services, variables or mounts the images of any release know nothing about.
+        tag=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
+        printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || die 'KERN_IMAGES is set, so this installs a release, but this checkout is not on a release tag. `git checkout v<version>` first — the files here and the images pulled must be the same release.'
+        KERN_VERSION="${tag#v}"
+
+        printf '%s' "$KERN_IMAGES_SIGNER" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
+            || die 'KERN_IMAGES is set, so KERN_IMAGES_SIGNER must be too: the GitHub repository, as owner/repository, whose CI signed the images. Without it nothing can tell an image CI published from one somebody else pushed.'
+    else
+        # The edge image copies apps/api/public at build time and runs no JavaScript build tool itself
+        # (docker/caddy/Dockerfile), so the assets are built here, on the host, before any image is.
+        require_command npm 'the frontend assets are built before the images, and nothing else builds them.'
+    fi
 
     docker compose version >/dev/null 2>&1 \
         || die 'docker compose is not available. This needs Compose v2 — `docker compose version` must answer.'
@@ -277,7 +307,11 @@ preflight() {
     docker info >/dev/null 2>&1 \
         || die 'The docker daemon is not answering. Start it, or add this user to the docker group.'
 
-    printf '  docker, docker compose, openssl, npm   all present\n'
+    if [ -n "$KERN_IMAGES" ]; then
+        printf '  docker, docker compose, openssl        all present\n'
+    else
+        printf '  docker, docker compose, openssl, npm   all present\n'
+    fi
 
     if [ -r /proc/meminfo ]; then
         RAM_TOTAL_MB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1024 }' /proc/meminfo)
@@ -704,6 +738,11 @@ print_summary() {
     printf '  address        https://%s\n' "$SITE_HOST"
     printf '  TLS            %s\n' "$TLS_NOTE"
     printf '  containers     %s\n' "$SERVICE_NAMES"
+    if [ -n "$KERN_IMAGES" ]; then
+        printf '  images         %s, release %s, signed by %s\n' "$KERN_IMAGES" "$KERN_VERSION" "$KERN_IMAGES_SIGNER"
+    else
+        printf '  images         built here, from this checkout\n'
+    fi
     printf '  memory         about %s MB of limits, against %s MB on this machine\n' "$RAM_NEEDED_MB" "$RAM_TOTAL_MB"
     printf '  disk           about %s GB, against %s GB free here\n' "$DISK_NEEDED_GB" "$DISK_FREE_GB"
 
@@ -730,7 +769,7 @@ print_summary() {
     fi
 
     if [ "$DISK_NEEDED_GB" -gt "$DISK_FREE_GB" ]; then
-        printf '\n  There is less free disk here than the images need. The build will stop part way.\n'
+        printf '\n  There is less free disk here than the images need. Installing will stop part way.\n'
     fi
 }
 
@@ -888,6 +927,13 @@ write_environment_file() {
         set_env MAIL_FROM_ADDRESS "$MAIL_FROM_ANSWER"
     fi
 
+    # Empty for an installation that builds its own: compose then names the images it builds.
+    if [ -n "$KERN_IMAGES" ]; then
+        set_env KERN_IMAGES "$KERN_IMAGES"
+        set_env KERN_VERSION "$KERN_VERSION"
+        set_env KERN_IMAGES_SIGNER "$KERN_IMAGES_SIGNER"
+    fi
+
     # Last, so that a stack brought up by anything but this script — `make up`, a reboot — brings up
     # the same services this run chose. compose reads it from the repository root `.env`, which is a
     # symlink to this file.
@@ -909,6 +955,26 @@ in_app() {
 migrate() {
     docker compose run --rm -T migrate
     docker compose restart queue scheduler >/dev/null
+}
+
+# The release's images, then their signatures: pulled is not trusted until CI's signature says so.
+# Reads KERN_IMAGES, KERN_VERSION and KERN_IMAGES_SIGNER from the environment file, written above.
+pull_images() {
+    step "Pulling release $(env_value KERN_VERSION) from $(env_value KERN_IMAGES)"
+    docker compose pull
+
+    step 'Checking each image was signed by the CI that built it'
+    scripts/verify-images.sh
+}
+
+# `--no-build` when the images are pulled: an image that is not here is an error to see, not one to
+# quietly build from a checkout the release did not come from.
+start_stack() {
+    if [ -n "$(env_value KERN_IMAGES)" ]; then
+        docker compose up -d --no-build
+    else
+        docker compose up -d
+    fi
 }
 
 # The value of one line in the environment file, or nothing.
@@ -955,16 +1021,20 @@ install_from_answers() {
         printf '  docker/caddy/certs/kern.crt and kern.key\n'
     fi
 
-    step 'Building the frontend assets'
-    # Before the images, because the edge image copies apps/api/public at build time and runs no
-    # build tool of its own. Skipping this gives a site with no styling and no JavaScript.
-    (cd apps/api && npm ci && npm run build)
+    if [ -n "$KERN_IMAGES" ]; then
+        pull_images
+    else
+        step 'Building the frontend assets'
+        # Before the images, because the edge image copies apps/api/public at build time and runs no
+        # build tool of its own. Skipping this gives a site with no styling and no JavaScript.
+        (cd apps/api && npm ci && npm run build)
 
-    step 'Building the images'
-    docker compose build
+        step 'Building the images'
+        docker compose build
+    fi
 
     step 'Starting the stack'
-    docker compose up -d
+    start_stack
 
     step 'Waiting for the database'
     wait_for_database
@@ -1034,8 +1104,14 @@ repair() {
         esac
     done
 
+    # Pulled again and checked again: an image that went missing, or was replaced on this machine, is
+    # not started on the strength of a check made when it was first installed.
+    if [ -n "$(env_value KERN_IMAGES)" ]; then
+        pull_images
+    fi
+
     step 'Starting the stack'
-    docker compose up -d
+    start_stack
 
     step 'Waiting for the database'
     wait_for_database

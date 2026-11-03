@@ -1,0 +1,226 @@
+# Kern
+
+Kern is a self-hosted tax workspace for Romania. It keeps a taxpayer's documents, reads them,
+follows the SPV inbox and the law, and works out what is owed, all on a server you run.
+
+It runs as one Docker Compose stack:
+
+- **Laravel** with an Inertia/React interface;
+- **Postgres** with pgvector, and **Redis**;
+- **OpenBao**, the key vault for the encrypted taxpayer data;
+- **ClamAV**, which scans every upload;
+- a **Python** processing service, for document AI;
+- a **Playwright** browser worker, for SPV sign-in;
+- **Caddy** at the edge, for TLS.
+
+---
+
+## Before you start
+
+You need:
+
+- **A Linux server** with Docker, Docker Compose v2 (`docker compose version` must answer) and
+  `openssl`. Installing from source also needs `npm`.
+- **Memory.** About 7 GB of container limits with everything on one machine, or about 3 GB with the
+  database, cache, vault and scanner on other machines. The installer shows the figure for your
+  answers before it changes anything.
+- **Object storage that speaks S3**, such as AWS S3, MinIO or Garage. You need an `https://` endpoint, an
+  access key pair and two buckets: one for documents and one for uploads waiting for the virus scan.
+  **Kern ships no object storage of its own**, so this has to exist first.
+- **Optionally, a domain name pointed at the server**, for a certificate that browsers trust. Without
+  one, the site works on the server's IP address with a certificate from its own CA. Browsers warn
+  about it until that CA is imported (see [After installing](#after-installing)).
+
+---
+
+## Install on a server
+
+There are two ways to install. Both run the same installer, `scripts/install.sh`, which:
+
+1. asks about nine questions;
+2. generates every secret;
+3. writes `apps/api/.env` (mode 600);
+4. starts the stack and runs the migrations;
+5. creates the first administrator;
+6. checks every service. If one it was told to run does not answer, the install fails.
+
+### A. From a release (recommended)
+
+Here nothing is built on the server. It runs the images that CI built, scanned and signed for that
+release, and checks each image's signature before starting it.
+
+```bash
+git clone --branch v0.1.0 https://github.com/pack-a-kern/kern.git
+cd kern
+KERN_IMAGES=ghcr.io/pack-a-kern KERN_IMAGES_SIGNER=pack-a-kern/kern make install
+```
+
+- Replace `v0.1.0` with the release you want. The releases are listed on the repository's
+  **Releases / Tags** page.
+- The checkout must be on that release's tag. The installer reads the version from the tag and
+  refuses to run on a branch.
+- An image that was not signed by this repository's CI, for exactly that tag, is refused, and nothing
+  starts. The check has to reach Sigstore's public services (`*.sigstore.dev`).
+- No npm is needed.
+
+### B. From source
+
+This builds every image on the server from the checkout. It needs `npm`, and takes longer.
+
+```bash
+git clone https://github.com/pack-a-kern/kern.git
+cd kern
+make install
+```
+
+### What the installer asks
+
+| Question | Answers |
+|---|---|
+| How will the site be reached? | By IP address (a certificate from its own CA) · a domain with ports 80 and 443 open (Let's Encrypt) · a domain behind Cloudflare's proxy (Let's Encrypt over DNS, with a Cloudflare API token) · a domain with a certificate you already have |
+| Database, Redis, key vault, virus scanner | Install it here · use one I already run |
+| Object storage | Its `https://` endpoint, key pair and two bucket names |
+| Document AI, SPV automation | Install it here · use one I already run · skip it |
+| Email | An SMTP server · skip it, and mail is written to the log |
+| First administrator | An email address and a password |
+
+Before it changes anything, it shows a summary and waits for a **yes**.
+
+Any address on another machine must be `https://`. If that machine's certificate comes from a
+private CA, the installer asks for the CA's certificate file.
+
+---
+
+## After installing
+
+Open the address the installer printed and sign in as the administrator.
+
+```bash
+docker compose exec app php artisan kern:health   # every service, and whether it answers
+make smoke                                        # is the login page up
+docker compose ps                                 # every container should be "healthy"
+```
+
+**Reached by IP address?** The site's certificate comes from the installation's own CA. Export the
+CA once and import it into each browser or device as a trusted authority. The warnings then stop,
+renewals included:
+
+```bash
+make tls-ca      # writes kern-ca.crt
+```
+
+**Back up the key vault's volume.** It is the one thing that cannot be recovered. Lose it, and every
+encrypted field in the database stays unreadable for good.
+
+**Every secret is in `apps/api/.env`.** That file is not in git. Don't copy it anywhere else.
+
+---
+
+## Update
+
+**Installed from a release:**
+
+```bash
+git fetch --tags
+git checkout v0.2.0
+make update VERSION=0.2.0
+```
+
+This pulls the new images and checks their signatures. If either step fails, nothing changes. If
+both pass, it runs the migrations, recreates only the containers whose image changed, and
+health-checks the result. To go back, run the same steps with the older version; note that a
+migration is not undone by this.
+
+**Installed from source:**
+
+```bash
+git pull
+(cd apps/api && npm ci && npm run build)     # before the images: the edge image copies the built assets
+make build
+make install ARGS=--repair
+```
+
+---
+
+## When something is wrong
+
+```bash
+make install ARGS=--repair
+```
+
+This asks nothing and writes no secrets. Against the installation that is already there, it:
+- starts the stack;
+- waits for the database;
+- runs any pending migrations;
+- syncs roles and permissions;
+- runs the health check again.
+
+It never overwrites `apps/api/.env`. Running the plain installer twice is refused for the same
+reason.
+
+```bash
+make logs SERVICE=app                 # or queue, edge, postgres …
+docker compose ps
+```
+
+---
+
+## Development
+
+For working on the code. This shape mounts your checkout into the containers, adds Mailpit, opens
+Postgres and Redis on host ports and turns debug on. **Never use it on a machine others can reach.**
+
+You need Docker, Docker Compose v2, `make`, and Node 20 with `npm`. You don't need PHP on the host:
+composer runs inside the PHP 8.5 image.
+
+```bash
+git clone https://github.com/pack-a-kern/kern.git
+cd kern
+
+make env                 # writes apps/api/.env from every .env.example, development shape
+```
+
+Fill in the empty values in `apps/api/.env`. Each one has a sentence above it saying what it is, and
+`docs/DEPLOYMENT.md` §4 explains them in detail. Generate secrets rather than typing them:
+`openssl rand -hex 24` for passwords and tokens, and `base64:$(openssl rand -base64 32)` for
+`APP_KEY`.
+
+Then:
+
+```bash
+make vendor                                  # PHP dependencies, into apps/api/vendor
+(cd apps/api && npm ci && npm run build)     # the frontend
+make up                                      # start the stack
+make migrate                                 # the schema
+docker compose exec app php artisan kern:access:sync
+docker compose exec app php artisan kern:admin:create you@example.com
+```
+
+PHP edits show up on the next request. After changing `apps/api/.env`, run `make reload`. After a
+frontend change, run `npm run build` again.
+
+### Tests and checks
+
+```bash
+make test              # PHP, Python and browser-worker suites, in their own images; needs nothing running
+make check             # frontend, PHP lint/static analysis/tests and each package alone, against the running stack
+make check-php-pg      # the suites that need real Postgres (uses the kern_test database, never kern)
+make test-installer    # the installer's answers, written to a scratch file
+make pins              # which pinned images have a newer upstream build
+```
+
+CI runs all of this on every push. It also runs secret scanning, dependency audits, and a
+vulnerability scan of each image. Change requests go to this repository.
+
+---
+
+## Where to read more
+
+| | |
+|---|---|
+| `docs/DEPLOYMENT.md` | Every container, every variable, secrets and keys, installing by hand |
+| `docs/ESSENTIALS.md` | One page for anyone changing the code: the rules, the known traps, how to run things fast |
+| `docs/ARCHITECTURE.md` | Module map and boundaries |
+| `docs/STATUS.md` | What exists, what is in progress, what is blocked |
+| `docs/SECURITY-FINDINGS.md` | Audit findings, and the controls verified sound |
+| `BLUEPRINT.md` | The source of truth for the design |

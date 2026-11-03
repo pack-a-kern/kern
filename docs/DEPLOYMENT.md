@@ -21,6 +21,26 @@ make install
 That is the whole thing. `scripts/install.sh` asks nine questions and then does every step this
 guide used to list by hand.
 
+### From a release, without building anything
+
+The two lines above build every image on the server. A release's images are already built, scanned
+and signed by CI, and a server can run those instead — no npm and no build:
+
+```bash
+git clone --branch v1.4.0 <repository> && cd kern
+KERN_IMAGES=ghcr.io/<owner> KERN_IMAGES_SIGNER=<owner>/<repository> make install
+```
+
+- **The checkout must be on the release's tag.** The version is read from it, so the compose files and
+  scripts on the server are always the ones the images were released with. On a branch it stops.
+- **`KERN_IMAGES_SIGNER` is required.** Each image is checked by `scripts/verify-images.sh` against
+  the signature CI made for it: it must name that repository's `ci.yml` and exactly this tag. An image
+  anyone else pushed to the registry is refused before anything starts. The check needs to reach
+  Sigstore's public services.
+- **Later releases:** `git fetch --tags && git checkout v1.5.0 && make update VERSION=1.5.0` — the same
+  pull and the same check, and nothing changes if either fails.
+- The registry must let the server pull: public packages, or `docker login` on the server first.
+
 ### What it asks
 
 | Question | The answers |
@@ -48,8 +68,9 @@ against what the machine has, what is being left out — and waits for a yes.
    has — into `TLS_EDGE_NAMES`; the `certs` container issues that certificate, and every other one,
    when the stack starts (section 5);
 4. builds the frontend assets — before the images, because the edge image copies `apps/api/public`
-   at build time and runs no build tool of its own;
-5. builds the images and starts the stack;
+   at build time and runs no build tool of its own. *From a release:* skipped;
+5. builds the images and starts the stack. *From a release:* pulls them, checks each one's signature,
+   and starts the stack only if every one passes;
 6. waits for the database on the application's own connection, not on a sleep;
 7. runs the migrations;
 8. creates the roles and permissions (`kern:access:sync`), then the first administrator
@@ -72,8 +93,8 @@ already there. It does not create an administrator — by then that account exis
 
 ### Before you start
 
-- **A Linux server with docker, docker compose v2, openssl and npm.** The installer checks for each
-  and stops if one is missing.
+- **A Linux server with docker, docker compose v2, openssl and npm** — no npm when installing from a
+  release. The installer checks for each and stops if one is missing.
 - **Somewhere to keep documents.** An S3 bucket, a MinIO you already run, or anything that speaks
   S3. This repository ships no object storage of its own.
 - **Memory.** The container limits add up to about 7 GB with everything installed locally, 3 GB with

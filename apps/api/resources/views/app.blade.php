@@ -4,6 +4,10 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        {{-- The WebSocket server's application key, from this installation's own .env. Public by
+             design (resources/js/lib/echo.ts). Here rather than baked into the assets, because an
+             installation that pulls its images runs assets CI built, which know no installation's key. --}}
+        <meta name="reverb-key" content="{{ config('broadcasting.connections.reverb.key') }}">
         {{-- The Content-Security-Policy nonce, for the scripts that insert `<style>` elements of their
              own — Vite's dev client reads this tag by name, and resources/js/lib/cspNonce.ts hands it
              to Radix. Empty when the policy is off. --}}

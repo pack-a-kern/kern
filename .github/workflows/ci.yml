@@ -486,6 +486,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Keyless signing: cosign trades this run's GitHub identity for a short-lived certificate,
+      # so there is no signing key to store, leak or rotate.
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -586,6 +589,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push to GHCR
+        id: push
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           # GHCR names must be lower case; an owner's need not be.
@@ -602,3 +606,23 @@ jobs:
             *-*) ;;
             *) docker tag "$NAME:ci" "$image:latest" && docker push "$image:latest" ;;
           esac
+          # The digest that was pushed, for the signing step: a signature names one exact build,
+          # never a tag, which can be moved after it was signed.
+          printf 'ref=%s\n' "$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$version")" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.4
+
+      # Proof of where the image came from. The certificate inside the signature names this
+      # repository, this workflow and this tag; scripts/verify-images.sh refuses an image whose
+      # signature does not name all three, so an image pushed to the registry by anything other
+      # than this job, at this tag, never starts. The signature is also written to Sigstore's
+      # public log, so a signing nobody expected cannot be done quietly.
+      - name: Sign
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          REF: ${{ steps.push.outputs.ref }}
+        run: cosign sign --yes "$REF"

@@ -39,9 +39,16 @@ function getEcho(): Echo<'reverb'> {
         : window.location.protocol === 'https:';
     const port = Number(import.meta.env.VITE_REVERB_PORT) || (secure ? 443 : 80);
 
+    // The key the server rendered into the page (app.blade.php) before the one the build baked in:
+    // assets built by CI, which is every installation that pulls its images, were built with none.
+    const key =
+        document.querySelector('meta[name="reverb-key"]')?.getAttribute('content') ||
+        import.meta.env.VITE_REVERB_APP_KEY ||
+        '';
+
     echo ??= new Echo({
         broadcaster: 'reverb',
-        key: import.meta.env.VITE_REVERB_APP_KEY ?? '',
+        key,
         wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
         wsPort: port,
         wssPort: port,
