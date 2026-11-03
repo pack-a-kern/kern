@@ -26,8 +26,9 @@ apps/processing/.ruff_cache
 apps/processing/.mypy_cache
 apps/processing/.pyright
 
-apps/spv-browser/node_modules
-apps/spv-browser/dist
+apps/browser-worker/node_modules
+apps/browser-worker/dist
+apps/browser-worker/dist-test
 
 # The installation's environment, and the repository-root symlink that points compose at it.
 .env

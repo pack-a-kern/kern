@@ -8,7 +8,7 @@ SERVICE ?= app
 # lets at the environment file.
 APP_GID ?= 10001
 
-.PHONY: install env tls-ca pins test-installer up down build logs shell test lint fresh compose-file migrate
+.PHONY: install env tls-ca pins test-installer up update down build logs shell test lint fresh compose-file migrate
 
 ## Refuse to run compose without a service list.
 ##
@@ -82,6 +82,27 @@ test-installer:
 up: compose-file
 	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
 	docker compose up -d
+
+## Move this installation to a published release. Usage: make update VERSION=1.4.0
+##
+## For an installation that runs published images (KERN_IMAGES in apps/api/.env). Pulls the release
+## first and changes nothing if that fails; then records it, applies the migrations with the new
+## image, and recreates only the services whose image changed. Going back is the same with the older
+## version, but a migration is not undone by it.
+update: compose-file
+	@echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' \
+		|| { echo "Usage: make update VERSION=1.4.0"; exit 1; }
+	@grep -Eq '^KERN_IMAGES=.+' apps/api/.env \
+		|| { echo "KERN_IMAGES is empty in apps/api/.env: this installation builds its own images (git pull, make build, make up)."; exit 1; }
+	KERN_VERSION=$(VERSION) docker compose pull
+	@# In place, so the file keeps its owner, group and mode.
+	@t=$$(mktemp apps/api/.env.XXXXXX) \
+		&& awk -v v="$(VERSION)" '/^KERN_VERSION=/ { print "KERN_VERSION=" v; done = 1; next } { print } END { if (!done) print "KERN_VERSION=" v }' apps/api/.env > $$t \
+		&& cat $$t > apps/api/.env && rm -f $$t
+	docker compose run --rm -T migrate
+	docker compose up -d --no-build --remove-orphans --wait
+	docker compose exec -T app php artisan kern:access:sync
+	docker compose exec -T app php artisan kern:health
 
 ## Stop and remove containers (volumes are kept).
 down: compose-file

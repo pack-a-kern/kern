@@ -16,6 +16,7 @@ services:
     # eventually cannot start a browser at all. `init` runs tini as PID 1 instead, whose whole job this
     # is.
     init: true
+    image: ${KERN_IMAGES:-localhost}/kern-browser-worker:${KERN_VERSION:-local}
     build:
       context: .
       dockerfile: docker/playwright/Dockerfile

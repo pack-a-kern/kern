@@ -12,6 +12,7 @@ services:
   # Processing plane (Python) — BLUEPRINT.md §1.2. No Postgres credentials.
   # -------------------------------------------------------------------------
   python-api:
+    image: ${KERN_IMAGES:-localhost}/kern-processing:${KERN_VERSION:-local}
     build:
       context: .
       dockerfile: docker/python/Dockerfile

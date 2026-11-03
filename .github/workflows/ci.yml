@@ -29,12 +29,14 @@
 #   js-api            — apps/api's Inertia/React frontend: lint, format,
 #                       typecheck, build, audit. No `needs`. Uploads the
 #                       Vite build as an artifact for the `containers` job.
-#   js-spv-browser    — apps/spv-browser: lint, typecheck, build, real tests,
-#                       audit. No `needs`.
+#   js-browser-worker — apps/browser-worker: lint, typecheck, build, real tests,
+#                       audit, inside the Playwright image (the tests start
+#                       Chromium). No `needs`.
 #   python            — apps/processing: uv/ruff/pyright/pytest/pip-audit.
 #                       No `needs`.
 #   containers        — builds every production image, generates an SBOM,
-#                       and vulnerability-scans it. `needs` every job above
+#                       and vulnerability-scans it. On a `v*` tag it then
+#                       pushes the scanned image to ghcr.io/<owner>/kern-*. `needs` every job above
 #                       except secret-scan/fiscal-gates — this is the
 #                       expensive lane and must not start until the cheap
 #                       ones are green.
@@ -53,9 +55,15 @@ on:
     # avoids CI silently never running because of a name mismatch; drop
     # whichever one turns out unused once the repo has a real remote.
     branches: [main, master]
+    # A release: the same pipeline, and the images it scanned are published.
+    tags: ["v*"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+
+# Read-only unless a job says otherwise; only `containers` writes, and only packages.
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -378,14 +386,21 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------
-  # JavaScript/TypeScript — apps/spv-browser (Playwright worker).
+  # JavaScript/TypeScript — apps/browser-worker (Playwright worker).
+  #
+  # In the same Playwright image `make test` and docker/playwright/Dockerfile
+  # use: the tests start Chromium, which a bare runner does not have, and
+  # the browser must be the one that ships in production.
   # ---------------------------------------------------------------------
-  js-spv-browser:
-    name: JS/TS — apps/spv-browser
+  js-browser-worker:
+    name: JS/TS — apps/browser-worker
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --shm-size=1gb
     defaults:
       run:
-        working-directory: apps/spv-browser
+        working-directory: apps/browser-worker
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -395,7 +410,7 @@ jobs:
         with:
           node-version: "20.19.6"
           cache: npm
-          cache-dependency-path: apps/spv-browser/package-lock.json
+          cache-dependency-path: apps/browser-worker/package-lock.json
 
       - name: npm ci
         run: npm ci
@@ -470,25 +485,40 @@ jobs:
   containers:
     name: Containers (${{ matrix.name }})
     runs-on: ubuntu-latest
-    needs: [php-quality, php-tests, package-suites, js-api, js-spv-browser, python]
+    needs: [php-quality, php-tests, package-suites, js-api, js-browser-worker, python]
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: php-runtime
+          # `name` is the image: ghcr.io/<owner>/kern-<name>. The PHP image needs the Vite build
+          # too — Laravel reads public/build/manifest.json to render every page.
+          - name: app
+            context: .
             file: docker/php/Dockerfile
             target: runtime
-            needs_frontend: false
-          - name: python-runtime
+            needs_frontend: true
+          - name: processing
+            context: .
             file: docker/python/Dockerfile
             target: runtime
             needs_frontend: false
           - name: edge
+            context: .
             file: docker/caddy/Dockerfile
             target: ""
             needs_frontend: true
-          - name: spv-browser
+          # `runtime` named: the Dockerfile's last stage is `test`.
+          - name: browser-worker
+            context: .
             file: docker/playwright/Dockerfile
+            target: runtime
+            needs_frontend: false
+          - name: certs
+            context: docker/certs
+            file: docker/certs/Dockerfile
             target: ""
             needs_frontend: false
     steps:
@@ -512,10 +542,10 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
-          tags: kern/${{ matrix.name }}:ci
+          tags: kern-${{ matrix.name }}:ci
           push: false
           load: true
           cache-from: type=gha,scope=${{ matrix.name }}
@@ -524,7 +554,7 @@ jobs:
       - name: Generate SBOM (SPDX)
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
-          image: kern/${{ matrix.name }}:ci
+          image: kern-${{ matrix.name }}:ci
           format: spdx-json
           output-file: sbom-${{ matrix.name }}.spdx.json
           upload-artifact: true
@@ -541,9 +571,37 @@ jobs:
       - name: Vulnerability scan (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: kern/${{ matrix.name }}:ci
+          image-ref: kern-${{ matrix.name }}:ci
           scanners: vuln
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
+
+      # Only on a release tag, and only after the scan above passed: what is published is the
+      # image that was scanned, retagged, not a second build.
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          # GHCR names must be lower case; an owner's need not be.
+          OWNER: ${{ github.repository_owner }}
+          NAME: kern-${{ matrix.name }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          image="ghcr.io/$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')/$NAME"
+          version="${TAG#v}"
+          docker tag "$NAME:ci" "$image:$version"
+          docker push "$image:$version"
+          # `latest` only for a plain release, never for v1.2.0-rc1.
+          case "$version" in
+            *-*) ;;
+            *) docker tag "$NAME:ci" "$image:latest" && docker push "$image:latest" ;;
+          esac

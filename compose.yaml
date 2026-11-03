@@ -71,7 +71,12 @@ volumes:
   tls_edge:
   tls_reverb:
 
+# Every image this repository builds is named `${KERN_IMAGES}/kern-<name>:${KERN_VERSION}`.
+# Unset, that is `localhost/kern-<name>:local`: built here, and a name no public registry can answer
+# for, so nothing is ever pulled in its place. Set to a registry and a release (apps/api/.env), the
+# same services run the published images instead — `make update VERSION=…` pulls them, nothing is built.
 x-php-image: &php-image
+  image: ${KERN_IMAGES:-localhost}/kern-app:${KERN_VERSION:-local}
   build:
     context: .
     dockerfile: docker/php/Dockerfile
@@ -141,6 +146,7 @@ services:
   # written into — and a daily check that renews whatever is near the end. Each service reloads its own
   # (docker/tls/kern-tls.sh), so nothing here needs the Docker socket.
   certs:
+    image: ${KERN_IMAGES:-localhost}/kern-certs:${KERN_VERSION:-local}
     build:
       context: docker/certs
     # On no network at all: it is reached through volumes, and reaches nothing.
@@ -215,6 +221,7 @@ services:
   # Edge
   # -------------------------------------------------------------------------
   edge:
+    image: ${KERN_IMAGES:-localhost}/kern-edge:${KERN_VERSION:-local}
     build:
       context: .
       dockerfile: docker/caddy/Dockerfile
