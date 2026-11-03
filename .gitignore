@@ -56,3 +56,6 @@ docker/caddy/certs/*.crt
 # a name is the question those prompts ask.
 /*-prompt.txt
 /counterparty-classification-variant-*.txt
+
+# Helpers a person runs by hand on their own machine, and the data they build — never committed.
+tools/
