@@ -181,10 +181,10 @@ jobs:
         working-directory: apps/api
     services:
       postgres:
-        # Same image/tag as production (docs/reference/verified-versions.md)
-        # — pgvector/pgvector, not a bare postgres image, so the vector/
+        # The same pin as compose.services/postgres.yaml — `make pins` checks both
+        # pgvector/pgvector, not a bare postgres image, so the vector/
         # unaccent/pg_trgm extensions this project needs are present.
-        image: pgvector/pgvector:pg18-trixie
+        image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:5895949dfcdf308eb0cd31c950c93c14895c77f33fbedfecf1fa511ab1d4bcd2
         env:
           POSTGRES_DB: kern_test
           POSTGRES_USER: kern
@@ -197,7 +197,7 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: redis:8-trixie
+        image: redis:8.10.2-trixie@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
         ports:
           - 6379:6379
         options: >-
@@ -275,7 +275,7 @@ jobs:
       postgres:
         # Same image as php-tests: `kern/audit` needs `SELECT … FOR UPDATE`
         # and a trigger, `kern/legislation` needs pgvector and pg_trgm.
-        image: pgvector/pgvector:pg18-trixie
+        image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:5895949dfcdf308eb0cd31c950c93c14895c77f33fbedfecf1fa511ab1d4bcd2
         env:
           POSTGRES_DB: kern_pkg_test
           POSTGRES_USER: kern

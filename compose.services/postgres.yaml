@@ -13,7 +13,7 @@ services:
   # Data layer — no host ports, data_net is internal (no outbound Internet).
   # -------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c930220cb9bf2f956d10a8f909cf9973d9672ca0278aef2c1e6facccad2e0
+    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:5895949dfcdf308eb0cd31c950c93c14895c77f33fbedfecf1fa511ab1d4bcd2
     # TLS, with the certificate docker/certs issues it, and no connection over the network without it
     # (docker/postgres/pg_hba.conf). The image's own entrypoint still runs — it initialises a new
     # volume and drops to the `postgres` user — behind the watcher that tells the server to reload a

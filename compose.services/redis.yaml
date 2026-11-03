@@ -10,7 +10,7 @@
 
 services:
   redis:
-    image: redis:8.10.2-trixie@sha256:5c02d7c0f8d75af45958c0294a8004f2e14b42df98a1103e3a669aa7ec787be6
+    image: redis:8.10.2-trixie@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
     # The password is read from the environment at start, NOT interpolated into argv by compose.
     #
     # Two reasons, both learned the hard way. Interpolating it here bakes the secret into the

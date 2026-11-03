@@ -22,7 +22,7 @@ docker buildx version >/dev/null 2>&1 || {
 }
 
 PINS="$(grep -hoE '[a-z0-9][a-z0-9./_-]*:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}' \
-    compose.yaml compose.dev.yaml compose.services/*.yaml docker/*/Dockerfile | sort -u)"
+    compose.yaml compose.dev.yaml compose.services/*.yaml docker/*/Dockerfile .github/workflows/ci.yml | sort -u)"
 
 behind=0
 for pin in $PINS; do

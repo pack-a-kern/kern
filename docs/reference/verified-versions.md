@@ -85,12 +85,12 @@ like a version bump (§2 of DEPENDENCY-POLICY.md). All rows checked 2026-10-20.
 
 | Service | Image | Notes |
 |---------|-------|-------|
-| edge | `caddy:2.11.7-alpine@sha256:d8542f48…`, built in `caddy:2.11.7-builder-alpine@sha256:d718a1d1…` (Go 1.27.3) | 2.11.7 latest (released 2026-10-06) |
-| app / queue / scheduler / reverb | `php:8.5.11-fpm-trixie@sha256:36b66e02…`, `composer:2.10.3@sha256:af98f42d…` | 8.5.11 latest 8.5; 8.6 is RC only |
-| postgres | `pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c9302…` (Postgres 18.6, pgvector 0.8.7, 2026-10-01) | Moved 2026-10-21 from 0.8.6: an IVFFlat build overflow (this schema indexes with HNSW) and `avg` over no rows. The extension's objects follow on the next `make migrate`, which runs `kern:db:update-extensions` |
-| redis | `redis:8.10.2-trixie@sha256:5c02d7c0…` | from 8.10.1: 8.10.2 (2026-10-07) is a security release |
+| edge | `caddy:2.11.7-alpine@sha256:e70b164d…`, built in `caddy:2.11.7-builder-alpine@sha256:95a5e7e2…` (Go 1.27.3) | 2.11.7 latest (released 2026-10-06) |
+| app / queue / scheduler / reverb | `php:8.5.12-fpm-trixie@sha256:c34bcf43…`, `composer:2.10.3@sha256:2cf27542…` | 8.5.12 latest 8.5; 8.6 is RC only |
+| postgres | `pgvector/pgvector:0.8.7-pg18-trixie@sha256:5895949d…` (Postgres 18.6, pgvector 0.8.7, rebuilt upstream; moved 2026-11-03) | Moved 2026-10-21 from 0.8.6: an IVFFlat build overflow (this schema indexes with HNSW) and `avg` over no rows. The extension's objects follow on the next `make migrate`, which runs `kern:db:update-extensions` |
+| redis | `redis:8.10.2-trixie@sha256:97ec8815…` | from 8.10.1: 8.10.2 (2026-10-07) is a security release. Same tag rebuilt upstream, moved 2026-11-03 |
 | openbao | `openbao/openbao:2.6.4@sha256:cf2340fc…` | from 2.6.2: 2.6.3 and 2.6.4 (2026-10-01) carry security fixes. 2.7.1 exists — a minor step, later. Tried first on a copy of the data volume (unseal, KEK, encrypt/decrypt) |
-| clamav | `clamav/clamav:1.5.4-debian13-slim@sha256:d7ede3ce…` | 1.5.4 rebuilt 2026-10-19 with Debian patches |
+| clamav | `clamav/clamav:1.5.4-debian13-slim@sha256:c21aa18c…` | 1.5.4 rebuilt upstream with Debian patches, moved 2026-11-03 |
 | python | `python:3.14.8-slim-trixie@sha256:fbecd461…`, `ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e…` | 3.14.8 latest 3.14; 3.15.0 (2026-10-17) too new. uv from 0.12.10, same series (0.13 exists) |
 | browser-worker | `mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30…` | 1.64.1 exists — needs the npm package moved with it and the SPV flow retested; its own step |
 | certs | `alpine:3.24.2@sha256:294b683c…` (released 2026-09-18), plus Alpine's `openssl` — 3.5.9 at the check | the stack's own CA (`docker/certs`) |
