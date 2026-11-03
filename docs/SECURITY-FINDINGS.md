@@ -778,6 +778,13 @@ caching a JSON form instead of an object avoids the question. Separately, once
 passkeys work, passkey login skips TOTP and — until finding 2 is fixed — ignores
 user status, and `userVerification` is only `preferred` in `PasskeyManager`.
 
+**Status:** fixed 2026-11-04. The options are cached as the library's own WebAuthn JSON, so the
+cache's refusal of every class stays as it is — nothing was allow-listed. `userVerification` is now
+`required` at registration and at login, which is what makes skipping TOTP sound: the device has
+checked its owner, not only its presence. User status was already enforced on this path by
+finding 2's fix (`EstablishesAuthenticatedSession`). `PasskeyTest` runs the store against a cache that
+serializes and refuses classes, and fails on the old code.
+
 ---
 
 ## What the audits confirmed is sound

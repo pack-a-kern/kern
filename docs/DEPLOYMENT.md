@@ -582,11 +582,9 @@ and ADRs or observed in the configuration — none is a guess.
    `docs/INSTALLER-PLAN.md` §5 is the design that closes it: the VPN as its own container, joined
    only by the services that need a remote address.
 
-5. **Passkey registration is broken.** `docs/STATUS.md` records it as P1: `POST
-   /auth/passkeys/registration` returns 422, because the challenge written by the options call is
-   not found by the register call. It affects the real application, not only tests. Deferred by the
-   owner on 2026-09-08, to be fixed after the screens — worth confirming that is still the intended
-   order before launch.
+5. ~~**Passkey registration is broken.**~~ Fixed 2026-11-04 — see `docs/STATUS.md` P1. A passkey
+   is bound to `APP_URL`'s host when it is registered, so set that to the address people really use
+   before anyone adds one.
 
 6. **No external AI provider is chosen.** `docs/STATUS.md`'s blocked list still shows "Provider,
    region and DPA for ADR 0005 document processing" as open. ADR 0005's amendment notes this

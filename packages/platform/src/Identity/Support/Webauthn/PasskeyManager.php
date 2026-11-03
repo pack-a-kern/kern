@@ -13,6 +13,7 @@ use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserPasskey;
 use Kern\Platform\Identity\Support\Webauthn\Exceptions\PasskeyVerificationException;
 use RuntimeException;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Throwable;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
@@ -61,7 +62,15 @@ final readonly class PasskeyManager
             ),
             random_bytes(32),
             $this->algorithmParameters(),
-            AuthenticatorSelectionCriteria::create(userVerification: AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_PREFERRED),
+            // Verification required, not preferred: a passkey stands in for the password *and* the
+            // second factor, so the device must have checked it is its owner — a fingerprint, a face,
+            // a PIN — and not merely that it is present. A discoverable key where the authenticator
+            // can make one, which is what a person expects a passkey to be; login still names the
+            // account first.
+            AuthenticatorSelectionCriteria::create(
+                userVerification: AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+                residentKey: AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_PREFERRED,
+            ),
             PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
             $this->credentials->credentialDescriptorsFor($user->id),
             $this->timeoutMs(),
@@ -114,7 +123,8 @@ final readonly class PasskeyManager
             random_bytes(32),
             $this->relyingParty()->id,
             $user !== null ? $this->credentials->credentialDescriptorsFor($user->id) : [],
-            PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED,
+            // Required for the same reason as at registration — see `creationOptionsFor()`.
+            PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
             $this->timeoutMs(),
         );
 
@@ -197,7 +207,9 @@ final readonly class PasskeyManager
      */
     private function toJsonArray(PublicKeyCredentialCreationOptions|PublicKeyCredentialRequestOptions $options): array
     {
-        $json = $this->serializer->get()->serialize($options, 'json');
+        // Without the absent members, not with them set to null: a browser reads `residentKey: null`
+        // as an unknown value and ignores it, and says so in the console on every ceremony.
+        $json = $this->serializer->get()->serialize($options, 'json', [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
 
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);

@@ -145,3 +145,63 @@ it('rejects an assertion from a credential that was never registered', function 
 
     $this->assertGuest();
 });
+
+/*
+ * The cache in production unserializes no PHP class (`config/cache.php` `serializable_classes`). The
+ * `array` store these tests otherwise run on keeps values as they are, which is how every ceremony above
+ * passed while no passkey had ever worked anywhere else. These two run against a store that serializes
+ * and refuses classes, as Redis does there.
+ */
+function strictChallengeStore(): \Kern\Platform\Identity\Support\Webauthn\ChallengeStore
+{
+    config([
+        'cache.stores.no-classes' => ['driver' => 'array', 'serialize' => true],
+        'cache.serializable_classes' => false,
+    ]);
+
+    return new \Kern\Platform\Identity\Support\Webauthn\ChallengeStore(
+        \Illuminate\Support\Facades\Cache::store('no-classes'),
+        app(\Kern\Platform\Identity\Support\Webauthn\WebauthnSerializer::class),
+    );
+}
+
+it('keeps a challenge through a cache that unserializes no class, as production does', function (): void {
+    $store = strictChallengeStore();
+
+    $creation = PublicKeyCredentialCreationOptions::create(
+        \Webauthn\PublicKeyCredentialRpEntity::create('Kern', 'localhost'),
+        \Webauthn\PublicKeyCredentialUserEntity::create('ion', 'user-id', 'Ion'),
+        random_bytes(32),
+    );
+    $request = PublicKeyCredentialRequestOptions::create(random_bytes(32), 'localhost');
+
+    $store->putCreationOptions('user-id', $creation);
+    $store->putRequestOptions('email-key', $request);
+
+    expect($store->pullCreationOptions('user-id')->challenge)->toBe($creation->challenge)
+        ->and($store->pullRequestOptions('email-key')->challenge)->toBe($request->challenge);
+
+    // And the store this models really is the one that broke an object put in whole.
+    \Illuminate\Support\Facades\Cache::store('no-classes')->put('whole', $creation);
+    expect(\Illuminate\Support\Facades\Cache::store('no-classes')->get('whole'))->toBeInstanceOf(\__PHP_Incomplete_Class::class);
+});
+
+it('still uses a challenge once only, and refuses one that is not there', function (): void {
+    $store = strictChallengeStore();
+    $store->putRequestOptions('email-key', PublicKeyCredentialRequestOptions::create(random_bytes(32), 'localhost'));
+    $store->pullRequestOptions('email-key');
+
+    expect(fn () => $store->pullRequestOptions('email-key'))
+        ->toThrow(\Kern\Platform\Identity\Support\Webauthn\Exceptions\ChallengeExpiredException::class);
+});
+
+it('asks the device to verify its owner, and sends no empty member for the browser to ignore', function (): void {
+    registerAndLogin($this);
+
+    $creation = $this->postJson('/api/v1/auth/passkeys/registration/options')->assertOk();
+    $request = $this->postJson('/api/v1/auth/passkeys/login/options', ['email' => 'ion@example.com'])->assertOk();
+
+    expect($creation->json('authenticatorSelection'))->toBe(['userVerification' => 'required', 'residentKey' => 'preferred'])
+        ->and($request->json('userVerification'))->toBe('required')
+        ->and($creation->getContent() . $request->getContent())->not->toContain('null');
+});
