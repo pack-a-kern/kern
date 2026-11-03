@@ -10,7 +10,7 @@ dependencies = [
     "fastapi>=0.141.1,<0.142.0",
     "pydantic>=2.13.5,<2.14.0",
     "pydantic-settings>=2.15.0,<2.16.0",
-    "pypdf>=6.18.0,<6.19.0",
+    "pypdf>=6.21.4,<6.22.0",
     # Statement files (`processing.statements`). Deliberately not PyMuPDF, which would read tables
     # in one call but is AGPL; pdfplumber is MIT and builds rows from word positions. openpyxl reads
     # .xlsx, xlrd the older .xls only, and defusedxml hardens the XML parsing openpyxl does.
