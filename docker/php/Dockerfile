@@ -19,7 +19,7 @@
 # Stage: ext-builder — compile the four required PHP extensions in isolation
 # from a build toolchain, so the final runtime image never carries a compiler.
 # ---------------------------------------------------------------------------
-FROM php:8.5.12-fpm-trixie@sha256:f665ad19c093eee54db3a03c89102d6828b1bbf4f327689e5947a8686c6585a1 AS ext-builder
+FROM php:8.5.12-fpm-trixie@sha256:c34bcf437ed61bd5e4c1114494eaf1ffd54253bce2b95d263bfa18b350ee8432 AS ext-builder
 
 # Exact apt candidate versions for trixie, checked 2026-09-07 (see handoff
 # "Sources consulted"). Pinning apt packages by version, per
@@ -58,7 +58,7 @@ RUN docker-php-ext-configure gd --with-jpeg --with-webp \
 # ---------------------------------------------------------------------------
 # Stage: composer — pinned Composer binary, used only to vendor apps/api.
 # ---------------------------------------------------------------------------
-FROM composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac AS composer-bin
+FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS composer-bin
 
 # ---------------------------------------------------------------------------
 # Stage: vendor — install PHP dependencies against the real lockfile.
@@ -87,7 +87,7 @@ RUN composer install \
 # ---------------------------------------------------------------------------
 # Stage: runtime — the actual app/queue/scheduler/reverb image.
 # ---------------------------------------------------------------------------
-FROM php:8.5.12-fpm-trixie@sha256:f665ad19c093eee54db3a03c89102d6828b1bbf4f327689e5947a8686c6585a1 AS runtime
+FROM php:8.5.12-fpm-trixie@sha256:c34bcf437ed61bd5e4c1114494eaf1ffd54253bce2b95d263bfa18b350ee8432 AS runtime
 
 # Extensions compiled in ext-builder, copied in (no compiler in this stage).
 COPY --from=ext-builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions
@@ -102,7 +102,15 @@ COPY --from=ext-builder /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d
 # libfcgi-bin: fcgi client used purely for the FastCGI healthcheck against
 # php-fpm's own status page (works even before apps/api's routes exist —
 # see fpm pool config's pm.status_path).
-RUN apt-get update \
+#
+# First, the compiler: the official image keeps its own build tools ($PHPIZE_DEPS — gcc, g++,
+# make, autoconf and the kernel headers) so `docker-php-ext-install` can run in it. libc6-dev is
+# named as well, because the list calls it `libc-dev`. Nothing is compiled here — ext-builder did
+# that — so they go, before the libraries below are installed and so before auto-remove could
+# count those as unused. CI's Trivy scan found 45 HIGH/CRITICAL advisories in the kernel headers
+# alone (2026-11-03).
+RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq5=17.11-0+deb13u1 \
         libicu76=76.1-4 \

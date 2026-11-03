@@ -45,14 +45,14 @@
 # docker/caddy/build/ commits the whole graph with its hashes; `-mod=readonly` fails the build rather
 # than resolve anything not written there, and `go mod verify` checks each download against go.sum.
 # To move a version: `go get` it in that directory with this builder image, `go mod tidy`, commit both.
-FROM caddy:2.11.7-builder-alpine@sha256:d718a1d1431403c4a46698f33ad1c0f9dd5dd7fe2bae654d1027d275b6fb5fd7 AS builder
+FROM caddy:2.11.7-builder-alpine@sha256:95a5e7e2692b5eb9545aadc5b90a39f6f509bee59c9508a493f83ee902eaef63 AS builder
 WORKDIR /src
 COPY docker/caddy/build/ ./
 RUN go mod download \
     && go mod verify \
     && CGO_ENABLED=0 go build -mod=readonly -trimpath -ldflags '-w -s' -o /usr/bin/caddy .
 
-FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+FROM caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
 
 # The rebuilt binary, replacing the base image's — and with it the file capability the base image's
 # binary carries (`cap_net_bind_service=ep`, for binding 80 and 443). A plain `go build` sets none.
@@ -75,6 +75,11 @@ COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # certificates when a domain is configured — so it is a named volume in compose, not a tmpfs:
 # re-issuing on every restart runs into Let's Encrypt's rate limits. /config is Caddy's autosave
 # directory, which stays empty here because the Caddyfile turns the admin API off.
+# curl, and with it libcurl and brotli-libs, which only libcurl needs: the base image ships them and
+# nothing here uses them — the healthcheck is busybox's wget. All three had HIGH/CRITICAL
+# advisories in CI's Trivy scan on 2026-11-03; a package that is not there needs no fix.
+RUN apk del --no-cache curl
+
 RUN addgroup -g 10001 -S caddy \
     && adduser -u 10001 -S -G caddy -H -D -s /sbin/nologin caddy \
     && chown -R caddy:caddy /data /config

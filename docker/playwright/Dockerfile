@@ -58,6 +58,14 @@ COPY apps/browser-worker/package.json apps/browser-worker/package-lock.json ./
 # docker/python/Dockerfile.
 RUN npm ci --omit=dev \
     && rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx
+
+# Ubuntu's security updates for what the pinned base image shipped before them — named, not a
+# blanket `upgrade`, so the image changes only where a fix was asked for. brotli
+# (CVE-2026-111497) and OpenSSL (CVE-2026-84782), found by CI's Trivy scan on 2026-11-03.
+# Drop this once the base pin moves to a build that already has them.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade libbrotli1 libssl3t64 openssl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/dist ./dist
 
 # The base image's pre-created non-root account, used for exactly this
