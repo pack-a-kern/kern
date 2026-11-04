@@ -19,8 +19,8 @@ It runs as one Docker Compose stack:
 
 You need:
 
-- **A Linux server** with Docker, Docker Compose v2 (`docker compose version` must answer) and
-  `openssl`. Installing from source also needs `npm`.
+- **A Linux server** with Docker, Docker Compose v2 (`docker compose version` must answer), `make`
+  and `openssl`. Installing from source also needs `git` and `npm`.
 - **Memory.** About 7 GB of container limits with everything on one machine, or about 3 GB with the
   database, cache, vault and scanner on other machines. The installer shows the figure for your
   answers before it changes anything.
@@ -46,22 +46,40 @@ There are two ways to install. Both run the same installer, `scripts/install.sh`
 
 ### A. From a release (recommended)
 
-Here nothing is built on the server. It runs the images that CI built, scanned and signed for that
-release, and checks each image's signature before starting it.
+Here the server gets no source code and builds nothing. A release is six images that CI built,
+scanned and signed: the five the stack runs, and `kern-install`, which holds only the files that run
+them (compose files, the installer, the updater, the signature check and the `.env` template).
 
 ```bash
-git clone --branch v0.1.0 https://github.com/pack-a-kern/kern.git
+# 1. Sign in to the registry, if the packages are private: a token with only `read:packages`.
+docker login ghcr.io -u <github-user>
+
+# 2. Check that the release's files were signed by this repository's CI, at exactly this tag.
+VERSION=0.1.2
+docker run --rm \
+  ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d \
+  verify \
+  --certificate-identity "https://github.com/pack-a-kern/kern/.github/workflows/ci.yml@refs/tags/v$VERSION" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "ghcr.io/pack-a-kern/kern-install:$VERSION" >/dev/null && echo "signed by CI"
+
+# 3. Only then copy them out, and install.
+id=$(docker create "ghcr.io/pack-a-kern/kern-install:$VERSION" x)
+docker cp "$id:/kern" kern && docker rm "$id"
 cd kern
-KERN_IMAGES=ghcr.io/pack-a-kern KERN_IMAGES_SIGNER=pack-a-kern/kern make install
+make install
 ```
 
-- Replace `v0.1.0` with the release you want. The releases are listed on the repository's
-  **Releases / Tags** page.
-- The checkout must be on that release's tag. The installer reads the version from the tag and
-  refuses to run on a branch.
-- An image that was not signed by this repository's CI, for exactly that tag, is refused, and nothing
-  starts. The check has to reach Sigstore's public services (`*.sigstore.dev`).
-- No npm is needed.
+- Replace `0.1.2` with the release you want. The releases are listed on the repository's
+  **Tags** page.
+- Step 2 is the one check you make by hand: everything after it is done by the files it checked.
+  The installer refuses every image whose signature is not this repository's CI, for exactly that
+  release, and nothing starts. The checks have to reach Sigstore's public services
+  (`*.sigstore.dev`).
+- With private packages, cosign in step 2 needs your `docker login` too: add
+  `-v ~/.docker/config.json:/docker/config.json:ro -e DOCKER_CONFIG=/docker -u "$(id -u):$(id -g)" -e HOME=/tmp`
+  right after `--rm`. It is read-only and gone when the check ends; the installer does the same.
+- No git, npm or source code is needed.
 
 ### B. From source
 
@@ -121,14 +139,13 @@ encrypted field in the database stays unreadable for good.
 **Installed from a release:**
 
 ```bash
-git fetch --tags
-git checkout v0.2.0
 make update VERSION=0.2.0
 ```
 
-This pulls the new images and checks their signatures. If either step fails, nothing changes. If
-both pass, it runs the migrations, recreates only the containers whose image changed, and
-health-checks the result. To go back, run the same steps with the older version; note that a
+This fetches the new release's files and checks their signature with the checker already on the
+server, before one file is copied in. Then it pulls the new images and checks theirs. If either check
+fails, nothing changes. If both pass, it runs the migrations, recreates only the containers whose
+image changed, and health-checks the result. `apps/api/.env` and your certificates are never touched. To go back, run the same steps with the older version; note that a
 migration is not undone by this.
 
 **Installed from source:**

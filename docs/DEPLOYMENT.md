@@ -23,22 +23,29 @@ guide used to list by hand.
 
 ### From a release, without building anything
 
-The two lines above build every image on the server. A release's images are already built, scanned
-and signed by CI, and a server can run those instead — no npm and no build:
+The two lines above build every image on the server from a clone. A release's images are already
+built, scanned and signed by CI, and a server can run those instead, with no clone, no npm and no
+build. The exact commands are in the README, "Install on a server, A".
 
-```bash
-git clone --branch v1.4.0 <repository> && cd kern
-KERN_IMAGES=ghcr.io/<owner> KERN_IMAGES_SIGNER=<owner>/<repository> make install
-```
-
-- **The checkout must be on the release's tag.** The version is read from it, so the compose files and
-  scripts on the server are always the ones the images were released with. On a branch it stops.
-- **`KERN_IMAGES_SIGNER` is required.** Each image is checked by `scripts/verify-images.sh` against
-  the signature CI made for it: it must name that repository's `ci.yml` and exactly this tag. An image
-  anyone else pushed to the registry is refused before anything starts. The check needs to reach
+- **What the server gets.** A sixth image, `kern-install` (docker/install/Dockerfile), holds the
+  release's files and nothing else: the compose files without their `.dev` overlays, the files compose
+  mounts, `scripts/install.sh`, `scripts/update.sh`, `scripts/verify-images.sh`, the `.env` templates,
+  a `Makefile` of server targets only (docker/install/Makefile), and `RELEASE`, which names the
+  version, the registry and the repository whose CI signed it. It is `FROM scratch`: copied out with
+  `docker create` and `docker cp`, never run. CI fails the release if it lacks anything compose
+  mounts, or holds anything that must not ship (scripts/tests/release-bundle.sh).
+- **Its signature is checked first, by hand, once.** The first install has no checker on the server
+  yet, so the README's cosign command is run before a file is copied out. A bundle whose signature was
+  not made by that repository's `ci.yml` at exactly that tag could carry a lying checker, which is why
+  this one step is not left to the files themselves.
+- **Every image after that is checked by `scripts/verify-images.sh`** against the signature CI made
+  for it, and refused before anything starts if it does not match. The check needs to reach
   Sigstore's public services.
-- **Later releases:** `git fetch --tags && git checkout v1.5.0 && make update VERSION=1.5.0` — the same
-  pull and the same check, and nothing changes if either fails.
+- **Later releases:** `make update VERSION=1.5.0` (scripts/update.sh). It fetches that release's
+  `kern-install`, checks its signature with the checker the *current* release brought, copies its
+  files in (never `apps/api/.env`, `docker/caddy/certs/` or `docker/tls/trusted/`), and hands over to
+  the new release's own updater, which pulls and checks the images, migrates and recreates. Nothing
+  changes if either check fails.
 - The registry must let the server pull: public packages, or `docker login` on the server first.
 
 ### What it asks

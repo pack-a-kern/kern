@@ -1,5 +1,5 @@
 #!/bin/sh
-# Refuse to run images this project's CI did not build. Usage: scripts/verify-images.sh
+# Refuse to run images this project's CI did not build. Usage: scripts/verify-images.sh [image…]
 #
 # An installation that pulls its images (KERN_IMAGES set) trusts whatever the registry hands it. A
 # registry account, a mirror or a token can be taken over, and the image under a tag replaced; the
@@ -8,7 +8,9 @@
 # This checks every pulled kern-* image against exactly those three, by the digest that was pulled
 # — not by tag, which can move between the check and the start. Anything else stops here.
 #
-# Run after `docker compose pull`, before `up`: the installer and `make update` both do.
+# Run after `docker compose pull`, before `up`: the installer and `make update` both do. With images
+# named, it checks those instead of compose's — scripts/update.sh names a release's kern-install, which
+# compose never runs, before copying a file out of it.
 #
 # Reads KERN_IMAGES, KERN_VERSION and KERN_IMAGES_SIGNER from the environment, or apps/api/.env.
 # cosign runs from its own pinned image, so the host needs nothing installed. It needs to reach
@@ -45,8 +47,12 @@ printf '%s' "$SIGNER" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
 # another repository's workflow does not pass.
 IDENTITY="https://github.com/$SIGNER/.github/workflows/ci.yml@refs/tags/v$VERSION"
 
-# The images compose would start, so the list is never a copy that drifts from it.
-REFS="$(KERN_IMAGES="$IMAGES" KERN_VERSION="$VERSION" docker compose config --images | grep -F "$IMAGES/kern-" | sort -u)"
+# The images compose would start, so the list is never a copy that drifts from it — or the ones named.
+if [ "$#" -gt 0 ]; then
+    REFS="$*"
+else
+    REFS="$(KERN_IMAGES="$IMAGES" KERN_VERSION="$VERSION" docker compose config --images | grep -F "$IMAGES/kern-" | sort -u)"
+fi
 [ -n "$REFS" ] || die "compose names no image under $IMAGES/."
 
 # cosign asks the registry for the signature itself, so it needs the same login `docker compose pull`

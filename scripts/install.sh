@@ -33,16 +33,16 @@
 #
 # ## Built here, or pulled
 #
-# By default every image is built on this machine from this checkout, which needs npm and a few GB of
-# build space. With KERN_IMAGES set, nothing is built: the images are the ones CI built, scanned and
-# signed for a release, and they are pulled, checked against their signature and started.
+# In a folder holding a release's files — copied out of ghcr.io/<owner>/kern-install:<version> after
+# its signature was checked (docs/DEPLOYMENT.md "From a release") — nothing is built: the images are the
+# ones CI built, scanned and signed for that release, and they are pulled, checked against their
+# signature and started. The folder's RELEASE file says which release, which registry and which
+# repository's CI must have signed them (scripts/verify-images.sh); an image it did not sign never
+# starts. The compose files, the scripts and the images always come from the same release. Later
+# releases: `make update VERSION=…`.
 #
-#     git clone --branch v1.4.0 <repository> && cd <it>
-#     KERN_IMAGES=ghcr.io/<owner> KERN_IMAGES_SIGNER=<owner>/<repository> make install
-#
-# The release is the tag this checkout is on, so the compose files, the scripts and the images always
-# come from the same release. KERN_IMAGES_SIGNER is the repository whose CI must have signed them
-# (scripts/verify-images.sh); an image it did not sign never starts. Later releases: `make update`.
+# In a clone of the repository there is no RELEASE file, and every image is built on this machine from
+# the checkout, which needs npm and a few GB of build space.
 #
 # ## Re-running it
 #
@@ -86,9 +86,10 @@ DISK_CLAMAV_GB=2
 DISK_PYTHON_GB=2
 DISK_BROWSER_GB=4
 
-# Built here (empty), or pulled from this registry — see "Built here, or pulled" above.
-KERN_IMAGES="${KERN_IMAGES:-}"
-KERN_IMAGES_SIGNER="${KERN_IMAGES_SIGNER:-}"
+# Built here (empty), or pulled from this registry — see "Built here, or pulled" above. Read from the
+# release's RELEASE file in preflight.
+KERN_IMAGES=''
+KERN_IMAGES_SIGNER=''
 KERN_VERSION=''
 
 REPAIR=no
@@ -285,16 +286,16 @@ preflight() {
     require_command docker 'nothing in this stack runs without it.'
     require_command openssl 'it is what generates every secret below.'
 
-    if [ -n "$KERN_IMAGES" ]; then
-        # The release this checkout is on. A branch is not a release: its compose files could name
-        # services, variables or mounts the images of any release know nothing about.
-        tag=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
-        printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
-            || die 'KERN_IMAGES is set, so this installs a release, but this checkout is not on a release tag. `git checkout v<version>` first — the files here and the images pulled must be the same release.'
-        KERN_VERSION="${tag#v}"
-
-        printf '%s' "$KERN_IMAGES_SIGNER" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
-            || die 'KERN_IMAGES is set, so KERN_IMAGES_SIGNER must be too: the GitHub repository, as owner/repository, whose CI signed the images. Without it nothing can tell an image CI published from one somebody else pushed.'
+    if [ -f RELEASE ]; then
+        # The release these files are, as CI wrote it into them (docker/install/Dockerfile).
+        KERN_VERSION=$(sed -n 's/^KERN_VERSION=//p' RELEASE | tail -n 1)
+        KERN_IMAGES=$(sed -n 's/^KERN_IMAGES=//p' RELEASE | tail -n 1)
+        KERN_IMAGES_SIGNER=$(sed -n 's/^KERN_IMAGES_SIGNER=//p' RELEASE | tail -n 1)
+        if ! printf '%s' "$KERN_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || [ -z "$KERN_IMAGES" ] \
+            || ! printf '%s' "$KERN_IMAGES_SIGNER" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+            die 'RELEASE does not name a release, a registry and the repository whose CI signed it. Copy the files out of the release again.'
+        fi
     else
         # The edge image copies apps/api/public at build time and runs no JavaScript build tool itself
         # (docker/caddy/Dockerfile), so the assets are built here, on the host, before any image is.

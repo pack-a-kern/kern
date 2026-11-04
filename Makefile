@@ -3,38 +3,15 @@
 # Every target here was run for real while this file was written (see
 # docs/handoff/001-docker-topology.md "How to verify"). Nothing aspirational.
 
-SERVICE ?= app
+# The server targets — install, update, up, down, logs, shell, migrate, tls-ca… — are in
+# docker/install/Makefile, which is also the whole Makefile of a server installed from a release.
+include docker/install/Makefile
+
 # The group the PHP image's `appuser` runs as (docker/php/Dockerfile) — the one other reader `make env`
 # lets at the environment file.
 APP_GID ?= 10001
 
-.PHONY: install env tls-ca pins test-installer vendor up update down build logs shell test lint fresh compose-file migrate
-
-## Refuse to run compose without a service list.
-##
-## compose.yaml holds the application alone, so an unset COMPOSE_FILE resolves to the edge and the
-## four PHP processes with no database behind them — a stack that starts and cannot boot. The
-## variable lives in apps/api/.env, which compose reads itself, so a bare `docker compose` is
-## correct too; this only catches a .env written before the split.
-compose-file:
-	@grep -q '^COMPOSE_FILE=' apps/api/.env || { \
-		echo "apps/api/.env has no COMPOSE_FILE line, so compose would start a stack with no database."; \
-		echo "Copy the line from apps/api/.env.example — it lists every service."; \
-		exit 1; \
-	}
-
-## Install this on a server: ask the questions, generate every secret, bring the stack up.
-##
-## One command from a fresh clone to a working installation — the environment file, the TLS
-## certificate, the frontend assets, the images, the migrations, the role catalogue, the first
-## administrator, and a health check that fails the install if something it needs did not answer.
-## It refuses to overwrite an existing apps/api/.env; `make install ARGS=--repair` re-runs everything
-## after that file against an installation that is already there.
-##
-## `make env` is the other way in, and the one to use on a development machine: it writes the same
-## file from .env.example with every value still to fill in, and the dev shape of COMPOSE_FILE.
-install:
-	@scripts/install.sh $(ARGS)
+.PHONY: env pins test-installer vendor build test lint fresh
 
 ## Create apps/api/.env — the one file this installation is configured in.
 ##
@@ -55,16 +32,6 @@ env:
 	else chmod 644 apps/api/.env; \
 	echo "apps/api/.env is readable by every account on this host: run \`sudo chgrp $(APP_GID) apps/api/.env && sudo chmod 640 apps/api/.env\`."; fi
 	@echo "Wrote apps/api/.env. Fill in every empty value — APP_KEY, the passwords, the tokens — before \`make up\`."
-
-## Write this installation's CA certificate to kern-ca.crt. Usage: make tls-ca
-##
-## Every certificate in the stack is issued by the `certs` service from one private CA, the edge's
-## included when the site is reached by IP. Import this file once into a browser or a device as a
-## trusted authority and the site stops warning — renewals included, since they come from the same CA.
-## The certificate only: the CA's key never leaves its volume.
-tls-ca: compose-file
-	@docker compose exec -T certs cat /certs/public/ca.crt > kern-ca.crt
-	@echo "Wrote kern-ca.crt — import it as a trusted certificate authority where you open the site."
 
 ## Which pinned images have a newer build upstream. Usage: make pins
 ##
@@ -89,54 +56,9 @@ vendor:
 	docker run --rm -u "$$(id -u):$$(id -g)" -e COMPOSER_HOME=/tmp/composer \
 		-v "$(CURDIR):/src" -w /src/apps/api kern-php-test:local composer install --no-interaction
 
-## Start the full stack in the background.
-up: compose-file
-	@test -f apps/api/.env || { echo "apps/api/.env is missing — run \`make env\` first."; exit 1; }
-	docker compose up -d
-
-## Move this installation to a published release. Usage: make update VERSION=1.4.0
-##
-## For an installation that runs published images (KERN_IMAGES in apps/api/.env), from a checkout of
-## the release's tag. Pulls the release and checks CI's signature on every image first, and changes
-## nothing if either fails; then records it, applies the migrations with the new
-## image, and recreates only the services whose image changed. Going back is the same with the older
-## version, but a migration is not undone by it.
-update: compose-file
-	@echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' \
-		|| { echo "Usage: make update VERSION=1.4.0"; exit 1; }
-	@grep -Eq '^KERN_IMAGES=.+' apps/api/.env \
-		|| { echo "KERN_IMAGES is empty in apps/api/.env: this installation builds its own images (git pull, make build, make up)."; exit 1; }
-	@# The compose files and scripts here must be the release's own: a newer image under older files
-	@# meets mounts, variables and services it was not released with.
-	@[ "$$(git describe --tags --exact-match HEAD 2>/dev/null)" = "v$(VERSION)" ] \
-		|| { echo "This checkout is not on v$(VERSION). First: git fetch --tags && git checkout v$(VERSION)"; exit 1; }
-	KERN_VERSION=$(VERSION) docker compose pull
-	@# Before .env names the new version: a release that fails the check leaves the old one running.
-	KERN_VERSION=$(VERSION) scripts/verify-images.sh
-	@# In place, so the file keeps its owner, group and mode.
-	@t=$$(mktemp apps/api/.env.XXXXXX) \
-		&& awk -v v="$(VERSION)" '/^KERN_VERSION=/ { print "KERN_VERSION=" v; done = 1; next } { print } END { if (!done) print "KERN_VERSION=" v }' apps/api/.env > $$t \
-		&& cat $$t > apps/api/.env && rm -f $$t
-	docker compose run --rm -T migrate
-	docker compose up -d --no-build --remove-orphans --wait
-	docker compose exec -T app php artisan kern:access:sync
-	docker compose exec -T app php artisan kern:health
-
-## Stop and remove containers (volumes are kept).
-down: compose-file
-	docker compose down
-
 ## Build (or rebuild) every image.
 build: compose-file
 	docker compose build
-
-## Tail logs. Usage: make logs [SERVICE=queue]
-logs:
-	docker compose logs -f --tail=200 $(SERVICE)
-
-## Open a shell in a running service. Usage: make shell [SERVICE=postgres]
-shell:
-	docker compose exec $(SERVICE) sh -lc 'exec bash || exec sh'
 
 ## Run the PHP (Pest) and Python (pytest) test suites against dev-dependency
 ## images (docker/php/Dockerfile and docker/python/Dockerfile `test`
@@ -258,33 +180,6 @@ packages-install:
 ## through its own `vendor/kern/*` symlinks, which are not these.
 packages-clean:
 	rm -rf packages/*/vendor
-
-## Apply apps/api/.env or compose changes to the running stack.
-##
-## PHP edits no longer need this: `docker/php/php.dev.ini`, mounted only by compose.dev.yaml,
-## turns `opcache.validate_timestamps` back on in development, so php-fpm picks up an edited file on
-## the next request exactly like a normal Laravel install. Production keeps it off.
-##
-## Still required when a container's *environment* changes, because compose reads apps/api/.env
-## only when it creates a container. If the variable is one an infrastructure container is created
-## with (DB_PASSWORD, AWS_ACCESS_KEY_ID, REDIS_PASSWORD, OPENBAO_TOKEN), name that service here too,
-## or the two come up disagreeing.
-reload: compose-file
-	docker compose up -d --force-recreate $(SERVICE)
-
-## Is the site actually up? Answers the question a green test suite does not.
-smoke:
-	@curl -sk -o /dev/null -w 'login page: %{http_code}\n' https://127.0.0.1/login
-	@curl -sk -o /dev/null -w 'settings api (expect 401 when signed out): %{http_code}\n' \
-		-H 'Accept: application/json' https://127.0.0.1/api/v1/settings
-
-## Apply the migrations, then set the application's database role up to match.
-##
-## Its own container, as the database's owner — the running application connects as a role that owns
-## nothing and so cannot create a table (`kern:db:grant-app-role` says why). `docker compose exec app
-## php artisan migrate` therefore fails with "permission denied", by design: this is the way in.
-migrate: compose-file
-	docker compose run --rm migrate
 
 ## Destroy everything, including volumes, and start clean.
 fresh: compose-file
