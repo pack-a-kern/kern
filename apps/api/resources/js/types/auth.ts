@@ -145,6 +145,42 @@ export function parseSessionList(text: string): SessionSummary[] {
     }));
 }
 
+/** One passkey on the signed-in account, as `GET auth/passkeys` lists it. */
+export interface PasskeySummary {
+    id: string;
+    /** What the owner called it; null for the many added without a name. */
+    name: string | null;
+    /** Kept by a password manager or a cloud keychain, rather than on one device only. */
+    synced: boolean;
+    createdAt: string | null;
+    lastUsedAt: string | null;
+}
+
+export function parsePasskeyList(text: string): PasskeySummary[] {
+    const parsed = parseJson(
+        text,
+        vObject({
+            passkeys: vArray(
+                vObject({
+                    id: vString,
+                    name: vNullable(vString),
+                    synced: vBoolean,
+                    created_at: vNullable(vString),
+                    last_used_at: vNullable(vString),
+                }),
+            ),
+        }),
+    );
+
+    return parsed.passkeys.map((passkey) => ({
+        id: passkey.id,
+        name: passkey.name,
+        synced: passkey.synced,
+        createdAt: passkey.created_at,
+        lastUsedAt: passkey.last_used_at,
+    }));
+}
+
 /** Raw pass-through: the exact WebAuthn `PublicKeyCredentialCreationOptionsJSON`/
  * `PublicKeyCredentialRequestOptionsJSON` shape `Kern\Platform\Identity\Support\Webauthn\
  * PasskeyManager` serializes via `web-auth/webauthn-lib`'s own Symfony serializer — this app does

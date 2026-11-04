@@ -1621,12 +1621,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 
 /* A short code standing in for an icon inside a badge — a bank's three letters where there is no
    mark to draw. Small and heavy, because it has to read as a symbol at the size an icon would be. */
-.badge-code {
-    font-size: var(--text-2xs);
-    font-weight: 700;
-    letter-spacing: 0.025em;
-}
-
 /* Read-mostly value tile. */
 .metric {
     border-radius: var(--radius-xl);
@@ -4123,16 +4117,39 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  * Warning colours rather than brand ones, full width, above everything — an administrator inside
  * someone else's account should never be able to overlook it, and the way out is in the strip
  * itself rather than three menus away. */
-.impersonation-banner {
+/*
+ * A strip across the top of the app, above the header, for something true of the whole session rather
+ * than of the screen: signed in as someone else, no connection, a service down. One shape, a tone each.
+ */
+.shell-banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    background: var(--warning);
     padding: 0.5rem 0.875rem;
     font-size: var(--text-xs);
     font-weight: 600;
+}
+
+.shell-banner-warning {
+    background: var(--warning);
     color: var(--warning-foreground);
+}
+
+/* No connection: the page's own ink, inverted — a state of the device, not an alarm about the account. */
+.shell-banner-offline {
+    background: var(--foreground);
+    color: var(--background);
+}
+
+.shell-banner-success {
+    background: var(--success);
+    color: var(--success-foreground);
+}
+
+.shell-banner-danger {
+    background: var(--destructive);
+    color: var(--destructive-foreground);
 }
 
 .impersonation-exit {
@@ -4633,5 +4650,63 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2.25rem;
     color: var(--muted-foreground);
     text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The space an iPhone or iPad keeps for itself: the rounded corners, the home bar along the bottom, the
+ * notch in landscape. iOS reports it as `env(safe-area-inset-*)` once the viewport asks for it
+ * (`viewport-fit=cover`, resources/views/app.blade.php), and it is 0 everywhere else — a desktop, an
+ * Android phone without a cutout — so nothing moves there.
+ *
+ * On the elements that fill the screen themselves: the app shell, the sign-in and verification pages,
+ * the home page, the navigation drawer. Their background still runs to the edge, so the corners show
+ * the page and not a gap; only what is on it stays clear.
+ *
+ * Unlayered, so it wins over a utility such as the drawer's `p-0`. Which is also why it belongs only on
+ * an element with no padding of its own: it replaces that padding rather than adding to it.
+ */
+.safe-area {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+}
+
+/*
+ * The app shell, which does not scroll itself: its `main` does. Padding the shell's bottom stopped that
+ * scroll area above the home bar and left a strip of bare background under it — two grounds, and the
+ * content cut off at a line. So the shell keeps clear only at the top and the sides; the scroll area runs
+ * to the very bottom, and the space goes after its content (`main`'s own bottom padding, AppShell.tsx).
+ */
+.safe-area-frame {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+
+/* `components/Money`: the decimals and the currency of a headline amount, after its whole part. */
+.money-minor {
+    /* A fraction of a headline, but never below the smallest text the page sets: inside a 14px figure,
+       0.6em was 8px and the bani all but disappeared. */
+    font-size: max(0.6em, var(--text-2xs));
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--muted-foreground);
+}
+
+/*
+ * A bank's code — the four letters on its statements — as the mark beside its name. Wider than the
+ * 32px icon square it replaces, which fitted four capitals only by touching both edges.
+ */
+.bank-mark {
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+    height: 2rem;
+    min-width: 3rem;
+    padding-inline: 0.5rem;
+    border-radius: var(--radius-lg);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
     font-variant-numeric: tabular-nums;
 }

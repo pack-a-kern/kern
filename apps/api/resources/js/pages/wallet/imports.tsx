@@ -27,7 +27,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDateTime } from '../../lib/format';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { cn } from '../../lib/utils';
 import type { StatementImport } from '../../types/statementImport';
 
@@ -100,7 +100,7 @@ const NEW_IMPORT_PATH = '/wallet/imports/new';
  */
 export default function WalletImports(): JSX.Element {
     const { t, locale } = useTranslation();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [imports, setImports] = useState<StatementImport[] | null>(null);
     const [total, setTotal] = useState(0);

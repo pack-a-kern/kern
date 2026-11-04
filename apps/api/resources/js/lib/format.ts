@@ -122,13 +122,26 @@ export function formatBytes(bytes: number, locale: string): string {
  * and the currency is simply absent, which is the truth about that row.
  */
 export function formatAmount(amount: number, currency: string, locale: string): string {
+    return amountFormatter(currency, locale).format(amount);
+}
+
+/**
+ * The same amount `formatAmount` writes, in its pieces — the whole part, the decimals, the currency —
+ * so a figure can set the part that is read large and the rest small (`components/Money`). One
+ * formatter for both, so the pieces always join back into exactly the string `formatAmount` gives.
+ */
+export function amountParts(amount: number, currency: string, locale: string): Intl.NumberFormatPart[] {
+    return amountFormatter(currency, locale).formatToParts(amount);
+}
+
+function amountFormatter(currency: string, locale: string): Intl.NumberFormat {
     const known = /^[A-Za-z]{3}$/.test(currency);
 
     return new Intl.NumberFormat(locale, {
         ...(known ? { style: 'currency' as const, currency: currency.toUpperCase() } : {}),
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-    }).format(amount);
+    });
 }
 
 /** An amount held in minor units (bani, cents), as the API sends money; a dash where there is none. */

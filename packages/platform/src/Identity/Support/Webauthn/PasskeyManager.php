@@ -7,8 +7,6 @@ namespace Kern\Platform\Identity\Support\Webauthn;
 use Cose\Algorithm\Signature\ECDSA\ES256;
 use Cose\Algorithm\Signature\RSA\RS256;
 use JsonException;
-use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
-use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserPasskey;
 use Kern\Platform\Identity\Support\Webauthn\Exceptions\PasskeyVerificationException;
@@ -44,7 +42,6 @@ final readonly class PasskeyManager
         private WebauthnSerializer $serializer,
         private ChallengeStore $challenges,
         private WebauthnCredentialRepository $credentials,
-        private BlindIndexHasher $blindIndex,
     ) {
     }
 
@@ -64,12 +61,13 @@ final readonly class PasskeyManager
             $this->algorithmParameters(),
             // Verification required, not preferred: a passkey stands in for the password *and* the
             // second factor, so the device must have checked it is its owner — a fingerprint, a face,
-            // a PIN — and not merely that it is present. A discoverable key where the authenticator
-            // can make one, which is what a person expects a passkey to be; login still names the
-            // account first.
+            // a PIN — and not merely that it is present. A discoverable key, required: login names no
+            // account (`requestOptions()`), so a key the device does not keep could never be offered
+            // there — an authenticator that cannot keep one is refused here, where it can be said,
+            // rather than failing at every login after.
             AuthenticatorSelectionCriteria::create(
                 userVerification: AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
-                residentKey: AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_PREFERRED,
+                residentKey: AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
             ),
             PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
             $this->credentials->credentialDescriptorsFor($user->id),
@@ -104,51 +102,62 @@ final readonly class PasskeyManager
     }
 
     /**
-     * Login is by email first (this module never uses fully discoverable/resident-key passkey
-     * login), so there is no authenticated user yet at this point — the ceremony is keyed by the
-     * email's blind index (`ChallengeStore`'s own docblock explains why that is safe to use as a
-     * cache key). Deliberately returns valid-shaped options whether or not the email is known or
-     * has any registered passkey (an empty `allowCredentials` list otherwise), so this endpoint's
-     * response cannot itself be used to enumerate accounts — see `docs/handoff/017-authentication.md`
-     * "User-enumeration resistance" for the matching treatment on the password login path.
+     * Login names no account: the options carry no `allowCredentials`, so the browser offers every
+     * passkey it keeps for this site, and the one chosen says whose it is (`verifyAssertion()`).
+     * Nothing about any account is in the answer, so it cannot be used to learn which exist.
+     *
+     * `$ceremonyKey` binds the challenge to the browser that asked for it — the caller derives it from
+     * that browser's session (`PasskeyLoginController`). One pending challenge per session: asking
+     * again replaces it, so a client cannot pile challenges up in the cache.
      *
      * @return array<string, mixed> JSON-ready options for `navigator.credentials.get()`
      */
-    public function requestOptionsForEmail(string $email): array
+    public function requestOptions(string $ceremonyKey): array
     {
-        $key = $this->emailKey($email);
-        $user = User::query()->whereEmail($email)->first();
-
         $options = PublicKeyCredentialRequestOptions::create(
             random_bytes(32),
             $this->relyingParty()->id,
-            $user !== null ? $this->credentials->credentialDescriptorsFor($user->id) : [],
+            [],
             // Required for the same reason as at registration — see `creationOptionsFor()`.
             PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
             $this->timeoutMs(),
         );
 
-        $this->challenges->putRequestOptions($key, $options);
+        $this->challenges->putRequestOptions($ceremonyKey, $options);
 
         return $this->toJsonArray($options);
     }
 
     /**
+     * The account a passkey assertion proves, or an exception that says nothing about why.
+     *
+     * The passkey is found by its credential id, and the account is the one that registered it —
+     * never one the client names. The `userHandle` the device sends must be that same account: a
+     * discoverable credential always carries it, and a mismatch means a credential presented for an
+     * account that is not its own. Then the library checks the signature against the stored public
+     * key, the challenge this session was given (one use, `ChallengeStore::pull*`), the origin, user
+     * verification, and the signature counter (a cloned key shows as a counter that went backwards).
+     *
+     * Every refusal — unknown credential, foreign handle, bad signature — is the same exception, so a
+     * caller learns nothing it could probe with.
+     *
      * @param array<string, mixed> $credentialJson the browser's `navigator.credentials.get()` response, decoded from JSON
      */
-    public function verifyAssertionForEmail(string $email, array $credentialJson, string $host): User
+    public function verifyAssertion(string $ceremonyKey, array $credentialJson, string $host): User
     {
-        $options = $this->challenges->pullRequestOptions($this->emailKey($email));
+        $options = $this->challenges->pullRequestOptions($ceremonyKey);
         $publicKeyCredential = $this->deserializeCredential($credentialJson);
+        $response = $publicKeyCredential->response;
 
-        if (! $publicKeyCredential->response instanceof AuthenticatorAssertionResponse) {
+        if (! $response instanceof AuthenticatorAssertionResponse) {
             throw PasskeyVerificationException::fromLibraryFailure(new JsonException('not an assertion response'));
         }
 
-        $user = User::query()->whereEmail($email)->first();
         $passkey = $this->credentials->findByCredentialId($publicKeyCredential->rawId);
+        $user = $passkey !== null ? User::query()->find($passkey->user_id) : null;
 
-        if ($user === null || $passkey === null || $passkey->user_id !== $user->id) {
+        if ($passkey === null || ! $user instanceof User || $response->userHandle === null
+            || ! hash_equals($user->id, $response->userHandle)) {
             throw PasskeyVerificationException::unknownCredential();
         }
 
@@ -156,7 +165,7 @@ final readonly class PasskeyManager
             $record = AuthenticatorAssertionResponseValidator::create($this->ceremonyFactory()->requestCeremony())
                 ->check(
                     $this->credentials->toCredentialRecord($passkey),
-                    $publicKeyCredential->response,
+                    $response,
                     $options,
                     $host,
                     $user->id,
@@ -168,11 +177,6 @@ final readonly class PasskeyManager
         $this->credentials->updateAfterAssertion($passkey, $record);
 
         return $user;
-    }
-
-    private function emailKey(string $email): string
-    {
-        return $this->blindIndex->compute(Normalizer::email($email));
     }
 
     /**

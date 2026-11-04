@@ -31,10 +31,10 @@ final readonly class CompletePasskeyLogin
     /**
      * @param array<string, mixed> $credentialJson the browser's `navigator.credentials.get()` response, decoded from JSON
      */
-    public function __invoke(string $email, array $credentialJson, string $host): User
+    public function __invoke(string $ceremonyKey, array $credentialJson, string $host): User
     {
         try {
-            $user = $this->passkeys->verifyAssertionForEmail($email, $credentialJson, $host);
+            $user = $this->passkeys->verifyAssertion($ceremonyKey, $credentialJson, $host);
         } catch (Throwable $exception) {
             $this->recordFailure();
 

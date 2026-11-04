@@ -1,10 +1,10 @@
 import { useState, type JSX } from 'react';
-import { Bot, Clock, Globe, LogOutIcon, Monitor, MonitorSmartphoneIcon, Smartphone, Tablet } from 'lucide-react';
+import { Bot, LogOutIcon, Monitor, MonitorSmartphoneIcon, Smartphone, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
 import { reportApiFailure } from '../../lib/apiErrors';
-import { CellLabel, DataTable, EventTime, Panel, PanelButton, Pill } from '../../components/panel';
+import { EventTime, Panel, PanelButton, Pill } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
@@ -115,6 +115,7 @@ export default function SessionsCard(props: { sessions: SessionSummary[] | null;
             footActions={
                 others > 0 ? (
                     <PanelButton
+                        variant="destructive"
                         disabled={busy}
                         onClick={() => {
                             void endOthers();
@@ -135,56 +136,49 @@ export default function SessionsCard(props: { sessions: SessionSummary[] | null;
             ) : props.sessions.length === 0 ? (
                 <p className="note p-4">{t((d) => d.pages.settingsSecurity.noSessions)}</p>
             ) : (
-                <DataTable
-                    stacked
-                    head={
-                        <>
-                            <th>{t((d) => d.pages.settingsSecurity.columns.device)}</th>
-                            <th>{t((d) => d.pages.settingsSecurity.columns.ip)}</th>
-                            <th>{t((d) => d.pages.settingsSecurity.columns.lastUsed)}</th>
-                            <th />
-                        </>
-                    }
-                >
+                /*
+                 * A list rather than the stacked table: a session is three facts, and on a phone the
+                 * table's label-per-value blocks turned each one into five lines — one of them empty —
+                 * with the button that ends it adrift between them. Here a device is one line to read
+                 * and one control on it, the same at every width. Striped as the tables are, at the same
+                 * 45% of `--muted` (`.data-table tbody tr:nth-child(even) td`).
+                 */
+                <ul className="divide-border divide-y">
                     {props.sessions.map((session) => (
-                        <tr key={session.id}>
-                            <td className="col-primary">
-                                <div className="flex items-center gap-2">
-                                    {deviceIcon(session.deviceKind)}
-                                    <span className="identity-name">{deviceName(session, t)}</span>
+                        <li key={session.id} className="even:bg-muted/45 flex items-center gap-3 px-4 py-3">
+                            {deviceIcon(session.deviceKind)}
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="identity-name text-sm">{deviceName(session, t)}</span>
                                     {session.isCurrent ? (
                                         <Pill tone="accent">{t((d) => d.pages.settingsSecurity.thisDevice)}</Pill>
                                     ) : null}
                                 </div>
-                            </td>
-                            <td className="mono">
-                                <CellLabel icon={<Globe className="size-3.5" aria-hidden="true" />}>
-                                    {t((d) => d.pages.settingsSecurity.columns.ip)}
-                                </CellLabel>
-                                {session.ipAddress ?? '—'}
-                            </td>
-                            <td className="whitespace-nowrap">
-                                <CellLabel icon={<Clock className="size-3.5" aria-hidden="true" />}>
-                                    {t((d) => d.pages.settingsSecurity.columns.lastUsed)}
-                                </CellLabel>
-                                <EventTime iso={session.lastUsedAt} />
-                            </td>
-                            <td className="col-actions text-right">
-                                {session.isCurrent ? null : (
-                                    <PanelButton
-                                        disabled={busy}
-                                        onClick={() => {
-                                            void endSession(session);
-                                        }}
-                                    >
-                                        <LogOutIcon className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.settingsSecurity.revoke)}
-                                    </PanelButton>
-                                )}
-                            </td>
-                        </tr>
+                                <div className="note mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                                    <span className="mono" title={t((d) => d.pages.settingsSecurity.columns.ip)}>
+                                        {session.ipAddress ?? '—'}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="whitespace-nowrap">
+                                        <EventTime iso={session.lastUsedAt} />
+                                    </span>
+                                </div>
+                            </div>
+                            {session.isCurrent ? null : (
+                                <PanelButton
+                                    variant="destructive"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        void endSession(session);
+                                    }}
+                                >
+                                    <LogOutIcon className="size-3.5" aria-hidden="true" />
+                                    {t((d) => d.pages.settingsSecurity.revoke)}
+                                </PanelButton>
+                            )}
+                        </li>
                     ))}
-                </DataTable>
+                </ul>
             )}
         </Panel>
     );

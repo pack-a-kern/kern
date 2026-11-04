@@ -42,7 +42,7 @@ import { useTranslation } from '../i18n';
 import { describeApiFailure } from '../lib/apiErrors';
 import { formatDate, formatMinor } from '../lib/format';
 import { emptyRentalForm, rentalFormFor, type RentalForm } from '../lib/rentalForm';
-import { getActiveSubjectId } from '../lib/subjectStore';
+import { useActiveSubjectId } from '../hooks/useActiveSubjectId';
 import type { RentalList, RentalSummary } from '../types/rentals';
 
 /** How many earlier years a row lists under this year's figure. */
@@ -60,7 +60,7 @@ const EARLIER_YEARS_SHOWN = 2;
  */
 export default function Rentals(): JSX.Element {
     const { t, locale } = useTranslation();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [loaded, setLoaded] = useState<RentalList | null>(null);
     const [failed, setFailed] = useState(false);

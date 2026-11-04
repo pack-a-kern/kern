@@ -22,11 +22,10 @@ use Webauthn\PublicKeyCredentialRequestOptions;
  * Keyed by an opaque identifier chosen by the caller, never by a client-supplied ceremony token.
  * Registration (`putCreationOptions`/`pullCreationOptions`) is always keyed by the authenticated
  * user's own id — that flow requires an existing session. Assertion/login
- * (`putRequestOptions`/`pullRequestOptions`) has no authenticated user yet, so `Kern\TaxRomania\
- * Identity\Support\Webauthn\PasskeyManager` keys it by the login email's blind index instead
- * (already a non-reversible HMAC, safe to use as a cache key, and the same value
- * `Kern\Platform\Identity\Models\User::scopeWhereEmail` already computes for lookup — no new secret
- * introduced). Either way, there is at most one in-flight ceremony per key at a time — starting a
+ * (`putRequestOptions`/`pullRequestOptions`) names no account at all, so `PasskeyManager` keys it
+ * by the asking browser's session (`PasskeyLoginController::ceremonyKey()`, a hash of the session
+ * id, never the id itself): a challenge one browser was given cannot be completed from another.
+ * Either way, there is at most one in-flight ceremony per key at a time — starting a
  * second one before completing the first simply overwrites the pending challenge, which is correct
  * (the old one could never have completed anyway once superseded).
  *

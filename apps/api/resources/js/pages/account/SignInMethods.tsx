@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { Check, LockIcon, Plus, RefreshCw, ShieldCheckIcon, ShieldOff, X } from 'lucide-react';
+import { Check, KeyRound, LockIcon, Plus, RefreshCw, ShieldCheckIcon, ShieldOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { startRegistration } from '@simplewebauthn/browser';
 
@@ -26,6 +26,7 @@ import {
 import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import type { MfaStatus } from '../../types/auth';
+import PasskeysDialog from './PasskeysDialog';
 
 /**
  * What can sign in as this account: passkeys, an authenticator app, and the recovery codes that
@@ -48,6 +49,7 @@ export default function SignInMethods(props: {
     const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
     const [disabling, setDisabling] = useState(false);
     const [password, setPassword] = useState('');
+    const [managingPasskeys, setManagingPasskeys] = useState(false);
     const errors = useFormErrors();
 
     const enrolTotp = async (): Promise<void> => {
@@ -168,17 +170,30 @@ export default function SignInMethods(props: {
                     <Row
                         title={t((d) => d.pages.settingsSecurity.passkeys)}
                         subtitle={t((d) => d.pages.settingsSecurity.passkeysHint)}
+                        status={
+                            mfa !== null && mfa.passkeysCount > 0 ? (
+                                <Status tone="ok">
+                                    {t((d) => d.pages.settingsSecurity.registered).replace(
+                                        '{count}',
+                                        String(mfa.passkeysCount),
+                                    )}
+                                </Status>
+                            ) : (
+                                <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
+                            )
+                        }
                     >
                         {mfa !== null && mfa.passkeysCount > 0 ? (
-                            <Status tone="ok">
-                                {t((d) => d.pages.settingsSecurity.registered).replace(
-                                    '{count}',
-                                    String(mfa.passkeysCount),
-                                )}
-                            </Status>
-                        ) : (
-                            <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
-                        )}
+                            <PanelButton
+                                disabled={busy}
+                                onClick={() => {
+                                    setManagingPasskeys(true);
+                                }}
+                            >
+                                <KeyRound className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.settingsSecurity.managePasskeys)}
+                            </PanelButton>
+                        ) : null}
                         <PanelButton
                             disabled={busy}
                             onClick={() => {
@@ -192,33 +207,34 @@ export default function SignInMethods(props: {
                     <Row
                         title={t((d) => d.pages.settingsSecurity.totp)}
                         subtitle={t((d) => d.pages.settingsSecurity.totpHint)}
+                        status={
+                            mfa?.totpEnrolled === true ? (
+                                <Status tone="ok">{t((d) => d.pages.settingsSecurity.active)}</Status>
+                            ) : (
+                                <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
+                            )
+                        }
                     >
                         {mfa?.totpEnrolled === true ? (
-                            <>
-                                <Status tone="ok">{t((d) => d.pages.settingsSecurity.active)}</Status>
-                                <PanelButton
-                                    disabled={busy}
-                                    onClick={() => {
-                                        setDisabling(true);
-                                    }}
-                                >
-                                    <ShieldOff className="size-3.5" aria-hidden="true" />
-                                    {t((d) => d.pages.settingsSecurity.disable)}
-                                </PanelButton>
-                            </>
+                            <PanelButton
+                                disabled={busy}
+                                onClick={() => {
+                                    setDisabling(true);
+                                }}
+                            >
+                                <ShieldOff className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.settingsSecurity.disable)}
+                            </PanelButton>
                         ) : (
-                            <>
-                                <Pill tone="locked">{t((d) => d.pages.settingsSecurity.notSet)}</Pill>
-                                <PanelButton
-                                    disabled={busy}
-                                    onClick={() => {
-                                        void enrolTotp();
-                                    }}
-                                >
-                                    <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
-                                    {t((d) => d.pages.settingsSecurity.enableTotp)}
-                                </PanelButton>
-                            </>
+                            <PanelButton
+                                disabled={busy}
+                                onClick={() => {
+                                    void enrolTotp();
+                                }}
+                            >
+                                <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.settingsSecurity.enableTotp)}
+                            </PanelButton>
                         )}
                     </Row>
                     <Row
@@ -228,13 +244,15 @@ export default function SignInMethods(props: {
                                 ? t((d) => d.pages.settingsSecurity.recoveryCodesHint)
                                 : t((d) => d.pages.settingsSecurity.recoveryCodesLocked)
                         }
+                        status={
+                            <Pill tone={mfa !== null && mfa.recoveryCodesRemaining > 0 ? 'neutral' : 'locked'}>
+                                {t((d) => d.pages.settingsSecurity.remaining).replace(
+                                    '{count}',
+                                    String(mfa?.recoveryCodesRemaining ?? 0),
+                                )}
+                            </Pill>
+                        }
                     >
-                        <Pill tone={mfa !== null && mfa.recoveryCodesRemaining > 0 ? 'neutral' : 'locked'}>
-                            {t((d) => d.pages.settingsSecurity.remaining).replace(
-                                '{count}',
-                                String(mfa?.recoveryCodesRemaining ?? 0),
-                            )}
-                        </Pill>
                         {/* Recovery codes exist only alongside an authenticator app: the
                                 server issues them when TOTP is confirmed and refuses to
                                 regenerate them otherwise. Offering the button regardless
@@ -419,6 +437,8 @@ export default function SignInMethods(props: {
                     ))}
                 </div>
             </PanelDialog>
+
+            <PasskeysDialog open={managingPasskeys} onOpenChange={setManagingPasskeys} onChanged={props.onChanged} />
         </>
     );
 }

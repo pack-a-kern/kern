@@ -11,6 +11,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
             // Bottom-right, and inverted against the page: a dark pill on a light ground reads as
             // transient notice rather than as another card competing with the content.
             position="bottom-right"
+            // Sonner's own distances from the edge (32px, 16px on a phone), plus what iOS keeps for its
+            // rounded corners and home bar — 0 everywhere else. See `.safe-area` in app.css.
+            offset={{
+                bottom: 'calc(32px + env(safe-area-inset-bottom))',
+                right: 'calc(32px + env(safe-area-inset-right))',
+            }}
+            mobileOffset={{
+                bottom: 'calc(16px + env(safe-area-inset-bottom))',
+                left: 'calc(16px + env(safe-area-inset-left))',
+                right: 'calc(16px + env(safe-area-inset-right))',
+            }}
             className="toaster group"
             icons={{
                 success: <CircleCheckIcon className="size-4" />,

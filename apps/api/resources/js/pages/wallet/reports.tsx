@@ -53,7 +53,7 @@ import {
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { useRememberedState } from '../../hooks/useRememberedState';
 import { formatCompact, formatDate, formatMinor } from '../../lib/format';
 import { num, obj, str } from '../../lib/json';
@@ -309,7 +309,7 @@ function periodRange(period: string): { from: string; to: string } {
  */
 export default function WalletReports(): JSX.Element {
     const { t, locale } = useTranslation();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [reports, setReports] = useState<Reports | null>(null);
     const [failed, setFailed] = useState(false);

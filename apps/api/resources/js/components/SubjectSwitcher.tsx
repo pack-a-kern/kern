@@ -1,7 +1,8 @@
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId } from '../lib/subjectStore';
-import { useSharedAuth, type SharedAuth } from '../lib/sharedProps';
+import { type SharedAuth } from '../lib/sharedProps';
+import { useActiveSubjectId, useOpenSubjects } from '../hooks/useActiveSubjectId';
 
 /** One row of the shared subject list — what the switcher draws. */
 type SubjectRow = SharedAuth['subjects'][number];
@@ -66,31 +67,17 @@ export default function SubjectSwitcher({
     // every authenticated response, so the sidebar draws its taxpayer on the first paint instead
     // of blank-then-filled. Closed ones are left out — a closed taxpayer is kept for its records,
     // not for filing against, and offering it here would be offering a choice that leads nowhere.
-    const subjects = (useSharedAuth()?.subjects ?? []).filter((subject) => subject.status !== 'CLOSED');
-    const [activeId, setActiveId] = useState<string | null>(() => getActiveSubjectId());
+    const subjects = useOpenSubjects();
+    const resolvedId = useActiveSubjectId();
     const [query, setQuery] = useState('');
 
     const needle = query.trim().toLowerCase();
     const matches =
         needle === '' ? subjects : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
 
-    /*
-     * Which taxpayer this browser is working in — resolved, not stored twice.
-     *
-     * The stored id is a convenience, so it is never the last word: a choice that is no longer
-     * offered (closed since, or access revoked) would otherwise make every scoped request fail
-     * until someone cleared their browser data. And with exactly one taxpayer there is no choice to
-     * make — a question with one possible answer, asked anyway on every new device, while the pages
-     * behind it showed nothing.
-     */
-    const resolvedId = subjects.some((subject) => subject.id === activeId)
-        ? activeId
-        : subjects.length === 1
-          ? (subjects[0]?.id ?? null)
-          : null;
-
-    // Only the storage is written here; `resolvedId` is derived above, so there is no state to set
-    // and no second render to trigger.
+    // Which taxpayer this browser is working in is worked out by `useActiveSubjectId`, the same way
+    // for every screen. Only the storage is written here, so the choice survives the next visit — there
+    // is no state to set and no second render to trigger.
     useEffect(() => {
         if (resolvedId === null) {
             clearActiveSubjectId();
@@ -103,7 +90,6 @@ export default function SubjectSwitcher({
 
     function activate(subjectId: string): void {
         setActiveSubjectId(subjectId);
-        setActiveId(subjectId);
         window.location.reload();
     }
 

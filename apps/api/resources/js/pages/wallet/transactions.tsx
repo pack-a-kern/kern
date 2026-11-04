@@ -74,7 +74,7 @@ import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate, formatMinor } from '../../lib/format';
 import { cn } from '../../lib/utils';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import {
     categoriesFor,
     categoryFor,
@@ -144,7 +144,7 @@ export default function WalletTransactions(): JSX.Element {
     const { t, locale } = useTranslation();
     const currencies = useCurrencies();
     const countries = useCountries();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     /** Keyed by the query it answers, so a page never shows rows fetched for other filters. */
     const [loaded, setLoaded] = useState<{ key: string; page: TransactionPage } | null>(null);

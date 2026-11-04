@@ -13,6 +13,7 @@ import type { MfaStatus, SessionSummary } from '../../types/auth';
 import AccountCard from './AccountCard';
 import GuaranteesCard from './GuaranteesCard';
 import PasswordCard from './PasswordCard';
+import AppearanceCard from './AppearanceCard';
 import SessionsCard from './SessionsCard';
 import SignInMethods from './SignInMethods';
 
@@ -201,6 +202,7 @@ export default function AccountPage(): JSX.Element {
                     <PasswordCard hasPassword={profile?.hasPassword ?? false} describeFailure={describeFailure} />
                     <SignInMethods mfa={mfa} onChanged={reload} describeFailure={describeFailure} />
                     <GuaranteesCard />
+                    <AppearanceCard />
                 </div>
 
                 <SessionsCard sessions={sessions} onChanged={reload} />

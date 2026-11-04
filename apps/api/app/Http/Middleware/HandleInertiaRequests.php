@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
+use Kern\Platform\Settings\Services\WatchSystemHealth;
 use Kern\TaxRomania\Fx\Services\CurrencyCatalogue;
 use Kern\TaxRomania\Subjects\Queries\ListSubjectsForUser;
 use Kern\TaxRomania\Subjects\Queries\SubjectSummary;
@@ -111,6 +112,16 @@ final class HandleInertiaRequests extends Middleware
              * settings screen's own endpoint.
              */
             'currencies' => app(CurrencyCatalogue::class)->enabled(),
+            /*
+             * Which services were down at the scheduler's last look, for the strip across the top —
+             * only for those who may read the system status, exactly as the status screen is.
+             *
+             * The kept answer, not a probe: one cache read per page (`WatchSystemHealth::down()`).
+             * Changes after the page loaded arrive over the WebSocket, so nothing polls for this.
+             */
+            'systemHealth' => $user !== null && $user->can('system.settings.view')
+                ? ['down' => app(WatchSystemHealth::class)->down()]
+                : null,
             // What the upload picker may offer, from the one list that decides what the server
             // will actually accept. Shared rather than retyped in the dialog: a hand-maintained
             // copy drifts, and the way it drifts is a picker offering a file the server refuses.

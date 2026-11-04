@@ -33,7 +33,7 @@ import { useTranslation } from '../../i18n';
 import { reportApiFailure } from '../../lib/apiErrors';
 import { formatAmount, formatCompact, formatDateTime, formatPercent } from '../../lib/format';
 import { apiRequest, apiRequestBinary } from '../../lib/http';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { themeColor } from '../../lib/themeColor';
 import { obj, str } from '../../lib/json';
 
@@ -306,7 +306,7 @@ function compositionOf(assessment: Assessment | null): { taxCode: string; minor:
 
 export default function TaxesOverview(): JSX.Element {
     const { t, locale } = useTranslation();
-    const [subjectId] = useState(() => getActiveSubjectId());
+    const subjectId = useActiveSubjectId();
     /** Remembered per taxpayer, as the reports screen remembers its period: a year chosen is a year being read. */
     const [year, setYear] = useRememberedState<string>('taxes.assessment.year', String(new Date().getFullYear()), {
         perSubject: true,
@@ -383,14 +383,22 @@ export default function TaxesOverview(): JSX.Element {
             data: {
                 labels: composition.map((slice) => slice.taxCode),
                 datasets: [
-                    {
-                        data: composition.map((slice) => slice.minor / 100),
-                        backgroundColor: composition.map((slice) => sliceTint(slice.taxCode)),
-                        // A ring of the surface between slices, so two shares read as two rather than as one
-                        // wide one where their edges meet.
-                        borderColor: themeColor('--card'),
-                        borderWidth: 2,
-                    },
+                    composition.length === 0
+                        ? {
+                              // Nothing to divide: the track the slices would sit on, in the neutral ground,
+                              // so the card reads as "empty" rather than as a ring that failed to draw.
+                              data: [1],
+                              backgroundColor: [themeColor('--muted')],
+                              borderWidth: 0,
+                          }
+                        : {
+                              data: composition.map((slice) => slice.minor / 100),
+                              backgroundColor: composition.map((slice) => sliceTint(slice.taxCode)),
+                              // A ring of the surface between slices, so two shares read as two rather than as
+                              // one wide one where their edges meet.
+                              borderColor: themeColor('--card'),
+                              borderWidth: 2,
+                          },
                 ],
             },
             options: {
@@ -915,39 +923,50 @@ export default function TaxesOverview(): JSX.Element {
                                             </div>
                                         </div>
 
-                                        <dl className="grid min-w-0 flex-1 gap-3">
-                                            {composition.map((slice) => (
-                                                <div className="min-w-0" key={slice.taxCode}>
-                                                    <dt className="flex items-center gap-2 text-xs">
-                                                        <span
-                                                            className="size-2.5 shrink-0 rounded-full"
-                                                            style={{ background: sliceTint(slice.taxCode) }}
-                                                        />
-                                                        <span className="truncate">{taxName(slice.taxCode, t)}</span>
-                                                        <span className="text-muted-foreground ml-auto tabular-nums">
-                                                            {formatPercent(shareOf(slice.minor, assessment), locale)}
-                                                        </span>
-                                                    </dt>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <dd
-                                                                className="mt-0.5 w-fit cursor-default text-sm font-semibold tabular-nums"
-                                                                aria-label={formatAmount(
-                                                                    slice.minor / 100,
-                                                                    'RON',
+                                        {composition.length === 0 ? (
+                                            // Only an assessed year reaches this card, so an empty ring means it
+                                            // was worked out and owes nothing — said in words beside it.
+                                            <p className="note min-w-0 flex-1">{t((d) => d.pages.taxes.nothingOwed)}</p>
+                                        ) : (
+                                            <dl className="grid min-w-0 flex-1 gap-3">
+                                                {composition.map((slice) => (
+                                                    <div className="min-w-0" key={slice.taxCode}>
+                                                        <dt className="flex items-center gap-2 text-xs">
+                                                            <span
+                                                                className="size-2.5 shrink-0 rounded-full"
+                                                                style={{ background: sliceTint(slice.taxCode) }}
+                                                            />
+                                                            <span className="truncate">
+                                                                {taxName(slice.taxCode, t)}
+                                                            </span>
+                                                            <span className="text-muted-foreground ml-auto tabular-nums">
+                                                                {formatPercent(
+                                                                    shareOf(slice.minor, assessment),
                                                                     locale,
                                                                 )}
-                                                            >
-                                                                {formatCompact(slice.minor / 100, locale)} RON
-                                                            </dd>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="left">
-                                                            {formatAmount(slice.minor / 100, 'RON', locale)}
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            ))}
-                                        </dl>
+                                                            </span>
+                                                        </dt>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <dd
+                                                                    className="mt-0.5 w-fit cursor-default text-sm font-semibold tabular-nums"
+                                                                    aria-label={formatAmount(
+                                                                        slice.minor / 100,
+                                                                        'RON',
+                                                                        locale,
+                                                                    )}
+                                                                >
+                                                                    {formatCompact(slice.minor / 100, locale)} RON
+                                                                </dd>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="left">
+                                                                {formatAmount(slice.minor / 100, 'RON', locale)}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
+                                                ))}
+                                            </dl>
+                                        )}
                                     </div>
                                 </Panel>
 

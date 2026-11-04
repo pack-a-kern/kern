@@ -6,13 +6,20 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
  * "Conventions"). `Alert` already sets `role="alert"` itself, so a screen reader announces this the
  * moment it mounts — unchanged behaviour from the pre-conversion `<p role="alert">`.
  */
-export default function ErrorText({ message }: { message: string | null }): JSX.Element | null {
+export default function ErrorText({
+    message,
+    className,
+}: {
+    message: string | null;
+    /** Spacing where the screen places it, as `Alert` takes it; the look itself stays this one. */
+    className?: string;
+}): JSX.Element | null {
     if (!message) {
         return null;
     }
 
     return (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className={className}>
             <AlertDescription>{message}</AlertDescription>
         </Alert>
     );

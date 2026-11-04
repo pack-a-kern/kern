@@ -46,7 +46,7 @@ export default function ImpersonationBanner(): JSX.Element | null {
     };
 
     return (
-        <div className="impersonation-banner" role="status">
+        <div className="shell-banner shell-banner-warning" role="status">
             <span className="flex min-w-0 items-center gap-2">
                 <UserRoundCog className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">

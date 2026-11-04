@@ -19,6 +19,7 @@ use Kern\Platform\Http\Controllers\Auth\LoginController;
 use Kern\Platform\Http\Controllers\Auth\LogoutController;
 use Kern\Platform\Http\Controllers\Auth\MfaChallengeController;
 use Kern\Platform\Http\Controllers\Auth\MfaStatusController;
+use Kern\Platform\Http\Controllers\Auth\PasskeyController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyLoginController;
 use Kern\Platform\Http\Controllers\Auth\PasskeyRegistrationController;
 use Kern\Platform\Http\Controllers\Auth\RecoveryCodeController;
@@ -96,6 +97,12 @@ Route::prefix('v1/auth')->group(function (): void {
             ->middleware(['throttle:passkey-ceremony-per-ip', 'verify-recent']);
         Route::post('passkeys/registration', [PasskeyRegistrationController::class, 'store'])
             ->middleware(['throttle:passkey-ceremony-per-ip', 'verify-recent']);
+
+        // Seeing your passkeys is open; taking one away is not, for the reason adding one is not: a
+        // session alone must not be able to strip a factor from the account it has taken.
+        Route::get('passkeys', [PasskeyController::class, 'index']);
+        Route::delete('passkeys/{passkeyId}', [PasskeyController::class, 'destroy'])
+            ->middleware('verify-recent');
 
         /*
          * Proving the second factor again inside a live session, for whatever

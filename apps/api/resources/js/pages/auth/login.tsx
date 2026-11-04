@@ -7,6 +7,7 @@ import {
     Eye,
     EyeOff,
     Fingerprint,
+    Info,
     KeyRound,
     LockIcon,
     LogIn,
@@ -30,7 +31,7 @@ import { useFormErrors } from '../../hooks/useFormErrors';
 import { ApiError } from '../../lib/http';
 import { Button } from '@/components/ui/button';
 import { Field, PanelInput } from '@/components/panel';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppName } from '../../lib/sharedProps';
 
 /**
@@ -79,6 +80,9 @@ export default function Login(): JSX.Element {
     const errors = useFormErrors();
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    // How the last passkey attempt ended, shown under its button: the person closed the browser's
+    // window (or let it time out), or the server did not know the passkey. Anything else is `error`.
+    const [passkeyOutcome, setPasskeyOutcome] = useState<'cancelled' | 'refused' | null>(null);
 
     function messageFor(cause: unknown, fallback: string): string {
         if (cause instanceof ApiError) {
@@ -101,6 +105,7 @@ export default function Login(): JSX.Element {
     async function attempt(work: () => Promise<void>, fallback: (d: Dictionary) => string): Promise<void> {
         setError(null);
         errors.reset();
+        setPasskeyOutcome(null);
         setBusy(true);
 
         try {
@@ -159,23 +164,36 @@ export default function Login(): JSX.Element {
     }
 
     async function handlePasskeyLogin(): Promise<void> {
-        if (email.trim() === '') {
-            setError(t((d) => d.auth.enterEmailForPasskey));
+        setError(null);
+        errors.reset();
+        setPasskeyOutcome(null);
+        setBusy(true);
 
-            return;
+        try {
+            const optionsJson = (await requestPasskeyLoginOptions()) as unknown as Parameters<
+                typeof startAuthentication
+            >[0]['optionsJSON'];
+            const assertion = await startAuthentication({ optionsJSON: optionsJson });
+            await completePasskeyLogin(assertion as unknown as Record<string, unknown>);
+            goToDashboard();
+        } catch (cause) {
+            // The browser's own names for "closed the window" and "timed out" — SimpleWebAuthn keeps them.
+            if (cause instanceof Error && (cause.name === 'NotAllowedError' || cause.name === 'AbortError')) {
+                setPasskeyOutcome('cancelled');
+            } else if (cause instanceof ApiError && cause.errors?.credential !== undefined) {
+                // The server's one answer for a passkey it will not accept — it says no more, on purpose.
+                setPasskeyOutcome('refused');
+            } else {
+                setError(
+                    messageFor(
+                        cause,
+                        t((d) => d.auth.genericPasskeyError),
+                    ),
+                );
+            }
+        } finally {
+            setBusy(false);
         }
-
-        await attempt(
-            async () => {
-                const optionsJson = (await requestPasskeyLoginOptions(email)) as unknown as Parameters<
-                    typeof startAuthentication
-                >[0]['optionsJSON'];
-                const assertion = await startAuthentication({ optionsJSON: optionsJson });
-                await completePasskeyLogin(email, assertion as unknown as Record<string, unknown>);
-                goToDashboard();
-            },
-            (d) => d.auth.genericPasskeyError,
-        );
     }
 
     const heading: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
@@ -214,7 +232,7 @@ export default function Login(): JSX.Element {
             <Head title={t((d) => d.auth.signInTitle)} />
 
             <div className="auth-page bg-background min-h-dvh lg:grid lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1.08fr)]">
-                <main className="bg-background lg:bg-card relative isolate flex min-h-dvh flex-col overflow-hidden">
+                <main className="bg-background lg:bg-card safe-area relative isolate flex min-h-dvh flex-col overflow-hidden">
                     <AuthBackdrop compact />
                     <header className="relative flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
                         <div className="flex items-center gap-2.5">
@@ -252,7 +270,7 @@ export default function Login(): JSX.Element {
                             </div>
 
                             <div className="auth-card">
-                                <ErrorText message={error} />
+                                <ErrorText message={error} className="mb-4" />
                                 {info !== null && (
                                     <Alert className="border-success/30 bg-success/10 text-success mb-4">
                                         <AlertDescription className="text-success">{info}</AlertDescription>
@@ -358,6 +376,28 @@ export default function Login(): JSX.Element {
                                                     <KeyRound className="size-4" aria-hidden="true" />
                                                     {t((d) => d.auth.passkeySignIn)}
                                                 </Button>
+
+                                                {passkeyOutcome === 'cancelled' && (
+                                                    <p
+                                                        role="status"
+                                                        className="text-muted-foreground flex items-start gap-2 text-xs leading-5"
+                                                    >
+                                                        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                                                        {t((d) => d.auth.passkeyCancelled)}
+                                                    </p>
+                                                )}
+
+                                                {passkeyOutcome === 'refused' && (
+                                                    <Alert variant="destructive">
+                                                        <KeyRound aria-hidden="true" />
+                                                        <AlertTitle>
+                                                            {t((d) => d.auth.passkeyNotRecognisedTitle)}
+                                                        </AlertTitle>
+                                                        <AlertDescription>
+                                                            {t((d) => d.auth.passkeyNotRecognised)}
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                )}
                                             </>
                                         )}
                                     </form>
@@ -500,6 +540,7 @@ export default function Login(): JSX.Element {
                                             setMode('register');
                                             setError(null);
                                             setInfo(null);
+                                            setPasskeyOutcome(null);
                                         }}
                                     >
                                         {t((d) => d.auth.noAccount)}

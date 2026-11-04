@@ -26,12 +26,15 @@ import {
     UsersRound,
     Wallet,
 } from 'lucide-react';
-import { Fragment, useEffect, useState, type JSX, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { logout } from '../api/authApi';
 import { listNotifications, markAllNotificationsRead } from '../api/notificationsApi';
+import ConnectionBanner from './ConnectionBanner';
+import SystemHealthBanner from './SystemHealthBanner';
+import { PullIndicator } from './PullToRefresh';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import ImpersonationBanner from './ImpersonationBanner';
-import { LanguageMenu, PaletteMenu, ThemeToggle } from './ShellControls';
 import { usePageHeader } from '../lib/pageHeader';
 import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
@@ -766,6 +769,8 @@ export default function AppShell({
     const auth = useSharedAuth();
     const [collapsed, setCollapsed] = useState(readStoredCollapsed);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const mainRef = useRef<HTMLElement>(null);
+    const { pull, refreshing } = usePullToRefresh(mainRef);
     // Published by whichever `Page` is rendered below; the shell is where it is drawn.
     const header = usePageHeader();
 
@@ -790,13 +795,15 @@ export default function AppShell({
         //
         // The impersonation strip sits *outside* that frame, across the top: it is true of the
         // whole session rather than of the screen, and it must not scroll away.
-        <div className="bg-background flex h-dvh flex-col overflow-hidden">
+        <div className="bg-background safe-area-frame flex h-dvh flex-col overflow-hidden">
             <ImpersonationBanner />
+            <ConnectionBanner />
+            <SystemHealthBanner />
 
             <div className="flex min-h-0 flex-1 overflow-hidden">
                 <aside
                     className={cn(
-                        'shell-surface border-border hidden h-full flex-col border-r transition-[width] duration-200 lg:flex',
+                        'shell-surface border-border hidden h-full flex-col border-r pb-[env(safe-area-inset-bottom)] transition-[width] duration-200 lg:flex',
                         collapsed ? 'w-16' : 'w-[272px]',
                     )}
                 >
@@ -839,7 +846,10 @@ export default function AppShell({
                                 sheet uses for its default `w-3/4`: a plain `w-[272px]` is one class
                                 against a class *and* an attribute, so it loses and never applied — on
                                 a tablet that default is 615px of menu over the page it belongs to. */}
-                            <SheetContent side="left" className="shell-surface gap-0 p-0 data-[side=left]:w-[272px]">
+                            <SheetContent
+                                side="left"
+                                className="shell-surface safe-area gap-0 p-0 data-[side=left]:w-[272px]"
+                            >
                                 {/* The same height as the sidebar's header and the page's, so the
                                     drawer's rule continues the topbar's instead of cutting across it.
                                     The title is the accessible name Radix requires; the mark beside
@@ -886,10 +896,9 @@ export default function AppShell({
                             )}
                         </div>
 
-                        <LanguageMenu />
-                        <PaletteMenu />
+                        {/* Theme, palette and language are in the account's Appearance card: on every
+                            screen they took most of a phone's bar for a choice made once. */}
                         {auth !== null && auth.user.id !== '' && <NotificationsMenu userId={auth.user.id} />}
-                        <ThemeToggle />
                         <UserMenu />
                     </header>
 
@@ -906,7 +915,11 @@ export default function AppShell({
                         the window grew a second scrollbar beside this element's own. Positioned,
                         they resolve here and are clipped here.
                     */}
-                    <main className="relative min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
+                    <main
+                        ref={mainRef}
+                        className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+env(safe-area-inset-bottom))]"
+                    >
+                        <PullIndicator pull={pull} refreshing={refreshing} label={t((d) => d.shell.refreshing)} />
                         {/*
                             The cap widens on a large monitor, not below one.
                             `2xl:` is 1536px and up, so every laptop keeps the 1420px it had; past

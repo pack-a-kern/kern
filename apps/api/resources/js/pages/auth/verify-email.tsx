@@ -107,7 +107,7 @@ export default function VerifyEmail(): JSX.Element {
             <Head title={t((d) => d.pages.verifyEmail.title)} />
 
             <div className="bg-background min-h-dvh">
-                <main className="bg-card flex min-h-dvh flex-col">
+                <main className="bg-card safe-area flex min-h-dvh flex-col">
                     <header className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
                         <span className="text-sm font-semibold tracking-tight">{appName}</span>
                         <div className="flex items-center gap-1.5">

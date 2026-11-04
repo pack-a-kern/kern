@@ -60,7 +60,7 @@ import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
 import { formatDate, formatMinor } from '../../lib/format';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { cn } from '../../lib/utils';
 import {
     OPENABLE_KINDS,
@@ -183,7 +183,7 @@ function emptyForm(): AccountForm {
 export default function WalletAccounts(): JSX.Element {
     const { t, locale } = useTranslation();
     const currencies = useCurrencies();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [loaded, setLoaded] = useState<{
         rows: AccountSummary[];

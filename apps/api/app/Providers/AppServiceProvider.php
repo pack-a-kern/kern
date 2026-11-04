@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Horizon;
 
@@ -17,6 +18,22 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->closeHorizonsDashboard();
+        $this->keepScriptsAsBuilt();
+    }
+
+    /**
+     * The application's scripts run as Vite wrote them, whatever a proxy in front would rather do.
+     *
+     * Cloudflare's Rocket Loader rewrites every `<script>` it passes — `type="module"` becomes a type of
+     * its own — and runs them later from a script of its own. The page then preloads `app.js` and the
+     * browser warns it went unused, the nonce the policy allows is no longer on the script that runs,
+     * and a module bundle that already loads deferred gains nothing. `data-cfasync="false"` is
+     * Cloudflare's documented way for a page to say "leave this one alone"; on any other host it is an
+     * attribute nothing reads.
+     */
+    private function keepScriptsAsBuilt(): void
+    {
+        Vite::useScriptTagAttributes(['data-cfasync' => 'false']);
     }
 
     /**

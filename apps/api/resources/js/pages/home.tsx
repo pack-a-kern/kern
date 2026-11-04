@@ -18,7 +18,7 @@ export default function Home(): JSX.Element {
                 <PaletteMenu />
                 <ThemeToggle />
             </div>
-            <main className="flex min-h-dvh items-center justify-center bg-background text-foreground">
+            <main className="flex min-h-dvh items-center justify-center bg-background text-foreground safe-area">
                 <div className="text-center">
                     <h1 className="text-2xl font-semibold">{appName}</h1>
                     <p className="mt-2 text-muted-foreground">{t((d) => d.home.tagline)}</p>

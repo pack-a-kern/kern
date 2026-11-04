@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Broadcast;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\Events\SystemHealthChanged;
 use Kern\Platform\Tenancy\Contracts\TenantGate;
 
 /*
@@ -54,4 +55,13 @@ Broadcast::channel(
 Broadcast::channel(
     'users.{userId}',
     fn (User $user, string $userId): bool => $user->id === $userId,
+);
+
+/*
+ * `Kern\Platform\Settings\Events\SystemHealthChanged` — which services stopped answering. For the
+ * people who may read the system status, exactly as the status screen is (`system.settings.view`).
+ */
+Broadcast::channel(
+    SystemHealthChanged::CHANNEL,
+    fn (User $user): bool => $user->can('system.settings.view'),
 );

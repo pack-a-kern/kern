@@ -106,6 +106,16 @@ enum OperationTask: string
      */
     case IDENTITY_PRUNE_SESSIONS = 'identity.prune_sessions';
 
+    /**
+     * Ask every service whether it answers, keep the result, and tell the administrators when it
+     * changes (`Kern\Platform\Settings\Services\WatchSystemHealth`).
+     *
+     * Without it, a store that stopped answering was found by the first person whose upload failed.
+     * Every five minutes: often enough that the strip is current, rare enough that probing every
+     * service costs nothing worth measuring. Read-only towards the data; it writes one cache entry.
+     */
+    case SYSTEM_HEALTH_WATCH = 'system.health_watch';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -122,6 +132,7 @@ enum OperationTask: string
             self::COUNTERPARTIES_CLASSIFY => 'kern:counterparties:classify',
             self::SPV_CLOSE_EXPIRED_SESSIONS => 'kern:spv:close-expired-sessions',
             self::IDENTITY_PRUNE_SESSIONS => 'kern:identity:prune-sessions',
+            self::SYSTEM_HEALTH_WATCH => 'kern:health:watch',
         };
     }
 
@@ -142,6 +153,7 @@ enum OperationTask: string
             self::COUNTERPARTIES_CLASSIFY,
             self::SPV_CLOSE_EXPIRED_SESSIONS,
             self::IDENTITY_PRUNE_SESSIONS,
+            self::SYSTEM_HEALTH_WATCH,
         ], true);
     }
 
@@ -186,6 +198,6 @@ enum OperationTask: string
      */
     public function isReadOnly(): bool
     {
-        return $this === self::AUDIT_VERIFY_CHAINS;
+        return $this === self::AUDIT_VERIFY_CHAINS || $this === self::SYSTEM_HEALTH_WATCH;
     }
 }

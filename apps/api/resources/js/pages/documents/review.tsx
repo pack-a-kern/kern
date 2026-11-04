@@ -71,7 +71,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { formatDateTime, formatNumber } from '../../lib/format';
 import { ApiError } from '../../lib/http';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import type {
     DocumentExtractionSummary,
     DocumentHistory,
@@ -530,7 +530,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
     const { t, locale } = useTranslation();
     const currencies = useCurrencies();
     const unrenderableValue = t((d) => d.documentsReview.unrenderableValue);
-    const [subjectId] = useState(() => getActiveSubjectId());
+    const subjectId = useActiveSubjectId();
     const [document, setDocument] = useState<DocumentSummary | null>(null);
     const [documentError, setDocumentError] = useState<string | null>(null);
 

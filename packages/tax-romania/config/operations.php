@@ -65,6 +65,8 @@ return [
             // only thing being bought is a device list that stops naming it — and an hour of a stale
             // name misleads nobody into anything.
             'identity.prune_sessions' => env('OPERATIONS_CRON_IDENTITY_PRUNE_SESSIONS', '40 * * * *'),
+            // Every five minutes: the longest a down service goes unannounced to the administrators.
+            'system.health_watch' => env('OPERATIONS_CRON_SYSTEM_HEALTH_WATCH', '*/5 * * * *'),
         ],
     ],
 

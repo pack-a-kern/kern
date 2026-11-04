@@ -1,5 +1,19 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The taxpayers the page would carry. A per-taxpayer key follows the stored choice among them, exactly as
+// the screens do (`useActiveSubjectId`).
+vi.mock('../../lib/sharedProps', () => ({
+    useSharedAuth: () => ({
+        subjects: ['subject-a', 'subject-b'].map((id) => ({
+            id,
+            displayName: id,
+            status: 'ACTIVE',
+            type: 'PF',
+            avatarUpdatedAt: null,
+        })),
+    }),
+}));
 
 import { setActiveSubjectId } from '../../lib/subjectStore';
 import { useRememberedPaging, useRememberedState } from '../useRememberedState';

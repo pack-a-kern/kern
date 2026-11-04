@@ -33,6 +33,21 @@ export function useCurrencies(): string[] {
     return Array.isArray(value) ? value.filter((code): code is string => typeof code === 'string') : ['RON'];
 }
 
+/** The keys of the services not answering, for a reader of a `down` list sent by the server. */
+export function downServicesFrom(value: unknown): string[] {
+    return Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : [];
+}
+
+/**
+ * Which services were down at the scheduler's last look — or null for someone who may not read the
+ * system status, who is never shown it (`HandleInertiaRequests`'s `systemHealth`).
+ */
+export function useSystemHealthDown(): string[] | null {
+    const payload = usePage().props.systemHealth as { down?: unknown } | null | undefined;
+
+    return payload === null || payload === undefined ? null : downServicesFrom(payload.down);
+}
+
 /**
  * What every screen is handed by the page it arrived on.
  *

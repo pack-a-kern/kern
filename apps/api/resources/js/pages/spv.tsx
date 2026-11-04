@@ -33,7 +33,7 @@ import {
 } from '../components/panel';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useTranslation } from '../i18n';
-import { getActiveSubjectId } from '../lib/subjectStore';
+import { useActiveSubjectId } from '../hooks/useActiveSubjectId';
 import { formatDateTime } from '../lib/format';
 import { reportApiFailure } from '../lib/apiErrors';
 import { apiRequest } from '../lib/http';
@@ -129,7 +129,7 @@ function parse(payload: unknown): Connection[] {
  */
 export default function Spv(): JSX.Element {
     const { t, locale } = useTranslation();
-    const [subjectId] = useState(() => getActiveSubjectId());
+    const subjectId = useActiveSubjectId();
     const [connections, setConnections] = useState<Connection[] | null>(null);
     const [failed, setFailed] = useState(false);
     const [reloads, setReloads] = useState(0);

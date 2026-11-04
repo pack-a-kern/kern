@@ -43,6 +43,13 @@ export interface Dictionary {
         expandSidebar: string;
         changeTheme: string;
         impersonating: string;
+        offline: string;
+        offlineHint: string;
+        backOnline: string;
+        refreshing: string;
+        systemDownOne: string;
+        systemDownMany: string;
+        viewSystemStatus: string;
         impersonationStop: string;
         impersonationStopFailed: string;
         notifications: string;
@@ -145,8 +152,10 @@ export interface Dictionary {
         genericMfaError: string;
         genericRegisterError: string;
         genericPasskeyError: string;
+        passkeyCancelled: string;
+        passkeyNotRecognisedTitle: string;
+        passkeyNotRecognised: string;
         rateLimited: string;
-        enterEmailForPasskey: string;
         eyebrow: string;
         welcomeTitle: string;
         welcomeSubtitle: string;
@@ -1484,6 +1493,19 @@ export interface Dictionary {
         account: {
             title: string;
             description: string;
+            appearance: {
+                title: string;
+                description: string;
+                theme: string;
+                themeHint: string;
+                light: string;
+                dark: string;
+                system: string;
+                palette: string;
+                paletteHint: string;
+                language: string;
+                languageHint: string;
+            };
             stats: {
                 signIn: string;
                 signInSub: string;
@@ -1577,7 +1599,7 @@ export interface Dictionary {
             sessionRevoked: string;
             othersRevoked: string;
             revokeFailed: string;
-            columns: { device: string; ip: string; lastUsed: string };
+            columns: { ip: string };
             stats: {
                 mfa: string;
                 mfaSub: string;
@@ -1618,6 +1640,20 @@ export interface Dictionary {
             currentPasswordHint: string;
             totpDisabled: string;
             totpDisableFailed: string;
+            managePasskeys: string;
+            passkeysDialogTitle: string;
+            passkeysDialogHint: string;
+            passkeyUnnamed: string;
+            passkeySynced: string;
+            passkeyAddedOn: string;
+            passkeyLastUsed: string;
+            passkeyNeverUsed: string;
+            removePasskey: string;
+            removePasskeyConfirm: string;
+            passkeyRemoved: string;
+            passkeyRemoveFailed: string;
+            passkeysLoadFailed: string;
+            close: string;
         };
         settingsSubjects: {
             /** A display preference: how totals are summed, never how a tax is computed. */

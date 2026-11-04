@@ -1,6 +1,7 @@
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import { getCsrfToken } from './csrf';
+import { downServicesFrom } from './sharedProps';
 import { type DocumentLifecycleEvent, parseDocumentLifecycleEvent } from '../types/documents';
 import { type ImportNotice, parseImportNotice } from '../types/notifications';
 import { type StatementImportEvent, parseStatementImportEvent } from '../types/statementImport';
@@ -163,6 +164,27 @@ export function subscribeToUserNotifications(userId: string, onNotice: (notice: 
             // A kind this bundle does not know yet is left to the next fetch of the list.
             if (notice !== null) {
                 onNotice(notice);
+            }
+        });
+
+    return () => {
+        getEcho().leave(channelName);
+    };
+}
+
+/**
+ * Subscribes to `system.health` (`SystemHealthChanged`, authorized for `system.settings.view` in
+ * `routes/channels.php`) and calls `onChange` with the services now down — the whole list each time,
+ * so a missed message is corrected by the next one.
+ */
+export function subscribeToSystemHealth(onChange: (down: string[]) => void): () => void {
+    const channelName = 'system.health';
+
+    getEcho()
+        .private(channelName)
+        .listen('.SystemHealthChanged', (raw: unknown): void => {
+            if (typeof raw === 'object' && raw !== null && 'down' in raw) {
+                onChange(downServicesFrom(raw.down));
             }
         });
 

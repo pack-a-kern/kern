@@ -2,7 +2,10 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{-- `viewport-fit=cover`, so iOS reports its rounded corners and home bar as `env(safe-area-inset-*)`
+             and `.safe-area` (resources/css/app.css) can keep content clear of them. Without it the values
+             are 0 and an installed app runs into both. --}}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         {{-- The WebSocket server's application key, from this installation's own .env. Public by
              design (resources/js/lib/echo.ts). Here rather than baked into the assets, because an

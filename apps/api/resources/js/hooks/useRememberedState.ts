@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { PAGE_SIZES } from '../components/Pagination';
-import { getActiveSubjectId } from '../lib/subjectStore';
+import { useActiveSubjectId } from './useActiveSubjectId';
 
 /**
  * Remembering where a person left a screen — its tab, its page, its filters — across a refresh and a
@@ -45,8 +45,9 @@ export interface RememberOptions<T extends Remembered> {
     isValid?: (value: T) => boolean;
 }
 
-function storageKey(key: string, perSubject: boolean): string {
-    return perSubject ? `${PREFIX}.${getActiveSubjectId() ?? 'none'}.${key}` : `${PREFIX}.${key}`;
+/** `perSubject` keys carry the taxpayer they belong to; `none` while no taxpayer is chosen. */
+function storageKey(key: string, perSubject: boolean, subjectId: string | null): string {
+    return perSubject ? `${PREFIX}.${subjectId ?? 'none'}.${key}` : `${PREFIX}.${key}`;
 }
 
 function read<T extends Remembered>(fullKey: string, initial: T, isValid: ((value: T) => boolean) | undefined): T {
@@ -86,7 +87,10 @@ export function useRememberedState<T extends Remembered>(
     initial: T,
     options: RememberOptions<T> = {},
 ): [T, (next: T) => void] {
-    const fullKey = storageKey(key, options.perSubject ?? false);
+    // The same taxpayer the screen itself works in, resolved the same way — never the stored id alone,
+    // which a new device does not have yet on its first render (`useActiveSubjectId`).
+    const subjectId = useActiveSubjectId();
+    const fullKey = storageKey(key, options.perSubject ?? false, subjectId);
 
     // Set values are held per storage key, so switching taxpayer reads that taxpayer's value instead of
     // carrying the previous one across. An untouched key is read from storage on render.

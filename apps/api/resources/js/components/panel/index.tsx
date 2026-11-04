@@ -477,7 +477,17 @@ export function RowList({ children }: { children: ReactNode }): JSX.Element {
     return <div className="divide-border divide-y">{children}</div>;
 }
 
-export function Row(props: { title: ReactNode; subtitle?: string; children: ReactNode }): JSX.Element {
+export function Row(props: {
+    title: ReactNode;
+    subtitle?: string;
+    /**
+     * The setting's state — a pill, a status — beside its name rather than among its controls. On a
+     * phone the controls drop to their own line, and a state left among them floats away from the
+     * thing it describes.
+     */
+    status?: ReactNode;
+    children: ReactNode;
+}): JSX.Element {
     return (
         /*
          * Wraps, and the name is what claims the width.
@@ -502,8 +512,23 @@ export function Row(props: { title: ReactNode; subtitle?: string; children: Reac
          * row. A name and a box asking for a new one are the same thing twice.
          */
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-[9px] first:pt-0 last:pb-0">
-            <div className="min-w-0 flex-[1_1_8rem] sm:flex-[1_1_14rem]">
-                <div className="text-xs font-semibold">{props.title}</div>
+            {/* With a state beside the name, a phone gives the name the whole line and the controls the
+                next one — every row of a card then reads the same way, whether its controls would have
+                fitted beside the name or not. */}
+            <div
+                className={cn(
+                    'min-w-0 sm:flex-[1_1_14rem]',
+                    props.status !== undefined ? 'flex-[1_1_100%]' : 'flex-[1_1_8rem]',
+                )}
+            >
+                {props.status !== undefined ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <div className="text-xs font-semibold">{props.title}</div>
+                        {props.status}
+                    </div>
+                ) : (
+                    <div className="text-xs font-semibold">{props.title}</div>
+                )}
                 {props.subtitle !== undefined ? <div className="note mt-0.5">{props.subtitle}</div> : null}
             </div>
             <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">{props.children}</div>
@@ -1512,8 +1537,10 @@ export function PanelButton({
      * `card` is the one to reach for on a card's own surface: it draws a border and a fill that
      * matches the card, where `outline` paints `bg-background` — the page behind the card — and
      * reads grey on it. `ghost` draws neither, so it needs `.ctl`'s border to be visible at all.
+     * `destructive` is for the one control that takes something away — ending a session, removing a
+     * passkey — so it reads as that before it is read at all.
      */
-    variant?: 'ghost' | 'outline' | 'card';
+    variant?: 'ghost' | 'outline' | 'card' | 'destructive';
     /** Match a control it stands beside (34px) instead of the 30px card-foot button. */
     inline?: boolean;
 }): JSX.Element {
@@ -1560,7 +1587,8 @@ export function Kpi(props: {
     tone: Tone;
     icon: ReactNode;
     label: string;
-    value: string;
+    /** A string, or a figure set in parts (`components/Money`). */
+    value: ReactNode;
     sub?: string | undefined;
 }): JSX.Element {
     return (

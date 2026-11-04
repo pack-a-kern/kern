@@ -8,17 +8,18 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTranslation, type Locale } from '../i18n';
-import type { Dictionary } from '../i18n/dictionary';
 import { usePalette } from '../hooks/usePalette';
 import { useTheme } from '../hooks/useTheme';
 import { PALETTES, PALETTE_NAMES, isPaletteName } from '../lib/palette';
+import { LOCALE_OPTIONS } from '../lib/locales';
 
 /**
  * The three chrome controls: theme, palette and language.
  *
- * They live here rather than inside `AppShell` because the login screen carries the same cluster in
- * its own header, and the two must not drift — a palette added to `lib/palette.ts` has to appear in
- * both places, and someone signing in should be able to pick the language they want to sign in in.
+ * The compact form, for the screens before sign-in — login, email verification, the landing page —
+ * where someone has to be able to pick the language they sign in in. Once signed in, the same choices
+ * are on the account's Appearance card (`pages/account/AppearanceCard`), which reads the same hooks and
+ * the same lists (`LOCALE_OPTIONS`, `lib/palette.ts`), so the two can never offer different things.
  */
 
 /**
@@ -108,12 +109,6 @@ export function PaletteMenu(): JSX.Element {
         </DropdownMenu>
     );
 }
-
-/** The languages offered, in the order the design lists them. */
-const LOCALE_OPTIONS: { value: Locale; label: (d: Dictionary) => string }[] = [
-    { value: 'en', label: (d) => d.shell.languageEn },
-    { value: 'ro', label: (d) => d.shell.languageRo },
-];
 
 export function LanguageMenu(): JSX.Element {
     const { t, locale, setLocale } = useTranslation();

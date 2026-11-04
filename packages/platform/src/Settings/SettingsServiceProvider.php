@@ -7,6 +7,7 @@ namespace Kern\Platform\Settings;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Console\Commands\Settings\CheckSystemHealthCommand;
+use Kern\Platform\Console\Commands\Settings\WatchSystemHealthCommand;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Routing\PackageRoutes;
@@ -55,7 +56,7 @@ final class SettingsServiceProvider extends ServiceProvider
         PackageRoutes::load(__DIR__ . '/../../routes/settings.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CheckSystemHealthCommand::class]);
+            $this->commands([CheckSystemHealthCommand::class, WatchSystemHealthCommand::class]);
         }
 
         /*

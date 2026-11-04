@@ -48,7 +48,7 @@ import { categoriesFor, parseTaxCategories, type Tag, type TaxCategory } from '.
 import { useTranslation } from '../../i18n';
 import { formatNumber } from '../../lib/format';
 import { apiRequest } from '../../lib/http';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { obj, str } from '../../lib/json';
 
 /** One direction's remembered answer, or nothing where nobody has decided yet. */
@@ -145,7 +145,7 @@ function parseListing(payload: unknown): Listing {
  */
 export default function WalletCounterparties(): JSX.Element {
     const { t, locale } = useTranslation();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [listing, setListing] = useState<Listing | null>(null);
     const [failed, setFailed] = useState(false);

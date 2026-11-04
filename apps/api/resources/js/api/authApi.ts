@@ -4,12 +4,14 @@ import {
     type EmailVerificationStatus,
     type LoginResult,
     type MfaStatus,
+    type PasskeySummary,
     type SessionSummary,
     type TotpEnrollment,
     type WebauthnOptionsJson,
     parseLoginResult,
     parseMfaStatus,
     parseRecoveryCodes,
+    parsePasskeyList,
     parseSessionList,
     parseTotpEnrollment,
     parseWebauthnOptions,
@@ -37,17 +39,14 @@ export async function completeMfaChallenge(code: string): Promise<{ id: string }
     return parseId(text);
 }
 
-export async function requestPasskeyLoginOptions(email: string): Promise<WebauthnOptionsJson> {
-    const text = await apiRequest('/v1/auth/passkeys/login/options', { method: 'POST', body: { email } });
+export async function requestPasskeyLoginOptions(): Promise<WebauthnOptionsJson> {
+    const text = await apiRequest('/v1/auth/passkeys/login/options', { method: 'POST' });
 
     return parseWebauthnOptions(text);
 }
 
-export async function completePasskeyLogin(
-    email: string,
-    credential: Record<string, unknown>,
-): Promise<{ id: string }> {
-    const text = await apiRequest('/v1/auth/passkeys/login', { method: 'POST', body: { email, credential } });
+export async function completePasskeyLogin(credential: Record<string, unknown>): Promise<{ id: string }> {
+    const text = await apiRequest('/v1/auth/passkeys/login', { method: 'POST', body: { credential } });
 
     return parseId(text);
 }
@@ -133,6 +132,14 @@ export async function listSessions(): Promise<SessionSummary[]> {
     const text = await apiRequest('/v1/auth/sessions');
 
     return parseSessionList(text);
+}
+
+export async function listPasskeys(): Promise<PasskeySummary[]> {
+    return parsePasskeyList(await apiRequest('/v1/auth/passkeys'));
+}
+
+export async function removePasskey(passkeyId: string): Promise<void> {
+    await apiRequest(`/v1/auth/passkeys/${encodeURIComponent(passkeyId)}`, { method: 'DELETE' });
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {

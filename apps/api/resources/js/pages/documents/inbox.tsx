@@ -52,7 +52,7 @@ import { useTranslation } from '../../i18n';
 import { formatProposedName } from '../../lib/documentName';
 import { formatBytes, formatDateTime } from '../../lib/format';
 import { deleteKnownDocument, listKnownDocuments, replaceKnownDocuments, type KnownDocument } from '../../lib/db';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import {
     DOCUMENT_STAGES,
     DOCUMENT_TYPES,
@@ -93,7 +93,7 @@ function isIsoDateOrEmpty(value: string): boolean {
 
 export default function DocumentsInbox(): JSX.Element {
     const { t, locale } = useTranslation();
-    const [subjectId] = useState(() => getActiveSubjectId());
+    const subjectId = useActiveSubjectId();
 
     // Remembered per taxpayer, with the page: coming back to the inbox lands on the filters it was left on.
     const [stage, setStage] = useRememberedState<DocumentStage | ''>('documents.inbox.stage', '', {

@@ -29,8 +29,8 @@ it('records a refused second factor', function (): void {
         ->and($event->context_json)->toBe(['method' => 'mfa']);
 });
 
-it('records a refused passkey, without the address it was tried for', function (): void {
-    expect(fn () => app(CompletePasskeyLogin::class)('ion@example.test', [], 'localhost'))->toThrow(PasskeyVerificationException::class);
+it('records a refused passkey, with nothing about who tried it', function (): void {
+    expect(fn () => app(CompletePasskeyLogin::class)('no-pending-ceremony', [], 'localhost'))->toThrow(PasskeyVerificationException::class);
 
     $event = SecurityEvent::query()->sole();
 

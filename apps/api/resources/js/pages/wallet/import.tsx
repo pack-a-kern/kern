@@ -71,7 +71,7 @@ import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { formatMinor, formatNumber } from '../../lib/format';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { getActiveSubjectId } from '../../lib/subjectStore';
+import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { cn } from '../../lib/utils';
 import { categoriesFor, isStreamKind, type Bank, type Tag } from '../../types/wallet';
 import { useImportsChannel } from '../../hooks/useImportsChannel';
@@ -113,7 +113,7 @@ const PREVIEW_DEBOUNCE_MS = 400;
  */
 export default function WalletImport(): JSX.Element {
     const { t, locale } = useTranslation();
-    const subjectId = getActiveSubjectId();
+    const subjectId = useActiveSubjectId();
 
     const [importId, setImportId] = useState<string | null>(() => {
         if (typeof window === 'undefined') {
