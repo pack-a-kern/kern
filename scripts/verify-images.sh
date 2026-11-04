@@ -49,6 +49,17 @@ IDENTITY="https://github.com/$SIGNER/.github/workflows/ci.yml@refs/tags/v$VERSIO
 REFS="$(KERN_IMAGES="$IMAGES" KERN_VERSION="$VERSION" docker compose config --images | grep -F "$IMAGES/kern-" | sort -u)"
 [ -n "$REFS" ] || die "compose names no image under $IMAGES/."
 
+# cosign asks the registry for the signature itself, so it needs the same login `docker compose pull`
+# used when the images are private: the Docker config that `docker login` wrote, mounted read-only and
+# read as the user who owns it (the cosign image's own user could not open a mode-600 file). Nothing is
+# copied or kept; with no config, the images are public and nothing is mounted.
+DOCKER_CONFIG_DIR="${DOCKER_CONFIG:-$HOME/.docker}"
+set --
+if [ -f "$DOCKER_CONFIG_DIR/config.json" ]; then
+    set -- -v "$DOCKER_CONFIG_DIR/config.json:/docker/config.json:ro" -e DOCKER_CONFIG=/docker \
+        -u "$(id -u):$(id -g)" -e HOME=/tmp
+fi
+
 failed=0
 for ref in $REFS; do
     repo="${ref%:*}"
@@ -58,7 +69,7 @@ for ref in $REFS; do
     if [ -z "$digest" ]; then
         printf '  %-60s not pulled\n' "$ref"
         failed=1
-    elif out="$(docker run --rm "$COSIGN" verify \
+    elif out="$(docker run --rm "$@" "$COSIGN" verify \
         --certificate-identity "$IDENTITY" \
         --certificate-oidc-issuer "$ISSUER" \
         "$digest" 2>&1)"; then
