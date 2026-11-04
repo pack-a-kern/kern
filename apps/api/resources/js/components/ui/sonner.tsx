@@ -12,13 +12,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
             // transient notice rather than as another card competing with the content.
             position="bottom-right"
             // Sonner's own distances from the edge (32px, 16px on a phone), plus what iOS keeps for its
-            // rounded corners and home bar — 0 everywhere else. See `.safe-area` in app.css.
+            // rounded corners and home bar — 0 everywhere else — and above the phone's bottom bar
+            // (`--dock-space`, 0 from `lg`). See `.safe-area` in app.css.
             offset={{
-                bottom: 'calc(32px + env(safe-area-inset-bottom))',
+                bottom: 'calc(32px + var(--dock-space) + env(safe-area-inset-bottom))',
                 right: 'calc(32px + env(safe-area-inset-right))',
             }}
             mobileOffset={{
-                bottom: 'calc(16px + env(safe-area-inset-bottom))',
+                bottom: 'calc(16px + var(--dock-space) + env(safe-area-inset-bottom))',
                 left: 'calc(16px + env(safe-area-inset-left))',
                 right: 'calc(16px + env(safe-area-inset-right))',
             }}

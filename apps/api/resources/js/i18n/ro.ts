@@ -33,7 +33,6 @@ export const ro = {
     },
     shell: {
         appTagline: 'Sistem de operare fiscal',
-        openMenu: 'Deschide meniul',
         collapseSidebar: 'Restrânge meniul',
         expandSidebar: 'Extinde meniul',
         changeTheme: 'Schimbă tema',

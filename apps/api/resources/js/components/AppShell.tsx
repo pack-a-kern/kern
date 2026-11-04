@@ -15,7 +15,6 @@ import {
     ListTodo,
     Landmark,
     LogOut,
-    Menu,
     PanelLeftClose,
     PanelLeftOpen,
     Scale,
@@ -45,7 +44,6 @@ import { formatDateTime } from '../lib/format';
 import { useAppName, useSharedAuth } from '../lib/sharedProps';
 import { setActiveSubjectId } from '../lib/subjectStore';
 import type { ImportNotice } from '../types/notifications';
-import { Button } from './ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -53,7 +51,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import SubjectSwitcher from './SubjectSwitcher';
 
@@ -598,6 +595,174 @@ function groupKey(item: NavLink): string {
     return item.href ?? item.id ?? '';
 }
 
+/**
+ * The menu as this account may see it: every row it has no permission for left out, and every group
+ * holding only the children it may open. The sidebar draws it; on a phone, the bar along the bottom
+ * and the tabs above a page draw the same list, so the two can never offer different destinations.
+ */
+function useVisibleSections(): typeof NAV_SECTIONS {
+    const permissions = useSharedAuth()?.user.permissions ?? [];
+
+    function allowed(entry: { permission?: string }): boolean {
+        return entry.permission === undefined || permissions.includes(entry.permission);
+    }
+
+    return NAV_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items
+            .filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED)
+            .filter(allowed)
+            .map((item) => (item.children === undefined ? item : { ...item, children: item.children.filter(allowed) })),
+    })).filter((section) => section.items.length > 0);
+}
+
+/** Where a row goes when pressed: its own page, or a container group's first page. */
+function firstHref(item: NavLink): string | undefined {
+    return item.href ?? item.children?.[0]?.href;
+}
+
+/** Whether the page open now is this row's own or one of its children's. */
+function containsCurrent(item: NavLink, currentUrl: string): boolean {
+    return (
+        (item.href !== undefined && isActive(currentUrl, item.href)) ||
+        (item.children ?? []).some((child) => isActive(currentUrl, child.href))
+    );
+}
+
+/**
+ * The phone's navigation: every section of the menu in one bar along the bottom, scrolled sideways,
+ * with the one you are in brought into view. Replaces the drawer below `lg` — the sidebar is still the
+ * menu from there up. A group goes to its first page; its other pages are the tabs above the page
+ * ({@link SectionTabs}).
+ *
+ * Floating, clear of the home bar and the rounded corners (`env(safe-area-inset-*)`), and the page's
+ * scroll area leaves `--dock-space` below its content so the last card is never under it.
+ */
+function BottomNav({ currentUrl }: { currentUrl: string }): JSX.Element {
+    const { t } = useTranslation();
+    const items = useVisibleSections()
+        .flatMap((section) => section.items)
+        .filter((item) => firstHref(item) !== undefined);
+    const current = useRef<HTMLAnchorElement>(null);
+
+    // Not state: only the scroll position of the bar moves, so the tab you are on is the one you see.
+    useEffect(() => {
+        current.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }, [currentUrl]);
+
+    return (
+        <nav className="bottom-dock lg:hidden" aria-label={t((d) => d.nav.dashboard)}>
+            <div className="bottom-dock-track">
+                {items.map((item) => {
+                    const Icon = item.icon;
+                    const here = containsCurrent(item, currentUrl);
+
+                    return (
+                        <Link
+                            key={groupKey(item)}
+                            href={firstHref(item) ?? '/'}
+                            className="bottom-tab"
+                            aria-current={here ? 'page' : undefined}
+                            ref={here ? current : undefined}
+                        >
+                            <Icon className="size-5" aria-hidden="true" />
+                            <span>{t(item.label)}</span>
+                        </Link>
+                    );
+                })}
+            </div>
+        </nav>
+    );
+}
+
+/**
+ * The pages of the section you are in, as tabs across the top of the page — on a phone, where the
+ * bar along the bottom names only the sections. A section with one page has no tabs to show.
+ *
+ * At rest a card above the page; scrolled up to the top bar, it stays there and widens to the full
+ * width, so the two read as one bar and the pages are always one tap away. Whether it is there is
+ * told by a marker just above it leaving the scroll area — an observer, not a scroll listener, so
+ * nothing runs while the page scrolls.
+ */
+function SectionTabs({ currentUrl }: { currentUrl: string }): JSX.Element | null {
+    const { t } = useTranslation();
+    const marker = useRef<HTMLDivElement>(null);
+    const strip = useRef<HTMLElement>(null);
+    const [stuck, setStuck] = useState(false);
+
+    // The page you are on, brought into view as the bottom bar does — by moving the strip sideways
+    // only: `scrollIntoView` would also scroll the page to it, and the page is where the reader is.
+    useEffect(() => {
+        const row = strip.current;
+        const here = row?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
+
+        if (row !== null && here !== null) {
+            row.scrollTo({ left: here.offsetLeft - (row.clientWidth - here.offsetWidth) / 2 });
+        }
+    }, [currentUrl]);
+
+    useEffect(() => {
+        const element = marker.current;
+
+        if (element === null) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(([entry]) => {
+            setStuck(entry !== undefined && !entry.isIntersecting);
+        });
+        observer.observe(element);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+    const group = useVisibleSections()
+        .flatMap((section) => section.items)
+        .find((item) => (item.children ?? []).length > 0 && containsCurrent(item, currentUrl));
+
+    if (group === undefined) {
+        return null;
+    }
+
+    const pages = [
+        ...(group.href === undefined ? [] : [{ href: group.href, label: group.label, icon: group.icon }]),
+        ...(group.children ?? []),
+    ];
+
+    if (pages.length < 2) {
+        return null;
+    }
+
+    return (
+        <>
+            <div ref={marker} className="h-px lg:hidden" aria-hidden="true" />
+            <nav
+                ref={strip}
+                className="section-tabs lg:hidden"
+                data-stuck={stuck ? '' : undefined}
+                aria-label={t(group.label)}
+            >
+                {pages.map((page) => {
+                    const Icon = page.icon;
+
+                    return (
+                        <Link
+                            key={page.href}
+                            href={page.href}
+                            className="section-tab"
+                            aria-current={isActive(currentUrl, page.href) ? 'page' : undefined}
+                        >
+                            <Icon className="size-3.5" aria-hidden="true" />
+                            {t(page.label)}
+                        </Link>
+                    );
+                })}
+            </nav>
+        </>
+    );
+}
+
 function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl: string }): JSX.Element {
     const { t } = useTranslation();
 
@@ -610,35 +775,16 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
      */
     const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
-    const permissions = useSharedAuth()?.user.permissions ?? [];
-
-    /** What this account may actually open — a row it has no permission for is not drawn at all. */
-    function allowed(entry: { permission?: string }): boolean {
-        return entry.permission === undefined || permissions.includes(entry.permission);
-    }
-
-    function visible(item: NavLink): NavLink {
-        return item.children === undefined ? item : { ...item, children: item.children.filter(allowed) };
-    }
-
-    const sections = NAV_SECTIONS.map((section) => ({
-        ...section,
-        items: section.items
-            .filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED)
-            .filter(allowed)
-            .map(visible),
-    })).filter((section) => section.items.length > 0);
+    const sections = useVisibleSections();
 
     function isOpen(item: NavLink): boolean {
         const key = groupKey(item);
         // The group you are *in* — which includes standing on the group's own page, not only on one
         // of its children. Landing on `/taxes` and finding Taxes folded shut is the same surprise as
         // landing on `/wallet/accounts` and finding Wallet shut.
-        const containsCurrent =
-            (item.href !== undefined && isActive(currentUrl, item.href)) ||
-            (item.children ?? []).some((child) => isActive(currentUrl, child.href));
+        const here = containsCurrent(item, currentUrl);
 
-        return overrides[key] ?? containsCurrent;
+        return overrides[key] ?? here;
     }
 
     return (
@@ -745,10 +891,11 @@ function readStoredCollapsed(): boolean {
  * The one authenticated-page layout every screen renders inside of
  * (`docs/handoff/040-ui-foundation.md` "AppShell"). Desktop: a collapsible left sidebar (persisted
  * per-device, non-sensitive UI state — `BLUEPRINT.md` §17) holding every navigation destination,
- * grouped. Phone: the same navigation becomes a `Sheet` drawer opened from the topbar's hamburger
- * button (`BLUEPRINT.md` §1.4's "mobile-first" — a drawer beats a bottom tab bar once the menu holds
- * this many destinations). The active item is derived from Inertia's own `usePage().url`, so no
- * page needs to pass a "which screen am I" prop.
+ * grouped. Below `lg`: the same sections in a bar along the bottom that scrolls sideways
+ * ({@link BottomNav}), the pages of the section you are in as tabs above the page ({@link SectionTabs}),
+ * and the taxpayer switcher in the top bar — the drawer it replaces hid the whole menu behind one
+ * button. The active item is derived from Inertia's own `usePage().url`, so no page needs to pass a
+ * "which screen am I" prop.
  */
 export default function AppShell({
     children,
@@ -768,7 +915,6 @@ export default function AppShell({
     const appName = useAppName();
     const auth = useSharedAuth();
     const [collapsed, setCollapsed] = useState(readStoredCollapsed);
-    const [mobileOpen, setMobileOpen] = useState(false);
     const mainRef = useRef<HTMLElement>(null);
     const { pull, refreshing } = usePullToRefresh(mainRef);
     // Published by whichever `Page` is rendered below; the shell is where it is drawn.
@@ -827,41 +973,12 @@ export default function AppShell({
                 whole column out and the *page* scrolls sideways, instead of the table's own wrapper. */}
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     <header className="shell-surface border-border flex min-h-14 shrink-0 items-center gap-3 border-b px-3 py-2 sm:px-5">
-                        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                            <SheetTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="lg:hidden"
-                                    aria-label={t((d) => d.shell.openMenu)}
-                                >
-                                    <Menu className="size-5" />
-                                </Button>
-                            </SheetTrigger>
-                            {/* `gap-0`: the sheet spaces its children by default, which left a band of
-                                nothing between the header's rule and the first menu row. The parts
-                                below carry their own spacing, as they do in the sidebar. */}
-                            {/* The sidebar's own width, so the drawer is that sidebar and not a wider
-                                relative of it. Stated through the same `data-[side=left]:` variant the
-                                sheet uses for its default `w-3/4`: a plain `w-[272px]` is one class
-                                against a class *and* an attribute, so it loses and never applied — on
-                                a tablet that default is 615px of menu over the page it belongs to. */}
-                            <SheetContent
-                                side="left"
-                                className="shell-surface safe-area gap-0 p-0 data-[side=left]:w-[272px]"
-                            >
-                                {/* The same height as the sidebar's header and the page's, so the
-                                    drawer's rule continues the topbar's instead of cutting across it.
-                                    The title is the accessible name Radix requires; the mark beside
-                                    it is what the eye reads, so the words are not drawn twice. */}
-                                <SheetHeader className="border-border h-14 justify-center border-b p-0 px-3">
-                                    <SheetTitle className="sr-only">{appName}</SheetTitle>
-                                    <SidebarBrand />
-                                </SheetHeader>
-                                <SidebarBody collapsed={false} currentUrl={url} />
-                            </SheetContent>
-                        </Sheet>
-
+                        {/* On a phone there is no drawer, so the taxpayer the page is about is chosen
+                            here, first in the bar where the menu button was, as the switcher's compact
+                            mark. From `lg` it is at the sidebar's foot. */}
+                        <div className="lg:hidden">
+                            <SubjectSwitcher bare />
+                        </div>
                         {/*
                             The page says what it is; the shell does not repeat the product name on
                             every screen.
@@ -917,9 +1034,10 @@ export default function AppShell({
                     */}
                     <main
                         ref={mainRef}
-                        className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+env(safe-area-inset-bottom))]"
+                        className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+var(--dock-space)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+var(--dock-space)+env(safe-area-inset-bottom))]"
                     >
                         <PullIndicator pull={pull} refreshing={refreshing} label={t((d) => d.shell.refreshing)} />
+                        <SectionTabs currentUrl={url} />
                         {/*
                             The cap widens on a large monitor, not below one.
                             `2xl:` is 1536px and up, so every laptop keeps the 1420px it had; past
@@ -940,6 +1058,8 @@ export default function AppShell({
                     </main>
                 </div>
             </div>
+
+            <BottomNav currentUrl={url} />
         </div>
     );
 }

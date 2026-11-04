@@ -59,8 +59,14 @@ function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; 
 export default function SubjectSwitcher({
     /** Rail mode: the sidebar is collapsed, so only the initials tile fits. */
     collapsed = false,
+    bare = false,
 }: {
     collapsed?: boolean;
+    /**
+     * The mark alone, with no tile around it, at the size the tile was — for the phone's top bar,
+     * where a bordered box around a round picture was a frame around a frame. Implies `collapsed`.
+     */
+    bare?: boolean;
 } = {}): JSX.Element {
     const { t } = useTranslation();
     // Carried by the page rather than fetched: `HandleInertiaRequests::share()` sends them with
@@ -99,12 +105,22 @@ export default function SubjectSwitcher({
     const switchable = subjects.length > 1;
 
     const tile = (
-        <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
+        <div
+            className={
+                bare
+                    ? 'subject-control-bare'
+                    : `shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`
+            }
+        >
             <SubjectDisc
                 subject={active}
-                className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold"
+                className={
+                    bare
+                        ? 'subject-disc-bare bg-accent text-accent-600 grid shrink-0 place-items-center text-xs font-bold'
+                        : 'bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold'
+                }
             />
-            {!collapsed && (
+            {!collapsed && !bare && (
                 <span className="min-w-0 flex-1">
                     <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
                         {t((d) => d.shell.taxSubject)}

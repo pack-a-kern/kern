@@ -59,6 +59,15 @@ it('announces the recovery too', function (): void {
     Event::assertDispatched(SystemHealthChanged::class, fn (SystemHealthChanged $event): bool => $event->down === []);
 });
 
+it('leaves out the browser worker, which the queue worker it runs in cannot reach', function (): void {
+    $down = app(WatchSystemHealth::class)->record([
+        ComponentHealth::degraded('browser_worker', 'ConnectionException'),
+        ComponentHealth::degraded('object_storage'),
+    ]);
+
+    expect($down)->toBe(['object_storage']);
+});
+
 it('broadcasts the keys only, on the administrators’ channel', function (): void {
     $event = new SystemHealthChanged(['object_storage']);
 

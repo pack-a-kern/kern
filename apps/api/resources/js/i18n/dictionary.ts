@@ -38,7 +38,6 @@ export interface Dictionary {
     };
     shell: {
         appTagline: string;
-        openMenu: string;
         collapseSidebar: string;
         expandSidebar: string;
         changeTheme: string;

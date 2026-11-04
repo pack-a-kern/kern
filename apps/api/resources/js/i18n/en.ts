@@ -33,7 +33,6 @@ export const en = {
     },
     shell: {
         appTagline: 'Fiscal operating system',
-        openMenu: 'Open menu',
         collapseSidebar: 'Collapse menu',
         expandSidebar: 'Expand menu',
         changeTheme: 'Change theme',

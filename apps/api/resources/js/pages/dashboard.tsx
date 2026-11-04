@@ -330,8 +330,10 @@ export default function Dashboard(): JSX.Element {
                                                 </span>
                                                 {detail === '' ? null : (
                                                     /* Indented by the dot and its gap, so the reading
-                                                       starts where the name above it does. */
-                                                    <span className="note pl-4">{detail}</span>
+                                                       starts where the name above it does. Not on a
+                                                       phone: there the row is the name, its share and
+                                                       its amount, and the breakdown is a line too many. */
+                                                    <span className="note hidden pl-4 sm:block">{detail}</span>
                                                 )}
                                             </dt>
                                             <dd className="shrink-0 text-sm font-semibold tabular-nums">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { cn } from 'cn';
 import {
     Box,
     CalendarRange,
@@ -86,6 +87,12 @@ function AdminAuditBody(): JSX.Element {
     const anchor = useRef<string | null>(null);
     const [forbidden, setForbidden] = useState(false);
     const [selected, setSelected] = useState<AuditEvent | null>(null);
+    /*
+     * The event last opened, kept after its details close: the row stays marked so the list says where
+     * the reader was. Marking only the open one meant the mark was never seen — while the details are
+     * open they cover the list, and closing them took the mark away.
+     */
+    const [lastOpenedId, setLastOpenedId] = useState<string | null>(null);
 
     const [search, setSearch] = useRememberedState<string>('audit.search', '');
     const [eventType, setEventType] = useRememberedState<string>('audit.eventType', '');
@@ -346,7 +353,7 @@ function AdminAuditBody(): JSX.Element {
                             }
                         >
                             {events.map((event) => (
-                                <tr key={event.id}>
+                                <tr key={event.id} className={cn(lastOpenedId === event.id && 'row-selected')}>
                                     {/* Column roles for the stacked phone layout — see `.data-table-stack`
                                         in app.css. Time leads the row; the actor is the one column that
                                         is nothing but a UUID, so it is the one a phone drops — the
@@ -402,6 +409,7 @@ function AdminAuditBody(): JSX.Element {
                                         <PanelButton
                                             onClick={() => {
                                                 setSelected(event);
+                                                setLastOpenedId(event.id);
                                             }}
                                         >
                                             <Eye className="size-3.5" aria-hidden="true" />
