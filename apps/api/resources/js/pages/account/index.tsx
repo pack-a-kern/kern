@@ -14,6 +14,7 @@ import AccountCard from './AccountCard';
 import GuaranteesCard from './GuaranteesCard';
 import PasswordCard from './PasswordCard';
 import AppearanceCard from './AppearanceCard';
+import NotificationsCard from './NotificationsCard';
 import SessionsCard from './SessionsCard';
 import SignInMethods from './SignInMethods';
 
@@ -203,6 +204,7 @@ export default function AccountPage(): JSX.Element {
                     <SignInMethods mfa={mfa} onChanged={reload} describeFailure={describeFailure} />
                     <GuaranteesCard />
                     <AppearanceCard />
+                    <NotificationsCard />
                 </div>
 
                 <SessionsCard sessions={sessions} onChanged={reload} />

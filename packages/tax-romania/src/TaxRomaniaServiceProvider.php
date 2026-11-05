@@ -8,6 +8,8 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
+use Kern\Platform\Notifications\DataTransferObjects\NotificationType;
+use Kern\Platform\Notifications\Services\NotificationTypeRegistry;
 use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
@@ -20,13 +22,17 @@ use Kern\TaxRomania\Console\Commands\Wallet\BackfillCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\ClassifyCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\IndexCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\PostDepositInterestCommand;
+use Kern\TaxRomania\Console\Commands\Wallet\RemindMaturingDepositsCommand;
 use Kern\TaxRomania\Declarations\DeclarationsServiceProvider;
 use Kern\TaxRomania\FiscalParameters\FiscalParametersServiceProvider;
 use Kern\TaxRomania\Fx\FxServiceProvider;
+use Kern\TaxRomania\Operations\Enums\OperationTask;
 use Kern\TaxRomania\Spv\SpvServiceProvider;
+use Kern\TaxRomania\StatementImport\Notifications\StatementImportNotice;
 use Kern\TaxRomania\StatementImport\StatementImportServiceProvider;
 use Kern\TaxRomania\Subjects\SubjectsServiceProvider;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
+use Kern\TaxRomania\Wallet\Notifications\DepositMaturityNotice;
 use Kern\TaxRomania\Wallet\Providers\EloquentLedgerIncomeProvider;
 
 /**
@@ -132,6 +138,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__ . '/../lang', 'tax-romania');
 
         $this->declareWhatMustNeverBeLogged();
+        $this->declareNotificationTypes();
 
         // Two tables here point at a paragraph of the law: the value read from it, and the citation a
         // tax rule rests on. Declared so `kern/legislation` refuses to delete a law either still needs,
@@ -164,8 +171,44 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 RegisterTaxRulesCommand::class,
                 IndexCounterpartiesCommand::class,
                 PostDepositInterestCommand::class,
+                RemindMaturingDepositsCommand::class,
             ]);
         }
+    }
+
+    /**
+     * The kinds of device notification this package sends, for the switches on the account page
+     * (`NotificationTypeRegistry`). Declared here and nowhere else: the page draws what it is given.
+     *
+     * The deposit hint names the distances and the hour actually configured, so the switch says when
+     * it will speak rather than a promise the settings could have changed.
+     */
+    private function declareNotificationTypes(): void
+    {
+        $types = $this->app->make(NotificationTypeRegistry::class);
+
+        $types->register(new NotificationType(
+            key: StatementImportNotice::PUSH_TYPE,
+            labelKey: 'tax-romania::notifications.types.statement-imports.label',
+            hintKey: 'tax-romania::notifications.types.statement-imports.hint',
+        ));
+
+        /** @var list<int> $distances */
+        $distances = config('wallet.deposit.reminder_days', []);
+        // Read from the list, not by dotted path: the task's key has a dot of its own.
+        $expressions = config()->array('operations.schedule.expressions', []);
+        $cron = $expressions[OperationTask::WALLET_MATURITY_REMINDERS->value] ?? '';
+        $cron = is_string($cron) ? $cron : '';
+
+        $types->register(new NotificationType(
+            key: DepositMaturityNotice::PUSH_TYPE,
+            labelKey: 'tax-romania::notifications.types.deposit-maturity.label',
+            hintKey: 'tax-romania::notifications.types.deposit-maturity.hint',
+            hintParameters: [
+                'days' => implode(', ', array_filter($distances, static fn (int $days): bool => $days > 0)),
+                'time' => preg_match('/^(\d{1,2}) (\d{1,2}) \* \* \*$/', $cron, $m) === 1 ? sprintf('%02d:%02d', (int) $m[2], (int) $m[1]) : $cron,
+            ],
+        ));
     }
 
     /**

@@ -3,7 +3,7 @@ import Pusher from 'pusher-js';
 import { getCsrfToken } from './csrf';
 import { downServicesFrom } from './sharedProps';
 import { type DocumentLifecycleEvent, parseDocumentLifecycleEvent } from '../types/documents';
-import { type ImportNotice, parseImportNotice } from '../types/notifications';
+import { type Notice, parseNotice } from '../types/notifications';
 import { type StatementImportEvent, parseStatementImportEvent } from '../types/statementImport';
 
 // `laravel-echo`'s `reverb` broadcaster resolves `window.Pusher` at construction time — this is
@@ -153,13 +153,13 @@ export function subscribeToImportsChannel(
  * `routes/channels.php`) and calls `onNotice` for each notice Laravel broadcasts there — the same
  * notice the bell lists, pushed the moment it is stored.
  */
-export function subscribeToUserNotifications(userId: string, onNotice: (notice: ImportNotice) => void): () => void {
+export function subscribeToUserNotifications(userId: string, onNotice: (notice: Notice) => void): () => void {
     const channelName = `users.${userId}`;
 
     getEcho()
         .private(channelName)
         .notification((raw: unknown): void => {
-            const notice = parseImportNotice(raw);
+            const notice = parseNotice(raw);
 
             // A kind this bundle does not know yet is left to the next fetch of the list.
             if (notice !== null) {

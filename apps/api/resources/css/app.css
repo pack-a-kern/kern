@@ -489,7 +489,9 @@
    each other line up. Applied by PanelInput / PanelSelect / PanelButton[inline]. */
 :root {
     /* 34px — see `.ctl`. */
-    --ctl-h: 2.125rem;
+    --ctl-h: calc(2.125rem + var(--ctl-touch-extra));
+    /* What a finger needs on top of that, on a touch screen only — set just below. */
+    --ctl-touch-extra: 0rem;
 
     /*
      * The other control height, named rather than re-derived.
@@ -507,12 +509,13 @@
 
 /*
  * On a touch screen a control is taller — 40px, from 34 — so the 16px its text has to be there (the rule
- * above) sits in it in proportion, and a finger has the room it needs. Every control height derives
- * from `--ctl-h`, so the inputs, selects and the buttons beside them grow together and stay in line.
+ * above) sits in it in proportion, and a finger has the room it needs. Added to `--ctl-h` rather than a
+ * second value of it, so the control height is still one number; every height derives from it, so the
+ * inputs, selects and the buttons beside them grow together and stay in line.
  */
 @media (pointer: coarse) {
     :root {
-        --ctl-h: 2.5rem;
+        --ctl-touch-extra: 0.375rem;
     }
 }
 

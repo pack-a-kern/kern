@@ -116,6 +116,15 @@ enum OperationTask: string
      */
     case SYSTEM_HEALTH_WATCH = 'system.health_watch';
 
+    /**
+     * Tell taxpayers' owners about deposits nearing maturity, once per distance in
+     * `wallet.deposit.reminder_days` (`RemindMaturingDepositsCommand`).
+     *
+     * Daily, at an hour a person is awake: in the bell and, where they turned it on, on their phone.
+     * After the interest task, which closes deposits maturing today — "it matures today" is still said.
+     */
+    case WALLET_MATURITY_REMINDERS = 'wallet.maturity_reminders';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -133,6 +142,7 @@ enum OperationTask: string
             self::SPV_CLOSE_EXPIRED_SESSIONS => 'kern:spv:close-expired-sessions',
             self::IDENTITY_PRUNE_SESSIONS => 'kern:identity:prune-sessions',
             self::SYSTEM_HEALTH_WATCH => 'kern:health:watch',
+            self::WALLET_MATURITY_REMINDERS => 'kern:wallet:remind-maturities',
         };
     }
 
@@ -154,6 +164,7 @@ enum OperationTask: string
             self::SPV_CLOSE_EXPIRED_SESSIONS,
             self::IDENTITY_PRUNE_SESSIONS,
             self::SYSTEM_HEALTH_WATCH,
+            self::WALLET_MATURITY_REMINDERS,
         ], true);
     }
 

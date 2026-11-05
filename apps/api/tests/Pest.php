@@ -67,6 +67,7 @@ uses(RefreshDatabase::class)->in('Feature/TaxRomania/Rental');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Declarations');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Spv');
 uses(RefreshDatabase::class)->in('Feature/Platform/Settings');
+uses(RefreshDatabase::class)->in('Feature/Platform/Notifications');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Operations');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/StatementImport');
 

@@ -67,6 +67,8 @@ return [
             'identity.prune_sessions' => env('OPERATIONS_CRON_IDENTITY_PRUNE_SESSIONS', '40 * * * *'),
             // Every five minutes: the longest a down service goes unannounced to the administrators.
             'system.health_watch' => env('OPERATIONS_CRON_SYSTEM_HEALTH_WATCH', '*/5 * * * *'),
+            // Daily at nine in the schedule's timezone: a reminder is read, not woken to.
+            'wallet.maturity_reminders' => env('OPERATIONS_CRON_WALLET_MATURITY_REMINDERS', '0 9 * * *'),
         ],
     ],
 

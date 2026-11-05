@@ -35,15 +35,15 @@ import { PullIndicator } from './PullToRefresh';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import ImpersonationBanner from './ImpersonationBanner';
 import { usePageHeader } from '../lib/pageHeader';
-import { getDictionary, useTranslation } from '../i18n';
+import { getDictionary, getLocale, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
 import { subscribeToUserNotifications } from '../lib/echo';
-import { formatDateTime } from '../lib/format';
+import { formatDate, formatDateTime } from '../lib/format';
 import { useAppName, useSharedAuth } from '../lib/sharedProps';
 import { setActiveSubjectId } from '../lib/subjectStore';
-import type { ImportNotice } from '../types/notifications';
+import type { Notice } from '../types/notifications';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -252,15 +252,34 @@ async function handleLogout(): Promise<void> {
     }
 }
 
-/** Where a notice takes you: the import it is about, in the taxpayer it belongs to. */
-function openImportNotice(notice: ImportNotice): void {
+/** Where a notice takes you: what it is about, in the taxpayer it belongs to. */
+function openNotice(notice: Notice): void {
     // A full load, not an Inertia visit: the notice can be about another taxpayer than the one
     // selected, and the shell reads the selection once, when the page loads.
     setActiveSubjectId(notice.subjectId);
-    window.location.assign(`/wallet/imports/new?import=${encodeURIComponent(notice.importId)}`);
+    window.location.assign(
+        notice.type === 'deposit-maturity'
+            ? '/wallet/accounts'
+            : `/wallet/imports/new?import=${encodeURIComponent(notice.importId)}`,
+    );
 }
 
-function noticeText(notice: ImportNotice, dictionary: Dictionary): { title: string; body: string } {
+function noticeText(notice: Notice, dictionary: Dictionary, locale: string): { title: string; body: string } {
+    if (notice.type === 'deposit-maturity') {
+        const words = dictionary.shell.depositNotices;
+        const title =
+            notice.daysBefore === 0
+                ? words.titleToday
+                : notice.daysBefore === 1
+                  ? words.titleTomorrow
+                  : words.titleSoon.replace('{days}', String(notice.daysBefore));
+
+        return {
+            title,
+            body: words.body.replace('{date}', notice.maturityAt === null ? '' : formatDate(notice.maturityAt, locale)),
+        };
+    }
+
     const words = dictionary.shell.importNotices[notice.kind];
     const reason =
         notice.failureReason === null
@@ -287,7 +306,7 @@ function noticeText(notice: ImportNotice, dictionary: Dictionary): { title: stri
  */
 function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
     const { t, locale } = useTranslation();
-    const [notices, setNotices] = useState<ImportNotice[]>([]);
+    const [notices, setNotices] = useState<Notice[]>([]);
     const [unread, setUnread] = useState(0);
     const [failed, setFailed] = useState(false);
 
@@ -312,14 +331,14 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
             setNotices((current) => [notice, ...current.filter((entry) => entry.id !== notice.id)]);
             setUnread((count) => count + 1);
 
-            const text = noticeText(notice, getDictionary());
-            const show = notice.kind === 'FAILED' ? toast.error : toast.success;
+            const text = noticeText(notice, getDictionary(), getLocale());
+            const show = notice.type === 'statement-import' && notice.kind === 'FAILED' ? toast.error : toast.success;
             show(text.title, {
                 description: text.body,
                 action: {
                     label: getDictionary().shell.openNotice,
                     onClick: () => {
-                        openImportNotice(notice);
+                        openNotice(notice);
                     },
                 },
             });
@@ -378,14 +397,14 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                         </p>
                     )}
                     {notices.map((notice) => {
-                        const text = t((d) => noticeText(notice, d));
+                        const text = t((d) => noticeText(notice, d, locale));
 
                         return (
                             <DropdownMenuItem
                                 key={notice.id}
                                 className="items-start gap-2.5"
                                 onSelect={() => {
-                                    openImportNotice(notice);
+                                    openNotice(notice);
                                 }}
                             >
                                 <span
@@ -393,7 +412,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                                         'mt-1 size-2 shrink-0 rounded-full',
                                         notice.read
                                             ? 'bg-border'
-                                            : notice.kind === 'FAILED'
+                                            : notice.type === 'statement-import' && notice.kind === 'FAILED'
                                               ? 'bg-destructive'
                                               : 'bg-accent-500',
                                     )}

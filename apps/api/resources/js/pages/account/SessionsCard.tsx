@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import { Bot, LogOutIcon, Monitor, MonitorSmartphoneIcon, Smartphone, Tablet } from 'lucide-react';
+import { LogOutIcon, MonitorSmartphoneIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { revokeAllSessions, revokeSession } from '../../api/authApi';
@@ -7,55 +7,9 @@ import { reportApiFailure } from '../../lib/apiErrors';
 import { EventTime, Panel, PanelButton, Pill } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
-import type { Dictionary } from '../../i18n/dictionary';
-import type { DeviceKind, SessionSummary } from '../../types/auth';
-
-/**
- * The mark for what a session was opened from.
- *
- * Decoration, and deliberately so: the kind is read out of a string the client chose, so nothing is
- * decided from it — see `Kern\Platform\Identity\Enums\DeviceKind`. A robot gets its own mark
- * rather than a laptop's, because a session opened by one is either this installation's own tooling
- * or something worth a second look, and a laptop icon would say neither.
- */
-function deviceIcon(kind: DeviceKind): JSX.Element {
-    const className = 'text-muted-foreground size-4 shrink-0';
-
-    switch (kind) {
-        case 'mobile':
-            return <Smartphone className={className} aria-hidden="true" />;
-        case 'tablet':
-            return <Tablet className={className} aria-hidden="true" />;
-        case 'desktop':
-            return <Monitor className={className} aria-hidden="true" />;
-        case 'robot':
-            return <Bot className={className} aria-hidden="true" />;
-        default:
-            return <MonitorSmartphoneIcon className={className} aria-hidden="true" />;
-    }
-}
-
-/**
- * What to call the device, in the reader's language.
- *
- * The server sends the browser and the platform as separate fields and never the sentence joining
- * them — "Chrome on Windows" is English, and the word between them is this dictionary's to choose.
- *
- * Falls back through what it has: both parts, then whichever one was read, then the raw agent, then
- * a translated shrug. The raw string is kept as the last resort rather than dropped, because an
- * agent this build has never seen is still something its owner may recognise.
- */
-function deviceName(session: SessionSummary, t: <T>(select: (dictionary: Dictionary) => T) => T): string {
-    const { deviceBrowser: browser, devicePlatform: platform } = session;
-
-    if (browser !== null && platform !== null) {
-        return t((d) => d.pages.settingsSecurity.deviceOn)
-            .replace('{browser}', browser)
-            .replace('{platform}', platform);
-    }
-
-    return browser ?? platform ?? session.userAgent ?? t((d) => d.pages.settingsSecurity.unknownDevice);
-}
+import type { SessionSummary } from '../../types/auth';
+import DeviceIcon from '../../components/DeviceIcon';
+import { deviceName } from '../../lib/devices';
 
 /**
  * What is signed in as me right now, and how to end it.
@@ -146,7 +100,7 @@ export default function SessionsCard(props: { sessions: SessionSummary[] | null;
                 <ul className="divide-border divide-y">
                     {props.sessions.map((session) => (
                         <li key={session.id} className="even:bg-muted/45 flex items-center gap-3 px-4 py-3">
-                            {deviceIcon(session.deviceKind)}
+                            <DeviceIcon kind={session.deviceKind} />
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span className="identity-name text-sm">{deviceName(session, t)}</span>

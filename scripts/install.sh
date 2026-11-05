@@ -272,6 +272,19 @@ set_env() {
     chmod "$ENV_MODE" "$ENV_FILE"
 }
 
+# A key pair for device notifications (VAPID, RFC 8292): a P-256 key, written as browsers and
+# `minishlink/web-push` take it — the private scalar's 32 bytes and the public point's 65, each in URL-safe
+# base64 without padding. Cut out of openssl's DER rather than computed: in SEC1 the scalar sits at byte
+# 7, and a public key's DER ends with the point. `php artisan kern:push:keys` makes the same pair later.
+generate_push_keys() {
+    push_pem=$(openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null)
+    set_env WEB_PUSH_PRIVATE_KEY "$(printf '%s\n' "$push_pem" | openssl ec -outform DER 2>/dev/null \
+        | dd bs=1 skip=7 count=32 2>/dev/null | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+    set_env WEB_PUSH_PUBLIC_KEY "$(printf '%s\n' "$push_pem" | openssl ec -pubout -outform DER 2>/dev/null \
+        | tail -c 65 | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+    push_pem=''
+}
+
 # ---------------------------------------------------------------------------
 # Preflight
 # ---------------------------------------------------------------------------
@@ -829,6 +842,8 @@ write_environment_file() {
     # The browser's copy of the same key, baked into the assets when they are built — which is why
     # this has to be written before the build below and not after.
     set_env VITE_REVERB_APP_KEY "$REVERB_KEY"
+
+    generate_push_keys
 
     SITE_URL="https://$SITE_HOST"
     set_env APP_URL "$SITE_URL"

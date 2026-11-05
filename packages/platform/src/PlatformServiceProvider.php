@@ -17,6 +17,7 @@ use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
 use Kern\Platform\Logging\Redactions;
+use Kern\Platform\Notifications\NotificationsServiceProvider;
 use Kern\Platform\Settings\SettingsServiceProvider;
 use Kern\Platform\Tenancy\TenantContext;
 
@@ -48,6 +49,7 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->register(KeyManagementServiceProvider::class);
         $this->app->register(SettingsServiceProvider::class);
         $this->app->register(IdentityServiceProvider::class);
+        $this->app->register(NotificationsServiceProvider::class);
 
         $this->app->singleton(BlindIndexHasher::class);
 

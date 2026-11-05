@@ -27,6 +27,13 @@ return [
         // API, which still accepts every `DayCountConvention` case.
         'default_day_count' => env('WALLET_DEPOSIT_DEFAULT_DAY_COUNT', 'ACTUAL_365'),
 
+        // How many days before maturity a deposit's owners are told, once each — 0 is the day itself.
+        // Sent by the daily `wallet.maturity_reminders` task, at the hour its cron sets.
+        'reminder_days' => array_values(array_unique(array_filter(array_map(
+            static fn (string $value): int => (int) trim($value),
+            explode(',', (string) env('WALLET_DEPOSIT_REMINDER_DAYS', '30,7,1,0')),
+        ), static fn (int $days): bool => $days >= 0))),
+
         // Adding deposits from a CSV file. The file is read in memory and never stored, so these are
         // the whole of what it can cost: a request body this large, and this many deposits opened in
         // one transaction — each with its own interest schedule and audit event.

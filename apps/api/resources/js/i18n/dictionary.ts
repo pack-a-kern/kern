@@ -65,6 +65,8 @@ export interface Dictionary {
             { title: string; body: string }
         >;
         importNoticeFailedUnknown: string;
+        /** A deposit nearing maturity. `{days}` and `{date}` are substituted; the bell keeps no amount. */
+        depositNotices: { titleToday: string; titleTomorrow: string; titleSoon: string; body: string };
         changePalette: string;
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;
@@ -1492,6 +1494,35 @@ export interface Dictionary {
         account: {
             title: string;
             description: string;
+            notifications: {
+                title: string;
+                description: string;
+                thisDevice: string;
+                on: string;
+                off: string;
+                blocked: string;
+                turnOn: string;
+                turnOff: string;
+                onHint: string;
+                offHint: string;
+                blockedHint: string;
+                iosTitle: string;
+                iosHint: string;
+                unsupported: string;
+                notConfigured: string;
+                kinds: string;
+                devices: string;
+                lastUsed: string;
+                never: string;
+                remove: string;
+                removed: string;
+                sendTest: string;
+                testSent: string;
+                turnedOn: string;
+                turnedOff: string;
+                failed: string;
+                loadFailed: string;
+            };
             appearance: {
                 title: string;
                 description: string;

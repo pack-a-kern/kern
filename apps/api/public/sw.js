@@ -135,3 +135,58 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(navigationWithOfflineFallback(request));
     }
 });
+
+/*
+ * Device notifications (`Kern\Platform\Notifications`): the server sends a small JSON message,
+ * encrypted to this browser, and this shows it. `userVisibleOnly` is what the page subscribed with, so
+ * every push is shown — a browser may revoke the permission of a worker that receives one silently.
+ *
+ * What it says came from the server already in the device's language; nothing here is trusted beyond
+ * being text: a title, a body, a tag, and a path inside this application.
+ */
+self.addEventListener('push', (event) => {
+    let message = {};
+
+    try {
+        message = event.data ? event.data.json() : {};
+    } catch {
+        message = {};
+    }
+
+    const title = typeof message.title === 'string' && message.title !== '' ? message.title : 'Kern';
+
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body: typeof message.body === 'string' ? message.body : '',
+            icon: '/icons/icon-192.png',
+            badge: '/icons/icon-192.png',
+            tag: typeof message.tag === 'string' ? message.tag : undefined,
+            data: { url: typeof message.url === 'string' ? message.url : '/' },
+        }),
+    );
+});
+
+/*
+ * Tapping a notification opens what it is about — a window of this application already open is
+ * brought forward and sent there, otherwise one is opened. Only a path of this origin: a message
+ * naming another site is opened at the start page instead, never followed.
+ */
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const requested = event.notification.data && typeof event.notification.data.url === 'string' ? event.notification.data.url : '/';
+    const target = new URL(requested, self.location.origin);
+    const url = target.origin === self.location.origin ? target.href : self.location.origin + '/';
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+            const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+
+            if (open) {
+                return open.focus().then((client) => (client && 'navigate' in client ? client.navigate(url) : undefined));
+            }
+
+            return self.clients.openWindow(url);
+        }),
+    );
+});

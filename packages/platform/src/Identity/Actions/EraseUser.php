@@ -10,6 +10,8 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Notifications\Models\NotificationPreference;
+use Kern\Platform\Notifications\Models\PushSubscription;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
@@ -29,6 +31,7 @@ use Kern\Platform\Tenancy\Contracts\TenantMemberships;
  * | thing | what happens |
  * |---|---|
  * | sessions | deleted — signed out everywhere, at once |
+ * | notification devices and choices | deleted — no device of theirs is sent anything again |
  * | passkeys, authenticator, recovery codes | deleted — nothing can authenticate as them again |
  * | memberships | deleted — access to every taxpayer ends |
  * | platform roles and permissions | removed — a tombstone that still held `SUPER_ADMIN` counted as one, so the guard on removing the last super administrator counted it too |
@@ -45,6 +48,9 @@ final readonly class EraseUser
     {
         DB::transaction(function () use ($user, $actorId): void {
             $user->sessions()->delete();
+            // Its devices stop receiving notifications, and its choices of which go with them.
+            PushSubscription::query()->where('user_id', $user->id)->delete();
+            NotificationPreference::query()->where('user_id', $user->id)->delete();
             $user->passkeys()->delete();
             $user->mfaMethods()->delete();
             $user->recoveryCodes()->delete();

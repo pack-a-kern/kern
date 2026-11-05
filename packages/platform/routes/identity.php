@@ -29,6 +29,9 @@ use Kern\Platform\Http\Controllers\Auth\StepUpVerificationController;
 use Kern\Platform\Http\Controllers\Auth\TotpController;
 use Kern\Platform\Http\Controllers\Notifications\ListNotificationsController;
 use Kern\Platform\Http\Controllers\Notifications\MarkNotificationsReadController;
+use Kern\Platform\Http\Controllers\Notifications\NotificationPreferenceController;
+use Kern\Platform\Http\Controllers\Notifications\PushDeviceController;
+use Kern\Platform\Http\Controllers\Notifications\SendTestPushController;
 use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 
 /*
@@ -167,6 +170,17 @@ Route::post('v1/admin/impersonation/stop', [ImpersonationController::class, 'sto
 Route::prefix('v1/notifications')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListNotificationsController::class);
     Route::post('read', MarkNotificationsReadController::class);
+
+    // The same notices on the account's devices: which kinds go there, and which devices receive them.
+    // Only the account's own; changing them is throttled, and a test send even more, since each is a
+    // request to a push service on the account's behalf.
+    Route::get('preferences', [NotificationPreferenceController::class, 'index']);
+    Route::patch('preferences', [NotificationPreferenceController::class, 'update']);
+    Route::get('push/devices', [PushDeviceController::class, 'index']);
+    Route::post('push/devices', [PushDeviceController::class, 'store'])->middleware('throttle:push-devices-per-user');
+    Route::delete('push/devices/{deviceId}', [PushDeviceController::class, 'destroy'])
+        ->middleware('throttle:push-devices-per-user');
+    Route::post('push/test', SendTestPushController::class)->middleware('throttle:push-test-per-user');
 });
 
 // User administration. Same gate as settings and audit: this lists every account on the
