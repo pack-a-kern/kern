@@ -1,0 +1,48 @@
+{
+    "name": "kern/notifications",
+    "description": "Notices for a Laravel application: a bell inside it and the device's own notifications (Web Push) outside it, from one class per kind of notice, with a switch per kind for each person.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "guzzlehttp/guzzle": "^7.8",
+        "illuminate/console": "^13.0",
+        "illuminate/contracts": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/http": "^13.0",
+        "illuminate/notifications": "^13.0",
+        "illuminate/routing": "^13.0",
+        "illuminate/support": "^13.0",
+        "illuminate/validation": "^13.0",
+        "minishlink/web-push": "^11.0",
+        "psr/http-client": "^1.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kern\\Notifications\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kern\\Notifications\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kern\\Notifications\\NotificationsServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable"
+}

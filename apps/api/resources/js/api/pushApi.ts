@@ -1,8 +1,11 @@
 import { apiRequest } from '../lib/http';
 import { parseNotificationSettings, parsePushDevices, type NotificationSettings, type PushDevice } from '../types/push';
 
-export async function getNotificationSettings(): Promise<NotificationSettings> {
-    return parseNotificationSettings(await apiRequest('/v1/notifications/preferences'));
+/** Whether this server sends to devices, and one switch per kind of notice, named in `locale`. */
+export async function getNotificationSettings(locale: string): Promise<NotificationSettings> {
+    const query = new URLSearchParams({ locale });
+
+    return parseNotificationSettings(await apiRequest(`/v1/notifications/preferences?${query.toString()}`));
 }
 
 export async function setNotificationType(type: string, enabled: boolean): Promise<void> {

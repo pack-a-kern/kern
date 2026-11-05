@@ -20,6 +20,7 @@
         "kern/audit": "@dev",
         "kern/documents": "@dev",
         "kern/legislation": "@dev",
+        "kern/notifications": "@dev",
         "kern/platform": "@dev",
         "kern/tax-romania": "@dev",
         "laravel/framework": "^13.23",
@@ -27,7 +28,6 @@
         "laravel/reverb": "^1.11.1",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.35.3",
-        "minishlink/web-push": "^11.0.0",
         "spatie/laravel-permission": "8.3.0",
         "spomky-labs/otphp": "^11.5.0",
         "web-auth/webauthn-lib": "^5.3.8"

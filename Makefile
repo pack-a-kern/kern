@@ -147,7 +147,7 @@ check-php-pg:
 ##
 ## Points at `kern_pkg_test`, a database of its own, because these suites migrate from nothing.
 check-packages:
-	@for p in audit platform documents legislation tax-romania; do \
+	@for p in audit notifications platform documents legislation tax-romania; do \
 		echo "── kern/$$p"; \
 		$(AS_DB_OWNER) docker compose exec -T -e DB_USERNAME -e DB_PASSWORD $(SERVICE) sh -lc "cd /var/packages/$$p && vendor/bin/pest" || exit 1; \
 	done
@@ -165,7 +165,7 @@ check-packages:
 ## root-owned files in your tree.
 packages-install:
 	docker compose exec -T postgres sh -lc 'psql -U $$POSTGRES_USER -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'kern_pkg_test'"'"'" | grep -q 1 || createdb -U $$POSTGRES_USER kern_pkg_test'
-	@for p in audit platform documents legislation tax-romania; do \
+	@for p in audit notifications platform documents legislation tax-romania; do \
 		echo "── kern/$$p"; \
 		(cd packages/$$p && composer install --no-interaction \
 			--ignore-platform-req=php --ignore-platform-req=ext-sodium \

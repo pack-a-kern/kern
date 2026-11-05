@@ -1,6 +1,6 @@
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
-import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId } from '../lib/subjectStore';
+import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId, withoutSubjectLink } from '../lib/subjectStore';
 import { type SharedAuth } from '../lib/sharedProps';
 import { useActiveSubjectId, useOpenSubjects } from '../hooks/useActiveSubjectId';
 
@@ -96,7 +96,9 @@ export default function SubjectSwitcher({
 
     function activate(subjectId: string): void {
         setActiveSubjectId(subjectId);
-        window.location.reload();
+        // Not a plain reload: a page opened from a notice still names that notice's taxpayer, and
+        // would choose it again.
+        window.location.replace(withoutSubjectLink(window.location.href));
     }
 
     // A tile that only ever has one answer is not a control. With a single taxpayer the switcher

@@ -12,6 +12,7 @@ parameters:
     databaseMigrationsPath:
         - database/migrations
         - ../../packages/audit/database/migrations
+        - ../../packages/notifications/database/migrations
         - ../../packages/documents/database/migrations
         - ../../packages/legislation/database/migrations
         - ../../packages/tax-romania/database/migrations
@@ -22,6 +23,7 @@ parameters:
         # `vendor/kern/*`, analysed as source rather than skipped as a dependency. A package with no
         # static analysis is a package that breaks the application it was extracted from.
         - ../../packages/audit/src
+        - ../../packages/notifications/src
         - ../../packages/documents/src
         - ../../packages/legislation/src
         - ../../packages/tax-romania/src

@@ -13,7 +13,7 @@ import { en } from '../../i18n/en';
  *
  * Reaching a key counts in any of the ways the screens do: a selector down to it (`d.a.b.c`), a selector
  * that stops at a parent and hands the object on (`d.a.b[code]`), a helper handed the whole dictionary
- * (`dictionary.shell.importNotices[kind]`), or a chain ending in its last two names from wherever
+ * (`dictionary.a.b[code]`), or a chain ending in its last two names from wherever
  * (`getDictionary().shell.openNotice`).
  */
 

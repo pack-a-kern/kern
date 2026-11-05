@@ -2,12 +2,14 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeftRight,
     Bell,
+    BellOff,
     Building2,
     Calculator,
     CalendarClock,
     ChartColumn,
     CheckCheck,
     ChevronDown,
+    CloudOff,
     FileSpreadsheet,
     Files,
     Gavel,
@@ -35,14 +37,13 @@ import { PullIndicator } from './PullToRefresh';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import ImpersonationBanner from './ImpersonationBanner';
 import { usePageHeader } from '../lib/pageHeader';
-import { getDictionary, getLocale, useTranslation } from '../i18n';
+import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
 import { subscribeToUserNotifications } from '../lib/echo';
-import { formatDate, formatDateTime } from '../lib/format';
+import { formatDateTime } from '../lib/format';
 import { useAppName, useSharedAuth } from '../lib/sharedProps';
-import { setActiveSubjectId } from '../lib/subjectStore';
 import type { Notice } from '../types/notifications';
 import {
     DropdownMenu,
@@ -53,6 +54,7 @@ import {
 } from './ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import SubjectSwitcher from './SubjectSwitcher';
+import { EmptyState } from './panel';
 
 interface NavLink {
     /**
@@ -252,57 +254,24 @@ async function handleLogout(): Promise<void> {
     }
 }
 
-/** Where a notice takes you: what it is about, in the taxpayer it belongs to. */
+/**
+ * Where a notice takes you: the path it names, inside this application and nowhere else.
+ *
+ * A full load, not an Inertia visit: the link can name another taxpayer than the one selected
+ * (`?subject=`), and the shell reads which one once, when the page loads.
+ */
 function openNotice(notice: Notice): void {
-    // A full load, not an Inertia visit: the notice can be about another taxpayer than the one
-    // selected, and the shell reads the selection once, when the page loads.
-    setActiveSubjectId(notice.subjectId);
-    window.location.assign(
-        notice.type === 'deposit-maturity'
-            ? '/wallet/accounts'
-            : `/wallet/imports/new?import=${encodeURIComponent(notice.importId)}`,
-    );
-}
+    const target = new URL(notice.url, window.location.origin);
 
-function noticeText(notice: Notice, dictionary: Dictionary, locale: string): { title: string; body: string } {
-    if (notice.type === 'deposit-maturity') {
-        const words = dictionary.shell.depositNotices;
-        const title =
-            notice.daysBefore === 0
-                ? words.titleToday
-                : notice.daysBefore === 1
-                  ? words.titleTomorrow
-                  : words.titleSoon.replace('{days}', String(notice.daysBefore));
-
-        return {
-            title,
-            body: words.body.replace('{date}', notice.maturityAt === null ? '' : formatDate(notice.maturityAt, locale)),
-        };
-    }
-
-    const words = dictionary.shell.importNotices[notice.kind];
-    const reason =
-        notice.failureReason === null
-            ? undefined
-            : (dictionary.errors.reasons[notice.failureReason] ??
-              dictionary.pages.walletImports.aiReasons[notice.failureReason]);
-
-    return {
-        title: words.title,
-        body: words.body
-            .replace('{rows}', String(notice.rowCount))
-            .replace('{imported}', String(notice.importedCount))
-            .replace('{suggested}', String(notice.rowsSuggested))
-            .replace('{reason}', reason ?? dictionary.shell.importNoticeFailedUnknown),
-    };
+    window.location.assign(target.origin === window.location.origin ? target.href : '/');
 }
 
 /**
  * Notifications: the signed-in person's own, whichever taxpayer each is about.
  *
- * The list is fetched once and then kept current from the person's private channel, so a statement
- * that finishes reading while they are on another page shows up here — and as a toast — without a
- * refresh. The unread count is the server's; a notice arriving live adds one to it.
+ * Unread ones only: marking them read empties it. The list is fetched once and fetched again whenever
+ * the person's private channel announces a notice, so one raised while they are on another page shows
+ * up here — and as a toast — without a refresh.
  */
 function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
     const { t, locale } = useTranslation();
@@ -313,7 +282,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
     useEffect(() => {
         let active = true;
 
-        listNotifications().then(
+        listNotifications(locale).then(
             (feed) => {
                 if (active) {
                     setNotices(feed.notices);
@@ -327,34 +296,48 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
             },
         );
 
-        const unsubscribe = subscribeToUserNotifications(userId, (notice) => {
-            setNotices((current) => [notice, ...current.filter((entry) => entry.id !== notice.id)]);
-            setUnread((count) => count + 1);
+        // The socket says a notice was stored and which; its words come with the list, over HTTPS.
+        const unsubscribe = subscribeToUserNotifications(userId, (noticeId) => {
+            listNotifications(locale).then(
+                (feed) => {
+                    if (!active) {
+                        return;
+                    }
 
-            const text = noticeText(notice, getDictionary(), getLocale());
-            const show = notice.type === 'statement-import' && notice.kind === 'FAILED' ? toast.error : toast.success;
-            show(text.title, {
-                description: text.body,
-                action: {
-                    label: getDictionary().shell.openNotice,
-                    onClick: () => {
-                        openNotice(notice);
-                    },
+                    setNotices(feed.notices);
+                    setUnread(feed.unread);
+
+                    const notice = feed.notices.find((entry) => entry.id === noticeId);
+
+                    if (notice !== undefined) {
+                        (notice.level === 'error' ? toast.error : toast.success)(notice.title, {
+                            description: notice.body,
+                            action: {
+                                label: getDictionary().shell.openNotice,
+                                onClick: () => {
+                                    openNotice(notice);
+                                },
+                            },
+                        });
+                    }
                 },
-            });
+                () => {
+                    // The bell keeps what it last read; the next notice, or the next page, reads again.
+                },
+            );
         });
 
         return () => {
             active = false;
             unsubscribe();
         };
-    }, [userId]);
+    }, [userId, locale]);
 
     function markAllRead(): void {
         markAllNotificationsRead().then(
             () => {
                 setUnread(0);
-                setNotices((current) => current.map((entry) => ({ ...entry, read: true })));
+                setNotices([]);
             },
             () => {
                 toast.error(t((d) => d.shell.notificationsFailed));
@@ -391,45 +374,45 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                     )}
                 </div>
                 <div className="max-h-[360px] overflow-y-auto p-1.5">
-                    {notices.length === 0 && (
-                        <p className="text-ink-400 px-2 py-3 text-xs leading-4">
-                            {failed ? t((d) => d.shell.notificationsFailed) : t((d) => d.shell.notificationsEmpty)}
-                        </p>
-                    )}
-                    {notices.map((notice) => {
-                        const text = t((d) => noticeText(notice, d, locale));
-
-                        return (
-                            <DropdownMenuItem
-                                key={notice.id}
-                                className="items-start gap-2.5"
-                                onSelect={() => {
-                                    openNotice(notice);
-                                }}
-                            >
-                                <span
-                                    className={cn(
-                                        'mt-1 size-2 shrink-0 rounded-full',
-                                        notice.read
-                                            ? 'bg-border'
-                                            : notice.type === 'statement-import' && notice.kind === 'FAILED'
-                                              ? 'bg-destructive'
-                                              : 'bg-accent-500',
-                                    )}
-                                    aria-hidden="true"
-                                />
-                                <span className="min-w-0">
-                                    <span className="block text-xs font-semibold">{text.title}</span>
-                                    <span className="text-ink-400 mt-0.5 block text-xs leading-4">{text.body}</span>
-                                    {notice.createdAt !== null && (
-                                        <span className="text-ink-400 mt-0.5 block text-2xs tabular-nums">
-                                            {formatDateTime(notice.createdAt, locale)}
-                                        </span>
-                                    )}
-                                </span>
-                            </DropdownMenuItem>
-                        );
-                    })}
+                    {notices.length === 0 &&
+                        (failed ? (
+                            <EmptyState
+                                icon={<CloudOff className="size-5" />}
+                                title={t((d) => d.shell.notificationsFailed)}
+                            />
+                        ) : (
+                            <EmptyState
+                                icon={<BellOff className="size-5" />}
+                                title={t((d) => d.shell.notificationsEmpty)}
+                                description={t((d) => d.shell.notificationsEmptyHint)}
+                            />
+                        ))}
+                    {notices.map((notice) => (
+                        <DropdownMenuItem
+                            key={notice.id}
+                            className="items-start gap-2.5"
+                            onSelect={() => {
+                                openNotice(notice);
+                            }}
+                        >
+                            <span
+                                className={cn(
+                                    'mt-1 size-2 shrink-0 rounded-full',
+                                    notice.level === 'error' ? 'bg-destructive' : 'bg-accent-500',
+                                )}
+                                aria-hidden="true"
+                            />
+                            <span className="min-w-0">
+                                <span className="block text-xs font-semibold">{notice.title}</span>
+                                <span className="text-ink-400 mt-0.5 block text-xs leading-4">{notice.body}</span>
+                                {notice.createdAt !== null && (
+                                    <span className="text-ink-400 mt-0.5 block text-2xs tabular-nums">
+                                        {formatDateTime(notice.createdAt, locale)}
+                                    </span>
+                                )}
+                            </span>
+                        </DropdownMenuItem>
+                    ))}
                 </div>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -700,42 +683,54 @@ function BottomNav({ currentUrl }: { currentUrl: string }): JSX.Element {
  *
  * At rest a card above the page; scrolled up to the top bar, it stays there and widens to the full
  * width, so the two read as one bar and the pages are always one tap away. Whether it is there is
- * told by a marker just above it leaving the scroll area — an observer, not a scroll listener, so
- * nothing runs while the page scrolls.
+ * told by the strip's own top edge against the scroll area's — an observer, not a scroll listener,
+ * so nothing runs while the page scrolls. Its own edge rather than a marker above it: a marker only
+ * agrees with where the strip sticks while every browser places a sticky box in a padded scroll
+ * area the same way, and the strip's position is the one thing that cannot disagree with itself.
  */
 function SectionTabs({ currentUrl }: { currentUrl: string }): JSX.Element | null {
     const { t } = useTranslation();
-    const marker = useRef<HTMLDivElement>(null);
-    const strip = useRef<HTMLElement>(null);
+    // State, not a ref: the strip exists only on a section with pages, and the shell stays mounted
+    // while you move between sections, so the observer below has to start when the strip appears.
+    const [strip, setStrip] = useState<HTMLElement | null>(null);
     const [stuck, setStuck] = useState(false);
 
     // The page you are on, brought into view as the bottom bar does — by moving the strip sideways
     // only: `scrollIntoView` would also scroll the page to it, and the page is where the reader is.
     useEffect(() => {
-        const row = strip.current;
-        const here = row?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
+        const here = strip?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
 
-        if (row !== null && here !== null) {
-            row.scrollTo({ left: here.offsetLeft - (row.clientWidth - here.offsetWidth) / 2 });
+        if (strip !== null && here !== null) {
+            strip.scrollTo({ left: here.offsetLeft - (strip.clientWidth - here.offsetWidth) / 2 });
         }
-    }, [currentUrl]);
+    }, [strip, currentUrl]);
 
     useEffect(() => {
-        const element = marker.current;
+        const root = strip?.closest('main') ?? null;
 
-        if (element === null) {
+        if (strip === null || root === null) {
             return;
         }
 
-        const observer = new IntersectionObserver(([entry]) => {
-            setStuck(entry !== undefined && !entry.isIntersecting);
-        });
-        observer.observe(element);
+        // The scroll area's top edge moved down a pixel: the strip leaves that band only once its
+        // own top reaches the top bar. Only the top edge decides — the strip widens sideways when it
+        // sticks, and a sub-pixel at its sides must not read as having arrived.
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry?.rootBounds != null) {
+                    setStuck(entry.boundingClientRect.top < entry.rootBounds.top);
+                }
+            },
+            { root, rootMargin: '-1px 0px 0px 0px', threshold: 1 },
+        );
+        observer.observe(strip);
 
+        // A strip that goes away takes its stuck state with it, so the next section's starts at rest.
         return () => {
             observer.disconnect();
+            setStuck(false);
         };
-    }, []);
+    }, [strip]);
     const group = useVisibleSections()
         .flatMap((section) => section.items)
         .find((item) => (item.children ?? []).length > 0 && containsCurrent(item, currentUrl));
@@ -754,31 +749,28 @@ function SectionTabs({ currentUrl }: { currentUrl: string }): JSX.Element | null
     }
 
     return (
-        <>
-            <div ref={marker} className="h-px lg:hidden" aria-hidden="true" />
-            <nav
-                ref={strip}
-                className="section-tabs lg:hidden"
-                data-stuck={stuck ? '' : undefined}
-                aria-label={t(group.label)}
-            >
-                {pages.map((page) => {
-                    const Icon = page.icon;
+        <nav
+            ref={setStrip}
+            className="section-tabs lg:hidden"
+            data-stuck={stuck ? '' : undefined}
+            aria-label={t(group.label)}
+        >
+            {pages.map((page) => {
+                const Icon = page.icon;
 
-                    return (
-                        <Link
-                            key={page.href}
-                            href={page.href}
-                            className="section-tab"
-                            aria-current={isActive(currentUrl, page.href) ? 'page' : undefined}
-                        >
-                            <Icon className="size-3.5" aria-hidden="true" />
-                            {t(page.label)}
-                        </Link>
-                    );
-                })}
-            </nav>
-        </>
+                return (
+                    <Link
+                        key={page.href}
+                        href={page.href}
+                        className="section-tab"
+                        aria-current={isActive(currentUrl, page.href) ? 'page' : undefined}
+                    >
+                        <Icon className="size-3.5" aria-hidden="true" />
+                        {t(page.label)}
+                    </Link>
+                );
+            })}
+        </nav>
     );
 }
 

@@ -4,6 +4,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { cspNonce, shareCspNonce } from './lib/cspNonce';
 import { registerServiceWorker } from './lib/registerServiceWorker';
+import { adoptSubjectFromLink } from './lib/subjectStore';
 import { appNameFrom } from './lib/sharedProps';
 import StepUpGate from './components/StepUpGate';
 import { Toaster } from './components/ui/sonner';
@@ -22,6 +23,8 @@ let appName = '';
 // Before anything renders, so the first dialog's `<style>` already carries the page nonce.
 shareCspNonce();
 registerServiceWorker();
+// Before any screen asks which taxpayer it is in.
+adoptSubjectFromLink();
 
 const nonce = cspNonce();
 

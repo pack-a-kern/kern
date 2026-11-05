@@ -964,25 +964,36 @@ it('tells the person who started an import when it moves on', function (): void 
     $this->actingAs($user)->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())->assertOk();
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")->assertStatus(202);
 
-    $bell = $this->actingAs($user)->getJson('/api/v1/notifications')->assertOk();
+    $bell = $this->actingAs($user)->getJson('/api/v1/notifications?locale=en')->assertOk();
 
     /** @var list<array<string, mixed>> $notices */
     $notices = $bell->json('notifications');
-    $kinds = collect($notices)->pluck('data.kind')->all();
 
     // Newest first. No "ready for review": with no model to ask, the review opened at once.
-    expect($kinds)->toBe(['IMPORTED', 'READY_FOR_MAPPING'])
+    expect(collect($notices)->pluck('title')->all())->toBe(['Statement imported', 'Statement read'])
         ->and($bell->json('unread'))->toBe(2)
-        ->and($bell->json('notifications.0.data.import_id'))->toBe($import->id)
-        ->and($bell->json('notifications.0.data.imported_count'))->toBe(3);
+        ->and($bell->json('notifications.0.body'))->toBe('3 transactions added.')
+        ->and($bell->json('notifications.0.url'))->toBe("/wallet/imports/new?import={$import->id}&subject={$subjectId}");
 
-    // Ids, counts and codes only — nothing from the statement itself.
-    expect(json_encode($notices, JSON_THROW_ON_ERROR))->not->toContain('KAUFLAND');
+    // Counts and what happened — nothing from the statement itself, neither shown nor stored.
+    expect(json_encode($notices, JSON_THROW_ON_ERROR))->not->toContain('KAUFLAND')
+        ->and(DB::table('notifications')->where('notifiable_id', $user->id)->pluck('data')->implode(' '))->not->toContain('KAUFLAND');
 
     $this->actingAs($someoneElse)->getJson('/api/v1/notifications')->assertOk()->assertJsonCount(0, 'notifications');
 
+    // Read, and gone from the bell.
     $this->actingAs($user)->postJson('/api/v1/notifications/read')->assertNoContent();
-    $this->actingAs($user)->getJson('/api/v1/notifications')->assertJsonPath('unread', 0);
+    $this->actingAs($user)->getJson('/api/v1/notifications')->assertJsonCount(0, 'notifications')->assertJsonPath('unread', 0);
+});
+
+it('leaves out the notices of an import since deleted', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-sters.csv');
+    $this->actingAs($user)->getJson('/api/v1/notifications')->assertJsonCount(1, 'notifications');
+
+    $this->actingAs($user)->deleteJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")->assertNoContent();
+
+    $this->actingAs($user)->getJson('/api/v1/notifications')->assertJsonCount(0, 'notifications')->assertJsonPath('unread', 0);
 });
 
 it('never lets one taxpayer see another import', function (): void {

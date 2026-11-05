@@ -40,6 +40,12 @@ Checked: **2026-09-07**
 | `web-auth/webauthn-lib` | 5.3.8 | Checked 2026-09-08. MIT, actively maintained (releases through 5.4.x-dev), PHP `>=8.2`. Used directly (no Laravel wrapper) — see `docs/handoff/017-authentication.md` "Key decisions" for why `laravel/passkeys` (v0.2.1, pre-1.0, official but very new) was also passed over in favour of integrating the underlying, mature library directly. |
 | `spomky-labs/otphp` | 11.5.0 | TOTP. Not abandoned, checked 2026-09-08. |
 | `league/flysystem-aws-s3-v3` | 3.35.3 | |
+| `minishlink/web-push` | 11.0.0 | Checked 2026-11-05. MIT, maintained (released 2026-07-23). RFC 8291 message encryption and RFC 8292 VAPID signing for `kern/notifications` — cryptography is never written here (`docs/DEPENDENCY-POLICY.md` §3). Brings `php-http/discovery` 1.20.0, `php-http/httplug` 2.4.1, `php-http/promise` 1.3.1, `spomky-labs/base64url` 2.0.4, `web-token/jwt-library` 4.2.4; sends through the Guzzle already installed. `composer audit`: no advisories. |
+
+> **Security bump 2026-11-05:** `symfony/http-foundation` 8.1.10, `http-kernel`, `routing`,
+> `serializer`, `yaml`, `filesystem` 8.1.6 and `config` 8.1.5 → **8.1.11** for the twelve advisories
+> published 2026-11-04 (among them CVE-2026-118514, CVE-2026-118515, CVE-2026-118516). Pulled in by
+> Laravel, `webauthn-lib`, `aws-sdk-php` and Deptrac; nothing else in the lock moved.
 
 > **Host gotcha:** this machine's CLI PHP is 8.3, but Pest 5 needs ^8.4. Pin the target runtime in
 > `composer.json` so resolution matches the container, not the host:

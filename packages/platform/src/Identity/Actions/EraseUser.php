@@ -8,10 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Notifications\Actions\ForgetNotifiable;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
-use Kern\Platform\Notifications\Models\NotificationPreference;
-use Kern\Platform\Notifications\Models\PushSubscription;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
@@ -40,8 +39,11 @@ use Kern\Platform\Tenancy\Contracts\TenantMemberships;
  */
 final readonly class EraseUser
 {
-    public function __construct(private AuditChainService $audit, private TenantMemberships $memberships)
-    {
+    public function __construct(
+        private AuditChainService $audit,
+        private TenantMemberships $memberships,
+        private ForgetNotifiable $forgetNotifiable,
+    ) {
     }
 
     public function __invoke(User $user, string $actorId): void
@@ -49,8 +51,7 @@ final readonly class EraseUser
         DB::transaction(function () use ($user, $actorId): void {
             $user->sessions()->delete();
             // Its devices stop receiving notifications, and its choices of which go with them.
-            PushSubscription::query()->where('user_id', $user->id)->delete();
-            NotificationPreference::query()->where('user_id', $user->id)->delete();
+            ($this->forgetNotifiable)($user);
             $user->passkeys()->delete();
             $user->mfaMethods()->delete();
             $user->recoveryCodes()->delete();

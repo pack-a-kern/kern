@@ -32,7 +32,7 @@ interface CardState {
  * now, registers it again, so what arrives on it is written in the language it is read in.
  */
 async function readCardState(locale: string): Promise<CardState> {
-    const [settings, devices] = await Promise.all([getNotificationSettings(), listPushDevices()]);
+    const [settings, devices] = await Promise.all([getNotificationSettings(locale), listPushDevices()]);
     const subscription = pushSupport() === 'available' ? await currentSubscription() : null;
     const thisHash = subscription === null ? null : await endpointHash(subscription.endpoint);
     const registered = devices.find((device) => device.endpointHash === thisHash);
@@ -48,9 +48,9 @@ async function readCardState(locale: string): Promise<CardState> {
  * Notifications on the person's own devices: this device on or off, which kinds they receive, and the
  * devices that receive them.
  *
- * The kinds are the server's (`v1/notifications/preferences`): each package declares its own, with its
- * name and hint in both languages, so this card has no list of them and a kind a package adds appears
- * here as a switch. The switches decide what reaches a device; the bell keeps every notice regardless.
+ * The kinds are the server's (`v1/notifications/preferences`), named in the page's language: each
+ * package registers its own, so this card has no list of them and a kind a package adds appears here
+ * as a switch. The switches decide what reaches a device; the bell keeps every notice regardless.
  */
 export default function NotificationsCard(): JSX.Element {
     const { t, locale } = useTranslation();
@@ -226,11 +226,11 @@ export default function NotificationsCard(): JSX.Element {
                     </Row>
 
                     {settings.types.map((type) => (
-                        <Row key={type.key} title={type.label[locale] ?? type.key} subtitle={type.hint[locale] ?? ''}>
+                        <Row key={type.key} title={type.label} subtitle={type.hint}>
                             <Switch
                                 checked={type.enabled}
                                 disabled={busy}
-                                aria-label={type.label[locale] ?? type.key}
+                                aria-label={type.label}
                                 onCheckedChange={(enabled) => {
                                     void run(() => setNotificationType(type.key, enabled), null);
                                 }}

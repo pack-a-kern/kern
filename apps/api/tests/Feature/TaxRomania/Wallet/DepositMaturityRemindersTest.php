@@ -8,9 +8,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Kern\Notifications\Notice;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
-use Kern\Platform\Notifications\Channels\WebPushChannel;
 use Kern\Platform\Testing\InMemoryDekRepository;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\Database\Factories\BankFactory;
@@ -18,12 +18,11 @@ use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\DepositTerms;
-use Kern\TaxRomania\Wallet\Notifications\DepositMaturityNotice;
 use Tests\TestCase;
 
 /**
  * The daily maturity reminders: once per deposit and distance, to the taxpayer's owners, saying exactly
- * what matures — on the device — while the bell keeps no amount.
+ * what matures — in the bell and on the device — while storing no amount.
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
@@ -84,8 +83,8 @@ it('tells the owners once per distance, and nobody else', function (): void {
     expect(Artisan::call('kern:wallet:remind-maturities'))->toBe(0)
         ->and(Artisan::call('kern:wallet:remind-maturities'))->toBe(0);
 
-    Notification::assertSentToTimes($owner, DepositMaturityNotice::class, 1);
-    Notification::assertNotSentTo($viewer, DepositMaturityNotice::class);
+    Notification::assertSentToTimes($owner, Notice::class, 1);
+    Notification::assertNotSentTo($viewer, Notice::class);
     expect(DB::table('deposit_maturity_reminders')->where('account_id', $deposit)->value('days_before'))->toBe(7)
         ->and(DB::table('deposit_maturity_reminders')->where('tax_subject_id', $subject->id)->count())->toBe(1);
 });
@@ -104,25 +103,62 @@ it('still says "today" of a deposit closed on its maturity, and nothing of one c
         ->and(DB::table('deposit_maturity_reminders')->where('tax_subject_id', $subject->id)->pluck('account_id')->all())->toBe([$matured]);
 });
 
-it('says exactly what matures on the device, and keeps no amount in the bell', function (): void {
+it('says exactly what matures, in the bell and on the device alike, while storing no amount', function (): void {
     $subject = TaxSubject::factory()->create();
     $owner = member($subject->id, MembershipRole::OWNER);
     $id = depositMaturingIn($this, $owner, $subject->id, 7);
-    $terms = DepositTerms::query()->withoutGlobalScopes()->findOrFail($id);
 
-    $notice = new DepositMaturityNotice($terms, 7, 'Banca de Investiții și Dezvoltare');
-    $push = $notice->toPush($owner, 'ro');
+    expect(Artisan::call('kern:wallet:remind-maturities'))->toBe(0);
 
-    expect($notice->via($owner))->toContain(WebPushChannel::class)
-        ->and($push->title)->toBe('Un depozit ajunge la scadență în 7 zile')
-        ->and($push->body)->toContain('Banca de Investiții și Dezvoltare')
-        ->and($push->body)->toContain('6.123.456,78')
-        ->and($notice->toPush($owner, 'en')->title)->toBe('A deposit matures in 7 days')
-        ->and(json_encode($notice->toArray($owner)))->not->toContain('612345678')
-        ->and($notice->toArray($owner))->toBe([
-            'subject_id' => $subject->id,
-            'account_id' => $id,
-            'days_before' => 7,
-            'maturity_at' => $terms->maturity_at->toDateString(),
-        ]);
+    $stored = DB::table('notifications')->where('notifiable_id', $owner->id)->sole();
+    expect($stored->type)->toBe('deposit-maturity')
+        ->and($stored->data)->not->toContain('612345678')
+        ->and($stored->data)->not->toContain('Investiții');
+
+    $bell = $this->actingAs($owner)->getJson('/api/v1/notifications?locale=ro')
+        ->assertOk()
+        ->assertJsonPath('notifications.0.title', 'Un depozit ajunge la scadență în 7 zile')
+        ->assertJsonPath('notifications.0.url', '/wallet/accounts?subject=' . $subject->id);
+
+    expect($bell->json('notifications.0.body'))
+        ->toStartWith('Banca de Investiții și Dezvoltare: 6.123.456,78')
+        ->toContain('RON');
+
+    $this->actingAs($owner)->getJson('/api/v1/notifications?locale=en')
+        ->assertJsonPath('notifications.0.title', 'A deposit matures in 7 days');
+
+    expect(DepositTerms::query()->withoutGlobalScopes()->whereKey($id)->exists())->toBeTrue();
+});
+
+it('stops showing a deposit to someone who no longer acts for its taxpayer', function (): void {
+    $subject = TaxSubject::factory()->create();
+    $owner = member($subject->id, MembershipRole::OWNER);
+    depositMaturingIn($this, $owner, $subject->id, 7);
+    Artisan::call('kern:wallet:remind-maturities');
+
+    SubjectMembership::query()->where('user_id', $owner->id)->update(['revoked_at' => now('UTC')]);
+
+    $this->actingAs($owner)->getJson('/api/v1/notifications')->assertOk()->assertJsonCount(0, 'notifications');
+});
+
+it('costs the bell the same few queries for one deposit or many', function (): void {
+    $queriesFor = function (int $deposits): int {
+        $subject = TaxSubject::factory()->create();
+        $owner = member($subject->id, MembershipRole::OWNER);
+
+        for ($i = 0; $i < $deposits; $i++) {
+            depositMaturingIn($this, $owner, $subject->id, 7);
+        }
+
+        Artisan::call('kern:wallet:remind-maturities');
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($owner)->getJson('/api/v1/notifications')->assertJsonCount($deposits, 'notifications');
+        DB::disableQueryLog();
+
+        return count(DB::getQueryLog());
+    };
+
+    expect($queriesFor(3))->toBe($queriesFor(1));
 });

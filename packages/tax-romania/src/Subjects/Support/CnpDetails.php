@@ -21,10 +21,13 @@ final readonly class CnpDetails
         public bool $foreignResident,
         /** `YYYY-MM-DD`, derived from the CNP's own digits. */
         public string $birthDate,
-        /** The county's numeric code as the CNP writes it, `01`–`52`. */
+        /** The county's numeric code as the CNP writes it, `01`–`52`, or `70`. */
         public string $countyNumber,
-        /** The same county in the letter code the rest of this application uses, e.g. `CJ`. */
-        public string $countyCode,
+        /**
+         * The same county in the letter code the rest of this application uses, e.g. `CJ`; null
+         * for `70`, which every CNP generated since 8 May 2024 carries in place of a county.
+         */
+        public ?string $countyCode,
         /**
          * The locality the CNP actually names, or null when it names none.
          *

@@ -1,129 +1,62 @@
 import { obj } from '../lib/json';
+import { ValidationError, vEnum, vNullable, vObject, vString } from '../lib/validate';
 
 /**
- * The bell's notices (`Kern\Platform\Http\Controllers\Notifications\ListNotificationsController`).
+ * The bell's unread notices, as `kern/notifications` writes them (`GET v1/notifications`).
  *
- * Only statement imports raise one today. A notice of a type this screen does not know is dropped
- * rather than drawn blank: the server can learn a new kind before the bundle in an open tab does.
+ * Already in words: each kind of notice writes its own title, text and link on the server, in the
+ * page's language, so this screen has no list of kinds and a kind a package adds is shown with nothing
+ * to change here. A notice that does not have this shape is left out, not drawn blank.
  */
-
-export type ImportNoticeKind = 'READY_FOR_MAPPING' | 'READY_FOR_REVIEW' | 'IMPORTED' | 'FAILED';
-
-const KINDS: readonly ImportNoticeKind[] = ['READY_FOR_MAPPING', 'READY_FOR_REVIEW', 'IMPORTED', 'FAILED'];
-
-/** Ids, counts and closed codes only — `StatementImportNotice::toArray()`. */
-export interface ImportNotice {
+export interface Notice {
     id: string;
-    type: 'statement-import';
-    kind: ImportNoticeKind;
-    subjectId: string;
-    importId: string;
-    rowCount: number;
-    importedCount: number;
-    rowsSuggested: number;
-    failureReason: string | null;
-    read: boolean;
+    /** The kind's key — for telling notices apart, never for choosing what they say. */
+    type: string;
+    title: string;
+    body: string;
+    /** A path inside this application. */
+    url: string;
+    /** `error` marks one that reports something that went wrong. */
+    level: 'info' | 'error';
     createdAt: string | null;
 }
 
-/**
- * A term deposit nearing maturity (`Kern\TaxRomania\Wallet\Notifications\DepositMaturityNotice`). The bell
- * keeps no amount and no bank — its table is not encrypted — only which deposit, how many days, and when.
- */
-export interface DepositMaturityNotice {
-    id: string;
-    type: 'deposit-maturity';
-    subjectId: string;
-    accountId: string;
-    /** Days before maturity: 0 is the day itself. */
-    daysBefore: number;
-    maturityAt: string | null;
-    read: boolean;
-    createdAt: string | null;
-}
-
-/** Every notice the bell shows. A type this build does not know is left out, not drawn as something else. */
-export type Notice = ImportNotice | DepositMaturityNotice;
-
+/** The unread notices — the bell lists nothing once they are read. */
 export interface NotificationFeed {
     notices: Notice[];
     unread: number;
 }
 
-const IMPORT_NOTICE_TYPE = 'statement-import';
-const DEPOSIT_NOTICE_TYPE = 'deposit-maturity';
+const notice = vObject({
+    id: vString,
+    type: vString,
+    title: vString,
+    body: vString,
+    url: vString,
+    level: vEnum(['info', 'error'] as const),
+    created_at: vNullable(vString),
+});
 
-function asCount(value: unknown): number {
-    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
+function parseNotice(raw: unknown): Notice | null {
+    try {
+        const parsed = notice(raw);
 
-function asString(value: unknown): string | null {
-    return typeof value === 'string' && value !== '' ? value : null;
-}
+        return {
+            id: parsed.id,
+            type: parsed.type,
+            title: parsed.title,
+            body: parsed.body,
+            url: parsed.url,
+            level: parsed.level,
+            createdAt: parsed.created_at,
+        };
+    } catch (cause: unknown) {
+        if (cause instanceof ValidationError) {
+            return null;
+        }
 
-/**
- * One notice, from either shape it arrives in: a stored row keeps its fields under `data`, a
- * broadcast carries them at the top level beside `id` and `type`.
- */
-function parseImportNotice(raw: unknown): ImportNotice | null {
-    const row = obj(raw);
-    const data = 'data' in row ? obj(row.data) : row;
-    const id = asString(row.id);
-    const kind = KINDS.find((known) => known === data.kind);
-    const subjectId = asString(data.subject_id);
-    const importId = asString(data.import_id);
-
-    if (
-        row.type !== IMPORT_NOTICE_TYPE ||
-        id === null ||
-        kind === undefined ||
-        subjectId === null ||
-        importId === null
-    ) {
-        return null;
+        throw cause;
     }
-
-    return {
-        id,
-        type: IMPORT_NOTICE_TYPE,
-        kind,
-        subjectId,
-        importId,
-        rowCount: asCount(data.row_count),
-        importedCount: asCount(data.imported_count),
-        rowsSuggested: asCount(data.rows_suggested),
-        failureReason: asString(data.failure_reason),
-        read: asString(row.read_at) !== null,
-        createdAt: asString(row.created_at),
-    };
-}
-
-function parseDepositNotice(raw: unknown): DepositMaturityNotice | null {
-    const row = obj(raw);
-    const data = 'data' in row ? obj(row.data) : row;
-    const id = asString(row.id);
-    const subjectId = asString(data.subject_id);
-    const accountId = asString(data.account_id);
-
-    if (row.type !== DEPOSIT_NOTICE_TYPE || id === null || subjectId === null || accountId === null) {
-        return null;
-    }
-
-    return {
-        id,
-        type: DEPOSIT_NOTICE_TYPE,
-        subjectId,
-        accountId,
-        daysBefore: asCount(data.days_before),
-        maturityAt: asString(data.maturity_at),
-        read: asString(row.read_at) !== null,
-        createdAt: asString(row.created_at),
-    };
-}
-
-/** One notice from the feed or the person's channel, whichever kind it is — or null for one this build cannot read. */
-export function parseNotice(raw: unknown): Notice | null {
-    return parseImportNotice(raw) ?? parseDepositNotice(raw);
 }
 
 export function parseNotificationFeed(raw: unknown): NotificationFeed {
@@ -131,7 +64,17 @@ export function parseNotificationFeed(raw: unknown): NotificationFeed {
     const rows = Array.isArray(body.notifications) ? body.notifications : [];
 
     return {
-        notices: rows.map(parseNotice).filter((notice): notice is Notice => notice !== null),
-        unread: asCount(body.unread),
+        notices: rows.map(parseNotice).filter((entry): entry is Notice => entry !== null),
+        unread: typeof body.unread === 'number' && Number.isFinite(body.unread) ? body.unread : 0,
     };
+}
+
+/**
+ * The notice's id from the person's private channel. The socket carries the id and the kind only —
+ * never what the notice says — so the words are fetched with the list.
+ */
+export function noticeIdFrom(raw: unknown): string | null {
+    const id = obj(raw).id;
+
+    return typeof id === 'string' && id !== '' ? id : null;
 }

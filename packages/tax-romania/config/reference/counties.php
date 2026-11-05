@@ -70,12 +70,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | A CNP records the county of registration as a number, 01-52, which is a
-    | different scale from the letter codes above — and it has six entries the
-    | letters do not: 41-46 are Bucharest's sectors, which all map back to B.
+    | different scale from the letter codes above — and it has entries the
+    | letters do not: 41-48 are Bucharest's sectors, which all map back to B,
+    | and 70 names no county at all (null).
     |
     | Mapped to the letter code so a parsed CNP can pre-select the same county
     | the address field offers. Keys are strings because the leading zero is
-    | part of the code.
+    | part of the code. A number missing here is not a CNP county.
     |
     */
 
@@ -88,9 +89,14 @@ return [
         '26' => 'MS', '27' => 'NT', '28' => 'OT', '29' => 'PH', '30' => 'SM',
         '31' => 'SJ', '32' => 'SB', '33' => 'SV', '34' => 'TR', '35' => 'TM',
         '36' => 'TL', '37' => 'VS', '38' => 'VL', '39' => 'VN',
-        // Bucharest and its six sectors.
+        // Bucharest and its six sectors, and sectors 7 and 8, abolished in 1979 but still in the
+        // CNPs issued while they existed.
         '40' => 'B', '41' => 'B', '42' => 'B', '43' => 'B', '44' => 'B', '45' => 'B', '46' => 'B',
+        '47' => 'B', '48' => 'B',
         '51' => 'CL', '52' => 'GR',
+        // Every CNP generated since 8 May 2024 carries 70, whatever the person's county: the number
+        // names none, so the form asks for it.
+        '70' => null,
     ],
 
     /*

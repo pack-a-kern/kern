@@ -49,33 +49,9 @@ export const ro = {
         notifications: 'Notificări',
         markAllRead: 'Marchează toate ca citite',
         openNotice: 'Deschide',
-        notificationsEmpty: 'Nimic nou. Aici apar noutățile despre importuri.',
+        notificationsEmpty: 'Ești la zi',
+        notificationsEmptyHint: 'Notificările noi vor apărea aici.',
         notificationsFailed: 'Notificările nu au putut fi încărcate.',
-        importNotices: {
-            READY_FOR_MAPPING: {
-                title: 'Extras citit',
-                body: '{rows} linii citite. Verifică coloanele.',
-            },
-            READY_FOR_REVIEW: {
-                title: 'Extras gata de verificat',
-                body: '{rows} tranzacții, {suggested} cu o categorie sugerată.',
-            },
-            IMPORTED: {
-                title: 'Extras importat',
-                body: '{imported} tranzacții adăugate.',
-            },
-            FAILED: {
-                title: 'Importul extrasului a eșuat',
-                body: '{reason}',
-            },
-        },
-        importNoticeFailedUnknown: 'Importul s-a oprit. Deschide-l ca să vezi de ce.',
-        depositNotices: {
-            titleToday: 'Un depozit ajunge azi la scadență',
-            titleTomorrow: 'Un depozit ajunge mâine la scadență',
-            titleSoon: 'Un depozit ajunge la scadență în {days} zile',
-            body: 'Scadență pe {date}.',
-        },
         changePalette: 'Schimbă paleta de culori',
         paletteNames: {
             legacyV16V17: 'v16 / v17',
@@ -595,6 +571,15 @@ export const ro = {
         unexpected: 'A apărut o eroare neașteptată.',
         rateLimited: 'Prea multe încercări. Mai încearcă în câteva minute.',
         reasons: {
+            CNP_LENGTH: 'Un CNP are exact 13 cifre.',
+            CNP_PREFIX: 'Un CNP nu poate începe cu 0.',
+            CNP_CHECKSUM: 'Ultima cifră nu se potrivește cu restul CNP-ului. Verifică dacă ai greșit o cifră.',
+            CNP_COUNTY: 'Cifrele 8 și 9 ale acestui CNP nu sunt un cod de județ.',
+            CNP_BIRTH_DATE: 'Acest CNP conține o dată de naștere care nu există.',
+            CNP_FUTURE_BIRTH_DATE: 'Acest CNP conține o dată de naștere care nu a venit încă.',
+            CNP_NON_RESIDENT:
+                'Acest CNP aparține unui nerezident. Aplicația calculează doar impozitarea rezidenților din România.',
+            CNP_ALREADY_YOURS: 'Ai adăugat deja un contribuabil cu acest CNP.',
             AI_CONSENT_REQUIRED: 'Activează AI pentru acest contribuabil ca să poți curăța pozele.',
             ACCOUNT_SUSPENDED: 'Acest cont este suspendat. Cere unui administrator să-l reactiveze.',
             SUPER_ADMIN_ONLY: 'Doar un super administrator poate acorda sau retrage rolul de super administrator.',
@@ -1650,9 +1635,11 @@ export const ro = {
                 turnOff: 'Dezactivează',
                 onHint: 'Acest dispozitiv primește tipurile de mai jos care sunt pornite.',
                 offHint: 'Pornește-le ca să primești notificări pe acest dispozitiv.',
-                blockedHint: 'Notificările sunt blocate pentru acest site în setările dispozitivului. Permite-le acolo, apoi revino.',
+                blockedHint:
+                    'Notificările sunt blocate pentru acest site în setările dispozitivului. Permite-le acolo, apoi revino.',
                 iosTitle: 'Adaug-o întâi pe ecranul principal',
-                iosHint: 'Pe iPhone și iPad, notificările merg doar pentru o aplicație adăugată pe ecranul principal: apasă Partajează, apoi Adaugă pe ecranul principal, și deschide-o de acolo.',
+                iosHint:
+                    'Pe iPhone și iPad, notificările merg doar pentru o aplicație adăugată pe ecranul principal: apasă Partajează, apoi Adaugă pe ecranul principal, și deschide-o de acolo.',
                 unsupported: 'Acest browser nu poate afișa notificări.',
                 notConfigured: 'Notificările pe dispozitive nu sunt configurate încă pe acest server.',
                 kinds: 'Ce primești',
@@ -1811,7 +1798,8 @@ export const ro = {
             totpDisableFailed: 'Metoda nu a putut fi dezactivată.',
             managePasskeys: 'Gestionează',
             passkeysDialogTitle: 'Passkey-urile tale',
-            passkeysDialogHint: 'Fiecare te autentifică în acest cont. Șterge-le pe cele pe care nu le mai folosești sau nu le recunoști.',
+            passkeysDialogHint:
+                'Fiecare te autentifică în acest cont. Șterge-le pe cele pe care nu le mai folosești sau nu le recunoști.',
             passkeyUnnamed: 'Passkey',
             passkeySynced: 'sincronizat',
             passkeyAddedOn: 'Adăugat {date}',

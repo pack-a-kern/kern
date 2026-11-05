@@ -13,9 +13,9 @@ use Kern\TaxRomania\Subjects\Exceptions\InvalidCnpException;
  *
  * | part | meaning |
  * |---|---|
- * | `S` | sex and century — 1/2 born 1900s, 3/4 1800s, 5/6 2000s, 7/8 foreign residents, 9 non-resident |
- * | `AA LL ZZ` | birth date, two digits each |
- * | `JJ` | county of registration, 01–52 (41–46 are Bucharest's sectors) |
+ * | `S` | sex and century — 1/2 born 1900s, 3/4 1800s, 5/6 2000s, 7/8 foreign residents (no century), 9 non-resident |
+ * | `AA LL ZZ` | birth date, two digits each; never in the future |
+ * | `JJ` | county of registration, 01–52 (41–48 are Bucharest's sectors, 7 and 8 abolished); 70 since 8 May 2024, naming none |
  * | `NNN` | serial within that county and day |
  * | `C` | check digit |
  *
@@ -93,19 +93,31 @@ final readonly class CnpParser
 
     private static function birthDate(string $digits, int $leading): string
     {
-        // 7 and 8 are foreign residents, whose series the standard places in the 1900s alongside
-        // 1 and 2 — the residence permit is what the digit records, not a different era.
+        $today = now()->format('Y-m-d');
+
+        // 7 and 8 are foreign residents, and the digit records the residence, not the century: a
+        // resident born in 2003 has `03` as anyone born in 1903 would. The later century is the
+        // one a living person can have been born in, unless it lies ahead of today.
+        if ($leading === 7 || $leading === 8) {
+            $recent = self::date(2000, $digits);
+
+            return $recent <= $today ? $recent : self::notAfter(self::date(1900, $digits), $today);
+        }
+
         $century = match ($leading) {
-            1, 2, 7, 8 => 1900,
+            1, 2 => 1900,
             3, 4 => 1800,
             5, 6 => 2000,
             default => throw InvalidCnpException::prefix(),
         };
 
-        $year = $century + (int) substr($digits, 1, 2);
-        $month = substr($digits, 3, 2);
-        $day = substr($digits, 5, 2);
-        $candidate = sprintf('%04d-%s-%s', $year, $month, $day);
+        return self::notAfter(self::date($century, $digits), $today);
+    }
+
+    /** The `AA LL ZZ` digits in the given century, as `YYYY-MM-DD`, refused if no such day exists. */
+    private static function date(int $century, string $digits): string
+    {
+        $candidate = sprintf('%04d-%s-%s', $century + (int) substr($digits, 1, 2), substr($digits, 3, 2), substr($digits, 5, 2));
 
         // Round-tripped rather than merely parsed: PHP happily reads "1990-02-31" and hands back
         // the 3rd of March. Comparing the formatted result is what rejects a day that never existed.
@@ -116,6 +128,16 @@ final readonly class CnpParser
         }
 
         return $candidate;
+    }
+
+    /** No one is registered before they are born: a date after today is a mistyped CNP. */
+    private static function notAfter(string $birthDate, string $today): string
+    {
+        if ($birthDate > $today) {
+            throw InvalidCnpException::futureBirthDate();
+        }
+
+        return $birthDate;
     }
 
     /**
@@ -132,12 +154,18 @@ final readonly class CnpParser
         return is_string($locality) && $locality !== '' ? $locality : null;
     }
 
-    private static function countyCode(string $countyNumber): string
+    /** The county's letter code, or null for a number that names none (70). */
+    private static function countyCode(string $countyNumber): ?string
     {
         $map = config('reference.counties.cnp');
-        $code = is_array($map) ? ($map[$countyNumber] ?? null) : null;
 
-        if (! is_string($code) || $code === '') {
+        if (! is_array($map) || ! array_key_exists($countyNumber, $map)) {
+            throw InvalidCnpException::county();
+        }
+
+        $code = $map[$countyNumber];
+
+        if ($code !== null && (! is_string($code) || $code === '')) {
             throw InvalidCnpException::county();
         }
 

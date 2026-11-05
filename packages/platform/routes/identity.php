@@ -27,11 +27,6 @@ use Kern\Platform\Http\Controllers\Auth\RegistrationController;
 use Kern\Platform\Http\Controllers\Auth\SessionController;
 use Kern\Platform\Http\Controllers\Auth\StepUpVerificationController;
 use Kern\Platform\Http\Controllers\Auth\TotpController;
-use Kern\Platform\Http\Controllers\Notifications\ListNotificationsController;
-use Kern\Platform\Http\Controllers\Notifications\MarkNotificationsReadController;
-use Kern\Platform\Http\Controllers\Notifications\NotificationPreferenceController;
-use Kern\Platform\Http\Controllers\Notifications\PushDeviceController;
-use Kern\Platform\Http\Controllers\Notifications\SendTestPushController;
 use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 
 /*
@@ -39,8 +34,8 @@ use Kern\Platform\Http\Controllers\ShowUserAvatarController;
 | Identity — JSON routes
 |--------------------------------------------------------------------------
 |
-| Signing in, proving a second factor, listing and revoking one's own sessions, administering
-| accounts, and the notification bell. Loaded by `Kern\Platform\Identity\IdentityServiceProvider`
+| Signing in, proving a second factor, listing and revoking one's own sessions, and administering
+| accounts. Loaded by `Kern\Platform\Identity\IdentityServiceProvider`
 | under the prefix and middleware `config('kern.routing')` names.
 |
 | The `throttle:` limiters these routes name are defined in that provider; `permission:` and
@@ -162,26 +157,6 @@ Route::prefix('v1/auth')->group(function (): void {
  * chosen, and registration creates one.
  */
 Route::post('v1/admin/impersonation/stop', [ImpersonationController::class, 'stop'])->middleware('auth:web');
-
-/*
- * The bell: a user's own notices, whichever taxpayer each is about. Not under `v1/subjects/{subject}`
- * because a notice follows the person, not the subject selected when the menu is opened.
- */
-Route::prefix('v1/notifications')->middleware('auth:web')->group(function (): void {
-    Route::get('/', ListNotificationsController::class);
-    Route::post('read', MarkNotificationsReadController::class);
-
-    // The same notices on the account's devices: which kinds go there, and which devices receive them.
-    // Only the account's own; changing them is throttled, and a test send even more, since each is a
-    // request to a push service on the account's behalf.
-    Route::get('preferences', [NotificationPreferenceController::class, 'index']);
-    Route::patch('preferences', [NotificationPreferenceController::class, 'update']);
-    Route::get('push/devices', [PushDeviceController::class, 'index']);
-    Route::post('push/devices', [PushDeviceController::class, 'store'])->middleware('throttle:push-devices-per-user');
-    Route::delete('push/devices/{deviceId}', [PushDeviceController::class, 'destroy'])
-        ->middleware('throttle:push-devices-per-user');
-    Route::post('push/test', SendTestPushController::class)->middleware('throttle:push-test-per-user');
-});
 
 // User administration. Same gate as settings and audit: this lists every account on the
 // installation, with decrypted email addresses.

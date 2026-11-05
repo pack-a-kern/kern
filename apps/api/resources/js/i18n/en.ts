@@ -49,33 +49,9 @@ export const en = {
         notifications: 'Notifications',
         markAllRead: 'Mark all read',
         openNotice: 'Open',
-        notificationsEmpty: 'Nothing new. Import updates appear here.',
+        notificationsEmpty: 'You are all caught up',
+        notificationsEmptyHint: 'New notifications will appear here.',
         notificationsFailed: 'Notifications could not be loaded.',
-        importNotices: {
-            READY_FOR_MAPPING: {
-                title: 'Statement read',
-                body: '{rows} lines read. Check which column is which.',
-            },
-            READY_FOR_REVIEW: {
-                title: 'Statement ready to review',
-                body: '{rows} transactions, {suggested} with a suggested category.',
-            },
-            IMPORTED: {
-                title: 'Statement imported',
-                body: '{imported} transactions added.',
-            },
-            FAILED: {
-                title: 'Statement import failed',
-                body: '{reason}',
-            },
-        },
-        importNoticeFailedUnknown: 'The import stopped. Open it to see what happened.',
-        depositNotices: {
-            titleToday: 'A deposit matures today',
-            titleTomorrow: 'A deposit matures tomorrow',
-            titleSoon: 'A deposit matures in {days} days',
-            body: 'Maturity on {date}.',
-        },
         changePalette: 'Change colour palette',
         paletteNames: {
             legacyV16V17: 'v16 / v17',
@@ -595,6 +571,15 @@ export const en = {
         unexpected: 'An unexpected error occurred.',
         rateLimited: 'Too many attempts. Try again in a few minutes.',
         reasons: {
+            CNP_LENGTH: 'A CNP has exactly 13 digits.',
+            CNP_PREFIX: 'A CNP cannot start with 0.',
+            CNP_CHECKSUM: 'The last digit does not match the rest of the CNP. Check it for a mistyped digit.',
+            CNP_COUNTY: 'Digits 8 and 9 of this CNP are not a county code.',
+            CNP_BIRTH_DATE: 'This CNP holds a birth date that does not exist.',
+            CNP_FUTURE_BIRTH_DATE: 'This CNP holds a birth date that has not come yet.',
+            CNP_NON_RESIDENT:
+                'This CNP belongs to a non-resident. This application computes Romanian resident taxation only.',
+            CNP_ALREADY_YOURS: 'You have already added a taxpayer with this CNP.',
             AI_CONSENT_REQUIRED: 'Turn on AI for this taxpayer to clean up photos.',
             ACCOUNT_SUSPENDED: 'This account is suspended. Ask an administrator to reactivate it.',
             SUPER_ADMIN_ONLY: 'Only a super administrator can give or remove the super administrator role.',
@@ -1659,9 +1644,11 @@ export const en = {
                 turnOff: 'Turn off',
                 onHint: 'This device receives the kinds below that are on.',
                 offHint: 'Turn them on to receive notifications on this device.',
-                blockedHint: 'Notifications are blocked for this site in the device settings. Allow them there, then come back.',
+                blockedHint:
+                    'Notifications are blocked for this site in the device settings. Allow them there, then come back.',
                 iosTitle: 'Add it to the Home Screen first',
-                iosHint: 'On iPhone and iPad, notifications work only for an app added to the Home Screen: tap Share, then Add to Home Screen, and open it from there.',
+                iosHint:
+                    'On iPhone and iPad, notifications work only for an app added to the Home Screen: tap Share, then Add to Home Screen, and open it from there.',
                 unsupported: 'This browser cannot show notifications.',
                 notConfigured: 'Notifications to devices are not set up on this server yet.',
                 kinds: 'What you receive',

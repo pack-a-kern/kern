@@ -40,3 +40,27 @@ export function clearActiveSubjectId(): void {
         // Best-effort convenience only — see module docblock.
     }
 }
+
+/** The query parameter a link names its taxpayer by — a notice's link does (`?subject=`). */
+const LINK_PARAMETER = 'subject';
+
+/**
+ * A link that names the taxpayer it is about makes that one the choice, so a notice about another
+ * taxpayer than the one open opens in its own. Read once, when the page loads. Still only a hint: like
+ * the stored choice, it counts only when it is one of the person's own (`resolveActiveSubjectId`).
+ */
+export function adoptSubjectFromLink(): void {
+    const subjectId = new URLSearchParams(window.location.search).get(LINK_PARAMETER);
+
+    if (subjectId !== null && subjectId !== '') {
+        setActiveSubjectId(subjectId);
+    }
+}
+
+/** `href` without the taxpayer a link named — for reloading into a different choice than the link's. */
+export function withoutSubjectLink(href: string): string {
+    const url = new URL(href);
+    url.searchParams.delete(LINK_PARAMETER);
+
+    return url.href;
+}

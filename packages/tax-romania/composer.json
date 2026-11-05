@@ -21,6 +21,7 @@
         "kern/audit": "@dev",
         "kern/documents": "@dev",
         "kern/legislation": "@dev",
+        "kern/notifications": "@dev",
         "kern/platform": "@dev"
     },
     "require-dev": {

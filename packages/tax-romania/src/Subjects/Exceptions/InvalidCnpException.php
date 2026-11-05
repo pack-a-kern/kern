@@ -48,6 +48,11 @@ final class InvalidCnpException extends RuntimeException
         return new self('CNP_BIRTH_DATE', 'The CNP carries a birth date that does not exist.');
     }
 
+    public static function futureBirthDate(): self
+    {
+        return new self('CNP_FUTURE_BIRTH_DATE', 'The CNP carries a birth date that has not come yet.');
+    }
+
     /** Registered by someone else. Says only that — never who, never how many. */
     public static function alreadyRegistered(): self
     {

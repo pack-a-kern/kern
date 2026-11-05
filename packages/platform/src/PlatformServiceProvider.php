@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Platform;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Console\Commands\Database\GrantApplicationRoleCommand;
 use Kern\Platform\Console\Commands\Database\UpdateExtensionsCommand;
@@ -17,7 +18,6 @@ use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
 use Kern\Platform\Logging\Redactions;
-use Kern\Platform\Notifications\NotificationsServiceProvider;
 use Kern\Platform\Settings\SettingsServiceProvider;
 use Kern\Platform\Tenancy\TenantContext;
 
@@ -49,7 +49,6 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->register(KeyManagementServiceProvider::class);
         $this->app->register(SettingsServiceProvider::class);
         $this->app->register(IdentityServiceProvider::class);
-        $this->app->register(NotificationsServiceProvider::class);
 
         $this->app->singleton(BlindIndexHasher::class);
 
@@ -78,6 +77,10 @@ final class PlatformServiceProvider extends ServiceProvider
          * An alias fixes it for good — the stored value no longer depends on where the class lives.
          */
         Relation::morphMap(['user' => User::class]);
+
+        // And every polymorphic column a package creates — the bell's, its devices' — is a UUID, since
+        // that is what a user's key is.
+        Schema::morphUsingUuids();
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 

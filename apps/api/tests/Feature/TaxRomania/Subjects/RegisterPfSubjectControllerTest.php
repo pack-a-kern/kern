@@ -67,6 +67,25 @@ it('registers a PF subject and makes the caller its OWNER', function (): void {
     expect($profile)->not->toBeNull();
 });
 
+it('registers a CNP that names no county with the county the person picked', function (): void {
+    $user = User::factory()->create();
+    // 70: generated since 8 May 2024, naming no county.
+    $cnp = cnpWithCheckDigit('5240601' . '70' . '123');
+
+    $this->actingAs($user, 'web')
+        ->postJson('/api/v1/subjects/cnp', ['cnp' => $cnp])
+        ->assertOk()
+        ->assertJsonPath('county_code', null);
+
+    $subjectId = $this->actingAs($user, 'web')
+        ->postJson('/api/v1/subjects/pf', validPfPayload(['cnp' => $cnp, 'county_code' => 'SB']))
+        ->assertCreated()
+        ->json('id');
+    assert(is_string($subjectId));
+
+    expect(PfProfile::query()->whereKey($subjectId)->value('county_code'))->toBe('SB');
+});
+
 it('rejects a duplicate CNP with a structured 422', function (): void {
     $userA = User::factory()->create();
     $userB = User::factory()->create();

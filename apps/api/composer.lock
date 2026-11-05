@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0f5b64003895b0cd873d50d76799d86d",
+    "content-hash": "67e88ad1a481f5119aaa00a2e803189c",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1566,7 +1566,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/documents",
-                "reference": "6802b780d6a5dac6718cdc02450c7be481fc86bf"
+                "reference": "74a63a614fbf63ccc767f6b848d9e58d0dd4389c"
             },
             "require": {
                 "illuminate/bus": "^13.0",
@@ -1580,6 +1580,7 @@
                 "illuminate/support": "^13.0",
                 "illuminate/validation": "^13.0",
                 "kern/audit": "@dev",
+                "kern/notifications": "@dev",
                 "kern/platform": "@dev",
                 "php": "^8.4"
             },
@@ -1622,7 +1623,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/legislation",
-                "reference": "b53188b766aab3e99c0bc38a618a33970c7026cd"
+                "reference": "2074ca477eb184fb44e4224f8ac399bb23065497"
             },
             "require": {
                 "ext-dom": "*",
@@ -1637,6 +1638,7 @@
                 "illuminate/support": "^13.0",
                 "illuminate/validation": "^13.0",
                 "kern/audit": "@dev",
+                "kern/notifications": "@dev",
                 "kern/platform": "@dev",
                 "php": "^8.4"
             },
@@ -1674,12 +1676,65 @@
             }
         },
         {
+            "name": "kern/notifications",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/notifications",
+                "reference": "6fb53ec32d8188267d64ce9ade422ab3647aacf1"
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.8",
+                "illuminate/console": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/notifications": "^13.0",
+                "illuminate/routing": "^13.0",
+                "illuminate/support": "^13.0",
+                "illuminate/validation": "^13.0",
+                "minishlink/web-push": "^11.0",
+                "php": "^8.4",
+                "psr/http-client": "^1.0"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Notifications\\NotificationsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Notifications\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Notifications\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Notices for a Laravel application: a bell inside it and the device's own notifications (Web Push) outside it, from one class per kind of notice, with a switch per kind for each person.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "kern/platform",
             "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform",
-                "reference": "69746c6de8da11adfe424534f94fb82862a80fa3"
+                "reference": "6c4d6a4a5d27cab4e807e5fb027efb7feef99291"
             },
             "require": {
                 "ext-intl": "*",
@@ -1697,7 +1752,7 @@
                 "illuminate/support": "^13.0",
                 "illuminate/validation": "^13.0",
                 "kern/audit": "@dev",
-                "minishlink/web-push": "^11.0",
+                "kern/notifications": "@dev",
                 "monolog/monolog": "^3.0",
                 "php": "^8.4",
                 "spatie/laravel-permission": "^8.3",
@@ -1743,7 +1798,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/tax-romania",
-                "reference": "c9d4bb6b89deaa57277da357c3739ab137dec99e"
+                "reference": "30f953361b8108af2621e375afbcb47a8ab3488b"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -1762,6 +1817,7 @@
                 "kern/audit": "@dev",
                 "kern/documents": "@dev",
                 "kern/legislation": "@dev",
+                "kern/notifications": "@dev",
                 "kern/platform": "@dev",
                 "php": "^8.4"
             },
@@ -3120,7 +3176,8 @@
                 "issues": "https://github.com/web-push-libs/web-push-php/issues",
                 "source": "https://github.com/web-push-libs/web-push-php/tree/v11.0.0"
             },
-            "time": "2026-07-23T16:10:05+00:00"
+            "time": "2026-07-23T16:10:05+00:00",
+            "published-time": "2026-07-23T16:19:08+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -13869,6 +13926,7 @@
         "kern/audit": 20,
         "kern/documents": 20,
         "kern/legislation": 20,
+        "kern/notifications": 20,
         "kern/platform": 20,
         "kern/tax-romania": 20
     },

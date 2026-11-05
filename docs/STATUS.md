@@ -32,6 +32,11 @@ reconciled and verified end-to-end against a live container.
 
 Status values: `not started` · `in progress` · `blocked` · `complete`
 
+**Notifications** (outside the milestones): the bell and notices on people's devices are
+`kern/notifications`, a package any Laravel application can install; the product's kinds of notice are
+in `kern/tax-romania/src/Notices` — [054](handoff/054-device-notifications.md),
+[055](handoff/055-notifications-package.md), ADR 0022.
+
 ---
 
 ## Files currently being worked on

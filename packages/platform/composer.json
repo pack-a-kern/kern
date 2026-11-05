@@ -20,10 +20,10 @@
         "illuminate/support": "^13.0",
         "illuminate/validation": "^13.0",
         "kern/audit": "@dev",
+        "kern/notifications": "@dev",
         "monolog/monolog": "^3.0",
         "spatie/laravel-permission": "^8.3",
         "spomky-labs/otphp": "^11.5",
-        "minishlink/web-push": "^11.0",
         "web-auth/webauthn-lib": "^5.3"
     },
     "require-dev": {

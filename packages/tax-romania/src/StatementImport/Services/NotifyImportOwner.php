@@ -6,11 +6,11 @@ namespace Kern\TaxRomania\StatementImport\Services;
 
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\TaxRomania\Notices\StatementImportNotice;
 use Kern\TaxRomania\StatementImport\Enums\ImportNoticeKind;
 use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
-use Kern\TaxRomania\StatementImport\Notifications\StatementImportNotice;
 
 /**
  * Tells the person who started an import that it has moved on without them.
@@ -39,6 +39,6 @@ final readonly class NotifyImportOwner
                 ->count()
             : 0;
 
-        $owner->notify(new StatementImportNotice($import, $kind, $suggested));
+        $owner->notify(StatementImportNotice::about($import, $kind, $suggested));
     }
 }

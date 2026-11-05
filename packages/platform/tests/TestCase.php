@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Platform\Tests;
 
 use Kern\Audit\AuditServiceProvider;
+use Kern\Notifications\NotificationsServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\KeyManagement\Contracts\SubjectDekRepository;
 use Kern\Platform\PlatformServiceProvider;
@@ -32,7 +33,7 @@ abstract class TestCase extends Testbench
     /** @return list<class-string> */
     protected function getPackageProviders($app): array
     {
-        return [AuditServiceProvider::class, PlatformServiceProvider::class];
+        return [AuditServiceProvider::class, NotificationsServiceProvider::class, PlatformServiceProvider::class];
     }
 
     protected function defineEnvironment($app): void

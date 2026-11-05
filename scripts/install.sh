@@ -275,7 +275,7 @@ set_env() {
 # A key pair for device notifications (VAPID, RFC 8292): a P-256 key, written as browsers and
 # `minishlink/web-push` take it — the private scalar's 32 bytes and the public point's 65, each in URL-safe
 # base64 without padding. Cut out of openssl's DER rather than computed: in SEC1 the scalar sits at byte
-# 7, and a public key's DER ends with the point. `php artisan kern:push:keys` makes the same pair later.
+# 7, and a public key's DER ends with the point. `php artisan notifications:keys` makes the same pair later.
 generate_push_keys() {
     push_pem=$(openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null)
     set_env WEB_PUSH_PRIVATE_KEY "$(printf '%s\n' "$push_pem" | openssl ec -outform DER 2>/dev/null \

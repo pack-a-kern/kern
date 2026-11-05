@@ -10,8 +10,13 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Notifications\Contracts\DescribesDevices;
+use Kern\Notifications\Events\DeviceAdded;
+use Kern\Notifications\Events\DeviceRemoved;
+use Kern\Notifications\Notifications;
 use Kern\Platform\Access\Services\AccessCatalogue;
 use Kern\Platform\Console\Commands\Access\GrantPlatformRoleCommand;
 use Kern\Platform\Console\Commands\Access\SyncAccessCatalogueCommand;
@@ -25,6 +30,9 @@ use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\Avatars\AvatarStore;
 use Kern\Platform\Identity\Avatars\SetAvatar;
 use Kern\Platform\Identity\Contracts\VerificationSender;
+use Kern\Platform\Identity\Devices\DevicesNamedLikeSessions;
+use Kern\Platform\Identity\Devices\EncryptedDevice;
+use Kern\Platform\Identity\Devices\RecordDeviceChanges;
 use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Support\PendingMfaLogin;
@@ -84,6 +92,9 @@ final class IdentityServiceProvider extends ServiceProvider
          * every caller.
          */
         $this->app->bind(VerificationSender::class, MailVerificationSender::class);
+
+        // A device that receives notices is named as the sessions list names it.
+        $this->app->bind(DescribesDevices::class, DevicesNamedLikeSessions::class);
     }
 
     /**
@@ -168,6 +179,11 @@ final class IdentityServiceProvider extends ServiceProvider
     public function boot(): void
     {
         PackageRoutes::load(__DIR__ . '/../../routes/identity.php');
+
+        // The devices that receive a user's notices are sealed under that user's key, and each one
+        // turned on or off is in the audit trail.
+        Notifications::useDeviceModel(EncryptedDevice::class);
+        Event::listen([DeviceAdded::class, DeviceRemoved::class], RecordDeviceChanges::class);
         // Words this package writes itself rather than the interface's dictionaries: mail, and the
         // sentences its HTTP layer answers with. `platform::registration.*`, `platform::admin.*` and so on.
         $this->loadTranslationsFrom(__DIR__ . '/../../lang', 'platform');

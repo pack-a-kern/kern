@@ -54,19 +54,9 @@ export interface Dictionary {
         notifications: string;
         markAllRead: string;
         notificationsEmpty: string;
+        notificationsEmptyHint: string;
         openNotice: string;
         notificationsFailed: string;
-        /**
-         * One statement import's notice, by `ImportNoticeKind`. `{rows}`, `{imported}`, `{suggested}`
-         * and `{reason}` are substituted; `{reason}` in words from `errors.reasons`, else `failedUnknown`.
-         */
-        importNotices: Record<
-            'READY_FOR_MAPPING' | 'READY_FOR_REVIEW' | 'IMPORTED' | 'FAILED',
-            { title: string; body: string }
-        >;
-        importNoticeFailedUnknown: string;
-        /** A deposit nearing maturity. `{days}` and `{date}` are substituted; the bell keeps no amount. */
-        depositNotices: { titleToday: string; titleTomorrow: string; titleSoon: string; body: string };
         changePalette: string;
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;

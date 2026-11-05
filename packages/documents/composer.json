@@ -16,6 +16,7 @@
         "illuminate/support": "^13.0",
         "illuminate/validation": "^13.0",
         "kern/audit": "@dev",
+        "kern/notifications": "@dev",
         "kern/platform": "@dev"
     },
     "require-dev": {

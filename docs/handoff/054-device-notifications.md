@@ -1,5 +1,8 @@
 # 054 — Notifications on people's devices (Web Push)
 
+> **Superseded in its structure by [055](055-notifications-package.md):** the code below moved into
+> `kern/notifications`, and a kind of notice is now one class. What it does for a person is unchanged.
+
 ## What was built
 
 The bell's notices can also reach a person's phone or computer, as the device's own notifications.

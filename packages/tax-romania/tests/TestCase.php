@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Tests;
 use Kern\Audit\AuditServiceProvider;
 use Kern\Documents\DocumentsServiceProvider;
 use Kern\Legislation\LegislationServiceProvider;
+use Kern\Notifications\NotificationsServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
 use Kern\Platform\PlatformServiceProvider;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
@@ -33,6 +34,7 @@ abstract class TestCase extends Testbench
     {
         return [
             AuditServiceProvider::class,
+            NotificationsServiceProvider::class,
             PlatformServiceProvider::class,
             DocumentsServiceProvider::class,
             LegislationServiceProvider::class,

@@ -64,11 +64,6 @@ export function getDictionary(): Dictionary {
     return DICTIONARIES[locale];
 }
 
-/** The current locale outside a render, for the same callbacks `getDictionary` is for. */
-export function getLocale(): Locale {
-    return locale;
-}
-
 /**
  * Minimal, hand-rolled i18n (`docs/handoff/040-ui-foundation.md` "i18n" explains why this was
  * chosen over `react-i18next`/`next-intl`, per `docs/DEPENDENCY-POLICY.md` §4's "standard library

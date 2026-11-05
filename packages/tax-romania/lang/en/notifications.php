@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'types' => [
-        'statement-imports' => [
+        'statement-import' => [
             'label' => 'Statement imports',
             'hint' => 'When a statement is ready to map or review, has been imported, or could not be read.',
         ],
@@ -14,15 +14,15 @@ return [
         ],
     ],
     'imports' => [
-        'READY_FOR_MAPPING' => ['title' => 'Statement read', 'body' => 'Choose which column is which to continue.'],
-        'READY_FOR_REVIEW' => ['title' => 'Statement ready to review', 'body' => ':rows rows read, :suggested with a proposal.'],
-        'IMPORTED' => ['title' => 'Statement imported', 'body' => ':imported of :rows rows imported.'],
-        'FAILED' => ['title' => 'Statement could not be imported', 'body' => 'Open it to see why.'],
+        'READY_FOR_MAPPING' => ['title' => 'Statement read', 'body' => ':rows lines read. Check which column is which.'],
+        'READY_FOR_REVIEW' => ['title' => 'Statement ready to review', 'body' => ':rows transactions, :suggested with a suggested category.'],
+        'IMPORTED' => ['title' => 'Statement imported', 'body' => ':imported transactions added.'],
+        'FAILED' => ['title' => 'Statement import failed', 'body' => 'The import stopped. Open it to see what happened.'],
     ],
     'deposits' => [
         'title_today' => 'A deposit matures today',
-        'title_soon' => 'A deposit matures in :days days',
         'title_tomorrow' => 'A deposit matures tomorrow',
+        'title_soon' => 'A deposit matures in :days days',
         'body' => ':bank: :amount on :date.',
         'no_bank' => 'Deposit',
     ],

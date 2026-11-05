@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -239,17 +238,6 @@ final class User extends Model implements AuthenticatableContract, EncryptsWithS
      * Named here rather than left to Laravel's default, which is the model's class name with dots —
      * a channel name that changes the day the class moves.
      */
-    /**
-     * This user's notices, newest first, in the model that keeps microseconds — see
-     * `UserNotification`. Laravel's database channel writes new notices through this relation too.
-     *
-     * @return MorphMany<UserNotification, $this>
-     */
-    public function notifications(): MorphMany
-    {
-        return $this->morphMany(UserNotification::class, 'notifiable')->latest();
-    }
-
     public function receivesBroadcastNotificationsOn(): string
     {
         return 'users.' . $this->id;

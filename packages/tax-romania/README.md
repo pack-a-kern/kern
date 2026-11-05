@@ -21,6 +21,7 @@ product; the tax arithmetic is the easy part.
 | `Declarations` | the forms, their versions, and what was submitted |
 | `Spv` | ANAF's own mailbox, read through a browser because there is no API |
 | `Operations` | the console for the tasks that keep all of that current |
+| `Notices` | every kind of notice this product sends — imports, deposit maturity — on `kern/notifications` |
 
 One package rather than eleven, deliberately. These modules have one consumer between them — each
 other — and `StatementImport` depends on most of the rest precisely because it is where a wallet and

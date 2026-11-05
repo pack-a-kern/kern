@@ -3,7 +3,7 @@ import Pusher from 'pusher-js';
 import { getCsrfToken } from './csrf';
 import { downServicesFrom } from './sharedProps';
 import { type DocumentLifecycleEvent, parseDocumentLifecycleEvent } from '../types/documents';
-import { type Notice, parseNotice } from '../types/notifications';
+import { noticeIdFrom } from '../types/notifications';
 import { type StatementImportEvent, parseStatementImportEvent } from '../types/statementImport';
 
 // `laravel-echo`'s `reverb` broadcaster resolves `window.Pusher` at construction time — this is
@@ -150,20 +150,20 @@ export function subscribeToImportsChannel(
 
 /**
  * Subscribes to the signed-in person's own private `users.{userId}` channel (authorized in
- * `routes/channels.php`) and calls `onNotice` for each notice Laravel broadcasts there — the same
- * notice the bell lists, pushed the moment it is stored.
+ * `routes/channels.php`) and calls `onNotice` with the id of each notice stored for them. The socket
+ * carries the id and the kind only, never what the notice says: the caller fetches the words over
+ * HTTPS, as the bell does.
  */
-export function subscribeToUserNotifications(userId: string, onNotice: (notice: Notice) => void): () => void {
+export function subscribeToUserNotifications(userId: string, onNotice: (noticeId: string) => void): () => void {
     const channelName = `users.${userId}`;
 
     getEcho()
         .private(channelName)
         .notification((raw: unknown): void => {
-            const notice = parseNotice(raw);
+            const id = noticeIdFrom(raw);
 
-            // A kind this bundle does not know yet is left to the next fetch of the list.
-            if (notice !== null) {
-                onNotice(notice);
+            if (id !== null) {
+                onNotice(id);
             }
         });
 
