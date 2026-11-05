@@ -35,6 +35,7 @@ import {
     WalletCards,
     X,
 } from 'lucide-react';
+import BankMark from '../../components/wallet/BankMark';
 import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
@@ -150,6 +151,7 @@ export default function WalletTransactions(): JSX.Element {
     const [loaded, setLoaded] = useState<{ key: string; page: TransactionPage } | null>(null);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
     const [banks, setBanks] = useState<Bank[]>([]);
+    const banksById = useMemo(() => new Map(banks.map((bank) => [bank.id, bank])), [banks]);
     const [tags, setTags] = useState<Tag[]>([]);
     /** The transaction being corrected, or null when the dialog is recording a new one. */
     const [editing, setEditing] = useState<TransactionSummary | null>(null);
@@ -1228,7 +1230,7 @@ export default function WalletTransactions(): JSX.Element {
                                         </div>
                                         {transaction.bankName === null ? null : (
                                             <div className="note inline-flex items-center gap-1">
-                                                <Landmark className="size-3 shrink-0" aria-hidden="true" />
+                                                <RowBankMark bank={banksById.get(transaction.bankId ?? '')} />
                                                 <span className="truncate">{transaction.bankName}</span>
                                             </div>
                                         )}
@@ -1867,5 +1869,17 @@ function DuplicateGroups({
                 </section>
             ))}
         </div>
+    );
+}
+
+/**
+ * A row's bank, in the line under its account: the bank's mark where the list knows the bank, the
+ * generic one otherwise — a transaction may name a bank the list was not loaded with yet.
+ */
+function RowBankMark({ bank }: { bank: Bank | undefined }): JSX.Element {
+    return bank === undefined ? (
+        <Landmark className="size-3 shrink-0" aria-hidden="true" />
+    ) : (
+        <BankMark bank={bank} size="sm" />
     );
 }

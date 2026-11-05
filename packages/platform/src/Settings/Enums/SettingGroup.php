@@ -16,6 +16,7 @@ enum SettingGroup: string
     case FX = 'fx';
     case SPV = 'spv';
     case SECURITY = 'security';
+    case BANKS = 'banks';
 
     /** @return list<SettingKey> */
     public function keys(): array

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\WalletOverviewTest;
 
+use Illuminate\Support\Facades\Cache;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Testing\InMemoryDekRepository;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
+use Kern\TaxRomania\Banks\Logos\BankLogos;
 use Kern\TaxRomania\Database\Factories\BankFactory;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
@@ -145,6 +147,31 @@ it('groups running deposits by the bank they are at, largest first', function ()
         ->assertJsonPath('banks.0.deposit_count', 2)
         ->assertJsonPath('banks.0.principal.RON', 12_000_000)
         ->assertJsonPath('banks.1.name', 'CEC Bank');
+});
+
+it('gives each bank its logo’s address, where this installation has one', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    $bt = BankFactory::new()->createOne(['name' => 'Banca Transilvania', 'bic' => 'BTRLRO22XXX']);
+    $cec = BankFactory::new()->createOne(['name' => 'CEC Bank', 'bic' => 'CECEROBUXXX']);
+    openDeposit($this, $user, $subjectId, $generalId, 7_000_000, $bt->id);
+    openDeposit($this, $user, $subjectId, $generalId, 3_000_000, $cec->id);
+
+    $folder = sys_get_temp_dir() . '/kern-overview-logos-' . bin2hex(random_bytes(6));
+    mkdir($folder . '/RO', 0o755, true);
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>';
+    file_put_contents($folder . '/RO/BTRLRO22.svg', $svg);
+    config(['banks.logos.path' => $folder]);
+    Cache::forget(BankLogos::CACHE_KEY);
+
+    try {
+        $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+            ->assertJsonPath('banks.0.logo_url', "/api/v1/banks/{$bt->id}/logo?v=" . substr(sha1($svg), 0, 12))
+            ->assertJsonPath('banks.1.logo_url', null);
+    } finally {
+        unlink($folder . '/RO/BTRLRO22.svg');
+        rmdir($folder . '/RO');
+        rmdir($folder);
+    }
 });
 
 it('lists neither a deposit’s funding nor a cash holding among transactions', function (): void {

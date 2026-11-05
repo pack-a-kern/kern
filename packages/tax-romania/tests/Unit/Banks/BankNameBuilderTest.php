@@ -20,6 +20,7 @@ function legalForms(): LegalForms
         'NL' => [['NV'], ['NAAMLOZE', 'VENNOOTSCHAP']],
         'LT' => [['UAB']],
         'HU' => [['ZRT'], ['ZÁRTKÖRŰEN', 'MŰKÖDŐ', 'RÉSZVÉNYTÁRSASÁG']],
+        'AT' => [['AG'], ['AKTIENGESELLSCHAFT']],
     ]);
 }
 
@@ -72,3 +73,11 @@ it('falls back to the parent’s name, without its written-out form, when the br
 
     expect((new BankNameBuilder())->build($bankOfChina, legalForms()))->toBe('Bank of China (Közép-Kelet-Európa)');
 });
+
+it('names a group the way it names a bank, by the legal forms of the group’s own country', function (string $registered, string $country, string $expected): void {
+    expect((new BankNameBuilder())->fromRegisteredName($registered, $country, legalForms()))->toBe($expected);
+})->with([
+    // BCR's group, as GLEIF registers it in Austria.
+    ['ERSTE GROUP BANK AG', 'AT', 'Erste Group Bank'],
+    ['ING Groep N.V.', 'NL', 'ING Groep'],
+]);

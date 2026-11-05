@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Banks\Queries;
 
 use Kern\TaxRomania\Banks\DataTransferObjects\BankOption;
 use Kern\TaxRomania\Banks\Enums\BankKind;
+use Kern\TaxRomania\Banks\Logos\BankLogos;
 use Kern\TaxRomania\Banks\Models\Bank;
 
 /**
@@ -13,6 +14,10 @@ use Kern\TaxRomania\Banks\Models\Bank;
  */
 final readonly class BankDirectory
 {
+    public function __construct(private BankLogos $logos)
+    {
+    }
+
     /**
      * Banks a new deposit may be opened at: the active ones, by name.
      *
@@ -24,7 +29,7 @@ final readonly class BankDirectory
         /** @var list<Bank> $banks */
         $banks = Bank::query()->where('active', true)->orderBy('name')->get()->all();
 
-        return array_map(self::option(...), self::ofKind($banks, $kinds));
+        return array_map($this->option(...), self::ofKind($banks, $kinds));
     }
 
     /**
@@ -39,7 +44,28 @@ final readonly class BankDirectory
         /** @var list<Bank> $banks */
         $banks = Bank::query()->orderByDesc('active')->orderBy('name')->get()->all();
 
-        return array_map(self::option(...), self::ofKind($banks, $kinds));
+        return array_map($this->option(...), self::ofKind($banks, $kinds));
+    }
+
+    /**
+     * The banks with these ids, active or not, in one query — for a list that names several.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, BankOption> by id
+     */
+    public function findMany(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach (Bank::query()->whereKey($ids)->get() as $bank) {
+            $options[$bank->id] = $this->option($bank);
+        }
+
+        return $options;
     }
 
     /** Any bank, active or not — a deposit opened years ago keeps naming the bank it was opened at. */
@@ -47,7 +73,7 @@ final readonly class BankDirectory
     {
         $bank = Bank::query()->find($id);
 
-        return $bank === null ? null : self::option($bank);
+        return $bank === null ? null : $this->option($bank);
     }
 
     /**
@@ -74,14 +100,20 @@ final readonly class BankDirectory
         return array_values(array_filter($banks, static fn (Bank $bank): bool => in_array($bank->kind(), $kinds, true)));
     }
 
-    private static function option(Bank $bank): BankOption
+    private function option(Bank $bank): BankOption
     {
+        $logo = $this->logos->for($bank->country_code, $bank->bic, $bank->lei, $bank->parent_lei);
+
         return new BankOption(
             id: $bank->id,
             name: $bank->name,
             code: $bank->code(),
             countryCode: $bank->country_code,
             active: $bank->active,
+            group: $bank->group_name,
+            // Versioned by the file's content, so a replaced logo is a new address and the old one can
+            // be cached for good.
+            logoUrl: $logo === null ? null : route(BankLogos::ROUTE, ['bank' => $bank->id, 'v' => $logo->fingerprint], false),
         );
     }
 }

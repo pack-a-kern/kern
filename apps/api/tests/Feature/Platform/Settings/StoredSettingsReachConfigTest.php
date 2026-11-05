@@ -138,6 +138,7 @@ function storableValueFor(SettingKey $key): string
         SettingType::DECIMAL => '0.25',
         SettingType::URL => 'https://example.test/feed',
         SettingType::STRING => $key === SettingKey::SECURITY_HASH_DRIVER ? 'argon2id' : 'kern-test-value',
+        SettingType::COUNTRY_LIST => 'RO,BG',
         default => '7',
     };
 }
@@ -149,6 +150,7 @@ function matchesStored(SettingKey $key, string $stored, mixed $seen): bool
         SettingType::BOOLEAN => $seen === true,
         SettingType::DECIMAL => is_float($seen) && abs($seen - (float) $stored) < 0.0001,
         SettingType::INTEGER => $seen === (int) $stored,
+        SettingType::COUNTRY_LIST => $seen === explode(',', $stored),
         default => $seen === $stored,
     };
 }

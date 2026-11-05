@@ -1,17 +1,18 @@
 import type { JSX } from 'react';
+import BankMark from './BankMark';
 import { bankLabel } from '../../types/wallet';
 import type { Bank } from '../../types/wallet';
 
 /**
- * A bank as the four bank selects offer it: a dot for whether it still exists, the name, and "closed"
- * on its own line where it does not.
+ * A bank as the four bank selects offer it: its mark — the logo, or its initials — the name, and on
+ * its own line the group it belongs to and "closed" where it no longer exists.
  *
- * ## Why a dot rather than words in the label
+ * ## Why the state is on the mark rather than in the label
  *
  * The state used to be appended to the name — "Alpha Bank · BUCU (closed)" — which made the one thing
- * every row shares the last thing read, and only after the name, the code and a bracket. A mark in a
- * fixed position is read down the column at a glance, and the select puts the chosen option's icon on
- * the trigger too, so the state survives the menu closing.
+ * every row shares the last thing read, and only after the name, the code and a bracket. A greyed
+ * mark in a fixed position is read down the column at a glance, and the select puts the chosen
+ * option's icon on the trigger too, so the state survives the menu closing.
  *
  * ## Why closed is grey and not red
  *
@@ -32,21 +33,17 @@ export interface BankSelectOption {
 }
 
 export function bankOptions(banks: Bank[], closedLabel: string): BankSelectOption[] {
-    return banks.map((bank) => ({
-        value: bank.id,
-        // Without the closed suffix: that is what the description below is for, and saying it twice
-        // makes the name longer in the one place the name has to be scanned.
-        label: bankLabel(bank),
-        icon: (
-            <span
-                className={
-                    bank.active
-                        ? 'size-1.5 rounded-full bg-emerald-500'
-                        : 'size-1.5 rounded-full bg-muted-foreground/50'
-                }
-                aria-hidden="true"
-            />
-        ),
-        ...(bank.active ? {} : { description: closedLabel }),
-    }));
+    return banks.map((bank) => {
+        // The group, then whether it closed: "Erste Group Bank", "closed", or both.
+        const description = [bank.group, bank.active ? null : closedLabel].filter((part) => part !== null).join(' · ');
+
+        return {
+            value: bank.id,
+            // Without the closed suffix: that is what the description below is for, and saying it
+            // twice makes the name longer in the one place the name has to be scanned.
+            label: bankLabel(bank),
+            icon: <BankMark bank={bank} />,
+            ...(description === '' ? {} : { description }),
+        };
+    });
 }

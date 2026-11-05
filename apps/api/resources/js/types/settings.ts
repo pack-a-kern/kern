@@ -1,3 +1,5 @@
+import { vArray, vBoolean, vNullable, vNumber, vObject, vString } from '../lib/validate';
+
 /**
  * System settings as `GET /api/v1/settings` returns them.
  *
@@ -8,7 +10,8 @@
 export type SettingSource = 'database' | 'inherited';
 
 /** Mirrors `Kern\Platform\Settings\Enums\SettingType`. */
-export type SettingType = 'string' | 'integer' | 'decimal' | 'boolean' | 'url' | 'secret' | 'currency_list';
+export type SettingType =
+    'string' | 'integer' | 'decimal' | 'boolean' | 'url' | 'secret' | 'currency_list' | 'country_list';
 
 export interface Setting {
     key: string;
@@ -172,4 +175,37 @@ export function parseSystemHealth(payload: unknown): ComponentHealth[] {
             detail: typeof component.detail === 'string' ? component.detail : null,
         };
     });
+}
+
+/**
+ * The logo folder as `GET /api/v1/settings/banks/logos` describes it: where logos are read from,
+ * whether that folder exists, and the banks a person picks from that still have no logo — with the
+ * file each would need inside it (`RO/CECEROBU.*`), or null for a bank no file can be matched to.
+ */
+export interface BankLogoCoverage {
+    path: string;
+    exists: boolean;
+    banks: number;
+    withLogo: number;
+    missing: { id: string; name: string; file: string | null }[];
+}
+
+const bankLogoCoverage = vObject({
+    path: vString,
+    exists: vBoolean,
+    banks: vNumber,
+    with_logo: vNumber,
+    missing: vArray(vObject({ id: vString, name: vString, file: vNullable(vString) })),
+});
+
+export function parseBankLogoCoverage(payload: unknown): BankLogoCoverage {
+    const parsed = bankLogoCoverage(payload);
+
+    return {
+        path: parsed.path,
+        exists: parsed.exists,
+        banks: parsed.banks,
+        withLogo: parsed.with_logo,
+        missing: parsed.missing,
+    };
 }

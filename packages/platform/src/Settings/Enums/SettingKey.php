@@ -140,6 +140,9 @@ enum SettingKey: string
     case CRYPTO_KMS_DRIVER = 'crypto.kms_driver';
     case SECURITY_HASH_DRIVER = 'security.hash_driver';
 
+    // Which countries' banks are kept from the ECB's list, which covers the whole EU.
+    case BANKS_COUNTRIES = 'banks.countries';
+
     /**
      * `BLUEPRINT.md` §4.3/§4.10 — any API token/credential is encrypted at rest. Only the API key
      * carries secret material; the rest (which provider, which URL, whether it is on) are
@@ -216,6 +219,8 @@ enum SettingKey: string
             self::SECURITY_WEBAUTHN_CHALLENGE_TTL_SECONDS, self::SECURITY_WEBAUTHN_TIMEOUT_MS,
             self::SECURITY_SESSION_LIFETIME_MINUTES, self::SECURITY_STEP_UP_WINDOW_SECONDS,
             self::CRYPTO_KMS_DRIVER, self::SECURITY_HASH_DRIVER => SettingGroup::SECURITY,
+
+            self::BANKS_COUNTRIES => SettingGroup::BANKS,
         };
     }
 
@@ -261,6 +266,7 @@ enum SettingKey: string
             self::SECURITY_STEP_UP_WINDOW_SECONDS => 'identity.step_up.window_seconds',
             self::CRYPTO_KMS_DRIVER => 'crypto.kms.driver',
             self::SECURITY_HASH_DRIVER => 'hashing.driver',
+            self::BANKS_COUNTRIES => 'banks.countries',
         };
     }
 
@@ -277,6 +283,7 @@ enum SettingKey: string
             self::SOURCES_GLEIF_BIC_LEI_PAGE_URL, self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL => SettingType::URL,
             self::FX_VERIFICATION_TOLERANCE => SettingType::DECIMAL,
             self::FX_CURRENCIES => SettingType::CURRENCY_LIST,
+            self::BANKS_COUNTRIES => SettingType::COUNTRY_LIST,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER => SettingType::STRING,
             default => SettingType::INTEGER,

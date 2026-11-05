@@ -1841,10 +1841,27 @@ export interface Dictionary {
                 fx: string;
                 spv: string;
                 security: string;
+                banks: string;
             };
             legend: { title: string; database: string; inherited: string; locked: string };
             lockedBadge: string;
             settingLabels: Record<string, string>;
+            /** The Banks card: where logos are read from, and which banks still have none. */
+            banks: {
+                /** `{path}` is the logo folder. */
+                naming: string;
+                noFolder: string;
+                refresh: string;
+                refreshed: string;
+                /** `{count}` is how many banks have no logo. */
+                viewMissing: string;
+                missingTitle: string;
+                /** `{path}` is the logo folder. */
+                missingHint: string;
+                close: string;
+                noFile: string;
+                loadFailed: string;
+            };
             groupHints: {
                 ai: string;
                 documents: string;
@@ -1852,6 +1869,7 @@ export interface Dictionary {
                 fx: string;
                 spv: string;
                 security: string;
+                banks: string;
             };
             scheduler: {
                 title: string;

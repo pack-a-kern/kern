@@ -20,6 +20,7 @@ import type { ChartConfiguration, Plugin } from 'chart.js';
 
 import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
+import BankMark from '../components/wallet/BankMark';
 import AppShell from '../components/AppShell';
 import { Chart } from '../components/Chart';
 import {
@@ -483,9 +484,20 @@ export default function Dashboard(): JSX.Element {
                                                 the screen's — on a desktop this card is half the page.
                                             */}
                                             <div className="flex items-start gap-3">
-                                                {/* The bank's own code where it has one — the four letters
-                                                    people recognise from a statement — else a bank mark. */}
-                                                {bank.code === null ? (
+                                                {/* The bank's logo where this installation has one; else its
+                                                    own code — the four letters people recognise from a
+                                                    statement — and else a bank mark. */}
+                                                {bank.logoUrl !== null && bank.name !== null ? (
+                                                    <BankMark
+                                                        bank={{
+                                                            name: bank.name,
+                                                            code: bank.code,
+                                                            active: true,
+                                                            logoUrl: bank.logoUrl,
+                                                        }}
+                                                        size="lg"
+                                                    />
+                                                ) : bank.code === null ? (
                                                     <IconBadge tone="brand">
                                                         <Landmark className="size-3.5" />
                                                     </IconBadge>

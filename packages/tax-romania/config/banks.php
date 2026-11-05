@@ -90,4 +90,19 @@ return [
         'days_to_try' => (int) env('BANKS_BACKFILL_DAYS_TO_TRY', 7),
     ],
 
+    /*
+     * Each bank's logo, from files this installation puts in one folder — see
+     * `Kern\TaxRomania\Banks\Logos\BankLogos`. None ship with the code: a logo is its bank's
+     * trademark, and none is fetched from anywhere.
+     *
+     * Inside it, one folder per country, named by the bank's own country code, and in it one file per
+     * bank named after its BIC (first eight characters) or LEI:
+     * `<path>/RO/BTRLRO22.svg`. A bank with no file shows its initials.
+     */
+    'logos' => [
+        'path' => env('BANKS_LOGOS_PATH') ?: storage_path('app/private/bank-logos'),
+        // Per file. A logo is tens of kilobytes; a file this size is not one.
+        'max_bytes' => 200 * 1024,
+    ],
+
 ];

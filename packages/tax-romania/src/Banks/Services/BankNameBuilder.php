@@ -44,9 +44,7 @@ final class BankNameBuilder
     public function build(EcbInstitution $institution, LegalForms $legalForms): string
     {
         if ($institution->parentName === '') {
-            return $this->withOrdinaryCapitals(
-                $this->withoutClosingForm($institution->name, [$institution->countryCode], $legalForms),
-            );
+            return $this->fromRegisteredName($institution->name, $institution->countryCode, $legalForms);
         }
 
         $branchCountries = array_values(array_unique(array_filter([$institution->parentCountryCode, $institution->countryCode])));
@@ -54,6 +52,15 @@ final class BankNameBuilder
             ?? $this->withoutClosingForm($institution->parentName, $branchCountries, $legalForms);
 
         return $this->withOrdinaryCapitals($name);
+    }
+
+    /**
+     * A legal entity's name as a person reads it: without the legal form that closes it, in ordinary
+     * capitals — "ERSTE GROUP BANK AG", registered in Austria, is Erste Group Bank.
+     */
+    public function fromRegisteredName(string $name, string $countryCode, LegalForms $legalForms): string
+    {
+        return $this->withOrdinaryCapitals($this->withoutClosingForm($name, [$countryCode], $legalForms));
     }
 
     /**

@@ -13,6 +13,7 @@ use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 use Kern\TaxRomania\Console\Commands\Banks\BackfillBanksCommand;
 use Kern\TaxRomania\Console\Commands\Banks\ImportBanksCommand;
+use Kern\TaxRomania\Console\Commands\Banks\RefreshBankLogosCommand;
 use Kern\TaxRomania\Console\Commands\Fx\BackfillBnrYearCommand;
 use Kern\TaxRomania\Console\Commands\Fx\ImportBnrDailyRatesCommand;
 use Kern\TaxRomania\Console\Commands\Spv\CloseExpiredSpvSessionsCommand;
@@ -161,6 +162,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
             $this->commands([
                 ImportBanksCommand::class,
                 BackfillBanksCommand::class,
+                RefreshBankLogosCommand::class,
                 ImportBnrDailyRatesCommand::class,
                 BackfillBnrYearCommand::class,
                 BackfillCounterpartiesCommand::class,

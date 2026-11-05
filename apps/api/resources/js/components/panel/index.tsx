@@ -61,6 +61,11 @@ export function Panel(props: {
      * padding that changes with `flush` and with the viewport, which is how it ended up glued to the border.
      */
     note?: ReactNode;
+    /**
+     * Leave the note out on a phone: for a remark a person needs at a desk — where files go on the
+     * server — and that would take the narrow screen's room from the card's own content.
+     */
+    noteHiddenOnPhone?: boolean;
     /** Right-hand side of the card head — an action, a switch, a status. */
     aside?: ReactNode;
     children: ReactNode;
@@ -117,14 +122,20 @@ export function Panel(props: {
                 <div className="panel-body">{props.children}</div>
             )}
 
-            {props.note === undefined ? null : <PanelNote>{props.note}</PanelNote>}
+            {props.note === undefined ? null : (
+                <PanelNote hiddenOnPhone={props.noteHiddenOnPhone === true}>{props.note}</PanelNote>
+            )}
 
             {hasFoot && (
                 <div className="panel-foot">
                     {props.foot ?? (
                         <>
                             <div className="text-muted-foreground min-w-0 text-2xs">{props.footNote}</div>
-                            <div className="flex shrink-0 items-center gap-2">{props.footActions}</div>
+                            {/* At the right on a phone too, where the foot stacks: a card's actions end
+                                it in the same place at every width. */}
+                            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+                                {props.footActions}
+                            </div>
                         </>
                     )}
                 </div>
@@ -1668,9 +1679,15 @@ export function EventTime({ iso }: { iso: string }): JSX.Element {
  * slot renders it outside the body, where it can span the card. This is exported for the places that are
  * not a `Panel` — the dashboard's headline section builds its own frame.
  */
-export function PanelNote({ children }: { children: ReactNode }): JSX.Element {
+export function PanelNote({
+    children,
+    hiddenOnPhone = false,
+}: {
+    children: ReactNode;
+    hiddenOnPhone?: boolean;
+}): JSX.Element {
     return (
-        <p className="panel-note">
+        <p className={cn('panel-note', hiddenOnPhone && 'panel-note-wide')}>
             <Info className="size-3.5 shrink-0" aria-hidden="true" />
             <span>{children}</span>
         </p>

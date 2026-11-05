@@ -27,13 +27,15 @@ final class ImportBanksCommand extends Command
         }
 
         $this->components->info(sprintf(
-            'Bank import complete: %d listed (ECB list of %s), %d new, %d no longer listed, %d without a BIC (GLEIF file of %s).',
+            'Bank import complete: %d listed (ECB list of %s), %d new, %d no longer listed, %d without a BIC (GLEIF file of %s), %d in a group%s.',
             $summary->listed,
             $summary->listDate,
             $summary->created,
             $summary->deactivated,
             $summary->withoutBic,
             $summary->bicListDate,
+            $summary->grouped,
+            $summary->groupsFailed === 0 ? '' : sprintf(' (%d could not be asked)', $summary->groupsFailed),
         ));
 
         return self::SUCCESS;

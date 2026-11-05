@@ -2012,6 +2012,7 @@ export const ro = {
                 fx: 'Curs valutar',
                 spv: 'SPV — ANAF',
                 security: 'Securitate',
+                banks: 'Bănci',
             },
             legend: {
                 title: 'Cum se citește această pagină',
@@ -2020,6 +2021,18 @@ export const ro = {
                 locked: 'Nu poate fi modificată — ar strica datele deja salvate.',
             },
             lockedBadge: 'blocat',
+            banks: {
+                naming: 'Sigle din {path}/<țară>/<BIC>.svg, .png sau .webp',
+                noFolder: 'Creează {path}/RO/ și adaugă siglele ca <BIC>.svg, .png sau .webp',
+                refresh: 'Recitește',
+                refreshed: 'Dosarul siglelor a fost citit din nou.',
+                viewMissing: 'Lipsă ({count})',
+                missingTitle: 'Bănci fără siglă',
+                missingHint: 'Fișierul de care are nevoie fiecare, în {path}, ca SVG, WebP sau PNG.',
+                close: 'Închide',
+                noFile: 'Fără BIC sau LEI, deci niciun fișier nu i se poate potrivi',
+                loadFailed: 'Dosarul siglelor nu a putut fi citit.',
+            },
             settingLabels: {
                 'ai.enabled': 'Procesare AI activată',
                 'ai.provider': 'Furnizor',
@@ -2059,6 +2072,7 @@ export const ro = {
                 'security.step_up_window_seconds': 'Interval de reverificare',
                 'crypto.kms_driver': 'Driver KMS',
                 'security.hash_driver': 'Algoritm de hash pentru parole',
+                'banks.countries': 'Țări',
             },
             groupHints: {
                 ai: 'Ce furnizor citește documentele scanate. Cheia nu este niciodată afișată după salvare.',
@@ -2068,6 +2082,7 @@ export const ro = {
                 fx: 'Toleranța la diferența dintre media calculată local și cea publicată de BNR.',
                 spv: 'Fereastra de mesaje și timpii de așteptare pentru portalul ANAF.',
                 security: 'Durata sesiunilor și a provocărilor de autentificare.',
+                banks: 'Băncile căror țări se păstrează din lista BCE a tuturor băncilor din UE, și sigla fiecărei bănci.',
             },
             scheduler: {
                 title: 'Planificator',

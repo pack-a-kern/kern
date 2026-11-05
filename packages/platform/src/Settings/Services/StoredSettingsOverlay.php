@@ -110,7 +110,8 @@ final readonly class StoredSettingsOverlay
      * booleans and compare them with `===`. Casting here rather than at every reader is the whole point of
      * the key knowing its own type.
      */
-    private function cast(SettingKey $key, string $value): string|int|float|bool|null
+    /** @return string|int|float|bool|list<string>|null */
+    private function cast(SettingKey $key, string $value): string|int|float|bool|array|null
     {
         if ($value === '') {
             // An emptied field means "use the default", not "use an empty string" — which for a URL or a
@@ -122,6 +123,8 @@ final readonly class StoredSettingsOverlay
             SettingType::INTEGER => (int) $value,
             SettingType::DECIMAL => (float) $value,
             SettingType::BOOLEAN => filter_var($value, FILTER_VALIDATE_BOOL),
+            // Read as the list its config path holds — `banks.countries` is a list in the file too.
+            SettingType::COUNTRY_LIST => SettingType::decodeCountryList($value),
             default => $value,
         };
     }

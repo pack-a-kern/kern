@@ -1,9 +1,11 @@
 import { apiRequest } from '../lib/http';
 import {
     type AiProvider,
+    type BankLogoCoverage,
     type ComponentHealth,
     type SettingGroupPayload,
     parseAiProviders,
+    parseBankLogoCoverage,
     parseSettingGroups,
     parseSystemHealth,
 } from '../types/settings';
@@ -137,4 +139,14 @@ export async function getPlatformData(): Promise<PlatformData> {
 /** `GET /api/v1/settings/health` — live state of the internal services this installation runs. */
 export async function listSystemHealth(): Promise<ComponentHealth[]> {
     return parseSystemHealth(JSON.parse(await apiRequest('/v1/settings/health')));
+}
+
+/** `GET /api/v1/settings/banks/logos` — the logo folders, the one in use, and the banks still without one. */
+export async function getBankLogos(): Promise<BankLogoCoverage> {
+    return parseBankLogoCoverage(JSON.parse(await apiRequest('/v1/settings/banks/logos')));
+}
+
+/** `POST /api/v1/settings/banks/logos/refresh` — reads the folder again after files were added or replaced. */
+export async function refreshBankLogos(): Promise<BankLogoCoverage> {
+    return parseBankLogoCoverage(JSON.parse(await apiRequest('/v1/settings/banks/logos/refresh', { method: 'POST' })));
 }

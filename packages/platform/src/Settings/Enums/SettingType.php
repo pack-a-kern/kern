@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Platform\Settings\Enums;
 
 use Kern\Platform\Money\CurrencyCode;
+use Locale;
 
 /**
  * The value shape of a setting — drives both server-side validation and the input a settings
@@ -29,6 +30,14 @@ enum SettingType: string
      * have been accepted as `"lei, euro"` and read back as nothing.
      */
     case CURRENCY_LIST = 'currency_list';
+
+    /**
+     * A set of ISO 3166-1 alpha-2 codes, stored as one comma-separated string and read as a list.
+     *
+     * Its own type for the reason `CURRENCY_LIST` is: `"Romania"` must be refused, not saved and read
+     * back as a country nobody has.
+     */
+    case COUNTRY_LIST = 'country_list';
 
     /**
      * How a boolean is stored, and how it is read back.
@@ -100,6 +109,37 @@ enum SettingType: string
     public static function encodeCurrencyList(array $codes): string
     {
         return implode(',', self::decodeCurrencyList(implode(',', $codes)));
+    }
+
+    /**
+     * A stored string back to the country codes it names — upper-cased, deduplicated, in order.
+     *
+     * @return list<string>
+     */
+    public static function decodeCountryList(?string $stored): array
+    {
+        $codes = [];
+
+        foreach (explode(',', $stored ?? '') as $candidate) {
+            $code = strtoupper(trim($candidate));
+
+            if (self::isCountryCode($code) && ! in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * A country ISO 3166-1 assigns, as ICU knows them: `RO`, not `ZZ`, which ICU keeps for
+     * "unknown region", or `XX`, which it does not know at all.
+     */
+    public static function isCountryCode(string $code): bool
+    {
+        return preg_match('/\A[A-Z]{2}\z/', $code) === 1
+            && $code !== 'ZZ'
+            && Locale::getDisplayRegion('-' . $code, 'en') !== $code;
     }
 
     /**

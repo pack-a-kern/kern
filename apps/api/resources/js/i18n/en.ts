@@ -2014,6 +2014,7 @@ export const en = {
                 fx: 'Exchange rates',
                 spv: 'SPV — ANAF',
                 security: 'Security',
+                banks: 'Banks',
             },
             legend: {
                 title: 'How to read this page',
@@ -2022,6 +2023,18 @@ export const en = {
                 locked: 'Cannot be changed — it would corrupt data already saved.',
             },
             lockedBadge: 'locked',
+            banks: {
+                naming: 'Logos from {path}/<country>/<BIC>.svg, .png or .webp',
+                noFolder: 'Create {path}/RO/ and add logos as <BIC>.svg, .png or .webp',
+                refresh: 'Read again',
+                refreshed: 'Logo folder read again.',
+                viewMissing: 'Missing ({count})',
+                missingTitle: 'Banks without a logo',
+                missingHint: 'The file each needs, inside {path}, as SVG, WebP or PNG.',
+                close: 'Close',
+                noFile: 'No BIC or LEI, so no file can match it',
+                loadFailed: 'The logo folder could not be read.',
+            },
             settingLabels: {
                 'ai.enabled': 'AI processing enabled',
                 'ai.provider': 'Provider',
@@ -2061,6 +2074,7 @@ export const en = {
                 'security.step_up_window_seconds': 'Re-verification window',
                 'crypto.kms_driver': 'KMS driver',
                 'security.hash_driver': 'Password hashing driver',
+                'banks.countries': 'Countries',
             },
             groupHints: {
                 ai: 'Which provider reads scanned documents. The key is never shown again after saving.',
@@ -2070,6 +2084,7 @@ export const en = {
                 fx: 'Tolerance between the locally calculated average and the one BNR publishes.',
                 spv: 'Message window and timeouts for the ANAF portal.',
                 security: 'How long sessions and authentication challenges last.',
+                banks: 'Which countries’ banks are kept from the ECB’s list of every EU bank, and each bank’s logo.',
             },
             scheduler: {
                 title: 'Scheduler',

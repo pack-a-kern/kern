@@ -128,13 +128,15 @@ return [
         ],
 
         // The Global Legal Entity Identifier Foundation: the BIC-to-LEI file it publishes monthly with
-        // SWIFT, and ISO 20275, the list of legal forms (S.A., N.V., EAD) a bank's name is stripped
-        // of. Verified 2026-09-15: the BIC archives download from mapping.gleif.org without a
-        // redirect; the legal forms file redirects once, within www.gleif.org.
+        // SWIFT, ISO 20275, the list of legal forms (S.A., N.V., EAD) a bank's name is stripped of,
+        // and its API's ownership records — which group a bank belongs to. Verified 2026-09-15: the
+        // BIC archives download from mapping.gleif.org without a redirect; the legal forms file
+        // redirects once, within www.gleif.org. Verified 2026-11-05: api.gleif.org answers JSON with
+        // no key, and 404 for an entity that reports no parent.
         'GLEIF' => [
             'trust_tier' => 'D',
             'base_url' => 'https://www.gleif.org',
-            'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org'],
+            'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org', 'api.gleif.org'],
             'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
@@ -146,6 +148,11 @@ return [
                 'legal_forms_page' => env(
                     'GLEIF_LEGAL_FORMS_PAGE_URL',
                     'https://www.gleif.org/en/about-lei/code-lists/iso-20275-entity-legal-forms-code-list',
+                ),
+                // `{lei}` is the bank's. The answer is the record of the top of its group.
+                'ultimate_parent_template' => env(
+                    'GLEIF_ULTIMATE_PARENT_URL_TEMPLATE',
+                    'https://api.gleif.org/api/v1/lei-records/{lei}/ultimate-parent',
                 ),
             ],
         ],

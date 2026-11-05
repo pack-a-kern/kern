@@ -369,6 +369,8 @@ export interface BankDeposits {
     bankId: string | null;
     name: string | null;
     code: string | null;
+    /** Where this installation serves the bank's logo, or null. */
+    logoUrl: string | null;
     depositCount: number;
     principal: Record<string, number>;
     interestAtMaturity: Record<string, number>;
@@ -614,6 +616,10 @@ export interface Bank {
     countryCode: string;
     /** False for a bank that has closed or merged — listed only where an old statement needs it. */
     active: boolean;
+    /** The group it belongs to — "Erste Group Bank" for BCR — or null. */
+    group: string | null;
+    /** Where this installation serves the bank's logo, or null: draw its initials. */
+    logoUrl: string | null;
 }
 
 export function parseBanks(payload: unknown): Bank[] {
@@ -628,6 +634,8 @@ export function parseBanks(payload: unknown): Bank[] {
             code: nullableStr(row, 'code'),
             countryCode: str(row, 'country_code'),
             active: row.active !== false,
+            group: nullableStr(row, 'group'),
+            logoUrl: nullableStr(row, 'logo_url'),
         };
     });
 }
@@ -770,6 +778,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
                 bankId: nullableStr(row, 'bank_id'),
                 name: nullableStr(row, 'name'),
                 code: nullableStr(row, 'code'),
+                logoUrl: nullableStr(row, 'logo_url'),
                 depositCount: num(row, 'deposit_count'),
                 principal: money(row.principal),
                 interestAtMaturity: money(row.interest_at_maturity),

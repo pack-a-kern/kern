@@ -17,6 +17,9 @@ final readonly class BankImportSummary
         public int $withoutBic,
         public string $listDate,
         public string $bicListDate,
+        /** Banks GLEIF names a group for — BCR's is Erste Group — and banks it could not be asked about. */
+        public int $grouped,
+        public int $groupsFailed,
     ) {
     }
 }

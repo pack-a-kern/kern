@@ -37,9 +37,13 @@ beforeEach(function (): void {
         'sources.entries.GLEIF.allowed_hosts' => ['gleif-fixture.test'],
         'sources.entries.GLEIF.endpoints.bic_lei_page' => BIC_PAGE,
         'sources.entries.GLEIF.endpoints.legal_forms_page' => LEGAL_FORMS_PAGE,
+        'sources.entries.GLEIF.endpoints.ultimate_parent_template' => 'https://gleif-fixture.test/parents/{lei}',
         'banks.countries' => ['RO'],
         'banks.categories' => ['Credit Institution'],
     ]);
+
+    // No bank has a group until a test says so.
+    parents([]);
 });
 
 /** @param list<string> $rows tab-separated institution rows */
@@ -90,6 +94,24 @@ function listed(?array $rows = null): array
     return $current;
 }
 
+/**
+ * GLEIF's answer about each LEI's group: a record, or a status. A later call changes it, as `listed()`
+ * does for the list.
+ *
+ * @param  array<string, array{lei: string, name: string, country: string}|int>|null  $answers
+ * @return array<string, array{lei: string, name: string, country: string}|int>
+ */
+function parents(?array $answers = null): array
+{
+    static $current = [];
+
+    if ($answers !== null) {
+        $current = $answers;
+    }
+
+    return $current;
+}
+
 /** @param list<string> $rows */
 function publishers(array $rows): void
 {
@@ -109,8 +131,20 @@ function publishers(array $rows): void
             "\"ELF Code\",\"Country Code (ISO 3166-1)\",\"Entity Legal Form name Local name\",\"Entity Legal Form name Transliterated name (per ISO 01-140-10)\",\"Abbreviations Local language\",\"Abbreviations transliterated\"\n"
             // Romania's abbreviation exactly as the real file writes it, non-breaking space included.
             . "\"ANDT\",\"RO\",\"Societate pe acţiuni\",\"\",\"SA\u{00A0}\",\"\"\n"
-            . "\"54M6\",\"NL\",\"naamloze vennootschap\",\"\",\"NV;nv;N.V.;n.v.\",\"\"\n",
+            . "\"54M6\",\"NL\",\"naamloze vennootschap\",\"\",\"NV;nv;N.V.;n.v.\",\"\"\n"
+            . "\"EQOV\",\"AT\",\"Aktiengesellschaft\",\"\",\"AG\",\"\"\n",
         ),
+        // A bank's group, as GLEIF's API answers it: the parent's record, or 404 for none.
+        'https://gleif-fixture.test/parents/*' => static function ($request) {
+            $answer = parents()[basename($request->url())] ?? 404;
+
+            return is_int($answer)
+                ? Http::response('{"errors":[{"status":"404"}]}', $answer)
+                : Http::response(json_encode(['data' => ['id' => $answer['lei'], 'attributes' => ['entity' => [
+                    'legalName' => ['name' => $answer['name']],
+                    'legalAddress' => ['country' => $answer['country']],
+                ]]]], JSON_THROW_ON_ERROR), 200, ['Content-Type' => 'application/vnd.api+json']);
+        },
     ]);
 }
 
@@ -161,4 +195,44 @@ it('refuses a list with none of the configured country’s banks, and changes no
 
     expect(fn () => app(ImportBanks::class)())->toThrow(InvalidBankSourceFileException::class);
     expect(Bank::query()->where('active', true)->count())->toBe(2);
+});
+
+it('names the group a bank belongs to, from GLEIF', function (): void {
+    parents([
+        // CEC's group, registered in Austria: its name is built as a bank's is, legal form and all.
+        '2138008AVF4W7FMW8W87' => ['lei' => 'PQOH26KWDF7CG10L6792', 'name' => 'EXAMPLE GROUP BANK AG', 'country' => 'AT'],
+        // Banca Transilvania reports no parent: 404.
+    ]);
+    publishers([BT, ING, CEC]);
+
+    $summary = app(ImportBanks::class)();
+
+    expect([$summary->grouped, $summary->groupsFailed])->toBe([1, 0])
+        ->and(Bank::query()->where('ecb_code', 'RORBPJR40046')->first(['group_name', 'group_lei'])?->only(['group_name', 'group_lei']))
+        ->toBe(['group_name' => 'Example Group Bank', 'group_lei' => 'PQOH26KWDF7CG10L6792'])
+        ->and(Bank::query()->where('ecb_code', 'RORBPJR12019')->value('group_name'))->toBeNull()
+        // A branch has no LEI of its own to ask about; whose branch it is stays the ECB's answer.
+        ->and(Bank::query()->where('ecb_code', 'RORBPJS40024')->first(['group_name', 'parent_name'])?->only(['group_name', 'parent_name']))
+        ->toBe(['group_name' => null, 'parent_name' => 'ING Bank N.V.']);
+});
+
+it('gives no group to a bank that is the top of its own', function (): void {
+    parents(['549300RG3H390KEL8896' => ['lei' => '549300RG3H390KEL8896', 'name' => 'BANCA TRANSILVANIA S.A.', 'country' => 'RO']]);
+    publishers([BT]);
+
+    app(ImportBanks::class)();
+
+    expect(Bank::query()->where('ecb_code', 'RORBPJR12019')->value('group_name'))->toBeNull();
+});
+
+it('keeps the list, and a bank’s last group, when GLEIF cannot be asked about it', function (): void {
+    parents(['2138008AVF4W7FMW8W87' => ['lei' => 'PQOH26KWDF7CG10L6792', 'name' => 'EXAMPLE GROUP BANK AG', 'country' => 'AT']]);
+    publishers([BT, CEC]);
+    app(ImportBanks::class)();
+
+    parents(['2138008AVF4W7FMW8W87' => 503]);
+    $summary = app(ImportBanks::class)();
+
+    expect([$summary->listed, $summary->groupsFailed])->toBe([2, 1])
+        ->and(Bank::query()->where('ecb_code', 'RORBPJR40046')->value('group_name'))->toBe('Example Group Bank');
 });

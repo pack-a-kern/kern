@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Kern\TaxRomania\Banks\Logos\BankLogos;
+use Kern\TaxRomania\Http\Controllers\Banks\RefreshBankLogosController;
+use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogoController;
+use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
@@ -335,6 +339,21 @@ Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function ()
         Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('years', StartFiscalYearController::class);
     });
+});
+
+/*
+ * Bank logos — `Kern\TaxRomania\Banks\Logos\BankLogos`.
+ *
+ * The logo itself is for anyone signed in, as the bank list it belongs to is; the file is found by
+ * the bank, never from the address. The folder's state is read with the settings it belongs to, and
+ * "Refresh" — which reads files and changes nothing but the cache — needs the right to manage them.
+ */
+Route::prefix('v1')->middleware(['auth:web'])->group(function (): void {
+    Route::get('banks/{bank}/logo', ShowBankLogoController::class)->whereUuid('bank')->name(BankLogos::ROUTE);
+
+    Route::get('settings/banks/logos', ShowBankLogosController::class)->middleware('permission:system.settings.view');
+    Route::post('settings/banks/logos/refresh', RefreshBankLogosController::class)
+        ->middleware(['permission:system.settings.manage', 'throttle:operator-calls-per-user']);
 });
 
 /*

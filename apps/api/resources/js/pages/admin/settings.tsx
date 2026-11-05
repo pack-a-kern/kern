@@ -3,11 +3,13 @@ import { toast } from 'sonner';
 
 import {
     fetchAiModels,
+    getBankLogos,
     getPlatformData,
     listAiProviders,
     listSettings,
     replaceAiConnection,
     listSystemHealth,
+    refreshBankLogos,
     testAiConnection,
     updateSettingsGroup,
 } from '../../api/settingsApi';
@@ -47,6 +49,7 @@ import {
     ActivityIcon,
     BanknoteIcon,
     BotIcon,
+    Building2Icon,
     Check,
     FilesIcon,
     GaugeIcon,
@@ -55,6 +58,7 @@ import {
     KeyRoundIcon,
     LandmarkIcon,
     LinkIcon,
+    ListIcon,
     LockIcon,
     PencilIcon,
     PlugZap,
@@ -68,7 +72,7 @@ import {
 
 import { iconForSetting } from '../../lib/settingIcons';
 import { unitFor } from '../../lib/settingUnits';
-import type { AiProvider, ComponentHealth, Setting, SettingGroupPayload } from '../../types/settings';
+import type { AiProvider, BankLogoCoverage, ComponentHealth, Setting, SettingGroupPayload } from '../../types/settings';
 // Produced by the Operations module's probes; read here because what this installation is
 // configured to trust, and whether those sources are still delivering, is a settings question.
 import type { PlatformData, SchedulerStatus } from '../../types/operations';
@@ -87,6 +91,7 @@ type GroupKey = keyof Dictionary['pages']['adminSettings']['groups'];
 
 const AI_GROUP = 'ai';
 const DOCUMENTS_GROUP = 'documents';
+const BANKS_GROUP = 'banks';
 
 /**
  * The mark on each card's head.
@@ -102,6 +107,7 @@ const GROUP_ICONS: Record<string, JSX.Element> = {
     fx: <BanknoteIcon className="size-4" />,
     spv: <LandmarkIcon className="size-4" />,
     security: <ShieldCheckIcon className="size-4" />,
+    banks: <Building2Icon className="size-4" />,
 };
 
 /**
@@ -470,6 +476,19 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
         );
     }
 
+    if (group.group === BANKS_GROUP) {
+        return (
+            <BanksPanel
+                group={group}
+                drafts={props.drafts}
+                onDraft={props.onDraft}
+                describeFailure={props.describeFailure}
+                dirty={props.dirty}
+                actions={actions}
+            />
+        );
+    }
+
     if (group.group === DOCUMENTS_GROUP) {
         return (
             <UploadLimitsPanel
@@ -508,6 +527,160 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
                     />
                 ))}
             </FieldGrid>
+        </Panel>
+    );
+}
+
+/**
+ * The bank list's countries, and where its logos come from.
+ *
+ * The logo folder is not chosen here: it is the server's `BANKS_LOGOS_PATH`, and the card says where
+ * it is and what to put in it — a folder per country, a file per bank — then how many of the banks a
+ * person picks from have a logo, the file each of the rest would need, and "read again" for after
+ * files were added.
+ */
+function BanksPanel(props: {
+    group: SettingGroupPayload;
+    drafts: Draft;
+    onDraft: (key: string, value: string) => void;
+    describeFailure: (cause: unknown) => string;
+    dirty: boolean;
+    actions: ReactNode;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const [coverage, setCoverage] = useState<BankLogoCoverage | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [showMissing, setShowMissing] = useState(false);
+    const { describeFailure } = props;
+    const countries = props.group.settings.find((setting) => setting.key === 'banks.countries');
+
+    useEffect(() => {
+        let current = true;
+
+        getBankLogos().then(
+            (loaded) => {
+                if (current) {
+                    setCoverage(loaded);
+                }
+            },
+            (cause: unknown) => {
+                if (current) {
+                    toast.error(
+                        t((d) => d.pages.adminSettings.banks.loadFailed),
+                        { description: describeFailure(cause) },
+                    );
+                }
+            },
+        );
+
+        return () => {
+            current = false;
+        };
+    }, [describeFailure, t]);
+
+    const refresh = async (): Promise<void> => {
+        setRefreshing(true);
+
+        try {
+            setCoverage(await refreshBankLogos());
+            toast.success(t((d) => d.pages.adminSettings.banks.refreshed));
+        } catch (cause: unknown) {
+            toast.error(
+                t((d) => d.pages.adminSettings.banks.loadFailed),
+                { description: describeFailure(cause) },
+            );
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    return (
+        <Panel
+            title={t((d) => d.pages.adminSettings.groups.banks)}
+            description={t((d) => d.pages.adminSettings.groupHints.banks)}
+            icon={GROUP_ICONS.banks}
+            aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
+            note={
+                // Where the logos go: a remark about the card, across its foot, and one a person needs at
+                // the server rather than on a phone.
+                coverage === null
+                    ? undefined
+                    : t((d) =>
+                          coverage.exists ? d.pages.adminSettings.banks.naming : d.pages.adminSettings.banks.noFolder,
+                      ).replace('{path}', coverage.path)
+            }
+            noteHiddenOnPhone
+            footActions={props.actions}
+        >
+            {/* The countries, and beside them the folder's two actions — under the field on a phone,
+                side by side, each half the width; at the field's end from `sm`. Where the logos go is
+                the card's foot. */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                {countries !== undefined ? (
+                    <div className="min-w-0 flex-1">
+                        <SettingField
+                            setting={countries}
+                            draft={props.drafts[countries.key]}
+                            onDraft={(value) => {
+                                props.onDraft(countries.key, value);
+                            }}
+                        />
+                    </div>
+                ) : null}
+                <div className="flex gap-2">
+                    <PanelButton
+                        className="flex-1 sm:flex-none"
+                        onClick={() => void refresh()}
+                        disabled={refreshing || coverage === null}
+                    >
+                        <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} aria-hidden="true" />
+                        {t((d) => d.pages.adminSettings.banks.refresh)}
+                    </PanelButton>
+                    <PanelButton
+                        variant="outline"
+                        className="flex-1 sm:flex-none"
+                        disabled={coverage === null || coverage.missing.length === 0}
+                        onClick={() => {
+                            setShowMissing(true);
+                        }}
+                    >
+                        <ListIcon className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.pages.adminSettings.banks.viewMissing).replace(
+                            '{count}',
+                            String(coverage?.missing.length ?? 0),
+                        )}
+                    </PanelButton>
+                </div>
+            </div>
+            <PanelDialog
+                open={showMissing}
+                onOpenChange={setShowMissing}
+                title={t((d) => d.pages.adminSettings.banks.missingTitle)}
+                description={t((d) => d.pages.adminSettings.banks.missingHint).replace('{path}', coverage?.path ?? '')}
+                dismissOnOutsideClick
+                actions={
+                    <PanelButton
+                        variant="outline"
+                        onClick={() => {
+                            setShowMissing(false);
+                        }}
+                    >
+                        {t((d) => d.pages.adminSettings.banks.close)}
+                    </PanelButton>
+                }
+            >
+                <RowList>
+                    {(coverage?.missing ?? []).map((bank) => (
+                        <Row
+                            key={bank.id}
+                            title={bank.name}
+                            subtitle={bank.file ?? t((d) => d.pages.adminSettings.banks.noFile)}
+                        >
+                            {null}
+                        </Row>
+                    ))}
+                </RowList>
+            </PanelDialog>
         </Panel>
     );
 }

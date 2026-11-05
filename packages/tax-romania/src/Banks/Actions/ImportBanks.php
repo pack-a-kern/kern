@@ -9,6 +9,7 @@ use Kern\TaxRomania\Banks\DataTransferObjects\BankImportSummary;
 use Kern\TaxRomania\Banks\DataTransferObjects\EcbInstitution;
 use Kern\TaxRomania\Banks\Models\Bank;
 use Kern\TaxRomania\Banks\Parsing\Exceptions\InvalidBankSourceFileException;
+use Kern\TaxRomania\Banks\Services\BankGroups;
 use Kern\TaxRomania\Banks\Services\BankSources;
 
 /**
@@ -34,11 +35,17 @@ use Kern\TaxRomania\Banks\Services\BankSources;
  * - A bank no longer in the list, in a configured country, becomes inactive. It is never deleted: a
  *   deposit may name it.
  * - A bank in a country no longer configured is left alone, active or not, for the same reason.
+ *
+ * ## Then, each bank's group
+ *
+ * Once the list is written, `BankGroups` asks GLEIF which group each bank with an LEI belongs to.
  */
 final readonly class ImportBanks
 {
-    public function __construct(private BankSources $sources)
-    {
+    public function __construct(
+        private BankSources $sources,
+        private BankGroups $groups,
+    ) {
     }
 
     public function __invoke(): BankImportSummary
@@ -54,7 +61,7 @@ final readonly class ImportBanks
         $files = $this->sources->referenceFiles();
         $listDate = $listLink->publishedOn->format('Y-m-d');
 
-        return DB::transaction(function () use ($institutions, $countries, $files, $listDate): BankImportSummary {
+        [$listed, $created, $deactivated, $withoutBic] = DB::transaction(function () use ($institutions, $countries, $files, $listDate): array {
             $created = 0;
             $withoutBic = 0;
 
@@ -78,14 +85,22 @@ final readonly class ImportBanks
                 ->whereNotIn('ecb_code', array_map(static fn (EcbInstitution $institution): string => $institution->ecbCode, $institutions))
                 ->update(['active' => false, 'updated_at' => now('UTC')]);
 
-            return new BankImportSummary(
-                listed: count($institutions),
-                created: $created,
-                deactivated: $deactivated,
-                withoutBic: $withoutBic,
-                listDate: $listDate,
-                bicListDate: $files->bicListDate,
-            );
+            return [count($institutions), $created, $deactivated, $withoutBic];
         });
+
+        // After the list is written, outside its transaction: one request per bank, and a group GLEIF
+        // cannot name is no reason to leave the list as it was.
+        $groups = $this->groups->refresh($countries, $files->legalForms);
+
+        return new BankImportSummary(
+            listed: $listed,
+            created: $created,
+            deactivated: $deactivated,
+            withoutBic: $withoutBic,
+            listDate: $listDate,
+            bicListDate: $files->bicListDate,
+            grouped: $groups['grouped'],
+            groupsFailed: $groups['failed'],
+        );
     }
 }

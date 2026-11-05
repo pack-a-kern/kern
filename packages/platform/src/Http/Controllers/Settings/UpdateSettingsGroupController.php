@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Http\Controllers\Settings;
 
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -148,17 +149,21 @@ final readonly class UpdateSettingsGroupController
                 ? $value
                 : null,
             SettingType::CURRENCY_LIST => $this->currencyList($value),
+            SettingType::COUNTRY_LIST => $this->countryList($value),
         };
     }
 
     /**
-     * A list of three-letter codes, canonicalised — or null if any member is not one.
+     * The codes a list holds, upper-cased — or null if any member is not one `$valid` accepts.
      *
      * Rejected rather than filtered: somebody who typed `lei` wants to be told, not to have it
      * quietly dropped and the save reported as successful. Accepts the array the screen sends and
      * the comma-separated string an API caller would.
+     *
+     * @param  Closure(string): bool  $valid
+     * @return list<string>|null
      */
-    private function currencyList(mixed $value): ?string
+    private function codes(mixed $value, Closure $valid): ?array
     {
         $codes = is_array($value) ? $value : (is_string($value) ? explode(',', $value) : null);
 
@@ -179,14 +184,32 @@ final readonly class UpdateSettingsGroupController
                 continue;
             }
 
-            if (! CurrencyCode::isValid($code)) {
+            if (! $valid($code)) {
                 return null;
             }
 
             $clean[] = $code;
         }
 
-        return SettingType::encodeCurrencyList($clean);
+        return $clean;
+    }
+
+    private function currencyList(mixed $value): ?string
+    {
+        $codes = $this->codes($value, CurrencyCode::isValid(...));
+
+        return $codes === null ? null : SettingType::encodeCurrencyList($codes);
+    }
+
+    /**
+     * None is refused rather than saved: a bank list for no country is not a setting anyone means,
+     * and clearing the field (`null`) is how the configured default comes back.
+     */
+    private function countryList(mixed $value): ?string
+    {
+        $codes = $this->codes($value, SettingType::isCountryCode(...));
+
+        return $codes === null || $codes === [] ? null : implode(',', SettingType::decodeCountryList(implode(',', $codes)));
     }
 
     private function expectation(SettingKey $key): string
@@ -198,6 +221,7 @@ final readonly class UpdateSettingsGroupController
             SettingType::URL => 'Expected a valid URL.',
             SettingType::STRING, SettingType::SECRET => 'Expected a non-empty value.',
             SettingType::CURRENCY_LIST => 'Expected three-letter currency codes.',
+            SettingType::COUNTRY_LIST => 'Expected two-letter country codes, such as RO.',
         };
     }
 }

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { deleteAccount, listAccounts, listBanks, openAccount, openDeposits, updateAccount } from '../../api/walletApi';
+import BankMark from '../../components/wallet/BankMark';
 import AppShell from '../../components/AppShell';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
@@ -473,7 +474,7 @@ export default function WalletAccounts(): JSX.Element {
         }
     };
 
-    const bankCodes = new Map(banks.map((bank) => [bank.id, bank.code]));
+    const banksById = new Map(banks.map((bank) => [bank.id, bank]));
 
     const openAdd = (): void => {
         errors.reset();
@@ -637,10 +638,11 @@ export default function WalletAccounts(): JSX.Element {
                         >
                             {paged.map((account) => {
                                 const deposit = account.deposit;
-                                const code =
+                                const bank =
                                     deposit === null || deposit.bankId === null
-                                        ? null
-                                        : (bankCodes.get(deposit.bankId) ?? null);
+                                        ? undefined
+                                        : banksById.get(deposit.bankId);
+                                const code = bank?.code ?? null;
 
                                 return (
                                     <tr key={account.id} className={cn(selection.has(account.id) && 'row-selected')}>
@@ -657,6 +659,7 @@ export default function WalletAccounts(): JSX.Element {
                                         </td>
                                         <td className="col-primary">
                                             <div className="flex items-center gap-2 font-semibold">
+                                                {bank === undefined ? null : <BankMark bank={bank} />}
                                                 {account.displayName}
                                                 {code === null ? null : <Pill>{code}</Pill>}
                                             </div>

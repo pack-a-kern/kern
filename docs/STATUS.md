@@ -37,6 +37,10 @@ Status values: `not started` · `in progress` · `blocked` · `complete`
 in `kern/tax-romania/src/Notices` — [054](handoff/054-device-notifications.md),
 [055](handoff/055-notifications-package.md), ADR 0022.
 
+**Bank logos and groups** (outside the milestones): each bank's logo from a folder the installation
+fills, its group from GLEIF, and the Banks section of the settings screen —
+[056](handoff/056-bank-logos-and-groups.md), ADR 0023.
+
 ---
 
 ## Files currently being worked on

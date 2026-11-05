@@ -81,6 +81,8 @@ final readonly class ResolveSettings
             $value === null => null,
             is_bool($value) => $value ? '1' : '0',
             is_scalar($value) => (string) $value,
+            // A list of codes is shown as it is typed and stored: comma-separated.
+            is_array($value) && $key->type() === SettingType::COUNTRY_LIST => implode(',', array_filter($value, is_string(...))),
             // A non-scalar config value cannot be rendered in a text input; showing nothing is
             // honest, showing "Array" is not.
             default => null,

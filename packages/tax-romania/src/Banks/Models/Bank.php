@@ -26,6 +26,8 @@ use Kern\TaxRomania\Database\Factories\BankFactory;
  * @property string $legal_name
  * @property string|null $parent_name
  * @property string|null $parent_lei
+ * @property string|null $group_name
+ * @property string|null $group_lei
  * @property string $category
  * @property string $country_code
  * @property string|null $city
@@ -54,6 +56,8 @@ final class Bank extends Model
         'legal_name',
         'parent_name',
         'parent_lei',
+        'group_name',
+        'group_lei',
         'category',
         'country_code',
         'city',
