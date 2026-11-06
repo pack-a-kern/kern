@@ -90,7 +90,10 @@ lint:
 ## for CI, far too slow to run after every edit. This is what to use while working.
 check: check-js check-php check-packages
 
-## Frontend: types, lint, unit tests, production build.
+## Frontend: types, lint, formatting, unit tests, production build.
+##
+## The same checks CI's JS job runs, formatting included: without it a file Prettier would reflow
+## passed here and failed only once pushed.
 ##
 ## `tsc` first: a type error makes every later failure noise. The build is included because Vite
 ## can fail on things tsc accepts (a bad import, an asset that will not resolve), and because the
@@ -98,6 +101,7 @@ check: check-js check-php check-packages
 check-js:
 	cd apps/api && npx tsc --noEmit
 	cd apps/api && npx eslint resources/js
+	cd apps/api && npm run format
 	cd apps/api && npx vitest run
 	cd apps/api && npx vite build
 

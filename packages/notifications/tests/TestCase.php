@@ -50,6 +50,10 @@ abstract class TestCase extends Testbench
         $app['config']->set('notifications.push.vapid.public_key', '');
         $app['config']->set('notifications.push.vapid.private_key', '');
         $app['config']->set('app.url', 'https://shop.example.com');
+        // Requests here carry encrypted cookies. A key made per test, never one from the environment:
+        // inside the app container APP_KEY is set, on a bare CI runner nothing is, and a suite that
+        // passed only where the stack runs was hiding that.
+        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
 
         $app->singleton(Orders::class);
         $app->make(NoticeTypes::class)->register(OrderShipped::class);

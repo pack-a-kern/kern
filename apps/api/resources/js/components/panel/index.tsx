@@ -117,9 +117,7 @@ export function Panel(props: {
                 <div className="panel-body">{props.children}</div>
             )}
 
-            {props.note === undefined ? null : (
-                <PanelNote>{props.note}</PanelNote>
-            )}
+            {props.note === undefined ? null : <PanelNote>{props.note}</PanelNote>}
 
             {hasFoot && (
                 <div className="panel-foot">
