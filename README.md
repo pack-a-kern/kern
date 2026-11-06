@@ -55,8 +55,12 @@ them (compose files, the installer, the updater, the signature check and the `.e
 docker login ghcr.io -u <github-user>
 
 # 2. Check that the release's files were signed by this repository's CI, at exactly this tag.
-VERSION=0.1.2
+#    cosign reads the signature from the registry itself, so it is handed the login from step 1:
+#    the file `docker login` wrote, read-only, read as you (it is readable by its owner only).
+VERSION=0.1.3
 docker run --rm \
+  -v "$HOME/.docker/config.json:/docker/config.json:ro" -e DOCKER_CONFIG=/docker \
+  -u "$(id -u):$(id -g)" -e HOME=/tmp \
   ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d \
   verify \
   --certificate-identity "https://github.com/pack-a-kern/kern/.github/workflows/ci.yml@refs/tags/v$VERSION" \
@@ -70,7 +74,7 @@ cd kern
 make install
 ```
 
-- Replace `0.1.2` with the release you want. The releases are listed on the repository's
+- Replace `0.1.3` with the release you want. The releases are listed on the repository's
   **Tags** page.
 - Step 2 is the one check you make by hand: everything after it is done by the files it checked.
   The installer refuses every image whose signature is not this repository's CI, for exactly that
