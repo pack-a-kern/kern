@@ -2524,14 +2524,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     }
 }
 
-/* A note for a desk, not a phone — `Panel`'s `noteHiddenOnPhone`. Here rather than as `hidden`: `.panel-note`
-   is unlayered and its `display` would win over a utility. */
-@media (width < 40rem) {
-    .panel-note-wide {
-        display: none;
-    }
-}
-
 .stat-row {
     display: flex;
     align-items: baseline;

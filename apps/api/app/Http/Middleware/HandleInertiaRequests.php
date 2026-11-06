@@ -45,6 +45,13 @@ final class HandleInertiaRequests extends Middleware
      * runs for *every* Inertia response, including the ones that care about none of it, so it earns
      * its place only for what the shell itself draws.
      *
+     * ## Closures, not values
+     *
+     * Inertia calls this for every request through the `web` group — and `/api` is in that group, so
+     * every JSON call too. A value here is built whether or not a page is rendered: the roles, the
+     * permissions, the taxpayer switcher and every name decrypted for it, a key unwrapped from
+     * OpenBao for each. A closure is resolved only when a page is, so an API call pays for none of it.
+     *
      * @see https://inertiajs.com/shared-data
      *
      * @return array<string, mixed>
@@ -64,7 +71,7 @@ final class HandleInertiaRequests extends Middleware
              * From here it reaches the shell, the login screen and the tab title at runtime.
              */
             'appName' => config('app.name'),
-            'auth' => $user === null ? null : [
+            'auth' => static fn (): ?array => $user === null ? null : [
                 /*
                  * Whether this session is somebody else's.
                  *
@@ -111,7 +118,7 @@ final class HandleInertiaRequests extends Middleware
              * config at boot. The available-currency list, which does read the rates, stays on the
              * settings screen's own endpoint.
              */
-            'currencies' => app(CurrencyCatalogue::class)->enabled(),
+            'currencies' => static fn (): array => app(CurrencyCatalogue::class)->enabled(),
             /*
              * Which services were down at the scheduler's last look, for the strip across the top —
              * only for those who may read the system status, exactly as the status screen is.
@@ -119,13 +126,13 @@ final class HandleInertiaRequests extends Middleware
              * The kept answer, not a probe: one cache read per page (`WatchSystemHealth::down()`).
              * Changes after the page loaded arrive over the WebSocket, so nothing polls for this.
              */
-            'systemHealth' => $user !== null && $user->can('system.settings.view')
+            'systemHealth' => static fn (): ?array => $user !== null && $user->can('system.settings.view')
                 ? ['down' => app(WatchSystemHealth::class)->down()]
                 : null,
             // What the upload picker may offer, from the one list that decides what the server
             // will actually accept. Shared rather than retyped in the dialog: a hand-maintained
             // copy drifts, and the way it drifts is a picker offering a file the server refuses.
-            'documents' => [
+            'documents' => static fn (): array => [
                 'accept' => SniffedFileType::acceptAttribute(),
                 // Whether the upload screen may offer to clean up a photograph before sending it.
                 'enhances' => app(AiProviderCatalogue::class)->supportsEnhancement(),

@@ -34,6 +34,9 @@ use Kern\TaxRomania\Spv\Transport\BrowserPortalInboxSyncTransport;
  */
 final readonly class SyncSpvInbox
 {
+    /** Messages looked up per query: a long inbox costs a few lookups, and holds one batch at a time. */
+    private const int LOOKUP_BATCH = 200;
+
     public function __construct(
         private AnafCertificateApiTransport $certificateTransport,
         private BrowserPortalInboxSyncTransport $browserTransport,
@@ -83,8 +86,9 @@ final readonly class SyncSpvInbox
             throw $exception;
         }
 
-        foreach ($messages as $message) {
-            $this->upsertMessage($connection->tax_subject_id, $message);
+        // Looked up a batch at a time rather than one query per message; one batch's rows held, not the inbox's.
+        foreach (array_chunk($messages, self::LOOKUP_BATCH) as $batch) {
+            $this->upsertMessages($connection->tax_subject_id, $batch);
         }
 
         return $this->finish($run, $actorId, SpvSyncRunStatus::SUCCEEDED, count($messages), ['message_count' => count($messages)]);
@@ -104,32 +108,43 @@ final readonly class SyncSpvInbox
         return $run;
     }
 
-    private function upsertMessage(string $taxSubjectId, SpvInboxMessage $message): void
+    /** @param list<SpvInboxMessage> $messages */
+    private function upsertMessages(string $taxSubjectId, array $messages): void
     {
-        $externalIdBlindIndex = $this->blindIndex->compute(Normalizer::text($message->externalId));
+        $blindIndexes = array_map(
+            fn (SpvInboxMessage $message): string => $this->blindIndex->compute(Normalizer::text($message->externalId)),
+            $messages,
+        );
 
+        /** @var array<string, SpvMessage> $existing by blind index */
         $existing = SpvMessage::query()
             ->where('tax_subject_id', $taxSubjectId)
-            ->where('external_id_blind_index', $externalIdBlindIndex)
-            ->first();
+            ->whereIn('external_id_blind_index', array_values(array_unique($blindIndexes)))
+            ->get()
+            ->keyBy('external_id_blind_index')
+            ->all();
 
-        $attributes = [
-            'tax_subject_id' => $taxSubjectId,
-            'external_id_ciphertext' => $message->externalId,
-            'external_id_blind_index' => $externalIdBlindIndex,
-            'title_ciphertext' => $message->title,
-            'received_at' => $message->receivedAt,
-            'metadata_ciphertext' => $message->metadata === [] ? null : json_encode($message->metadata, JSON_THROW_ON_ERROR),
-        ];
+        foreach ($messages as $position => $message) {
+            $externalIdBlindIndex = $blindIndexes[$position];
 
-        if ($existing instanceof SpvMessage) {
-            $existing->fill($attributes);
-            $existing->save();
+            $attributes = [
+                'tax_subject_id' => $taxSubjectId,
+                'external_id_ciphertext' => $message->externalId,
+                'external_id_blind_index' => $externalIdBlindIndex,
+                'title_ciphertext' => $message->title,
+                'received_at' => $message->receivedAt,
+                'metadata_ciphertext' => $message->metadata === [] ? null : json_encode($message->metadata, JSON_THROW_ON_ERROR),
+            ];
 
-            return;
+            if (isset($existing[$externalIdBlindIndex])) {
+                $existing[$externalIdBlindIndex]->fill($attributes)->save();
+
+                continue;
+            }
+
+            // Kept, so a message the inbox lists twice updates the row its first listing made, as it always has.
+            $existing[$externalIdBlindIndex] = SpvMessage::create($attributes);
         }
-
-        SpvMessage::create($attributes);
     }
 
     /** @param array<string, mixed> $payload */

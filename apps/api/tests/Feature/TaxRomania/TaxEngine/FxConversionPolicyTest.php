@@ -137,3 +137,32 @@ it('records full provenance for every conversion — amount, currency, rate, dat
         ->and($array['source_code'])->toBe('BNR')
         ->and($array['provenance'][0])->toHaveKeys(['rate_date', 'per_unit_rate', 'source_document_version_id', 'content_sha256', 'raw_object_path', 'retrieved_at']);
 });
+
+it('reads an annual average in a handful of queries, not one per day', function (): void {
+    for ($day = new DateTimeImmutable('2026-01-01'); $day <= new DateTimeImmutable('2026-12-31'); $day = $day->modify('+1 day')) {
+        if ((int) $day->format('N') < 6) {
+            seedSyntheticFxRate('XTS', $day->format('Y-m-d'), '5.0000');
+        }
+    }
+
+    Illuminate\Support\Facades\DB::enableQueryLog();
+
+    $result = makeFxConversionPolicy()->convertToRon(Money::ofMinorUnits(10000, 'XTS'), FxConversionMethod::ANNUAL_AVERAGE, new DateTimeImmutable('2026-06-15'), RoundingMode::HALF_UP);
+
+    // The source, the year's rates, and their documents in three — a year used to be 365 lookups of
+    // five queries each. Every day's evidence is still there.
+    expect(Illuminate\Support\Facades\DB::getQueryLog())->toHaveCount(5)
+        ->and($result->provenance)->toHaveCount(261)
+        ->and($result->convertedAmount->minorUnits)->toBe(50000);
+});
+
+it('finds the previous banking day in one read of the lookback window', function (): void {
+    seedSyntheticFxRate('XTS', '2026-06-05', '4.0000');
+
+    Illuminate\Support\Facades\DB::enableQueryLog();
+
+    $result = makeFxConversionPolicy()->convertToRon(Money::ofMinorUnits(1000, 'XTS'), FxConversionMethod::PREVIOUS_BANKING_DAY, new DateTimeImmutable('2026-06-14'), RoundingMode::HALF_UP);
+
+    expect(Illuminate\Support\Facades\DB::getQueryLog())->toHaveCount(5)
+        ->and($result->resolvedFor->format('Y-m-d'))->toBe('2026-06-05');
+});

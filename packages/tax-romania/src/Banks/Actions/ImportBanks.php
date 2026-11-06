@@ -42,6 +42,12 @@ use Kern\TaxRomania\Banks\Services\BankSources;
  */
 final readonly class ImportBanks
 {
+    /**
+     * Banks looked up per query: one lookup per bank was a query each, and the whole table at once
+     * would hold every country's banks in memory — this keeps both bounded, however long the list.
+     */
+    private const int CHUNK = 500;
+
     public function __construct(
         private BankSources $sources,
         private BankGroups $groups,
@@ -65,17 +71,28 @@ final readonly class ImportBanks
             $created = 0;
             $withoutBic = 0;
 
-            foreach ($institutions as $institution) {
-                $attributes = [...$this->sources->attributes($institution, $files), 'active' => true, 'last_seen_on' => $listDate];
-                $withoutBic += $attributes['bic'] === null ? 1 : 0;
+            foreach (array_chunk($institutions, self::CHUNK) as $chunk) {
+                /** @var array<string, Bank> $banks by ECB code */
+                $banks = Bank::query()
+                    ->whereIn('ecb_code', array_map(static fn (EcbInstitution $institution): string => $institution->ecbCode, $chunk))
+                    ->get()
+                    ->keyBy('ecb_code')
+                    ->all();
 
-                $bank = Bank::query()->where('ecb_code', $institution->ecbCode)->first();
+                foreach ($chunk as $institution) {
+                    $attributes = [...$this->sources->attributes($institution, $files), 'active' => true, 'last_seen_on' => $listDate];
+                    $withoutBic += $attributes['bic'] === null ? 1 : 0;
 
-                if ($bank === null) {
-                    Bank::query()->create(['ecb_code' => $institution->ecbCode, 'first_seen_on' => $listDate, ...$attributes]);
-                    $created++;
-                } else {
-                    $bank->fill($attributes)->save();
+                    $bank = $banks[$institution->ecbCode] ?? null;
+
+                    if ($bank === null) {
+                        // Kept, so the list naming one bank twice updates the row it just made, as it always has.
+                        $banks[$institution->ecbCode] = Bank::query()->create(['ecb_code' => $institution->ecbCode, 'first_seen_on' => $listDate, ...$attributes]);
+                        $created++;
+                    } else {
+                        // Writes only what changed — a bank the list still describes the same costs no query.
+                        $bank->fill($attributes)->save();
+                    }
                 }
             }
 

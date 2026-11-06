@@ -317,3 +317,43 @@ it('never merges a transaction belonging to someone else', function (): void {
 
     expect(DB::table('financial_transactions')->count())->toBe(2);
 });
+
+it('describes every group in the same few queries, however many there are', function (): void {
+    [$user, $subjectId, $accountId] = ledger();
+
+    $queriesFor = function (int $groups) use ($user, $subjectId, $accountId): array {
+        // Each group a different day, so the groups stay apart.
+        foreach (range(1, $groups) as $day) {
+            foreach (['Kaufland Romania SCS', 'KAUFLAND 1234 BUCURESTI'] as $spelling) {
+                payment($subjectId, $accountId, ['booked_at' => sprintf('2026-05-%02d', $day), 'counterparty_ciphertext' => $spelling]);
+            }
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($user)
+            ->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates")
+            ->assertOk();
+
+        $log = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+        FinancialTransaction::query()->delete();
+
+        /** @var list<mixed> $groups */
+        $groups = $response->json('groups');
+
+        return [count($groups), $log];
+    };
+
+    // The first request in a test pays for one-off setup; measured after it, both counts are the page's own.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/transactions/duplicates")->assertOk();
+
+    [$one, $oneLog] = $queriesFor(1);
+    [$five, $fiveLog] = $queriesFor(5);
+
+    expect([$one, $five])->toBe([1, 5])
+        ->and($fiveLog)->toHaveCount(count($oneLog))
+        // The account's name only — not the overview, which added up every balance to throw it away.
+        ->and(array_filter($fiveLog, static fn (string $query): bool => str_contains($query, 'deposit_terms')))->toBe([]);
+});

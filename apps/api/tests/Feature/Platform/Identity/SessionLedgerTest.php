@@ -154,3 +154,39 @@ it('stamps last_used_at on an authenticated request, so a session in use is not 
     $stampedAt = is_scalar($lastUsed) ? (string) $lastUsed : '';
     expect(Carbon::parse($stampedAt)->greaterThan(now('UTC')->subMinute()))->toBeTrue();
 });
+
+it('writes last_used_at at most every few minutes, not on every request', function (): void {
+    $user = User::factory()->create();
+    $user->password_hash = Hash::make('correct-horse-battery-staple');
+    $user->save();
+
+    carryCookiesFrom(
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email_ciphertext,
+            'password' => 'correct-horse-battery-staple',
+        ])->assertOk()
+    );
+
+    $writes = static function (callable $requests): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $requests();
+
+        return count(array_filter(
+            DB::getQueryLog(),
+            static fn (array $query): bool => str_starts_with($query['query'], 'update') && str_contains($query['query'], 'user_sessions'),
+        ));
+    };
+
+    // The first request writes; the next ones, within the interval, do not.
+    $this->travel(1)->minutes();
+    expect($writes(function (): void {
+        foreach (range(1, 5) as $ignored) {
+            carryCookiesFrom($this->getJson('/api/v1/me')->assertOk());
+        }
+    }))->toBe(1);
+
+    // Once the interval has passed, the next request writes again.
+    $this->travel(SessionRegistrar::TOUCH_INTERVAL_MINUTES)->minutes();
+    expect($writes(fn () => carryCookiesFrom($this->getJson('/api/v1/me')->assertOk())))->toBe(1);
+});

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Banks\BankLogosTest;
 
+use Illuminate\Cache\Events\CacheHit;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Settings\Enums\SettingType;
 use Kern\Platform\Settings\Services\StoredSettingsOverlay;
@@ -304,3 +306,26 @@ it('takes the countries as two-letter codes, and refuses anything else', functio
     'ICU’s unknown region' => ['ZZ', null],
     'none' => [',', null],
 ]);
+
+it('reads the index from the cache once for a list of banks, and again after a refresh', function (): void {
+    file_put_contents($this->root . '/RO/BTRLRO22.svg', SVG);
+    $logos = logos();
+    $logos->refresh();
+
+    $reads = 0;
+    Event::listen(CacheHit::class, function (CacheHit $event) use (&$reads): void {
+        $reads += $event->key === BankLogos::CACHE_KEY ? 1 : 0;
+    });
+
+    $logos = logos();
+
+    foreach (range(1, 20) as $ignored) {
+        $logos->for('RO', 'BTRLRO22XXX', null, null);
+    }
+
+    file_put_contents($this->root . '/RO/CECEROBU.png', PNG);
+
+    expect($reads)->toBe(1)
+        ->and($logos->refresh())->toHaveKey('RO/CECEROBU')
+        ->and($logos->for('RO', 'CECEROBUXXX', null, null)?->mimeType)->toBe('image/png');
+});

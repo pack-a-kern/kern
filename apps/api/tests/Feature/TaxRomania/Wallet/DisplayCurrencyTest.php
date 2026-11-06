@@ -6,6 +6,7 @@ namespace Tests\Feature\TaxRomania\Wallet\DisplayCurrencyTest;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Legislation\Models\OfficialSource;
@@ -186,4 +187,27 @@ it('rounds half-up once, at the end, rather than per currency', function (): voi
     // separate conversion), but each rounding is half-up on the exact decimal rather than on a
     // float, so a rate ending in 5 never drifts.
     expect($total->amountMinor)->toBe(9);
+});
+
+it('reads each rate once, however many totals it converts', function (): void {
+    publishRate('EUR', '2026-09-09', '5.0000');
+    publishRate('USD', '2026-09-09', '4.5000');
+
+    $converter = app(DisplayCurrencyConverter::class);
+    $asOf = new DateTimeImmutable('2026-09-10');
+
+    DB::enableQueryLog();
+
+    // The overview converts about a dozen totals at one date, all through the display currency's
+    // rate. Each of them used to look up every rate again, with its document, and the source.
+    foreach (range(1, 5) as $ignored) {
+        $converter->convert(['EUR' => 100_00, 'USD' => 100_00], 'EUR', $asOf);
+    }
+
+    $queries = array_column(DB::getQueryLog(), 'query');
+
+    // One per currency, one for the source — and nothing for the documents a screen never shows.
+    expect(array_filter($queries, static fn (string $sql): bool => str_contains($sql, 'ext_fx_rates')))->toHaveCount(2)
+        ->and(array_filter($queries, static fn (string $sql): bool => str_contains($sql, 'ext_official_sources')))->toHaveCount(1)
+        ->and(array_filter($queries, static fn (string $sql): bool => str_contains($sql, 'ext_source_document_versions')))->toBe([]);
 });

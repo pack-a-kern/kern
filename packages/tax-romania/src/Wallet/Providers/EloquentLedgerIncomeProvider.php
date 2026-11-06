@@ -30,20 +30,35 @@ final readonly class EloquentLedgerIncomeProvider implements LedgerIncomeProvide
             return [];
         }
 
+        $from = sprintf('%04d-01-01', $fiscalYear);
+        $to = sprintf('%04d-12-31', $fiscalYear);
+
+        // Two queries: the year's splits, then their transactions. Each split used to fetch its own
+        // transaction — from every year, to throw the other years away afterwards.
         $splits = TransactionSplit::query()
             ->where('tax_subject_id', $taxSubjectId)
             ->whereIn('category_code', $categoryCodes)
+            ->whereIn('transaction_id', FinancialTransaction::query()
+                ->select('id')
+                ->whereDate('booked_at', '>=', $from)
+                ->whereDate('booked_at', '<=', $to))
             ->orderBy('id')
             ->get();
+
+        /** @var array<string, FinancialTransaction> $transactions */
+        $transactions = FinancialTransaction::query()
+            ->whereKey($splits->pluck('transaction_id')->unique()->values()->all())
+            ->get()
+            ->keyBy('id')
+            ->all();
 
         $entries = [];
 
         /** @var TransactionSplit $split */
         foreach ($splits as $split) {
-            /** @var FinancialTransaction|null $transaction */
-            $transaction = FinancialTransaction::query()->find($split->transaction_id);
+            $transaction = $transactions[$split->transaction_id] ?? null;
 
-            if ($transaction === null || (int) $transaction->booked_at->format('Y') !== $fiscalYear) {
+            if ($transaction === null) {
                 continue;
             }
 

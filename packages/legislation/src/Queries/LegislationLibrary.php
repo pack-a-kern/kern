@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Kern\Legislation\Queries;
 
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\DataTransferObjects\SectionNode;
 use Kern\Legislation\Enums\SectionType;
 use Kern\Legislation\Exceptions\AmbiguousEffectiveVersionException;
 use Kern\Legislation\Exceptions\NoEffectiveVersionFoundException;
@@ -27,6 +30,9 @@ use Kern\Legislation\Services\LegislationTemporalQuery;
 final readonly class LegislationLibrary
 {
     private const string SOURCE = 'LEGISLATIE';
+
+    /** Sections whose wording is read per query: a part of a law is rarely more, and the whole law is a few queries. */
+    private const int WORDING_BATCH = 1000;
 
     public function __construct(
         private OfficialSourceRepository $sources,
@@ -155,42 +161,53 @@ final readonly class LegislationLibrary
             return null;
         }
 
-        $all = SourceSection::query()
-            ->where('document_version_id', $version->id)
-            ->orderBy('ordinal')
-            ->get(['id', 'parent_id', 'section_type', 'citation_label', 'ordinal', 'text', 'tables', 'amended_on', 'outline_id', 'notes']);
+        // The whole law's structure, without its wording, as nodes rather than models (`SectionNode`):
+        // the Codul fiscal is some 7 000 sections, and a page shows one part of it. The wording is read
+        // below, for that part only.
+        $all = $this->nodes(SourceSection::query()->where('document_version_id', $version->id));
         $headings = $this->headings($version->id);
-        $byId = $all->keyBy('id');
-
+        $byId = [];
         $children = [];
+        $focus = null;
 
         foreach ($all as $section) {
-            $children[$section->parent_id ?? ''][] = $section;
+            $byId[$section->id] = $section;
+            $children[$section->parentId ?? ''][] = $section;
+
+            if ($provision !== null && $focus === null && $section->citation === $provision) {
+                $focus = $section;
+            }
         }
 
         $topLevel = $children[''] ?? [];
-        $focus = $provision === null ? null : $all->firstWhere('citation_label', $provision);
         $article = $focus;
 
-        while ($article instanceof SourceSection && $article->parent_id !== null) {
-            $article = $byId->get($article->parent_id);
+        while ($article instanceof SectionNode && $article->parentId !== null) {
+            $article = $byId[$article->parentId] ?? null;
         }
 
         $pathIds = array_column($headings, 'id', 'path');
-        $part = $article instanceof SourceSection
-            ? $article->outline_id
-            : ($pathIds[$heading ?? ''] ?? (self::chain(($topLevel[0] ?? null)?->outline_id, $headings)[0]['id'] ?? null));
-        $sections = [];
+        $part = $article instanceof SectionNode
+            ? $article->outlineId
+            : ($pathIds[$heading ?? ''] ?? (self::chain(($topLevel[0] ?? null)?->outlineId, $headings)[0]['id'] ?? null));
+        $shown = [];
 
         foreach ($topLevel as $section) {
-            $chain = self::chain($section->outline_id, $headings);
+            $chain = self::chain($section->outlineId, $headings);
 
             if ($part === null ? $chain !== [] : ! in_array($part, array_column($chain, 'id'), true)) {
                 continue;
             }
 
+            $shown[] = [$section, $chain];
+        }
+
+        $wording = $this->wording(self::within(array_column($shown, 0), $children));
+        $sections = [];
+
+        foreach ($shown as [$section, $chain]) {
             $first = count($sections);
-            $this->flatten($section, $children, 0, $sections);
+            $this->flatten($section, $children, $wording, 0, $sections);
             // The headings an article stands under, outermost first — the page shows the ones that
             // change from the article before.
             $sections[$first]['headings'] = $chain;
@@ -228,12 +245,9 @@ final readonly class LegislationLibrary
         }
 
         $headings = $this->headings($version->id);
-        $spans = $this->spans($headings, SourceSection::query()
+        $spans = $this->spans($headings, $this->nodes(SourceSection::query()
             ->where('document_version_id', $version->id)
-            ->whereNull('parent_id')
-            ->orderBy('ordinal')
-            ->get(['citation_label', 'outline_id'])
-            ->all());
+            ->whereNull('parent_id')));
 
         return [
             'version_id' => $version->id,
@@ -339,7 +353,7 @@ final readonly class LegislationLibrary
      * heading above it.
      *
      * @param  array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>  $headings
-     * @param  array<int, SourceSection>  $articles  in reading order
+     * @param  list<SectionNode>  $articles  in reading order
      * @return array<string, array{first_citation: string, last_citation: string}>
      */
     private function spans(array $headings, array $articles): array
@@ -347,9 +361,9 @@ final readonly class LegislationLibrary
         $spans = [];
 
         foreach ($articles as $article) {
-            foreach (self::chain($article->outline_id, $headings) as $heading) {
-                $spans[$heading['id']] ??= ['first_citation' => $article->citation_label, 'last_citation' => $article->citation_label];
-                $spans[$heading['id']]['last_citation'] = $article->citation_label;
+            foreach (self::chain($article->outlineId, $headings) as $heading) {
+                $spans[$heading['id']] ??= ['first_citation' => $article->citation, 'last_citation' => $article->citation];
+                $spans[$heading['id']]['last_citation'] = $article->citation;
             }
         }
 
@@ -361,7 +375,7 @@ final readonly class LegislationLibrary
      * under them, on either side of it. The articles under no heading have none.
      *
      * @param  array<string, array{id: string, parent_id: string|null, level: string, label: string, name: string, path: string}>  $headings
-     * @param  array<int, SourceSection>  $articles  in reading order
+     * @param  list<SectionNode>  $articles  in reading order
      * @return array{previous: array<string, string|null>|null, next: array<string, string|null>|null}
      */
     private function neighbours(?string $part, array $headings, array $articles): array
@@ -403,25 +417,81 @@ final readonly class LegislationLibrary
     }
 
     /**
-     * @param  array<string, list<SourceSection>>  $children
+     * Sections as nodes, in reading order: rows read straight into `SectionNode`, never hydrated as models.
+     *
+     * @param  Builder<SourceSection>  $query
+     * @return list<SectionNode>
+     */
+    private function nodes(Builder $query): array
+    {
+        return array_values($query->orderBy('ordinal')->toBase()->get(SectionNode::COLUMNS)
+            ->map(SectionNode::fromRow(...))
+            ->all());
+    }
+
+    /**
+     * The ids of these sections and of everything under them.
+     *
+     * @param  list<SectionNode>  $sections
+     * @param  array<string, list<SectionNode>>  $children
+     * @return list<string>
+     */
+    private static function within(array $sections, array $children): array
+    {
+        $ids = [];
+
+        while ($sections !== []) {
+            $section = array_pop($sections);
+            $ids[] = $section->id;
+            array_push($sections, ...($children[$section->id] ?? []));
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The wording of these sections — text, tables and notes — a batch of ids per query.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, SourceSection> by id
+     */
+    private function wording(array $ids): array
+    {
+        $wording = [];
+
+        foreach (array_chunk($ids, self::WORDING_BATCH) as $batch) {
+            foreach (SourceSection::query()->whereKey($batch)->get(['id', 'text', 'tables', 'notes']) as $section) {
+                $wording[$section->id] = $section;
+            }
+        }
+
+        return $wording;
+    }
+
+    /**
+     * @param  array<string, list<SectionNode>>  $children
+     * @param  array<string, SourceSection>  $wording  by id, from {@see wording()}
      * @param  list<array<string, mixed>>  $out
      */
-    private function flatten(SourceSection $section, array $children, int $depth, array &$out): void
+    private function flatten(SectionNode $section, array $children, array $wording, int $depth, array &$out): void
     {
+        $words = $wording[$section->id];
+
         $out[] = [
             'id' => $section->id,
-            'type' => $section->section_type->value,
-            'citation' => $section->citation_label,
-            'label' => self::label($section->section_type, $section->citation_label),
+            'type' => $section->type->value,
+            'citation' => $section->citation,
+            'label' => self::label($section->type, $section->citation),
             'depth' => $depth,
-            'text' => $section->text,
-            'tables' => $section->tables ?? [],
-            'amended_on' => $section->amended_on?->format('Y-m-d'),
-            'notes' => $section->notes ?? [],
+            'text' => $words->text,
+            'tables' => $words->tables ?? [],
+            // As the model's `date:Y-m-d` cast read it, whichever way the driver returns the column.
+            'amended_on' => $section->amendedOn === null ? null : CarbonImmutable::parse($section->amendedOn)->format('Y-m-d'),
+            'notes' => $words->notes ?? [],
         ];
 
         foreach ($children[$section->id] ?? [] as $child) {
-            $this->flatten($child, $children, $depth + 1, $out);
+            $this->flatten($child, $children, $wording, $depth + 1, $out);
         }
     }
 

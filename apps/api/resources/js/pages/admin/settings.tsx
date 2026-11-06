@@ -600,26 +600,25 @@ function BanksPanel(props: {
             description={t((d) => d.pages.adminSettings.groupHints.banks)}
             icon={GROUP_ICONS.banks}
             aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
-            note={
-                // Where the logos go: a remark about the card, across its foot, and one a person needs at
-                // the server rather than on a phone.
-                coverage === null
-                    ? undefined
-                    : t((d) =>
-                          coverage.exists ? d.pages.adminSettings.banks.naming : d.pages.adminSettings.banks.noFolder,
-                      ).replace('{path}', coverage.path)
-            }
-            noteHiddenOnPhone
             footActions={props.actions}
         >
             {/* The countries, and beside them the folder's two actions — under the field on a phone,
                 side by side, each half the width; at the field's end from `sm`. Where the logos go is
-                the card's foot. */}
+                behind the mark beside the label: something a person looks up once, at the server. */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 {countries !== undefined ? (
                     <div className="min-w-0 flex-1">
                         <SettingField
                             setting={countries}
+                            help={
+                                coverage === null
+                                    ? undefined
+                                    : t((d) =>
+                                          coverage.exists
+                                              ? d.pages.adminSettings.banks.naming
+                                              : d.pages.adminSettings.banks.noFolder,
+                                      ).replace('{path}', coverage.path)
+                            }
                             draft={props.drafts[countries.key]}
                             onDraft={(value) => {
                                 props.onDraft(countries.key, value);
@@ -1599,6 +1598,8 @@ function SettingField(props: {
     /** Provenance is already on the card that opened this editor; repeating it here only steals
      *  width from the label, which then truncates. */
     hideMarker?: boolean;
+    /** An explanation behind a mark beside the label — `Field`'s `help`. */
+    help?: string | undefined;
 }): JSX.Element {
     const { t } = useTranslation();
     const { setting } = props;
@@ -1618,6 +1619,7 @@ function SettingField(props: {
             label={t((d) => d.pages.adminSettings.settingLabels[setting.key] ?? setting.key)}
             unit={unit?.suffix}
             mark={props.hideMarker === true ? null : <SourceMark setting={setting} />}
+            {...(props.help === undefined ? {} : { help: props.help })}
             htmlFor={setting.key}
             hint={
                 isSecret

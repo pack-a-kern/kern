@@ -20,25 +20,52 @@ final readonly class SourceDocumentVersionRepository
 {
     public function detailsFor(string $id): SourceDocumentVersionDetails
     {
-        /** @var SourceDocumentVersion|null $version */
-        $version = SourceDocumentVersion::query()->find($id);
+        return $this->detailsForMany([$id])[$id] ?? throw UnknownSourceDocumentVersionException::forId($id);
+    }
 
-        if ($version === null) {
-            throw UnknownSourceDocumentVersionException::forId($id);
+    /**
+     * {@see detailsFor()} for several versions at once: three queries, however many there are —
+     * a month's rates come from as many versions as it has banking days.
+     *
+     * A version that does not exist is absent from the result; one whose document or source is
+     * missing throws, as {@see detailsFor()} always has.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, SourceDocumentVersionDetails> by version id
+     */
+    public function detailsForMany(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
         }
 
-        /** @var SourceDocument $document */
-        $document = SourceDocument::query()->findOrFail($version->source_document_id);
+        /** @var list<SourceDocumentVersion> $versions */
+        $versions = SourceDocumentVersion::query()->whereKey(array_values(array_unique($ids)))->get()->all();
 
-        /** @var OfficialSource $source */
-        $source = OfficialSource::query()->findOrFail($document->official_source_id);
+        /** @var array<string, SourceDocument> $documents */
+        $documents = SourceDocument::query()
+            ->findOrFail(array_values(array_unique(array_map(static fn (SourceDocumentVersion $version): string => $version->source_document_id, $versions))))
+            ->keyBy('id')
+            ->all();
 
-        return new SourceDocumentVersionDetails(
-            id: $version->id,
-            sourceCode: $source->code,
-            contentSha256: $version->content_sha256,
-            rawObjectPath: $version->raw_object_path,
-            retrievedAt: $version->retrieved_at->setTimezone(new DateTimeZone('UTC'))->toDateTimeImmutable(),
-        );
+        /** @var array<string, OfficialSource> $sources */
+        $sources = OfficialSource::query()
+            ->findOrFail(array_values(array_unique(array_map(static fn (SourceDocument $document): string => $document->official_source_id, $documents))))
+            ->keyBy('id')
+            ->all();
+
+        $details = [];
+
+        foreach ($versions as $version) {
+            $details[$version->id] = new SourceDocumentVersionDetails(
+                id: $version->id,
+                sourceCode: $sources[$documents[$version->source_document_id]->official_source_id]->code,
+                contentSha256: $version->content_sha256,
+                rawObjectPath: $version->raw_object_path,
+                retrievedAt: $version->retrieved_at->setTimezone(new DateTimeZone('UTC'))->toDateTimeImmutable(),
+            );
+        }
+
+        return $details;
     }
 }

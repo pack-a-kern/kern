@@ -46,13 +46,22 @@ use Kern\TaxRomania\Wallet\DataTransferObjects\ConvertedTotal;
  *
  * BCMath has no such ceiling. Amounts stay integer minor units end to end, the intermediate carries
  * more precision than any published rate, and the single rounding is half-up at the very end.
+ *
+ * ## Each rate is read once
+ *
+ * The overview converts about a dozen totals, every one at the same date and through the same
+ * display currency's rate. Each `(currency, date)` is looked up once per instance and remembered —
+ * not bound as a singleton, so an instance, and what it remembers, lasts one request or job.
  */
-final readonly class DisplayCurrencyConverter
+final class DisplayCurrencyConverter
 {
     /** Intermediate precision, well beyond the four decimals the BNR publishes. */
     private const int SCALE = 12;
 
-    public function __construct(private FxRateQuery $rates)
+    /** @var array<string, array{decimal: numeric-string, date: string, source: string}|null> by `CUR@Y-m-d` */
+    private array $perUnitRates = [];
+
+    public function __construct(private readonly FxRateQuery $rates)
     {
     }
 
@@ -135,6 +144,18 @@ final readonly class DisplayCurrencyConverter
             return ['decimal' => '1', 'date' => '', 'source' => ''];
         }
 
+        $key = $currency . '@' . $asOf->format('Y-m-d');
+
+        if (! array_key_exists($key, $this->perUnitRates)) {
+            $this->perUnitRates[$key] = $this->lookUp($currency, $asOf);
+        }
+
+        return $this->perUnitRates[$key];
+    }
+
+    /** @return array{decimal: numeric-string, date: string, source: string}|null */
+    private function lookUp(string $currency, DateTimeImmutable $asOf): ?array
+    {
         $found = $this->rates->latestRateOnOrBefore($currency, $asOf);
 
         if ($found === null) {

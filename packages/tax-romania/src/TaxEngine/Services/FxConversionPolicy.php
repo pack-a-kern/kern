@@ -8,7 +8,6 @@ use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Fx\DataTransferObjects\FxRateWithProvenance;
-use Kern\TaxRomania\Fx\Exceptions\FxRateNotFoundException;
 use Kern\TaxRomania\Fx\Services\FxRateQuery;
 use Kern\TaxRomania\Fx\ValueObjects\DecimalRate;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\FxConversionResult;
@@ -30,15 +29,15 @@ use RuntimeException;
  * Built entirely on `Kern\TaxRomania\Fx\Services\FxRateQuery` (the sanctioned application-service
  * crossing into `Kern\TaxRomania\Fx`, mirroring `Kern\TaxRomania\Fx`'s own crossing into
  * `Kern\Legislation` — never an `Fx` Eloquent model). `MONTHLY_AVERAGE`/`ANNUAL_AVERAGE`
- * are computed here from repeated spot lookups rather than by calling
+ * are computed here from the period's daily rates, read in one range query with their provenance
+ * (`FxRateQuery::ratesWithProvenanceBetween()`), rather than by calling
  * `Kern\TaxRomania\Fx\Services\FxPeriodAverageCalculator`, because that calculator's public methods
  * take `Kern\TaxRomania\Fx\Models\FxPeriodAverage` Eloquent models as parameters/return
  * values — there is no DTO-based read surface for a pre-calculated average, and extending `Fx` to
  * add one is outside this task's path scope. The arithmetic (`BLUEPRINT.md` §7.4: monthly = mean of
  * that month's daily rates; annual = mean of the year's 12 monthly averages, never of daily rates
- * directly) is the same published methodology, independently applied to the one primitive `Fx`
- * does expose (`FxRateQuery::rateWithProvenance()`) — see `docs/handoff/020-tax-engine.md` "Open
- * questions" for the reconciliation gap this leaves against `Fx`'s own `ext_fx_period_averages` cache.
+ * directly) is the same published methodology, independently applied to the daily rates `Fx`
+ * exposes — see `docs/handoff/020-tax-engine.md` "Open questions" for the reconciliation gap this leaves against `Fx`'s own `ext_fx_period_averages` cache.
  */
 final readonly class FxConversionPolicy
 {
@@ -98,19 +97,29 @@ final readonly class FxConversionPolicy
     }
 
     /**
+     * The rate of `$asOf`, or of the closest day before it that has one, within the lookback.
+     *
+     * The lookback's rates are read in one query and the newest taken — the answer trying each day
+     * in turn, newest first, gave. `resolvedFor` is that day, as the walk back from `$asOf` reaches it.
+     *
      * @return array{0: DecimalRate, 1: DateTimeImmutable, 2: list<FxRateProvenanceEntry>}
      */
     private function previousBankingDay(string $currencyCode, DateTimeImmutable $asOf, string $sourceCode): array
     {
         $carbonAsOf = CarbonImmutable::instance($asOf);
+        $rates = $this->fxRateQuery->ratesWithProvenanceBetween(
+            $currencyCode,
+            $carbonAsOf->subDays(self::MAX_PREVIOUS_BANKING_DAY_LOOKBACK_DAYS)->toDateTimeImmutable(),
+            $asOf,
+            $sourceCode,
+        );
+        $newest = $rates === [] ? null : $rates[array_key_last($rates)];
 
-        for ($daysBack = 0; $daysBack <= self::MAX_PREVIOUS_BANKING_DAY_LOOKBACK_DAYS; $daysBack++) {
+        for ($daysBack = 0; $newest !== null && $daysBack <= self::MAX_PREVIOUS_BANKING_DAY_LOOKBACK_DAYS; $daysBack++) {
             $candidateDate = $carbonAsOf->subDays($daysBack)->toDateTimeImmutable();
 
-            try {
-                return $this->spot($currencyCode, $candidateDate, $sourceCode);
-            } catch (FxRateNotFoundException) {
-                continue;
+            if ($candidateDate->format('Y-m-d') === $newest->rateDate->format('Y-m-d')) {
+                return [$newest->perUnitRate, $candidateDate, [$this->toProvenanceEntry($newest)]];
             }
         }
 
@@ -118,50 +127,51 @@ final readonly class FxConversionPolicy
     }
 
     /**
+     * The mean of the month's published daily rates — read in one query, not one per day.
+     *
      * @return array{0: DecimalRate, 1: DateTimeImmutable, 2: list<FxRateProvenanceEntry>}
      */
     private function monthlyAverage(string $currencyCode, int $year, int $month, string $sourceCode): array
     {
         $periodStart = self::carbonDate($year, $month, 1);
-        $periodEnd = $periodStart->endOfMonth();
+        $rates = $this->fxRateQuery->ratesWithProvenanceBetween(
+            $currencyCode,
+            $periodStart->toDateTimeImmutable(),
+            $periodStart->endOfMonth()->toDateTimeImmutable(),
+            $sourceCode,
+        );
 
-        $sum = DecimalRate::zero();
-        $count = 0;
-        $provenance = [];
-
-        for ($day = $periodStart; $day->lte($periodEnd); $day = $day->addDay()) {
-            try {
-                $rate = $this->fxRateQuery->rateWithProvenance($currencyCode, $day->toDateTimeImmutable(), $sourceCode);
-            } catch (FxRateNotFoundException) {
-                continue;
-            }
-
-            $sum = $sum->add($rate->perUnitRate, self::INTERNAL_SCALE);
-            $provenance[] = $this->toProvenanceEntry($rate);
-            $count++;
-        }
-
-        if ($count === 0) {
-            throw NoDailyRatesForPeriodException::forMonth($currencyCode, $year, $month);
-        }
-
-        $average = $sum->divideByInt($count, self::INTERNAL_SCALE)->roundedTo(self::AVERAGE_RATE_SCALE);
+        [$average, $provenance] = $this->averageOfMonth($rates, $currencyCode, $year, $month);
 
         return [$average, $periodStart->toDateTimeImmutable(), $provenance];
     }
 
     /**
+     * The mean of the year's twelve monthly averages — the year's rates read in one query and
+     * grouped by month, each month averaged exactly as {@see self::monthlyAverage()} does.
+     *
      * @return array{0: DecimalRate, 1: DateTimeImmutable, 2: list<FxRateProvenanceEntry>}
      */
     private function annualAverage(string $currencyCode, int $year, string $sourceCode): array
     {
+        $byMonth = [];
+
+        foreach ($this->fxRateQuery->ratesWithProvenanceBetween(
+            $currencyCode,
+            self::carbonDate($year, 1, 1)->toDateTimeImmutable(),
+            self::carbonDate($year, 12, 31)->toDateTimeImmutable(),
+            $sourceCode,
+        ) as $rate) {
+            $byMonth[(int) $rate->rateDate->format('n')][] = $rate;
+        }
+
         $sum = DecimalRate::zero();
         $monthsAvailable = 0;
         $provenance = [];
 
         for ($month = 1; $month <= 12; $month++) {
             try {
-                [$monthlyAverage, , $monthlyProvenance] = $this->monthlyAverage($currencyCode, $year, $month, $sourceCode);
+                [$monthlyAverage, $monthlyProvenance] = $this->averageOfMonth($byMonth[$month] ?? [], $currencyCode, $year, $month);
             } catch (NoDailyRatesForPeriodException) {
                 continue;
             }
@@ -178,6 +188,30 @@ final readonly class FxConversionPolicy
         $average = $sum->divideByInt(12, self::INTERNAL_SCALE)->roundedTo(self::AVERAGE_RATE_SCALE);
 
         return [$average, self::carbonDate($year, 1, 1)->toDateTimeImmutable(), $provenance];
+    }
+
+    /**
+     * One month's daily rates, oldest first, as their mean and the evidence for it.
+     *
+     * @param  list<FxRateWithProvenance>  $rates
+     * @return array{0: DecimalRate, 1: list<FxRateProvenanceEntry>}
+     */
+    private function averageOfMonth(array $rates, string $currencyCode, int $year, int $month): array
+    {
+        if ($rates === []) {
+            throw NoDailyRatesForPeriodException::forMonth($currencyCode, $year, $month);
+        }
+
+        $sum = DecimalRate::zero();
+
+        foreach ($rates as $rate) {
+            $sum = $sum->add($rate->perUnitRate, self::INTERNAL_SCALE);
+        }
+
+        return [
+            $sum->divideByInt(count($rates), self::INTERNAL_SCALE)->roundedTo(self::AVERAGE_RATE_SCALE),
+            array_map($this->toProvenanceEntry(...), $rates),
+        ];
     }
 
     /**

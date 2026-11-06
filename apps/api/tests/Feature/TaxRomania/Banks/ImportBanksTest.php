@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\Banks\ImportBanksTest;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Kern\Legislation\Models\OfficialSource;
@@ -184,6 +185,24 @@ it('marks a bank that left the list inactive, and keeps it', function (): void {
         ->and($summary->deactivated)->toBe(1)
         ->and(Bank::query()->where('ecb_code', 'RORBPJS40024')->value('active'))->toBeFalse()
         ->and(Bank::query()->count())->toBe(3);
+});
+
+it('looks the list’s banks up together, and writes only the ones that changed', function (): void {
+    publishers([BT, ING, CEC]);
+    app(ImportBanks::class)();
+
+    DB::enableQueryLog();
+    app(ImportBanks::class)();
+
+    $bankQueries = array_values(array_filter(
+        array_column(DB::getQueryLog(), 'query'),
+        static fn (string $query): bool => str_contains($query, 'ext_banks') && str_contains($query, 'ecb_code'),
+    ));
+
+    // One lookup for the three banks, the deactivation sweep, and no write: nothing changed.
+    expect($bankQueries)->toHaveCount(2)
+        ->and($bankQueries[0])->toStartWith('select')
+        ->and($bankQueries[1])->toStartWith('update');
 });
 
 it('refuses a list with none of the configured country’s banks, and changes nothing', function (): void {

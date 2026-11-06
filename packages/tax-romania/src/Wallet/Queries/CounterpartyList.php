@@ -139,6 +139,8 @@ final readonly class CounterpartyList
             ->with('tags:id')
             ->get();
 
+        $answered = $this->rows->answeredCounts($this->tenant->currentTenantId(), $indexes);
+
         foreach ($rules as $rule) {
             $index = $rule->counterparty_blind_index;
 
@@ -155,7 +157,7 @@ final readonly class CounterpartyList
             $parties[$index][$rule->direction === MoneyDirection::OUT ? 'out' : 'in'] = [
                 'id' => $rule->id,
                 // So the screen can say what changing this rule would overwrite, before it does.
-                'answered' => $this->rows->answeredCount($rule->tax_subject_id, $rule),
+                'answered' => $answered[$index][$rule->direction->value] ?? 0,
                 'category_code' => $rule->category_code,
                 'country_code' => $rule->country_code,
                 'source' => $rule->source?->value,

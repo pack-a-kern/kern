@@ -44,19 +44,49 @@ final readonly class SettingsRepository
 
     public function get(SettingKey $key): ?string
     {
-        $row = DB::table('settings')->where('key', $key->value)->first();
+        return $this->stored([$key])[$key->value]['value'] ?? null;
+    }
 
-        if ($row === null) {
-            return null;
+    /**
+     * Several keys' stored values and who last changed each, in one query — the settings screen
+     * shows all of them, and asked twice per key before.
+     *
+     * A key never written is absent. Its `updatedAt`/`updatedBy` are each key's own, as
+     * {@see latestUpdateMeta()} reports them for one key.
+     *
+     * @param  list<SettingKey>  $keys
+     * @return array<string, array{value: ?string, updatedAt: ?CarbonImmutable, updatedBy: ?string}> by key
+     */
+    public function stored(array $keys): array
+    {
+        $rows = DB::table('settings')
+            ->whereIn('key', array_map(static fn (SettingKey $key): string => $key->value, $keys))
+            ->get(['key', 'value_plain', 'value_ciphertext', 'updated_at', 'updated_by']);
+
+        $stored = [];
+
+        foreach ($rows as $row) {
+            $key = SettingKey::from((string) $row->key);
+
+            $stored[$key->value] = [
+                'value' => $this->valueOf($key, $row),
+                'updatedAt' => $row->updated_at === null ? null : CarbonImmutable::parse((string) $row->updated_at, 'UTC'),
+                'updatedBy' => is_string($row->updated_by) ? $row->updated_by : null,
+            ];
         }
 
+        return $stored;
+    }
+
+    private function valueOf(SettingKey $key, object $row): ?string
+    {
         if ($key->isSecret()) {
-            $ciphertext = $row->value_ciphertext;
+            $ciphertext = $row->value_ciphertext ?? null;
 
             return is_string($ciphertext) ? $this->cipher->open($key->value, $ciphertext) : null;
         }
 
-        $plain = $row->value_plain;
+        $plain = $row->value_plain ?? null;
 
         return is_string($plain) ? $plain : null;
     }

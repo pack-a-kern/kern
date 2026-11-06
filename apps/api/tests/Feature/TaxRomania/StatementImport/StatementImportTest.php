@@ -1363,3 +1363,31 @@ it('keeps every field the file named, and not the page furniture', function (): 
 
     expect($stored)->toBeString()->and($stored)->not->toContain('DIGI ROMANIA SA');
 });
+
+it('stages a long statement in a few inserts, each field still sealed by its cast', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId, 'extras-lung.csv');
+
+    // More than two batches, so the last one is a partial batch.
+    fakeReader()->rows = array_map(
+        static fn (int $line): array => [sprintf('%02d.03.2026', $line % 28 + 1), "PLATA {$line}", sprintf('%d,00', $line), ''],
+        range(1, 450),
+    );
+
+    DB::enableQueryLog();
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", mappingBody())
+        ->assertOk();
+
+    $inserts = array_filter(DB::getQueryLog(), static fn (array $query): bool => str_starts_with($query['query'], 'insert into "statement_import_rows"'));
+    $raw = DB::table('statement_import_rows')->where('import_id', $import->id)->where('row_number', 450)->value('description_ciphertext');
+    $row = StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->where('row_number', 450)->sole();
+
+    // One per row, before: 450.
+    expect($inserts)->toHaveCount(3)
+        ->and(StatementImportRow::withoutGlobalScope(TenantScope::class)->where('import_id', $import->id)->count())->toBe(450)
+        ->and($raw)->toBeString()->not->toContain('PLATA 450')
+        ->and([$row->description_ciphertext, $row->amount_minor, $row->booked_at?->toDateString(), $row->included])
+        ->toBe(['PLATA 450', -45_000, '2026-03-03', true]);
+});

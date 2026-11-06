@@ -31,32 +31,49 @@ final readonly class ResolveSettings
     /** @return list<ResolvedSetting> */
     public function forGroup(SettingGroup $group): array
     {
-        return array_map(fn (SettingKey $key): ResolvedSetting => $this->one($key), $group->keys());
+        return $this->resolve($group->keys());
     }
 
-    /** @return array<string, list<ResolvedSetting>> keyed by group */
+    /**
+     * Every group, from one read of the table.
+     *
+     * @return array<string, list<ResolvedSetting>> keyed by group
+     */
     public function all(): array
     {
         $out = [];
 
         foreach (SettingGroup::cases() as $group) {
-            $out[$group->value] = $this->forGroup($group);
+            $out[$group->value] = [];
+        }
+
+        foreach ($this->resolve(SettingKey::cases()) as $setting) {
+            $out[$setting->key->group()->value][] = $setting;
         }
 
         return $out;
     }
 
-    public function one(SettingKey $key): ResolvedSetting
+    /**
+     * @param  list<SettingKey>  $keys
+     * @return list<ResolvedSetting> in the order given
+     */
+    private function resolve(array $keys): array
     {
-        $override = $this->settings->get($key);
+        $stored = $this->settings->stored($keys);
+
+        return array_map(fn (SettingKey $key): ResolvedSetting => $this->one($key, $stored[$key->value] ?? null), $keys);
+    }
+
+    /** @param  array{value: ?string, updatedAt: ?CarbonImmutable, updatedBy: ?string}|null  $stored */
+    private function one(SettingKey $key, ?array $stored): ResolvedSetting
+    {
+        $override = $stored['value'] ?? null;
         $source = $override !== null ? SettingSource::DATABASE : SettingSource::INHERITED;
 
         $effective = $override ?? $this->configValue($key);
         $isSecret = $key->type() === SettingType::SECRET;
-
-        // Returns the latest update across the given keys — with one key, that is this key's.
-        $meta = $this->settings->latestUpdateMeta([$key]);
-        $updatedAt = $meta['updatedAt'] ?? null;
+        $updatedAt = $stored['updatedAt'] ?? null;
 
         return new ResolvedSetting(
             key: $key,
@@ -68,8 +85,8 @@ final readonly class ResolveSettings
             hint: $isSecret ? $this->lastFour($effective) : null,
             readOnly: $key->isReadOnly(),
             configPath: $key->configPath(),
-            updatedAt: $updatedAt instanceof CarbonImmutable ? $updatedAt->toIso8601String() : null,
-            updatedBy: is_string($meta['updatedBy'] ?? null) ? $meta['updatedBy'] : null,
+            updatedAt: $updatedAt?->toIso8601String(),
+            updatedBy: $stored['updatedBy'] ?? null,
         );
     }
 

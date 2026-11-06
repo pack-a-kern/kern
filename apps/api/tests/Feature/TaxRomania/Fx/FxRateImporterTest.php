@@ -6,8 +6,10 @@ namespace Tests\Feature\TaxRomania\Fx\FxRateImporterTest;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Database\Factories\OfficialSourceFactory;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxDay;
 use Kern\TaxRomania\Fx\DataTransferObjects\ParsedFxRate;
 use Kern\TaxRomania\Fx\Enums\FxRateImportOutcome;
 use Kern\TaxRomania\Fx\Models\FxRate;
@@ -23,12 +25,7 @@ it('creates a new ext_fx_rates row when none exists for that source/date/currenc
     $source = OfficialSourceFactory::new()->createOne();
     $version = SourceDocumentVersionFactory::new()->createOne();
 
-    $outcome = (new FxRateImporter())->import(
-        $source->id,
-        new DateTimeImmutable('2026-01-15'),
-        new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')),
-        $version->id,
-    );
+    $outcome = (new FxRateImporter())->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400'))]), $version->id)[0];
 
     expect($outcome)->toBe(FxRateImportOutcome::CREATED)
         ->and(FxRate::query()->count())->toBe(1);
@@ -45,8 +42,8 @@ it('is idempotent: importing the identical value twice leaves exactly one row an
     $rate = new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400'));
     $importer = new FxRateImporter();
 
-    $first = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
-    $second = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), $rate, $version->id);
+    $first = $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [$rate]), $version->id)[0];
+    $second = $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [$rate]), $version->id)[0];
 
     expect($first)->toBe(FxRateImportOutcome::CREATED)
         ->and($second)->toBe(FxRateImportOutcome::UNCHANGED)
@@ -59,8 +56,8 @@ it('treats a value written with more trailing zeros as unchanged, not an anomaly
     $version = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
-    $outcome = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')), $version->id);
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764'))]), $version->id);
+    $outcome = $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400'))]), $version->id)[0];
 
     expect($outcome)->toBe(FxRateImportOutcome::UNCHANGED)
         ->and(FxRateAnomaly::query()->count())->toBe(0);
@@ -72,19 +69,9 @@ it('records an anomaly instead of overwriting when a historical value changes, l
     $conflictingVersion = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import(
-        $source->id,
-        new DateTimeImmutable('2026-01-15'),
-        new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400')),
-        $originalVersion->id,
-    );
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.976400'))]), $originalVersion->id);
 
-    $outcome = $importer->import(
-        $source->id,
-        new DateTimeImmutable('2026-01-15'),
-        new ParsedFxRate('EUR', 1, DecimalRate::fromString('5.100000')),
-        $conflictingVersion->id,
-    );
+    $outcome = $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('5.100000'))]), $conflictingVersion->id)[0];
 
     expect($outcome)->toBe(FxRateImportOutcome::ANOMALY)
         ->and(FxRate::query()->count())->toBe(1)
@@ -107,8 +94,8 @@ it('records an anomaly when only the multiplier changes, even if the raw rate nu
     $version2 = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 100, DecimalRate::fromString('1279.99')), $version1->id);
-    $outcome = $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('HUF', 1, DecimalRate::fromString('1279.99')), $version2->id);
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('HUF', 100, DecimalRate::fromString('1279.99'))]), $version1->id);
+    $outcome = $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('HUF', 1, DecimalRate::fromString('1279.99'))]), $version2->id)[0];
 
     expect($outcome)->toBe(FxRateImportOutcome::ANOMALY)
         ->and(FxRateAnomaly::query()->count())->toBe(1);
@@ -119,10 +106,35 @@ it('scopes rows independently per currency and per date', function (): void {
     $version = SourceDocumentVersionFactory::new()->createOne();
     $importer = new FxRateImporter();
 
-    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')), $version->id);
-    $importer->import($source->id, new DateTimeImmutable('2026-01-15'), new ParsedFxRate('USD', 1, DecimalRate::fromString('4.5821')), $version->id);
-    $importer->import($source->id, new DateTimeImmutable('2026-01-16'), new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9778')), $version->id);
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764'))]), $version->id);
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-15'), [new ParsedFxRate('USD', 1, DecimalRate::fromString('4.5821'))]), $version->id);
+    $importer->import($source->id, new ParsedFxDay(new DateTimeImmutable('2026-01-16'), [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9778'))]), $version->id);
 
     expect(FxRate::query()->count())->toBe(3)
         ->and(FxRateAnomaly::query()->count())->toBe(0);
+});
+
+it('imports a day in one lookup, and a currency listed twice meets the row its first listing made', function (): void {
+    $source = OfficialSourceFactory::new()->createOne();
+    $version = SourceDocumentVersionFactory::new()->createOne();
+    $importer = new FxRateImporter();
+    $date = new DateTimeImmutable('2026-01-15');
+
+    $importer->import($source->id, new ParsedFxDay($date, [new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764'))]), $version->id);
+
+    DB::enableQueryLog();
+
+    $outcomes = $importer->import($source->id, new ParsedFxDay($date, [
+        new ParsedFxRate('EUR', 1, DecimalRate::fromString('4.9764')),
+        new ParsedFxRate('USD', 1, DecimalRate::fromString('4.5821')),
+        new ParsedFxRate('USD', 1, DecimalRate::fromString('4.6000')),
+        new ParsedFxRate('GBP', 1, DecimalRate::fromString('5.8000')),
+    ]), $version->id);
+
+    $selects = array_filter(DB::getQueryLog(), static fn (array $query): bool => str_starts_with($query['query'], 'select') && str_contains($query['query'], 'ext_fx_rates'));
+
+    expect($outcomes)->toBe([FxRateImportOutcome::UNCHANGED, FxRateImportOutcome::CREATED, FxRateImportOutcome::ANOMALY, FxRateImportOutcome::CREATED])
+        ->and($selects)->toHaveCount(1)
+        ->and(FxRate::query()->count())->toBe(3)
+        ->and(FxRateAnomaly::query()->count())->toBe(1);
 });

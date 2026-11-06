@@ -7,6 +7,7 @@ namespace Kern\Platform\Console\Commands\Identity;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Platform\Identity\Models\UserSession;
+use Kern\Platform\Identity\Support\SessionRegistrar;
 
 /**
  * Deletes the `user_sessions` rows whose session expired long enough ago to be unusable.
@@ -56,7 +57,8 @@ final class PruneExpiredSessionsCommand extends Command
         }
 
         $grace = $config->get('identity.sessions.prune_grace_minutes');
-        $minutes = (int) $lifetime + (is_numeric($grace) ? (int) $grace : 0);
+        // Plus how stale a session in use may let its row run (`SessionRegistrar::TOUCH_INTERVAL_MINUTES`).
+        $minutes = (int) $lifetime + (is_numeric($grace) ? (int) $grace : 0) + SessionRegistrar::TOUCH_INTERVAL_MINUTES;
 
         $cutoff = now('UTC')->subMinutes($minutes);
 

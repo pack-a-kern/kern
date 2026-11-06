@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Testing\PendingCommand;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Identity\Models\UserSession;
+use Kern\Platform\Identity\Support\SessionRegistrar;
 use Tests\TestCase;
 
 beforeEach(function (): void {
@@ -88,6 +89,24 @@ it('keeps a just-expired session for the length of the grace', function (): void
     prune($this)->assertSuccessful()->run();
 
     expect(UserSession::query()->count())->toBe(1);
+});
+
+/**
+ * A session in use writes its row only every few minutes (`SessionRegistrar::TOUCH_INTERVAL_MINUTES`),
+ * so its row can be that stale while it is live — with no grace at all, too.
+ */
+it('allows for how stale a session in use lets its row run, even with no grace', function (): void {
+    Config::set('identity.sessions.prune_grace_minutes', 0);
+    $user = User::factory()->create();
+
+    // Past the lifetime by less than the interval: possibly used a moment ago, and kept.
+    ledgerRow($user, 120 + SessionRegistrar::TOUCH_INTERVAL_MINUTES - 1);
+    // Past both: gone.
+    ledgerRow($user, 120 + SessionRegistrar::TOUCH_INTERVAL_MINUTES + 1);
+
+    prune($this)->assertSuccessful()->run();
+
+    expect(UserSession::query()->pluck('id')->all())->toBe(['session-' . (120 + SessionRegistrar::TOUCH_INTERVAL_MINUTES - 1)]);
 });
 
 it('removes a revoked row too, once it is past the cutoff', function (): void {

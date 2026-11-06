@@ -57,10 +57,8 @@ final readonly class ImportBnrDailyRates
         $sourceId = $this->officialSources->idForCode('BNR');
         $summary = FxImportSummary::empty($ingested->isNewVersion)->withDayProcessed();
 
-        foreach ($day->rates as $rate) {
-            $summary = $summary->withRate(
-                $this->importer->import($sourceId, $day->date, $rate, $ingested->sourceDocumentVersionId),
-            );
+        foreach ($this->importer->import($sourceId, $day, $ingested->sourceDocumentVersionId) as $outcome) {
+            $summary = $summary->withRate($outcome);
         }
 
         // A rate stored can be a currency the list did not have yet.

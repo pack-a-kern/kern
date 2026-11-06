@@ -61,11 +61,6 @@ export function Panel(props: {
      * padding that changes with `flush` and with the viewport, which is how it ended up glued to the border.
      */
     note?: ReactNode;
-    /**
-     * Leave the note out on a phone: for a remark a person needs at a desk — where files go on the
-     * server — and that would take the narrow screen's room from the card's own content.
-     */
-    noteHiddenOnPhone?: boolean;
     /** Right-hand side of the card head — an action, a switch, a status. */
     aside?: ReactNode;
     children: ReactNode;
@@ -123,7 +118,7 @@ export function Panel(props: {
             )}
 
             {props.note === undefined ? null : (
-                <PanelNote hiddenOnPhone={props.noteHiddenOnPhone === true}>{props.note}</PanelNote>
+                <PanelNote>{props.note}</PanelNote>
             )}
 
             {hasFoot && (
@@ -1679,15 +1674,9 @@ export function EventTime({ iso }: { iso: string }): JSX.Element {
  * slot renders it outside the body, where it can span the card. This is exported for the places that are
  * not a `Panel` — the dashboard's headline section builds its own frame.
  */
-export function PanelNote({
-    children,
-    hiddenOnPhone = false,
-}: {
-    children: ReactNode;
-    hiddenOnPhone?: boolean;
-}): JSX.Element {
+export function PanelNote({ children }: { children: ReactNode }): JSX.Element {
     return (
-        <p className={cn('panel-note', hiddenOnPhone && 'panel-note-wide')}>
+        <p className="panel-note">
             <Info className="size-3.5 shrink-0" aria-hidden="true" />
             <span>{children}</span>
         </p>

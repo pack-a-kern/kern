@@ -39,8 +39,12 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  * Which bank has which file, kept in the cache and rebuilt on demand — "Read again" on the settings
  * screen, or `kern:banks:logos` — never per request. Rebuilt by itself when the path is not the one it
  * was built for.
+ *
+ * Read from the cache once per instance, not once per bank: a list of banks asks for each one's logo,
+ * and every ask used to unpack the whole index again. The class is not a singleton, so an instance —
+ * and what it holds, a few dozen small objects — lasts one request or one job.
  */
-final readonly class BankLogos
+final class BankLogos
 {
     public const string CACHE_KEY = 'tax-romania.banks.logos';
 
@@ -58,9 +62,12 @@ final readonly class BankLogos
         'png' => 'image/png',
     ];
 
+    /** @var array{path: string, logos: array<string, BankLogo>}|null the index as this instance last read it */
+    private ?array $read = null;
+
     public function __construct(
-        private ConfigRepository $config,
-        private CacheRepository $cache,
+        private readonly ConfigRepository $config,
+        private readonly CacheRepository $cache,
     ) {
     }
 
@@ -131,6 +138,7 @@ final readonly class BankLogos
     public function refresh(): array
     {
         $this->cache->forget(self::CACHE_KEY);
+        $this->read = null;
 
         return $this->index();
     }
@@ -139,6 +147,17 @@ final readonly class BankLogos
     private function index(): array
     {
         $path = $this->path();
+
+        if ($this->read === null || $this->read['path'] !== $path) {
+            $this->read = ['path' => $path, 'logos' => $this->cachedIndex($path)];
+        }
+
+        return $this->read['logos'];
+    }
+
+    /** @return array<string, BankLogo> */
+    private function cachedIndex(string $path): array
+    {
         $cached = $this->cache->get(self::CACHE_KEY);
 
         if (is_array($cached) && ($cached['path'] ?? null) === $path && is_array($cached['logos'] ?? null)) {

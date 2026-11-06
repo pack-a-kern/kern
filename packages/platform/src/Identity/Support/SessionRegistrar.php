@@ -72,6 +72,13 @@ final readonly class SessionRegistrar
         }
     }
 
+    /**
+     * How stale `last_used_at` may run while a session is in use: {@see touch()} is called at most
+     * this often per session, and the prune adds it to its cutoff so the lag can never cost a live
+     * session its row, whatever the grace is set to.
+     */
+    public const int TOUCH_INTERVAL_MINUTES = 5;
+
     public function touch(string $sessionId): void
     {
         UserSession::query()

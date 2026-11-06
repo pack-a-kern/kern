@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\Spv\InboxSyncTest;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Kern\Audit\Models\AuditEvent;
@@ -469,4 +470,36 @@ it('leaves the recorded expiry alone when the worker did not report one', functi
     app(SyncSpvInbox::class)($connection->id, null);
 
     expect($session->refresh()->expires_at->toIso8601String())->toBe($original->toIso8601String());
+});
+
+it('looks the inbox’s messages up together, and a message listed twice is still one row', function (): void {
+    Event::fake([SpvSyncStarted::class, SpvSyncCompleted::class]);
+    $message = static fn (string $id, string $title): array => ['id' => $id, 'detalii' => $title, 'cif' => '123', 'data_creare' => '2026-01-15T10:00:00+00:00', 'id_solicitare' => 'req-' . $id, 'tip' => 'DECIZIE'];
+    Http::fake([
+        '*/listaMesaje*' => Http::response(['titlu' => 'Mesaje', 'mesaje' => [
+            $message('anaf-1', 'Decizie'),
+            $message('anaf-2', 'Notificare'),
+            $message('anaf-3', 'Recipisă'),
+            $message('anaf-1', 'Decizie, corectată'),
+        ]]),
+    ]);
+
+    $subject = TaxSubject::factory()->create();
+    activateSpvSubject($subject);
+    $connection = SpvConnection::create([
+        'tax_subject_id' => $subject->id,
+        'auth_method' => SpvAuthMethod::CERTIFICATE,
+        'credential_policy' => SpvCredentialPolicy::EPHEMERAL_ONLY,
+        'status' => SpvConnectionStatus::PENDING,
+    ]);
+
+    DB::enableQueryLog();
+    app(SyncSpvInbox::class)($connection->id, null);
+
+    $lookups = array_filter(DB::getQueryLog(), static fn (array $query): bool => str_starts_with($query['query'], 'select') && str_contains($query['query'], 'spv_messages'));
+    $titles = SpvMessage::query()->where('tax_subject_id', $subject->id)->get()->map(static fn (SpvMessage $row): string => (string) $row->title_ciphertext)->sort()->values()->all();
+
+    // One per message, before: four here.
+    expect($lookups)->toHaveCount(1)
+        ->and($titles)->toBe(['Decizie, corectată', 'Notificare', 'Recipisă']);
 });

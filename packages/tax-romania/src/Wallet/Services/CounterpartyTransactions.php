@@ -103,16 +103,42 @@ final readonly class CounterpartyTransactions
     }
 
     /**
-     * How many of this counterparty's rows already carry an answer.
+     * How many of each counterparty's rows already carry an answer.
      *
      * Asked before a rule is saved, so the screen can say what replacing it would cost in the one
      * place a person can still change their mind. A split records no author, so this cannot say
      * whether those answers are the taxpayer's or a model's — which is exactly why the number is put
      * in front of them rather than acted on quietly.
+     *
+     * For a page of counterparties, in one query rather than one per rule: by blind index, then by
+     * direction, as {@see rowsFor()} splits them (a negative amount is OUT). A party with no answered
+     * row in a direction is absent from it.
+     *
+     * @param  list<string>  $blindIndexes
+     * @return array<string, array<string, int>> count by blind index, then by `MoneyDirection` value
      */
-    public function answeredCount(string $subjectId, Counterparty $counterparty): int
+    public function answeredCounts(string $subjectId, array $blindIndexes): array
     {
-        return $this->rowsFor($subjectId, $counterparty)->whereHas('splits')->count();
+        $out = MoneyDirection::OUT->value;
+        $in = MoneyDirection::IN->value;
+
+        $rows = FinancialTransaction::query()
+            ->withoutGlobalScope(TenantScope::class)
+            ->where('tax_subject_id', $subjectId)
+            ->whereIn('counterparty_blind_index', $blindIndexes)
+            ->whereHas('splits')
+            ->selectRaw("counterparty_blind_index, case when amount_minor < 0 then '{$out}' else '{$in}' end as direction, count(*) as answered")
+            ->groupBy('counterparty_blind_index', 'direction')
+            ->toBase()
+            ->get();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $counts[(string) $row->counterparty_blind_index][(string) $row->direction] = (int) $row->answered;
+        }
+
+        return $counts;
     }
 
     /**

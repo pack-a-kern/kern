@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\CounterpartyDirectoryTest;
 
+use Illuminate\Support\Facades\DB;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Testing\InMemoryDekRepository;
@@ -543,4 +544,49 @@ it('does not let one transaction redefine a party already decided', function ():
         ->assertNoContent();
 
     expect(Counterparty::query()->sole()->category_code)->toBe('LOAN');
+});
+
+it('counts each party’s answered rows by direction, in one query for the page', function (): void {
+    [$user, $subjectId, $accountId] = directorySubject();
+
+    record($this, $user, $subjectId, $accountId, 9_000, 'Safegrid Network Srl');
+    record($this, $user, $subjectId, $accountId, 4_000, 'Safegrid Network Srl');
+    record($this, $user, $subjectId, $accountId, -2_000, 'Safegrid Network Srl');
+    record($this, $user, $subjectId, $accountId, -100, 'Mega Image');
+    record($this, $user, $subjectId, $accountId, 50, 'Nobody Answered Srl');
+
+    // Answered: Safegrid's first income and its payment, and Mega Image's payment.
+    foreach (FinancialTransaction::query()->whereIn('amount_minor', [9_000, -2_000, -100])->get() as $transaction) {
+        $this->actingAs($user)
+            ->putJson("/api/v1/subjects/{$subjectId}/wallet/transactions/{$transaction->id}/splits", [
+                'splits' => [['amount_minor' => $transaction->amount_minor, 'category_code' => $transaction->amount_minor < 0 ? 'EXPENSE' : 'FREELANCE']],
+            ])->assertNoContent();
+    }
+
+    DB::enableQueryLog();
+
+    /** @var list<array{name: string, in: array{answered: int}|null, out: array{answered: int}|null}> $listed */
+    $listed = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/counterparties")
+        ->assertOk()
+        ->json('counterparties');
+
+    $parties = [];
+
+    foreach ($listed as $party) {
+        $parties[$party['name']] = [$party['in']['answered'] ?? null, $party['out']['answered'] ?? null];
+    }
+
+    $splitQueries = array_filter(DB::getQueryLog(), static fn (array $query): bool => str_contains($query['query'], 'transaction_splits'));
+
+    // Sorted by name: two parties with one row each tie, and a tie's order is not the point here.
+    ksort($parties);
+
+    expect($parties)->toBe([
+        'Mega Image' => [null, 1],
+        'Nobody Answered Srl' => [0, null],
+        'Safegrid Network Srl' => [1, 1],
+    ])
+        // One per rule, before: four here.
+        ->and($splitQueries)->toHaveCount(1);
 });

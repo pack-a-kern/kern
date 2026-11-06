@@ -84,20 +84,29 @@ final readonly class DuplicateTransactionGroups
      */
     public function __invoke(): array
     {
-        $groups = [];
+        /** @var list<non-empty-list<FinancialTransaction>> $clusters */
+        $clusters = [];
 
         foreach ($this->candidateBuckets() as $rows) {
             foreach ($this->clusters($rows) as $cluster) {
-                if (count($cluster) < 2 || ! $this->hasUnreviewed($cluster)) {
-                    continue;
+                if (count($cluster) >= 2 && $this->hasUnreviewed($cluster)) {
+                    $clusters[] = $cluster;
                 }
-
-                /** @var non-empty-list<FinancialTransaction> $cluster */
-                $groups[] = [
-                    'survivor_id' => LookalikeTransactions::id(DuplicateSurvivor::pick($cluster)),
-                    'transactions' => $this->wallet->summarise($cluster),
-                ];
             }
+        }
+
+        // Every group's rows summarised together — names, splits, banks and tags looked up once for
+        // the page, not once per group — then cut back into their groups, in order.
+        $summaries = $this->wallet->summarise(array_merge(...$clusters));
+        $groups = [];
+        $offset = 0;
+
+        foreach ($clusters as $cluster) {
+            $groups[] = [
+                'survivor_id' => LookalikeTransactions::id(DuplicateSurvivor::pick($cluster)),
+                'transactions' => array_slice($summaries, $offset, count($cluster)),
+            ];
+            $offset += count($cluster);
         }
 
         return $groups;

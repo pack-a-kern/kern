@@ -43,6 +43,9 @@ use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
  */
 final readonly class ApplyColumnMapping
 {
+    /** Staged rows per insert: a few hundred encrypted rows per statement, well inside any driver's limit. */
+    private const int INSERT_BATCH = 200;
+
     public function __construct(
         private StatementParseGateway $parser,
         private StatementFileContents $files,
@@ -121,6 +124,8 @@ final readonly class ApplyColumnMapping
             StatementImportRow::query()->where('import_id', $import->id)->delete();
 
             $duplicates = 0;
+            $batch = [];
+            $now = now('UTC');
 
             foreach ($rows as $index => $row) {
                 $fingerprint = $fingerprints[$index] ?? null;
@@ -172,7 +177,20 @@ final readonly class ApplyColumnMapping
                         && $row['amount_minor'] !== null
                         && $row['currency_code'] !== null,
                 ]);
-                $staged->save();
+
+                // Built through the model, so every field is encrypted by its cast exactly as a save
+                // would; written in batches, because one insert per row made a long statement slow.
+                // A batch is flushed as it fills, so what is held is one batch, never the file twice.
+                $batch[] = $staged->setCreatedAt($now)->setUpdatedAt($now)->getAttributes();
+
+                if (count($batch) === self::INSERT_BATCH) {
+                    StatementImportRow::query()->insert($batch);
+                    $batch = [];
+                }
+            }
+
+            if ($batch !== []) {
+                StatementImportRow::query()->insert($batch);
             }
 
             $import->column_mapping = $form->toArray();

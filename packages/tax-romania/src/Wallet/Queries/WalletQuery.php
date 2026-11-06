@@ -523,16 +523,22 @@ final readonly class WalletQuery
             return [];
         }
 
-        // One lookup for the account names rather than a relation load per row: the display name is
-        // encrypted, so each read costs a decrypt, and a transaction list repeats the same handful
-        // of accounts.
+        // One lookup for the accounts these rows name rather than a relation load per row: the display
+        // name is encrypted, so each read costs a decrypt, and a list repeats the same handful. Only the
+        // name and the kind — not `accounts()`, which works out every balance to be thrown away here.
         $names = [];
 
         $kinds = [];
 
-        foreach ($this->accounts() as $account) {
-            $names[$account->id] = $account->displayName;
-            $kinds[$account->id] = $account->kind;
+        $accountIds = array_values(array_unique(array_map(
+            static fn (FinancialTransaction $transaction): string => self::str($transaction->account_id),
+            $transactions,
+        )));
+
+        foreach (FinancialAccount::query()->whereKey($accountIds)->get(['id', 'tax_subject_id', 'kind', 'display_name_ciphertext']) as $account) {
+            $id = self::str($account->getKey());
+            $names[$id] = self::str($account->display_name_ciphertext);
+            $kinds[$id] = $account->kind->value;
         }
 
         $ids = array_map(

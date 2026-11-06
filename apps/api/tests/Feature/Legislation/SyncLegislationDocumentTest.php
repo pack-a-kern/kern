@@ -287,11 +287,20 @@ it('shows the law, its text on a date, and a provision\'s history', function ():
     // One part at a time: the title holds both articles, the chapter only its own; a provision opens
     // the part its article stands in, marked.
     $title = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&heading=" . rawurlencode('Titlul V'))->assertOk();
+    DB::flushQueryLog();
+    DB::enableQueryLog();
     $chapter = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&heading=" . rawurlencode('Titlul V Capitolul III'))->assertOk();
+    // The wording is read for the part shown, never the whole law: art. 5 stands outside the chapter.
+    $wordingRead = array_merge(...array_column(array_filter(
+        DB::getQueryLog(),
+        static fn (array $query): bool => str_contains($query['query'], '"text"') && str_contains($query['query'], 'ext_source_sections'),
+    ), 'bindings'));
+    DB::disableQueryLog();
     $provision = $this->actingAs($user)->getJson("/api/v1/legislation/laws/{$law->id}/text?as_of=2019-05-01&provision=" . rawurlencode('Art. 170 alin. (1)'))->assertOk();
 
     expect($title->json('sections.*.label'))->toContain('Articolul 170', 'Articolul 5')
         ->and($chapter->json('sections.*.label'))->toContain('Articolul 170')->not->toContain('Articolul 5')
+        ->and($wordingRead)->toEqualCanonicalizing($chapter->json('sections.*.id'))
         ->and($chapter->json('heading.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
         ->and($provision->json('heading.*.path'))->toBe(['Titlul V', 'Titlul V Capitolul III'])
         ->and($provision->json('focus'))->toBe($provision->json('sections.1.id'))

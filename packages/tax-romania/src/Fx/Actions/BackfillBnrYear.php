@@ -50,10 +50,8 @@ final readonly class BackfillBnrYear
         foreach ($days as $day) {
             $summary = $summary->withDayProcessed();
 
-            foreach ($day->rates as $rate) {
-                $summary = $summary->withRate(
-                    $this->importer->import($sourceId, $day->date, $rate, $ingested->sourceDocumentVersionId),
-                );
+            foreach ($this->importer->import($sourceId, $day, $ingested->sourceDocumentVersionId) as $outcome) {
+                $summary = $summary->withRate($outcome);
             }
         }
 
