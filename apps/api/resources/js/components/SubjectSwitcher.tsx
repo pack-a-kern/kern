@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId, withoutSubjectLink } from '../lib/subjectStore';
 import { type SharedAuth } from '../lib/sharedProps';
 import { useActiveSubjectId, useOpenSubjects } from '../hooks/useActiveSubjectId';
@@ -10,7 +10,7 @@ import { useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { initialsFor } from '../lib/initials';
 import { subjectAvatarUrl } from '../api/accountApi';
-import { Avatar } from './panel';
+import { Avatar, PanelDialog } from './panel';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -37,6 +37,121 @@ function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; 
             }
             className={className}
         />
+    );
+}
+
+/**
+ * Works in this taxpayer from now on. Not a plain reload: a page opened from a notice still names
+ * that notice's taxpayer, and would choose it again.
+ */
+function openSubject(subjectId: string): void {
+    setActiveSubjectId(subjectId);
+    window.location.replace(withoutSubjectLink(window.location.href));
+}
+
+/** The taxpayers whose name holds what was typed. Filtering, not searching the server: this list is the first page of subjects. */
+function matching(subjects: SubjectRow[], query: string): SubjectRow[] {
+    const needle = query.trim().toLowerCase();
+
+    return needle === '' ? subjects : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
+}
+
+function SubjectSearch({ value, onChange }: { value: string; onChange: (value: string) => void }): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <label className="flex h-9 items-center gap-2 rounded-xl bg-[#F8FAFC] px-2.5 dark:bg-[#27292D]">
+            <Search className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+            <input
+                value={value}
+                onChange={(event) => {
+                    onChange(event.target.value);
+                }}
+                placeholder={t((d) => d.shell.searchSubjects)}
+                className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+            />
+        </label>
+    );
+}
+
+/** One taxpayer as a list offers it: its disc, its name and its kind, and a tick on the one in use. */
+function SubjectOption({ subject, current }: { subject: SubjectRow; current: boolean }): JSX.Element {
+    const { t } = useTranslation();
+
+    return (
+        <>
+            <SubjectDisc
+                subject={subject}
+                className={
+                    current ? 'avatar-tile avatar-tile-md avatar-current' : 'avatar-tile avatar-tile-md avatar-other'
+                }
+            />
+            <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold">{subject.displayName}</span>
+                <span className="text-muted-foreground block truncate text-2xs">
+                    {t((d) => d.subjectType)[subject.type as keyof Dictionary['subjectType']]}
+                </span>
+            </span>
+            {current && <Check className="text-accent-foreground size-3.5 shrink-0" aria-hidden="true" />}
+        </>
+    );
+}
+
+/**
+ * Asks which taxpayer to work in, where there are several and none is chosen yet — a new device, a
+ * cleared browser, a choice that was closed or revoked.
+ *
+ * Every screen's figures belong to one taxpayer, so nothing is guessed and nothing is shown until one
+ * is picked: the dialog cannot be closed any other way. The one way out that is not a choice is the
+ * screen's own (`footer` — signing out), so a person on the wrong account is not trapped in it.
+ */
+export function SubjectChooser({ footer }: { footer: ReactNode }): JSX.Element | null {
+    const { t } = useTranslation();
+    const subjects = useOpenSubjects();
+    const resolvedId = useActiveSubjectId();
+    const [query, setQuery] = useState('');
+
+    if (subjects.length < 2 || resolvedId !== null) {
+        return null;
+    }
+
+    const matches = matching(subjects, query);
+
+    return (
+        <PanelDialog
+            open
+            onOpenChange={() => undefined}
+            title={t((d) => d.shell.chooseSubject)}
+            description={t((d) => d.shell.chooseSubjectHint)}
+            size="sm"
+            dismissable={false}
+            closeButton={false}
+            actions={footer}
+        >
+            <div className="space-y-2">
+                <SubjectSearch value={query} onChange={setQuery} />
+                {matches.length === 0 ? (
+                    <p className="text-muted-foreground px-3 py-7 text-center text-xs">
+                        {t((d) => d.shell.noSubjectsFound)}
+                    </p>
+                ) : (
+                    <div className="grid gap-1">
+                        {matches.map((subject) => (
+                            <button
+                                key={subject.id}
+                                type="button"
+                                className="hover:bg-accent/60 flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                                onClick={() => {
+                                    openSubject(subject.id);
+                                }}
+                            >
+                                <SubjectOption subject={subject} current={false} />
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </PanelDialog>
     );
 }
 
@@ -71,9 +186,7 @@ export default function SubjectSwitcher({
     const resolvedId = useActiveSubjectId();
     const [query, setQuery] = useState('');
 
-    const needle = query.trim().toLowerCase();
-    const matches =
-        needle === '' ? subjects : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
+    const matches = matching(subjects, query);
 
     // Which taxpayer this browser is working in is worked out by `useActiveSubjectId`, the same way
     // for every screen. Only the storage is written here, so the choice survives the next visit — there
@@ -87,13 +200,6 @@ export default function SubjectSwitcher({
     }, [resolvedId]);
 
     const active = subjects.find((subject) => subject.id === resolvedId);
-
-    function activate(subjectId: string): void {
-        setActiveSubjectId(subjectId);
-        // Not a plain reload: a page opened from a notice still names that notice's taxpayer, and
-        // would choose it again.
-        window.location.replace(withoutSubjectLink(window.location.href));
-    }
 
     // A tile that only ever has one answer is not a control. With a single taxpayer the switcher
     // still names what the page's figures belong to — that is worth showing — but nothing opens,
@@ -175,17 +281,7 @@ export default function SubjectSwitcher({
                 {/* Filtering, not searching the server: this list is the first page of subjects, so
                     the box narrows what is already here rather than implying there is more. */}
                 <div className="border-border border-b p-2">
-                    <label className="flex h-9 items-center gap-2 rounded-xl bg-[#F8FAFC] px-2.5 dark:bg-[#27292D]">
-                        <Search className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                        <input
-                            value={query}
-                            onChange={(event) => {
-                                setQuery(event.target.value);
-                            }}
-                            placeholder={t((d) => d.shell.searchSubjects)}
-                            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
-                        />
-                    </label>
+                    <SubjectSearch value={query} onChange={setQuery} />
                 </div>
 
                 <div className="max-h-64 overflow-y-auto p-1.5">
@@ -199,26 +295,10 @@ export default function SubjectSwitcher({
                             key={subject.id}
                             className="gap-2.5 text-sm"
                             onSelect={() => {
-                                activate(subject.id);
+                                openSubject(subject.id);
                             }}
                         >
-                            <SubjectDisc
-                                subject={subject}
-                                className={
-                                    subject.id === resolvedId
-                                        ? 'avatar-tile avatar-tile-md avatar-current'
-                                        : 'avatar-tile avatar-tile-md avatar-other'
-                                }
-                            />
-                            <span className="min-w-0 flex-1">
-                                <span className="block truncate text-xs font-semibold">{subject.displayName}</span>
-                                <span className="text-muted-foreground block truncate text-2xs">
-                                    {t((d) => d.subjectType)[subject.type as keyof Dictionary['subjectType']]}
-                                </span>
-                            </span>
-                            {subject.id === resolvedId && (
-                                <Check className="text-accent-foreground size-3.5 shrink-0" aria-hidden="true" />
-                            )}
+                            <SubjectOption subject={subject} current={subject.id === resolvedId} />
                         </DropdownMenuItem>
                     ))}
                 </div>

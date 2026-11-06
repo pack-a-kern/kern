@@ -56,8 +56,9 @@ import {
     DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import SubjectSwitcher from './SubjectSwitcher';
-import { EmptyState } from './panel';
+import SubjectSwitcher, { SubjectChooser } from './SubjectSwitcher';
+import AppMark from './AppMark';
+import { EmptyState, PanelButton } from './panel';
 
 interface NavLink {
     /**
@@ -698,7 +699,9 @@ function BottomNav({ currentUrl }: { currentUrl: string }): JSX.Element {
                             aria-current={here ? 'page' : undefined}
                             ref={here ? current : undefined}
                         >
-                            <Icon className="size-5" aria-hidden="true" />
+                            <span className="bottom-tab-icon">
+                                <Icon className="size-5" aria-hidden="true" />
+                            </span>
                             <span>{t(item.label)}</span>
                         </Link>
                     );
@@ -877,9 +880,7 @@ function SidebarBrand(): JSX.Element {
 
     return (
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div className="bg-ink-950 dark:bg-white dark:text-ink-950 grid size-8 shrink-0 place-items-center rounded-[10px] text-xs font-bold text-white shadow-sm">
-                T
-            </div>
+            <AppMark className="size-8" />
             <div className="min-w-0">
                 <div className="truncate text-sm font-semibold tracking-[-.02em]">{appName}</div>
                 <div className="text-ink-400 truncate text-2xs">{t((d) => d.shell.appTagline)}</div>
@@ -1097,6 +1098,19 @@ export default function AppShell({
             </div>
 
             <BottomNav currentUrl={url} />
+
+            <SubjectChooser
+                footer={
+                    <PanelButton
+                        onClick={() => {
+                            void handleLogout();
+                        }}
+                    >
+                        <LogOut className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.shell.signOut)}
+                    </PanelButton>
+                }
+            />
         </div>
     );
 }

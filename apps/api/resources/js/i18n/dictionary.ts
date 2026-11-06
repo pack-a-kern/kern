@@ -57,11 +57,9 @@ export interface Dictionary {
         notificationsEmptyHint: string;
         openNotice: string;
         notificationsFailed: string;
-        changePalette: string;
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;
         paletteDescriptions: Record<PaletteName, string>;
-        changeLanguage: string;
         languageRo: string;
         languageEn: string;
         account: string;
@@ -77,6 +75,8 @@ export interface Dictionary {
         daysLeft: string;
         dueToday: string;
         searchSubjects: string;
+        chooseSubject: string;
+        chooseSubjectHint: string;
         noSubjectsFound: string;
     };
     common: {
@@ -127,8 +127,26 @@ export interface Dictionary {
         rows: string;
     };
     home: {
-        tagline: string;
         signIn: string;
+        eyebrow: string;
+        title: string;
+        lead: string;
+        /** Marks the cards beside the headline as made up, so no figure in them reads as anyone's. */
+        example: string;
+        previewDeadline: string;
+        previewDeadlineDue: string;
+        previewDaysLeft: string;
+        previewRate: string;
+        previewRateSource: string;
+        previewDeposit: string;
+        previewDepositInterest: string;
+        featuresTitle: string;
+        featuresLead: string;
+        features: Record<
+            'wallet' | 'statements' | 'spv' | 'taxes' | 'law' | 'approval',
+            { title: string; body: string }
+        >;
+        securityTitle: string;
     };
     auth: {
         signInTitle: string;

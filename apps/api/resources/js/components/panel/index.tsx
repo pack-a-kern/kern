@@ -1055,6 +1055,11 @@ export function PanelDialog(props: {
      * nothing to lose, and refusing to close is then just a dialog that will not go away.
      */
     dismissOnOutsideClick?: boolean;
+    /**
+     * Whether the corner's close button is drawn. `true` by default; false only for a dialog whose
+     * one way out is the answer it asks for — with `dismissable` false, nothing else closes it.
+     */
+    closeButton?: boolean;
 }): JSX.Element {
     const dismissable = props.dismissable !== false;
 
@@ -1062,6 +1067,7 @@ export function PanelDialog(props: {
         <Dialog open={props.open} onOpenChange={props.onOpenChange}>
             <DialogContent
                 className={cn('dialog-panel', `dialog-${props.size ?? 'md'}`)}
+                showCloseButton={props.closeButton !== false}
                 /*
                  * A click outside closes nothing unless the dialog asked for it.
                  *

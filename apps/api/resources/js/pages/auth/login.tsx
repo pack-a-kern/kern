@@ -16,8 +16,11 @@ import {
     Smartphone,
     UserRoundPlus,
 } from 'lucide-react';
+import AppMark from '../../components/AppMark';
+import AuthBackdrop from '../../components/AuthBackdrop';
 import ErrorText from '../../components/ErrorText';
-import { LanguageMenu, PaletteMenu, ThemeToggle } from '../../components/ShellControls';
+import { ThemeToggle } from '../../components/ShellControls';
+import { useNoFocusOnLoad } from '../../hooks/useNoFocusOnLoad';
 import {
     completeMfaChallenge,
     completePasskeyLogin,
@@ -67,6 +70,7 @@ function goToDashboard(): void {
 export default function Login(): JSX.Element {
     const appName = useAppName();
     const { t } = useTranslation();
+    useNoFocusOnLoad();
     // Shared by `HandleInertiaRequests`. Absent only if this page were rendered outside Inertia,
     // and "closed" is the safer reading of an unknown — the endpoint decides either way.
     const registrationOpen = usePage().props.registrationOpen === true;
@@ -236,9 +240,7 @@ export default function Login(): JSX.Element {
                     <AuthBackdrop compact />
                     <header className="relative flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
                         <div className="flex items-center gap-2.5">
-                            <span className="bg-foreground text-background grid size-9 place-items-center rounded-[11px] text-xs font-bold">
-                                T
-                            </span>
+                            <AppMark className="size-9 rounded-[11px]" />
                             <span>
                                 <span className="block text-sm font-semibold tracking-tight">{appName}</span>
                                 <span className="text-muted-foreground block text-2xs">
@@ -248,13 +250,13 @@ export default function Login(): JSX.Element {
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                            <LanguageMenu />
-                            <PaletteMenu />
                             <ThemeToggle />
                         </div>
                     </header>
 
-                    <div className="relative flex flex-1 justify-center px-4 pt-6 pb-6 sm:px-8 lg:items-center lg:py-8">
+                    {/* The form in the middle of what is left, as an app's sign-in sits — not hung from
+                        the top with the rest of the screen empty under it. */}
+                    <div className="relative flex flex-1 items-center justify-center px-4 py-6 sm:px-8 lg:py-8">
                         <section className="w-full max-w-[420px]">
                             <div className="mb-6 px-1 lg:mb-7 lg:px-0">
                                 <span className="head-chip mb-3 inline-flex items-center gap-1.5">
@@ -560,12 +562,14 @@ export default function Login(): JSX.Element {
                                     </Button>
                                 )}
                             </div>
-
-                            <p className="text-muted-foreground mt-6 px-2 text-center text-2xs leading-4 lg:mt-7 lg:px-0">
-                                {t((d) => d.auth.legalNote).replace('{appName}', appName)}
-                            </p>
                         </section>
                     </div>
+
+                    {/* The terms at the foot of the screen, apart from the form: small print, not a
+                        step of signing in. */}
+                    <p className="text-muted-foreground relative mx-auto max-w-[420px] px-6 pb-4 text-center text-2xs leading-4">
+                        {t((d) => d.auth.legalNote).replace('{appName}', appName)}
+                    </p>
 
                     <footer className="border-border text-muted-foreground hidden min-h-12 items-center justify-between gap-3 border-t px-5 text-2xs sm:px-8 lg:flex">
                         <span>{t((d) => d.auth.footerCopyright).replace('{appName}', appName)}</span>
@@ -678,65 +682,6 @@ function OtpGrid(props: {
  * It says what protects the account, because that is the question a sign-in screen raises. Hidden
  * below `lg`, where the form is the whole screen and anything else is in its way.
  */
-// The dial's tick ring: every 5°, with a longer mark every 30°.
-const DIAL_TICKS = Array.from({ length: 72 }, (_, i) => {
-    const angle = (i * 5 * Math.PI) / 180;
-    const inner = i % 6 === 0 ? 362 : 372;
-    return {
-        x1: 400 + inner * Math.cos(angle),
-        y1: 400 + inner * Math.sin(angle),
-        x2: 400 + 380 * Math.cos(angle),
-        y2: 400 + 380 * Math.sin(angle),
-        major: i % 6 === 0,
-    };
-});
-
-/**
- * Decoration only: a grid, two drifting blooms, a light sweep and a slowly turning dial.
- * `compact` is the phone version, behind the form's header, where the side panel is hidden.
- */
-function AuthBackdrop({ compact = false }: { compact?: boolean }): JSX.Element {
-    return (
-        <div className={compact ? 'auth-backdrop auth-backdrop-compact lg:hidden' : 'auth-backdrop'} aria-hidden="true">
-            <span className="auth-backdrop-grid" />
-            <span className="auth-backdrop-bloom" />
-            <span className="auth-backdrop-bloom auth-backdrop-bloom-alt" />
-            <span className="auth-backdrop-sweep" />
-            <svg className="auth-dial" viewBox="0 0 800 800">
-                <g className="auth-dial-turn auth-dial-slow">
-                    {DIAL_TICKS.map((tick, i) => (
-                        <line key={i} className={tick.major ? 'auth-dial-tick-major' : 'auth-dial-tick'} {...tick} />
-                    ))}
-                </g>
-                <g className="auth-dial-turn">
-                    <circle className="auth-dial-ring" cx="400" cy="400" r="330" />
-                    <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="305" />
-                    <circle className="auth-dial-trace" cx="400" cy="400" r="330" pathLength="100" />
-                    <circle className="auth-dial-node" cx="400" cy="70" r="4" />
-                    <circle className="auth-dial-node" cx="730" cy="400" r="3" />
-                </g>
-                <g className="auth-dial-turn auth-dial-reverse">
-                    <circle className="auth-dial-ring" cx="400" cy="400" r="250" />
-                    <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="226" />
-                    <circle
-                        className="auth-dial-trace auth-dial-trace-alt"
-                        cx="400"
-                        cy="400"
-                        r="250"
-                        pathLength="100"
-                    />
-                    <circle className="auth-dial-node" cx="150" cy="400" r="3.5" />
-                </g>
-                <circle className="auth-dial-ring" cx="400" cy="400" r="150" />
-                <circle className="auth-dial-ring auth-dial-dashed" cx="400" cy="400" r="70" />
-                <path className="auth-dial-axis" d="M400 20V780M20 400H780M131 131L669 669M669 131L131 669" />
-                <circle className="auth-dial-ping" cx="400" cy="400" r="6" />
-                <circle className="auth-dial-core" cx="400" cy="400" r="6" />
-            </svg>
-        </div>
-    );
-}
-
 function AuthAside(): JSX.Element {
     const { t } = useTranslation();
 

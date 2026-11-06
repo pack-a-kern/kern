@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useState, type JSX, type SyntheticEvent } from 'react';
 import { ArrowRight, CheckCircle2Icon, LogOut, MailIcon, Send, ShieldCheck } from 'lucide-react';
 import ErrorText from '../../components/ErrorText';
-import { LanguageMenu, PaletteMenu, ThemeToggle } from '../../components/ShellControls';
+import { ThemeToggle } from '../../components/ShellControls';
 import { fetchEmailVerificationStatus, logout, resendEmailVerification, verifyEmail } from '../../api/authApi';
 import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
@@ -111,8 +111,6 @@ export default function VerifyEmail(): JSX.Element {
                     <header className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
                         <span className="text-sm font-semibold tracking-tight">{appName}</span>
                         <div className="flex items-center gap-1.5">
-                            <LanguageMenu />
-                            <PaletteMenu />
                             <ThemeToggle />
                         </div>
                     </header>

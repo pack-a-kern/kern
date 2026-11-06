@@ -7,7 +7,7 @@ export type Locale = 'ro' | 'en';
 
 const DICTIONARIES: Record<Locale, Dictionary> = { ro, en };
 const STORAGE_KEY = 'kern.locale';
-const DEFAULT_LOCALE: Locale = 'ro';
+const DEFAULT_LOCALE: Locale = 'en';
 
 const listeners = new Set<() => void>();
 let locale: Locale = readStoredLocale();
@@ -20,7 +20,7 @@ function readStoredLocale(): Locale {
             return stored;
         }
     } catch {
-        // Private browsing / storage disabled — Romanian is the product's default audience.
+        // Private browsing / storage disabled — the default it is, then.
     }
 
     return DEFAULT_LOCALE;

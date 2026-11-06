@@ -52,7 +52,6 @@ export const ro = {
         notificationsEmpty: 'Ești la zi',
         notificationsEmptyHint: 'Notificările noi vor apărea aici.',
         notificationsFailed: 'Notificările nu au putut fi încărcate.',
-        changePalette: 'Schimbă paleta de culori',
         paletteNames: {
             legacyV16V17: 'v16 / v17',
             balanced: 'Echilibrat',
@@ -71,12 +70,14 @@ export const ro = {
             cocoa: 'Cald, premium, discret',
             orange: 'Energic, operațional, foarte vizibil',
         },
-        changeLanguage: 'Schimbă limba',
         languageRo: 'Română',
         languageEn: 'Engleză',
         account: 'Cont',
         signOut: 'Deconectare',
         noActiveSubject: 'Niciun contribuabil activ',
+        chooseSubject: 'Alege contribuabilul',
+        chooseSubjectHint:
+            'Tot ce vezi aparține unui singur contribuabil. Alege-l pe cel cu care lucrezi; îl poți schimba oricând din meniu.',
         taxSubject: 'Contribuabil',
         fiscalSnapshot: 'Situație fiscală',
         declarationFor: 'Declarația unică {year}',
@@ -122,8 +123,47 @@ export const ro = {
         morePages: 'Mai multe pagini',
     },
     home: {
-        tagline: 'Platformă fiscal-financiară pentru persoane fizice.',
         signIn: 'Autentificare',
+        eyebrow: 'Pentru persoane fizice din România',
+        title: 'Impozitele tale, calculate din lege.',
+        lead: 'Conturi, depozite și extrase într-un singur loc, iar declarația anuală calculată din Codul fiscal în vigoare — fiecare cifră legată de articolul ei și aprobată de un om.',
+        example: 'Exemplu',
+        previewDeadline: 'Declarația unică 2026',
+        previewDeadlineDue: 'Termen 25 mai 2027',
+        previewDaysLeft: '199 zile',
+        previewRate: 'Cota impozitului pe venit',
+        previewRateSource: 'Art. 64 alin. (1) · aprobată',
+        previewDeposit: 'Depozit la termen · 12 luni',
+        previewDepositInterest: '+ 1.240,50 RON dobândă la scadență',
+        featuresTitle: 'Tot ce îi trebuie unui an fiscal',
+        featuresLead: 'De la primul extras al anului până la declarația depusă în anul următor.',
+        features: {
+            wallet: {
+                title: 'Conturi și depozite',
+                body: 'Fiecare cont și depozit la termen, cu dobânda pe care o aduce și ziua scadenței.',
+            },
+            statements: {
+                title: 'Import de extrase',
+                body: 'Extrasul de cont citit rând cu rând în tranzacții, păstrat criptat.',
+            },
+            spv: {
+                title: 'Mesajele ANAF',
+                body: 'Căsuța ta din SPV, sincronizată și păstrată alături de restul anului.',
+            },
+            taxes: {
+                title: 'Declarația',
+                body: 'Impozitul pe venit și contribuțiile anului, calculate din propriul registru.',
+            },
+            law: {
+                title: 'Legea, cum era atunci',
+                body: 'Codul fiscal în forma fiecărui an și cursurile zilnice ale BNR.',
+            },
+            approval: {
+                title: 'Verificat de un om',
+                body: 'O cotă citită din lege contează doar după ce cineva a aprobat-o pe articolul ei.',
+            },
+        },
+        securityTitle: 'Privat prin design',
     },
     auth: {
         signInTitle: 'Autentificare',
