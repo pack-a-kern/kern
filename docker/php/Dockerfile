@@ -19,7 +19,7 @@
 # Stage: ext-builder — compile the four required PHP extensions in isolation
 # from a build toolchain, so the final runtime image never carries a compiler.
 # ---------------------------------------------------------------------------
-FROM php:8.5.12-fpm-trixie@sha256:c34bcf437ed61bd5e4c1114494eaf1ffd54253bce2b95d263bfa18b350ee8432 AS ext-builder
+FROM php:8.5.12-fpm-trixie@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0 AS ext-builder
 
 # Exact apt candidate versions for trixie, checked 2026-09-07 (see handoff
 # "Sources consulted"). Pinning apt packages by version, per
@@ -87,7 +87,7 @@ RUN composer install \
 # ---------------------------------------------------------------------------
 # Stage: runtime — the actual app/queue/scheduler/reverb image.
 # ---------------------------------------------------------------------------
-FROM php:8.5.12-fpm-trixie@sha256:c34bcf437ed61bd5e4c1114494eaf1ffd54253bce2b95d263bfa18b350ee8432 AS runtime
+FROM php:8.5.12-fpm-trixie@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0 AS runtime
 
 # Extensions compiled in ext-builder, copied in (no compiler in this stage).
 COPY --from=ext-builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions

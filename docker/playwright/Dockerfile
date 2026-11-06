@@ -61,10 +61,10 @@ RUN npm ci --omit=dev \
 
 # Ubuntu's security updates for what the pinned base image shipped before them — named, not a
 # blanket `upgrade`, so the image changes only where a fix was asked for. brotli
-# (CVE-2026-111497) and OpenSSL (CVE-2026-84782), found by CI's Trivy scan on 2026-11-03.
-# Drop this once the base pin moves to a build that already has them.
+# (CVE-2026-111497) and OpenSSL (CVE-2026-84782), found by CI's Trivy scan on 2026-11-03; apt
+# (CVE-2026-109518) on 2026-11-06. Drop this once the base pin moves to a build that already has them.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --only-upgrade libbrotli1 libssl3t64 openssl \
+    && apt-get install -y --no-install-recommends --only-upgrade libbrotli1 libssl3t64 openssl apt libapt-pkg6.0t64 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/dist ./dist
 
