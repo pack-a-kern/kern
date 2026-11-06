@@ -30,9 +30,17 @@ return [
 
     'currency' => env('FISCAL_PARAMETERS_CURRENCY', 'RON'),
 
+    // Whose calendar a deadline the law sets falls on: the day it is due in Romania, not on the
+    // server's clock (UTC) — which is still the day before for the first hours of every day here.
+    'timezone' => env('FISCAL_PARAMETERS_TIMEZONE', 'Europe/Bucharest'),
+
     // How long a reading of the values may hold the lock that keeps two from running at once — the
     // task from the screen, and the one a newly read minimum-wage decision starts.
     'lock_seconds' => (int) env('FISCAL_PARAMETERS_LOCK_SECONDS', 900),
+
+    // The rule whose value is the day the year's declaration is due — what the taxpayer's deadline
+    // is counted down to (`Kern\TaxRomania\FiscalParameters\Queries\FilingDeadline`).
+    'filing_deadline' => 'RO.INCOME_TAX.FILING_DEADLINE',
 
     'minimum_wage' => [
         'parameter' => 'RO.MIN_WAGE',
@@ -101,6 +109,18 @@ return [
                     'law' => [
                         'question' => 'Care este suma neimpozabilă lunară care se deduce din venitul din pensii la stabilirea venitului impozabil lunar din pensii?',
                         'answer' => 'lei',
+                    ],
+                ],
+
+                // The day the year's Declarația unică is due, in the year after the income: art. 122
+                // alin. (3), "până la data de 25 mai inclusiv a anului următor celui de realizare a
+                // venitului". Read for each year like any other value, because the law has moved it.
+                'FILING_DEADLINE' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul XI'],
+                        'question' => 'Până la ce dată se completează și se depune Declarația unică privind impozitul pe venit și contribuțiile sociale datorate de persoanele fizice, pentru veniturile realizate într-un an fiscal?',
+                        'answer' => 'day_month',
                     ],
                 ],
             ],

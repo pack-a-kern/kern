@@ -1218,22 +1218,27 @@ export default function WalletTransactions(): JSX.Element {
                                     {/* The account, and beneath it the bank. Both answer "where", and
                                         the bank was down in the description cell answering it from
                                         under the counterparty and the tags. */}
+                                    {/* The bank's mark spans both lines, as on the accounts list. */}
                                     <td className="col-hide">
-                                        <div className="truncate">
-                                            {sourceName(
-                                                {
-                                                    kind: transaction.accountKind,
-                                                    displayName: transaction.accountName,
-                                                },
-                                                t((d) => d.pages.wallet.generalSource),
-                                            )}
-                                        </div>
-                                        {transaction.bankName === null ? null : (
-                                            <div className="note inline-flex items-center gap-1">
+                                        <div className="flex items-center gap-2.5">
+                                            {transaction.bankName === null ? null : (
                                                 <RowBankMark bank={banksById.get(transaction.bankId ?? '')} />
-                                                <span className="truncate">{transaction.bankName}</span>
+                                            )}
+                                            <div className="min-w-0">
+                                                <div className="truncate">
+                                                    {sourceName(
+                                                        {
+                                                            kind: transaction.accountKind,
+                                                            displayName: transaction.accountName,
+                                                        },
+                                                        t((d) => d.pages.wallet.generalSource),
+                                                    )}
+                                                </div>
+                                                {transaction.bankName === null ? null : (
+                                                    <div className="note truncate">{transaction.bankName}</div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </td>
                                     {/* What the bank called it, and what the person called it.
                                         This cell used to hold four stacked things — the text, the
@@ -1873,13 +1878,16 @@ function DuplicateGroups({
 }
 
 /**
- * A row's bank, in the line under its account: the bank's mark where the list knows the bank, the
- * generic one otherwise — a transaction may name a bank the list was not loaded with yet.
+ * A row's bank, beside its account and bank name: the bank's mark where the list knows the bank, a
+ * generic one of the same size otherwise — a transaction may name a bank the list was not loaded
+ * with yet.
  */
 function RowBankMark({ bank }: { bank: Bank | undefined }): JSX.Element {
     return bank === undefined ? (
-        <Landmark className="size-3 shrink-0" aria-hidden="true" />
+        <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
+            <Landmark className="size-4" aria-hidden="true" />
+        </span>
     ) : (
-        <BankMark bank={bank} size="sm" />
+        <BankMark bank={bank} size="two-line" />
     );
 }

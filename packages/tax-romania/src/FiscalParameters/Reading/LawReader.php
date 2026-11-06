@@ -163,7 +163,10 @@ final readonly class LawReader
 
             // A range stands on two paragraphs, a number each; every other answer states all of its
             // numbers in the one paragraph it names.
-            if ($paragraph === null || ! $this->states($paragraph, $range ? [$values[$at] ?? $values[0]] : $values)) {
+            // A day is stated with its month's name; every other number as a number.
+            if ($paragraph === null || ! ($definition->answer->isDayAndMonth()
+                ? $this->statesDay($paragraph, $values[0], $values[1] ?? 0)
+                : $this->states($paragraph, $range ? [$values[$at] ?? $values[0]] : $values))) {
                 return null;
             }
 
@@ -190,6 +193,24 @@ final readonly class LawReader
         }
 
         return true;
+    }
+
+    /**
+     * Whether a paragraph states this day of this month, the way the law writes a date: the day as a
+     * number and the month by its name — "25 mai". A month is matched by any of its names in
+     * `config/reference/months.php`, compared as {@see SectionText::searchable()} writes the text.
+     */
+    private function statesDay(Provision $paragraph, int $day, int $month): bool
+    {
+        $names = array_keys(array_filter($this->config->array('reference.months'), static fn (mixed $number): bool => $number === $month));
+
+        if ($names === []) {
+            return false;
+        }
+
+        $alternatives = implode('|', array_map(static fn (int|string $name): string => preg_quote((string) $name, '/'), $names));
+
+        return preg_match('/\b' . $day . '\s+(?:' . $alternatives . ')\b/', SectionText::searchable($paragraph->text . ' ' . $paragraph->under)) === 1;
     }
 
     /**
@@ -242,6 +263,7 @@ final readonly class LawReader
         $given = match (true) {
             $range => [$reply['floor'] ?? null, $reply['cap'] ?? null],
             $definition->answer === ParameterAnswer::WAGES_LIST, $definition->answer->isEither() => is_array($reply['values'] ?? null) ? $reply['values'] : [],
+            $definition->answer->isDayAndMonth() => [$reply['day'] ?? null, $reply['month'] ?? null],
             default => [$reply['value'] ?? null],
         };
         $said = array_values(array_filter($given, static fn (mixed $value): bool => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value))));
@@ -251,8 +273,9 @@ final readonly class LawReader
             return [];
         }
 
-        // A range is the floor and the cap, in that order; everything else reads smallest first.
-        if (! $range) {
+        // A range is the floor and the cap, in that order, and a day comes before its month;
+        // everything else reads smallest first.
+        if (! $range && ! $definition->answer->isDayAndMonth()) {
             sort($numbers);
         }
 

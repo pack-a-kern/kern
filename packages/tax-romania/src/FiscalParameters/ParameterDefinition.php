@@ -41,13 +41,18 @@ final readonly class ParameterDefinition
 
     /**
      * A value as it is stored, from the numbers the law states: a rate "0.10" from 10 percent, a
-     * threshold `{value: 12}`, thresholds `{wages: [6, 12, 24]}`, an amount `{amount_minor: …}`.
+     * threshold `{value: 12}`, thresholds `{wages: [6, 12, 24]}`, an amount `{amount_minor: …}`, a
+     * deadline `{day: 25, month: 5}`.
      *
      * @param  list<int>  $numbers  percentages in hundredths, wages and lei as stated
      * @return array<string, mixed>
      */
     public function value(array $numbers, bool $range = false, string $currency = CurrencyCode::BASE): array
     {
+        if ($this->answer->isDayAndMonth()) {
+            return ['day' => $numbers[0], 'month' => $numbers[1] ?? null];
+        }
+
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => ['value' => sprintf('%d.%02d', intdiv($numbers[0], 100), $numbers[0] % 100)],
             FiscalParameterValueType::JSON => $range
@@ -67,6 +72,10 @@ final readonly class ParameterDefinition
      */
     public function lawValues(array $value): array
     {
+        if ($this->answer->isDayAndMonth()) {
+            return is_int($value['day'] ?? null) && is_int($value['month'] ?? null) ? [$value['day'], $value['month']] : [];
+        }
+
         return match ($this->type) {
             FiscalParameterValueType::DECIMAL => [(int) round((float) (is_string($value['value'] ?? null) ? $value['value'] : 0) * 100)],
             // What it is read as is what it was saved as: a base with two ends carries them, and a

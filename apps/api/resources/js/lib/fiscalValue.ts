@@ -1,6 +1,6 @@
 import type { Dictionary } from '../i18n/dictionary';
 import type { ParameterType, ParameterVersion } from '../types/fiscalParameters';
-import { formatAmount, formatDate, formatPercent } from './format';
+import { formatAmount, formatDate, formatDayMonth, formatPercent } from './format';
 
 type Translate = <T>(pick: (d: Dictionary) => T) => T;
 
@@ -25,6 +25,11 @@ export function describeFiscalValue(
 
     if (type === 'DECIMAL') {
         return formatPercent(Number(typeof value.value === 'string' ? value.value : 0), locale);
+    }
+
+    // A deadline the law repeats every year: the day and the month, the year being the one after.
+    if (typeof value.day === 'number' && typeof value.month === 'number') {
+        return formatDayMonth(value.day, value.month, locale);
     }
 
     // A base with two ends — not less than six wages, not more than seventy-two — reads as a range.

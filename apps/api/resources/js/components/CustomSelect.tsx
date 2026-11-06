@@ -293,12 +293,16 @@ export default function CustomSelect<TMeta = unknown>({
         // moment it lands anywhere else — and this menu is portalled to the body, outside it. Inside a
         // dialog the search box took focus and lost it in the same tick, so typing went nowhere.
         //
-        // Focus events are stopped on their way up instead: every one from the menu, and the trigger's
-        // own `focusout` when focus is moving into the menu. The same shape as `onWheel` below, which
-        // keeps a dialog's scroll lock from reaching this list. Outside a dialog nothing listens, so
-        // nothing changes.
+        // Focus events are stopped on their way up instead: every one from the menu, and any `focusout`
+        // whose focus is moving into the menu. The same shape as `onWheel` below, which keeps a
+        // dialog's scroll lock from reaching this list. Outside a dialog nothing listens, so nothing
+        // changes.
+        //
+        // That `focusout` is caught on the window, as it starts down, not on the trigger: a tap does
+        // not focus a button on iOS, so what loses focus to the search box there is whatever the dialog
+        // had focused before — the trigger's own listener never heard it, the dialog did, and pulled
+        // focus straight back out of the search box.
         const menu = menuRef.current;
-        const trigger = triggerRef.current;
         const stayInMenu = (event: FocusEvent): void => {
             event.stopPropagation();
         };
@@ -313,11 +317,16 @@ export default function CustomSelect<TMeta = unknown>({
         window.addEventListener('resize', reposition);
         menu?.addEventListener('focusin', stayInMenu);
         menu?.addEventListener('focusout', stayInMenu);
-        trigger?.addEventListener('focusout', leaveForMenu);
+        window.addEventListener('focusout', leaveForMenu, true);
 
         // Focused here rather than through `autoFocus`: that fires while React commits, before this
         // effect has attached the listeners above, so the dialog would already have taken it back.
-        searchRef.current?.focus();
+        //
+        // Not on a touch screen: there a focused field is a keyboard over half the list the person
+        // opened to look at. They tap the search box when they want it.
+        if (!window.matchMedia('(pointer: coarse)').matches) {
+            searchRef.current?.focus();
+        }
 
         return () => {
             document.removeEventListener('mousedown', onPointerDown);
@@ -325,7 +334,7 @@ export default function CustomSelect<TMeta = unknown>({
             window.removeEventListener('resize', reposition);
             menu?.removeEventListener('focusin', stayInMenu);
             menu?.removeEventListener('focusout', stayInMenu);
-            trigger?.removeEventListener('focusout', leaveForMenu);
+            window.removeEventListener('focusout', leaveForMenu, true);
         };
     }, [open]);
 
@@ -432,6 +441,11 @@ export default function CustomSelect<TMeta = unknown>({
                         // Stopping it here keeps it from reaching that document-level listener, and the
                         // browser scrolls this list natively, exactly as it does outside a dialog.
                         // Nothing is scrolled by hand, so there is no double-speed scrolling elsewhere.
+                        event.stopPropagation();
+                    }}
+                    onTouchMove={(event) => {
+                        // The same lock, for a finger: it cancels `touchmove` the way it cancels the
+                        // wheel, so on a phone the list inside a dialog did not move at all.
                         event.stopPropagation();
                     }}
                 >

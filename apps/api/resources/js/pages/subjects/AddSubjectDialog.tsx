@@ -189,7 +189,6 @@ export default function AddSubjectDialog(props: {
                             icon={<IdCardIcon className="size-3.5" />}
                             inputMode="numeric"
                             autoComplete="off"
-                            autoFocus
                             value={form.cnp}
                             onChange={(event) => {
                                 set('cnp')(event.target.value);

@@ -9,6 +9,7 @@ use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogoController;
 use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
+use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFilingDeadlineController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\StartFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\Fx\ShowCurrencyCatalogueController;
@@ -333,6 +334,9 @@ Route::prefix('v1/fx')->middleware('auth:web')->group(function (): void {
 
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
     Route::get('/', ShowFiscalParameterBoardController::class)->middleware('permission:fiscal.parameters.view');
+    // The next declaration's day, for the sidebar every signed-in person has. Not behind a
+    // permission, as the reference rates are not: it is the law's, the same day for everyone.
+    Route::get('filing-deadline', ShowFilingDeadlineController::class);
 
     Route::middleware('permission:fiscal.parameters.approve')->group(function (): void {
         Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');

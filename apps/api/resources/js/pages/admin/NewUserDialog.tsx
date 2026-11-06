@@ -131,7 +131,6 @@ export default function NewUserDialog(props: {
                             icon={<AtSignIcon className="size-3.5" />}
                             type="email"
                             autoComplete="off"
-                            autoFocus
                             value={email}
                             onChange={(event) => {
                                 setEmail(event.target.value);

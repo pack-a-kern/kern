@@ -1,4 +1,4 @@
-import { nullableStr, obj, str } from '../lib/json';
+import { nullableStr, num, obj, str } from '../lib/json';
 
 /**
  * Shapes returned by `/api/v1/fiscal-parameters` — the values a tax is computed from, each as read
@@ -191,4 +191,26 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
             };
         }),
     };
+}
+
+/** The next Declarația unică and the day it is due — `GET /api/v1/fiscal-parameters/filing-deadline`. */
+export interface FilingDeadline {
+    /** The year whose income it declares. */
+    incomeYear: number;
+    dueOn: string;
+    /** Whole days until it, counted on Romania's calendar; 0 on the day itself. */
+    daysLeft: number;
+}
+
+/** Null where no approved value says when the next one is due. */
+export function parseFilingDeadline(payload: unknown): FilingDeadline | null {
+    const deadline = obj(payload).deadline;
+
+    if (deadline === null || typeof deadline !== 'object') {
+        return null;
+    }
+
+    const row = obj(deadline);
+
+    return { incomeYear: num(row, 'income_year'), dueOn: str(row, 'due_on'), daysLeft: num(row, 'days_left') };
 }

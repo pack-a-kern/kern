@@ -10,6 +10,7 @@ import { useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { initialsFor } from '../lib/initials';
 import { subjectAvatarUrl } from '../api/accountApi';
+import { Avatar } from './panel';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,32 +19,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 /**
- * The taxpayer's disc: its picture where there is one, its initials where there is not.
+ * The taxpayer's disc: the shared {@link Avatar} — its picture where there is one, its initials
+ * where there is not or the picture fails to load — in the switcher's square tile shapes.
  *
  * Three call sites in this file — the static tile, the trigger and every row of the menu — and they
  * used to differ only in their class string, which is how the rail tile and the menu row came to
  * disagree about the disc's size. The classes stay the caller's; what is inside it does not.
  */
 function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; className: string }): JSX.Element {
-    const picture =
-        subject === undefined || subject.avatarUpdatedAt === null
-            ? null
-            : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt);
-
-    if (picture !== null) {
-        return (
-            <img
-                src={picture}
-                alt=""
-                className={`${className} object-cover`}
-                // Decoration beside the name it belongs to: a screen reader that announced the file
-                // would be reading the taxpayer's id out loud.
-                aria-hidden="true"
-            />
-        );
-    }
-
-    return <span className={className}>{initialsFor(subject === undefined ? '?' : subject.displayName)}</span>;
+    return (
+        <Avatar
+            initials={initialsFor(subject === undefined ? '?' : subject.displayName)}
+            src={
+                subject === undefined || subject.avatarUpdatedAt === null
+                    ? undefined
+                    : subjectAvatarUrl(subject.id, subject.avatarUpdatedAt)
+            }
+            className={className}
+        />
+    );
 }
 
 /**
@@ -116,11 +110,7 @@ export default function SubjectSwitcher({
         >
             <SubjectDisc
                 subject={active}
-                className={
-                    bare
-                        ? 'subject-disc-bare bg-accent text-accent-600 grid shrink-0 place-items-center text-xs font-bold'
-                        : 'bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold'
-                }
+                className={bare ? 'avatar-tile avatar-tile-bare avatar-accent' : 'avatar-tile avatar-accent'}
             />
             {!collapsed && !bare && (
                 <span className="min-w-0 flex-1">
@@ -149,10 +139,7 @@ export default function SubjectSwitcher({
                     type="button"
                     className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
                 >
-                    <SubjectDisc
-                        subject={active}
-                        className="bg-accent text-accent-600 grid size-7 shrink-0 place-items-center rounded-lg text-2xs font-bold"
-                    />
+                    <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
                     {!collapsed && (
                         <>
                             <span className="min-w-0 flex-1">
@@ -219,8 +206,8 @@ export default function SubjectSwitcher({
                                 subject={subject}
                                 className={
                                     subject.id === resolvedId
-                                        ? 'bg-accent text-accent-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
-                                        : 'bg-secondary text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-xl text-2xs font-bold'
+                                        ? 'avatar-tile avatar-tile-md avatar-current'
+                                        : 'avatar-tile avatar-tile-md avatar-other'
                                 }
                             />
                             <span className="min-w-0 flex-1">

@@ -13,6 +13,7 @@ import {
     FileSpreadsheet,
     Files,
     Gavel,
+    Hourglass,
     LayoutDashboard,
     ListTodo,
     Landmark,
@@ -42,7 +43,9 @@ import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
 import { subscribeToUserNotifications } from '../lib/echo';
-import { formatDateTime } from '../lib/format';
+import { formatDate, formatDateTime } from '../lib/format';
+import { getFilingDeadline } from '../api/fiscalParametersApi';
+import type { FilingDeadline } from '../types/fiscalParameters';
 import { useAppName, useSharedAuth } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
 import {
@@ -129,12 +132,15 @@ const RECORDS_GROUP: NavLink = {
  * about bookkeeping, and the answer is worth nothing on the other side of the menu from the number
  * it qualifies.
  */
+/** The taxes page: in the menu, and where the fiscal snapshot leads. */
+const TAXES_HREF = '/taxes';
+
 const ANALYSIS_GROUP: NavLink = {
     id: 'analysis',
     label: (d) => d.nav.analysis,
     icon: ChartColumn,
     children: [
-        { href: '/taxes', label: (d) => d.nav.taxes, icon: Calculator },
+        { href: TAXES_HREF, label: (d) => d.nav.taxes, icon: Calculator },
         { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
     ],
 };
@@ -553,42 +559,67 @@ function NavRow({
 }
 
 /**
- * The sidebar's fiscal snapshot.
+ * The sidebar's fiscal snapshot: the next Declarația unică and the days left to it, as a person
+ * approved its day from the law (`RO.INCOME_TAX.FILING_DEADLINE`). Opens the taxes page.
  *
- * The figures are the design's own placeholders, kept deliberately so the shell is complete while
- * the taxes module that will supply them does not exist yet. They are declared here, once, rather
- * than scattered through the markup — when `Impozite` can answer "how many obligations, due when",
- * this component changes and nothing else does.
+ * Nothing at all until that day is known — not a placeholder date, which would be a deadline made
+ * up — and nothing when the request fails: the connection banner already says what is wrong.
  */
-const SNAPSHOT_PLACEHOLDER = { obligations: 2, nextDeadline: 'Sep 25', period: 'Sep' } as const;
+function FiscalSnapshot(): JSX.Element | null {
+    const { t, locale } = useTranslation();
+    const [deadline, setDeadline] = useState<FilingDeadline | null>(null);
 
-function FiscalSnapshot(): JSX.Element {
-    const { t } = useTranslation();
+    useEffect(() => {
+        let current = true;
+
+        getFilingDeadline().then(
+            (next) => {
+                if (current) {
+                    setDeadline(next);
+                }
+            },
+            () => undefined,
+        );
+
+        return () => {
+            current = false;
+        };
+    }, []);
+
+    if (deadline === null) {
+        return null;
+    }
 
     return (
-        <div className="border-border mx-2.5 mt-4 mb-3 rounded-xl border bg-[#F8FAFC] p-2.5 dark:bg-[#2A2C30]">
+        <Link
+            href={TAXES_HREF}
+            className="border-border hover:border-ring/40 mx-2.5 mt-4 mb-3 block rounded-xl border bg-[#F8FAFC] p-2.5 transition-colors dark:bg-[#2A2C30]"
+        >
             <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground text-2xs font-bold tracking-[0.12em] uppercase">
                     {t((d) => d.shell.fiscalSnapshot)}
                 </span>
-                <span className="shadow-hair text-ink-500 dark:text-ink-400 rounded-md bg-white px-1.5 py-0.5 text-2xs font-semibold dark:bg-[#202225]">
-                    {SNAPSHOT_PLACEHOLDER.period}
+                <span className="shadow-hair text-ink-500 dark:text-ink-400 inline-flex items-center gap-1 rounded-md bg-white px-1.5 py-0.5 text-2xs font-semibold tabular-nums dark:bg-[#202225]">
+                    <Hourglass className="size-3" aria-hidden="true" />
+                    {deadline.daysLeft === 0
+                        ? t((d) => d.shell.dueToday)
+                        : t((d) => d.shell.daysLeft).replace('{days}', String(deadline.daysLeft))}
                 </span>
             </div>
             <div className="mt-2 flex items-end justify-between gap-2">
                 <div>
                     <div className="text-xs font-semibold">
-                        {t((d) => d.shell.obligationCount).replace('{count}', String(SNAPSHOT_PLACEHOLDER.obligations))}
+                        {t((d) => d.shell.declarationFor).replace('{year}', String(deadline.incomeYear))}
                     </div>
                     <div className="text-muted-foreground mt-0.5 text-2xs">
-                        {t((d) => d.shell.nextDeadline).replace('{date}', SNAPSHOT_PLACEHOLDER.nextDeadline)}
+                        {t((d) => d.shell.dueOn).replace('{date}', formatDate(deadline.dueOn, locale))}
                     </div>
                 </div>
                 <div className="text-accent-700 dark:text-accent-200 shadow-hair grid size-7 place-items-center rounded-lg bg-white dark:bg-[#202225]">
                     <CalendarClock className="size-3.5" aria-hidden="true" />
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }
 
@@ -749,12 +780,7 @@ function SectionTabs({ currentUrl }: { currentUrl: string }): JSX.Element | null
     }
 
     return (
-        <nav
-            ref={setStrip}
-            className="section-tabs lg:hidden"
-            data-stuck={stuck ? '' : undefined}
-            aria-label={t(group.label)}
-        >
+        <nav ref={setStrip} className="section-tabs" data-stuck={stuck ? '' : undefined} aria-label={t(group.label)}>
             {pages.map((page) => {
                 const Icon = page.icon;
 

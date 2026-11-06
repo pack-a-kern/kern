@@ -6,7 +6,9 @@ import {
     ChartLine,
     CircleHelp,
     HandCoins,
+    Hourglass,
     Landmark,
+    Percent,
     PiggyBank,
     Plus,
     RefreshCw,
@@ -477,96 +479,88 @@ export default function Dashboard(): JSX.Element {
                                     return (
                                         <li key={bank.bankId ?? 'none'} className="py-3 first:pt-0 last:pb-0">
                                             {/*
-                                                The mark, then everything about the bank in one column beside it.
-                                                In a narrow card the figures go under the name rather than beside
-                                                it: side by side, a long name got a third of the width and broke a
-                                                word to a line. Narrow by the card's own width (`@lg`, 32rem), not
-                                                the screen's — on a desktop this card is half the page.
+                                                One grid, two arrangements, by the card's own width (`@lg`,
+                                                32rem), not the screen's — on a desktop this card is half the page.
+
+                                                Narrow: the mark beside the name and its summary, centred on
+                                                them; the figures under both, spread across the whole width
+                                                rather than stacked in a corner; the share bar under those.
+                                                Wide: the figures move to the name's right, and the bar runs
+                                                under the two.
                                             */}
-                                            <div className="flex items-start gap-3">
+                                            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 @lg:grid-cols-[auto_minmax(0,1fr)_auto] @lg:items-start">
                                                 {/* The bank's logo where this installation has one; else its
                                                     own code — the four letters people recognise from a
                                                     statement — and else a bank mark. */}
-                                                {bank.logoUrl !== null && bank.name !== null ? (
-                                                    <BankMark
-                                                        bank={{
-                                                            name: bank.name,
-                                                            code: bank.code,
-                                                            active: true,
-                                                            logoUrl: bank.logoUrl,
-                                                        }}
-                                                        size="lg"
-                                                    />
-                                                ) : bank.code === null ? (
-                                                    <IconBadge tone="brand">
-                                                        <Landmark className="size-3.5" />
-                                                    </IconBadge>
-                                                ) : (
-                                                    <span className="bank-mark">{bank.code}</span>
-                                                )}
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex flex-col gap-1.5 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-3">
-                                                        <div className="min-w-0">
-                                                            <div className="text-xs leading-5 font-semibold">
-                                                                {bank.name ?? t((d) => d.pages.walletOverview.noBank)}
-                                                            </div>
-                                                            <div className="note mt-0.5">
-                                                                {[
-                                                                    bank.depositCount === 1
-                                                                        ? t((d) => d.pages.walletOverview.bankDeposit)
-                                                                        : t(
-                                                                              (d) =>
-                                                                                  d.pages.walletOverview.bankDeposits,
-                                                                          ).replace(
-                                                                              '{count}',
-                                                                              String(bank.depositCount),
-                                                                          ),
-                                                                    t(
-                                                                        (d) => d.pages.walletOverview.nextMaturity,
-                                                                    ).replace(
-                                                                        '{date}',
-                                                                        formatDate(bank.nextMaturityAt, locale),
-                                                                    ),
-                                                                ].join(' · ')}
-                                                            </div>
+                                                <div className="@lg:row-span-2">
+                                                    {bank.logoUrl !== null && bank.name !== null ? (
+                                                        <BankMark
+                                                            bank={{
+                                                                name: bank.name,
+                                                                code: bank.code,
+                                                                active: true,
+                                                                logoUrl: bank.logoUrl,
+                                                            }}
+                                                            size="lg"
+                                                        />
+                                                    ) : bank.code === null ? (
+                                                        <IconBadge tone="brand">
+                                                            <Landmark className="size-3.5" />
+                                                        </IconBadge>
+                                                    ) : (
+                                                        <span className="bank-mark">{bank.code}</span>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs leading-5 font-semibold">
+                                                        {bank.name ?? t((d) => d.pages.walletOverview.noBank)}
+                                                    </div>
+                                                    <div className="note mt-0.5">
+                                                        {[
+                                                            bank.depositCount === 1
+                                                                ? t((d) => d.pages.walletOverview.bankDeposit)
+                                                                : t((d) => d.pages.walletOverview.bankDeposits).replace(
+                                                                      '{count}',
+                                                                      String(bank.depositCount),
+                                                                  ),
+                                                            t((d) => d.pages.walletOverview.nextMaturity).replace(
+                                                                '{date}',
+                                                                formatDate(bank.nextMaturityAt, locale),
+                                                            ),
+                                                        ].join(' · ')}
+                                                    </div>
+                                                </div>
+                                                <div className="col-span-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 tabular-nums @lg:col-span-1 @lg:flex-col @lg:items-end @lg:justify-start @lg:gap-0">
+                                                    <div className="text-sm font-semibold">
+                                                        <Money
+                                                            minor={bank.converted.amountMinor}
+                                                            currency={bank.converted.currencyCode}
+                                                        />
+                                                    </div>
+                                                    {originals(bank.principal, bank.converted) === null ? null : (
+                                                        <div className="note">
+                                                            {originals(bank.principal, bank.converted)}
                                                         </div>
-                                                        <div className="tabular-nums @lg:shrink-0 @lg:text-right">
-                                                            <div className="text-sm font-semibold">
-                                                                <Money
-                                                                    minor={bank.converted.amountMinor}
-                                                                    currency={bank.converted.currencyCode}
-                                                                />
-                                                            </div>
-                                                            {originals(bank.principal, bank.converted) ===
-                                                            null ? null : (
-                                                                <div className="note">
-                                                                    {originals(bank.principal, bank.converted)}
-                                                                </div>
-                                                            )}
-                                                            {Object.keys(bank.interestAtMaturity).length ===
-                                                            0 ? null : (
-                                                                <div className="text-success note-xs">
-                                                                    {t(
-                                                                        (d) => d.pages.walletOverview.plusInterest,
-                                                                    ).replace(
-                                                                        '{amount}',
-                                                                        perCurrency(bank.interestAtMaturity),
-                                                                    )}
-                                                                </div>
+                                                    )}
+                                                    {Object.keys(bank.interestAtMaturity).length === 0 ? null : (
+                                                        <div className="text-success note-xs">
+                                                            {t((d) => d.pages.walletOverview.plusInterest).replace(
+                                                                '{amount}',
+                                                                perCurrency(bank.interestAtMaturity),
                                                             )}
                                                         </div>
+                                                    )}
+                                                </div>
+                                                <div className="col-span-2 flex items-center gap-2 @lg:col-start-2">
+                                                    <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                                                        <div
+                                                            className="h-full rounded-full bg-[var(--brand-600)]"
+                                                            style={{ width: `${String(share * 100)}%` }}
+                                                        />
                                                     </div>
-                                                    <div className="mt-2 flex items-center gap-2">
-                                                        <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
-                                                            <div
-                                                                className="h-full rounded-full bg-[var(--brand-600)]"
-                                                                style={{ width: `${String(share * 100)}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="note w-9 text-right tabular-nums">
-                                                            {percent(share)}
-                                                        </span>
-                                                    </div>
+                                                    <span className="note w-9 text-right tabular-nums">
+                                                        {percent(share)}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </li>
@@ -606,63 +600,66 @@ export default function Dashboard(): JSX.Element {
                                 {overview.maturing.map((deposit) => (
                                     <li
                                         key={deposit.id}
-                                        className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 @lg:items-center"
+                                        className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2.5 first:pt-0 last:pb-0 @lg:grid-cols-[auto_minmax(0,1fr)_auto]"
                                     >
+                                        {/* The same arrangement as the bank rows above: narrow, the leaf beside
+                                            the name and the two figures under both, one at each edge, so the
+                                            row has no empty right half; wide, the figures at the name's right. */}
                                         <CalendarTile isoDate={deposit.maturityAt} locale={locale} />
-                                        {/* Name and figures wrap as one block: on a phone the two figures go
-                                            under the name instead of pushing past the card's edge. */}
-                                        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-5 gap-y-1.5">
-                                            <div className="min-w-0 flex-[1_1_10rem]">
-                                                <div className="text-xs font-semibold">{deposit.displayName}</div>
-                                                <div className="note mt-0.5">
-                                                    {[
-                                                        formatDate(deposit.maturityAt, locale),
-                                                        deposit.daysToMaturity === null || deposit.daysToMaturity < 0
-                                                            ? t((d) => d.pages.walletDeposits.matured)
-                                                            : t((d) => d.pages.walletDeposits.daysLeft).replace(
-                                                                  '{days}',
-                                                                  String(deposit.daysToMaturity),
-                                                              ),
-                                                    ].join(' · ')}
-                                                </div>
-                                            </div>
-                                            {/* Two figures, each under its own name. Stacked with the interest as
+                                        {/* Two lines, each with what it reads on the left and a badge at the
+                                            right edge: the name and its rate, the date and the days left. */}
+                                        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
+                                            <span className="text-xs font-semibold">{deposit.displayName}</span>
+                                            {deposit.annualRate === null ? (
+                                                <span />
+                                            ) : (
+                                                <Pill tone="accent" className="justify-self-end">
+                                                    <Percent className="size-3" aria-hidden="true" />
+                                                    {deposit.annualRate}
+                                                </Pill>
+                                            )}
+                                            <span className="note">{formatDate(deposit.maturityAt, locale)}</span>
+                                            <Pill className="justify-self-end">
+                                                <Hourglass className="size-3" aria-hidden="true" />
+                                                {deposit.daysToMaturity === null || deposit.daysToMaturity < 0
+                                                    ? t((d) => d.pages.walletDeposits.matured)
+                                                    : t((d) => d.pages.walletDeposits.daysLeft).replace(
+                                                          '{days}',
+                                                          String(deposit.daysToMaturity),
+                                                      )}
+                                            </Pill>
+                                        </div>
+                                        {/* Two figures, each under its own name. Stacked with the interest as
                                             a footnote, the smaller number read as a qualifier of the larger
                                             one rather than as the other half of what comes back. */}
-                                            <div className="flex min-w-0 flex-wrap gap-x-5 gap-y-1.5 tabular-nums @lg:shrink-0 @lg:text-right">
-                                                <div>
-                                                    <div className="note">
-                                                        {t((d) => d.pages.walletOverview.principalLabel)}
+                                        <div className="col-span-2 flex justify-between gap-x-5 tabular-nums @lg:col-span-1 @lg:justify-end @lg:text-right">
+                                            <div>
+                                                <div className="note flex items-center gap-1 @lg:justify-end">
+                                                    <Banknote className="size-3" aria-hidden="true" />
+                                                    {t((d) => d.pages.walletOverview.principalLabel)}
+                                                </div>
+                                                <div className="mt-0.5 text-xs font-semibold">
+                                                    {formatMinor(deposit.principalMinor, deposit.currencyCode, locale)}
+                                                </div>
+                                            </div>
+                                            {deposit.interestAtMaturityMinor === null ? null : (
+                                                <div className="text-right">
+                                                    <div className="note flex items-center justify-end gap-1">
+                                                        <TrendingUp className="size-3" aria-hidden="true" />
+                                                        {t((d) => d.pages.walletOverview.grossInterestLabel)}
                                                     </div>
-                                                    <div className="mt-0.5 text-xs font-semibold">
-                                                        {formatMinor(
-                                                            deposit.principalMinor,
-                                                            deposit.currencyCode,
-                                                            locale,
+                                                    <div className="text-success mt-0.5 text-xs font-semibold">
+                                                        {t((d) => d.pages.walletOverview.plusInterest).replace(
+                                                            '{amount}',
+                                                            formatMinor(
+                                                                deposit.interestAtMaturityMinor,
+                                                                deposit.currencyCode,
+                                                                locale,
+                                                            ),
                                                         )}
                                                     </div>
                                                 </div>
-                                                {deposit.interestAtMaturityMinor === null ? null : (
-                                                    <div>
-                                                        <div className="note">
-                                                            {t((d) => d.pages.walletOverview.grossInterestLabel)}
-                                                        </div>
-                                                        <div className="text-success mt-0.5 text-xs font-semibold">
-                                                            {t((d) => d.pages.walletOverview.plusInterest).replace(
-                                                                '{amount}',
-                                                                formatMinor(
-                                                                    deposit.interestAtMaturityMinor,
-                                                                    deposit.currencyCode,
-                                                                    locale,
-                                                                ),
-                                                            )}
-                                                            {deposit.annualRate === null
-                                                                ? ''
-                                                                : ` · ${deposit.annualRate}%`}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     </li>
                                 ))}

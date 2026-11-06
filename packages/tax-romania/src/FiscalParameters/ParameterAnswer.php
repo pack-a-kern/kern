@@ -40,6 +40,12 @@ enum ParameterAnswer: string
     /** An amount in lei — "suma lunară de 4.000 lei". */
     case LEI = 'lei';
 
+    /**
+     * A day of the year, as a deadline the law repeats every year — "până la data de 25 mai
+     * inclusiv a anului următor": the day and the month, the year being the one the law says.
+     */
+    case DAY_MONTH = 'day_month';
+
     /** What a reader is told to answer with. */
     public function shape(): string
     {
@@ -49,6 +55,7 @@ enum ParameterAnswer: string
             self::WAGES_BASE => 'one of these two forms, whichever the law sets:' . PHP_EOL
                 . '    {"shape": "interval", "floor": <number>, "floor_citation": "Art. X alin. (Y)", "cap": <number>, "cap_citation": "Art. X alin. (Y)"}' . PHP_EOL
                 . '    {"shape": "steps", "values": [<numbers, ascending>], "citation": "Art. X alin. (Y)"}',
+            self::DAY_MONTH => '{"day": <number or null>, "month": <number or null>, "citation": "Art. X alin. (Y)"}',
             default => '{"value": <number or null>, "citation": "Art. X alin. (Y)"}',
         };
     }
@@ -62,6 +69,7 @@ enum ParameterAnswer: string
             self::WAGES_RANGE => 'two numbers of minimum gross wages: the lowest the base can be, and the highest',
             self::WAGES_BASE => 'numbers of minimum gross wages',
             self::LEI => 'an amount in lei (the number alone)',
+            self::DAY_MONTH => 'a day of the month and the month as its number, 1 to 12 ("25 mai" is day 25, month 5)',
         };
     }
 
@@ -69,6 +77,15 @@ enum ParameterAnswer: string
     public function isRange(): bool
     {
         return $this === self::WAGES_RANGE;
+    }
+
+    /**
+     * Whether the answer is a day and a month: two numbers whose order is their meaning, and of which
+     * the law writes only the day as a number — the month is a word.
+     */
+    public function isDayAndMonth(): bool
+    {
+        return $this === self::DAY_MONTH;
     }
 
     /** Whether the reply says which shape it is, the law having set this value both ways. */

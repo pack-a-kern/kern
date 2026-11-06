@@ -491,7 +491,6 @@ export default function Login(): JSX.Element {
                                                         id="recovery-code"
                                                         icon={<KeyRound className="size-3.5" />}
                                                         className="recovery-field"
-                                                        autoFocus
                                                         autoComplete="one-time-code"
                                                         value={recoveryCode}
                                                         placeholder={t((d) => d.auth.recoveryCodePlaceholder)}
@@ -657,7 +656,6 @@ function OtpGrid(props: {
                     className="otp-box"
                     inputMode="numeric"
                     autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                    autoFocus={index === 0}
                     maxLength={1}
                     aria-label={`${props.label} ${String(index + 1)}`}
                     value={digit}

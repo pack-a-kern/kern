@@ -18,8 +18,11 @@ export default function BankMark({
     size = 'md',
 }: {
     bank: Pick<Bank, 'name' | 'code' | 'active' | 'logoUrl'>;
-    /** `sm` in a line of small text, `md` beside a name, `lg` heading a card's row. */
-    size?: 'sm' | 'md' | 'lg';
+    /**
+     * `sm` in a line of small text, `md` beside a name, `two-line` beside a name and the line under
+     * it, `lg` heading a card's row.
+     */
+    size?: 'sm' | 'md' | 'two-line' | 'lg';
 }): JSX.Element {
     const [failed, setFailed] = useState<string | null>(null);
     const logo = bank.logoUrl !== null && failed !== bank.logoUrl ? bank.logoUrl : null;

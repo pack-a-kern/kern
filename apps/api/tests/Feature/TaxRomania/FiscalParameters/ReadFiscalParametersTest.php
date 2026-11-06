@@ -112,7 +112,8 @@ function heading(SourceDocumentVersion $version, string $path, array $paragraphs
     }
 }
 
-function codulFiscal(): void
+/** The Codul fiscal of 2023, returned so a test can add the part of it it is about. */
+function codulFiscal(): SourceDocumentVersion
 {
     $version = lawVersion('LEGE 227/2015', 'LEGE', 'LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal', '2023-01-01');
 
@@ -132,6 +133,8 @@ function codulFiscal(): void
     heading($version, 'Titlul IV Capitolul VIII', [
         ['Art. 110 alin. (3)', 'Veniturile din jocuri de noroc se impun prin aplicarea cotei de 40% asupra venitului net care depășește 66.750 lei.'],
     ]);
+
+    return $version;
 }
 
 function minimumWageDecision(string $identifier, string $title, string $inForce, string $sentence): void
@@ -801,4 +804,35 @@ it('reads a rule that comes into the law during the year, from the day it does',
         ->and($rent->valid_from->format('Y-m-d'))->toBe('2018-03-23')
         ->and($rent->valid_until?->format('Y-m-d'))->toBe('2018-12-31')
         ->and(array_column($rent->evidence['checks'] ?? [], 'kind'))->toContain('in_force_later');
+});
+
+it('reads a deadline as its day and month, from the paragraph that names that month', function (): void {
+    $this->travelTo('2023-06-01');
+    heading(codulFiscal(), 'Titlul IV Capitolul XI', [
+        ['Art. 122 alin. (3)', 'Declarația unică privind impozitul pe venit și contribuțiile sociale datorate de persoanele fizice se completează și se depune la organul fiscal competent, pentru fiecare an fiscal, până la data de 25 mai inclusiv a anului următor celui de realizare a veniturilor.'],
+    ]);
+    config(['ai.legislation.one_call_per_tax' => false]);
+    readers(['Declarația unică' => ['day' => 25, 'month' => 5, 'citation' => 'Art. 122 alin. (3)']]);
+
+    app(StartFiscalYear::class)(2023);
+
+    // The day before the month, as the law writes it — not sorted smallest first like a list of wages.
+    expect(array_values(array_filter(candidates(), static fn (array $row): bool => $row[0] === 'RO.INCOME_TAX.FILING_DEADLINE')))->toBe([
+        ['RO.INCOME_TAX.FILING_DEADLINE', '2023-01-01', '2023-12-31', ['day' => 25, 'month' => 5], 'Art. 122 alin. (3)'],
+    ]);
+});
+
+it('refuses a deadline whose month the paragraph does not name', function (): void {
+    $this->travelTo('2023-06-01');
+    heading(codulFiscal(), 'Titlul IV Capitolul XI', [
+        ['Art. 122 alin. (3)', 'Declarația unică privind impozitul pe venit și contribuțiile sociale datorate de persoanele fizice se completează și se depune la organul fiscal competent, pentru fiecare an fiscal, până la data de 25 mai inclusiv a anului următor celui de realizare a veniturilor.'],
+    ]);
+    config(['ai.legislation.one_call_per_tax' => false]);
+    // 25 stands in the paragraph; March does not.
+    readers(['Declarația unică' => ['day' => 25, 'month' => 3, 'citation' => 'Art. 122 alin. (3)']]);
+
+    // The only answer given is refused, so the year proposes nothing at all.
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
+        ->and(array_filter(candidates(), static fn (array $row): bool => $row[0] === 'RO.INCOME_TAX.FILING_DEADLINE'))->toBe([])
+        ->and(outcomeOf('RO.INCOME_TAX.FILING_DEADLINE', 2023))->toBe('NOT_IN_LAW');
 });

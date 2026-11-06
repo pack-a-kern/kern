@@ -89,6 +89,17 @@ export function formatDate(isoDate: string, locale: string): string {
     }
 }
 
+/** A day of the year without its year — "25 May", "25 mai" — for a date the law repeats every year. */
+export function formatDayMonth(day: number, month: number, locale: string): string {
+    try {
+        return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+            new Date(Date.UTC(2000, month - 1, day)),
+        );
+    } catch {
+        return `${String(day)}.${String(month)}`;
+    }
+}
+
 /**
  * A byte count as a human size.
  *

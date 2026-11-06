@@ -658,19 +658,25 @@ export default function WalletAccounts(): JSX.Element {
                                             />
                                         </td>
                                         <td className="col-primary">
-                                            <div className="flex items-center gap-2 font-semibold">
-                                                {bank === undefined ? null : <BankMark bank={bank} />}
-                                                {account.displayName}
-                                                {code === null ? null : <Pill>{code}</Pill>}
-                                            </div>
-                                            <div className="note">
-                                                {t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}
-                                                {deposit === null
-                                                    ? ''
-                                                    : ` · ${t((d) => d.pages.walletDeposits.startedOn).replace(
-                                                          '{date}',
-                                                          formatDate(deposit.startsAt, locale),
-                                                      )}`}
+                                            {/* The mark spans both lines, the name and the note under it,
+                                                rather than sitting in the first and pushing the name in. */}
+                                            <div className="flex items-center gap-2.5">
+                                                {bank === undefined ? null : <BankMark bank={bank} size="two-line" />}
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 font-semibold">
+                                                        {account.displayName}
+                                                        {code === null ? null : <Pill>{code}</Pill>}
+                                                    </div>
+                                                    <div className="note">
+                                                        {t((d) => d.pages.wallet.kinds[account.kind] ?? account.kind)}
+                                                        {deposit === null
+                                                            ? ''
+                                                            : ` · ${t((d) => d.pages.walletDeposits.startedOn).replace(
+                                                                  '{date}',
+                                                                  formatDate(deposit.startsAt, locale),
+                                                              )}`}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="tabular-nums whitespace-nowrap">

@@ -69,8 +69,13 @@ export interface Dictionary {
         noActiveSubject: string;
         taxSubject: string;
         fiscalSnapshot: string;
-        obligationCount: string;
-        nextDeadline: string;
+        /** The declaration for `{year}`'s income. */
+        declarationFor: string;
+        /** `{date}` it is due. */
+        dueOn: string;
+        /** `{days}` until it is due. */
+        daysLeft: string;
+        dueToday: string;
         searchSubjects: string;
         noSubjectsFound: string;
     };
