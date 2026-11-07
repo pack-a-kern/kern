@@ -256,6 +256,26 @@ return [
             'nice' => 0,
         ],
 
+        /*
+         * The tasks that read a source's history — a bank backfill, a year of exchange rates — which
+         * the default supervisor's sixty seconds stopped part-way (`OperationTask::isLong()`). One
+         * process: they download from one publisher at a time, and one at a time is enough.
+         */
+        'supervisor-operations-long' => [
+            'connection' => 'redis-operations-long',
+            'queue' => [env('OPERATIONS_LONG_QUEUE', 'operations-long')],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            // The same variable `operations.long_tasks.timeout_seconds` reads, for the same reason the
+            // legislation supervisor shares its own: this file cannot read the package's config.
+            'timeout' => (int) env('OPERATIONS_LONG_QUEUE_TIMEOUT_SECONDS', 1800),
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -281,6 +301,9 @@ return [
             'supervisor-legislation' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-operations-long' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -293,6 +316,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-legislation' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-operations-long' => [
                 'maxProcesses' => 1,
             ],
             'supervisor-1' => [

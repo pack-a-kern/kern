@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Banks\BackfillBanksTest;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -47,6 +48,9 @@ beforeEach(function (): void {
         'banks.categories' => ['Credit Institution'],
         'banks.backfill.days_to_try' => 7,
     ]);
+
+    // The day of the first import: the backfill reads up to today, and these lists are 2025's.
+    $this->travelTo(CarbonImmutable::parse('2025-09-01 10:00', 'UTC'));
 
     // What the first import left: UniCredit, current since the list of 1 September 2025.
     Bank::factory()->create([
@@ -128,6 +132,20 @@ it('adds the banks that closed before the first import, inactive and dated', fun
         // Its LEI now maps to UniCredit's code, which is not Alpha's to have.
         ->and($alpha->bic)->toBeNull()
         ->and([$old->active, $old->bic])->toBe([false, 'VECHROBUXXX']);
+});
+
+// What happened on a server: the first try was stopped part-way by the queue's sixty seconds, after
+// moving UniCredit back to its first list. The backfill used to stop at the earliest first_seen_on in
+// the table, which was now that list, and every run after read nothing and added nothing.
+it('reads on past a bank an earlier run dated back, so a run stopped part-way is not the last', function (): void {
+    archive();
+    Bank::query()->where('ecb_code', UNICREDIT[0])->update(['first_seen_on' => '2025-07-01']);
+
+    $summary = app(BackfillBanks::class)('2025-07');
+
+    expect($summary->snapshots)->toBe(2)
+        ->and($summary->until)->toBe('2025-09-01')
+        ->and(Bank::query()->where('ecb_code', ALPHA[0])->exists())->toBeTrue();
 });
 
 it('moves a current bank’s first appearance back, and changes nothing else about it', function (): void {

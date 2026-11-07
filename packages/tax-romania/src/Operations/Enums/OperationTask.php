@@ -211,4 +211,16 @@ enum OperationTask: string
     {
         return $this === self::AUDIT_VERIFY_CHAINS || $this === self::SYSTEM_HEALTH_WATCH;
     }
+
+    /**
+     * Whether the task reads a source's history, and so runs on the long-task queue
+     * (`operations.long_tasks`) rather than the sixty-second `default` one.
+     *
+     * Each was stopped at sixty seconds there: the bank backfill reads one ECB list a month since 2017,
+     * and a year of exchange rates is a year of BNR's files.
+     */
+    public function isLong(): bool
+    {
+        return in_array($this, [self::BANKS_BACKFILL, self::FX_BACKFILL_YEAR], true);
+    }
 }

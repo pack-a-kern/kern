@@ -34,6 +34,16 @@ use Kern\TaxRomania\Banks\Services\BankSources;
  *
  * Idempotent: a second run finds the same banks and dates, and adds nothing.
  *
+ * ## Up to today, every time
+ *
+ * It reads every month from `banks.backfill.from` to today. It used to stop at the earliest
+ * `first_seen_on` in the table, taken for the day the daily import began — a date this very
+ * backfill moves back as it reads. A run stopped part-way (the queue's sixty seconds, on the first
+ * try) had moved some bank to January 2017, and every run after it stopped there, before reading a
+ * single list: the banks that closed later, Alpha Bank among them, were never added. Reading to
+ * today costs the months the daily import also saw, which it changes nothing in, and makes a run
+ * that was stopped one that simply goes on the next time.
+ *
  * ## A merged bank's BIC
  *
  * BICs come from GLEIF's current file, which keeps a merged bank's LEI but points it at its
@@ -55,14 +65,13 @@ final readonly class BackfillBanks
      */
     public function __invoke(?string $from = null, ?callable $onMonth = null): BankBackfillSummary
     {
-        $countries = $this->sources->filter('countries');
-        $earliest = Bank::query()->whereIn('country_code', $countries)->min('first_seen_on');
-
-        if (! is_string($earliest)) {
+        // The daily import first: the reference files and today's banks are what an old list is read
+        // against, and a backfill with no current banks would add every one of them as closed.
+        if (! Bank::query()->whereIn('country_code', $this->sources->filter('countries'))->exists()) {
             throw BankSourceNotConfiguredException::nothingImported();
         }
 
-        $until = CarbonImmutable::parse($earliest)->startOfDay();
+        $until = CarbonImmutable::now('UTC')->startOfDay();
         $month = CarbonImmutable::createFromFormat('!Y-m', $from ?? $this->config->string('banks.backfill.from'), 'UTC');
 
         if ($month === null) {

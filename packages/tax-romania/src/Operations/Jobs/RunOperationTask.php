@@ -48,6 +48,9 @@ final class RunOperationTask implements ShouldQueue
     /** @var int */
     public $tries = 1;
 
+    /** Seconds the worker allows: the long-task queue's for a long task, the worker's own otherwise. */
+    public ?int $timeout = null;
+
     /**
      * @param  array<string, int|string>  $arguments  Already validated against {@see OperationTask::arguments()}.
      * @param  string|null  $lockOwner  Token from {@see OperationRunLock::acquire()} when the caller
@@ -60,6 +63,10 @@ final class RunOperationTask implements ShouldQueue
         private readonly array $arguments = [],
         private readonly ?string $lockOwner = null,
     ) {
+        if ($task->isLong()) {
+            $this->timeout = config()->integer('operations.long_tasks.timeout_seconds');
+            $this->onQueue(config()->string('operations.long_tasks.queue'));
+        }
     }
 
     /**

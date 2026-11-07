@@ -12,6 +12,21 @@ declare(strict_types=1);
 // *when* a known task runs; code decides *what* the known tasks are.
 return [
 
+    /*
+     * The queue for the tasks that read a source's history (`OperationTask::isLong()`), and how long
+     * one may run.
+     *
+     * The `default` queue's worker stops a job at sixty seconds, which suits every other task, and a
+     * bank backfill — one ECB list a month since 2017 — or a year of exchange rates does not finish in
+     * one: both were stopped there, the backfill with nothing to show for it. Their own queue, one
+     * worker, keeps a slow task from holding up the quick ones. Horizon's supervisor for it and the
+     * queue connection's `retry_after` read the same two variables (apps/api/config).
+     */
+    'long_tasks' => [
+        'queue' => env('OPERATIONS_LONG_QUEUE', 'operations-long'),
+        'timeout_seconds' => (int) env('OPERATIONS_LONG_QUEUE_TIMEOUT_SECONDS', 1800),
+    ],
+
     // The scheduler beats twice a minute into two different places, because two audiences ask the
     // question for different reasons and must fail independently.
     'scheduler' => [
