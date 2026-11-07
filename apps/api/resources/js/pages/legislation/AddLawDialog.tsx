@@ -76,7 +76,7 @@ export default function AddLawDialog({
             );
         } catch (cause) {
             toast.error(
-                cause instanceof ApiError && cause.status === 502
+                cause instanceof ApiError && cause.status === 503
                     ? t((d) => d.pages.legislation.add.portalDown)
                     : describeApiFailure(cause, t),
             );

@@ -122,19 +122,22 @@ final class EnhanceImageController
                     'docscanner' => ['scan_only' => true],
                 ]);
         } catch (ConnectionException) {
+            // Each failure here is 503, not the 502 a gateway would say: a proxy in front (Cloudflare)
+            // swaps an origin's 502 for a page of its own, and the message below would never arrive.
+            //
             // Never forward transport-exception text: it can embed the request URI, and this one
             // carries somebody's document.
             return response()->json([
                 'message' => __('documents::enhancement.unreachable'),
                 'reason' => 'ENHANCEMENT_FAILED',
-            ], 502);
+            ], 503);
         }
 
         if ($response->failed()) {
             return response()->json([
                 'message' => __('documents::enhancement.refused'),
                 'reason' => 'ENHANCEMENT_FAILED',
-            ], 502);
+            ], 503);
         }
 
         $image = $this->imageFrom($response->json(), $type);
@@ -150,7 +153,7 @@ final class EnhanceImageController
             return response()->json([
                 'message' => __('documents::enhancement.no_image'),
                 'reason' => 'ENHANCEMENT_FAILED',
-            ], 502);
+            ], 503);
         }
 
         return response()->json(['image' => $image]);

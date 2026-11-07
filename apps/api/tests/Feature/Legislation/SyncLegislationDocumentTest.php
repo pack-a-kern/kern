@@ -413,6 +413,21 @@ it('finds acts on the portal by title or by number, and says which are read alre
     $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4')->assertStatus(422);
 });
 
+// What the portal said on 2026-11-07, when its own search server refused it: a fault, not an answer.
+// 503 rather than 502, which a proxy in front replaces with a page of its own.
+it('says the portal is not answering when its search fails, in words a proxy lets through', function (): void {
+    Http::fake(['legislatie.just.ro/*' => static fn (HttpRequest $request) => str_contains($request->header('SOAPAction')[0] ?? '', 'GetToken')
+        ? Http::response('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><GetTokenResponse xmlns="http://tempuri.org/"><GetTokenResult>T</GetTokenResult></GetTokenResponse></s:Body></s:Envelope>')
+        : Http::response('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><s:Fault><faultcode>a:InternalServiceFault</faultcode></s:Fault></s:Body></s:Envelope>', 500)]);
+    Artisan::call('kern:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+
+    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=codul%20fiscal')
+        ->assertStatus(503)
+        ->assertJsonPath('message', __('legislation::laws.portal_unreachable'));
+});
+
 it('searches the portal only for those who may read a law in', function (): void {
     Artisan::call('kern:access:sync');
 

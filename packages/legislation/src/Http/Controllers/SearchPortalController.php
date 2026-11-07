@@ -49,7 +49,9 @@ final class SearchPortalController
                 ? $search->byNumber((int) $query['number'], (int) $year)
                 : $search->byTitle(trim((string) ($query['title'] ?? '')), $year);
         } catch (PortalAnswerException|UnexpectedStatusException|ConnectionException) {
-            return response()->json(['message' => __('legislation::laws.portal_unreachable')], 502);
+            // 503, not the 502 a gateway would say: a proxy in front (Cloudflare) swaps an origin's 502
+            // for a page of its own, and the reader saw "Bad gateway" in place of this message.
+            return response()->json(['message' => __('legislation::laws.portal_unreachable')], 503);
         }
 
         $type = $query['type'] ?? null;
