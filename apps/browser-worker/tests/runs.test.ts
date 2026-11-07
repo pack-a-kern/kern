@@ -33,6 +33,7 @@ async function withServer(
       internalAuthToken: TOKEN,
       concurrency: 1,
       maxWaiting: options.maxWaiting ?? 4,
+      maxSourceBytes: 1024 * 1024,
     }),
   );
 
@@ -158,4 +159,75 @@ describe("the run API", () => {
       assert.ok(!JSON.stringify(stats).includes("example.test"));
     });
   });
+
+  it("answers /v1/source with the page as its server sent it, not as JSON", async () => {
+    await withSite({ "/act": [200, "<html><body><p>Art. 1</p><script>document.body.innerHTML='rewritten'</script></body></html>"] }, async (site) => {
+      await withServer(async (base) => {
+        const response = await post(`${base}/v1/source`, {
+          playbook: sitePlaybook(),
+          sequence: "page",
+          secrets: { url: `${site}/act` },
+        });
+
+        assert.equal(response.status, 200);
+        assert.match(response.headers.get("content-type") ?? "", /^text\/html/);
+        assert.equal(response.headers.get("x-source-url"), `${site}/act`);
+        // The served bytes, not the document after its script rewrote it.
+        assert.match(await response.text(), /<p>Art\. 1<\/p>/);
+      });
+    });
+  });
+
+  it("says a page the server refused, rather than handing back its error page as the page", async () => {
+    await withSite({ "/gone": [404, "<html>Not found</html>"] }, async (site) => {
+      await withServer(async (base) => {
+        const response = await post(`${base}/v1/source`, { playbook: sitePlaybook(), sequence: "page", secrets: { url: `${site}/gone` } });
+
+        assert.equal(response.status, 502);
+        assert.equal(((await response.json()) as { error: string; status: number }).status, 404);
+      });
+    });
+  });
+
+  it("refuses a page larger than it hands back, whole", async () => {
+    await withSite({ "/big": [200, "x".repeat(2 * 1024 * 1024)] }, async (site) => {
+      await withServer(async (base) => {
+        const response = await post(`${base}/v1/source`, { playbook: sitePlaybook(), sequence: "page", secrets: { url: `${site}/big` } });
+
+        assert.equal(response.status, 413);
+        assert.deepEqual(await response.json(), { error: "source_too_large", limit: 1024 * 1024 });
+      });
+    });
+  });
+
+  it("refuses /v1/source for a sequence that kept no page", async () => {
+    await withServer(async (base) => {
+      const response = await post(`${base}/v1/source`, { playbook: PLAYBOOK, sequence: "noop" });
+
+      assert.equal(response.status, 422);
+      assert.equal(((await response.json()) as { error: string }).error, "source_missing");
+    });
+  });
 });
+
+/** A playbook allowed onto the local test site only, opening the page it is sent and keeping it. */
+function sitePlaybook(): unknown {
+  return { version: 1, name: "site", allow: ["127.0.0.1"], sequences: { page: [{ goto: "{{ secret.url }}" }, { source: true }] } };
+}
+
+/** A real HTTP server answering each path with its status and body, for the browser to open. */
+async function withSite(pages: Record<string, readonly [number, string]>, fn: (baseUrl: string) => Promise<void>): Promise<void> {
+  const site = createServer((req, res) => {
+    const [status, body] = pages[req.url ?? ""] ?? [404, ""];
+
+    res.writeHead(status, { "content-type": "text/html; charset=utf-8" }).end(body);
+  });
+
+  await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+
+  try {
+    await fn(`http://127.0.0.1:${String((site.address() as AddressInfo).port)}`);
+  } finally {
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  }
+}

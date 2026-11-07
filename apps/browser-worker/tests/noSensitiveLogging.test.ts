@@ -34,7 +34,7 @@ async function withServer(fn: (baseUrl: string, lines: string[]) => Promise<void
 
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: createPlaywrightBrowserContext, maxSessions: 8 });
   const server: Server = createServer(
-    createApp(manager, { authMode: "token", internalAuthToken: TEST_TOKEN, concurrency: 1, maxWaiting: 4 }),
+    createApp(manager, { authMode: "token", internalAuthToken: TEST_TOKEN, concurrency: 1, maxWaiting: 4, maxSourceBytes: 1024 * 1024 }),
   );
 
   await new Promise<void>((resolve) => server.listen(0, resolve));

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { logger } from "../logger.js";
-import type { RunContext } from "../playbook/types.js";
+import type { AllowList, RunContext } from "../playbook/types.js";
 import type { BrowserContextFactory, BrowserContextHandle } from "./browserContextFactory.js";
 import type { BrowserSession, SessionStatus } from "./types.js";
 
@@ -65,7 +65,7 @@ export class SessionManager {
     this.sweepTimer.unref();
   }
 
-  async create(context?: RunContext): Promise<BrowserSession> {
+  async create(allow: AllowList, context?: RunContext): Promise<BrowserSession> {
     if (this.sessions.size + this.launching >= this.maxSessions) {
       // An expired session the next sweep would close is not a reason to refuse one that is wanted now.
       await this.sweepExpired();
@@ -79,7 +79,7 @@ export class SessionManager {
     let handle: BrowserContextHandle;
 
     try {
-      handle = await this.createBrowserContext(context);
+      handle = await this.createBrowserContext(allow, context);
     } finally {
       this.launching--;
     }

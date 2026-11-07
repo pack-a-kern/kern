@@ -2,9 +2,9 @@ import { Router, type Request, type Response } from "express";
 
 import { logger } from "../logger.js";
 import { DestinationRefusedError } from "../playbook/allowList.js";
-import { Interpreter, StepFailedError } from "../playbook/interpreter.js";
+import { Interpreter, SourceTooLargeError, StepFailedError } from "../playbook/interpreter.js";
 import { MissingSecretError, Secrets } from "../playbook/secrets.js";
-import type { Playbook } from "../playbook/types.js";
+import type { Playbook, RunResult } from "../playbook/types.js";
 import { PlaybookInvalidError, sequenceOf, validatePlaybook } from "../playbook/validate.js";
 import { QueueFullError, type RunQueue } from "../runs/queue.js";
 import type { Stats } from "../runs/stats.js";
@@ -27,11 +27,15 @@ import type { BrowserSession } from "../sessions/types.js";
  * An outcome, extracted data, and a duration. Never a secret: every message on the way out passes
  * through the run's own redactor, because Playwright puts values into the errors it throws and
  * those errors would otherwise become the response body.
+ *
+ * `/v1/source` is the one exception to the JSON, and only on success: its answer is the page a
+ * `source` step kept, as the response body, so the caller receives what an HTTP client would have.
  */
 export function createRunRouter(
   sessions: SessionManager,
   queue: RunQueue,
   stats: Stats,
+  maxSourceBytes: number,
 ): Router {
   const router = Router();
 
@@ -81,7 +85,7 @@ export function createRunRouter(
      */
     const renewed = id === undefined ? undefined : sessions.renew(id);
 
-    await execute(req, res, handle, queue, stats, null, renewed?.expiresAt);
+    await execute(req, res, handle, queue, stats, maxSourceBytes, replyWithOutcome, null, renewed?.expiresAt);
   });
 
   router.delete("/v1/sessions/:id", async (req: Request, res: Response): Promise<void> => {
@@ -92,6 +96,16 @@ export function createRunRouter(
 
   /** Everything that does not need to pause: one browser, one sequence, closed on the way out. */
   router.post("/v1/run", async (req: Request, res: Response): Promise<void> => {
+    await runOnce(req, res, replyWithOutcome);
+  });
+
+  /** The same, answered with the page a `source` step kept rather than with JSON. */
+  router.post("/v1/source", async (req: Request, res: Response): Promise<void> => {
+    await runOnce(req, res, replyWithSource);
+  });
+
+  /** One browser for one sequence, closed whatever happened. */
+  async function runOnce(req: Request, res: Response, reply: Reply): Promise<void> {
     const body = asRecord(req.body);
     let playbook: Playbook;
 
@@ -115,14 +129,14 @@ export function createRunRouter(
 
     try {
       if (handle !== undefined) {
-        await execute(req, res, handle, queue, stats, playbook);
+        await execute(req, res, handle, queue, stats, maxSourceBytes, reply, playbook);
       }
     } finally {
       // Closed whatever happened, including a refusal: a one-shot that left a browser open would
       // leak one per failed request, which is the fastest way to exhaust a worker.
       await sessions.destroy(session.id);
     }
-  });
+  }
 
   router.get("/v1/sessions", (_req: Request, res: Response): void => {
     res.json({
@@ -142,12 +156,17 @@ export function createRunRouter(
   return router;
 }
 
+/** How a finished run is answered: as JSON, or as the page it kept. */
+type Reply = (res: Response, result: RunResult, secrets: Secrets, expiresAt: Date | undefined) => void;
+
 async function execute(
   req: Request,
   res: Response,
   handle: BrowserContextHandle,
   queue: RunQueue,
   stats: Stats,
+  maxSourceBytes: number,
+  reply: Reply,
   known: Playbook | null,
   // When this session's browser will be dropped if nothing else happens. The caller mirrors it, so that a
   // screen offering to use a sitting and the worker holding it agree about when it ends.
@@ -176,18 +195,11 @@ async function execute(
       // what the sequence after it depends on, and a fresh context would throw them away.
       const page = handle.context.pages()[0] ?? (await handle.context.newPage());
 
-      return await new Interpreter(page, playbook, secrets).run(steps);
+      return await new Interpreter(page, playbook, secrets, maxSourceBytes).run(steps);
     });
 
     stats.recordRun(result.outcome, result.timingMs);
-
-    res.json({
-      outcome: result.outcome,
-      ...(result.message === undefined ? {} : { message: secrets.redact(result.message) }),
-      data: result.data,
-      timing_ms: result.timingMs,
-      ...(expiresAt === undefined ? {} : { session_expires_at: expiresAt.toISOString() }),
-    });
+    reply(res, result, secrets, expiresAt);
   } catch (error) {
     stats.recordFailure();
     // Where the browser actually was. A step that fails is nearly always a page that is not the page the
@@ -198,6 +210,44 @@ async function execute(
   }
 }
 
+function replyWithOutcome(res: Response, result: RunResult, secrets: Secrets, expiresAt: Date | undefined): void {
+  res.json({
+    outcome: result.outcome,
+    ...(result.message === undefined ? {} : { message: secrets.redact(result.message) }),
+    data: result.data,
+    timing_ms: result.timingMs,
+    ...(expiresAt === undefined ? {} : { session_expires_at: expiresAt.toISOString() }),
+  });
+}
+
+/**
+ * The kept page as the body, with its own type and the address it came from.
+ *
+ * A page the server refused (a 404, a 500) is not handed back as if it were the page: the caller asked
+ * for a document, and an error page stored as one would be parsed as law. Its status is said instead,
+ * as a downloader would have seen it.
+ *
+ * `X-Source-Url` is not redacted. It is the address the caller sent, or a redirect on a host its own
+ * allow-list named, and the caller checks it against that list again — which a redacted one would defeat.
+ */
+function replyWithSource(res: Response, result: RunResult, secrets: Secrets): void {
+  const source = result.source;
+
+  if (source === undefined) {
+    res.status(422).json({ error: "source_missing", message: "The sequence kept no page: it needs a `source` step." });
+
+    return;
+  }
+
+  if (source.status < 200 || source.status > 299) {
+    res.status(502).json({ error: "source_status", status: source.status, url: secrets.redact(source.url) });
+
+    return;
+  }
+
+  res.status(200).type(source.contentType).set("X-Source-Url", source.url).send(source.body);
+}
+
 /**
  * A browser for this playbook, or the refusal already sent and null — the session ceiling included.
  *
@@ -206,7 +256,7 @@ async function execute(
  */
 async function openSession(sessions: SessionManager, playbook: Playbook, res: Response): Promise<BrowserSession | null> {
   try {
-    return await sessions.create(playbook.context);
+    return await sessions.create(playbook.allow, playbook.context);
   } catch (error) {
     respondToFailure(error, res, null);
 
@@ -247,6 +297,12 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
   // remedy is the same — try again shortly — and nothing already running is affected.
   if (error instanceof QueueFullError || error instanceof SessionLimitError) {
     res.status(503).json({ error: "at_capacity" });
+
+    return;
+  }
+
+  if (error instanceof SourceTooLargeError) {
+    res.status(413).json({ error: "source_too_large", limit: error.limit });
 
     return;
   }

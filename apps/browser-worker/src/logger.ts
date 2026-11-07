@@ -37,6 +37,11 @@ const ALLOWED_FIELDS = [
   "failure",
   /* Where the browser was when something failed. Redacted like everything else on its way out. */
   "url",
+  /*
+   * A host the egress proxy refused: the name only, never the path or query, which can carry what a run
+   * was asked to keep to itself. An operator reading a refusal needs to know where, not what.
+   */
+  "host",
 ] as const;
 
 type AllowedField = (typeof ALLOWED_FIELDS)[number];

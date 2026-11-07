@@ -22,6 +22,8 @@ export interface AppOptions {
   readonly internalAuthToken: string | undefined;
   readonly concurrency: number;
   readonly maxWaiting: number;
+  /** The largest page a `source` step hands back. */
+  readonly maxSourceBytes: number;
 }
 
 export function createApp(sessionManager: SessionManager, options: AppOptions): Express {
@@ -38,7 +40,9 @@ export function createApp(sessionManager: SessionManager, options: AppOptions): 
     app.use("/v1", createInternalAuthMiddleware(options.internalAuthToken));
   }
 
-  app.use(createRunRouter(sessionManager, new RunQueue(options.concurrency, options.maxWaiting), new Stats()));
+  app.use(
+    createRunRouter(sessionManager, new RunQueue(options.concurrency, options.maxWaiting), new Stats(), options.maxSourceBytes),
+  );
   app.use(errorHandler);
   return app;
 }

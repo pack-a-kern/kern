@@ -24,7 +24,7 @@ async function withServer(
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions });
   const server: Server = createServer(
-    createApp(manager, { authMode: "token", internalAuthToken: token, concurrency: 1, maxWaiting: 4 }),
+    createApp(manager, { authMode: "token", internalAuthToken: token, concurrency: 1, maxWaiting: 4, maxSourceBytes: 1024 * 1024 }),
   );
 
   await new Promise<void>((resolve) => server.listen(0, resolve));

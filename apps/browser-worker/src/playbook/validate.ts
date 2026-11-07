@@ -4,7 +4,7 @@ import { PLAYBOOK_VERSION, type Playbook, type Step } from "./types.js";
  * Checks a playbook before a browser is opened for it.
  *
  * Hand-written rather than a schema library, for the same reason the vocabulary is closed: there
- * are nine verbs and the rules are specific — a selector must be a non-empty string, an outcome
+ * are ten verbs and the rules are specific — a selector must be a non-empty string, an outcome
  * must be named, an allow-list may not be empty by accident. A general validator would express
  * that in as much code as this and add a dependency to justify.
  *
@@ -28,8 +28,8 @@ function text(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-/** The nine verbs. A step naming anything else is refused rather than ignored. */
-const VERBS = ["goto", "fill", "click", "select", "waitFor", "extract", "screenshot", "download", "upload"] as const;
+/** The ten verbs. A step naming anything else is refused rather than ignored. */
+const VERBS = ["goto", "fill", "click", "select", "waitFor", "extract", "screenshot", "download", "upload", "source"] as const;
 
 function checkStep(step: unknown, path: string, problems: string[]): void {
   if (!isRecord(step)) {
@@ -54,6 +54,17 @@ function checkStep(step: unknown, path: string, problems: string[]): void {
   if (verb === "goto") {
     if (!text(body)) {
       problems.push(`${path}.goto must be a non-empty URL`);
+    }
+
+    return;
+  }
+
+  if (verb === "source") {
+    // Nothing to configure: it takes the response the last `goto` received. `true` rather than an empty
+    // object, because an empty PHP array encodes as `[]` and a step that only works from one caller is
+    // not a format.
+    if (body !== true) {
+      problems.push(`${path}.source must be true`);
     }
 
     return;
@@ -114,6 +125,19 @@ function checkStep(step: unknown, path: string, problems: string[]): void {
 
     if (!isRecord(body.fields) || Object.keys(body.fields).length === 0) {
       problems.push(`${path}.extract.fields must name at least one field`);
+
+      return;
+    }
+
+    for (const [name, field] of Object.entries(body.fields)) {
+      if (!isRecord(field)) {
+        problems.push(`${path}.extract.fields.${name} must be an object`);
+      } else if (field.rendered !== undefined && typeof field.rendered !== "boolean") {
+        problems.push(`${path}.extract.fields.${name}.rendered must be true or false`);
+      } else if (field.rendered === true && field.attr !== undefined) {
+        // An attribute has no rendering; asking for both is a field that means one of them.
+        problems.push(`${path}.extract.fields.${name} reads an attribute or rendered text, not both`);
+      }
     }
 
     return;
@@ -145,6 +169,39 @@ function checkStep(step: unknown, path: string, problems: string[]): void {
   }
 }
 
+/** A playbook's own proxy: `http://host:port`, with credentials as strings when there are any. */
+function checkProxy(proxy: unknown, problems: string[]): void {
+  if (proxy === undefined) {
+    return;
+  }
+
+  if (!isRecord(proxy) || !text(proxy.server)) {
+    problems.push("context.proxy must name a server");
+
+    return;
+  }
+
+  let server: URL | null;
+
+  try {
+    server = new URL(proxy.server);
+  } catch {
+    server = null;
+  }
+
+  // Plain HTTP to the proxy only: what goes through it is the browser's own TLS, so a site's traffic is
+  // encrypted either way, and one scheme is one thing to get right.
+  if (server?.protocol !== "http:" || server.hostname === "" || server.pathname !== "/" || server.username !== "") {
+    problems.push("context.proxy.server must be http://host:port, with credentials as username and password");
+  }
+
+  for (const field of ["username", "password"] as const) {
+    if (proxy[field] !== undefined && typeof proxy[field] !== "string") {
+      problems.push(`context.proxy.${field} must be a string`);
+    }
+  }
+}
+
 export function validatePlaybook(value: unknown): Playbook {
   const problems: string[] = [];
 
@@ -165,6 +222,8 @@ export function validatePlaybook(value: unknown): Playbook {
   if (!Array.isArray(value.allow) || value.allow.length === 0 || !value.allow.every(text)) {
     problems.push('allow must list at least one host, or "*" for any');
   }
+
+  checkProxy(isRecord(value.context) ? value.context.proxy : undefined, problems);
 
   if (!isRecord(value.sequences) || Object.keys(value.sequences).length === 0) {
     problems.push("sequences must name at least one sequence");

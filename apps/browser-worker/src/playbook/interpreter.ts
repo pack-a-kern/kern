@@ -1,11 +1,19 @@
-import type { Frame, Locator, Page } from "playwright";
+import type { Frame, Locator, Page, Response } from "playwright";
 
 import { assertAllowed } from "./allowList.js";
 import type { Secrets } from "./secrets.js";
-import type { Playbook, RunResult, Scope, Step } from "./types.js";
+import type { PageSource, Playbook, RunResult, Scope, Step } from "./types.js";
 
 /** Long enough for a portal that generates a document, short enough to fail a hung page. */
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+/**
+ * The most a `source` step keeps, unless the deployment says otherwise (`BROWSER_MAX_SOURCE_BYTES`).
+ *
+ * The same ceiling the application puts on a page it downloads itself, so a page is never too large
+ * one way and fine the other.
+ */
+export const DEFAULT_MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 
 export class StepFailedError extends Error {
   public constructor(message: string, public readonly step: number) {
@@ -14,12 +22,20 @@ export class StepFailedError extends Error {
   }
 }
 
+/** A page larger than this worker will hand back. Refused whole: half a page is not a page. */
+export class SourceTooLargeError extends Error {
+  public constructor(public readonly limit: number) {
+    super(`The page is larger than the ${String(limit)} bytes this worker hands back.`);
+    this.name = "SourceTooLargeError";
+  }
+}
+
 /**
  * Runs one sequence of a playbook against an open page.
  *
  * ## What it will not do
  *
- * Every branch below is one of the nine verbs. There is no path that evaluates a string, so a
+ * Every branch below is one of the ten verbs. There is no path that evaluates a string, so a
  * playbook cannot reach anything this file does not already do — which is what makes it safe to
  * accept one over the network from a caller that is trusted only to be the application.
  *
@@ -35,10 +51,22 @@ export class Interpreter {
     private readonly page: Page,
     private readonly playbook: Playbook,
     private readonly secrets: Secrets,
+    private readonly maxSourceBytes: number = DEFAULT_MAX_SOURCE_BYTES,
   ) {}
 
   /** Set by any `sensitive` step, and never unset. */
   private tainted = false;
+
+  /**
+   * What the server answered the last `goto` with, for a `source` step to keep.
+   *
+   * Forgotten by a click: a click may navigate, and the response it led to is not this one. A `source`
+   * after it then refuses, rather than handing back the page before the click as if it were the page
+   * after.
+   */
+  private lastResponse: Response | null = null;
+
+  private kept: PageSource | undefined;
 
   /** Whether a screenshot may still be taken — read by the caller for traces as well. */
   public get captureAllowed(): boolean {
@@ -67,13 +95,13 @@ export class Interpreter {
       // Unless the branch that matched was marked `continue`, which is how a guard is written. "Still
       // signed in" is not a destination; it is permission to go on to the next step.
       if (carryOn !== true) {
-        return { ...decided, data, timingMs: Date.now() - started };
+        return { ...decided, data, timingMs: Date.now() - started, ...this.source() };
       }
 
       passed = decided;
     }
 
-    return { ...(passed ?? { outcome: "completed" }), data, timingMs: Date.now() - started };
+    return { ...(passed ?? { outcome: "completed" }), data, timingMs: Date.now() - started, ...this.source() };
   }
 
   /** Returns an outcome when the page decided one, otherwise null to carry on. */
@@ -86,7 +114,7 @@ export class Interpreter {
       const url = this.secrets.fill(step.goto);
 
       assertAllowed(url, this.playbook.allow);
-      await this.page.goto(url, { timeout: step.timeout ?? DEFAULT_TIMEOUT_MS, waitUntil: "domcontentloaded" });
+      this.lastResponse = await this.page.goto(url, { timeout: step.timeout ?? DEFAULT_TIMEOUT_MS, waitUntil: "domcontentloaded" });
 
       // The page it landed on, not the one it was sent to: a redirect is a navigation the page
       // chose, and a check that only covered the first would be a check on intent.
@@ -108,6 +136,7 @@ export class Interpreter {
     }
 
     if ("click" in step) {
+      this.lastResponse = null;
       await this.locator(step.click.selector, step.click).click({
         timeout: step.click.timeout ?? DEFAULT_TIMEOUT_MS,
       });
@@ -147,6 +176,12 @@ export class Interpreter {
       const shot = await this.page.screenshot({ fullPage: step.screenshot.fullPage ?? false });
 
       data[step.screenshot.into ?? "screenshot"] = shot.toString("base64");
+
+      return null;
+    }
+
+    if ("source" in step) {
+      this.kept = await this.keep(index);
 
       return null;
     }
@@ -232,13 +267,56 @@ export class Interpreter {
         const target = field.selector ?? field.text;
         const node = target === undefined ? row : row.locator(target).first();
 
-        record[name] = field.attr === undefined ? (await node.textContent())?.trim() ?? null : await node.getAttribute(field.attr);
+        record[name] =
+          field.attr !== undefined
+            ? await node.getAttribute(field.attr)
+            : field.rendered === true
+              ? (await node.innerText()).trim()
+              : (await node.textContent())?.trim() ?? null;
       }
 
       out.push(record);
     }
 
     return out;
+  }
+
+  /**
+   * The last `goto`'s response, refused when it is larger than this worker hands back.
+   *
+   * Checked twice: the size the server declared, before the body is read, and the body itself, because
+   * a declared length is the server's word and a missing one is allowed.
+   */
+  private async keep(index: number): Promise<PageSource> {
+    const response = this.lastResponse;
+
+    if (response === null) {
+      throw new StepFailedError("There is no page to keep: `source` follows a `goto`, with no click between.", index);
+    }
+
+    const declared = Number(response.headers()["content-length"]);
+
+    if (Number.isFinite(declared) && declared > this.maxSourceBytes) {
+      throw new SourceTooLargeError(this.maxSourceBytes);
+    }
+
+    const body = await response.body();
+
+    if (body.length > this.maxSourceBytes) {
+      throw new SourceTooLargeError(this.maxSourceBytes);
+    }
+
+    return {
+      body,
+      contentType: response.headers()["content-type"] ?? "application/octet-stream",
+      url: response.url(),
+      status: response.status(),
+    };
+  }
+
+  /** The kept page as a field of the result, or nothing — `exactOptionalPropertyTypes` again. */
+  private source(): { source?: PageSource } {
+    return this.kept === undefined ? {} : { source: this.kept };
   }
 
   /** A locator in the main frame, or in the named one. */

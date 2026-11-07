@@ -30,9 +30,8 @@ export type AllowList = readonly string[];
 /**
  * How the browser presents itself.
  *
- * Every field maps to something Playwright already takes when a context is created. They are here
- * unused as much as used: a proxy or a device is one field reaching a function that exists, rather
- * than a change to how contexts are made.
+ * Every field maps to something Playwright already takes when a context is created, except `proxy`,
+ * which is this worker's own egress proxy's to use ({@see UpstreamProxy}).
  */
 export interface RunContext {
   /** A Playwright device descriptor — "iPhone 13". Sets viewport, user agent and scale together. */
@@ -41,10 +40,22 @@ export interface RunContext {
   readonly userAgent?: string;
   readonly locale?: string;
   readonly timezoneId?: string;
-  /** Unused today. Present so adding it later is a field, not a redesign. */
-  readonly proxy?: { readonly server: string; readonly username?: string; readonly password?: string };
+  readonly proxy?: UpstreamProxy;
   /** Resource types to refuse — "image", "font", "media". A page loads faster without them. */
   readonly block?: readonly string[];
+}
+
+/**
+ * A proxy to go out through — a mobile or residential one, so a site sees that network rather than this
+ * server's. `http://host:port` only; the credentials, when it wants them, beside it.
+ *
+ * Chained behind the worker's egress proxy, never handed to Chromium: the browser still goes out only
+ * through the proxy holding the allow-list, which sends on through this one what it lets pass.
+ */
+export interface UpstreamProxy {
+  readonly server: string;
+  readonly username?: string;
+  readonly password?: string;
 }
 
 /** Where a selector is looked for, when it is not the main frame. */
@@ -125,11 +136,25 @@ export interface WaitForStep {
   } & Scope;
 }
 
+/**
+ * One field of an extracted row: the text of the row, or of a descendant, or one of its attributes.
+ *
+ * `rendered` reads the text as the page shows it (`innerText`) rather than as the markup holds it
+ * (`textContent`). The two differ where a `<br>` or a block element separates words: "…2015<br>privind…"
+ * is "2015privind" to `textContent`, and a title read that way names a date that is not one.
+ */
+export interface ExtractField {
+  readonly selector?: string;
+  readonly text?: string;
+  readonly attr?: string;
+  readonly rendered?: boolean;
+}
+
 /** Rows and fields out of the page, as structured data rather than HTML. */
 export interface ExtractStep {
   readonly extract: {
     readonly rows: string;
-    readonly fields: Readonly<Record<string, { readonly selector?: string; readonly text?: string; readonly attr?: string }>>;
+    readonly fields: Readonly<Record<string, ExtractField>>;
     readonly into?: string;
   } & Scope;
 }
@@ -147,6 +172,20 @@ export interface UploadStep {
   readonly upload: { readonly selector: string; readonly files: readonly string[]; readonly timeout?: number } & Scope;
 }
 
+/**
+ * Keep the page exactly as its server sent it: the last `goto`'s response, byte for byte.
+ *
+ * Not what Chromium made of it. `page.content()` is the document after its scripts ran, serialised
+ * again — a caller that stores a page "as served" and parses it with rules written against the served
+ * HTML needs the bytes the server sent, which are what any HTTP client would have received.
+ *
+ * Answered by `POST /v1/source` as the response body itself, never inside `data`: a page of several
+ * megabytes encoded into JSON is copied again on each side of the wire for nothing.
+ */
+export interface SourceStep {
+  readonly source: true;
+}
+
 export type Step =
   | GotoStep
   | FillStep
@@ -156,7 +195,8 @@ export type Step =
   | ExtractStep
   | ScreenshotStep
   | DownloadStep
-  | UploadStep;
+  | UploadStep
+  | SourceStep;
 
 export interface Playbook {
   readonly version: number;
@@ -173,10 +213,21 @@ export interface Playbook {
   readonly sequences: Readonly<Record<string, readonly Step[]>>;
 }
 
+/** What a `source` step kept: the response its server sent, as it sent it. */
+export interface PageSource {
+  readonly body: Buffer;
+  readonly contentType: string;
+  /** Where the page was served from — after any redirect, each of which the allow-list checked. */
+  readonly url: string;
+  readonly status: number;
+}
+
 /** What a run answers. `outcome` is the playbook's own word, or `completed` if nothing named one. */
 export interface RunResult {
   readonly outcome: string;
   readonly data: Readonly<Record<string, unknown>>;
   readonly message?: string;
   readonly timingMs: number;
+  /** Set by a `source` step. Only `/v1/source` sends it back. */
+  readonly source?: PageSource;
 }

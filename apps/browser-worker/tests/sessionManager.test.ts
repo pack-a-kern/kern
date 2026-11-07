@@ -7,7 +7,7 @@ test("create() returns a session created now, expiring after the ttl", async () 
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 8 });
   try {
-    const session = await manager.create();
+    const session = await manager.create(["example.test"]);
     assert.equal(session.status, "created");
     assert.ok(session.expiresAt.getTime() > session.createdAt.getTime());
   } finally {
@@ -28,7 +28,7 @@ test("get() returns undefined for an unknown id", async () => {
 test("destroy() closes the browser context and removes the session", async () => {
   const { factory, closedIds } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 8 });
-  const session = await manager.create();
+  const session = await manager.create(["example.test"]);
 
   const destroyed = await manager.destroy(session.id);
 
@@ -51,8 +51,8 @@ test("each session is isolated — distinct id and downloads dir, no shared prof
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 8 });
   try {
-    const a = await manager.create();
-    const b = await manager.create();
+    const a = await manager.create(["example.test"]);
+    const b = await manager.create(["example.test"]);
     assert.notEqual(a.id, b.id);
     assert.notEqual(a.downloadsDir, b.downloadsDir);
   } finally {
@@ -63,7 +63,7 @@ test("each session is isolated — distinct id and downloads dir, no shared prof
 test("expired sessions are swept and destroyed automatically", async () => {
   const { factory, closedIds } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 20, createBrowserContext: factory, maxSessions: 8 });
-  const session = await manager.create();
+  const session = await manager.create(["example.test"]);
 
   await new Promise((resolve) => setTimeout(resolve, 150));
 
@@ -75,8 +75,8 @@ test("expired sessions are swept and destroyed automatically", async () => {
 test("closeAll() destroys every still-open session", async () => {
   const { factory, closedIds } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 8 });
-  await manager.create();
-  await manager.create();
+  await manager.create(["example.test"]);
+  await manager.create(["example.test"]);
 
   await manager.closeAll();
 
@@ -87,10 +87,10 @@ test("create() refuses past the ceiling, and the open sessions keep working", as
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 2 });
   try {
-    const first = await manager.create();
-    await manager.create();
+    const first = await manager.create(["example.test"]);
+    await manager.create(["example.test"]);
 
-    await assert.rejects(manager.create(), SessionLimitError);
+    await assert.rejects(manager.create(["example.test"]), SessionLimitError);
 
     assert.notEqual(manager.get(first.id), undefined);
   } finally {
@@ -102,10 +102,10 @@ test("create() takes a slot again once a session is closed", async () => {
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 1 });
   try {
-    const only = await manager.create();
+    const only = await manager.create(["example.test"]);
     await manager.destroy(only.id);
 
-    const next = await manager.create();
+    const next = await manager.create(["example.test"]);
     assert.equal(next.status, "created");
   } finally {
     await manager.closeAll();
@@ -116,7 +116,7 @@ test("create() counts a browser still launching, so two requests at once cannot 
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 60_000, createBrowserContext: factory, maxSessions: 1 });
   try {
-    const results = await Promise.allSettled([manager.create(), manager.create()]);
+    const results = await Promise.allSettled([manager.create(["example.test"]), manager.create(["example.test"])]);
 
     assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
     assert.ok(results.some((result) => result.status === "rejected" && result.reason instanceof SessionLimitError));
@@ -129,10 +129,10 @@ test("create() makes room by closing what has expired before it refuses", async 
   const { factory } = createFakeBrowserContextFactory();
   const manager = new SessionManager({ ttlMs: 1, createBrowserContext: factory, maxSessions: 1 });
   try {
-    await manager.create();
+    await manager.create(["example.test"]);
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const next = await manager.create();
+    const next = await manager.create(["example.test"]);
     assert.equal(next.status, "created");
   } finally {
     await manager.closeAll();

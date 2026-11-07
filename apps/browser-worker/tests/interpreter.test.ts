@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { chromium, type Browser, type Page } from "playwright";
 
-import { Interpreter, StepFailedError } from "../src/playbook/interpreter.js";
+import { Interpreter, SourceTooLargeError, StepFailedError } from "../src/playbook/interpreter.js";
 import { Secrets } from "../src/playbook/secrets.js";
 import type { Playbook } from "../src/playbook/types.js";
 
@@ -293,5 +293,40 @@ describe("Interpreter", () => {
 
     assert.equal(result.outcome, "failed");
     assert.equal(result.message, "Utilizatorul sau parola nu sunt corecte.");
+  });
+
+  it("keeps the page its server sent, and refuses one after a click or past the limit", async () => {
+    const page = await pageShowing('<p id="law">Art. 1</p><button>next</button>');
+    const book = playbook({
+      kept: [{ goto: "https://example.test/act" }, { source: true }],
+      afterClick: [{ goto: "https://example.test/act" }, { click: { selector: "button" } }, { source: true }],
+    });
+
+    const kept = await new Interpreter(page, book, new Secrets({})).run(book.sequences.kept ?? []);
+
+    assert.ok(kept.source !== undefined);
+    assert.equal(kept.source.body.toString(), '<p id="law">Art. 1</p><button>next</button>');
+    assert.equal(kept.source.status, 200);
+    assert.equal(kept.source.url, "https://example.test/act");
+
+    await assert.rejects(new Interpreter(page, book, new Secrets({})).run(book.sequences.afterClick ?? []), StepFailedError);
+    await assert.rejects(new Interpreter(page, book, new Secrets({}), 10).run(book.sequences.kept ?? []), SourceTooLargeError);
+  });
+
+  it("reads a field as the page shows it when asked, where markup alone runs words together", async () => {
+    const page = await pageShowing('<div class="row"><p><b>LEGE nr. 227 din 8 septembrie 2015</b><br>privind Codul fiscal</p></div>');
+    const book = playbook({
+      read: [
+        { goto: "https://example.test/results" },
+        { extract: { rows: ".row", fields: { markup: { selector: "p" }, shown: { selector: "p", rendered: true } }, into: "acts" } },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.read ?? []);
+    const [row] = result.data.acts as readonly (Record<string, string> | undefined)[];
+
+    assert.ok(row !== undefined);
+    assert.equal(row.markup, "LEGE nr. 227 din 8 septembrie 2015privind Codul fiscal");
+    assert.equal(row.shown?.replace(/\s+/g, " "), "LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal");
   });
 });

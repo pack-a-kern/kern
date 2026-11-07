@@ -1,4 +1,5 @@
 import { createApp } from "./app.js";
+import { DEFAULT_MAX_SOURCE_BYTES } from "./playbook/interpreter.js";
 import { logger } from "./logger.js";
 import { createPlaywrightBrowserContext } from "./sessions/browserContextFactory.js";
 import { SessionManager } from "./sessions/sessionManager.js";
@@ -43,6 +44,7 @@ const app = createApp(sessionManager, {
   // worker that accepts more than it can run is slower than one that says so.
   concurrency: Number(process.env.BROWSER_CONCURRENCY ?? DEFAULT_CONCURRENCY),
   maxWaiting: Number(process.env.BROWSER_MAX_WAITING ?? DEFAULT_MAX_WAITING),
+  maxSourceBytes: Number(process.env.BROWSER_MAX_SOURCE_BYTES ?? DEFAULT_MAX_SOURCE_BYTES),
 });
 const tlsFiles = tlsFilesFrom(process.env);
 const { server, stopWatching } = createListener(

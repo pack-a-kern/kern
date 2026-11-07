@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, devices, type Browser, type BrowserContext, type BrowserContextOptions } from "playwright";
 
-import type { RunContext } from "../playbook/types.js";
+import { startEgressProxy } from "../network/egressProxy.js";
+import type { AllowList, RunContext } from "../playbook/types.js";
 
 export interface BrowserContextHandle {
   readonly context: BrowserContext;
@@ -12,7 +13,7 @@ export interface BrowserContextHandle {
   close(): Promise<void>;
 }
 
-export type BrowserContextFactory = (context?: RunContext) => Promise<BrowserContextHandle>;
+export type BrowserContextFactory = (allow: AllowList, context?: RunContext) => Promise<BrowserContextHandle>;
 
 /**
  * One Chromium browser and one browser context per session.
@@ -38,13 +39,33 @@ function optionsFor(context: RunContext | undefined): BrowserContextOptions {
     ...(context?.userAgent === undefined ? {} : { userAgent: context.userAgent }),
     ...(context?.locale === undefined ? {} : { locale: context.locale }),
     ...(context?.timezoneId === undefined ? {} : { timezoneId: context.timezoneId }),
-    ...(context?.proxy === undefined ? {} : { proxy: context.proxy }),
+    // A service worker fetches outside the page; refusing them keeps every request the page makes one
+    // the browser makes, through the proxy below.
+    serviceWorkers: "block",
   };
 }
 
-export const createPlaywrightBrowserContext: BrowserContextFactory = async (runContext) => {
+/**
+ * A browser for one session, whose every request goes through an egress proxy holding the playbook's
+ * allow-list ({@see startEgressProxy}) — redirects, scripts and frames included, which no step sees.
+ *
+ * `<-loopback>` takes away Chromium's own exception for loopback, which would otherwise reach
+ * 127.0.0.1 around the proxy: an address on this machine is refused like any other the playbook does
+ * not name.
+ */
+export const createPlaywrightBrowserContext: BrowserContextFactory = async (allow, runContext) => {
   const downloadsDir = await mkdtemp(join(tmpdir(), "browser-session-"));
-  const browser = await chromium.launch({ headless: true, downloadsPath: downloadsDir });
+  const proxy = await startEgressProxy(allow, runContext?.proxy);
+  let browser: Browser;
+
+  try {
+    browser = await chromium.launch({ headless: true, downloadsPath: downloadsDir, proxy: { server: proxy.url, bypass: "<-loopback>" } });
+  } catch (error) {
+    await proxy.close();
+    await rm(downloadsDir, { recursive: true, force: true });
+    throw error;
+  }
+
   const context = await browser.newContext(optionsFor(runContext));
 
   // Resource types the playbook said it does not need. A page without images and fonts loads in a
@@ -64,6 +85,7 @@ export const createPlaywrightBrowserContext: BrowserContextFactory = async (runC
     close: async (): Promise<void> => {
       await context.close();
       await browser.close();
+      await proxy.close();
       await rm(downloadsDir, { recursive: true, force: true });
     },
   };
