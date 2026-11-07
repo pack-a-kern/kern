@@ -1217,6 +1217,21 @@ export const ro = {
             },
         },
         walletTransactions: {
+            bulk: {
+                changePayee: 'Schimbă beneficiarul',
+                changeCategory: 'Schimbă categoria',
+                payeeTitle: 'Schimbă beneficiarul',
+                categoryTitle: 'Schimbă categoria',
+                payeeHint:
+                    'Beneficiarul celor {count} tranzacții selectate, schimbat pe fiecare în parte și păstrat în istoricul ei.',
+                categoryHint:
+                    'O singură categorie pentru toată suma fiecăreia dintre cele {count} tranzacții selectate. O tranzacție împărțită pe mai multe categorii o primește pe aceasta pentru toată suma.',
+                payeeEmpty: 'Lăsat gol, beneficiarul este șters de pe fiecare.',
+                apply: 'Aplică pe {count}',
+                applying: 'Se aplică…',
+                done: '{count} tranzacții schimbate.',
+                stopped: '{done} din {count} schimbate, apoi oprit:',
+            },
             classify: {
                 category: 'Categorie',
                 country: 'Țara',

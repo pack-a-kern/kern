@@ -1225,6 +1225,21 @@ export const en = {
             },
         },
         walletTransactions: {
+            bulk: {
+                changePayee: 'Change payee',
+                changeCategory: 'Change category',
+                payeeTitle: 'Change the payee',
+                categoryTitle: 'Change the category',
+                payeeHint:
+                    'The payee of the {count} selected transactions, each changed on its own and kept in its history.',
+                categoryHint:
+                    'One category for the whole amount of each of the {count} selected transactions. A transaction split across several categories gets this one for all of it.',
+                payeeEmpty: 'Left empty, the payee is removed from each.',
+                apply: 'Apply to {count}',
+                applying: 'Applying…',
+                done: '{count} transactions changed.',
+                stopped: '{done} of {count} changed, then stopped:',
+            },
             classify: {
                 category: 'Category',
                 country: 'Country',

@@ -1058,6 +1058,20 @@ export interface Dictionary {
             };
         };
         walletTransactions: {
+            /** The bulk menu's payee and category changes; `{count}` the rows, `{done}` those changed. */
+            bulk: {
+                changePayee: string;
+                changeCategory: string;
+                payeeTitle: string;
+                categoryTitle: string;
+                payeeHint: string;
+                categoryHint: string;
+                payeeEmpty: string;
+                apply: string;
+                applying: string;
+                done: string;
+                stopped: string;
+            };
             classify: {
                 category: string;
                 country: string;

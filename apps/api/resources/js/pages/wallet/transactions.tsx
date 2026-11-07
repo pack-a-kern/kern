@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -29,6 +29,7 @@ import {
     Pencil,
     PlusIcon,
     Shapes,
+    UserRound,
     Tag as TagIcon,
     Trash2,
     UsersRound,
@@ -58,6 +59,8 @@ import {
     ToolbarRows,
 } from '../../components/panel';
 import BulkActions from '../../components/BulkActions';
+import BulkTransactionDialog, { type BulkChange } from '../../components/wallet/BulkTransactionDialog';
+import { applyInTurn } from '../../lib/applyInTurn';
 import { PanelDate, PanelDateRange } from '../../components/PanelDatePicker';
 import CounterpartyInput from '../../components/wallet/CounterpartyInput';
 import TagsInput from '../../components/wallet/TagsInput';
@@ -193,6 +196,8 @@ export default function WalletTransactions(): JSX.Element {
     });
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+    // The change, and the rows it is for — taken when it is chosen, from every row this screen has shown.
+    const [bulkChange, setBulkChange] = useState<{ change: BulkChange; rows: TransactionSummary[] } | null>(null);
     const [accountId, setAccountId] = useRememberedState<string>('wallet.transactions.account', '', {
         perSubject: true,
     });
@@ -602,6 +607,24 @@ export default function WalletTransactions(): JSX.Element {
     );
     const selection = useRowSelection(pageIds);
 
+    // Every row this screen has shown, by id. A selection outlives the page it was made on, and a
+    // bulk category needs each ticked row's amount and direction — which only the page it was ticked
+    // on had. A row changed since is refused by the server with its reason, not changed blind.
+    const seenRows = useRef(new Map<string, TransactionSummary>());
+
+    useEffect(() => {
+        for (const row of rows) {
+            seenRows.current.set(row.id, row);
+        }
+    }, [rows]);
+
+    const selectedRows = (): TransactionSummary[] =>
+        [...selection.ids].flatMap((id) => {
+            const row = seenRows.current.get(id);
+
+            return row === undefined ? [] : [row];
+        });
+
     if (subjectId === null) {
         return (
             <>
@@ -617,31 +640,25 @@ export default function WalletTransactions(): JSX.Element {
     const deleteSelected = async (): Promise<void> => {
         setBulkDeleting(true);
 
-        let removed = 0;
+        // One request each, through the endpoint that deletes one: a bulk endpoint would skip the
+        // audit event every single delete writes. In turn, so a refusal leaves a coherent list.
+        const { done, failure } = await applyInTurn([...selection.ids], (id) => deleteTransaction(subjectId, id));
 
-        try {
-            // One request each: there is no bulk endpoint, and inventing one would skip the audit
-            // event every single delete already writes. Sequential so a partial failure leaves a
-            // coherent list rather than an unknown number of rows gone.
-            for (const id of selection.ids) {
-                await deleteTransaction(subjectId, id);
-                removed += 1;
-            }
-
+        if (failure === undefined) {
             toast.success(t((d) => d.pages.walletTransactions.deleted));
-        } catch (cause: unknown) {
+        } else {
             toast.error(
                 t((d) => d.common.deleteFailed),
-                { description: describeApiFailure(cause, t) },
+                { description: describeApiFailure(failure, t) },
             );
-        } finally {
-            setBulkDeleting(false);
-            setConfirmingBulkDelete(false);
+        }
 
-            if (removed > 0) {
-                selection.clear();
-                setReloadKey((current) => current + 1);
-            }
+        setBulkDeleting(false);
+        setConfirmingBulkDelete(false);
+
+        if (done > 0) {
+            selection.clear();
+            setReloadKey((current) => current + 1);
         }
     };
 
@@ -836,6 +853,22 @@ export default function WalletTransactions(): JSX.Element {
                                 end={
                                     <>
                                         <BulkActions count={selection.size} disabled={bulkDeleting}>
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    setBulkChange({ change: 'payee', rows: selectedRows() });
+                                                }}
+                                            >
+                                                <UserRound className="size-4" />
+                                                {t((d) => d.pages.walletTransactions.bulk.changePayee)}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    setBulkChange({ change: 'category', rows: selectedRows() });
+                                                }}
+                                            >
+                                                <Shapes className="size-4" />
+                                                {t((d) => d.pages.walletTransactions.bulk.changeCategory)}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 variant="destructive"
                                                 onSelect={() => {
@@ -1374,6 +1407,27 @@ export default function WalletTransactions(): JSX.Element {
                     )}
                 </Panel>
             </Page>
+
+            {bulkChange === null ? null : (
+                <BulkTransactionDialog
+                    change={bulkChange.change}
+                    subjectId={subjectId}
+                    transactions={bulkChange.rows}
+                    categories={page?.categories ?? []}
+                    countries={countries}
+                    onClose={() => {
+                        setBulkChange(null);
+                    }}
+                    onApplied={(done) => {
+                        setBulkChange(null);
+
+                        if (done > 0) {
+                            selection.clear();
+                            setReloadKey((current) => current + 1);
+                        }
+                    }}
+                />
+            )}
 
             {confirmingBulkDelete ? (
                 <ConfirmDialog
