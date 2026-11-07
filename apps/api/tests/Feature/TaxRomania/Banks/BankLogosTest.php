@@ -8,6 +8,7 @@ use Illuminate\Cache\Events\CacheHit;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Settings\Enums\SettingType;
 use Kern\Platform\Settings\Services\StoredSettingsOverlay;
@@ -88,6 +89,28 @@ function personWithBanks(): array
 
     return [$user, $subject->id];
 }
+
+// `docker cp` of a folder's contents gives the destination the source folder's owner and mode: a
+// folder from somebody's home is often `drwx------`, and it took every screen listing a bank with it.
+it('skips a folder it may not read and says which, rather than failing every list of banks', function (): void {
+    file_put_contents($this->root . '/RO/BTRLRO22.png', PNG);
+    $log = Log::spy();
+
+    chmod($this->root . '/RO', 0o000);
+
+    try {
+        expect(logos()->refresh())->toBe([]);
+        $log->shouldHaveReceived('warning')->with('bank_logo_unreadable', ['entry' => 'RO'])->once();
+
+        chmod($this->root, 0o000);
+        Cache::forget(BankLogos::CACHE_KEY);
+
+        expect(logos()->refresh())->toBe([]);
+    } finally {
+        chmod($this->root, 0o755);
+        chmod($this->root . '/RO', 0o755);
+    }
+})->skip(fn (): bool => function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads every folder whatever its mode');
 
 it('finds a bank’s logo in its own country’s folder, by its BIC’s first eight characters or its LEI', function (): void {
     file_put_contents($this->root . '/RO/BTRLRO22.svg', SVG);

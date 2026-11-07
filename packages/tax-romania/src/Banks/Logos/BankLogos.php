@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Banks\Logos;
 
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Bank logos, from one folder this installation fills — never shipped, never downloaded.
@@ -238,6 +239,12 @@ final class BankLogos
             return null;
         }
 
+        if (! is_readable($real)) {
+            self::unreadable($file);
+
+            return null;
+        }
+
         $size = filesize($real);
 
         if ($size === false || $size === 0 || $size > $this->config->integer('banks.logos.max_bytes')) {
@@ -269,11 +276,31 @@ final class BankLogos
         return $root !== false && is_dir($root) ? $root : null;
     }
 
-    /** @return list<string> a directory's entries, without `.`, `..` and hidden files */
+    /**
+     * A directory's entries, without `.`, `..` and hidden files — none for one this process may not read.
+     *
+     * Checked before it is read rather than left to `scandir`, whose warning the framework turns into an
+     * exception: a folder copied in with its owner's permissions (`docker cp` keeps them) took down every
+     * screen that lists a bank. A logo that cannot be read is a bank without a logo, and the log says which.
+     *
+     * @return list<string>
+     */
     private static function entries(string $directory): array
     {
+        if (! is_readable($directory)) {
+            self::unreadable(basename($directory));
+
+            return [];
+        }
+
         $entries = scandir($directory);
 
         return $entries === false ? [] : array_values(array_filter($entries, static fn (string $entry): bool => ! str_starts_with($entry, '.')));
+    }
+
+    /** Says which part of the logo folder could not be read — its name inside the folder, nothing more. */
+    private static function unreadable(string $name): void
+    {
+        Log::warning('bank_logo_unreadable', ['entry' => $name]);
     }
 }

@@ -74,8 +74,8 @@ final readonly class BankSources
 
     public function referenceFiles(): BankReferenceFiles
     {
-        $bicLink = $this->links->gleifBicLeiMapping(...$this->page(self::GLEIF, 'bic_lei_page'));
-        $legalFormLink = $this->links->gleifLegalForms(...$this->page(self::GLEIF, 'legal_forms_page'));
+        $bicLink = $this->onSourcePath(self::GLEIF, $this->links->gleifBicLeiMapping(...$this->page(self::GLEIF, 'bic_lei_page')));
+        $legalFormLink = $this->onSourcePath(self::GLEIF, $this->links->gleifLegalForms(...$this->page(self::GLEIF, 'legal_forms_page')));
 
         return new BankReferenceFiles(
             bics: $this->bicParser->parse($this->ingestion->ingest(self::GLEIF, $bicLink->url, self::BIC_LEI_MAPPING)->rawBytes),
@@ -170,6 +170,16 @@ final readonly class BankSources
         }
 
         return [$this->fetcher->fetch($source, $url)->body, $url];
+    }
+
+    /** The link under the path the source's pages are served from, when its config names one. */
+    private function onSourcePath(string $source, DownloadLink $link): DownloadLink
+    {
+        $prefix = $this->config->get("sources.entries.{$source}.link_path_prefix");
+        $base = $this->config->get("sources.entries.{$source}.base_url");
+        $host = is_string($base) ? parse_url($base, PHP_URL_HOST) : null;
+
+        return is_string($prefix) && $prefix !== '' && is_string($host) ? $link->underPath($host, $prefix) : $link;
     }
 
     private static function orNull(string $value): ?string

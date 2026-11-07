@@ -163,6 +163,11 @@ return [
             'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org', 'api.gleif.org'],
             'enabled' => true,
             'priority' => 1,
+            // The language its pages are served under, given to a link on its own host that leaves it
+            // out. Seen on 2026-11-07: the legal-forms page lives at /en/…, yet links its CSV as /lei-data/…,
+            // and that address redirected to a copy no longer there — a 404, or redirects until the limit
+            // — while the same path under /en/ answered the file. Empty, links are followed as written.
+            'link_path_prefix' => '/en',
             'endpoints' => [
                 'bic_lei_page' => env(
                     'GLEIF_BIC_LEI_PAGE_URL',
