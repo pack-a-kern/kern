@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { approveFiscalParameter, getFiscalParameterBoard, readFiscalYear } from '../../api/fiscalParametersApi';
-import AppShell from '../../components/AppShell';
 import { EmptyState, Field, Page, Panel, PanelButton, PanelDialog, PanelSelect, Status } from '../../components/panel';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
@@ -57,7 +56,7 @@ export default function AdminParameters(): JSX.Element {
     const name = (code: string): string => t((d) => d.pages.taxRules.names)[code] ?? code;
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.taxRules.title)} lede={t((d) => d.pages.taxRules.description)}>
                 {failed !== null ? (
                     <Panel title={t((d) => d.pages.taxRules.valuesTitle)} icon={<Scale className="size-4" />}>
@@ -188,7 +187,7 @@ export default function AdminParameters(): JSX.Element {
                     }}
                 />
             ) : null}
-        </AppShell>
+        </>
     );
 }
 

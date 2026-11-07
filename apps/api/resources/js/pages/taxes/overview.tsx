@@ -18,7 +18,6 @@ import {
     Wallet,
 } from 'lucide-react';
 
-import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
 import {
     DropdownMenu,
@@ -490,7 +489,7 @@ export default function TaxesOverview(): JSX.Element {
     };
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.taxes.title)}
                 lede={t((d) => d.pages.taxes.description)}
@@ -1008,6 +1007,6 @@ export default function TaxesOverview(): JSX.Element {
                     </>
                 )}
             </Page>
-        </AppShell>
+        </>
     );
 }

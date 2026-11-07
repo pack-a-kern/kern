@@ -45,7 +45,6 @@ import {
     startStatementImport,
     updateStatementImportRows,
 } from '../../api/statementImportApi';
-import AppShell from '../../components/AppShell';
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
 import { bankOptions, type BankSelectOption } from '../../components/wallet/bankOptions';
@@ -377,13 +376,13 @@ export default function WalletImport(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletImports.title)}>
                     <Panel title={t((d) => d.pages.walletImports.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -558,7 +557,7 @@ export default function WalletImport(): JSX.Element {
     };
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.pages.walletImports.title)} />
             <Page title={t((d) => d.pages.walletImports.title)} lede={t((d) => d.pages.walletImports.description)}>
                 {importId !== null && detail === null ? (
@@ -1181,7 +1180,7 @@ export default function WalletImport(): JSX.Element {
                     </Panel>
                 ) : null}
             </Page>
-        </AppShell>
+        </>
     );
 }
 

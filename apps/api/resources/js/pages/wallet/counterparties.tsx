@@ -15,7 +15,6 @@ import {
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import AppShell from '../../components/AppShell';
 import BulkActions from '../../components/BulkActions';
 import {
     ActionGroup,
@@ -217,13 +216,13 @@ export default function WalletCounterparties(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletCounterparties.title)}>
                     <Panel title={t((d) => d.pages.walletCounterparties.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -323,7 +322,7 @@ export default function WalletCounterparties(): JSX.Element {
         chosen.flatMap((party) => [party.in?.id, party.out?.id]).filter((id): id is string => id !== undefined);
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.pages.walletCounterparties.title)} />
             <Page
                 title={t((d) => d.pages.walletCounterparties.title)}
@@ -729,7 +728,7 @@ export default function WalletCounterparties(): JSX.Element {
                 onOpenChange={setManagingTags}
                 onChanged={reload}
             />
-        </AppShell>
+        </>
     );
 }
 

@@ -20,7 +20,6 @@ import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { deleteLaw, listLaws, searchLegislation } from '../api/legislationApi';
-import AppShell from '../components/AppShell';
 import ConfirmDialog from '../components/ConfirmDialog';
 import {
     EmptyState,
@@ -175,19 +174,19 @@ export default function Legislation({
 
     if (forbidden) {
         return (
-            <AppShell>
+            <>
                 <div className="mx-auto w-full max-w-lg pt-16 text-center">
                     <h1 className="text-lg font-semibold">{t((d) => d.pages.legislation.title)}</h1>
                     <p className="note mt-2">{t((d) => d.pages.legislation.forbidden)}</p>
                 </div>
-            </AppShell>
+            </>
         );
     }
 
     const total = result === null ? 0 : result.confirmed.length + result.dateUnknown.length;
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.legislation.title)} lede={t((d) => d.pages.legislation.description)}>
                 {/* The search first: most visits look for a provision, not a law. */}
                 <div className="relative" ref={searchRef}>
@@ -347,7 +346,7 @@ export default function Legislation({
                     }}
                 />
             ) : null}
-        </AppShell>
+        </>
     );
 }
 

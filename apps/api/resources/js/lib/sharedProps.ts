@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 
 /**
  * The product's name, as `APP_NAME` spells it.
@@ -138,4 +138,14 @@ export function useProviderEnhances(): boolean {
     const payload = usePage().props.documents as { enhances?: unknown } | null | undefined;
 
     return payload?.enhances === true;
+}
+
+/**
+ * Asks for the signed-in person's shared props again — who they are and which taxpayers they work in
+ * — and nothing else of the page. The frame stays mounted between screens and draws its switcher from
+ * these, so a change that is not a navigation (a picture uploaded, a taxpayer shared from another
+ * device) reaches it this way: one small request, the page and its state left as they are.
+ */
+export function refreshSharedAuth(): void {
+    router.reload({ only: ['auth'] });
 }

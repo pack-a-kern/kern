@@ -4,7 +4,6 @@ import { KeyRoundIcon, MonitorSmartphoneIcon, RotateCcw, ShieldCheckIcon, UsersI
 
 import { getProfile, listDocumentAiConsents, listSubjects } from '../../api/accountApi';
 import { fetchMfaStatus, listSessions } from '../../api/authApi';
-import AppShell from '../../components/AppShell';
 import { Page, PanelButton, Stat, StatGrid, Status } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
@@ -127,7 +126,7 @@ export default function AccountPage(): JSX.Element {
     const protectedAccount = mfa !== null && (mfa.totpEnrolled || mfa.passkeysCount > 0);
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.account.title)}
                 lede={t((d) => d.pages.account.description)}
@@ -209,6 +208,6 @@ export default function AccountPage(): JSX.Element {
 
                 <SessionsCard sessions={sessions} onChanged={reload} />
             </Page>
-        </AppShell>
+        </>
     );
 }

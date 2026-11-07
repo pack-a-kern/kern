@@ -36,7 +36,6 @@ import {
     Status,
     type StatusTone,
 } from '../../components/panel';
-import AppShell from '../../components/AppShell';
 import Pagination from '../../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../../hooks/useRememberedState';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -539,10 +538,10 @@ export default function AdminJobs(): JSX.Element {
     const { t } = useTranslation();
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.adminJobs.title)} lede={t((d) => d.pages.adminJobs.description)}>
                 <AdminJobsBody />
             </Page>
-        </AppShell>
+        </>
     );
 }

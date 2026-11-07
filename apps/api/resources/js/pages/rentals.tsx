@@ -16,7 +16,6 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { changeRentalRent, deleteRental, endRental, listRentals } from '../api/rentalsApi';
-import AppShell from '../components/AppShell';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PanelDate } from '../components/PanelDatePicker';
 import {
@@ -104,13 +103,13 @@ export default function Rentals(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.rentals.title)}>
                     <Panel title={t((d) => d.pages.rentals.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -122,7 +121,7 @@ export default function Rentals(): JSX.Element {
     const rentals = loaded?.rentals ?? null;
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.rentals.title)} lede={t((d) => d.pages.rentals.description)}>
                 <Panel
                     title={t((d) => d.pages.rentals.title)}
@@ -431,7 +430,7 @@ export default function Rentals(): JSX.Element {
                     }}
                 />
             )}
-        </AppShell>
+        </>
     );
 }
 

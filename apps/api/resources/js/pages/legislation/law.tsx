@@ -15,7 +15,6 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { getLaw, getLawOutline, getLawText } from '../../api/legislationApi';
-import AppShell from '../../components/AppShell';
 import { Page, PanelButton, PanelSelect, SearchInput } from '../../components/panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -302,7 +301,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
         .replace('{total}', String(articles.length));
 
     return (
-        <AppShell>
+        <>
             <Head title={law?.title ?? shortName} />
             <Page title={shortName} lede={t((d) => d.pages.legislation.law.reader)}>
                 {/* The law's heading stays in sight while its text scrolls under it. */}
@@ -670,7 +669,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                     setHistoryOf(null);
                 }}
             />
-        </AppShell>
+        </>
     );
 }
 

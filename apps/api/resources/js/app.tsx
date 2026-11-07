@@ -6,6 +6,7 @@ import { cspNonce, shareCspNonce } from './lib/cspNonce';
 import { registerServiceWorker } from './lib/registerServiceWorker';
 import { adoptSubjectFromLink } from './lib/subjectStore';
 import { appNameFrom } from './lib/sharedProps';
+import AppShell from './components/AppShell';
 import StepUpGate from './components/StepUpGate';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
@@ -20,6 +21,9 @@ import { TooltipProvider } from './components/ui/tooltip';
  */
 let appName = '';
 
+/** The screens before sign-in, which stand on their own rather than in the application's frame. */
+const PAGES_WITHOUT_SHELL = new Set(['home', 'auth/login', 'auth/verify-email']);
+
 // Before anything renders, so the first dialog's `<style>` already carries the page nonce.
 shareCspNonce();
 registerServiceWorker();
@@ -33,6 +37,9 @@ void createInertiaApp({
     // Left out, not passed as undefined, when the page carries none.
     ...(nonce === undefined ? {} : { nonce }),
     title: (title) => (title ? `${title} — ${appName}` : appName),
+    // The application's frame around every page but the ones before sign-in — kept mounted between
+    // pages, so a click swaps the screen and nothing around it (see AppShell).
+    layout: (name) => (PAGES_WITHOUT_SHELL.has(name) ? undefined : AppShell),
     resolve: (name) => {
         const pages = import.meta.glob<{ default: React.ComponentType }>('./pages/**/*.tsx', { eager: true });
         const page = pages[`./pages/${name}.tsx`];

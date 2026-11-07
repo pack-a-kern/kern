@@ -33,7 +33,10 @@ beforeEach(function (): void {
         new SubjectDekService(new InMemoryKeyManagementService(), new InMemoryDekRepository()),
     );
 
-    Queue::fake();
+    // The reading is what these tests are about, so it is the job held back. Anything else the setup
+    // queues — a taxpayer's membership announced to its members (`TaxpayersChanged`) — runs as usual
+    // and is not mistaken for a reading the controller should have refused.
+    Queue::fake([ProcessScannedDocument::class]);
 });
 
 /** @return array{0: User, 1: TaxSubject} */

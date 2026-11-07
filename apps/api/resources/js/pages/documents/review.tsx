@@ -39,7 +39,6 @@ import {
     FileCog,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode, type SyntheticEvent } from 'react';
-import AppShell from '../../components/AppShell';
 import CreateTransactionDialog from '../../components/documents/CreateTransactionDialog';
 import RentalDialog from '../../components/rentals/RentalDialog';
 import { rentalFormFromReading } from '../../lib/rentalForm';
@@ -990,10 +989,10 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
 
     if (!subjectId) {
         return (
-            <AppShell>
+            <>
                 <Head title={t((d) => d.documentsReview.title)} />
                 <ErrorText message={t((d) => d.documentsReview.noActiveSubject)} />
-            </AppShell>
+            </>
         );
     }
 
@@ -1016,7 +1015,7 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
     const statementRows = Array.isArray(acceptedRows) ? acceptedRows : null;
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.documentsReview.title)} />
             <Page
                 // The topbar says what this screen is; the document names itself below, next to the
@@ -1929,6 +1928,6 @@ export default function DocumentReview({ documentId }: { documentId: string }): 
                     <RowTable rows={rowsShown?.rows ?? []} unrenderable={unrenderableValue} />
                 </div>
             </PanelDialog>
-        </AppShell>
+        </>
     );
 }

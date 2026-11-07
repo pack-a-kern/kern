@@ -148,27 +148,80 @@ export function subscribeToImportsChannel(
     };
 }
 
-/**
- * Subscribes to the signed-in person's own private `users.{userId}` channel (authorized in
- * `routes/channels.php`) and calls `onNotice` with the id of each notice stored for them. The socket
- * carries the id and the kind only, never what the notice says: the caller fetches the words over
- * HTTPS, as the bell does.
+/*
+ * The signed-in person's own private channel, `users.{userId}` (authorized in `routes/channels.php`),
+ * which more than one part of the frame listens on: the bell for notices, the switcher for taxpayers.
+ *
+ * Joined once and shared. Each listener used to join and leave it itself — and leaving a channel in
+ * Echo leaves it for everyone on it, so the first listener to go silenced the others.
  */
-export function subscribeToUserNotifications(userId: string, onNotice: (noticeId: string) => void): () => void {
+const userListeners = { notices: new Set<(noticeId: string) => void>(), taxpayers: new Set<() => void>() };
+let userChannel: string | null = null;
+
+function joinUserChannel(userId: string): void {
     const channelName = `users.${userId}`;
 
+    if (userChannel === channelName) {
+        return;
+    }
+
+    if (userChannel !== null) {
+        getEcho().leave(userChannel);
+    }
+
+    userChannel = channelName;
     getEcho()
         .private(channelName)
         .notification((raw: unknown): void => {
             const id = noticeIdFrom(raw);
 
             if (id !== null) {
-                onNotice(id);
+                userListeners.notices.forEach((listener) => {
+                    listener(id);
+                });
             }
+        })
+        .listen('.taxpayers.changed', (): void => {
+            userListeners.taxpayers.forEach((listener) => {
+                listener();
+            });
         });
+}
+
+function leaveUserChannelIfUnheard(): void {
+    if (userChannel !== null && userListeners.notices.size === 0 && userListeners.taxpayers.size === 0) {
+        getEcho().leave(userChannel);
+        userChannel = null;
+    }
+}
+
+/**
+ * Calls `onNotice` with the id of each notice stored for the signed-in person. The socket carries the
+ * id and the kind only, never what the notice says: the caller fetches the words over HTTPS, as the
+ * bell does.
+ */
+export function subscribeToUserNotifications(userId: string, onNotice: (noticeId: string) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.notices.add(onNotice);
 
     return () => {
-        getEcho().leave(channelName);
+        userListeners.notices.delete(onNotice);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onChange` when the taxpayers this person works in changed — added, renamed, pictured, closed,
+ * shared or unshared (`Kern\TaxRomania\Subjects\Events\TaxpayersChanged`). Says nothing of which:
+ * the caller asks for the list again.
+ */
+export function subscribeToTaxpayerChanges(userId: string, onChange: () => void): () => void {
+    joinUserChannel(userId);
+    userListeners.taxpayers.add(onChange);
+
+    return () => {
+        userListeners.taxpayers.delete(onChange);
+        leaveUserChannelIfUnheard();
     };
 }
 

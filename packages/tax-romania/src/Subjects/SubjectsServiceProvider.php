@@ -12,6 +12,8 @@ use Kern\Platform\Tenancy\Contracts\TenantGate;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 use Kern\Platform\Tenancy\Contracts\TenantNames;
 use Kern\TaxRomania\Subjects\Infrastructure\EloquentSubjectDekRepository;
+use Kern\TaxRomania\Subjects\Listeners\AnnounceTaxpayerChanges;
+use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Subjects\Tenancy\MembershipTenantGate;
 use Kern\TaxRomania\Subjects\Tenancy\SubjectMemberships;
@@ -42,5 +44,14 @@ final class SubjectsServiceProvider extends ServiceProvider
 
         // A document belongs to a taxpayer here; `kern/documents` only knows it belongs to a subject.
         DocumentFactory::resolveSubjectUsing(static fn () => TaxSubject::factory());
+    }
+
+    public function boot(): void
+    {
+        // Every open frame of the people a taxpayer belongs to redraws its switcher (TaxpayersChanged).
+        TaxSubject::saved(AnnounceTaxpayerChanges::subjectSaved(...));
+        TaxSubject::deleted(AnnounceTaxpayerChanges::subjectDeleted(...));
+        SubjectMembership::saved(AnnounceTaxpayerChanges::membershipChanged(...));
+        SubjectMembership::deleted(AnnounceTaxpayerChanges::membershipChanged(...));
     }
 }

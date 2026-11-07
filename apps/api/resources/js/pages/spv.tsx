@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import AppShell from '../components/AppShell';
 import {
     CellLabel,
     DataTable,
@@ -382,7 +381,7 @@ export default function Spv(): JSX.Element {
         status === 'ACTIVE' ? 'ok' : status === 'FAILED' ? 'bad' : status === 'REVOKED' ? 'idle' : 'warn';
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.spv.title)} lede={t((d) => d.pages.spv.description)}>
                 {failed ? <p className="note">{t((d) => d.pages.spv.syncFailed)}</p> : null}
 
@@ -804,6 +803,6 @@ export default function Spv(): JSX.Element {
                     </FieldGrid>
                 )}
             </PanelDialog>
-        </AppShell>
+        </>
     );
 }

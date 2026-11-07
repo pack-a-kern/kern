@@ -29,7 +29,6 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 
 import { apiRequest, apiRequestBinary } from '../../lib/http';
 import { reportApiFailure } from '../../lib/apiErrors';
-import AppShell from '../../components/AppShell';
 import { Chart } from '../../components/Chart';
 import {
     CellLabel,
@@ -720,18 +719,18 @@ export default function WalletReports(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletReports.title)}>
                     <Panel title={t((d) => d.pages.walletReports.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.pages.walletReports.title)} />
             <Page title={t((d) => d.pages.walletReports.title)} lede={t((d) => d.pages.walletReports.description)}>
                 {/*
@@ -1469,7 +1468,7 @@ export default function WalletReports(): JSX.Element {
                     </>
                 )}
             </Page>
-        </AppShell>
+        </>
     );
 }
 

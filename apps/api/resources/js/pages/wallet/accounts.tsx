@@ -24,7 +24,6 @@ import { toast } from 'sonner';
 
 import { deleteAccount, listAccounts, listBanks, openAccount, openDeposits, updateAccount } from '../../api/walletApi';
 import BankMark from '../../components/wallet/BankMark';
-import AppShell from '../../components/AppShell';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -304,13 +303,13 @@ export default function WalletAccounts(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletAccounts.title)}>
                     <Panel title={t((d) => d.pages.walletAccounts.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -541,7 +540,7 @@ export default function WalletAccounts(): JSX.Element {
         );
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.walletAccounts.title)} lede={t((d) => d.pages.walletAccounts.description)}>
                 <Panel
                     title={t((d) => d.pages.walletAccounts.title)}
@@ -1259,6 +1258,6 @@ export default function WalletAccounts(): JSX.Element {
                     ) : null}
                 </FieldGrid>
             </PanelDialog>
-        </AppShell>
+        </>
     );
 }

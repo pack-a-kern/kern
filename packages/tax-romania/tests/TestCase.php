@@ -50,6 +50,11 @@ abstract class TestCase extends Testbench
         $app['config']->set('cache.default', 'array');
         $app['config']->set('session.driver', 'array');
         $app['config']->set('queue.default', 'sync');
+        // Nowhere, for the same reason: the container's BROADCAST_CONNECTION names Reverb, and this
+        // package does not install the Pusher client that broadcaster needs. A taxpayer's first
+        // membership announces itself (`TaxpayersChanged`), so the suite would otherwise fail on
+        // setting one up.
+        $app['config']->set('broadcasting.default', 'null');
         $app['config']->set('database.default', 'pgsql');
         $app['config']->set('database.connections.pgsql', [
             'driver' => 'pgsql',
@@ -73,7 +78,6 @@ abstract class TestCase extends Testbench
         $app['config']->set('documents.quarantine_disk', 'objects');
         $app['config']->set('sources.storage.disk', 'objects');
         $app['config']->set('ai.embeddings.enabled', false);
-        $app['config']->set('queue.default', 'sync');
 
         $app->instance(KeyManagementService::class, new InMemoryKeyManagementService());
     }

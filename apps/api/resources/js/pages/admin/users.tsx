@@ -31,7 +31,6 @@ import {
     updateUserRoles,
     updateUserStatus,
 } from '../../api/adminApi';
-import AppShell from '../../components/AppShell';
 import { userAvatarUrl } from '../../api/accountApi';
 import {
     Check,
@@ -314,17 +313,17 @@ export default function AdminUsers(): JSX.Element {
 
     if (forbidden) {
         return (
-            <AppShell>
+            <>
                 <div className="mx-auto w-full max-w-lg pt-16 text-center">
                     <h1 className="text-lg font-semibold">{t((d) => d.pages.adminUsers.title)}</h1>
                     <p className="note mt-2">{t((d) => d.pages.adminUsers.forbidden)}</p>
                 </div>
-            </AppShell>
+            </>
         );
     }
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.adminUsers.title)}
                 lede={t((d) => d.pages.adminUsers.description)}
@@ -860,7 +859,7 @@ export default function AdminUsers(): JSX.Element {
                     }}
                 />
             )}
-        </AppShell>
+        </>
     );
 }
 

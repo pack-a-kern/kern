@@ -13,7 +13,6 @@ import {
     testAiConnection,
     updateSettingsGroup,
 } from '../../api/settingsApi';
-import AppShell from '../../components/AppShell';
 import {
     Field,
     FieldGrid,
@@ -344,17 +343,17 @@ export default function AdminSettings(): JSX.Element {
 
     if (forbidden) {
         return (
-            <AppShell>
+            <>
                 <div className="mx-auto w-full max-w-lg pt-16 text-center">
                     <h1 className="text-lg font-semibold">{t((d) => d.pages.adminSettings.title)}</h1>
                     <p className="text-muted-foreground mt-2 text-sm">{t((d) => d.pages.adminSettings.forbidden)}</p>
                 </div>
-            </AppShell>
+            </>
         );
     }
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.adminSettings.title)}
                 lede={t((d) => d.pages.adminSettings.description).replace('{appName}', appName)}
@@ -425,7 +424,7 @@ export default function AdminSettings(): JSX.Element {
                     </>
                 )}
             </Page>
-        </AppShell>
+        </>
     );
 }
 

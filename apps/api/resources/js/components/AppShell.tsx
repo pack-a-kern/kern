@@ -42,11 +42,11 @@ import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
-import { subscribeToUserNotifications } from '../lib/echo';
+import { subscribeToTaxpayerChanges, subscribeToUserNotifications } from '../lib/echo';
 import { formatDate, formatDateTime } from '../lib/format';
 import { getFilingDeadline } from '../api/fiscalParametersApi';
 import type { FilingDeadline } from '../types/fiscalParameters';
-import { useAppName, useSharedAuth } from '../lib/sharedProps';
+import { refreshSharedAuth, useAppName, useSharedAuth } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
 import {
     DropdownMenu,
@@ -340,6 +340,21 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
         };
     }, [userId, locale]);
 
+    // Read again each time it is opened: the frame stays mounted for the whole visit, and the socket
+    // says when a notice arrives but not when one was read on another device.
+    function refresh(): void {
+        listNotifications(locale).then(
+            (feed) => {
+                setNotices(feed.notices);
+                setUnread(feed.unread);
+                setFailed(false);
+            },
+            () => {
+                // What it last read stays on screen; opening it again asks again.
+            },
+        );
+    }
+
     function markAllRead(): void {
         markAllNotificationsRead().then(
             () => {
@@ -353,7 +368,13 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
     }
 
     return (
-        <DropdownMenu>
+        <DropdownMenu
+            onOpenChange={(open) => {
+                if (open) {
+                    refresh();
+                }
+            }}
+        >
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
@@ -934,20 +955,14 @@ function readStoredCollapsed(): boolean {
  * and the taxpayer switcher in the top bar — the drawer it replaces hid the whole menu behind one
  * button. The active item is derived from Inertia's own `usePage().url`, so no page needs to pass a
  * "which screen am I" prop.
+ *
+ * A persistent layout (`app.tsx`): Inertia keeps it mounted from one screen to the next and swaps only
+ * the page inside it. Every page used to wrap itself in this, so every click built the frame again —
+ * the bell fetched its list, both private channels were authorised again, the sidebar lost its place.
+ * Now each of those happens once, when the application opens. A page says what it is through `Page`
+ * (`lib/pageHeader.ts`), never through props here, since it does not render this.
  */
-export default function AppShell({
-    children,
-    contentClassName,
-    title,
-    description,
-}: {
-    children: ReactNode;
-    contentClassName?: string;
-    /** What this screen is, shown in the header. Falls back to the product name. */
-    title?: string;
-    /** One line under the title, on wide screens only. */
-    description?: string;
-}): JSX.Element {
+export default function AppShell({ children }: { children: ReactNode }): JSX.Element {
     const { t } = useTranslation();
     const { url } = usePage();
     const appName = useAppName();
@@ -957,6 +972,14 @@ export default function AppShell({
     const { pull, refreshing } = usePullToRefresh(mainRef);
     // Published by whichever `Page` is rendered below; the shell is where it is drawn.
     const header = usePageHeader();
+    const userId = auth?.user.id ?? '';
+
+    // The switcher is drawn from the shared props, and this frame outlives every page: a taxpayer
+    // changed here or on another device is announced on the person's channel, and the list asked for
+    // again — not on every click, as when each page built the frame anew.
+    useEffect(() => {
+        return userId === '' ? undefined : subscribeToTaxpayerChanges(userId, refreshSharedAuth);
+    }, [userId]);
 
     function toggleCollapsed(): void {
         setCollapsed((current) => {
@@ -1042,11 +1065,11 @@ export default function AppShell({
                         */}
                         <div className="min-w-0 flex-1">
                             <h1 className="text-foreground sr-only truncate text-base leading-5 font-semibold tracking-tight sm:not-sr-only">
-                                {header?.title ?? title ?? appName}
+                                {header?.title ?? appName}
                             </h1>
-                            {(header?.description ?? description) !== undefined && (
+                            {header?.description !== undefined && (
                                 <p className="text-muted-foreground mt-px hidden truncate text-2xs leading-4 sm:block">
-                                    {header?.description ?? description}
+                                    {header.description}
                                 </p>
                             )}
                         </div>
@@ -1070,8 +1093,11 @@ export default function AppShell({
                         the window grew a second scrollbar beside this element's own. Positioned,
                         they resolve here and are clipped here.
                     */}
+                    {/* `scroll-region`: the frame stays mounted across pages, so this is the scroll
+                        Inertia must reset on a visit and restore on Back — the window never scrolls. */}
                     <main
                         ref={mainRef}
+                        scroll-region=""
                         className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+var(--dock-space)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+var(--dock-space)+env(safe-area-inset-bottom))]"
                     >
                         <PullIndicator pull={pull} refreshing={refreshing} label={t((d) => d.shell.refreshing)} />
@@ -1082,17 +1108,9 @@ export default function AppShell({
                             that the content takes 1680px and the margins stop growing as fast. It
                             does not go further because this number has to suit a settings form as
                             well as a table, and a form two thousand pixels wide reads worse than one
-                            at fourteen hundred. A screen that is genuinely table-shaped says so with
-                            `contentClassName`, which lands after this and wins.
+                            at fourteen hundred.
                         */}
-                        <div
-                            className={cn(
-                                'mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]',
-                                contentClassName,
-                            )}
-                        >
-                            {children}
-                        </div>
+                        <div className="mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]">{children}</div>
                     </main>
                 </div>
             </div>

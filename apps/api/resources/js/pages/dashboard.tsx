@@ -23,7 +23,6 @@ import type { ChartConfiguration, Plugin } from 'chart.js';
 import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
 import BankMark from '../components/wallet/BankMark';
-import AppShell from '../components/AppShell';
 import { Chart } from '../components/Chart';
 import {
     EmptyState,
@@ -129,13 +128,13 @@ export default function Dashboard(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.dashboard.title)}>
                     <Panel title={t((d) => d.dashboard.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -210,7 +209,7 @@ export default function Dashboard(): JSX.Element {
     const depositsWhole = totals?.holdings.deposits.converted.amountMinor ?? 0;
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.dashboard.title)} />
             <Page title={t((d) => d.dashboard.title)} lede={t((d) => d.dashboard.lede)}>
                 {failed ? <p className="note">{t((d) => d.pages.wallet.loadFailed)}</p> : null}
@@ -720,7 +719,7 @@ export default function Dashboard(): JSX.Element {
                     <FxHistoryCard locale={locale} />
                 </div>
             </Page>
-        </AppShell>
+        </>
     );
 }
 

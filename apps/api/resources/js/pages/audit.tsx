@@ -36,7 +36,6 @@ import {
 } from '../components/panel';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { formatDateTime, formatNumber } from '../lib/format';
-import AppShell from '../components/AppShell';
 import Pagination from '../components/Pagination';
 import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedState';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
@@ -514,10 +513,10 @@ export default function Audit(): JSX.Element {
     const { t } = useTranslation();
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.adminAudit.title)} lede={t((d) => d.pages.adminAudit.description)}>
                 <AdminAuditBody />
             </Page>
-        </AppShell>
+        </>
     );
 }

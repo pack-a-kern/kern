@@ -29,7 +29,6 @@ import { toast } from 'sonner';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { deleteDocument, listDocuments, renameDocument, type DocumentListFilters } from '../../api/documentsApi';
-import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AddDocumentDialog from '../../components/documents/AddDocumentDialog';
 import {
@@ -323,7 +322,7 @@ export default function DocumentsInbox(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Head title={t((d) => d.documentsInbox.title)} />
                 <Page title={t((d) => d.documentsInbox.title)}>
                     <Panel title={t((d) => d.documentsInbox.title)}>
@@ -335,7 +334,7 @@ export default function DocumentsInbox(): JSX.Element {
                         </p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -401,7 +400,7 @@ export default function DocumentsInbox(): JSX.Element {
     };
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.documentsInbox.title)} />
             <Page title={t((d) => d.documentsInbox.title)} lede={t((d) => d.documentsInbox.description)}>
                 <Panel
@@ -757,7 +756,7 @@ export default function DocumentsInbox(): JSX.Element {
                     onUploaded={reload}
                 />
             ) : null}
-        </AppShell>
+        </>
     );
 }
 

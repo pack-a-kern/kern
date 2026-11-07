@@ -36,7 +36,6 @@ import {
     X,
 } from 'lucide-react';
 import BankMark from '../../components/wallet/BankMark';
-import AppShell from '../../components/AppShell';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
     ActionGroup,
@@ -605,13 +604,13 @@ export default function WalletTransactions(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletTransactions.title)}>
                     <Panel title={t((d) => d.pages.walletTransactions.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -726,7 +725,7 @@ export default function WalletTransactions(): JSX.Element {
     };
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.walletTransactions.title)}
                 lede={t((d) => d.pages.walletTransactions.description)}
@@ -1754,7 +1753,7 @@ export default function WalletTransactions(): JSX.Element {
                     )}
                 </FieldGrid>
             </PanelDialog>
-        </AppShell>
+        </>
     );
 }
 

@@ -15,7 +15,6 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { deleteStatementImport, listStatementImports } from '../../api/statementImportApi';
-import AppShell from '../../components/AppShell';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -154,13 +153,13 @@ export default function WalletImports(): JSX.Element {
 
     if (subjectId === null) {
         return (
-            <AppShell>
+            <>
                 <Page title={t((d) => d.pages.walletImports.title)}>
                     <Panel title={t((d) => d.pages.walletImports.title)}>
                         <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
                     </Panel>
                 </Page>
-            </AppShell>
+            </>
         );
     }
 
@@ -170,7 +169,7 @@ export default function WalletImports(): JSX.Element {
     };
 
     return (
-        <AppShell>
+        <>
             <Head title={t((d) => d.pages.walletImports.title)} />
             <Page title={t((d) => d.pages.walletImports.title)} lede={t((d) => d.pages.walletImports.description)}>
                 <Panel
@@ -416,6 +415,6 @@ export default function WalletImports(): JSX.Element {
                     }}
                 />
             )}
-        </AppShell>
+        </>
     );
 }

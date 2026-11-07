@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import AppShell from '../../components/AppShell';
 import {
     Activity,
     CalendarClock,
@@ -753,10 +752,10 @@ export default function AdminTasks(): JSX.Element {
     const { t } = useTranslation();
 
     return (
-        <AppShell>
+        <>
             <Page title={t((d) => d.pages.adminOperations.title)} lede={t((d) => d.pages.adminOperations.description)}>
                 <AdminOperationsBody />
             </Page>
-        </AppShell>
+        </>
     );
 }

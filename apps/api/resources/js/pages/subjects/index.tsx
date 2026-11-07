@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 
 import { listDocumentAiConsents, listSubjects, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
 import { setDisplayCurrency } from '../../api/walletApi';
-import AppShell from '../../components/AppShell';
 import {
     DataTable,
     EmptyState,
@@ -175,11 +174,10 @@ export default function SubjectsPage(): JSX.Element {
             await setSubjectStatus(subject.id, status);
             toast.success(t((d) => d.pages.settingsSubjects.statusChanged));
 
-            // A full reload, not a local patch of the row: the taxpayer's status decides what the
-            // sidebar switcher offers and what the rest of the interface lets you do, and both are
-            // drawn from the page's own props. Rewriting one cell would leave a reactivated
-            // taxpayer missing from the switcher until the next navigation.
-            window.location.reload();
+            // The list again, not a local patch of the row: the status decides what the row
+            // offers. The switcher hears it on its own (`TaxpayersChanged`), as every other device of
+            // every member does.
+            setReloadToken((token) => token + 1);
 
             return;
         } catch (cause: unknown) {
@@ -196,7 +194,7 @@ export default function SubjectsPage(): JSX.Element {
     const rows = page?.data ?? null;
 
     return (
-        <AppShell>
+        <>
             <Page
                 title={t((d) => d.pages.settingsSubjects.title)}
                 lede={t((d) => d.pages.settingsSubjects.description)}
@@ -511,6 +509,6 @@ export default function SubjectsPage(): JSX.Element {
                 }}
                 describeFailure={describeFailure}
             />
-        </AppShell>
+        </>
     );
 }
