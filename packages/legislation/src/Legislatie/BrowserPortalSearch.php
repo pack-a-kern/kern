@@ -197,7 +197,9 @@ final readonly class BrowserPortalSearch implements PortalSearchMethod
     /** @param  array<string, string|null>  $row */
     private function act(array $row): PortalAct
     {
-        $title = trim((string) preg_replace('/\s+/u', ' ', $row['title'] ?? ''));
+        // The issuer and the publication, where the newer layout puts them beside the name rather than
+        // in its paragraph: put back into the one line the SOAP service gives, and read like it.
+        $title = PortalActTitle::line($row['title'] ?? '', $row['issuer'] ?? null, $row['published'] ?? null);
         $heading = preg_match($this->rule('heading_pattern'), $title, $match) === 1 ? $match : [];
 
         return PortalAct::fromTitle(

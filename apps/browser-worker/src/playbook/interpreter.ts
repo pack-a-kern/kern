@@ -267,6 +267,15 @@ export class Interpreter {
         const target = field.selector ?? field.text;
         const node = target === undefined ? row : row.locator(target).first();
 
+        // A field a row does not have is null, at once. Read anyway, the locator would wait out the
+        // step's timeout for an element that is not coming — once per row, for a field only some rows
+        // carry, which is what a page with two layouts of the same result looks like.
+        if (target !== undefined && (await node.count()) === 0) {
+          record[name] = null;
+
+          continue;
+        }
+
         record[name] =
           field.attr !== undefined
             ? await node.getAttribute(field.attr)

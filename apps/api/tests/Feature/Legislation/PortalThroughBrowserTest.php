@@ -143,6 +143,30 @@ it('reads a number whose thousands the title groups with a dot as the number it 
     expect([$act->number, $act->portalId()])->toBe(['1071', '246892']);
 });
 
+// The newer layout (HG 846/2017): the name alone in its paragraph, the issuer and the publication in
+// elements beside it. Read from the paragraph only, the act came in with neither, where SOAP had both.
+it('reads the issuer and the publication the newer layout puts beside the name', function (): void {
+    worker(['numardoc=846-2017' => [[
+        'title' => "HOTĂRÂRE nr. 846 din 29 noiembrie 2017\npentru stabilirea salariului de bază minim brut pe ţară garantat în plată",
+        'in_force' => 'Data intrarii in vigoare: 01 ianuarie 2018',
+        'link' => '/Public/DetaliiDocument/195159',
+        'issuer' => 'Guvernul',
+        'published' => 'Monitorul Oficial nr. 950 din 29 noiembrie 2017',
+    ]]]);
+
+    $act = app(PortalSearch::class)->find('HOTARARE', 846, 2017);
+
+    expect([$act->title, $act->issuer, $act->officialJournal, $act->officialJournalNumber, $act->publishedOn?->format('Y-m-d'), $act->inForceFrom?->format('Y-m-d')])
+        ->toBe([
+            'HOTĂRÂRE nr. 846 din 29 noiembrie 2017 pentru stabilirea salariului de bază minim brut pe ţară garantat în plată',
+            'Guvernul',
+            'Monitorul Oficial',
+            '950',
+            '2017-11-29',
+            '2018-01-01',
+        ]);
+});
+
 it('narrows a title search by its year on the site, and compares the year on each act as well', function (): void {
     worker(['titlu=salariului+minim&semnatinceputtext=2021&semnatsfarsittext=2021' => [
         row("HOTĂRÂRE nr. 4 din 13 ianuarie 2021\npentru stabilirea salariului de bază minim brut\nEMITENT: GUVERNUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 40 din 13 ianuarie 2021", '13 ianuarie 2021', '236118'),

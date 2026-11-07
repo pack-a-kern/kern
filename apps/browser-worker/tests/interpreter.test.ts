@@ -329,4 +329,23 @@ describe("Interpreter", () => {
     assert.equal(row.markup, "LEGE nr. 227 din 8 septembrie 2015privind Codul fiscal");
     assert.equal(row.shown?.replace(/\s+/g, " "), "LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal");
   });
+
+  it("gives a field a row does not have as null at once, not after waiting for it", async () => {
+    const page = await pageShowing('<div class="row"><p>first</p><span class="issuer">Guvernul</span></div><div class="row"><p>second</p></div>');
+    const book = playbook({
+      read: [
+        { goto: "https://example.test/results" },
+        { extract: { rows: ".row", fields: { name: { selector: "p" }, issuer: { selector: ".issuer", rendered: true } }, into: "acts" } },
+      ],
+    });
+
+    const started = Date.now();
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.read ?? []);
+
+    assert.deepEqual(result.data.acts, [
+      { name: "first", issuer: "Guvernul" },
+      { name: "second", issuer: null },
+    ]);
+    assert.ok(Date.now() - started < 5_000, "a missing field must not wait for the step's timeout");
+  });
 });

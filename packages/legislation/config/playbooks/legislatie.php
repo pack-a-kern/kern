@@ -21,8 +21,10 @@ declare(strict_types=1);
  *  - A title's year is the signing-date range with the year alone at both ends, which narrows the
  *    results on the site. A full date there ("2015/01/01") answered 500. The year is compared again
  *    on each act, as it is for the SOAP service.
- *  - Each result is a `div.search_result_item`: a link to the act, then a paragraph carrying the same
- *    title line the SOAP service's `Titlu` does — name, EMITENT, PUBLICAT ÎN — then "Data intrarii in
+ *  - Each result is a `div.search_result_item`, in one of two layouts. The older: a link to the act,
+ *    then a paragraph carrying the same title line the SOAP service's `Titlu` does — name, EMITENT,
+ *    PUBLICAT ÎN. The newer: the name alone in that paragraph, the issuer in `.S_EMT_BDY` and the
+ *    publication in `.S_PUB_BDY` beside it. Either way, then "Data intrarii in
  *    vigoare: 01 ianuarie 2016", which some results put after an empty paragraph, so it is found by
  *    its label.
  *  - A search with no result, and a search the site could not run, are the same page: HTTP 500 with
@@ -72,6 +74,11 @@ return [
                             // and reading the third left an act never amended with no date to file.
                             'in_force' => ['selector' => ':scope > p:has-text("Data intrarii in vigoare")', 'rendered' => true],
                             'link' => ['selector' => ':scope > p:nth-of-type(1) a', 'attr' => 'href'],
+                            // The newer layout's issuer and publication, outside the name's paragraph
+                            // (HG 846/2017: "Guvernul", "Monitorul Oficial nr. 950 din 29 noiembrie
+                            // 2017"). The older has neither element, and gives null for both.
+                            'issuer' => ['selector' => '.S_EMT_BDY', 'rendered' => true],
+                            'published' => ['selector' => '.S_PUB_BDY', 'rendered' => true],
                         ],
                         'into' => 'acts',
                     ],

@@ -26,6 +26,31 @@ final readonly class PortalActTitle
     {
     }
 
+    /**
+     * The title line as the SOAP service writes it, from a name and the issuer and publication a page
+     * shows apart from it: "<name> EMITENT: <issuer> PUBLICAT ÎN: <publication>". A part the name already
+     * carries is not added twice; one that is empty is left out.
+     *
+     * The portal's search page lays a result out two ways: the older carries both inside the name's
+     * paragraph, the newer puts them in elements of their own beside it.
+     */
+    public static function line(string $name, ?string $issuer, ?string $publication): string
+    {
+        $line = self::clean($name);
+        $issuer = $issuer === null ? '' : self::clean($issuer);
+        $publication = $publication === null ? '' : self::clean($publication);
+
+        if ($issuer !== '' && preg_match(self::ISSUER_MARK, $line) !== 1) {
+            $line .= ' EMITENT: ' . $issuer;
+        }
+
+        if ($publication !== '' && preg_match(self::PUBLISHED_MARK, $line) !== 1) {
+            $line .= ' PUBLICAT ÎN: ' . $publication;
+        }
+
+        return $line;
+    }
+
     /** The act's own name — "LEGE nr. 227 din 8 septembrie 2015 privind Codul fiscal". */
     public function name(): string
     {
