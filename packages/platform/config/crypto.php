@@ -45,6 +45,11 @@ return [
             // leaves the server (docs/adr/0020-blind-index-key-in-the-kms.md). Matches
             // KERN_BLIND_INDEX_KEY_NAME's default in docker/openbao/entrypoint.sh.
             'blind_index_key_name' => env('OPENBAO_BLIND_INDEX_KEY_NAME', 'blind-index'),
+            // How many values one HMAC request carries. OpenBao refuses a request body of too many
+            // JSON strings ("refused JSON input due to high complexity: exceeded maximum number of
+            // strings") — each value is two, so 500 at once was refused and 499 accepted (2.6.4, its
+            // default listener). An import hashing more is sent in batches of this many, in order.
+            'hmac_batch_size' => (int) env('OPENBAO_HMAC_BATCH_SIZE', 250),
         ],
     ],
 

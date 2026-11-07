@@ -35,7 +35,11 @@ final readonly class RequiredConfig
         return is_string($value) && $value !== '' ? $value : null;
     }
 
-    /** A whole number above zero: a timeout, a port, a size, an age. */
+    /**
+     * A whole number above zero: a timeout, a port, a size, an age.
+     *
+     * @return positive-int
+     */
     public function positiveInt(string $key): int
     {
         $value = $this->config->get($key);

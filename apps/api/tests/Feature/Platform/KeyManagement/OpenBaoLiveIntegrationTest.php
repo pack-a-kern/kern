@@ -41,6 +41,7 @@ function liveService(): OpenBaoTransitKeyManagementService
         is_string($keyName) && $keyName !== '' ? $keyName : 'kern-crypto-core-test-kek',
         'blind-index',
         5,
+        250,
     );
 }
 
@@ -68,4 +69,11 @@ it('rotates the live KEK: old wraps still unwrap, new wraps carry the new versio
 
     $wrappedAfter = $service->wrapDataKey(random_bytes(32));
     expect($wrappedAfter->kekVersion)->toBe($newVersion);
+})->skip(fn (): bool => liveOpenBaoUnavailable(), 'Set OPENBAO_TEST_ADDR and OPENBAO_TEST_TOKEN to run against a live OpenBao.');
+
+// A real OpenBao refused 500 values in one request; a statement hashes more than that at once.
+it('computes a statement’s worth of blind indexes against a live OpenBao', function (): void {
+    $values = array_map(static fn (int $i): string => "row-{$i}", range(1, 1200));
+
+    expect(liveService()->blindIndexes($values))->toHaveCount(1200);
 })->skip(fn (): bool => liveOpenBaoUnavailable(), 'Set OPENBAO_TEST_ADDR and OPENBAO_TEST_TOKEN to run against a live OpenBao.');

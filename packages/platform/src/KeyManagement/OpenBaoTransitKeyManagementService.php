@@ -47,6 +47,12 @@ final readonly class OpenBaoTransitKeyManagementService implements KeyManagement
         private string $keyName,
         private string $blindIndexKeyName,
         private int $timeoutSeconds,
+        /**
+         * Values per HMAC request: OpenBao refuses a body of too many JSON strings.
+         *
+         * @var positive-int
+         */
+        private int $hmacBatchSize,
     ) {
     }
 
@@ -97,20 +103,29 @@ final readonly class OpenBaoTransitKeyManagementService implements KeyManagement
             return [];
         }
 
-        $response = $this->post('hmac', "{$this->transitMount}/hmac/{$this->blindIndexKeyName}/sha2-256", [
-            'batch_input' => array_map(
-                static fn (string $value): array => ['input' => base64_encode($value)],
-                $normalizedValues,
-            ),
-        ]);
+        // In batches: OpenBao refuses a request body of too many JSON strings, and a statement import
+        // hashes every row's fingerprint at once. Each batch answers in its own order, so the answers
+        // are put together in the order asked.
+        $indexes = [];
 
-        $results = $response->json('data.batch_results');
+        foreach (array_chunk($normalizedValues, $this->hmacBatchSize) as $batch) {
+            $response = $this->post('hmac', "{$this->transitMount}/hmac/{$this->blindIndexKeyName}/sha2-256", [
+                'batch_input' => array_map(
+                    static fn (string $value): array => ['input' => base64_encode($value)],
+                    $batch,
+                ),
+            ]);
 
-        if (! is_array($results) || count($results) !== count($normalizedValues)) {
-            throw KeyManagementException::malformedResponse('hmac');
+            $results = $response->json('data.batch_results');
+
+            if (! is_array($results) || count($results) !== count($batch)) {
+                throw KeyManagementException::malformedResponse('hmac');
+            }
+
+            array_push($indexes, ...array_map(self::hexFromHmac(...), array_values($results)));
         }
 
-        return array_map(self::hexFromHmac(...), array_values($results));
+        return $indexes;
     }
 
     public function currentBlindIndexKeyVersion(): int

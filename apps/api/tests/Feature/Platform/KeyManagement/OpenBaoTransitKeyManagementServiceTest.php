@@ -18,7 +18,8 @@ use Kern\Platform\KeyManagement\ValueObjects\WrappedDataKey;
  * `tests/Feature/Platform/KeyManagement/OpenBaoLiveIntegrationTest.php` separately proves the same
  * class against a real dev-mode OpenBao, guarded behind an env var since CI does not start one.
  */
-function makeService(?string $tokenFile = null, ?string $caCertFile = null): OpenBaoTransitKeyManagementService
+/** @param positive-int $hmacBatchSize */
+function makeService(?string $tokenFile = null, ?string $caCertFile = null, int $hmacBatchSize = 250): OpenBaoTransitKeyManagementService
 {
     return new OpenBaoTransitKeyManagementService(
         app(HttpFactory::class),
@@ -30,6 +31,7 @@ function makeService(?string $tokenFile = null, ?string $caCertFile = null): Ope
         'tax-subject-kek',
         'blind-index',
         5,
+        $hmacBatchSize,
     );
 }
 
@@ -232,6 +234,26 @@ it('computes blind indexes in one batch request and returns them as hex, in orde
         ['input' => base64_encode('a')],
         ['input' => base64_encode('b')],
     ]);
+});
+
+// OpenBao refuses a body of too many JSON strings — 500 values at once was, 499 was not — and a
+// statement import hashes every row at once. The adapter sends them in batches, answered in order.
+it('sends many values in batches of its size, and answers in the order asked', function (): void {
+    $answers = [];
+
+    Http::fake(['openbao.test/v1/transit/hmac/blind-index/sha2-256' => static function ($request) use (&$answers) {
+        return Http::response(['data' => ['batch_results' => array_map(static function (array $item) use (&$answers): array {
+            $answers[base64_decode($item['input'], true)] = $bytes = hash('sha256', $item['input'], true);
+
+            return ['hmac' => 'vault:v1:' . base64_encode($bytes)];
+        }, $request['batch_input'])]]);
+    }]);
+
+    $values = ['a', 'b', 'c', 'd', 'e'];
+    $indexes = makeService(hmacBatchSize: 2)->blindIndexes($values);
+
+    Http::assertSentCount(3);
+    expect($indexes)->toBe(array_map(static fn (string $value): string => bin2hex($answers[$value]), $values));
 });
 
 it('sends nothing for an empty batch', function (): void {

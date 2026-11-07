@@ -86,6 +86,7 @@ final class KeyManagementServiceProvider extends ServiceProvider
             $config->string('crypto.kms.openbao.tax_subject_kek_name'),
             $config->string('crypto.kms.openbao.blind_index_key_name'),
             $config->positiveInt('crypto.kms.openbao.timeout_seconds'),
+            $config->positiveInt('crypto.kms.openbao.hmac_batch_size'),
         );
     }
 }
