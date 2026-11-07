@@ -109,6 +109,10 @@ COPY --from=ext-builder /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d
 # that — so they go, before the libraries below are installed and so before auto-remove could
 # count those as unused. CI's Trivy scan found 45 HIGH/CRITICAL advisories in the kernel headers
 # alone (2026-11-03).
+#
+# zlib1g is upgraded past the base image's: its 1:1.3.dfsg+really1.3.1-1+b1 has CVE-2026-85091 and
+# CVE-2026-76844, fixed in Debian's +deb13u1, and php:8.5.12-fpm-trixie has no newer build yet. Drop it
+# from the list once `make pins` reports a build that ships it.
 RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -118,6 +122,7 @@ RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
         libpng16-16t64=1.6.48-1+deb13u6 \
         libwebp7=1.5.0-0.1 \
         libfcgi-bin=2.4.5-0.1 \
+        zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-kern.ini

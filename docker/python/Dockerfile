@@ -59,11 +59,12 @@ RUN find /usr/local/lib/python3.14/site-packages -maxdepth 1 -iname 'pip*' -exec
     && rm -rf /usr/local/lib/python3.14/ensurepip \
     && find /usr/local/bin -iname 'pip*' -delete
 
-# apt upgraded past the base image's: 3.0.3 has CVE-2026-109518, fixed in Debian's 3.0.4, and
-# python:3.14.8-slim-trixie has no newer build yet. Exact versions, as everywhere here; drop this
-# once `make pins` reports a build that ships 3.0.4.
+# Upgraded past the base image's, which python:3.14.8-slim-trixie has no newer build of yet:
+#  - apt 3.0.3 has CVE-2026-109518, fixed in Debian's 3.0.4;
+#  - zlib1g 1:1.3.dfsg+really1.3.1-1+b1 has CVE-2026-85091 and CVE-2026-76844, fixed in +deb13u1.
+# Exact versions, as everywhere here; drop each once `make pins` reports a build that ships it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends apt=3.0.4 libapt-pkg7.0=3.0.4 \
+    && apt-get install -y --no-install-recommends apt=3.0.4 libapt-pkg7.0=3.0.4 zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /opt/venv /opt/venv
