@@ -2,11 +2,13 @@
 #
 # Alpine rather than any image already in the stack: the one job here is issuing certificates, and the
 # smallest image that has a current OpenSSL is the one with the least in it besides.
-FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24.4@sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4
 
-# zlib upgraded past the base image's: 1.3.2-r0 has CVE-2026-85091 (heap overflow in gz_vacate), and
-# alpine:3.24.2 has no newer build yet. Drop the pin once `make pins` reports one that ships r1.
-RUN apk add --no-cache openssl zlib=1.3.2-r1
+# No package pinned past the base: alpine:3.24.4 ships the zlib (CVE-2026-85091) and musl
+# (CVE-2026-107891) fixes the earlier base needed pins for. An exact pin outlives its use — Alpine's
+# index drops the build it names, and the image stops building — so a fix the base already has is not
+# pinned again.
+RUN apk add --no-cache openssl
 
 COPY entrypoint.sh /usr/local/bin/kern-certs
 
