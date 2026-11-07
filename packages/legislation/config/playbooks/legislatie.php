@@ -23,7 +23,8 @@ declare(strict_types=1);
  *    on each act, as it is for the SOAP service.
  *  - Each result is a `div.search_result_item`: a link to the act, then a paragraph carrying the same
  *    title line the SOAP service's `Titlu` does — name, EMITENT, PUBLICAT ÎN — then "Data intrarii in
- *    vigoare: 01 ianuarie 2016".
+ *    vigoare: 01 ianuarie 2016", which some results put after an empty paragraph, so it is found by
+ *    its label.
  *  - A search with no result, and a search the site could not run, are the same page: HTTP 500 with
  *    its "Pagina nu a fost gasita" error. Nothing on it tells them apart, so neither is claimed.
  */
@@ -66,7 +67,10 @@ return [
                             // As shown, not as marked up: the name and the "privind …" after it are
                             // separated by a <br>, which the markup's text runs together.
                             'title' => ['selector' => ':scope > p:nth-of-type(2)', 'rendered' => true],
-                            'in_force' => ['selector' => ':scope > p:nth-of-type(3)', 'rendered' => true],
+                            // By its label, not its place: an act whose result has an empty paragraph
+                            // before it (HG 4/2021, the 2021 minimum wage) has the date in the fourth,
+                            // and reading the third left an act never amended with no date to file.
+                            'in_force' => ['selector' => ':scope > p:has-text("Data intrarii in vigoare")', 'rendered' => true],
                             'link' => ['selector' => ':scope > p:nth-of-type(1) a', 'attr' => 'href'],
                         ],
                         'into' => 'acts',

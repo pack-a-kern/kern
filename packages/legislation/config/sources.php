@@ -58,6 +58,10 @@ return [
             // asked and the acts already found are the answer. Each page has its own limits in the
             // playbook; this is what stops twenty slow pages holding a browser for twenty minutes.
             'search_deadline_seconds' => (int) env('LEGISLATIE_SEARCH_DEADLINE_SECONDS', 90),
+            // How many times the site's search page, answering its error page, is asked again, and the
+            // pause between: it answered about half of the same searches either way on 2026-11-07.
+            'search_refused_retries' => (int) env('LEGISLATIE_SEARCH_REFUSED_RETRIES', 2),
+            'search_refused_pause_ms' => (int) env('LEGISLATIE_SEARCH_REFUSED_PAUSE_MS', 1500),
             'enabled' => true,
             // Which source is preferred when two publish the same data: 1 before 2. Every source is the
             // only one for its data today, so each is 1; a second rate provider would be 2.

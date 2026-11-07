@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Kern\Legislation\Actions\SyncLegislationDocument;
 use Kern\Legislation\Fetching\Exceptions\FetchSizeExceededException;
 use Kern\Legislation\Fetching\Exceptions\HostNotAllowedException;
@@ -191,7 +192,32 @@ it('stops asking for pages once the search has used its time, and answers with w
     Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains($request->data()['secrets']['url'] ?? '', 'page=2'));
 });
 
+// The site answered the same search with its error page and with its results, minutes apart.
+it('asks a refused first page again, and answers with the results when they come', function (): void {
+    Sleep::fake();
+    $asked = 0;
+
+    Http::fake(static function (HttpRequest $request) use (&$asked) {
+        $path = (string) parse_url($request->url(), PHP_URL_PATH);
+
+        return match (true) {
+            $path === '/v1/sessions' => Http::response(['session_id' => 's1', 'expires_at' => '2026-11-07T12:00:00+00:00'], 201),
+            $path === '/v1/sessions/s1' => Http::response(['destroyed' => true]),
+            default => ++$asked < 3
+                ? Http::response(['outcome' => 'refused', 'data' => [], 'timing_ms' => 1])
+                : Http::response(['outcome' => 'found', 'data' => ['acts' => [
+                    row("LEGE nr. 7 din 1 martie 2020\nprivind ceva\nEMITENT: PARLAMENTUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 1 din 2 martie 2020", '2 martie 2020', '7'),
+                ]], 'timing_ms' => 1]),
+        };
+    });
+
+    expect(app(PortalSearch::class)->byTitle('ceva'))->toHaveCount(1)
+        ->and($asked)->toBe(3);
+    Sleep::assertSleptTimes(2);
+});
+
 it('says the site refused the search, rather than that nothing matched, and closes the browser all the same', function (): void {
+    Sleep::fake();
     worker(['titlu=codul+fiscal' => 'refused']);
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();

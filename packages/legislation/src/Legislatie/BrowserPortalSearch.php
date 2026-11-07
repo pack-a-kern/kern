@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Legislation\Legislatie;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Support\Sleep;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
 use Kern\Legislation\Legislatie\Exceptions\PortalBrowserException;
 use Kern\Legislation\Legislatie\Exceptions\PortalSearchRefusedException;
@@ -143,6 +144,20 @@ final readonly class BrowserPortalSearch implements PortalSearchMethod
     {
         $url = $this->rule('url') . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC1738);
         $answer = $this->worker->runInSession($sessionId, $playbook, self::SEQUENCE, ['url' => $url]);
+
+        // The first page, refused, is asked again — the same page, the same way, never another: the
+        // site answered about half its searches with its error page on 2026-11-07 and the other half
+        // with their results, the same address minutes apart. A search with no result is refused
+        // every time and ends as one after the last try.
+        if ($first) {
+            $retries = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_retries');
+            $pause = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_pause_ms');
+
+            for ($try = 0; ($answer['outcome'] ?? null) === 'refused' && $try < $retries; $try++) {
+                Sleep::for($pause)->milliseconds();
+                $answer = $this->worker->runInSession($sessionId, $playbook, self::SEQUENCE, ['url' => $url]);
+            }
+        }
 
         return match ($answer['outcome'] ?? null) {
             'found' => $this->rows($answer),
