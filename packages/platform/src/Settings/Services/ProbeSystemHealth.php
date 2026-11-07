@@ -50,11 +50,13 @@ final readonly class ProbeSystemHealth
     }
 
     /**
+     * @param  bool  $browserWorker  false for a caller off `browser_net`, which cannot reach the worker:
+     *                                asking would only send its name, unresolved, to the host's DNS
      * @return list<ComponentHealth>
      */
-    public function __invoke(): array
+    public function __invoke(bool $browserWorker = true): array
     {
-        return [
+        return array_values(array_filter([
             $this->probe('database', function (): string {
                 DB::select('select 1');
 
@@ -83,10 +85,12 @@ final readonly class ProbeSystemHealth
             // a wrong token or none: a worker refusing this installation's token refuses every SPV run,
             // and looked healthy here until somebody tried one. Under BROWSER_AUTH_MODE=network it
             // answers without one, as it should.
-            $this->probeOptionalHttpService('browser_worker', StackService::browserWorker($this->config), '/v1/stats', authenticated: true),
+            $browserWorker
+                ? $this->probeOptionalHttpService('browser_worker', StackService::browserWorker($this->config), '/v1/stats', authenticated: true)
+                : null,
             $this->probeMail(),
             $this->probeCertificates(),
-        ];
+        ]));
     }
 
     /**

@@ -23,17 +23,6 @@ final readonly class WatchSystemHealth
 {
     public const string CACHE_KEY = 'system-health:down';
 
-    /**
-     * What the scheduled look leaves out, because it cannot see it from where it runs.
-     *
-     * The watch runs as a task, in the queue worker, and the browser worker sits on a network of its
-     * own (`browser_net`) that only the web process joins — it has a way out to the internet, and the
-     * workers holding the keys are kept off it on purpose (`compose.yaml`). From the queue it never
-     * answers, so counting it reported it down at every look while it was fine. It stays on the status
-     * screen, which probes from the web process, and the SPV screen says so itself when it is down.
-     */
-    private const array UNREACHABLE_FROM_WORKERS = ['browser_worker'];
-
     public function __construct(
         private ProbeSystemHealth $probe,
         private CacheRepository $cache,
@@ -48,7 +37,13 @@ final readonly class WatchSystemHealth
      */
     public function watch(): array
     {
-        return $this->record(($this->probe)());
+        // Not the browser worker. The watch runs as a task, in the queue worker, and the browser worker
+        // sits on a network of its own (`browser_net`) that only the web process joins: it has a way out
+        // to the internet, and the workers holding the keys are kept off it on purpose (`compose.yaml`).
+        // From the queue its name does not resolve, so asking reported it down at every look while it
+        // was fine, and sent `browser-worker` out to the host's DNS every five minutes. It stays on the
+        // status screen, which probes from the web process, and the SPV screen says when it is down.
+        return $this->record(($this->probe)(browserWorker: false));
     }
 
     /**
@@ -62,7 +57,7 @@ final readonly class WatchSystemHealth
         $down = [];
 
         foreach ($components as $component) {
-            if ($component->state === 'degraded' && ! in_array($component->key, self::UNREACHABLE_FROM_WORKERS, true)) {
+            if ($component->state === 'degraded') {
                 $down[] = $component->key;
             }
         }

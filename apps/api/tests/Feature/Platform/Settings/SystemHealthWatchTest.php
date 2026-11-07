@@ -6,10 +6,13 @@ namespace Tests\Feature\Platform\Settings\SystemHealthWatchTest;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 use Kern\Platform\Settings\DataTransferObjects\ComponentHealth;
 use Kern\Platform\Settings\Events\SystemHealthChanged;
+use Kern\Platform\Settings\Services\ProbeSystemHealth;
 use Kern\Platform\Settings\Services\WatchSystemHealth;
 
 /**
@@ -59,13 +62,25 @@ it('announces the recovery too', function (): void {
     Event::assertDispatched(SystemHealthChanged::class, fn (SystemHealthChanged $event): bool => $event->down === []);
 });
 
-it('leaves out the browser worker, which the queue worker it runs in cannot reach', function (): void {
-    $down = app(WatchSystemHealth::class)->record([
-        ComponentHealth::degraded('browser_worker', 'ConnectionException'),
-        ComponentHealth::degraded('object_storage'),
-    ]);
+// From the queue the worker's name does not resolve: asking would report it down at every look, and
+// send `browser-worker` to the host's DNS every five minutes.
+it('never asks the browser worker, which the queue worker it runs in cannot reach', function (): void {
+    Config::set('browser_worker.url', 'http://browser-worker:8090');
+    Http::fake(['http://browser-worker:8090/*' => Http::response(status: 500)]);
 
-    expect($down)->toBe(['object_storage']);
+    $down = app(WatchSystemHealth::class)->watch();
+
+    Http::assertNotSent(fn ($request): bool => str_starts_with($request->url(), 'http://browser-worker:8090'));
+    expect($down)->not->toContain('browser_worker');
+});
+
+it('still shows the browser worker on the status screen, which asks from the web process', function (): void {
+    Config::set('browser_worker.url', 'http://browser-worker:8090');
+    Http::fake(['http://browser-worker:8090/*' => Http::response(['active' => 0])]);
+
+    $keys = array_map(fn (ComponentHealth $component): string => $component->key, app(ProbeSystemHealth::class)());
+
+    expect($keys)->toContain('browser_worker');
 });
 
 it('broadcasts the keys only, on the administrators’ channel', function (): void {
