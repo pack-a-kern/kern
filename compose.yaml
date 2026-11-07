@@ -26,11 +26,12 @@
 #   edge_net        edge, app, reverb                              — not internal
 #   app_net         app, queue, scheduler, reverb,          — internal
 #                   redis, openbao
-#   processing_net  app, python-api,                        — not internal
+#   processing_net  app, queue, python-api,                 — not internal
 #                   clamav
 #   data_net        postgres, redis, app, queue,            — internal
 #                   scheduler
-#   browser_net     app, browser-worker                     — not internal
+#   browser_net     app, queue, browser-worker              — not internal
+#                   (queue: compose.services/browser.yaml)
 #
 # Networks stay declared here, all five, because every one of them has a member that is always
 # present: app alone joins edge_net, app_net, processing_net, browser_net and data_net. A

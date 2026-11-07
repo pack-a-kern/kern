@@ -55,6 +55,14 @@ final readonly class PortalActTitle
             : null;
     }
 
+    /** Where it was published, "MONITORUL OFICIAL" — the publication line before its number. */
+    public function journal(): ?string
+    {
+        $journal = self::clean(preg_split('/\bnr\./iu', $this->publication(), 2)[0] ?? '');
+
+        return $journal === '' ? null : $journal;
+    }
+
     /** The Monitorul Oficial issue, "688" or "688 bis". */
     public function journalNumber(): ?string
     {

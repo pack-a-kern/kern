@@ -25,8 +25,12 @@ use RuntimeException;
  * precedent `docs/handoff/005-crypto-core.md` set for `OpenBaoTransitKeyManagementService` — a
  * plain instance is directly testable, and `Http::fake()` still works when this class is resolved
  * through the container (the facade swaps the same underlying singleton).
+ *
+ * The direct way a page is read ({@see PageFetcher}); {@see SourcePageFetcher} chooses it for a source
+ * unless the settings send that source's pages through the browser worker. A SOAP call is always this
+ * way ({@see self::post()}).
  */
-final readonly class AllowlistedHttpFetcher
+final readonly class AllowlistedHttpFetcher implements PageFetcher
 {
     private const array REDIRECT_STATUSES = [301, 302, 303, 307, 308];
 
@@ -144,10 +148,7 @@ final readonly class AllowlistedHttpFetcher
 
     private function assertAllowedUrl(SourceDefinition $definition, string $url): void
     {
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        $host = parse_url($url, PHP_URL_HOST);
-
-        if ($scheme !== 'https' || ! is_string($host) || $host === '' || ! $definition->allowsHost($host)) {
+        if (! $definition->allowsUrl($url)) {
             throw HostNotAllowedException::forUrl($url);
         }
     }

@@ -38,6 +38,7 @@ final readonly class ResolvedSetting
             'key' => $this->key->value,
             'group' => $this->key->group()->value,
             'type' => $this->type->value,
+            'choices' => $this->key->choices(),
             'source' => $this->source->value,
             'value' => $this->value,
             'has_value' => $this->hasValue,

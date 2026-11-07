@@ -12,13 +12,23 @@ declare(strict_types=1);
 // mirrors this config into that table on first use of each code, and re-syncs the mirrored
 // columns (trust_tier/base_url/enabled) every time — this file remains the single source of
 // truth, the DB row is a cache for joins, never edited by hand.
-// How the crawler names itself to the sources that accept a non-browser client. A contact is the
-// operator's own — an address the source can write to about this installation's traffic — so there
-// is no default: unset, the crawler is named without one.
-$crawlerContact = trim((string) env('SOURCES_CRAWLER_CONTACT', ''));
-$crawlerUserAgent = 'Kern-RO-SourceCrawler/1.0' . ($crawlerContact !== '' ? " (contact: {$crawlerContact})" : '');
 
 return [
+
+    /*
+     * How the crawler names itself to every source that takes a client by its own name — each entry
+     * below with no `user_agent` of its own. Composed by `OfficialSourceRegistry` as
+     * "<name> (contact: <contact>)", so the two are set apart, on the settings screen as here.
+     *
+     * The contact is the operator's own — an address the source can write to about this installation's
+     * traffic — so there is no default: unset, the crawler is named without one.
+     */
+    'crawler' => [
+        // `?:`, not a default argument: an empty variable is a line someone left blank, which means the
+        // default, not a request sent with no name.
+        'name' => env('SOURCES_CRAWLER_NAME') ?: 'Kern-RO-SourceCrawler/1.0',
+        'contact' => env('SOURCES_CRAWLER_CONTACT', ''),
+    ],
 
     'entries' => [
 
@@ -27,9 +37,27 @@ return [
             'base_url' => 'https://legislatie.just.ro',
             'allowed_hosts' => ['legislatie.just.ro'],
             // Verified 2026-09-08 (docs/reference/anaf-spv-integration.md): this host returns
-            // 403 to a plain HTTP client and 200 once a realistic browser User-Agent is sent.
-            'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                . '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            // 403 to a plain HTTP client and 200 once a realistic browser User-Agent is sent. Only what
+            // this installation's own requests send; the browser worker's Chromium names itself.
+            'user_agent' => env('LEGISLATIE_USER_AGENT')
+                ?: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            // How the portal is asked, each on its own and never one in place of the other when it fails:
+            // a search (the screen's, and the import's own look-up of the act) through the SOAP service or
+            // the site's search page in a browser; a law's pages downloaded directly or opened in a
+            // browser. Both end in the same acts and the same HTML (`Kern\Legislation\Legislatie\Portal`).
+            'search' => env('LEGISLATIE_SEARCH', 'soap'),
+            'pages' => env('LEGISLATIE_PAGES', 'direct'),
+            // What the browser worker is sent for either, and how the site's search page is read.
+            'playbook' => 'playbooks.legislatie',
+            // Results to a page, by either search — the service answers ten at most whatever is asked,
+            // and the site shows ten — and pages read before giving up: an act number is shared by a
+            // handful of acts a year, and a title search is read to 200 acts at most.
+            'search_page_size' => 10,
+            'search_max_pages' => 20,
+            // How long one search may keep reading pages, all together: past it, no further page is
+            // asked and the acts already found are the answer. Each page has its own limits in the
+            // playbook; this is what stops twenty slow pages holding a browser for twenty minutes.
+            'search_deadline_seconds' => (int) env('LEGISLATIE_SEARCH_DEADLINE_SECONDS', 90),
             'enabled' => true,
             // Which source is preferred when two publish the same data: 1 before 2. Every source is the
             // only one for its data today, so each is 1; a second rate provider would be 2.
@@ -48,7 +76,6 @@ return [
             'trust_tier' => 'B',
             'base_url' => 'https://www.anaf.ro',
             'allowed_hosts' => ['anaf.ro', 'www.anaf.ro', 'static.anaf.ro'],
-            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
         ],
@@ -57,7 +84,6 @@ return [
             'trust_tier' => 'C',
             'base_url' => 'https://mfinante.gov.ro',
             'allowed_hosts' => ['mfinante.gov.ro'],
-            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
         ],
@@ -78,7 +104,6 @@ return [
             // 2026-09-15, the daily feed timed out with the default and answered in 0.16s with these.
             // Other sources accept the default, so they declare none.
             'tls_curves' => env('BNR_TLS_CURVES', 'X25519:P-256:P-384'),
-            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -108,7 +133,6 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.ecb.europa.eu',
             'allowed_hosts' => ['www.ecb.europa.eu'],
-            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [
@@ -137,7 +161,6 @@ return [
             'trust_tier' => 'D',
             'base_url' => 'https://www.gleif.org',
             'allowed_hosts' => ['www.gleif.org', 'mapping.gleif.org', 'api.gleif.org'],
-            'user_agent' => $crawlerUserAgent,
             'enabled' => true,
             'priority' => 1,
             'endpoints' => [

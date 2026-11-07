@@ -64,6 +64,43 @@ final readonly class StoredSettingsOverlay
         }
     }
 
+    /**
+     * What every setting's config path holds before anything stored is put over it — `.env` and the
+     * config files. Taken once, at boot, so {@see self::reapply()} has something to go back to.
+     *
+     * @return array<string, mixed> config path => value
+     */
+    public function defaults(): array
+    {
+        $defaults = [];
+
+        foreach (SettingKey::cases() as $setting) {
+            $defaults[$setting->configPath()] = $this->config->get($setting->configPath());
+        }
+
+        return $defaults;
+    }
+
+    /**
+     * The overlay again, for a process that outlives a request.
+     *
+     * A queue worker boots once and runs jobs for days; without this, a setting saved on the screen
+     * reached the web requests and never the jobs, which kept the value they booted with. Run between
+     * jobs, never during one. Each path goes
+     * back to its default first, so a setting cleared on the screen is cleared here too rather than left
+     * at the value it had when it was last stored. One cache read: the rows are cached until a save.
+     *
+     * @param  array<string, mixed>  $defaults  from {@see self::defaults()}
+     */
+    public function reapply(array $defaults): void
+    {
+        foreach ($defaults as $path => $value) {
+            $this->config->set($path, $value);
+        }
+
+        $this->apply();
+    }
+
     /** Forgets the cached overlay, so the next request reads the table again. */
     public static function forget(): void
     {

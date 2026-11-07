@@ -39,6 +39,23 @@ enum SettingType: string
      */
     case COUNTRY_LIST = 'country_list';
 
+    /** One of the values the key lists in `SettingKey::choices()` — a mode, not free text. */
+    case CHOICE = 'choice';
+
+    /**
+     * Text this installation sends in a request header, such as a User-Agent.
+     *
+     * Printable ASCII on one line and no longer than {@see self::MAX_HEADER_VALUE_LENGTH}: a line break
+     * in a header is a second header the sender never meant, and a byte outside ASCII is one a server is
+     * free to refuse.
+     */
+    case HEADER_VALUE = 'header_value';
+
+    /** How a source may reach this installation's operator: an e-mail address or an https URL, header-safe. */
+    case CONTACT = 'contact';
+
+    public const int MAX_HEADER_VALUE_LENGTH = 255;
+
     /**
      * How a boolean is stored, and how it is read back.
      *
@@ -140,6 +157,26 @@ enum SettingType: string
         return preg_match('/\A[A-Z]{2}\z/', $code) === 1
             && $code !== 'ZZ'
             && Locale::getDisplayRegion('-' . $code, 'en') !== $code;
+    }
+
+    /** Whether `$value` can be sent in a header as written: printable ASCII, one line, not blank. */
+    public static function isHeaderValue(string $value): bool
+    {
+        return trim($value) !== '' && preg_match('/\A[\x20-\x7E]{1,' . self::MAX_HEADER_VALUE_LENGTH . '}\z/', $value) === 1;
+    }
+
+    /** Whether `$value` is a contact a source can use — an e-mail address or an https URL — and header-safe. */
+    public static function isContact(string $value): bool
+    {
+        if (! self::isHeaderValue($value)) {
+            return false;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_EMAIL) !== false) {
+            return true;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_URL) !== false && parse_url($value, PHP_URL_SCHEME) === 'https';
     }
 
     /**

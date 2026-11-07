@@ -42,7 +42,7 @@ final class PlatformServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        foreach (['crypto', 'kern', 'tenancy'] as $file) {
+        foreach (['browser_worker', 'crypto', 'kern', 'tenancy'] as $file) {
             $this->mergeConfigFrom(__DIR__ . "/../config/{$file}.php", $file);
         }
 

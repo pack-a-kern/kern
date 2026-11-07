@@ -1381,6 +1381,10 @@ export interface Dictionary {
                 started: string;
                 busy: string;
                 portalDown: string;
+                /** The site's search page answered with its error page: nothing matched, or it failed. */
+                searchRefused: string;
+                browserBusy: string;
+                browserUnavailable: string;
             };
             law: {
                 /** A history stretch whose start is the portal note's day. */
@@ -1861,6 +1865,7 @@ export interface Dictionary {
                 ai: string;
                 documents: string;
                 sources: string;
+                legislation_portal: string;
                 fx: string;
                 spv: string;
                 security: string;
@@ -1868,7 +1873,11 @@ export interface Dictionary {
             };
             legend: { title: string; database: string; inherited: string; locked: string };
             lockedBadge: string;
+            /** The Official sources card's folded section of addresses, which are almost never changed. */
+            sourceAddresses: { title: string; hint: string };
             settingLabels: Record<string, string>;
+            /** A `choice` setting's values, by setting key then stored value. */
+            settingChoices: Record<string, Record<string, string> | undefined>;
             /** The Banks card: where logos are read from, and which banks still have none. */
             banks: {
                 /** `{path}` is the logo folder. */
@@ -1889,6 +1898,7 @@ export interface Dictionary {
                 ai: string;
                 documents: string;
                 sources: string;
+                legislation_portal: string;
                 fx: string;
                 spv: string;
                 security: string;

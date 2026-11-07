@@ -1548,6 +1548,11 @@ export const en = {
                 started: 'Import started. The act appears in the list once it is in.',
                 busy: 'An act is already being imported. Try again when it is done.',
                 portalDown: 'legislatie.just.ro did not answer. Try again in a moment.',
+                searchRefused:
+                    'legislatie.just.ro answered with its error page: nothing matched, or its search is failing. Check the words, or try again later.',
+                browserBusy: 'The browser that searches the portal is busy. Try again in a moment.',
+                browserUnavailable:
+                    'The browser that searches the portal is not available. Check the browser worker, or search through the web service in Settings.',
             },
             law: {
                 datedByNote: 'Dated by the portal’s note',
@@ -2050,6 +2055,7 @@ export const en = {
                 ai: 'AI document processing',
                 documents: 'Documents and uploads',
                 sources: 'Official sources',
+                legislation_portal: 'Legislation portal',
                 fx: 'Exchange rates',
                 spv: 'SPV — ANAF',
                 security: 'Security',
@@ -2062,6 +2068,10 @@ export const en = {
                 locked: 'Cannot be changed — it would corrupt data already saved.',
             },
             lockedBadge: 'locked',
+            sourceAddresses: {
+                title: 'Source addresses',
+                hint: 'Where each source is fetched from. Change one only when the source has moved.',
+            },
             banks: {
                 naming: 'Logos from {path}/<country>/<BIC>.svg, .png or .webp',
                 noFolder: 'Create {path}/RO/ and add logos as <BIC>.svg, .png or .webp',
@@ -2099,6 +2109,12 @@ export const en = {
                 'sources.fetch_timeout_seconds': 'Fetch timeout',
                 'sources.fetch_max_bytes': 'Maximum response size',
                 'sources.fetch_max_redirects': 'Redirects allowed',
+                'legislation.portal_search': 'Search the portal with',
+                'legislation.portal_pages': 'Read a law’s pages with',
+                'legislation.portal_user_agent': 'User agent for legislatie.just.ro',
+                'legislation.portal_timeout_seconds': 'Timeout for legislatie.just.ro',
+                'sources.crawler_name': 'User agent',
+                'sources.crawler_contact': 'Contact, added to the user agent',
                 'fx.verification_tolerance': 'Rate verification tolerance',
                 'fx.decimal_scale': 'Rate decimal scale',
                 'fx.currencies': 'Currencies this installation uses',
@@ -2115,11 +2131,23 @@ export const en = {
                 'security.hash_driver': 'Password hashing driver',
                 'banks.countries': 'Countries',
             },
+            settingChoices: {
+                'legislation.portal_search': {
+                    soap: 'Web service (SOAP)',
+                    browser: 'Browser (the site’s search page)',
+                },
+                'legislation.portal_pages': {
+                    direct: 'Direct download',
+                    browser: 'Browser',
+                },
+            },
             groupHints: {
                 ai: 'Which provider reads scanned documents. The key is never shown again after saving.',
                 documents: 'Size and rate limits for uploaded files.',
                 sources:
-                    'Where the official BNR exchange rates are fetched from. Legislation sources are fixed in code (an allowlist), not here.',
+                    'How the app names itself to BNR, ECB, GLEIF, ANAF and MF, and the limits on what it downloads from them. Which hosts may be fetched is fixed in code (an allowlist), not here.',
+                legislation_portal:
+                    'How legislatie.just.ro is searched and how a law’s pages are read. Each way is used alone: when it fails, it says so, and the other is not tried.',
                 fx: 'Tolerance between the locally calculated average and the one BNR publishes.',
                 spv: 'Message window and timeouts for the ANAF portal.',
                 security: 'How long sessions and authentication challenges last.',

@@ -150,6 +150,9 @@ final readonly class UpdateSettingsGroupController
                 : null,
             SettingType::CURRENCY_LIST => $this->currencyList($value),
             SettingType::COUNTRY_LIST => $this->countryList($value),
+            SettingType::CHOICE => is_string($value) && in_array($value, $key->choices(), true) ? $value : null,
+            SettingType::HEADER_VALUE => is_string($value) && SettingType::isHeaderValue($value) ? $value : null,
+            SettingType::CONTACT => is_string($value) && SettingType::isContact($value) ? $value : null,
         };
     }
 
@@ -222,6 +225,10 @@ final readonly class UpdateSettingsGroupController
             SettingType::STRING, SettingType::SECRET => 'Expected a non-empty value.',
             SettingType::CURRENCY_LIST => 'Expected three-letter currency codes.',
             SettingType::COUNTRY_LIST => 'Expected two-letter country codes, such as RO.',
+            SettingType::CHOICE => 'Expected one of: ' . implode(', ', $key->choices()) . '.',
+            SettingType::HEADER_VALUE => 'Expected plain text on one line, letters, digits and punctuation only, at most '
+                . SettingType::MAX_HEADER_VALUE_LENGTH . ' characters.',
+            SettingType::CONTACT => 'Expected an e-mail address or an https:// address.',
         };
     }
 }

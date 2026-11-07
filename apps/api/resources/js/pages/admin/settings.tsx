@@ -53,6 +53,7 @@ import {
     FilesIcon,
     GaugeIcon,
     GlobeIcon,
+    ScaleIcon,
     KeyRound,
     KeyRoundIcon,
     LandmarkIcon,
@@ -63,7 +64,6 @@ import {
     PlugZap,
     RefreshCw,
     RotateCcw,
-    ScanLineIcon,
     ServerIcon,
     ShieldCheckIcon,
     X,
@@ -91,6 +91,7 @@ type GroupKey = keyof Dictionary['pages']['adminSettings']['groups'];
 const AI_GROUP = 'ai';
 const DOCUMENTS_GROUP = 'documents';
 const BANKS_GROUP = 'banks';
+const SOURCES_GROUP = 'sources';
 
 /**
  * The mark on each card's head.
@@ -103,6 +104,7 @@ const GROUP_ICONS: Record<string, JSX.Element> = {
     ai: <BotIcon className="size-4" />,
     documents: <FilesIcon className="size-4" />,
     sources: <GlobeIcon className="size-4" />,
+    legislation_portal: <ScaleIcon className="size-4" />,
     fx: <BanknoteIcon className="size-4" />,
     spv: <LandmarkIcon className="size-4" />,
     security: <ShieldCheckIcon className="size-4" />,
@@ -404,7 +406,6 @@ export default function AdminSettings(): JSX.Element {
                                 />
                             ))}
 
-                            <DocumentPipelinePanel />
                             <SystemStatusPanel
                                 health={health}
                                 scheduler={platform?.scheduler ?? null}
@@ -488,6 +489,18 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
         );
     }
 
+    if (group.group === SOURCES_GROUP) {
+        return (
+            <SourcesPanel
+                group={group}
+                drafts={props.drafts}
+                onDraft={props.onDraft}
+                dirty={props.dirty}
+                actions={actions}
+            />
+        );
+    }
+
     if (group.group === DOCUMENTS_GROUP) {
         return (
             <UploadLimitsPanel
@@ -526,6 +539,62 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
                     />
                 ))}
             </FieldGrid>
+        </Panel>
+    );
+}
+
+/**
+ * Official sources: how this installation presents itself to them and the limits on what it fetches,
+ * first; where each one is fetched from, folded below.
+ *
+ * The addresses are a different kind of setting — changed when a source moves, which is rare — and
+ * listed among the identity and the limits they made the card read as a wall of URLs. Which is which
+ * is read from the setting's own type, so an address added later folds in with the rest.
+ */
+function SourcesPanel(props: {
+    group: SettingGroupPayload;
+    drafts: Draft;
+    onDraft: (key: string, value: string) => void;
+    dirty: boolean;
+    actions: ReactNode;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const isAddress = (setting: Setting): boolean => setting.type === 'url' || setting.key.endsWith('_url_template');
+    // Who it says it is, then what it will accept — the order a reader asks in.
+    const rank = (setting: Setting): number => (setting.type === 'header_value' || setting.type === 'contact' ? 0 : 1);
+    const general = props.group.settings.filter((setting) => !isAddress(setting)).sort((a, b) => rank(a) - rank(b));
+    const addresses = props.group.settings.filter(isAddress);
+
+    const field = (setting: Setting): JSX.Element => (
+        <SettingField
+            key={setting.key}
+            setting={setting}
+            draft={props.drafts[setting.key]}
+            onDraft={(value) => {
+                props.onDraft(setting.key, value);
+            }}
+        />
+    );
+
+    return (
+        <Panel
+            title={t((d) => d.pages.adminSettings.groups.sources)}
+            description={t((d) => d.pages.adminSettings.groupHints.sources)}
+            icon={GROUP_ICONS.sources}
+            aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
+            footActions={props.actions}
+        >
+            <FieldGrid>{general.map(field)}</FieldGrid>
+
+            {addresses.length === 0 ? null : (
+                <details className="border-border mt-4 border-t pt-4">
+                    <summary className="eyebrow cursor-pointer">
+                        {t((d) => d.pages.adminSettings.sourceAddresses.title)}
+                    </summary>
+                    <p className="note mt-1 mb-3">{t((d) => d.pages.adminSettings.sourceAddresses.hint)}</p>
+                    <FieldGrid>{addresses.map(field)}</FieldGrid>
+                </details>
+            )}
         </Panel>
     );
 }
@@ -732,6 +801,14 @@ function UploadLimitsPanel(props: {
                         />
                     ))}
                 </MetricGrid>
+
+                {/* What every upload goes through, beside the limits it is held to: one card for one
+                    subject, where these used to be a second card a reader had to connect to this one. */}
+                <section className="border-border mt-4 border-t pt-4">
+                    <h3 className="eyebrow">{t((d) => d.pages.adminSettings.pipeline.title)}</h3>
+                    <p className="note mt-1 mb-2">{t((d) => d.pages.adminSettings.pipeline.description)}</p>
+                    <DocumentPipelineRows />
+                </section>
             </Panel>
 
             <PanelDialog
@@ -1359,38 +1436,32 @@ function ConnectionDialog(props: {
 /**
  * Properties of the upload pipeline that are deliberately not configurable. They are on this screen
  * because "can I turn this off?" is a real question an administrator arrives with, and the honest
- * answer is worth showing — an absent control reads as an oversight.
+ * answer is worth showing — an absent control reads as an oversight. Shown in the uploads card.
  */
-function DocumentPipelinePanel(): JSX.Element {
+function DocumentPipelineRows(): JSX.Element {
     const { t } = useTranslation();
 
     return (
-        <Panel
-            title={t((d) => d.pages.adminSettings.pipeline.title)}
-            icon={<ScanLineIcon className="size-4" />}
-            description={t((d) => d.pages.adminSettings.pipeline.description)}
-        >
-            <RowList>
-                <Row
-                    title={t((d) => d.pages.adminSettings.pipeline.antivirus)}
-                    subtitle={t((d) => d.pages.adminSettings.pipeline.antivirusHint)}
-                >
-                    <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
-                </Row>
-                <Row
-                    title={t((d) => d.pages.adminSettings.pipeline.nativeText)}
-                    subtitle={t((d) => d.pages.adminSettings.pipeline.nativeTextHint)}
-                >
-                    <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
-                </Row>
-                <Row
-                    title={t((d) => d.pages.adminSettings.pipeline.encryption)}
-                    subtitle={t((d) => d.pages.adminSettings.pipeline.encryptionHint)}
-                >
-                    <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
-                </Row>
-            </RowList>
-        </Panel>
+        <RowList>
+            <Row
+                title={t((d) => d.pages.adminSettings.pipeline.antivirus)}
+                subtitle={t((d) => d.pages.adminSettings.pipeline.antivirusHint)}
+            >
+                <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
+            </Row>
+            <Row
+                title={t((d) => d.pages.adminSettings.pipeline.nativeText)}
+                subtitle={t((d) => d.pages.adminSettings.pipeline.nativeTextHint)}
+            >
+                <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
+            </Row>
+            <Row
+                title={t((d) => d.pages.adminSettings.pipeline.encryption)}
+                subtitle={t((d) => d.pages.adminSettings.pipeline.encryptionHint)}
+            >
+                <Pill tone="locked">{t((d) => d.pages.adminSettings.pipeline.alwaysOn)}</Pill>
+            </Row>
+        </RowList>
     );
 }
 
@@ -1630,6 +1701,17 @@ function SettingField(props: {
         >
             {isCurrencyList ? (
                 <CurrencyChoice id={setting.key} value={shown} disabled={setting.read_only} onChange={props.onDraft} />
+            ) : setting.type === 'choice' ? (
+                <PanelSelect
+                    id={setting.key}
+                    value={shown}
+                    disabled={setting.read_only}
+                    onValueChange={props.onDraft}
+                    options={setting.choices.map((choice) => ({
+                        value: choice,
+                        label: t((d) => d.pages.adminSettings.settingChoices[setting.key]?.[choice] ?? choice),
+                    }))}
+                />
             ) : isBoolean ? (
                 <div className="flex h-8 items-center">
                     <Switch

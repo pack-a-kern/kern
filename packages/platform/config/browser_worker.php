@@ -5,8 +5,10 @@ declare(strict_types=1);
 /*
  * `apps/browser-worker` — a browser this installation can send instructions to.
  *
- * Not an SPV concept. The worker drives whatever a playbook describes, and SPV is the first thing
- * described to it; this config was `spv.browser_worker` until that stopped being true.
+ * Not an SPV concept, and not a legislation one. The worker drives whatever a playbook describes —
+ * SPV's sign-in, the legislation portal's search — so its address and its client are the platform's
+ * ({@see \Kern\Platform\BrowserWorker\BrowserWorkerClient}), and each package brings only its playbook.
+ * This config was `spv.browser_worker`, then tax-romania's, until each of those stopped being true.
  *
  * Never reachable by the browser or the PWA (`BLUEPRINT.md` §13.4): it sits on a network with the
  * application and nothing else, and nothing is published to the host.
@@ -35,6 +37,7 @@ return [
      * that is still going and reports a worker that is working — which is a confusing way to describe a
      * slow website. ANAF's message list is served by a JSF application that takes tens of seconds to
      * render, and the playbook allows it 45; this allows for that plus the waiting and reading after it.
+     * Read on every call, so a change on the settings screen reaches a queue worker already running.
      */
     'timeout_seconds' => (int) env('BROWSER_WORKER_TIMEOUT_SECONDS', 120),
 

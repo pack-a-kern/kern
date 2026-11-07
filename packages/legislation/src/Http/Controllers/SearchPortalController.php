@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
+use Kern\Legislation\Legislatie\Exceptions\PortalBrowserException;
+use Kern\Legislation\Legislatie\Exceptions\PortalSearchRefusedException;
 use Kern\Legislation\Legislatie\PortalAct;
 use Kern\Legislation\Legislatie\PortalSearch;
 use Kern\Legislation\Queries\LegislationLibrary;
@@ -49,9 +51,11 @@ final class SearchPortalController
                 ? $search->byNumber((int) $query['number'], (int) $year)
                 : $search->byTitle(trim((string) ($query['title'] ?? '')), $year);
         } catch (PortalAnswerException|UnexpectedStatusException|ConnectionException) {
-            // 503, not the 502 a gateway would say: a proxy in front (Cloudflare) swaps an origin's 502
-            // for a page of its own, and the reader saw "Bad gateway" in place of this message.
-            return response()->json(['message' => __('legislation::laws.portal_unreachable')], 503);
+            return $this->notAnswered('portal_unreachable');
+        } catch (PortalSearchRefusedException) {
+            return $this->notAnswered('portal_search_refused');
+        } catch (PortalBrowserException $exception) {
+            return $this->notAnswered($exception->reason === PortalBrowserException::BUSY ? 'portal_browser_busy' : 'portal_browser_unavailable');
         }
 
         $type = $query['type'] ?? null;
@@ -77,5 +81,16 @@ final class SearchPortalController
                 'law_id' => $imported[$act->portalId() ?? ''] ?? null,
             ], $acts),
         ]);
+    }
+
+    /**
+     * A search that got no list of acts, said with the reason the screen words in its own language.
+     *
+     * 503, not the 502 a gateway would say: a proxy in front (Cloudflare) swaps an origin's 502 for a
+     * page of its own, and the reader saw "Bad gateway" in place of this message.
+     */
+    private function notAnswered(string $reason): JsonResponse
+    {
+        return response()->json(['message' => __('legislation::laws.' . $reason), 'reason' => $reason], 503);
     }
 }

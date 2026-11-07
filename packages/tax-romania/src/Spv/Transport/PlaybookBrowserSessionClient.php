@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Spv\Transport;
 
+use Closure;
 use DateTimeImmutable;
 use Exception;
-use Illuminate\Config\Repository as ConfigRepository;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\Factory as HttpFactory;
-use Illuminate\Http\Client\Response;
-use Kern\Platform\Http\StackService;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\BrowserWorker\BrowserWorkerClient;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserActionNotBuiltException;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserRunFailedException;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserSessionGoneException;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserWorkerAtCapacityException;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserWorkerUnavailableException;
 use Kern\TaxRomania\Spv\Contracts\SpvBrowserSessionClient;
 use Kern\TaxRomania\Spv\DataTransferObjects\PortalAuthResult;
 use Kern\TaxRomania\Spv\DataTransferObjects\SpvBrowserSession;
@@ -24,7 +27,8 @@ use Kern\TaxRomania\Spv\ValueObjects\SensitiveString;
 use Throwable;
 
 /**
- * Drives `apps/browser-worker` by sending it the SPV playbook.
+ * Drives `apps/browser-worker` by sending it the SPV playbook, through the platform's
+ * {@see BrowserWorkerClient} — which knows the worker's API, while this knows what SPV's answers mean.
  *
  * The worker knows nothing about ANAF: the URLs, the selectors and the states a login can reach all
  * travel with the request, from `config/playbooks/anaf_spv.php`. So the portal changing its HTML is
@@ -46,16 +50,14 @@ use Throwable;
 final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionClient
 {
     public function __construct(
-        private HttpFactory $http,
+        private BrowserWorkerClient $worker,
         private ConfigRepository $config,
-        private StackService $worker,
-        private int $timeoutSeconds,
     ) {
     }
 
     public function createSession(): SpvBrowserSession
     {
-        $payload = $this->post('/v1/sessions', ['playbook' => $this->playbook()]);
+        $payload = $this->spv(fn (): array => $this->worker->openSession($this->playbook()));
         $id = $payload['session_id'] ?? null;
         $expires = $payload['expires_at'] ?? null;
 
@@ -85,7 +87,11 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
 
     public function destroySession(string $browserSessionRef): void
     {
-        $this->send('delete', '/v1/sessions/' . rawurlencode($browserSessionRef), []);
+        $this->spv(function () use ($browserSessionRef): array {
+            $this->worker->closeSession($browserSessionRef);
+
+            return [];
+        });
     }
 
     public function fetchInbox(string $browserSessionRef): array
@@ -164,26 +170,7 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
      */
     private function run(string $sessionRef, string $sequence, array $secrets): array
     {
-        $response = $this->dispatch('post', '/v1/sessions/' . rawurlencode($sessionRef) . '/run', [
-            'playbook' => $this->playbook(),
-            'sequence' => $sequence,
-            'secrets' => $secrets,
-        ]);
-
-        /*
-         * The worker has no such session: it expired at its own TTL, or the worker was restarted and lost
-         * every browser it held. Either way the sitting is over and somebody signs in again — the same
-         * answer as the portal dropping the session, reached a different way, and better than the
-         * "not reachable" a restarted worker used to produce about a worker that had just answered.
-         *
-         * Here rather than in `decode()`, because the same status means something else on the way out: a
-         * 404 from `destroySession` is a browser already gone, which is what that call wanted.
-         */
-        if ($response->status() === 404) {
-            throw SpvSignInRequiredException::sessionLost();
-        }
-
-        return $this->decode($response);
+        return $this->spv(fn (): array => $this->worker->runInSession($sessionRef, $this->playbook(), $sequence, $secrets));
     }
 
     /**
@@ -223,93 +210,34 @@ final readonly class PlaybookBrowserSessionClient implements SpvBrowserSessionCl
     }
 
     /**
-     * @param  array<string, mixed>  $body
+     * A call to the worker, with its answers said in SPV's words.
+     *
+     * The callers above act on the difference between these: a full worker passes on its own, a refused
+     * run carries the portal's reason, and a lost session means signing in again — which a restarted
+     * worker used to report as "not reachable" about a worker that had just answered.
+     *
+     * @param  Closure(): array<string, mixed>  $call
      * @return array<string, mixed>
      */
-    private function post(string $path, array $body): array
+    private function spv(Closure $call): array
     {
-        return $this->send('post', $path, $body);
-    }
-
-    /**
-     * @param  array<string, mixed>  $body
-     * @return array<string, mixed>
-     */
-    private function send(string $method, string $path, array $body): array
-    {
-        return $this->decode($this->dispatch($method, $path, $body));
-    }
-
-    /**
-     * The worker's answer, undecoded.
-     *
-     * Separate because one status means different things depending on what was asked: a 404 from a run is
-     * a sitting that no longer exists, and a 404 from a teardown is a browser already gone — which is what
-     * the teardown wanted. `decode()` cannot tell them apart and should not try.
-     *
-     * @param  array<string, mixed>  $body
-     */
-    private function dispatch(string $method, string $path, array $body): Response
-    {
-        if (! $this->worker->isConfigured()) {
-            throw SpvWorkerUnavailableException::authenticationNotConfigured();
-        }
-
-        // The token is sent only when there is one. The worker decides whether it wants a token; a
-        // deployment that trusts the network it is on configures neither side, and this must not
-        // refuse on its behalf — which is what the client it replaces did.
-        $request = $this->worker->request($this->http, $this->timeoutSeconds)->asJson();
-
         try {
-            $response = $method === 'delete'
-                ? $request->delete($this->worker->url($path))
-                : $request->post($this->worker->url($path), $body);
-        } catch (ConnectionException $exception) {
-            throw SpvWorkerUnavailableException::requestFailed($exception);
-        } catch (Throwable $exception) {
-            throw SpvWorkerUnavailableException::requestFailed($exception);
-        }
-
-        return $response;
-    }
-
-    /** @return array<string, mixed> */
-    private function decode(Response $response): array
-    {
-        if ($response->status() === 501) {
-            // The worker saying a thing is not built, which is not the same fact as the worker
-            // being unreachable — and the callers above act on the difference.
+            return $call();
+        } catch (BrowserSessionGoneException) {
+            throw SpvSignInRequiredException::sessionLost();
+        } catch (BrowserActionNotBuiltException) {
             throw SpvPortalAutomationUnavailableException::forAction('run');
-        }
-
-        /*
-         * A run the worker attempted and could not finish, which it explains. Not the same fact as the
-         * worker being unreachable, and reported as such until it cost an evening: the status code was
-         * all that was read, so a timed-out selector arrived as a networking problem.
-         */
-        if ($response->status() === 502) {
-            $body = $response->json();
-            $message = is_array($body) && is_string($body['message'] ?? null) ? $body['message'] : '';
-
-            throw SpvRunFailedException::because($message);
-        }
-
-        // Full, which passes on its own — not unreachable, which it used to be reported as.
-        if ($response->status() === 503 && $response->json('error') === 'at_capacity') {
+        } catch (BrowserRunFailedException $exception) {
+            throw SpvRunFailedException::because($exception->workerMessage);
+        } catch (BrowserWorkerAtCapacityException) {
             throw SpvWorkerAtCapacityException::create();
+        } catch (BrowserWorkerUnavailableException $exception) {
+            throw match (true) {
+                ! $this->worker->isConfigured() => SpvWorkerUnavailableException::authenticationNotConfigured(),
+                $exception->getCode() > 0 => SpvWorkerUnavailableException::unexpectedResponse($exception->getCode()),
+                $exception->getPrevious() instanceof Throwable => SpvWorkerUnavailableException::requestFailed($exception),
+                default => SpvWorkerUnavailableException::malformedResponse(),
+            };
         }
-
-        if ($response->failed()) {
-            throw SpvWorkerUnavailableException::unexpectedResponse($response->status());
-        }
-
-        $payload = $response->json();
-
-        if (! is_array($payload)) {
-            throw SpvWorkerUnavailableException::malformedResponse();
-        }
-
-        /** @var array<string, mixed> $payload */
-        return $payload;
     }
 }

@@ -62,6 +62,7 @@ const UNITS: Record<string, DisplayUnit> = {
     'documents.upload_rate_limit_decay_seconds': identity('s'),
     'extraction.timeout_seconds': identity('s'),
     'sources.fetch_timeout_seconds': identity('s'),
+    'legislation.portal_timeout_seconds': identity('s'),
     'spv.challenge_ttl_seconds': identity('s'),
     'browser_worker.timeout_seconds': identity('s'),
     'security.webauthn_challenge_ttl_seconds': identity('s'),

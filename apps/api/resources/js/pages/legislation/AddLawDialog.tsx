@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { readPortalAct, searchPortal } from '../../api/legislationApi';
 import { EmptyState, Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
 import { useTranslation } from '../../i18n';
+import type { Dictionary } from '../../i18n/dictionary';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
@@ -77,7 +78,7 @@ export default function AddLawDialog({
         } catch (cause) {
             toast.error(
                 cause instanceof ApiError && cause.status === 503
-                    ? t((d) => d.pages.legislation.add.portalDown)
+                    ? t((d) => searchFailure(d.pages.legislation.add, cause.reason))
                     : describeApiFailure(cause, t),
             );
         } finally {
@@ -270,4 +271,21 @@ export default function AddLawDialog({
             </div>
         </PanelDialog>
     );
+}
+
+/**
+ * What a search that got no list says, by the reason the server gave. The site's search page answers a
+ * search with no result and one it could not run with the same error page, so that reason says both.
+ */
+function searchFailure(add: Dictionary['pages']['legislation']['add'], reason: string | undefined): string {
+    switch (reason) {
+        case 'portal_search_refused':
+            return add.searchRefused;
+        case 'portal_browser_busy':
+            return add.browserBusy;
+        case 'portal_browser_unavailable':
+            return add.browserUnavailable;
+        default:
+            return add.portalDown;
+    }
 }

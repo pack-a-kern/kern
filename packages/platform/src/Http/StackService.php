@@ -35,7 +35,7 @@ final readonly class StackService
         return self::fromConfig($config, 'services.processing.base_url', 'services.processing.auth_token', 'services.processing.ca_cert');
     }
 
-    /** The browser worker that drives the SPV portal. */
+    /** The browser worker, which drives whatever a playbook describes ({@see \Kern\Platform\BrowserWorker\BrowserWorkerClient}). */
     public static function browserWorker(ConfigRepository $config): self
     {
         return self::fromConfig($config, 'browser_worker.url', 'browser_worker.auth_token', 'browser_worker.ca_cert');

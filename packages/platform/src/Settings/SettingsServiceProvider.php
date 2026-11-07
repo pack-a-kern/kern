@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Settings;
 
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\ServiceProvider;
 use Kern\Platform\Console\Commands\Settings\CheckSystemHealthCommand;
 use Kern\Platform\Console\Commands\Settings\WatchSystemHealthCommand;
@@ -65,7 +67,19 @@ final class SettingsServiceProvider extends ServiceProvider
          *
          * Without this the screen wrote rows nobody read: see `StoredSettingsOverlay` for how thirty-one
          * of thirty-eight settings came to be decorative.
+         *
+         * And again on every turn of a queue worker's loop, from the defaults taken here: a worker boots
+         * once, and the settings saved after that are the ones its jobs must run with. `Looping` rather
+         * than a job event, because only `queue:work` loops — a job run inline (the `sync` driver) is
+         * inside a request that has just booted, and re-applying there would undo whatever the code
+         * running it had set.
          */
-        $this->app->make(StoredSettingsOverlay::class)->apply();
+        $overlay = $this->app->make(StoredSettingsOverlay::class);
+        $defaults = $overlay->defaults();
+        $overlay->apply();
+
+        $this->app->make(Dispatcher::class)->listen(Looping::class, static function () use ($overlay, $defaults): void {
+            $overlay->reapply($defaults);
+        });
     }
 }

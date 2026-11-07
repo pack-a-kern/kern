@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Legislation\DataTransferObjects\SourceDefinition;
 use Kern\Legislation\Enums\TrustTier;
 use Kern\Legislation\Exceptions\UnknownSourceException;
+use Kern\Platform\Settings\Enums\SettingType;
 use RuntimeException;
 
 /**
@@ -60,6 +61,35 @@ final readonly class OfficialSourceRegistry
     }
 
     /**
+     * The crawler as it names itself to a source with no name of its own to be called by:
+     * "Kern-RO-SourceCrawler/1.0 (contact: ops@example.ro)", or the name alone.
+     */
+    private function crawlerUserAgent(): string
+    {
+        $name = $this->config->get('sources.crawler.name');
+        $contact = $this->config->get('sources.crawler.contact');
+
+        if (! is_string($name) || ! SettingType::isHeaderValue($name)) {
+            throw new RuntimeException('config/sources.php must name the crawler (crawler.name) in text a header can carry.');
+        }
+
+        $contact = is_string($contact) ? trim($contact) : '';
+
+        if ($contact !== '' && ! SettingType::isContact($contact)) {
+            throw new RuntimeException('config/sources.php has a crawler.contact that is not an e-mail address or an https address.');
+        }
+
+        $userAgent = trim($name) . ($contact === '' ? '' : " (contact: {$contact})");
+
+        // Each half fits; together they may not.
+        if (! SettingType::isHeaderValue($userAgent)) {
+            throw new RuntimeException('The crawler name and contact together are too long for a User-Agent.');
+        }
+
+        return $userAgent;
+    }
+
+    /**
      * @param array<array-key, mixed> $entry
      */
     private function definitionFromArray(string $code, array $entry): SourceDefinition
@@ -72,6 +102,8 @@ final readonly class OfficialSourceRegistry
         $priority = $entry['priority'] ?? null;
         $tlsCurves = $entry['tls_curves'] ?? null;
         $timeoutSeconds = $entry['timeout_seconds'] ?? null;
+        $pages = $entry['pages'] ?? SourceDefinition::PAGES_DIRECT;
+        $playbook = $entry['playbook'] ?? null;
 
         if (! is_string($trustTier) || TrustTier::tryFrom($trustTier) === null) {
             throw new RuntimeException(sprintf('config/sources.php entry "%s" has an invalid or missing trust_tier.', $code));
@@ -95,8 +127,10 @@ final readonly class OfficialSourceRegistry
             $normalizedHosts[] = strtolower($host);
         }
 
-        if (! is_string($userAgent) || $userAgent === '') {
-            throw new RuntimeException(sprintf('config/sources.php entry "%s" must declare a non-empty user_agent.', $code));
+        // The same rule the settings screen holds a typed value to, for a value from `.env`: printable
+        // ASCII on one line. A line break in a header is a second header nobody meant to send.
+        if ($userAgent !== null && (! is_string($userAgent) || ! SettingType::isHeaderValue($userAgent))) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" has a user_agent that cannot be sent as a header.', $code));
         }
 
         if (! is_bool($enabled)) {
@@ -115,16 +149,32 @@ final readonly class OfficialSourceRegistry
             throw new RuntimeException(sprintf('config/sources.php entry "%s" has a timeout_seconds that is not a positive integer.', $code));
         }
 
+        if ($pages !== SourceDefinition::PAGES_DIRECT && $pages !== SourceDefinition::PAGES_BROWSER) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" reads its pages "direct" or "browser", not %s.', $code, json_encode($pages)));
+        }
+
+        if ($playbook !== null && (! is_string($playbook) || $playbook === '')) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" has a playbook that is not a config key.', $code));
+        }
+
+        // Refused here rather than at the first page: a source set to the browser with nothing to tell
+        // the browser is a configuration that cannot work, and it should not wait for a law to say so.
+        if ($pages === SourceDefinition::PAGES_BROWSER && $playbook === null) {
+            throw new RuntimeException(sprintf('config/sources.php entry "%s" reads its pages in a browser but names no playbook.', $code));
+        }
+
         return new SourceDefinition(
             code: $code,
             trustTier: TrustTier::from($trustTier),
             baseUrl: $baseUrl,
             allowedHosts: $normalizedHosts,
-            userAgent: $userAgent,
+            userAgent: $userAgent ?? $this->crawlerUserAgent(),
             enabled: $enabled,
             priority: $priority,
             tlsCurves: $tlsCurves,
             timeoutSeconds: $timeoutSeconds,
+            pages: $pages,
+            playbook: $playbook,
         );
     }
 }

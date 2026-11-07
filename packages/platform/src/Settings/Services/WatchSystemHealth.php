@@ -37,13 +37,7 @@ final readonly class WatchSystemHealth
      */
     public function watch(): array
     {
-        // Not the browser worker. The watch runs as a task, in the queue worker, and the browser worker
-        // sits on a network of its own (`browser_net`) that only the web process joins: it has a way out
-        // to the internet, and the workers holding the keys are kept off it on purpose (`compose.yaml`).
-        // From the queue its name does not resolve, so asking reported it down at every look while it
-        // was fine, and sent `browser-worker` out to the host's DNS every five minutes. It stays on the
-        // status screen, which probes from the web process, and the SPV screen says when it is down.
-        return $this->record(($this->probe)(browserWorker: false));
+        return $this->record(($this->probe)());
     }
 
     /**

@@ -9,7 +9,7 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
+use Kern\Legislation\Fetching\PageFetcher;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
 
 /**
@@ -46,7 +46,7 @@ final readonly class ConsolidationPages
     private const string DOCUMENT_PATH = '~/Public/DetaliiDocument(?:Afis)?/(\d+)~';
 
     public function __construct(
-        private AllowlistedHttpFetcher $fetcher,
+        private PageFetcher $fetcher,
         private ConfigRepository $config,
     ) {
     }

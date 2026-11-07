@@ -7,9 +7,9 @@ namespace Kern\Legislation\Services;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Kern\Legislation\DataTransferObjects\IngestedSourceDocument;
-use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
 use Kern\Legislation\Fetching\Exceptions\UnexpectedContentTypeException;
 use Kern\Legislation\Fetching\FetchedDocument;
+use Kern\Legislation\Fetching\PageFetcher;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
@@ -40,7 +40,7 @@ use Kern\Legislation\Storage\RawSourceObjectStore;
 final readonly class SourceIngestionService
 {
     public function __construct(
-        private AllowlistedHttpFetcher $fetcher,
+        private PageFetcher $fetcher,
         private RawSourceObjectStore $rawStore,
         private OfficialSourceRepository $sources,
     ) {

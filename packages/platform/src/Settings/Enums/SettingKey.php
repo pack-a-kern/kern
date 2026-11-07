@@ -83,6 +83,30 @@ enum SettingKey: string
     case SOURCES_FETCH_MAX_BYTES = 'sources.fetch_max_bytes';
     case SOURCES_FETCH_MAX_REDIRECTS = 'sources.fetch_max_redirects';
 
+    /**
+     * How the legislation portal is searched — its SOAP service, or its search page in the browser
+     * worker — and how a law's pages are read: downloaded directly, or opened in the browser.
+     *
+     * Two settings rather than one because they fail apart: the portal's search index can be down while
+     * its pages are served, and its pages can refuse a plain client while its search answers. Neither
+     * falls back to the other — a failure says what failed.
+     */
+    case LEGISLATION_PORTAL_SEARCH = 'legislation.portal_search';
+    case LEGISLATION_PORTAL_PAGES = 'legislation.portal_pages';
+
+    /** What this installation's own requests to the legislation portal call themselves. */
+    case LEGISLATION_PORTAL_USER_AGENT = 'legislation.portal_user_agent';
+
+    /**
+     * How long one request to the portal may take — its own, longer than the shared one: a
+     * consolidation of the Codul fiscal is several megabytes, and the portal is slow to serve it.
+     */
+    case LEGISLATION_PORTAL_TIMEOUT_SECONDS = 'legislation.portal_timeout_seconds';
+
+    /** How the crawler names itself to the other sources, and who they may write to about it. */
+    case SOURCES_CRAWLER_NAME = 'sources.crawler_name';
+    case SOURCES_CRAWLER_CONTACT = 'sources.crawler_contact';
+
     // FX verification (BLUEPRINT.md §7.4).
     case FX_VERIFICATION_TOLERANCE = 'fx.verification_tolerance';
 
@@ -205,7 +229,12 @@ enum SettingKey: string
             self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL, self::SOURCES_GLEIF_BIC_LEI_PAGE_URL,
             self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL,
             self::SOURCES_FETCH_TIMEOUT_SECONDS, self::SOURCES_FETCH_MAX_BYTES,
-            self::SOURCES_FETCH_MAX_REDIRECTS => SettingGroup::SOURCES,
+            self::SOURCES_FETCH_MAX_REDIRECTS, self::SOURCES_CRAWLER_NAME,
+            self::SOURCES_CRAWLER_CONTACT => SettingGroup::SOURCES,
+
+            self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES,
+            self::LEGISLATION_PORTAL_USER_AGENT,
+            self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => SettingGroup::LEGISLATION_PORTAL,
 
             self::FX_VERIFICATION_TOLERANCE, self::FX_DECIMAL_SCALE,
             self::FX_CURRENCIES => SettingGroup::FX,
@@ -252,6 +281,12 @@ enum SettingKey: string
             self::SOURCES_FETCH_TIMEOUT_SECONDS => 'sources.fetch.timeout_seconds',
             self::SOURCES_FETCH_MAX_BYTES => 'sources.fetch.max_response_bytes',
             self::SOURCES_FETCH_MAX_REDIRECTS => 'sources.fetch.max_redirects',
+            self::LEGISLATION_PORTAL_SEARCH => 'sources.entries.LEGISLATIE.search',
+            self::LEGISLATION_PORTAL_PAGES => 'sources.entries.LEGISLATIE.pages',
+            self::LEGISLATION_PORTAL_USER_AGENT => 'sources.entries.LEGISLATIE.user_agent',
+            self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => 'sources.entries.LEGISLATIE.timeout_seconds',
+            self::SOURCES_CRAWLER_NAME => 'sources.crawler.name',
+            self::SOURCES_CRAWLER_CONTACT => 'sources.crawler.contact',
             self::FX_VERIFICATION_TOLERANCE => 'sources.fx.verification_tolerance',
             self::FX_DECIMAL_SCALE => 'sources.fx.decimal_scale',
             self::FX_CURRENCIES => 'sources.fx.currencies',
@@ -284,9 +319,29 @@ enum SettingKey: string
             self::FX_VERIFICATION_TOLERANCE => SettingType::DECIMAL,
             self::FX_CURRENCIES => SettingType::CURRENCY_LIST,
             self::BANKS_COUNTRIES => SettingType::COUNTRY_LIST,
+            self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES => SettingType::CHOICE,
+            self::LEGISLATION_PORTAL_USER_AGENT, self::SOURCES_CRAWLER_NAME => SettingType::HEADER_VALUE,
+            self::SOURCES_CRAWLER_CONTACT => SettingType::CONTACT,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER => SettingType::STRING,
             default => SettingType::INTEGER,
+        };
+    }
+
+    /**
+     * The values a `CHOICE` key may hold, as stored — empty for every other key.
+     *
+     * Kept beside the key rather than read from the code that acts on it, so the screen and the server
+     * accept the same list and a value nothing understands cannot be saved.
+     *
+     * @return list<string>
+     */
+    public function choices(): array
+    {
+        return match ($this) {
+            self::LEGISLATION_PORTAL_SEARCH => ['soap', 'browser'],
+            self::LEGISLATION_PORTAL_PAGES => ['direct', 'browser'],
+            default => [],
         };
     }
 }

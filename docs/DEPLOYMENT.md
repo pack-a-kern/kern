@@ -134,7 +134,7 @@ isolated box, talking to the others over a private network.
 | `openbao` | The key manager. Holds the master key that protects every taxpayer's own encryption key. Section 5. | `compose.services/openbao.yaml` |
 | `clamav` | The virus scanner. Every uploaded file is scanned before the application will use it, and an upload that cannot be scanned is refused. | `compose.services/clamav.yaml` |
 | `python-api` | A small Python service the application uses internally: it extracts text from PDFs and computes search embeddings. It never touches the database. | `compose.services/python.yaml` |
-| `browser-worker` | A real headless Chrome (Playwright) that does what a *playbook* tells it — URLs, selectors, what each page looks like, all sent with the request. It knows no website of its own, and it gets no database password: if it is compromised it still cannot read the database. | `compose.services/browser.yaml` |
+| `browser-worker` | A real headless Chrome (Playwright) that does what a *playbook* tells it — URLs, selectors, what each page looks like, all sent with the request. It signs in to SPV, and reads the legislation portal when **Settings → Legislation portal** says to search it or read its pages through a browser. It knows no website of its own, and it gets no database password: if it is compromised it still cannot read the database. `app` and `queue` reach it on `browser_net`, which carries no database, cache or key manager; every page it opens goes through its own egress proxy, which refuses any host the playbook does not name and any address in a private network. | `compose.services/browser.yaml` |
 | `mailpit` | **Development only.** A fake mail server with a web inbox, so outgoing mail can be read instead of sent. | `compose.dev.yaml` |
 
 ### Which of them start: `COMPOSE_FILE`
@@ -237,6 +237,14 @@ the host ports, and the credentials the bundled Postgres, Redis and OpenBao cont
 with. The direction is the same throughout: **the application's variables are the truth, and the
 bundled infrastructure is created to match them.** That is why pointing `DB_HOST` or `AWS_ENDPOINT`
 at a service you already run needs no second edit anywhere.
+
+**`queue` on `browser_net`, a decision.** The law import runs in the queue, and so does the scheduled
+health watch, so the queue calls the browser worker and shares its network. What that opens: the
+browser worker can address the queue's container. It finds nothing there — the queue listens on no
+port — and the worker's browsers cannot be steered there either, because their egress proxy refuses
+private addresses. The queue had internet access already, through `processing_net`. The stricter
+alternative, a second queue worker that holds no keys and runs only the legislation jobs, is one
+container more to run for a gain the egress proxy already gives; it was not taken.
 
 `python-api` and `browser-worker` deliberately do **not** get the whole file. Each is handed only the
 few variables it needs, because they sit on networks that carry no database or object-storage

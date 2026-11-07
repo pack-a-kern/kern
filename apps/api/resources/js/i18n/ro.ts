@@ -1543,6 +1543,11 @@ export const ro = {
                 started: 'Importul a început. Actul apare în listă când este gata.',
                 busy: 'Un act se importă deja. Încearcă din nou când se termină.',
                 portalDown: 'legislatie.just.ro nu a răspuns. Încearcă din nou peste puțin timp.',
+                searchRefused:
+                    'legislatie.just.ro a răspuns cu pagina de eroare: nu s-a găsit nimic sau căutarea nu funcționează. Verifică termenii sau încearcă mai târziu.',
+                browserBusy: 'Browserul care caută pe portal este ocupat. Încearcă din nou peste puțin timp.',
+                browserUnavailable:
+                    'Browserul care caută pe portal nu este disponibil. Verifică browser-worker sau caută prin serviciul web, din Setări.',
             },
             law: {
                 datedByNote: 'Datat după nota portalului',
@@ -2051,6 +2056,7 @@ export const ro = {
                 ai: 'Procesare AI a documentelor',
                 documents: 'Documente și încărcare',
                 sources: 'Surse oficiale',
+                legislation_portal: 'Portalul legislativ',
                 fx: 'Curs valutar',
                 spv: 'SPV — ANAF',
                 security: 'Securitate',
@@ -2063,6 +2069,10 @@ export const ro = {
                 locked: 'Nu poate fi modificată — ar strica datele deja salvate.',
             },
             lockedBadge: 'blocat',
+            sourceAddresses: {
+                title: 'Adresele surselor',
+                hint: 'De unde se descarcă fiecare sursă. Se schimbă doar dacă sursa s-a mutat.',
+            },
             banks: {
                 naming: 'Sigle din {path}/<țară>/<BIC>.svg, .png sau .webp',
                 noFolder: 'Creează {path}/RO/ și adaugă siglele ca <BIC>.svg, .png sau .webp',
@@ -2100,6 +2110,12 @@ export const ro = {
                 'sources.fetch_timeout_seconds': 'Timp maxim descărcare',
                 'sources.fetch_max_bytes': 'Mărime maximă răspuns',
                 'sources.fetch_max_redirects': 'Redirecționări permise',
+                'legislation.portal_search': 'Căutare pe portal prin',
+                'legislation.portal_pages': 'Citirea paginilor unei legi prin',
+                'legislation.portal_user_agent': 'User agent pentru legislatie.just.ro',
+                'legislation.portal_timeout_seconds': 'Timp maxim pentru legislatie.just.ro',
+                'sources.crawler_name': 'User agent',
+                'sources.crawler_contact': 'Contact, adăugat la user agent',
                 'fx.verification_tolerance': 'Toleranță verificare curs',
                 'fx.decimal_scale': 'Precizie zecimală curs',
                 'fx.currencies': 'Monedele folosite în aplicație',
@@ -2116,11 +2132,23 @@ export const ro = {
                 'security.hash_driver': 'Algoritm de hash pentru parole',
                 'banks.countries': 'Țări',
             },
+            settingChoices: {
+                'legislation.portal_search': {
+                    soap: 'Serviciul web (SOAP)',
+                    browser: 'Browser (pagina de căutare a site-ului)',
+                },
+                'legislation.portal_pages': {
+                    direct: 'Descărcare directă',
+                    browser: 'Browser',
+                },
+            },
             groupHints: {
                 ai: 'Ce furnizor citește documentele scanate. Cheia nu este niciodată afișată după salvare.',
                 documents: 'Limite de mărime și ritm pentru fișierele încărcate.',
                 sources:
-                    'De unde se descarcă cursurile oficiale BNR. Sursele legislative sunt fixate în cod (listă albă), nu aici.',
+                    'Cum se prezintă aplicația la BNR, BCE, GLEIF, ANAF și MF și limitele pentru ce descarcă de la ele. Ce adrese pot fi descărcate e fixat în cod (o listă permisă), nu aici.',
+                legislation_portal:
+                    'Cum se caută pe legislatie.just.ro și cum se citesc paginile unei legi. Fiecare mod e folosit singur: când nu merge, spune asta, iar celălalt nu e încercat.',
                 fx: 'Toleranța la diferența dintre media calculată local și cea publicată de BNR.',
                 spv: 'Fereastra de mesaje și timpii de așteptare pentru portalul ANAF.',
                 security: 'Durata sesiunilor și a provocărilor de autentificare.',

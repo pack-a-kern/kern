@@ -11,12 +11,24 @@ export type SettingSource = 'database' | 'inherited';
 
 /** Mirrors `Kern\Platform\Settings\Enums\SettingType`. */
 export type SettingType =
-    'string' | 'integer' | 'decimal' | 'boolean' | 'url' | 'secret' | 'currency_list' | 'country_list';
+    | 'string'
+    | 'integer'
+    | 'decimal'
+    | 'boolean'
+    | 'url'
+    | 'secret'
+    | 'currency_list'
+    | 'country_list'
+    | 'choice'
+    | 'header_value'
+    | 'contact';
 
 export interface Setting {
     key: string;
     group: string;
     type: SettingType;
+    /** The values a `choice` may hold, as stored; empty for every other type. The server refuses any other. */
+    choices: string[];
     /** Where the effective value comes from. `database` means an override is stored here. */
     source: SettingSource;
     value: string | null;
@@ -46,6 +58,8 @@ function isSetting(value: unknown): value is Setting {
         typeof candidate.key === 'string' &&
         typeof candidate.group === 'string' &&
         typeof candidate.type === 'string' &&
+        Array.isArray(candidate.choices) &&
+        candidate.choices.every((choice) => typeof choice === 'string') &&
         (candidate.source === 'database' || candidate.source === 'inherited') &&
         (candidate.value === null || typeof candidate.value === 'string') &&
         typeof candidate.has_value === 'boolean' &&

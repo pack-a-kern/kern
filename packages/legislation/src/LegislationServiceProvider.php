@@ -13,6 +13,8 @@ use Kern\Legislation\Console\Commands\ReindexLegislationCommand;
 use Kern\Legislation\Console\Commands\SyncLegislationCommand;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
+use Kern\Legislation\Fetching\PageFetcher;
+use Kern\Legislation\Fetching\SourcePageFetcher;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\HttpEmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider;
@@ -53,6 +55,8 @@ final class LegislationServiceProvider extends ServiceProvider
 
         $this->mergeConfigFrom(__DIR__ . '/../config/legislation.php', 'legislation');
         $this->mergeConfigFrom(__DIR__ . '/../config/sources.php', 'sources');
+        // The portal as the browser worker is told to read it — used only when the settings say so.
+        $this->mergeConfigFrom(__DIR__ . '/../config/playbooks/legislatie.php', 'playbooks.legislatie');
         $this->mergeConfigFrom(__DIR__ . '/../config/ai/legislation.php', 'ai.legislation');
         $this->mergeConfigFrom(__DIR__ . '/../config/ai/embeddings.php', 'ai.embeddings');
 
@@ -85,6 +89,10 @@ final class LegislationServiceProvider extends ServiceProvider
                 is_int($timeoutSeconds) ? $timeoutSeconds : 15,
             );
         });
+
+        // Each source's pages the way its settings say — downloaded, or opened in the browser worker —
+        // decided per page, so a setting changed on the screen reaches an import already running.
+        $this->app->bind(PageFetcher::class, SourcePageFetcher::class);
 
         $this->app->singleton(RawSourceObjectStore::class, static function (Application $app): RawSourceObjectStore {
             $config = $app->make(ConfigRepository::class);

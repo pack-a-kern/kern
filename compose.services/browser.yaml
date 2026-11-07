@@ -1,8 +1,8 @@
 # browser-worker — one of the services an installation may run here or point elsewhere.
 #
-# The browser worker, for SPV automation. Leave this file out of COMPOSE_FILE and either
-# point BROWSER_WORKER_URL at one you already run, or do without SPV automation — nothing
-# else in the stack calls it.
+# The browser worker, for SPV automation and for reading the legislation portal through a browser when
+# the settings say so. Leave this file out of COMPOSE_FILE and either point BROWSER_WORKER_URL at one
+# you already run, or do without both — nothing else in the stack calls it.
 #
 # Compose merges files, so this one carries both halves of the choice: the service itself and
 # anything that waits for it. See docs/INSTALLER-PLAN.md §3 and the COMPOSE_FILE line in
@@ -87,14 +87,23 @@ services:
     volumes:
       - tls_browser_worker:/certs/out/browser_worker
 
-  # Its TLS address and the stack's CA, for the PHP containers — all three read the same config, and
-  # only `app` is on `browser_net` to call it. Listed here because they are true only with this worker:
-  # one you run elsewhere is BROWSER_WORKER_URL and BROWSER_WORKER_CA_CERT in `.env` instead.
+  # Its TLS address and the stack's CA, for the PHP containers — all three read the same config. Listed
+  # here because they are true only with this worker: one you run elsewhere is BROWSER_WORKER_URL and
+  # BROWSER_WORKER_CA_CERT in `.env` instead.
   app: &calls-browser-worker
     environment:
       BROWSER_WORKER_URL: https://browser-worker:8090
       BROWSER_WORKER_CA_CERT: /run/kern/tls-ca/ca.crt
-  queue: *calls-browser-worker
+
+  # `app` (compose.yaml) and `queue` are on `browser_net`, to call it. The queue because a law is read
+  # there — the import's search and its pages go through the browser when the settings say so — and
+  # because the scheduled health watch runs there; off it, the worker's name did not resolve, and the
+  # lookup went out to the host's DNS. The worker cannot call back: the queue listens on nothing, and no
+  # database, cache or key manager is on this network. `scheduler` only dispatches, and stays off it.
+  queue:
+    <<: *calls-browser-worker
+    networks:
+      - browser_net
   scheduler: *calls-browser-worker
 
 volumes:

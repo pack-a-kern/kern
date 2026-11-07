@@ -34,11 +34,32 @@ final readonly class SourceDefinition
         public ?string $tlsCurves = null,
         /** This source's own ceiling on one request, where the shared one is too short for it. */
         public ?int $timeoutSeconds = null,
+        /** How its pages are read: downloaded (`direct`), or opened by the browser worker (`browser`). */
+        public string $pages = self::PAGES_DIRECT,
+        /** The config key of the playbook the browser worker is sent for this source, if it has one. */
+        public ?string $playbook = null,
     ) {
     }
+
+    public const string PAGES_DIRECT = 'direct';
+
+    public const string PAGES_BROWSER = 'browser';
 
     public function allowsHost(string $host): bool
     {
         return in_array(strtolower($host), $this->allowedHosts, true);
+    }
+
+    /**
+     * Whether `$url` may be fetched for this source: https, and a host the allowlist names.
+     *
+     * One rule for every way a page is read — downloaded, or opened in a browser — so neither can be
+     * pointed somewhere the other would refuse.
+     */
+    public function allowsUrl(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return parse_url($url, PHP_URL_SCHEME) === 'https' && is_string($host) && $host !== '' && $this->allowsHost($host);
     }
 }
