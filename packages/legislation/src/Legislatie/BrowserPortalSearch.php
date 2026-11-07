@@ -187,13 +187,26 @@ final readonly class BrowserPortalSearch implements PortalSearchMethod
 
         return PortalAct::fromTitle(
             typeLabel: trim($heading['type'] ?? ''),
-            number: trim($heading['number'] ?? ''),
+            number: $this->number(trim($heading['number'] ?? '')),
             title: $title,
             issuer: null,
             officialJournal: $this->journal((new PortalActTitle($title))->journal()),
             inForceFrom: RomanianDateParser::parse($row['in_force'] ?? ''),
             link: $row['link'] ?? '',
         );
+    }
+
+    /**
+     * The act's number as the SOAP service writes it — "1071" — from the title's "1.071", whose dot only
+     * groups its thousands. Anything that is not digits grouped in threes is kept as the title writes it.
+     */
+    private function number(string $printed): string
+    {
+        $separator = $this->rule('number_group_separator');
+
+        return preg_match('/\A\d{1,3}(?:' . preg_quote($separator, '/') . '\d{3})+\z/', $printed) === 1
+            ? str_replace($separator, '', $printed)
+            : $printed;
     }
 
     /**

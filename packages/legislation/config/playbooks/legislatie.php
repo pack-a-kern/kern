@@ -102,6 +102,10 @@ return [
          */
         'heading_pattern' => '/^(?<type>.+?)\s+(?:nr\.\s*(?<number>\S+)\s+)?din\s/u',
 
+        // How a title groups a number's thousands: "HOTĂRÂRE nr. 1.071 din 4 octombrie 2021" is act
+        // 1071 — the number the SOAP service's `Numar` gives and the search asks for ("1071-2021").
+        'number_group_separator' => '.',
+
         /*
          * A journal as the SOAP service's own `Publicatie` field names it, by the name the results page
          * prints in its title line — in capitals there ("PUBLICAT ÎN: MONITORUL OFICIAL nr. 688 …"). So a

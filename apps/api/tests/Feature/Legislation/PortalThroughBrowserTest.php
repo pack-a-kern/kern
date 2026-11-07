@@ -130,6 +130,18 @@ it('searches the site by number in its own "numar-an" form, and reads each row a
     Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains($request->url(), 'legislatie.just.ro'));
 });
 
+// "HOTĂRÂRE nr. 1.071 din 4 octombrie 2021": the dot groups the thousands. Read as written it was
+// "1.071", which the screen sent as the decimal 1.071 and the import refused, and which no number equals.
+it('reads a number whose thousands the title groups with a dot as the number it is', function (): void {
+    worker(['numardoc=1071-2021' => [
+        row("HOTĂRÂRE nr. 1.071 din 4 octombrie 2021\npentru aprobarea ceva\nEMITENT: GUVERNUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 950 din 5 octombrie 2021", '5 octombrie 2021', '246892'),
+    ]]);
+
+    $act = app(PortalSearch::class)->find('HOTARARE', 1071, 2021);
+
+    expect([$act->number, $act->portalId()])->toBe(['1071', '246892']);
+});
+
 it('narrows a title search by its year on the site, and compares the year on each act as well', function (): void {
     worker(['titlu=salariului+minim&semnatinceputtext=2021&semnatsfarsittext=2021' => [
         row("HOTĂRÂRE nr. 4 din 13 ianuarie 2021\npentru stabilirea salariului de bază minim brut\nEMITENT: GUVERNUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 40 din 13 ianuarie 2021", '13 ianuarie 2021', '236118'),
