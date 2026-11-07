@@ -1145,6 +1145,18 @@ repair() {
 }
 
 finish() {
+    step 'Making sure the storage buckets exist'
+    # Object storage is an address this installation is given, and the buckets in it were never
+    # made by anything: an installation came up healthy — the health probe asks for a file, which a
+    # missing bucket answers the same way as a present one — and every upload then failed. The
+    # buckets are created here, with the application's own key, which may create a bucket and may
+    # not delete one (deploy/storage/create-app-key.sh). A bucket that exists is left as it is; one
+    # this key may not see is reported, not created over, because on a shared provider the name may
+    # be someone else's.
+    if ! in_app php artisan storage:buckets --create; then
+        die 'The object storage would not give this installation its buckets. Create them with your provider, or give the access key permission to create a bucket, and run `make install ARGS=--repair`.'
+    fi
+
     step 'Asking every service whether it is really there'
 
     # The one test in this script, and it runs from inside the container that has to reach each

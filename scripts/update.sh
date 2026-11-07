@@ -108,4 +108,6 @@ printf '── Migrating and starting release %s\n' "$VERSION"
 docker compose run --rm -T migrate
 docker compose up -d --no-build --remove-orphans --wait
 docker compose exec -T app php artisan kern:access:sync
+# A release can add a disk, and a bucket nothing created is an upload that fails with no reason given.
+docker compose exec -T app php artisan storage:buckets --create
 docker compose exec -T app php artisan kern:health
