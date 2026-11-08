@@ -151,13 +151,11 @@ it('refuses an address that could choose the path the request reaches', function
     'a port out of range' => 'http://provider.example:99999',
 ]);
 
-it('tests the saved address with the key saved alongside it', function (): void {
+it('tests the saved address with the key saved alongside it, by its model list', function (): void {
     $admin = anAdmin();
     savedProvider($this, $admin);
     Http::fake([
-        'provider.example/v1/chat/completions' => Http::response([
-            'choices' => [['message' => ['content' => 'pong'], 'finish_reason' => 'stop']],
-        ], 200),
+        'provider.example/v1/models' => Http::response(['data' => [['id' => 'gpt-5'], ['id' => 'gpt-5-mini']]], 200),
     ]);
 
     $response = $this->actingAs($admin, 'web')->postJson('/api/v1/settings/ai/test-connection')->assertOk();
@@ -165,8 +163,28 @@ it('tests the saved address with the key saved alongside it', function (): void 
     expect($response->json('success'))->toBeTrue()
         ->and($response->json('latency_ms'))->toBeInt();
 
-    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://provider.example/v1/chat/completions'
+    // The list, never a chat request: asking a model to answer is what loads it into memory.
+    Http::assertSentCount(1);
+    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://provider.example/v1/models'
         && $request->hasHeader('Authorization', 'Bearer sk-saved'));
+});
+
+it('fails a test whose model the provider does not serve, and logs why', function (): void {
+    $admin = anAdmin();
+    savedProvider($this, $admin);
+    Http::fake(['provider.example/v1/models' => Http::response(['data' => [['id' => 'gpt-4o']]], 200)]);
+
+    /** @var list<array<string, mixed>> $logged */
+    $logged = [];
+    Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$logged): void {
+        $logged[] = $event->context;
+    });
+
+    $this->actingAs($admin, 'web')->postJson('/api/v1/settings/ai/test-connection')
+        ->assertOk()
+        ->assertExactJson(['success' => false, 'error' => 'failed']);
+
+    expect($logged)->toContain(['operation' => 'test-connection', 'reason' => 'model_not_served']);
 });
 
 it('refuses an address, key or model sent to the connection test', function (string $field): void {

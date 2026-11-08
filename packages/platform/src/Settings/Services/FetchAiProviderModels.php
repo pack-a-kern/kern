@@ -27,7 +27,8 @@ final readonly class FetchAiProviderModels
     ) {
     }
 
-    public function __invoke(string $providerKey, string $baseUrl, ?string $apiKey): ModelListResult
+    /** `$operation` names the caller in the log: the model list itself, or the connection test asking it. */
+    public function __invoke(string $providerKey, string $baseUrl, ?string $apiKey, string $operation = 'list-models'): ModelListResult
     {
         $preset = $this->catalogue->find($providerKey);
 
@@ -51,21 +52,21 @@ final readonly class FetchAiProviderModels
         } catch (ConnectionException) {
             // The exception message can embed the full request URI; per BLUEPRINT.md §4.10 no
             // transport-exception text is ever forwarded to an HTTP response.
-            return $this->failed(AiProviderFailure::UNREACHABLE);
+            return $this->failed($operation, AiProviderFailure::UNREACHABLE);
         }
 
         if ($response->status() === 401 || $response->status() === 403) {
-            return $this->failed(AiProviderFailure::REJECTED_CREDENTIALS, $response->status());
+            return $this->failed($operation, AiProviderFailure::REJECTED_CREDENTIALS, $response->status());
         }
 
         if ($response->failed()) {
-            return $this->failed(AiProviderFailure::PROVIDER_ERROR, $response->status());
+            return $this->failed($operation, AiProviderFailure::PROVIDER_ERROR, $response->status());
         }
 
         $body = $response->json();
 
         if (! is_array($body)) {
-            return $this->failed(AiProviderFailure::INVALID_RESPONSE);
+            return $this->failed($operation, AiProviderFailure::INVALID_RESPONSE);
         }
 
         $models = $preset->modelsShape->extract($body);
@@ -74,13 +75,13 @@ final readonly class FetchAiProviderModels
         // and almost always means the endpoint answered with something other than a model list
         // (a proxy page, an Ollama with nothing pulled). Say so rather than showing "0 models".
         return $models === []
-            ? $this->failed(AiProviderFailure::NO_MODELS)
+            ? $this->failed($operation, AiProviderFailure::NO_MODELS)
             : ModelListResult::success($models);
     }
 
-    private function failed(AiProviderFailure $reason, ?int $httpStatus = null): ModelListResult
+    private function failed(string $operation, AiProviderFailure $reason, ?int $httpStatus = null): ModelListResult
     {
-        $reason->log('list-models', $httpStatus);
+        $reason->log($operation, $httpStatus);
 
         return ModelListResult::failed();
     }

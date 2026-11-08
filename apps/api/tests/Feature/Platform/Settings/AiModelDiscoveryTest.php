@@ -84,7 +84,25 @@ it('refuses to guess for a provider that publishes no model list', function (): 
     Http::assertNothingSent();
 });
 
-it('pings Anthropic on /v1/messages, so the preset can actually report a working connection', function (): void {
+it('tests Anthropic through its own model list and headers, so the preset can report a working connection', function (): void {
+    $settings = app(SettingsRepository::class);
+    $settings->set(SettingKey::AI_PROVIDER, 'anthropic', null);
+    $settings->set(SettingKey::AI_BASE_URL, 'https://api.anthropic.com', null);
+    $settings->set(SettingKey::AI_MODEL, 'a-model', null);
+    $settings->set(SettingKey::AI_API_KEY, 'sk-ant-test', null);
+
+    Http::fake([
+        'https://api.anthropic.com/v1/models' => Http::response(['data' => [['id' => 'a-model']]]),
+    ]);
+
+    expect(app(TestAiProviderConnection::class)()->toArray()['success'])->toBeTrue();
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.anthropic.com/v1/models'
+        && $request->hasHeader('x-api-key', 'sk-ant-test'));
+});
+
+it('pings, in its own dialect, only a provider that publishes no model list', function (): void {
+    config(['ai.providers.presets.anthropic.models_path' => null]);
     $settings = app(SettingsRepository::class);
     $settings->set(SettingKey::AI_PROVIDER, 'anthropic', null);
     $settings->set(SettingKey::AI_BASE_URL, 'https://api.anthropic.com', null);
@@ -99,22 +117,6 @@ it('pings Anthropic on /v1/messages, so the preset can actually report a working
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.anthropic.com/v1/messages'
         && $request->hasHeader('x-api-key', 'sk-ant-test'));
-});
-
-it('still pings OpenAI-compatible providers on /v1/chat/completions', function (): void {
-    $settings = app(SettingsRepository::class);
-    $settings->set(SettingKey::AI_PROVIDER, 'openai', null);
-    $settings->set(SettingKey::AI_BASE_URL, 'https://api.openai.com', null);
-    $settings->set(SettingKey::AI_MODEL, 'gpt-4o-mini', null);
-    $settings->set(SettingKey::AI_API_KEY, 'sk-test', null);
-
-    Http::fake([
-        'https://api.openai.com/v1/chat/completions' => Http::response([
-            'choices' => [['message' => ['content' => 'pong']]],
-        ]),
-    ]);
-
-    expect(app(TestAiProviderConnection::class)()->toArray()['success'])->toBeTrue();
 });
 
 it('lists models from the saved address with the key saved alongside it, whichever provider is named', function (): void {

@@ -23,6 +23,8 @@ enum AiProviderFailure: string
     case PROVIDER_ERROR = 'provider_error';
     case INVALID_RESPONSE = 'invalid_response';
     case NO_MODELS = 'no_models';
+    /** The provider answered with its models, and the one configured is not among them. */
+    case MODEL_NOT_SERVED = 'model_not_served';
 
     /** The address is not logged: it is in the settings, and the log is not the place for it twice. */
     public function log(string $operation, ?int $httpStatus = null): void
