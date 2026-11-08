@@ -66,6 +66,7 @@ export interface Dictionary {
         account: string;
         signOut: string;
         noActiveSubject: string;
+        manageSubjects: string;
         taxSubject: string;
         fiscalSnapshot: string;
         /** The declaration for `{year}`'s income. */
@@ -1818,7 +1819,6 @@ export interface Dictionary {
             currencyAdd: string;
             currencyRemove: string;
             currencyNone: string;
-            currencyChosen: string;
             forbidden: string;
             loadFailed: string;
             retry: string;

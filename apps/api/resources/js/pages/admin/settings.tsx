@@ -418,8 +418,12 @@ export default function AdminSettings(): JSX.Element {
                         </div>
 
                         {/* Outside the column flow: a five-column table does not belong in a
-                            narrow card track, and this one is read across rather than down. */}
-                        <OfficialSourcesPanel platform={platform} />
+                            narrow card track, and this one is read across rather than down. Not on a
+                            phone: it is a read-only list of what the code allows, looked at while
+                            configuring an installation, which is not done from one. */}
+                        <div className="hidden sm:block">
+                            <OfficialSourcesPanel platform={platform} />
+                        </div>
 
                         <Legend />
                     </>
@@ -1635,29 +1639,22 @@ function CurrencyChoice(props: {
     const options = (available ?? chosen).filter((code) => code !== BASE_CURRENCY);
 
     return (
-        <div className="space-y-2">
-            <PanelMultiSelect
-                id={props.id}
-                values={chosen}
-                // Alphabetical, not the order they were picked: this is a set of currencies, and a
-                // numbered chip would claim a precedence the setting does not have.
-                ordered={false}
-                searchable
-                options={options.map((code) => ({ value: code, label: code }))}
-                addLabel={t((d) => d.pages.adminSettings.currencyAdd)}
-                removeLabel={t((d) => d.pages.adminSettings.currencyRemove)}
-                placeholder={t((d) => d.pages.adminSettings.currencyNone)}
-                disabled={props.disabled}
-                onChange={(next) => {
-                    props.onChange(next.join(','));
-                }}
-            />
-            <p className="note">
-                {t((d) => d.pages.adminSettings.currencyChosen)
-                    .replace('{chosen}', String(chosen.length + 1))
-                    .replace('{available}', String(options.length + 1))}
-            </p>
-        </div>
+        <PanelMultiSelect
+            id={props.id}
+            values={chosen}
+            // Alphabetical, not the order they were picked: this is a set of currencies, and a
+            // numbered chip would claim a precedence the setting does not have.
+            ordered={false}
+            searchable
+            options={options.map((code) => ({ value: code, label: code }))}
+            addLabel={t((d) => d.pages.adminSettings.currencyAdd)}
+            removeLabel={t((d) => d.pages.adminSettings.currencyRemove)}
+            placeholder={t((d) => d.pages.adminSettings.currencyNone)}
+            disabled={props.disabled}
+            onChange={(next) => {
+                props.onChange(next.join(','));
+            }}
+        />
     );
 }
 

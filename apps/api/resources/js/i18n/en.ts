@@ -21,7 +21,7 @@ export const en = {
         adminSettings: 'System settings',
         taxRules: 'Tax rules',
         adminUsers: 'Users & roles',
-        adminOperations: 'Scheduled tasks',
+        adminOperations: 'Tasks',
         adminJobs: 'Queue',
         adminAudit: 'Audit',
         sections: {
@@ -79,6 +79,7 @@ export const en = {
         chooseSubject: 'Choose a taxpayer',
         chooseSubjectHint:
             'Everything you see belongs to one taxpayer. Pick the one to work in; you can switch any time from the menu.',
+        manageSubjects: 'Manage taxpayers',
         taxSubject: 'Taxpayer',
         fiscalSnapshot: 'Fiscal snapshot',
         declarationFor: 'Tax return {year}',
@@ -2003,7 +2004,6 @@ export const en = {
             currencyAdd: 'Add currency',
             currencyRemove: 'Remove this currency',
             currencyNone: 'Lei only',
-            currencyChosen: '{chosen} of {available} currencies BNR publishes',
             forbidden: 'You do not have administrator rights for these settings.',
             loadFailed: 'Settings could not be loaded.',
             retry: 'Retry',

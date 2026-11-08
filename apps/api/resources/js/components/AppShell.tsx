@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { logout } from '../api/authApi';
 import { listNotifications, markAllNotificationsRead } from '../api/notificationsApi';
 import ConnectionBanner from './ConnectionBanner';
 import SystemHealthBanner from './SystemHealthBanner';
@@ -51,15 +50,12 @@ import { getFilingDeadline } from '../api/fiscalParametersApi';
 import type { FilingDeadline } from '../types/fiscalParameters';
 import { refreshSharedAuth, useAppName, useSharedAuth } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import SubjectSwitcher, { SubjectChooser } from './SubjectSwitcher';
+import { ThemeToggle } from './ShellControls';
+import { signOut } from '../lib/signOut';
+import { useSettingsLink } from '../lib/settingsLink';
 import AppMark from './AppMark';
 import { EmptyState, PanelButton } from './panel';
 
@@ -254,16 +250,6 @@ function isActive(currentUrl: string, href: string): boolean {
     return match === href;
 }
 
-async function handleLogout(): Promise<void> {
-    try {
-        await logout();
-    } finally {
-        // Full navigation, not an Inertia visit — guarantees a fresh CSRF token on the login
-        // page's next document load (`resources/js/lib/csrf.ts`'s docblock).
-        window.location.assign('/login');
-    }
-}
-
 /**
  * Where a notice takes you: the path it names, inside this application and nowhere else.
  *
@@ -381,7 +367,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className="shell-control relative size-8 justify-center px-0"
+                    className="shell-control bar-icon relative size-8 justify-center px-0"
                     aria-label={t((d) => d.shell.notifications)}
                 >
                     <Bell className="size-4" />
@@ -447,35 +433,6 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                         </DropdownMenuItem>
                     ))}
                 </div>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
-
-function UserMenu(): JSX.Element {
-    const { t } = useTranslation();
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button type="button" className="shell-control px-1.5 pr-2" aria-label={t((d) => d.shell.account)}>
-                    <span className="bg-secondary text-secondary-foreground grid size-6 place-items-center rounded-lg text-2xs font-bold">
-                        <Users className="size-3.5" aria-hidden="true" />
-                    </span>
-                    <ChevronDown className="text-muted-foreground size-3" aria-hidden="true" />
-                </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                    <Link href="/account">{t((d) => d.nav.accountGroup)}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href="/taxpayers">{t((d) => d.nav.settingsSubjects)}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => void handleLogout()}>
-                    <LogOut className="size-4" /> {t((d) => d.shell.signOut)}
-                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -937,10 +894,52 @@ function SidebarBody({ collapsed, currentUrl }: { collapsed: boolean; currentUrl
                 navigation it scopes rather than among the appearance controls. */}
             {!collapsed && <FiscalSnapshot />}
 
-            <div className={cn('border-border border-t', collapsed ? 'p-2' : 'p-2.5')}>
+            <div className={cn('border-border grid gap-2 border-t', collapsed ? 'p-2' : 'p-2.5')}>
                 <SubjectSwitcher collapsed={collapsed} />
+                <QuickControls collapsed={collapsed} />
             </div>
         </>
+    );
+}
+
+/**
+ * Under the account card, what is reached for often enough to be one press rather than two:
+ * settings, light or dark, and signing out. Side by side under the card; stacked on the
+ * rail, where the card is only its mark.
+ */
+function QuickControls({ collapsed }: { collapsed: boolean }): JSX.Element {
+    const { t } = useTranslation();
+    const side = collapsed ? 'right' : 'top';
+    const settings = useSettingsLink();
+    const leave = t((d) => d.shell.signOut);
+
+    return (
+        <div className={cn('quick-controls', collapsed && 'quick-controls-rail')}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Link href={settings.href} className="shell-control quick-control" aria-label={settings.label}>
+                        <Settings className="size-4" aria-hidden="true" />
+                    </Link>
+                </TooltipTrigger>
+                <TooltipContent side={side}>{settings.label}</TooltipContent>
+            </Tooltip>
+            <ThemeToggle className="quick-control" />
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        type="button"
+                        className="shell-control quick-control quick-control-leave"
+                        aria-label={leave}
+                        onClick={() => {
+                            void signOut();
+                        }}
+                    >
+                        <LogOut className="size-4" aria-hidden="true" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent side={side}>{leave}</TooltipContent>
+            </Tooltip>
+        </div>
     );
 }
 
@@ -1086,10 +1085,14 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                             )}
                         </div>
 
-                        {/* Theme, palette and language are in the account's Appearance card: on every
-                            screen they took most of a phone's bar for a choice made once. */}
+                        {/* Palette and language are in the account's Appearance card: on every screen
+                            they took most of a phone's bar for a choice made once. Light or dark is
+                            reached for more often, so it stays one press away. */}
+                        {/* On a phone the sidebar's light/dark is out of reach, so the bar carries it. */}
+                        <div className="lg:hidden">
+                            <ThemeToggle className="bar-icon" />
+                        </div>
                         {auth !== null && auth.user.id !== '' && <NotificationsMenu userId={auth.user.id} />}
-                        <UserMenu />
                     </header>
 
                     {/*
@@ -1140,7 +1143,7 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                 footer={
                     <PanelButton
                         onClick={() => {
-                            void handleLogout();
+                            void signOut();
                         }}
                     >
                         <LogOut className="size-3.5" aria-hidden="true" />

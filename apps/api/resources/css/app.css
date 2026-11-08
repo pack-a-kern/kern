@@ -518,6 +518,24 @@
         box-shadow 0.12s ease;
 }
 
+/*
+ * A field the browser filled in keeps the field's own look. Chrome paints an autofilled field a pale
+ * blue, behind its `!important`, and its text near-black — on a dark card, dark on dark. The fill is
+ * the one thing a page cannot override, so it is held back instead: a transition that would take a
+ * week to reach it. The text is the page's, and so is the caret.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease,
+        background-color 604800s 0s,
+        color 604800s 0s;
+}
+
 /* A control whose answer is several chips rather than one line of text.
  *
  * `.ctl` is a fixed 2rem, which is right for a select showing one label and wrong the moment the
@@ -1311,28 +1329,121 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
- * The switcher in the phone's top bar: one chip at the bar's control height — the taxpayer's mark,
- * its name cut to fit, and a chevron where there is a choice. The same with one taxpayer as with
- * several, so the bar keeps its shape; the name's cap leaves the bell and the account their room.
+ * The account card in the phone's top bar: the taxpayer's mark beside its name over the signed-in
+ * email. A rounded rectangle on a soft tint rather than a bordered pill — it reads as who and for whom,
+ * not as one more button in the bar — taking a border and the card's ground while its sheet is open.
  */
-.shell-control.subject-chip {
+.account-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5625rem;
     min-width: 0;
-    max-width: min(11rem, 46vw);
-    gap: 0.4375rem;
-    padding-inline: 0.1875rem 0.5rem;
+    max-width: min(16rem, 64vw);
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    background: var(--secondary);
     color: var(--foreground);
+    text-align: left;
+    transition:
+        background-color 0.15s,
+        border-color 0.15s;
 }
 
-/* Nothing opens from it, so it does not answer a hover as a control would. */
-.shell-control.subject-chip-static:hover {
+.account-chip:hover,
+.account-chip[aria-expanded='true'] {
+    border-color: var(--border);
     background: var(--card);
 }
 
-.subject-chip-name {
+.account-chip:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.account-chip-text {
+    display: grid;
+    gap: 1px;
     min-width: 0;
+    line-height: 1.2;
+}
+
+.account-chip-name,
+.account-chip-mail {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.account-chip-name {
+    font-size: var(--text-xs);
+    font-weight: 600;
+}
+
+.account-chip-mail {
+    font-size: var(--text-2xs);
+    color: var(--muted-foreground);
+}
+
+/* The taxpayer's mark on the card, in the brand's colour: the one thing in the bar or the sidebar's
+   foot that says whose records these are. */
+.account-mark {
+    background: var(--primary);
+    color: var(--primary-foreground);
+}
+
+.account-chip .account-mark {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+}
+
+/* The bar's other controls on a phone, at the account chip's height beside it rather than 6px
+   short of it. From `lg` the bar has no chip, and they keep the shell's control size. */
+@media (width < 64rem) {
+    .shell-control.bar-icon {
+        width: 2.375rem;
+        height: 2.375rem;
+        border-radius: 0.75rem;
+    }
+
+    .shell-control.bar-icon svg {
+        width: 1.125rem;
+        height: 1.125rem;
+    }
+}
+
+/* The account's settings, light or dark, and signing out, under the card: three equal buttons in a
+   row, or stacked squares on the rail. */
+.quick-controls {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.quick-controls-rail {
+    flex-direction: column;
+    align-items: center;
+}
+
+.shell-control.quick-control {
+    flex: 1 1 0;
+    justify-content: center;
+    padding-inline: 0;
+}
+
+.quick-controls-rail > .shell-control.quick-control {
+    flex: none;
+    width: var(--ctl-h-sm);
+}
+
+.shell-control.quick-control-leave:hover {
+    color: var(--destructive);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .account-chip {
+        transition: none;
+    }
 }
 
 /*
@@ -3559,16 +3670,6 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2rem;
     height: 2rem;
     border-radius: var(--radius-xl);
-}
-/* The phone's taxpayer chip: the mark inside the bar's 32px control. */
-.avatar-tile-chip {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: var(--radius-md);
-}
-.avatar-accent {
-    background: var(--accent);
-    color: var(--accent-600);
 }
 /* In the switcher's menu: the taxpayer in use, and the others. */
 .avatar-current {

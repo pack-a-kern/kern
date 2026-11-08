@@ -21,7 +21,7 @@ export const ro = {
         adminSettings: 'Setări sistem',
         taxRules: 'Reguli fiscale',
         adminUsers: 'Utilizatori și roluri',
-        adminOperations: 'Sarcini programate',
+        adminOperations: 'Sarcini',
         adminJobs: 'Coadă',
         adminAudit: 'Audit',
         sections: {
@@ -79,6 +79,7 @@ export const ro = {
         chooseSubject: 'Alege contribuabilul',
         chooseSubjectHint:
             'Tot ce vezi aparține unui singur contribuabil. Alege-l pe cel cu care lucrezi; îl poți schimba oricând din meniu.',
+        manageSubjects: 'Gestionează contribuabilii',
         taxSubject: 'Contribuabil',
         fiscalSnapshot: 'Situație fiscală',
         declarationFor: 'Declarația unică {year}',
@@ -2003,7 +2004,6 @@ export const ro = {
             currencyAdd: 'Adaugă monedă',
             currencyRemove: 'Elimină moneda',
             currencyNone: 'Doar lei',
-            currencyChosen: '{chosen} din {available} monede publicate de BNR',
             forbidden: 'Nu ai drepturi de administrare pentru aceste setări.',
             loadFailed: 'Setările nu au putut fi încărcate.',
             retry: 'Reîncearcă',

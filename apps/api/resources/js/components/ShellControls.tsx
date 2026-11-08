@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { cn } from 'cn';
 import { Moon, Sun } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useTheme } from '../hooks/useTheme';
@@ -17,14 +18,14 @@ import { useTheme } from '../hooks/useTheme';
  * resolved themes; a first press from "system" lands on the opposite of whatever the OS says,
  * which is what someone reaching for the control wants.
  */
-export function ThemeToggle(): JSX.Element {
+export function ThemeToggle({ className }: { className?: string } = {}): JSX.Element {
     const { t } = useTranslation();
     const { resolved, setPreference } = useTheme();
 
     return (
         <button
             type="button"
-            className="shell-control size-8 justify-center px-0"
+            className={cn('shell-control size-8 justify-center px-0', className)}
             aria-label={t((d) => d.shell.changeTheme)}
             aria-pressed={resolved === 'dark'}
             onClick={() => {

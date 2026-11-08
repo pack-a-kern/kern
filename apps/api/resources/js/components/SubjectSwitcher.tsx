@@ -1,7 +1,10 @@
-import { Check, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { Check, ChevronDown, ChevronsUpDown, LogOut, Search, Settings, UserRound, Users } from 'lucide-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId, withoutSubjectLink } from '../lib/subjectStore';
-import { type SharedAuth } from '../lib/sharedProps';
+import { type SharedAuth, useSharedAuth } from '../lib/sharedProps';
+import { signOut } from '../lib/signOut';
+import { useSettingsLink } from '../lib/settingsLink';
 import { useActiveSubjectId, useOpenSubjects } from '../hooks/useActiveSubjectId';
 
 /** One row of the shared subject list — what the switcher draws. */
@@ -10,7 +13,7 @@ import { useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { initialsFor } from '../lib/initials';
 import { subjectAvatarUrl } from '../api/accountApi';
-import { Avatar, PanelDialog } from './panel';
+import { Avatar, PanelButton, PanelDialog } from './panel';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -97,6 +100,36 @@ function SubjectOption({ subject, current }: { subject: SubjectRow; current: boo
     );
 }
 
+/** The taxpayers as rows to press, in a dialog: the one in use ticked, any other opened when chosen. */
+function SubjectList({ subjects, currentId }: { subjects: SubjectRow[]; currentId: string | null }): JSX.Element {
+    const { t } = useTranslation();
+
+    if (subjects.length === 0) {
+        return (
+            <p className="text-muted-foreground px-3 py-7 text-center text-xs">{t((d) => d.shell.noSubjectsFound)}</p>
+        );
+    }
+
+    return (
+        <div className="grid gap-1">
+            {subjects.map((subject) => (
+                <button
+                    key={subject.id}
+                    type="button"
+                    className="hover:bg-accent/60 flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                    onClick={() => {
+                        if (subject.id !== currentId) {
+                            openSubject(subject.id);
+                        }
+                    }}
+                >
+                    <SubjectOption subject={subject} current={subject.id === currentId} />
+                </button>
+            ))}
+        </div>
+    );
+}
+
 /**
  * Asks which taxpayer to work in, where there are several and none is chosen yet — a new device, a
  * cleared browser, a choice that was closed or revoked.
@@ -130,62 +163,45 @@ export function SubjectChooser({ footer }: { footer: ReactNode }): JSX.Element |
         >
             <div className="space-y-2">
                 <SubjectSearch value={query} onChange={setQuery} />
-                {matches.length === 0 ? (
-                    <p className="text-muted-foreground px-3 py-7 text-center text-xs">
-                        {t((d) => d.shell.noSubjectsFound)}
-                    </p>
-                ) : (
-                    <div className="grid gap-1">
-                        {matches.map((subject) => (
-                            <button
-                                key={subject.id}
-                                type="button"
-                                className="hover:bg-accent/60 flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left"
-                                onClick={() => {
-                                    openSubject(subject.id);
-                                }}
-                            >
-                                <SubjectOption subject={subject} current={false} />
-                            </button>
-                        ))}
-                    </div>
-                )}
+                <SubjectList subjects={matches} currentId={null} />
             </div>
         </PanelDialog>
     );
 }
 
 /**
- * The topbar's compact "which tax subject am I working on" switcher — every other page still
- * reads `resources/js/lib/subjectStore.ts` once per mount (`docs/handoff/030-pwa-frontend.md`), so
- * switching here does a full navigation rather than a client-side state update, guaranteeing every
- * already-mounted page re-reads the new value instead of a subset silently going stale. Only the
- * first page of subjects is listed — a user with more than that manages the rest from
- * `/taxpayers` (`resources/js/pages/settings/subjects.tsx`, linked below), which already
- * paginates.
+ * The account card: whose records the page shows (the taxpayer) and who is looking (the signed-in
+ * email), and from it everything about either — switching taxpayer, managing them, the account, and
+ * signing out. At the foot of the sidebar, and in the phone's top bar as a compact two-line chip.
+ *
+ * Switching does a full navigation rather than a client-side state update: every page reads
+ * `lib/subjectStore.ts` once per mount (`docs/handoff/030-pwa-frontend.md`), so a reload is what
+ * guarantees none of them goes on showing the last taxpayer's figures. Only the first page of
+ * subjects is listed — more than that are managed from `/taxpayers`, which paginates.
  */
-
 export default function SubjectSwitcher({
-    /** Rail mode: the sidebar is collapsed, so only the initials tile fits. */
+    /** Rail mode: the sidebar is collapsed, so only the taxpayer's mark fits. */
     collapsed = false,
     bare = false,
 }: {
     collapsed?: boolean;
     /**
-     * The phone's top bar: one compact chip — the mark, the name cut to fit, and a chevron where
-     * there is a choice — the same with one taxpayer as with several, so the bar does not change
-     * shape with the number of taxpayers. Its menu opens across the screen rather than off the chip.
+     * The phone's top bar: a compact chip, the taxpayer's mark beside the name over the email, and a
+     * menu that opens across the screen rather than off the chip.
      */
     bare?: boolean;
 } = {}): JSX.Element {
     const { t } = useTranslation();
     // Carried by the page rather than fetched: `HandleInertiaRequests::share()` sends them with
-    // every authenticated response, so the sidebar draws its taxpayer on the first paint instead
-    // of blank-then-filled. Closed ones are left out — a closed taxpayer is kept for its records,
-    // not for filing against, and offering it here would be offering a choice that leads nowhere.
+    // every authenticated response, so the card draws its taxpayer on the first paint instead of
+    // blank-then-filled. Closed ones are left out — a closed taxpayer is kept for its records, not
+    // for filing against, and offering it here would be offering a choice that leads nowhere.
     const subjects = useOpenSubjects();
     const resolvedId = useActiveSubjectId();
+    const email = useSharedAuth()?.user.email ?? '';
     const [query, setQuery] = useState('');
+    const [sheetOpen, setSheetOpen] = useState(false);
+    const settings = useSettingsLink();
 
     const matches = matching(subjects, query);
 
@@ -201,116 +217,139 @@ export default function SubjectSwitcher({
     }, [resolvedId]);
 
     const active = subjects.find((subject) => subject.id === resolvedId);
-
-    // A tile that only ever has one answer is not a control. With a single taxpayer the switcher
-    // still names what the page's figures belong to — that is worth showing — but nothing opens,
-    // because a menu offering the choice already made is a click that changes nothing.
-    const switchable = subjects.length > 1;
-
     const name = active ? active.displayName : t((d) => d.shell.noActiveSubject);
 
+    // A search box over one or two names is a box nobody needs.
+    const searchable = subjects.length > 2;
+
     /*
-     * The phone's chip, as a label where there is no choice and as the menu's button where there is:
-     * one shape either way. It was a bare 46px picture with one taxpayer and the sidebar's full
-     * two-line tile with several — the largest thing in the bar, in two different designs.
+     * On a phone the card opens a window over a dimmed page rather than a menu off the chip: it is
+     * the whole of who and for whom — the taxpayers, the links, settings and signing out — and a
+     * phone gives that the screen, the way its own account screens do.
      */
-    const chip = (button: boolean): JSX.Element => {
-        const inside = (
+    if (bare) {
+        return (
             <>
-                <SubjectDisc subject={active} className="avatar-tile avatar-tile-chip avatar-accent" />
-                <span className="subject-chip-name">{name}</span>
-                {button && <ChevronDown className="text-muted-foreground size-3 shrink-0" aria-hidden="true" />}
+                <button
+                    type="button"
+                    className="account-chip"
+                    aria-haspopup="dialog"
+                    aria-label={t((d) => d.shell.account)}
+                    onClick={() => {
+                        setSheetOpen(true);
+                    }}
+                >
+                    <SubjectDisc subject={active} className="avatar-tile account-mark" />
+                    <span className="account-chip-text">
+                        <span className="account-chip-name">{name}</span>
+                        {email === '' ? null : <span className="account-chip-mail">{email}</span>}
+                    </span>
+                    <ChevronDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+                </button>
+                <PanelDialog
+                    open={sheetOpen}
+                    onOpenChange={setSheetOpen}
+                    title={name}
+                    {...(email === '' ? {} : { description: email })}
+                    size="sm"
+                    dismissOnOutsideClick
+                    actions={
+                        <>
+                            <PanelButton
+                                onClick={() => {
+                                    setSheetOpen(false);
+                                    router.visit(settings.href);
+                                }}
+                            >
+                                <Settings className="size-3.5" aria-hidden="true" />
+                                {settings.label}
+                            </PanelButton>
+                            <PanelButton
+                                variant="destructive"
+                                onClick={() => {
+                                    void signOut();
+                                }}
+                            >
+                                <LogOut className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.shell.signOut)}
+                            </PanelButton>
+                        </>
+                    }
+                >
+                    <div className="space-y-2">
+                        {searchable && <SubjectSearch value={query} onChange={setQuery} />}
+                        <p className="eyebrow px-2">{t((d) => d.shell.taxSubject)}</p>
+                        <SubjectList subjects={matches} currentId={resolvedId} />
+                        <div className="border-border grid gap-1 border-t pt-2">
+                            {[
+                                { href: '/taxpayers', icon: Users, label: t((d) => d.shell.manageSubjects) },
+                                { href: '/account', icon: UserRound, label: t((d) => d.nav.accountGroup) },
+                            ].map((link) => (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    className="hover:bg-accent/60 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm"
+                                    onClick={() => {
+                                        setSheetOpen(false);
+                                    }}
+                                >
+                                    <link.icon className="text-muted-foreground size-4" aria-hidden="true" />
+                                    {link.label}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </PanelDialog>
             </>
         );
-
-        return button ? (
-            <button type="button" className="shell-control subject-chip" aria-label={t((d) => d.shell.taxSubject)}>
-                {inside}
-            </button>
-        ) : (
-            <div className="shell-control subject-chip subject-chip-static" title={name}>
-                {inside}
-            </div>
-        );
-    };
-
-    const tile = bare ? (
-        chip(false)
-    ) : (
-        <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
-            <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
-            {!collapsed && (
-                <span className="min-w-0 flex-1">
-                    <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
-                        {t((d) => d.shell.taxSubject)}
-                    </span>
-                    <span className="text-foreground block truncate text-xs font-semibold">{name}</span>
-                </span>
-            )}
-        </div>
-    );
-
-    if (!switchable) {
-        return tile;
     }
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                {bare ? (
-                    chip(true)
-                ) : (
-                    /* A bordered tile at the foot of the sidebar rather than a bare button: it names
-                       the thing every figure on the page belongs to, so it should look like a control
-                       you can change, not a label. */
-                    <button
-                        type="button"
-                        className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
-                    >
-                        <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
-                        {!collapsed && (
-                            <>
-                                <span className="min-w-0 flex-1">
-                                    <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
-                                        {t((d) => d.shell.taxSubject)}
-                                    </span>
-                                    <span className="text-foreground block truncate text-xs font-semibold">{name}</span>
-                                </span>
-                                <ChevronsUpDown
-                                    className="text-muted-foreground size-3.5 shrink-0"
-                                    aria-hidden="true"
-                                />
-                            </>
-                        )}
-                    </button>
-                )}
+                <button
+                    type="button"
+                    className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
+                    aria-label={collapsed ? t((d) => d.shell.account) : undefined}
+                >
+                    <SubjectDisc subject={active} className="avatar-tile account-mark" />
+                    {!collapsed && (
+                        <>
+                            <span className="min-w-0 flex-1">
+                                <span className="text-foreground block truncate text-xs font-semibold">{name}</span>
+                                {email === '' ? null : (
+                                    <span className="text-muted-foreground block truncate text-2xs">{email}</span>
+                                )}
+                            </span>
+                            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+                        </>
+                    )}
+                </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-                // Expanded, the menu rises from a trigger that already spans the sidebar, so it
-                // takes that width. Collapsed to the rail, the trigger is a 48px tile — matching it
-                // would squeeze the menu to a sliver — so it opens to the *right* of the rail at a
-                // fixed 280px, bottom-aligned, exactly as the design's `.rail #subjectMenu` does.
-                // On the phone it drops below the chip across the screen (`.shell-sheet-menu`).
-                align={bare ? 'center' : 'end'}
-                side={bare ? 'bottom' : collapsed ? 'right' : 'top'}
-                sideOffset={collapsed ? 16 : bare ? 8 : 4}
-                collisionPadding={bare ? 12 : 0}
+                // Expanded, the menu rises from a card that already spans the sidebar, so it takes that
+                // width. On the rail the card is a 48px tile — matching it would squeeze the menu to a
+                // sliver — so it opens to the rail's right at a fixed 280px, bottom-aligned.
+                align="end"
+                side={collapsed ? 'right' : 'top'}
+                sideOffset={collapsed ? 16 : 4}
+                collisionPadding={0}
                 // The list inside scrolls, so the search box stays put while it does. Radix puts a
                 // max-height and its own scrollbar on the content by default; left on, the two nest
                 // and the menu collapses to whatever height the outer one computes.
                 className={
-                    bare
-                        ? 'shell-sheet-menu max-h-none overflow-hidden p-0'
-                        : collapsed
-                          ? 'max-h-none w-[280px] overflow-hidden p-0'
-                          : 'w-(--radix-dropdown-menu-trigger-width) max-h-none overflow-hidden p-0'
+                    collapsed
+                        ? 'max-h-none w-[280px] overflow-hidden p-0'
+                        : 'w-(--radix-dropdown-menu-trigger-width) max-h-none overflow-hidden p-0'
                 }
             >
-                {/* Filtering, not searching the server: this list is the first page of subjects, so
-                    the box narrows what is already here rather than implying there is more. */}
-                <div className="border-border border-b p-2">
-                    <SubjectSearch value={query} onChange={setQuery} />
-                </div>
+                {searchable && (
+                    // Filtering, not searching the server: this list is the first page of subjects,
+                    // so the box narrows what is already here rather than implying there is more.
+                    <div className="border-border border-b p-2">
+                        <SubjectSearch value={query} onChange={setQuery} />
+                    </div>
+                )}
 
                 <div className="max-h-64 overflow-y-auto p-1.5">
                     {matches.length === 0 && (
@@ -323,12 +362,30 @@ export default function SubjectSwitcher({
                             key={subject.id}
                             className="gap-2.5 text-sm"
                             onSelect={() => {
-                                openSubject(subject.id);
+                                // The one in use is already open: choosing it again changes nothing.
+                                if (subject.id !== resolvedId) {
+                                    openSubject(subject.id);
+                                }
                             }}
                         >
                             <SubjectOption subject={subject} current={subject.id === resolvedId} />
                         </DropdownMenuItem>
                     ))}
+                </div>
+
+                <div className="border-border grid border-t p-1.5">
+                    <DropdownMenuItem asChild className="gap-2.5 text-sm">
+                        <Link href="/taxpayers">
+                            <Users className="size-4" aria-hidden="true" />
+                            {t((d) => d.shell.manageSubjects)}
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="gap-2.5 text-sm">
+                        <Link href="/account">
+                            <UserRound className="size-4" aria-hidden="true" />
+                            {t((d) => d.nav.accountGroup)}
+                        </Link>
+                    </DropdownMenuItem>
                 </div>
             </DropdownMenuContent>
         </DropdownMenu>
