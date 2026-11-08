@@ -8,6 +8,7 @@ use Kern\TaxRomania\Http\Controllers\Banks\RefreshBankLogosController;
 use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogoController;
 use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
+use Kern\TaxRomania\Http\Controllers\FiscalParameters\DropFiscalParameterValuesController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFilingDeadlineController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
@@ -342,6 +343,7 @@ Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function ()
         Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('years', StartFiscalYearController::class);
+        Route::delete('values', DropFiscalParameterValuesController::class);
     });
 });
 

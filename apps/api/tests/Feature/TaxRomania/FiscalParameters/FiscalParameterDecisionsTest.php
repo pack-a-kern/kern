@@ -128,3 +128,21 @@ it('never lets a value be saved approved any other way', function (): void {
 
     expect(fn () => $version->save())->toThrow(AgentApprovalNotPermittedException::class);
 });
+
+it('drops every value read, whatever was decided, for reading again — and audits who did', function (): void {
+    $rejected = proposed();
+    $rejected->forceFill(['status' => ApprovalStatus::REJECTED->value])->save();
+    proposed(FiscalParameter::query()->findOrFail($rejected->fiscal_parameter_id), '2025-01-01');
+    $admin = person('SUPER_ADMIN');
+
+    $this->actingAs(person('ACCOUNTANT'))->deleteJson('/api/v1/fiscal-parameters/values')->assertForbidden();
+
+    $this->actingAs($admin)->deleteJson('/api/v1/fiscal-parameters/values')
+        ->assertOk()
+        ->assertJsonPath('versions_dropped', 2);
+
+    // The parameters stay: only what was read for them goes.
+    expect(FiscalParameterVersion::query()->count())->toBe(0)
+        ->and(FiscalParameter::query()->where('code', 'RO.CASS.RATE')->exists())->toBeTrue()
+        ->and(AuditEvent::query()->where('event_type', 'FISCAL_PARAMETERS_DROPPED')->where('actor_id', $admin->id)->exists())->toBeTrue();
+});

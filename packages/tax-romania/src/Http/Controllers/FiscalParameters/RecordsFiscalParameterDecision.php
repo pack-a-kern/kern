@@ -28,7 +28,7 @@ trait RecordsFiscalParameterDecision
     }
 
     /** @param array<string, mixed> $payload */
-    private function audit(AuditChainService $audit, string $actorId, string $eventType, string $resourceType, string $resourceId, array $payload): void
+    private function audit(AuditChainService $audit, string $actorId, string $eventType, string $resourceType, ?string $resourceId, array $payload): void
     {
         $audit->record(AuditEventInput::occurringNow(
             subjectId: null,
