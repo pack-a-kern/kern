@@ -240,7 +240,8 @@ it('counts money lent as owed until it is paid back, and never as money had', fu
 
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
         ->assertJsonPath('totals.owed_to_me.amounts.RON', 3_000_000)
-        ->assertJsonPath('totals.holdings.general.amounts.RON', 0);
+        // Lent out of money never recorded arriving: General is what was recorded, below zero.
+        ->assertJsonPath('totals.holdings.general.amounts.RON', -2_000_000);
 });
 
 it('keeps money transferred to an account it does not hold', function (): void {
@@ -273,24 +274,37 @@ it('does not count a deposit’s own funding as money held elsewhere', function 
         ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
 });
 
-it('says how much it assumed was there before the records start', function (): void {
+it('leaves an account below zero when its records start after money was already there', function (): void {
     [$user, $subjectId, $generalId] = startingFromNothing();
-    // Money leaving before anything arrived: an account cannot go below zero, so this much must
-    // already have been there. The figure is inside General, where nothing distinguishes it from
-    // money the records account for — which is how a total ends up larger than a person expects.
-    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-10');
-    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-20');
+    // A statement that spends more than it brings in: nothing proves what paid for the difference,
+    // so it is not guessed — the account says where its records start instead.
+    recordInGeneral($this, $user, $subjectId, $generalId, -10_000_000, '2026-01-10');
+    recordInGeneral($this, $user, $subjectId, $generalId, 3_000_000, '2026-01-20');
 
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
-        ->assertJsonPath('totals.assumed_opening.amounts.RON', 10_000_000)
-        ->assertJsonPath('totals.holdings.general.amounts.RON', 30_000_000);
+        ->assertJsonPath('totals.holdings.general.amounts.RON', -7_000_000)
+        ->assertJsonPath('totals.net_worth.amount_minor', -7_000_000)
+        ->assertJsonPath('totals.records_short_from', '2026-01-10');
 });
 
-it('assumes nothing when the records cover every movement', function (): void {
+it('comes right by itself once the earlier records are imported', function (): void {
     [$user, $subjectId, $generalId] = startingFromNothing();
-    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
-    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-20');
+    recordInGeneral($this, $user, $subjectId, $generalId, -10_000_000, '2026-01-10');
+    // The year before, imported afterwards.
+    recordInGeneral($this, $user, $subjectId, $generalId, 25_000_000, '2025-06-01');
 
     $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
-        ->assertJsonPath('totals.assumed_opening.amounts', []);
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 15_000_000)
+        ->assertJsonPath('totals.records_short_from', null);
+});
+
+it('lifts an account by what funded a deposit, never by other spending the same day', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    openDeposit($this, $user, $subjectId, $generalId, 15_000_000);
+    recordInGeneral($this, $user, $subjectId, $generalId, -1_000_000, now('UTC')->toDateString());
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.general.amounts.RON', -1_000_000)
+        ->assertJsonPath('totals.holdings.deposits.amounts.RON', 15_000_000)
+        ->assertJsonPath('totals.net_worth.amount_minor', 14_000_000);
 });

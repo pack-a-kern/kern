@@ -588,7 +588,7 @@ final readonly class WalletQuery
      * Four groups, each per currency and each also converted into the display currency:
      *
      * - **General** and **other accounts** (broker, crypto, other): what has been recorded in them,
-     *   never below zero — see {@see heldInAccounts()} for why.
+     *   below zero where the records start after money was already there — see {@see heldInAccounts()}.
      * - **Deposits**: the principal of every running deposit, plus interest paid into one and not yet
      *   settled back out.
      * - **Cash**: each holding's declared value.
@@ -607,7 +607,7 @@ final readonly class WalletQuery
      */
     public function totals(array $running): array
     {
-        ['held' => $held, 'assumed' => $assumed] = $this->heldInAccounts();
+        ['held' => $held, 'short_from' => $shortFrom] = $this->heldInAccounts();
         $expected = [];
 
         foreach ($running as $deposit) {
@@ -653,10 +653,10 @@ final readonly class WalletQuery
             'interest_at_maturity' => $this->converted($expected, $display),
             'interest_received' => $this->converted($this->interestReceived(), $display),
             'owed_to_me' => $this->converted($this->owedToMe(), $display),
-            // Beside the holdings, not inside them: this much is already counted in `general`, where
-            // nothing distinguishes it from money the records account for. Reported so a total that
-            // is larger than a person expects can say why.
-            'assumed_opening' => $this->converted($assumed, $display),
+            // The first day recorded in an account that ends below zero: what it held before then is
+            // not imported, so its balance — and the total — read low by that much. Null when every
+            // account adds up.
+            'records_short_from' => $shortFrom,
             // What a tax return would actually see. `ron_equivalent_minor` is written by
             // `DepositInterestFxAnnotator` at the BNR rate for the accrual date, with the source
             // document version recorded beside it — so this one may legitimately be a single number.
@@ -728,26 +728,11 @@ final readonly class WalletQuery
     /**
      * What is recorded in each kind of account, per currency — every group but the deposits' principal.
      *
-     * ## Never below zero
+     * An account is the sum of what was recorded in it ({@see balancesByAccount()}), so it can be below
+     * zero: a statement for 2023 that spends more than it brings in says so, and importing 2022 makes
+     * it right by itself. Nothing is guessed to hide it — the account says where its records start.
      *
-     * Nobody tells this application what they had before they started using it, and nobody should
-     * have to. So an account whose balance is the sum of its movements — General, a broker, a crypto
-     * exchange — cannot know its starting figure, and a plain sum goes negative the moment money
-     * leaves that was never recorded arriving. A deposit opened from General on the first day drove
-     * General to minus the deposit, and "what you have" to zero.
-     *
-     * Such an account is therefore read day by day and held at zero at the end of any day that would take
-     * it lower: whatever left beyond what was recorded is counted as money the taxpayer already had.
-     * By day rather than by row, because the order of one day's movements is not known — a statement
-     * lists them in no particular order — so a day's spending and income are netted first.
-     * Money recorded arriving first is still moved rather than duplicated — $100 of dividends then a
-     * $150 deposit leaves General at 0 and $150 in the deposit, not $250. So the figure means "at least
-     * this much", never an invented balance.
-     *
-     * A cash holding is its declared value, and a deposit account holds only interest paid into it and
-     * not yet settled; neither has an unknown history, so both are plain sums.
-     *
-     * @return array{held: array{general: array<string, int>, deposits: array<string, int>, cash: array<string, int>, other: array<string, int>, internal: array<string, int>}, assumed: array<string, int>}
+     * @return array{held: array{general: array<string, int>, deposits: array<string, int>, cash: array<string, int>, other: array<string, int>, internal: array<string, int>}, short_from: string|null}
      */
     private function heldInAccounts(): array
     {
@@ -779,7 +764,7 @@ final readonly class WalletQuery
             }
         }
 
-        return ['held' => $held, 'assumed' => $derived['assumed']];
+        return ['held' => $held, 'short_from' => $derived['short_from']];
     }
 
     /**
@@ -1020,51 +1005,69 @@ final readonly class WalletQuery
      * cancel to zero is kept — "this source had dollars and they are gone" is a different statement
      * from "this source never had dollars".
      *
-     * An account whose balance is its movements is held at zero at the end of any day that would take
-     * it lower; see {@see heldInAccounts()} for why. A cash holding and a deposit account are plain sums.
+     * ## A deposit's funding proves the money was there
+     *
+     * A plain sum, with one exception. A deposit opened from an account records the money leaving it
+     * ({@see \Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount}), and the deposit itself is the
+     * proof that the money existed: opening a 100 000 lei deposit with no income recorded must not
+     * leave the account at minus 100 000 and the total at nothing. So, read day by day, a day whose
+     * funding takes the account below zero is lifted back — by what funded deposits that day at
+     * most, and never by anything else that left. Ordinary spending beyond the records stays below
+     * zero, because nothing proves what paid for it.
+     *
+     * The lift is part of the running balance, so the money proven there is spent from afterwards
+     * like any other — a deposit funded, settled back and 15 000 lei spent leaves 85 000 lei — and it
+     * is worked out again on every read, so recording the income that really paid for the deposit
+     * makes it vanish by itself. By day rather than by row, because the order of one day's movements
+     * is not known — a statement lists them in no particular order.
+     *
+     * `short_from` is the first day recorded in a stream account that ends below zero, the earliest
+     * if several do; null when none does.
      *
      * @param  array<string, AccountKind>  $kinds  every account to report, keyed by id
-     * `assumed` is what the clamp had to add, per currency: the figure that explains a balance a
-     * person did not expect, kept as it happens because a total already raised to zero cannot say
-     * afterwards how far it was raised.
-     *
-     * @return array{balances: array<string, array<string, int>>, assumed: array<string, int>}
+     * @return array{balances: array<string, array<string, int>>, short_from: string|null}
      */
     private function balancesByAccount(array $kinds): array
     {
         if ($kinds === []) {
-            return ['balances' => [], 'assumed' => []];
+            return ['balances' => [], 'short_from' => null];
         }
 
+        // A transaction funds one deposit at most, so the join never repeats a row it sums.
         $days = DB::table('financial_transactions')
-            ->where('tax_subject_id', $this->tenant->currentTenantId())
-            ->whereIn('account_id', array_keys($kinds))
-            ->groupBy('account_id', 'currency_code', 'booked_at')
-            ->orderBy('booked_at')
-            ->get(['account_id', 'currency_code', DB::raw('sum(amount_minor) as total')]);
+            ->leftJoin('deposit_terms', 'deposit_terms.funding_transaction_id', '=', 'financial_transactions.id')
+            ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
+            ->whereIn('financial_transactions.account_id', array_keys($kinds))
+            ->groupBy('financial_transactions.account_id', 'financial_transactions.currency_code', 'financial_transactions.booked_at')
+            ->orderBy('financial_transactions.booked_at')
+            ->select(['financial_transactions.account_id', 'financial_transactions.currency_code', 'financial_transactions.booked_at'])
+            ->selectRaw('sum(financial_transactions.amount_minor) as total')
+            ->selectRaw('sum(case when deposit_terms.funding_transaction_id is null then 0 else -financial_transactions.amount_minor end) as funded')
+            ->get();
 
         $balances = [];
-        $assumed = [];
+        $firstDay = [];
 
         foreach ($days as $day) {
             $accountId = self::str($day->account_id);
             $currency = self::str($day->currency_code);
             $balance = ($balances[$accountId][$currency] ?? 0) + (int) $day->total;
+            $firstDay[$accountId] ??= self::str($day->booked_at);
 
-            if (! $kinds[$accountId]->isStream()) {
-                $balances[$accountId][$currency] = $balance;
-
-                continue;
+            if ($kinds[$accountId]->isStream() && $balance < 0) {
+                $balance += min(-$balance, (int) $day->funded);
             }
 
-            // What the day was lifted by, kept as it happens: this is the figure that explains a
-            // balance a person did not expect, and it cannot be recovered afterwards from a total
-            // that has already been raised to zero.
-            if ($balance < 0) {
-                $assumed[$currency] = ($assumed[$currency] ?? 0) - $balance;
-            }
+            $balances[$accountId][$currency] = $balance;
+        }
 
-            $balances[$accountId][$currency] = max(0, $balance);
+        $shortFrom = null;
+
+        foreach ($balances as $accountId => $byCurrency) {
+            if ($kinds[$accountId]->isStream() && min($byCurrency) < 0) {
+                $day = substr($firstDay[$accountId], 0, 10);
+                $shortFrom = $shortFrom === null ? $day : min($shortFrom, $day);
+            }
         }
 
         return [
@@ -1073,7 +1076,7 @@ final readonly class WalletQuery
 
                 return $byCurrency;
             }, $balances),
-            'assumed' => $assumed,
+            'short_from' => $shortFrom,
         ];
     }
 
