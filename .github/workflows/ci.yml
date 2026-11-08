@@ -9,10 +9,10 @@
 # Job map:
 #   secret-scan      — gitleaks over the git-tracked tree. No `needs`: cheap,
 #                       runs immediately.
-#   fiscal-gates      — placeholder for BLUEPRINT.md §22's fiscal-change gates
-#                       (Milestone 4/5 not built yet). No `needs`: cheap,
-#                       runs immediately. See .github/scripts/fiscal-gates-
-#                       placeholder.sh for exactly what is and isn't real.
+#   fiscal-gates      — BLUEPRINT.md §22's fiscal-change gates, NOT IMPLEMENTED:
+#                       it checks nothing and blocks nothing, and says so as
+#                       a warning on every run while tax code exists. See
+#                       .github/scripts/fiscal-gates-placeholder.sh.
 #   php-quality       — composer validate/audit, Pint, PHPStan, Deptrac. No
 #                       database needed. No `needs`.
 #   php-tests         — Pest against real Postgres + Redis service
@@ -27,8 +27,8 @@
 #                       it runs against an application where every package
 #                       happens to be present (docs/adr/0016, Stage 2).
 #   js-api            — apps/api's Inertia/React frontend: lint, format,
-#                       typecheck, build, audit. No `needs`. Uploads the
-#                       Vite build as an artifact for the `containers` job.
+#                       typecheck, tests, build, audit. No `needs`. Uploads
+#                       the Vite build as an artifact for the `containers` job.
 #   js-browser-worker — apps/browser-worker: lint, typecheck, build, real tests,
 #                       audit, inside the Playwright image (the tests start
 #                       Chromium). No `needs`.
@@ -37,9 +37,16 @@
 #   containers        — builds every production image, generates an SBOM,
 #                       and vulnerability-scans it. On a `v*` tag it then
 #                       pushes the scanned image to ghcr.io/<owner>/kern-*. `needs` every job above
-#                       except secret-scan/fiscal-gates — this is the
-#                       expensive lane and must not start until the cheap
-#                       ones are green.
+#                       except fiscal-gates (which checks nothing yet) — this
+#                       is the expensive lane and must not start until the
+#                       cheap ones are green.
+#   release-gate      — a `v*` tag only. A release is published from a commit
+#                       that already passed every check above on `main`: this
+#                       finds that run (waiting for it if it is still going)
+#                       and refuses the release otherwise. The checks are then
+#                       not run a second time on the same commit; the image
+#                       build, its vulnerability scan and its signature still
+#                       are, on the tag, every time.
 #
 # Every third-party action below is pinned to a commit SHA (docs/
 # DEPENDENCY-POLICY.md §1); the trailing comment names the tag that SHA
@@ -73,8 +80,47 @@ jobs:
   # ---------------------------------------------------------------------
   # Secret scanning — BLUEPRINT.md §4.10 / docs/DEPENDENCY-POLICY.md §5.
   # ---------------------------------------------------------------------
+  release-gate:
+    name: Release gate (this commit passed on main)
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      # By commit, not by branch name: the run that counts is this repository's own CI on `main` for
+      # exactly the commit being tagged — same code, same lockfiles, same pinned images, so its checks
+      # are this release's checks. Nothing from outside the repository can create one.
+      - name: Find this commit's run on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          # Released from `main` only: the tagged commit is main's head or behind it.
+          status="$(gh api "repos/$REPO/compare/main...$SHA" --jq .status)"
+          case "$status" in
+            identical | behind) ;;
+            *) echo "::error::$SHA is not on main ($status) — a release is published from main only."; exit 1 ;;
+          esac
+          # Up to 40 minutes for a run on main that is still going: a tag pushed right after main is
+          # normal, and waiting for it is cheaper than running everything a second time.
+          for _ in $(seq 1 80); do
+            run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&branch=main&event=push&per_page=1" \
+              --jq '.workflow_runs[0] | if . == null then "" else "\(.status) \(.conclusion)" end')"
+            case "$run" in
+              "completed success") echo "CI on main passed for $SHA."; exit 0 ;;
+              completed*) echo "::error::CI on main did not pass for $SHA ($run) — fix it on main, then tag the fixed commit."; exit 1 ;;
+              "") echo "::error::CI never ran on main for $SHA."; exit 1 ;;
+              *) echo "CI on main is $run for $SHA; waiting."; sleep 30 ;;
+            esac
+          done
+          echo "::error::CI on main did not finish within 40 minutes for $SHA."
+          exit 1
+
   secret-scan:
     name: Secret scan (gitleaks)
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -90,14 +136,15 @@ jobs:
             --gitleaks-ignore-path=/gcfg/.gitleaksignore
 
   # ---------------------------------------------------------------------
-  # Fiscal gates — BLUEPRINT.md §22 "Tax changes" gates. PLACEHOLDER: real
-  # ruleset/tax-engine code does not exist yet (Milestone 4/5). See the
-  # script for exactly what this does and does not prove, and for the
-  # canary that fails the build the moment real fiscal content lands
-  # without this job being upgraded first.
+  # Fiscal gates — BLUEPRINT.md §22 "Tax changes" gates. NOT IMPLEMENTED:
+  # the tax engine and rules exist (packages/tax-romania), the checks on
+  # them do not yet. The job passes, warns that it checked nothing, and is
+  # deliberately not something a release waits for — a gate that checks
+  # nothing must not be able to look like one that passed.
   # ---------------------------------------------------------------------
   fiscal-gates:
-    name: Fiscal gates (placeholder — M4/M5)
+    name: Fiscal gates (not implemented — checks nothing)
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -111,6 +158,8 @@ jobs:
   # ---------------------------------------------------------------------
   php-quality:
     name: PHP quality (validate, audit, Pint, PHPStan, Deptrac)
+    # Not on a tag: release-gate stands for it there (the same commit passed on main).
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -174,6 +223,8 @@ jobs:
 
   php-tests:
     name: PHP tests (Pest, real Postgres + Redis)
+    # Not on a tag: release-gate stands for it there (the same commit passed on main).
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     needs: php-quality
     defaults:
@@ -269,6 +320,8 @@ jobs:
   # ---------------------------------------------------------------------
   package-suites:
     name: Package suites (kern/*, each installed alone)
+    # Not on a tag: release-gate stands for it there (the same commit passed on main).
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     needs: php-quality
     services:
@@ -354,27 +407,29 @@ jobs:
       - name: npm ci
         run: npm ci
 
+      # On a tag the checks are release-gate's (the same commit passed them on main); the build
+      # still runs, because the images are built here from this commit's own frontend.
       - name: ESLint
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: npm run lint
 
       - name: Prettier
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: npm run format
 
       - name: tsc --noEmit
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: npm run typecheck
+
+      - name: Vitest
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: npm test
 
       - name: Build (Vite)
         run: npm run build
 
-      # No frontend test suite exists yet — apps/api/resources/js has no
-      # test files and package.json has no "test" script (see docs/handoff/
-      # 002-laravel-scaffold.md: M0 scaffold only, one static page). BLUEPRINT.md
-      # §22 asks for "frontend tests"; per docs/AGENTS.md ("if a gate
-      # genuinely can't run yet, leave it out and document why rather than
-      # faking a pass"), this step is intentionally absent, not stubbed.
-      # Add it back the moment the first *.test.tsx file exists.
-
       - name: npm audit
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: npm audit --audit-level=high
 
       # Consumed by the `containers` job to build the edge (Caddy) image
@@ -396,6 +451,8 @@ jobs:
   # ---------------------------------------------------------------------
   js-browser-worker:
     name: JS/TS — apps/browser-worker
+    # Not on a tag: release-gate stands for it there (the same commit passed on main).
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
@@ -432,6 +489,8 @@ jobs:
   # ---------------------------------------------------------------------
   python:
     name: Python — apps/processing
+    # Not on a tag: release-gate stands for it there (the same commit passed on main).
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -482,7 +541,20 @@ jobs:
   containers:
     name: Containers (${{ matrix.name }})
     runs-on: ubuntu-latest
-    needs: [php-quality, php-tests, package-suites, js-api, js-browser-worker, python]
+    needs: [release-gate, secret-scan, php-quality, php-tests, package-suites, js-api, js-browser-worker, python]
+    # Spelled out, because a skipped job would otherwise skip this one too: on a tag the checks are
+    # skipped and release-gate must have passed; anywhere else every check must have.
+    if: >-
+      ${{ !cancelled() && needs.js-api.result == 'success' && (
+        (startsWith(github.ref, 'refs/tags/v') && needs.release-gate.result == 'success')
+        || (!startsWith(github.ref, 'refs/tags/v')
+          && needs.secret-scan.result == 'success'
+          && needs.php-quality.result == 'success'
+          && needs.php-tests.result == 'success'
+          && needs.package-suites.result == 'success'
+          && needs.js-browser-worker.result == 'success'
+          && needs.python.result == 'success')
+      ) }}
     permissions:
       contents: read
       packages: write

@@ -5,15 +5,10 @@
 # list (mcr.microsoft.com/v2/playwright/tags/list) and a real `docker pull`
 # — see docs/handoff/001-docker-topology.md "Sources consulted".
 #
-# apps/spv-browser does not exist yet (a parallel agent's scope). This
-# Dockerfile references it as the build context will contain it once that
-# work lands — see "What is NOT done" in the handoff note.
-#
-# The image's `playwright` npm package version must match this image tag
-# exactly (v1.63.0) once apps/browser-worker/package.json exists — a mismatch
-# between the Node package and the pre-installed browser binaries is a
-# common, hard-to-diagnose Playwright failure mode. Record this as a
-# constraint for whoever writes that package.json.
+# The `playwright` version in apps/browser-worker/package.json must match this
+# image tag exactly (v1.63.0) — a mismatch between the Node package and the
+# pre-installed browser binaries is a common, hard-to-diagnose Playwright
+# failure mode.
 #
 # ---------------------------------------------------------------------------
 # Stage: build — full `npm ci` (devDependencies included: eslint, typescript,
@@ -29,7 +24,7 @@ COPY apps/browser-worker/ .
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage: runtime — the actual spv-browser image. `npm ci --omit=dev` installs
+# Stage: runtime — the actual browser-worker image. `npm ci --omit=dev` installs
 # only `express`/`playwright` (package.json's real `dependencies`), never
 # eslint/typescript/typescript-eslint or their transitive deps (e.g.
 # minimatch's `brace-expansion` — CVE-2026-14257/CVE-2026-69152, both HIGH,
@@ -73,7 +68,7 @@ COPY --from=build /app/dist ./dist
 # either CAP_SYS_ADMIN or the `--no-sandbox` launch argument when the
 # container itself already drops all other capabilities (see
 # compose.yaml cap_drop/security_opt and the handoff's threat-model note).
-# apps/spv-browser's Chromium launch code MUST pass `--no-sandbox` — this
+# apps/browser-worker's Chromium launch code MUST pass `--no-sandbox` — this
 # repo does not grant CAP_SYS_ADMIN.
 USER pwuser
 

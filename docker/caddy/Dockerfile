@@ -3,7 +3,7 @@
 # Caddy rather than nginx. The reasons are in docs/INSTALLER-PLAN.md §4; the two that decided it:
 # the certificate becomes something the installer obtains and the server renews, instead of a file
 # somebody generated once, and the edge stops being C code with a CVE chain this image had to purge
-# package by package (docker/nginx/Dockerfile did exactly that for libgd/libheif).
+# package by package (the nginx image this replaced did exactly that for libgd/libheif).
 #
 # Exact tag plus digest per docs/DEPENDENCY-POLICY.md §1 — `make pins` reports a newer build of either.
 # Alpine, because the edge needs no Debian package: the healthcheck uses busybox's own wget and nothing

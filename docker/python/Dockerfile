@@ -53,8 +53,8 @@ RUN groupadd --gid 10001 appuser \
 # (rather than trying to patch libraries vendored inside it, which isn't
 # possible without an upstream pip release that vendors newer versions)
 # eliminates both CVEs and shrinks the image's attack surface — the same
-# "does it even need this" reasoning applied to libde265 in
-# docker/nginx/Dockerfile.
+# "does it even need this" reasoning once applied to libde265 in the nginx
+# image the edge used to be.
 RUN find /usr/local/lib/python3.14/site-packages -maxdepth 1 -iname 'pip*' -exec rm -rf {} + \
     && rm -rf /usr/local/lib/python3.14/ensurepip \
     && find /usr/local/bin -iname 'pip*' -delete

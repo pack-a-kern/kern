@@ -5,10 +5,12 @@
 
 .git
 docs/
-tax-rules/
 *.md
 
 apps/api/vendor
+# Each package's own test dependencies (`make packages-install`), for its suite alone: the app's
+# image gets the packages' sources, and the app resolves their dependencies in its own vendor/.
+packages/*/vendor
 apps/api/node_modules
 apps/api/.env
 apps/api/storage/logs/*
