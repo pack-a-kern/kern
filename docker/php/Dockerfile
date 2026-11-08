@@ -81,8 +81,12 @@ WORKDIR /var/www/html
 # `composer install` cannot resolve its own lock file.
 COPY packages /var/packages
 COPY apps/api/composer.json apps/api/composer.lock ./
+# The AWS SDK down to the services composer.json's `extra.aws/aws-sdk-php` lists (S3, plus the ones the
+# SDK itself never deletes — STS, SSO, KMS — for credentials): the install runs without scripts, so the
+# trim is asked for by name, in this same layer, and the ~400 unused services never enter the image.
 RUN composer install \
-        --no-interaction --no-dev --no-scripts --no-autoloader --prefer-dist
+        --no-interaction --no-dev --no-scripts --no-autoloader --prefer-dist \
+    && composer run-script pre-autoload-dump --no-interaction
 
 # ---------------------------------------------------------------------------
 # Stage: runtime — the actual app/queue/scheduler/reverb image.

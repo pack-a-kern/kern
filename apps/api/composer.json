@@ -73,6 +73,9 @@
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
+        "pre-autoload-dump": [
+            "Aws\\Script\\Composer\\Composer::removeUnusedServices"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
@@ -90,7 +93,10 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        }
+        },
+        "aws/aws-sdk-php": [
+            "S3"
+        ]
     },
     "config": {
         "optimize-autoloader": true,
