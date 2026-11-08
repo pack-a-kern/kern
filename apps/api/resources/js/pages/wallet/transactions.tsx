@@ -81,9 +81,11 @@ import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import {
     categoriesFor,
     categoryFor,
+    DIRECTION_ICONS,
     signedMinor,
     type MoneyDirection,
     BASE_CURRENCY,
+    entryAccount,
     isStreamKind,
     sourceName,
     type AccountSummary,
@@ -797,14 +799,19 @@ export default function WalletTransactions(): JSX.Element {
                             </PanelButton>
                             <PanelButton
                                 primary
-                                disabled={accounts.length === 0}
+                                disabled={streamAccounts.length === 0}
                                 title={t((d) => d.pages.walletTransactions.add)}
                                 onClick={() => {
+                                    // From the accounts the form's select offers, not every account:
+                                    // the full list leads with deposits, which take no transaction
+                                    // and are not in the select, so it showed nothing chosen.
+                                    const start = entryAccount(streamAccounts);
+
                                     errors.reset();
                                     setForm({
                                         ...emptyTransactionForm(),
-                                        account_id: accounts[0]?.id ?? '',
-                                        currency_code: accounts[0]?.currencyCode ?? BASE_CURRENCY,
+                                        account_id: start?.id ?? '',
+                                        currency_code: start?.currencyCode ?? BASE_CURRENCY,
                                         booked_at: new Date().toISOString().slice(0, 10),
                                     });
                                     setAdding(true);
@@ -1578,7 +1585,7 @@ export default function WalletTransactions(): JSX.Element {
                         label={t((d) => d.pages.walletTransactions.form.account)}
                         htmlFor="tx-account"
                         error={errors.get('account_id')}
-                        {...(editing === null ? {} : { hint: t((d) => d.pages.walletTransactions.accountLocked) })}
+                        {...(editing === null ? {} : { help: t((d) => d.pages.walletTransactions.accountLocked) })}
                     >
                         <PanelSelect
                             icon={<WalletCards className="size-3.5" aria-hidden="true" />}
@@ -1645,8 +1652,16 @@ export default function WalletTransactions(): JSX.Element {
                                 }));
                             }}
                             options={[
-                                { value: 'out', label: t((d) => d.documentsReview.directionOut) },
-                                { value: 'in', label: t((d) => d.documentsReview.directionIn) },
+                                {
+                                    value: 'out',
+                                    label: t((d) => d.documentsReview.directionOut),
+                                    icon: DIRECTION_ICONS.out,
+                                },
+                                {
+                                    value: 'in',
+                                    label: t((d) => d.documentsReview.directionIn),
+                                    icon: DIRECTION_ICONS.in,
+                                },
                             ]}
                         />
                     </Field>
@@ -1655,7 +1670,7 @@ export default function WalletTransactions(): JSX.Element {
                         label={t((d) => d.pages.walletTransactions.form.amount)}
                         htmlFor="tx-amount"
                         error={errors.get('amount_minor')}
-                        hint={t((d) => d.pages.walletTransactions.form.amountHint)}
+                        help={t((d) => d.pages.walletTransactions.form.amountHint)}
                     >
                         <PanelInput
                             icon={<Coins className="size-3.5" aria-hidden="true" />}
@@ -1691,7 +1706,7 @@ export default function WalletTransactions(): JSX.Element {
                         label={t((d) => d.pages.walletTransactions.form.counterparty)}
                         htmlFor="tx-counterparty"
                         error={errors.get('counterparty')}
-                        hint={t((d) => d.pages.walletTransactions.form.counterpartyHint)}
+                        help={t((d) => d.pages.walletTransactions.form.counterpartyHint)}
                     >
                         <CounterpartyInput
                             id="tx-counterparty"
@@ -1748,7 +1763,7 @@ export default function WalletTransactions(): JSX.Element {
                     <Field
                         label={t((d) => d.pages.walletTransactions.bank.label)}
                         htmlFor="tx-bank"
-                        hint={t((d) => d.pages.walletTransactions.bank.hint)}
+                        help={t((d) => d.pages.walletTransactions.bank.hint)}
                         error={errors.get('bank_id')}
                     >
                         <PanelSelect
@@ -1773,7 +1788,7 @@ export default function WalletTransactions(): JSX.Element {
                     <Field
                         label={t((d) => d.pages.walletTransactions.tags.label)}
                         htmlFor="tx-tags"
-                        hint={t((d) => d.pages.walletTransactions.tags.hint)}
+                        help={t((d) => d.pages.walletTransactions.tags.hint)}
                     >
                         <TagsInput
                             id="tx-tags"

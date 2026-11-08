@@ -14,6 +14,7 @@ import type { DocumentExtractionSummary, DocumentSummary } from '../../types/doc
 import {
     categoriesFor,
     categoryFor,
+    DIRECTION_ICONS,
     isStreamKind,
     signedMinor,
     sourceName,
@@ -248,8 +249,12 @@ export default function CreateTransactionDialog({
                             }));
                         }}
                         options={[
-                            { value: 'out', label: t((d) => d.documentsReview.directionOut) },
-                            { value: 'in', label: t((d) => d.documentsReview.directionIn) },
+                            {
+                                value: 'out',
+                                label: t((d) => d.documentsReview.directionOut),
+                                icon: DIRECTION_ICONS.out,
+                            },
+                            { value: 'in', label: t((d) => d.documentsReview.directionIn), icon: DIRECTION_ICONS.in },
                         ]}
                     />
                 </Field>

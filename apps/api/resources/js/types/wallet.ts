@@ -1,3 +1,4 @@
+import { ArrowDownLeft, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { nullableNum, nullableStr, num, obj, str } from '../lib/json';
 
 /**
@@ -174,6 +175,9 @@ export function categoriesFor(categories: TaxCategory[], direction: MoneyDirecti
  * otherwise the catalogue's preselection for that direction, otherwise none. Flipping the toggle on a
  * dividend must not leave "Dividends" selected on money going out, which the server would refuse.
  */
+/** Money in and money out, as every control choosing between them marks them. */
+export const DIRECTION_ICONS: Record<MoneyDirection, LucideIcon> = { in: ArrowDownLeft, out: ArrowUpRight };
+
 export function categoryFor(categories: TaxCategory[], code: string, direction: MoneyDirection): string {
     const fitting = categoriesFor(categories, direction);
 
@@ -419,6 +423,14 @@ export const OPENABLE_KINDS = ACCOUNT_KINDS.filter((kind) => kind !== 'GENERAL')
 /** Whether transactions may be recorded against a source of this kind. */
 export function isStreamKind(kind: string): boolean {
     return (STREAM_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * The account a new transaction starts on, out of those the form offers: General — the source
+ * every taxpayer has and everything lands on unless told otherwise — and, failing that, the first.
+ */
+export function entryAccount<T extends { kind: string }>(offered: T[]): T | undefined {
+    return offered.find((account) => account.kind === 'GENERAL') ?? offered[0];
 }
 
 /**

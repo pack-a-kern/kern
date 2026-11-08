@@ -445,6 +445,7 @@ function NavRow({
     collapsed,
     currentUrl,
     open,
+    reveal,
     onToggle,
 }: {
     item: NavLink;
@@ -452,9 +453,49 @@ function NavRow({
     currentUrl: string;
     /** Whether this group's children are showing. Meaningless for a row without children. */
     open: boolean;
+    /** Just opened by hand: scroll the menu so the whole group shows. */
+    reveal: boolean;
     onToggle: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
+    const row = useRef<HTMLLIElement>(null);
+
+    // Within the menu's own scroll only, not the page's: the group's foot to the menu's foot, and
+    // never its head above the menu's top.
+    useEffect(() => {
+        const element = row.current;
+        const menu = element?.closest('nav');
+
+        if (!reveal || !open || element == null || menu == null) {
+            return;
+        }
+
+        const bringIntoView = (): void => {
+            const box = element.getBoundingClientRect();
+            const view = menu.getBoundingClientRect();
+            const below = box.bottom - view.bottom;
+
+            if (below > 0) {
+                menu.scrollBy({ top: Math.min(below, box.top - view.top), behavior: 'smooth' });
+            }
+        };
+
+        // Once the group has unfolded — measured before, it is still folded and has no foot to show.
+        // Without motion there is nothing to wait for, and no `transitionend` would ever come.
+        const fold = element.querySelector('.nav-fold');
+
+        if (fold === null || Number.parseFloat(getComputedStyle(fold).transitionDuration) === 0) {
+            bringIntoView();
+
+            return;
+        }
+
+        fold.addEventListener('transitionend', bringIntoView, { once: true });
+
+        return () => {
+            fold.removeEventListener('transitionend', bringIntoView);
+        };
+    }, [reveal, open]);
     const Icon = item.icon;
     const label = t(item.label);
     const children = item.children ?? [];
@@ -489,7 +530,7 @@ function NavRow({
         );
 
     return (
-        <li>
+        <li ref={row}>
             {collapsed ? (
                 <Tooltip>
                     <TooltipTrigger asChild>{link}</TooltipTrigger>
@@ -514,29 +555,36 @@ function NavRow({
             ) : (
                 link
             )}
-            {!collapsed && open && hasChildren && (
-                /* A rail down the children, so a fold reads as one branch rather than four rows that
-                   happen to be indented. The indent is the rail's offset plus `pl-3`, which is what
-                   the active child's mark is positioned against in `app.css`. */
-                <ul className="border-border mt-0.5 ml-[1.125rem] space-y-0.5 border-l pl-3">
-                    {children.map((child) => {
-                        const childActive = isActive(currentUrl, child.href);
-                        const ChildIcon = child.icon;
+            {!collapsed && hasChildren && (
+                /* Always drawn, folded to no height when shut, so closing slides as opening does —
+                   a group that vanished at once while the next one unfolded read as a jump. `inert`
+                   keeps a shut group's links out of the tab order and away from a screen reader. */
+                <div className="nav-fold" data-open={open ? '' : undefined} inert={!open}>
+                    <div className="nav-fold-inner">
+                        {/* A rail down the children, so a fold reads as one branch rather than four rows that happen to
+                        be indented. The indent is the rail's offset plus `pl-3`, which is what the active child's mark
+                        is positioned against in `app.css`. */}
+                        <ul className="border-border mt-0.5 ml-[1.125rem] space-y-0.5 border-l pl-3">
+                            {children.map((child) => {
+                                const childActive = isActive(currentUrl, child.href);
+                                const ChildIcon = child.icon;
 
-                        return (
-                            <li key={child.href}>
-                                <Link
-                                    href={child.href}
-                                    aria-current={childActive ? 'page' : undefined}
-                                    className="nav-item nav-item-child"
-                                >
-                                    <ChildIcon className="size-4 shrink-0" aria-hidden="true" />
-                                    <span className="truncate">{t(child.label)}</span>
-                                </Link>
-                            </li>
-                        );
-                    })}
-                </ul>
+                                return (
+                                    <li key={child.href}>
+                                        <Link
+                                            href={child.href}
+                                            aria-current={childActive ? 'page' : undefined}
+                                            className="nav-item nav-item-child"
+                                        >
+                                            <ChildIcon className="size-4 shrink-0" aria-hidden="true" />
+                                            <span className="truncate">{t(child.label)}</span>
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                </div>
             )}
         </li>
     );
@@ -793,24 +841,28 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
     const { t } = useTranslation();
 
     /**
-     * Folds the person has changed by hand, keyed by group.
+     * One group open at a time — the one chosen by hand, on the page it was chosen on.
      *
-     * Only overrides live here, not the open/closed state itself — the default is "the group you
-     * are in is open, the rest are closed", which has to keep working as you navigate. Storing the
-     * state outright would freeze whatever was open when the page first rendered.
+     * Kept with the page's address rather than outright: moving to another page drops it, and the
+     * default takes over again — the group you are *in* is open, the rest are closed. `key: null` is
+     * a choice too: everything folded.
      */
-    const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+    const [chosen, setChosen] = useState<{ url: string; key: string | null } | null>(null);
+    // The group just opened by hand, to bring into view: the last ones sit at the foot of the list,
+    // where their pages would otherwise open out of sight below the fold.
+    const [revealing, setRevealing] = useState<string | null>(null);
 
     const sections = useVisibleSections();
 
     function isOpen(item: NavLink): boolean {
-        const key = groupKey(item);
+        if (chosen !== null && chosen.url === currentUrl) {
+            return chosen.key === groupKey(item);
+        }
+
         // The group you are *in* — which includes standing on the group's own page, not only on one
         // of its children. Landing on `/taxes` and finding Taxes folded shut is the same surprise as
         // landing on `/wallet/accounts` and finding Wallet shut.
-        const here = containsCurrent(item, currentUrl);
-
-        return overrides[key] ?? here;
+        return containsCurrent(item, currentUrl);
     }
 
     return (
@@ -845,10 +897,13 @@ function SidebarNav({ collapsed, currentUrl }: { collapsed: boolean; currentUrl:
                                 collapsed={collapsed}
                                 currentUrl={currentUrl}
                                 open={isOpen(item)}
+                                reveal={revealing === groupKey(item)}
                                 onToggle={() => {
                                     const key = groupKey(item);
+                                    const opening = !isOpen(item);
 
-                                    setOverrides((current) => ({ ...current, [key]: !isOpen(item) }));
+                                    setChosen({ url: currentUrl, key: opening ? key : null });
+                                    setRevealing(opening ? key : null);
                                 }}
                             />
                         ))}

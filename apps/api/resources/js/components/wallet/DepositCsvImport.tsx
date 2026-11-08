@@ -1,8 +1,9 @@
-import { CalendarDays, Columns3, FileSpreadsheet, Hash, SplitSquareHorizontal } from 'lucide-react';
+import { CalendarDays, Columns3, Hash, SplitSquareHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState, type JSX } from 'react';
 
 import { readDepositCsv, type DepositRequest } from '../../api/walletApi';
-import { DataTable, Field, FieldSpan, PanelInput, PanelSelect, Status } from '../panel';
+import { DataTable, Field, FieldSpan, HelpMark, PanelSelect, Status } from '../panel';
+import { ChosenFile, FileDrop } from '../FileDrop';
 import type { FormErrors } from '../../hooks/useFormErrors';
 import { useTranslation } from '../../i18n';
 import { line, type DepositCsvShared } from '../../lib/depositCsv';
@@ -21,6 +22,8 @@ export interface DepositCsvState {
     lines: number;
     /** Once a file has been read, every field still without an answer is marked on the form. */
     read: boolean;
+    /** Whether a file is chosen: until one is, the dialog asks for nothing else. */
+    chosen: boolean;
 }
 
 /** How the file is written, and which column holds which field. */
@@ -135,6 +138,7 @@ export default function DepositCsvImport(props: {
         currencyFromFile,
         lines: read?.rows.length ?? 0,
         read: read !== null,
+        chosen: how.file !== null,
     });
 
     useEffect(() => {
@@ -166,24 +170,37 @@ export default function DepositCsvImport(props: {
             .map((field) => errors.get(`deposits.${String(index)}.${field}`))
             .find((message) => message !== undefined);
 
-    return (
-        <>
-            <Field
-                label={t((d) => d.pages.walletDeposits.csv.file)}
-                htmlFor="deposit-csv-file"
-                error={errors.get('file')}
-                hint={t((d) => d.pages.walletDeposits.csv.fileHint)}
-            >
-                <PanelInput
+    // First the file and nothing else: how it is written and which column holds what can only be
+    // asked once there is a file to read them from.
+    if (how.file === null) {
+        return (
+            <FieldSpan>
+                <FileDrop
                     id="deposit-csv-file"
-                    type="file"
-                    accept=".csv"
-                    icon={<FileSpreadsheet className="size-3.5" aria-hidden="true" />}
-                    onChange={(event) => {
-                        change({ file: event.target.files?.[0] ?? null, mapping: {} });
+                    accept={['.csv']}
+                    title={t((d) => d.pages.walletDeposits.csv.drop)}
+                    choose={t((d) => d.pages.walletDeposits.csv.choose)}
+                    help={t((d) => d.pages.walletDeposits.csv.fileHint)}
+                    onFiles={(files) => {
+                        change({ file: files[0] ?? null, mapping: {} });
                     }}
                 />
-            </Field>
+                {errors.get('file') === undefined ? null : <p className="field-error">{errors.get('file')}</p>}
+            </FieldSpan>
+        );
+    }
+
+    return (
+        <>
+            <FieldSpan>
+                <ChosenFile
+                    file={how.file}
+                    onRemove={() => {
+                        change({ file: null, mapping: {} });
+                    }}
+                />
+                {errors.get('file') === undefined ? null : <p className="field-error">{errors.get('file')}</p>}
+            </FieldSpan>
 
             <Field label={t((d) => d.pages.walletDeposits.csv.separator)} htmlFor="deposit-csv-separator">
                 <PanelSelect
@@ -231,8 +248,10 @@ export default function DepositCsvImport(props: {
             {read === null ? null : (
                 <>
                     <FieldSpan>
-                        <p className="eyebrow">{t((d) => d.pages.walletDeposits.csv.columnsTitle)}</p>
-                        <p className="note">{t((d) => d.pages.walletDeposits.csv.columnsHint)}</p>
+                        <p className="flex items-center gap-1.5">
+                            <span className="eyebrow">{t((d) => d.pages.walletDeposits.csv.columnsTitle)}</span>
+                            <HelpMark text={t((d) => d.pages.walletDeposits.csv.columnsHint)} />
+                        </p>
                     </FieldSpan>
 
                     {DEPOSIT_CSV_COLUMNS.map((field) => (

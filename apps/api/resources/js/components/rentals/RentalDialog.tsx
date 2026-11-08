@@ -225,7 +225,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.ownershipPercent)}
                     htmlFor="rental-share"
                     error={errors.get('ownership_percent')}
-                    hint={t((d) => d.pages.rentals.form.ownershipPercentHint)}
+                    help={t((d) => d.pages.rentals.form.ownershipPercentHint)}
                 >
                     <PanelInput
                         id="rental-share"
@@ -275,7 +275,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.startDate)}
                     htmlFor="rental-start"
                     error={errors.get('start_date')}
-                    {...(termsLocked ? { hint: lockedHint } : {})}
+                    {...(termsLocked ? { help: lockedHint } : {})}
                 >
                     <PanelDate
                         block
@@ -291,7 +291,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.endDate)}
                     htmlFor="rental-end"
                     error={errors.get('end_date')}
-                    hint={termsLocked ? lockedHint : t((d) => d.pages.rentals.form.endDateHint)}
+                    help={termsLocked ? lockedHint : t((d) => d.pages.rentals.form.endDateHint)}
                 >
                     <PanelDate
                         block
@@ -307,7 +307,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.currency)}
                     htmlFor="rental-currency"
                     error={errors.get('currency_code')}
-                    {...(termsLocked ? { hint: lockedHint } : {})}
+                    {...(termsLocked ? { help: lockedHint } : {})}
                 >
                     <PanelSelect
                         id="rental-currency"
@@ -324,7 +324,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.rent)}
                     htmlFor="rental-rent"
                     error={errors.get('rent_minor')}
-                    hint={termsLocked ? lockedHint : t((d) => d.pages.rentals.form.rentHint)}
+                    help={termsLocked ? lockedHint : t((d) => d.pages.rentals.form.rentHint)}
                 >
                     <PanelInput
                         id="rental-rent"
@@ -344,7 +344,7 @@ export default function RentalDialog({
                     label={t((d) => d.pages.rentals.form.paymentFrequency)}
                     htmlFor="rental-frequency"
                     error={errors.get('payment_frequency')}
-                    {...(termsLocked ? { hint: lockedHint } : {})}
+                    {...(termsLocked ? { help: lockedHint } : {})}
                 >
                     <PanelSelect
                         id="rental-frequency"

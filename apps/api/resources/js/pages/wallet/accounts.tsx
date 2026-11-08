@@ -5,12 +5,14 @@ import {
     CalendarClock,
     Check,
     Coins,
+    FileSpreadsheet,
     Hourglass,
     Landmark,
     LandmarkIcon,
     Pencil,
     Percent,
     PercentIcon,
+    PiggyBank,
     PlusIcon,
     SearchX,
     Shapes,
@@ -218,6 +220,7 @@ export default function WalletAccounts(): JSX.Element {
         currencyFromFile: false,
         lines: 0,
         read: false,
+        chosen: false,
     });
 
     useEffect(() => {
@@ -319,6 +322,8 @@ export default function WalletAccounts(): JSX.Element {
     const isDeposit = form.kind === 'TERM_DEPOSIT';
     // Only while adding: a CSV opens deposits, it never edits one.
     const csvMode = fromCsv && isDeposit && editing === null;
+    // From a file, the file comes first: until one is chosen the dialog asks for nothing else.
+    const waitingForFile = csvMode && !csv.chosen;
     // A field the whole file shares, still empty once the file is read, is marked like a column with
     // no answer: either one keeps every deposit from being added.
     const missingForFile = (value: string): string | undefined =>
@@ -903,8 +908,16 @@ export default function WalletAccounts(): JSX.Element {
                                     errors.reset();
                                 }}
                                 options={[
-                                    { value: 'one', label: t((d) => d.pages.walletDeposits.csv.modeOne) },
-                                    { value: 'csv', label: t((d) => d.pages.walletDeposits.csv.modeCsv) },
+                                    {
+                                        value: 'one',
+                                        label: t((d) => d.pages.walletDeposits.csv.modeOne),
+                                        icon: PiggyBank,
+                                    },
+                                    {
+                                        value: 'csv',
+                                        label: t((d) => d.pages.walletDeposits.csv.modeCsv),
+                                        icon: FileSpreadsheet,
+                                    },
                                 ]}
                             />
                         </FieldSpan>
@@ -914,118 +927,122 @@ export default function WalletAccounts(): JSX.Element {
                         <p className="note sm:col-span-2">{t((d) => d.pages.walletDeposits.form.closedNotice)}</p>
                     ) : null}
 
-                    {/* A deposit is at a bank, and that bank is its name: chosen from the list the bank import
+                    {waitingForFile ? null : (
+                        <>
+                            {/* A deposit is at a bank, and that bank is its name: chosen from the list the bank import
                         keeps, never typed, so two deposits at one bank cannot be spelled two ways. */}
-                    {isDeposit && csvMode && csv.bankFromFile ? null : isDeposit ? (
-                        <Field
-                            label={t((d) => d.pages.walletDeposits.form.bank)}
-                            htmlFor="account-bank"
-                            error={errors.get('bank_id') ?? missingForFile(form.bank_id)}
-                            hint={
-                                banks.length === 0
-                                    ? t((d) => d.pages.walletDeposits.form.bankEmpty)
-                                    : t((d) => d.pages.walletDeposits.form.bankHint)
-                            }
-                        >
-                            <PanelSelect
-                                icon={<Landmark className="size-3.5" aria-hidden="true" />}
-                                id="account-bank"
-                                disabled={depositClosed}
-                                value={form.bank_id}
-                                placeholder={t((d) => d.pages.walletDeposits.form.bankPlaceholder)}
-                                // Sixty-odd banks, and more once another country is configured. The
-                                // label carries the 4-letter code, so searching "BTRL" finds it too.
-                                searchable
-                                onValueChange={(value) => {
-                                    setForm((current) => ({ ...current, bank_id: value }));
-                                }}
-                                optionVisual="bare"
-                                // This list is the current banks only, so every dot is green — drawn
-                                // anyway so the column reads the same here as everywhere else.
-                                options={bankOptions(
-                                    banks,
-                                    t((d) => d.pages.walletTransactions.bank.closed),
-                                )}
-                            />
-                        </Field>
-                    ) : (
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.form.displayName)}
-                            htmlFor="account-display-name"
-                            error={errors.get('display_name')}
-                            hint={t((d) => d.pages.walletAccounts.form.displayNameHint)}
-                        >
-                            <PanelInput
-                                id="account-display-name"
-                                icon={<TagIcon className="size-3.5" />}
-                                value={form.display_name}
-                                onChange={(event) => {
-                                    setForm((current) => ({ ...current, display_name: event.target.value }));
-                                }}
-                            />
-                        </Field>
-                    )}
+                            {isDeposit && csvMode && csv.bankFromFile ? null : isDeposit ? (
+                                <Field
+                                    label={t((d) => d.pages.walletDeposits.form.bank)}
+                                    htmlFor="account-bank"
+                                    error={errors.get('bank_id') ?? missingForFile(form.bank_id)}
+                                    help={
+                                        banks.length === 0
+                                            ? t((d) => d.pages.walletDeposits.form.bankEmpty)
+                                            : t((d) => d.pages.walletDeposits.form.bankHint)
+                                    }
+                                >
+                                    <PanelSelect
+                                        icon={<Landmark className="size-3.5" aria-hidden="true" />}
+                                        id="account-bank"
+                                        disabled={depositClosed}
+                                        value={form.bank_id}
+                                        placeholder={t((d) => d.pages.walletDeposits.form.bankPlaceholder)}
+                                        // Sixty-odd banks, and more once another country is configured. The
+                                        // label carries the 4-letter code, so searching "BTRL" finds it too.
+                                        searchable
+                                        onValueChange={(value) => {
+                                            setForm((current) => ({ ...current, bank_id: value }));
+                                        }}
+                                        optionVisual="bare"
+                                        // This list is the current banks only, so every dot is green — drawn
+                                        // anyway so the column reads the same here as everywhere else.
+                                        options={bankOptions(
+                                            banks,
+                                            t((d) => d.pages.walletTransactions.bank.closed),
+                                        )}
+                                    />
+                                </Field>
+                            ) : (
+                                <Field
+                                    label={t((d) => d.pages.walletAccounts.form.displayName)}
+                                    htmlFor="account-display-name"
+                                    error={errors.get('display_name')}
+                                    help={t((d) => d.pages.walletAccounts.form.displayNameHint)}
+                                >
+                                    <PanelInput
+                                        id="account-display-name"
+                                        icon={<TagIcon className="size-3.5" />}
+                                        value={form.display_name}
+                                        onChange={(event) => {
+                                            setForm((current) => ({ ...current, display_name: event.target.value }));
+                                        }}
+                                    />
+                                </Field>
+                            )}
 
-                    <Field
-                        label={t((d) => d.pages.walletAccounts.form.kind)}
-                        htmlFor="account-kind"
-                        error={errors.get('kind')}
-                    >
-                        {/* Fixed once the source exists: the server refuses `kind` on an edit, because
+                            <Field
+                                label={t((d) => d.pages.walletAccounts.form.kind)}
+                                htmlFor="account-kind"
+                                error={errors.get('kind')}
+                            >
+                                {/* Fixed once the source exists: the server refuses `kind` on an edit, because
                             it decides whether transactions may be recorded against the source at all. */}
-                        <PanelSelect
-                            icon={<Shapes className="size-3.5" aria-hidden="true" />}
-                            id="account-kind"
-                            disabled={editing !== null}
-                            value={form.kind}
-                            onValueChange={(value) => {
-                                setForm((current) => ({ ...current, kind: value }));
-                            }}
-                            options={OPENABLE_KINDS.map((kind) => ({
-                                value: kind,
-                                label: t((d) => d.pages.wallet.kinds[kind] ?? kind),
-                            }))}
-                        />
-                    </Field>
+                                <PanelSelect
+                                    icon={<Shapes className="size-3.5" aria-hidden="true" />}
+                                    id="account-kind"
+                                    disabled={editing !== null}
+                                    value={form.kind}
+                                    onValueChange={(value) => {
+                                        setForm((current) => ({ ...current, kind: value }));
+                                    }}
+                                    options={OPENABLE_KINDS.map((kind) => ({
+                                        value: kind,
+                                        label: t((d) => d.pages.wallet.kinds[kind] ?? kind),
+                                    }))}
+                                />
+                            </Field>
 
-                    {csvMode && csv.currencyFromFile ? null : (
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.form.currency)}
-                            htmlFor="account-currency"
-                            error={errors.get('currency_code') ?? missingForFile(form.currency_code)}
-                            {...(isDeposit && termsLocked ? { hint: lockedHint } : {})}
-                        >
-                            <PanelSelect
-                                icon={<Coins className="size-3.5" aria-hidden="true" />}
-                                id="account-currency"
-                                disabled={isDeposit && termsLocked}
-                                value={form.currency_code}
-                                onValueChange={(value) => {
-                                    setForm((current) => ({ ...current, currency_code: value }));
-                                }}
-                                options={currencies.map((code) => ({ value: code, label: code }))}
-                            />
-                        </Field>
+                            {csvMode && csv.currencyFromFile ? null : (
+                                <Field
+                                    label={t((d) => d.pages.walletAccounts.form.currency)}
+                                    htmlFor="account-currency"
+                                    error={errors.get('currency_code') ?? missingForFile(form.currency_code)}
+                                    {...(isDeposit && termsLocked ? { help: lockedHint } : {})}
+                                >
+                                    <PanelSelect
+                                        icon={<Coins className="size-3.5" aria-hidden="true" />}
+                                        id="account-currency"
+                                        disabled={isDeposit && termsLocked}
+                                        value={form.currency_code}
+                                        onValueChange={(value) => {
+                                            setForm((current) => ({ ...current, currency_code: value }));
+                                        }}
+                                        options={currencies.map((code) => ({ value: code, label: code }))}
+                                    />
+                                </Field>
+                            )}
+
+                            {isCash ? (
+                                <Field
+                                    label={t((d) => d.pages.walletAccounts.form.holdingAmount)}
+                                    htmlFor="account-holding"
+                                    error={errors.get('holding_amount_minor')}
+                                    help={t((d) => d.pages.walletAccounts.form.holdingAmountHint)}
+                                >
+                                    <PanelInput
+                                        id="account-holding"
+                                        icon={<Banknote className="size-3.5" />}
+                                        inputMode="decimal"
+                                        value={form.holding_amount}
+                                        onChange={(event) => {
+                                            setForm((current) => ({ ...current, holding_amount: event.target.value }));
+                                        }}
+                                    />
+                                </Field>
+                            ) : null}
+                        </>
                     )}
-
-                    {isCash ? (
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.form.holdingAmount)}
-                            htmlFor="account-holding"
-                            error={errors.get('holding_amount_minor')}
-                            hint={t((d) => d.pages.walletAccounts.form.holdingAmountHint)}
-                        >
-                            <PanelInput
-                                id="account-holding"
-                                icon={<Banknote className="size-3.5" />}
-                                inputMode="decimal"
-                                value={form.holding_amount}
-                                onChange={(event) => {
-                                    setForm((current) => ({ ...current, holding_amount: event.target.value }));
-                                }}
-                            />
-                        </Field>
-                    ) : null}
 
                     {/* A deposit's own start date, and only a deposit's: it is the day interest
                         begins accruing and the left edge of the span its rate periods must cover,
@@ -1047,215 +1064,232 @@ export default function WalletAccounts(): JSX.Element {
                         />
                     ) : null}
 
-                    {isDeposit && !csvMode ? (
-                        <Field
-                            label={t((d) => d.pages.walletAccounts.form.startsAt)}
-                            htmlFor="account-starts"
-                            error={errors.get('starts_at')}
-                            {...(termsLocked ? { hint: lockedHint } : {})}
-                        >
-                            <PanelDate
-                                block
-                                disabled={termsLocked}
-                                value={form.starts_at === '' ? null : form.starts_at}
-                                onChange={(next) => {
-                                    setForm((current) => ({ ...current, starts_at: next ?? '' }));
-                                }}
-                            />
-                        </Field>
-                    ) : null}
+                    {waitingForFile ? null : (
+                        <>
+                            {isDeposit && !csvMode ? (
+                                <Field
+                                    label={t((d) => d.pages.walletAccounts.form.startsAt)}
+                                    htmlFor="account-starts"
+                                    error={errors.get('starts_at')}
+                                    {...(termsLocked ? { help: lockedHint } : {})}
+                                >
+                                    <PanelDate
+                                        block
+                                        disabled={termsLocked}
+                                        value={form.starts_at === '' ? null : form.starts_at}
+                                        onChange={(next) => {
+                                            setForm((current) => ({ ...current, starts_at: next ?? '' }));
+                                        }}
+                                    />
+                                </Field>
+                            ) : null}
 
-                    {/* The deposit half. It appears when the kind calls for it rather than living on
+                            {/* The deposit half. It appears when the kind calls for it rather than living on
                         a second screen — a term deposit is an account, and offering two places to
                         add one is what made the two look like different things. */}
-                    {isDeposit ? (
-                        <>
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.fundingAccount)}
-                                htmlFor="account-funding"
-                                error={errors.get('funding_account_id')}
-                                hint={
-                                    termsLocked ? lockedHint : t((d) => d.pages.walletDeposits.form.fundingAccountHint)
-                                }
-                            >
-                                <PanelSelect
-                                    icon={<WalletCards className="size-3.5" aria-hidden="true" />}
-                                    id="account-funding"
-                                    disabled={termsLocked}
-                                    value={form.funding_account_id}
-                                    placeholder={t((d) => d.pages.walletDeposits.form.fundingAccountNone)}
-                                    onValueChange={(value) => {
-                                        setForm((current) => ({ ...current, funding_account_id: value }));
-                                    }}
-                                    options={(accounts ?? [])
-                                        .filter((candidate) => isStreamKind(candidate.kind))
-                                        .map((candidate) => ({
-                                            value: candidate.id,
-                                            label: sourceName(
-                                                candidate,
-                                                t((d) => d.pages.wallet.generalSource),
-                                            ),
-                                        }))}
-                                />
-                            </Field>
-
-                            {csvMode ? null : (
+                            {isDeposit ? (
                                 <>
                                     <Field
-                                        label={t((d) => d.pages.walletDeposits.form.principal)}
-                                        htmlFor="account-principal"
-                                        error={errors.get('principal_minor')}
-                                        hint={
+                                        label={t((d) => d.pages.walletDeposits.form.fundingAccount)}
+                                        htmlFor="account-funding"
+                                        error={errors.get('funding_account_id')}
+                                        help={
                                             termsLocked
                                                 ? lockedHint
-                                                : t((d) => d.pages.walletDeposits.form.principalHint)
+                                                : t((d) => d.pages.walletDeposits.form.fundingAccountHint)
                                         }
                                     >
-                                        <PanelInput
-                                            icon={<Coins className="size-3.5" aria-hidden="true" />}
-                                            id="account-principal"
+                                        <PanelSelect
+                                            icon={<WalletCards className="size-3.5" aria-hidden="true" />}
+                                            id="account-funding"
                                             disabled={termsLocked}
-                                            type="number"
-                                            min={0}
-                                            step="0.01"
-                                            value={form.principal}
-                                            onChange={(event) => {
-                                                setForm((current) => ({ ...current, principal: event.target.value }));
+                                            value={form.funding_account_id}
+                                            placeholder={t((d) => d.pages.walletDeposits.form.fundingAccountNone)}
+                                            onValueChange={(value) => {
+                                                setForm((current) => ({ ...current, funding_account_id: value }));
                                             }}
+                                            options={(accounts ?? [])
+                                                .filter((candidate) => isStreamKind(candidate.kind))
+                                                .map((candidate) => ({
+                                                    value: candidate.id,
+                                                    label: sourceName(
+                                                        candidate,
+                                                        t((d) => d.pages.wallet.generalSource),
+                                                    ),
+                                                }))}
                                         />
                                     </Field>
 
-                                    <Field
-                                        label={t((d) => d.pages.walletDeposits.form.annualRate)}
-                                        htmlFor="account-rate"
-                                        error={errors.get('annual_rate')}
-                                        hint={t((d) => d.pages.walletDeposits.form.annualRateHint)}
-                                    >
-                                        <PanelInput
-                                            id="account-rate"
-                                            disabled={depositClosed}
-                                            icon={<PercentIcon className="size-3.5" />}
-                                            inputMode="decimal"
-                                            value={form.annual_rate}
-                                            onChange={(event) => {
-                                                setForm((current) => ({ ...current, annual_rate: event.target.value }));
-                                            }}
-                                        />
-                                    </Field>
+                                    {csvMode ? null : (
+                                        <>
+                                            <Field
+                                                label={t((d) => d.pages.walletDeposits.form.principal)}
+                                                htmlFor="account-principal"
+                                                error={errors.get('principal_minor')}
+                                                help={
+                                                    termsLocked
+                                                        ? lockedHint
+                                                        : t((d) => d.pages.walletDeposits.form.principalHint)
+                                                }
+                                            >
+                                                <PanelInput
+                                                    icon={<Coins className="size-3.5" aria-hidden="true" />}
+                                                    id="account-principal"
+                                                    disabled={termsLocked}
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.01"
+                                                    value={form.principal}
+                                                    onChange={(event) => {
+                                                        setForm((current) => ({
+                                                            ...current,
+                                                            principal: event.target.value,
+                                                        }));
+                                                    }}
+                                                />
+                                            </Field>
+
+                                            <Field
+                                                label={t((d) => d.pages.walletDeposits.form.annualRate)}
+                                                htmlFor="account-rate"
+                                                error={errors.get('annual_rate')}
+                                                help={t((d) => d.pages.walletDeposits.form.annualRateHint)}
+                                            >
+                                                <PanelInput
+                                                    id="account-rate"
+                                                    disabled={depositClosed}
+                                                    icon={<PercentIcon className="size-3.5" />}
+                                                    inputMode="decimal"
+                                                    value={form.annual_rate}
+                                                    onChange={(event) => {
+                                                        setForm((current) => ({
+                                                            ...current,
+                                                            annual_rate: event.target.value,
+                                                        }));
+                                                    }}
+                                                />
+                                            </Field>
+
+                                            <Field
+                                                label={t((d) => d.pages.walletDeposits.form.term)}
+                                                htmlFor="account-term"
+                                                help={t((d) => d.pages.walletDeposits.form.termHint)}
+                                            >
+                                                <PanelSelect
+                                                    icon={<Hourglass className="size-3.5" aria-hidden="true" />}
+                                                    id="account-term"
+                                                    disabled={depositClosed}
+                                                    value={form.term_months}
+                                                    onValueChange={(value) => {
+                                                        setForm((current) => ({ ...current, term_months: value }));
+                                                    }}
+                                                    options={options.termsMonths.map((months) => ({
+                                                        value: String(months),
+                                                        label: termLabel(months),
+                                                    }))}
+                                                />
+                                            </Field>
+
+                                            {/* Derived, not entered — but shown, because the interest is counted
+                                between the opening date and this one. */}
+                                            <Field
+                                                label={t((d) => d.pages.walletDeposits.form.maturityAt)}
+                                                htmlFor="account-maturity"
+                                                error={errors.get('maturity_at')}
+                                                help={
+                                                    termDays === null
+                                                        ? t((d) => d.pages.walletDeposits.form.maturityPending)
+                                                        : [
+                                                              t(
+                                                                  (d) => d.pages.walletDeposits.form.maturityCalculated,
+                                                              ).replace('{days}', String(termDays)),
+                                                              ...(movedToWorkingDay
+                                                                  ? [
+                                                                        t(
+                                                                            (d) =>
+                                                                                d.pages.walletDeposits.form
+                                                                                    .maturityMoved,
+                                                                        ),
+                                                                    ]
+                                                                  : []),
+                                                          ].join(' ')
+                                                }
+                                            >
+                                                <PanelInput
+                                                    id="account-maturity"
+                                                    type="date"
+                                                    value={maturityAt}
+                                                    disabled
+                                                    readOnly
+                                                    icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
+                                                />
+                                            </Field>
+                                        </>
+                                    )}
 
                                     <Field
-                                        label={t((d) => d.pages.walletDeposits.form.term)}
-                                        htmlFor="account-term"
-                                        hint={t((d) => d.pages.walletDeposits.form.termHint)}
+                                        label={t((d) => d.pages.walletDeposits.form.rateType)}
+                                        htmlFor="account-rate-type"
+                                        error={errors.get('rate_type')}
                                     >
                                         <PanelSelect
-                                            icon={<Hourglass className="size-3.5" aria-hidden="true" />}
-                                            id="account-term"
-                                            disabled={depositClosed}
-                                            value={form.term_months}
+                                            icon={<Percent className="size-3.5" aria-hidden="true" />}
+                                            id="account-rate-type"
+                                            disabled={termsLocked}
+                                            value={form.rate_type}
                                             onValueChange={(value) => {
-                                                setForm((current) => ({ ...current, term_months: value }));
+                                                setForm((current) => ({ ...current, rate_type: value }));
                                             }}
-                                            options={options.termsMonths.map((months) => ({
-                                                value: String(months),
-                                                label: termLabel(months),
+                                            options={RATE_TYPES.map((value) => ({
+                                                value,
+                                                label: t((d) => d.pages.wallet.rateTypes[value] ?? value),
                                             }))}
                                         />
                                     </Field>
 
-                                    {/* Derived, not entered — but shown, because the interest is counted
-                                between the opening date and this one. */}
                                     <Field
-                                        label={t((d) => d.pages.walletDeposits.form.maturityAt)}
-                                        htmlFor="account-maturity"
-                                        error={errors.get('maturity_at')}
-                                        hint={
-                                            termDays === null
-                                                ? t((d) => d.pages.walletDeposits.form.maturityPending)
-                                                : [
-                                                      t((d) => d.pages.walletDeposits.form.maturityCalculated).replace(
-                                                          '{days}',
-                                                          String(termDays),
-                                                      ),
-                                                      ...(movedToWorkingDay
-                                                          ? [t((d) => d.pages.walletDeposits.form.maturityMoved)]
-                                                          : []),
-                                                  ].join(' ')
-                                        }
+                                        label={t((d) => d.pages.walletDeposits.form.interestMethod)}
+                                        htmlFor="account-method"
+                                        error={errors.get('interest_method')}
                                     >
-                                        <PanelInput
-                                            id="account-maturity"
-                                            type="date"
-                                            value={maturityAt}
-                                            disabled
-                                            readOnly
-                                            icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}
+                                        <PanelSelect
+                                            icon={<Calculator className="size-3.5" aria-hidden="true" />}
+                                            id="account-method"
+                                            disabled={termsLocked}
+                                            value={form.interest_method}
+                                            onValueChange={(value) => {
+                                                setForm((current) => ({ ...current, interest_method: value }));
+                                            }}
+                                            options={INTEREST_METHODS.map((value) => ({
+                                                value,
+                                                label: t((d) => d.pages.wallet.interestMethods[value] ?? value),
+                                            }))}
+                                        />
+                                    </Field>
+
+                                    <Field
+                                        label={t((d) => d.pages.walletDeposits.form.paymentFrequency)}
+                                        htmlFor="account-frequency"
+                                        error={errors.get('payment_frequency')}
+                                    >
+                                        <PanelSelect
+                                            icon={<CalendarClock className="size-3.5" aria-hidden="true" />}
+                                            id="account-frequency"
+                                            disabled={termsLocked}
+                                            value={form.payment_frequency}
+                                            onValueChange={(value) => {
+                                                setForm((current) => ({ ...current, payment_frequency: value }));
+                                            }}
+                                            options={PAYMENT_FREQUENCIES.map((value) => ({
+                                                value,
+                                                label: t((d) => d.pages.wallet.frequencies[value] ?? value),
+                                            }))}
                                         />
                                     </Field>
                                 </>
-                            )}
-
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.rateType)}
-                                htmlFor="account-rate-type"
-                                error={errors.get('rate_type')}
-                            >
-                                <PanelSelect
-                                    icon={<Percent className="size-3.5" aria-hidden="true" />}
-                                    id="account-rate-type"
-                                    disabled={termsLocked}
-                                    value={form.rate_type}
-                                    onValueChange={(value) => {
-                                        setForm((current) => ({ ...current, rate_type: value }));
-                                    }}
-                                    options={RATE_TYPES.map((value) => ({
-                                        value,
-                                        label: t((d) => d.pages.wallet.rateTypes[value] ?? value),
-                                    }))}
-                                />
-                            </Field>
-
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.interestMethod)}
-                                htmlFor="account-method"
-                                error={errors.get('interest_method')}
-                            >
-                                <PanelSelect
-                                    icon={<Calculator className="size-3.5" aria-hidden="true" />}
-                                    id="account-method"
-                                    disabled={termsLocked}
-                                    value={form.interest_method}
-                                    onValueChange={(value) => {
-                                        setForm((current) => ({ ...current, interest_method: value }));
-                                    }}
-                                    options={INTEREST_METHODS.map((value) => ({
-                                        value,
-                                        label: t((d) => d.pages.wallet.interestMethods[value] ?? value),
-                                    }))}
-                                />
-                            </Field>
-
-                            <Field
-                                label={t((d) => d.pages.walletDeposits.form.paymentFrequency)}
-                                htmlFor="account-frequency"
-                                error={errors.get('payment_frequency')}
-                            >
-                                <PanelSelect
-                                    icon={<CalendarClock className="size-3.5" aria-hidden="true" />}
-                                    id="account-frequency"
-                                    disabled={termsLocked}
-                                    value={form.payment_frequency}
-                                    onValueChange={(value) => {
-                                        setForm((current) => ({ ...current, payment_frequency: value }));
-                                    }}
-                                    options={PAYMENT_FREQUENCIES.map((value) => ({
-                                        value,
-                                        label: t((d) => d.pages.wallet.frequencies[value] ?? value),
-                                    }))}
-                                />
-                            </Field>
+                            ) : null}
                         </>
-                    ) : null}
+                    )}
                 </FieldGrid>
             </PanelDialog>
         </>

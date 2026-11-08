@@ -6,7 +6,7 @@ import { iconForInputType } from '../../lib/inputIcons';
 import { formatDateTime, formatWhen } from '../../lib/format';
 import { cloneElement, isValidElement, type MouseEvent, useEffect, useState } from 'react';
 import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react';
-import { CheckIcon, CircleHelp, EllipsisVertical, Info, Plus, SearchIcon, X } from 'lucide-react';
+import { CheckIcon, CircleHelp, EllipsisVertical, Info, Plus, SearchIcon, X, type LucideIcon } from 'lucide-react';
 
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -19,6 +19,29 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '../../lib/utils';
 
 export { QrCode } from './QrCode';
+
+/**
+ * An explanation behind a mark beside what it explains — a field's label, a card's title, a heading.
+ *
+ * For what a few people will ask, not what everyone must read first: a sentence under every field
+ * turns a form into a wall of prose, and the one field a person is unsure about is no easier to find.
+ * The words are in the document as well, so a screen reader reads them with the label.
+ */
+export function HelpMark({ text, side = 'top' }: { text: string; side?: 'top' | 'bottom' }): JSX.Element {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
+                    <CircleHelp className="size-3.5" />
+                    <span className="sr-only">{text}</span>
+                </span>
+            </TooltipTrigger>
+            <TooltipContent side={side} className="max-w-72">
+                {text}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
 
 /**
  * The shared vocabulary every admin/detail screen is built from, so a page composes these instead
@@ -38,6 +61,11 @@ export { QrCode } from './QrCode';
  */
 export function Panel(props: {
     title: string;
+    /**
+     * The title on a phone, where the head shares its one line with the aside — a wizard's steps,
+     * say. The full title from `sm` up; the description shows at every width.
+     */
+    shortTitle?: string;
     description?: string;
     /** An icon for the head's leading tile. A card without one still aligns, it just has no mark. */
     icon?: ReactNode;
@@ -86,19 +114,18 @@ export function Panel(props: {
                     {props.icon !== undefined && <div className="panel-head-icon">{props.icon}</div>}
                     <div className="min-w-0">
                         <span className="flex min-w-0 items-center gap-1.5">
-                            <h2 className="panel-title truncate">{props.title}</h2>
+                            <h2 className="panel-title truncate">
+                                {props.shortTitle === undefined ? (
+                                    props.title
+                                ) : (
+                                    <>
+                                        <span className="sm:hidden">{props.shortTitle}</span>
+                                        <span className="hidden sm:inline">{props.title}</span>
+                                    </>
+                                )}
+                            </h2>
                             {props.help === undefined || props.help === '' ? null : (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
-                                            <CircleHelp className="size-3.5" />
-                                            <span className="sr-only">{props.help}</span>
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="max-w-80">
-                                        {props.help}
-                                    </TooltipContent>
-                                </Tooltip>
+                                <HelpMark text={props.help} side="bottom" />
                             )}
                         </span>
                         {props.description !== undefined && <p className="panel-subtitle">{props.description}</p>}
@@ -448,19 +475,7 @@ export function Field(props: {
                     <Label htmlFor={props.htmlFor} className="field-label truncate">
                         {props.unit !== undefined && props.unit !== '' ? `${props.label} (${props.unit})` : props.label}
                     </Label>
-                    {props.help === undefined || props.help === '' ? null : (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="text-muted-foreground hover:text-foreground inline-flex shrink-0">
-                                    <CircleHelp className="size-3.5" />
-                                    <span className="sr-only">{props.help}</span>
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-72">
-                                {props.help}
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
+                    {props.help === undefined || props.help === '' ? null : <HelpMark text={props.help} />}
                 </span>
             </div>
 
@@ -678,7 +693,8 @@ export function PanelInput({
 export function ButtonGroup<T extends string>(props: {
     value: T;
     onChange: (value: T) => void;
-    options: Array<{ value: T; label: ReactNode; title?: string }>;
+    /** `icon`: drawn before the label at the group's one size, so every segment's mark matches. */
+    options: Array<{ value: T; label: ReactNode; title?: string; icon?: LucideIcon }>;
     /** Fills its field and splits evenly — a choice in a form, not a control in a toolbar. */
     stretch?: boolean;
     disabled?: boolean;
@@ -702,6 +718,7 @@ export function ButtonGroup<T extends string>(props: {
                             props.onChange(option.value);
                         }}
                     >
+                        {option.icon === undefined ? null : <option.icon className="size-3.5" aria-hidden="true" />}
                         {option.label}
                     </Button>
                 );

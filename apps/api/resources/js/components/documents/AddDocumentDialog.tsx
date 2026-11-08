@@ -1,4 +1,4 @@
-import { Camera, FileText, FolderOpen, RotateCcw, Upload, Wand2, X } from 'lucide-react';
+import { Camera, FileText, FileUp, FolderOpen, Inbox, RotateCcw, Upload, Wand2, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
 import Checkbox from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
@@ -507,11 +507,25 @@ export default function AddDocumentDialog({
                     </div>
 
                     {items.length === 0 ? (
-                        <p className="note">
-                            {online
-                                ? t((d) => d.documentsCapture.queueEmpty)
-                                : t((d) => d.documentsCapture.offlineNotice)}
-                        </p>
+                        /* Waiting for a file rather than reporting an absence: a page rising into a
+                           tray, over and over, says what this space is for before anything is in it.
+                           Offline it stands still and says why. */
+                        <div className="queue-empty" data-offline={online ? undefined : ''}>
+                            <span className="queue-empty-mark" aria-hidden="true">
+                                <FileUp className="queue-empty-file size-6" />
+                                <Inbox className="queue-empty-tray size-7" />
+                            </span>
+                            <p className="text-sm font-semibold">
+                                {online
+                                    ? t((d) => d.documentsCapture.queueEmpty)
+                                    : t((d) => d.documentsCapture.offline)}
+                            </p>
+                            <p className="note max-w-xs">
+                                {online
+                                    ? t((d) => d.documentsCapture.queueEmptyHint)
+                                    : t((d) => d.documentsCapture.offlineNotice)}
+                            </p>
+                        </div>
                     ) : (
                         <ul className="space-y-2">
                             {items.map((item) => {

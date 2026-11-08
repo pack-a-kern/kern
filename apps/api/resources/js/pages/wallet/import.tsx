@@ -48,6 +48,7 @@ import {
 import Checkbox from '../../components/Checkbox';
 import Pagination from '../../components/Pagination';
 import { bankOptions, type BankSelectOption } from '../../components/wallet/bankOptions';
+import { ChosenFile, FileDrop } from '../../components/FileDrop';
 import TagsInput from '../../components/wallet/TagsInput';
 import {
     DataTable,
@@ -130,7 +131,6 @@ export default function WalletImport(): JSX.Element {
     const [staged, setStaged] = useState<File[]>([]);
     const [batch, setBatch] = useState<Queued[]>([]);
     const [reached, setReached] = useState<Record<string, string>>({});
-    const [dragging, setDragging] = useState(false);
     const [starting, setStarting] = useState(false);
 
     // Step 2 — the columns.
@@ -589,76 +589,15 @@ export default function WalletImport(): JSX.Element {
                             </PanelButton>
                         }
                     >
-                        {/* One picker, centred: the file is the only thing asked here. The bank is
-                            asked on the next step, where it can already be filled in from the file. */}
-                        <label
-                            htmlFor="import-file"
-                            className={cn(
-                                'mx-auto flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors',
-                                dragging ? 'border-primary bg-accent' : 'border-border hover:border-primary',
-                            )}
-                            onDragOver={(event) => {
-                                event.preventDefault();
-                                setDragging(true);
+                        <StatementPicker
+                            staged={staged}
+                            onAdd={(files) => {
+                                setStaged((chosen) => [...chosen, ...files]);
                             }}
-                            onDragLeave={() => {
-                                setDragging(false);
+                            onRemove={(index) => {
+                                setStaged((files) => files.filter((_, at) => at !== index));
                             }}
-                            onDrop={(event) => {
-                                event.preventDefault();
-                                setDragging(false);
-                                setStaged((chosen) => [...chosen, ...statements(event.dataTransfer.files)]);
-                            }}
-                        >
-                            <Upload className="text-muted-foreground size-8" aria-hidden="true" />
-                            <span className="text-sm font-semibold">{t((d) => d.pages.walletImports.file.drop)}</span>
-                            <span className="text-primary text-sm underline underline-offset-2">
-                                {t((d) => d.pages.walletImports.file.choose)}
-                            </span>
-                            <span className="note max-w-sm">{t((d) => d.pages.walletImports.file.hint)}</span>
-                            <input
-                                id="import-file"
-                                type="file"
-                                multiple
-                                className="sr-only"
-                                accept={STATEMENT_FILES.join(',')}
-                                onChange={(event) => {
-                                    setStaged((chosen) => [...chosen, ...statements(event.target.files)]);
-                                }}
-                            />
-                        </label>
-
-                        {/* Chosen, not yet sent: a wrong one is taken off the list here rather than
-                            deleted from the documents afterwards. */}
-                        {staged.length === 0 ? null : (
-                            <ul className="border-border divide-border mx-auto mt-3 w-full max-w-md divide-y overflow-hidden rounded-lg border">
-                                {staged.map((chosen, index) => (
-                                    <li
-                                        key={`${chosen.name}-${String(index)}`}
-                                        className="flex items-center gap-2 px-3 py-2"
-                                    >
-                                        <FileText
-                                            className="text-muted-foreground size-3.5 shrink-0"
-                                            aria-hidden="true"
-                                        />
-                                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                                            {chosen.name}
-                                        </span>
-                                        <span className="note tabular-nums">{kilobytes(chosen.size)}</span>
-                                        <button
-                                            type="button"
-                                            className="text-muted-foreground hover:text-destructive"
-                                            aria-label={t((d) => d.common.delete)}
-                                            onClick={() => {
-                                                setStaged((files) => files.filter((_, at) => at !== index));
-                                            }}
-                                        >
-                                            <X className="size-3.5" />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        />
 
                         {batch.length === 0 ? null : (
                             <BatchQueue queue={batch} reached={reached} onOpen={setImportId} />
@@ -720,6 +659,7 @@ export default function WalletImport(): JSX.Element {
                 {showsForm && mapping !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.columns.title)}
+                        shortTitle={t((d) => d.pages.walletImports.steps.columns)}
                         description={t((d) => d.pages.walletImports.columns.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
                         aside={<Steps status={status} />}
@@ -833,6 +773,7 @@ export default function WalletImport(): JSX.Element {
                 {status === 'REVIEW' && !remapping && !suggesting && detail !== null ? (
                     <Panel
                         title={t((d) => d.pages.walletImports.review.title)}
+                        shortTitle={t((d) => d.pages.walletImports.steps.review)}
                         description={t((d) => d.pages.walletImports.review.hint)}
                         icon={<FileSpreadsheet className="size-4" />}
                         flush
@@ -1100,7 +1041,11 @@ export default function WalletImport(): JSX.Element {
                 ) : null}
 
                 {status === 'IMPORTED' ? (
-                    <Panel title={t((d) => d.pages.walletImports.done.title)} aside={<Steps status={status} />}>
+                    <Panel
+                        title={t((d) => d.pages.walletImports.done.title)}
+                        shortTitle={t((d) => d.pages.walletImports.steps.done)}
+                        aside={<Steps status={status} />}
+                    >
                         {/*
                             The two numbers, as numbers.
                             They were a sentence — "529 transactions imported, 0 skipped as already
@@ -1196,16 +1141,6 @@ interface Queued {
 const STATEMENT_FILES = ['.csv', '.xlsx', '.xls', '.pdf'];
 
 /** The files of a drop or a picker that could be a statement at all. */
-function statements(chosen: FileList | null): File[] {
-    return [...(chosen ?? [])].filter((file) =>
-        STATEMENT_FILES.some((extension) => file.name.toLocaleLowerCase().endsWith(extension)),
-    );
-}
-
-function kilobytes(bytes: number): string {
-    return `${String(Math.max(Math.round(bytes / 1024), 1))} KB`;
-}
-
 /**
  * The files of one batch, each on its own line: uploading, queued, or refused and why.
  *
@@ -1213,6 +1148,87 @@ function kilobytes(bytes: number): string {
  * them rather than a progress bar — the one being worked on is marked, and the others are one click
  * away.
  */
+/**
+ * The first step's body: where the statements are dropped or chosen, what to know before choosing
+ * them, and the ones chosen so far.
+ *
+ * Chosen, not yet sent: a wrong one is taken off the list here rather than deleted from the
+ * documents afterwards. The bank is asked on the next step, where it can already be filled in from
+ * the file.
+ */
+function StatementPicker({
+    staged,
+    onAdd,
+    onRemove,
+}: {
+    staged: File[];
+    onAdd: (files: File[]) => void;
+    onRemove: (index: number) => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const words = t((d) => d.pages.walletImports.file);
+
+    return (
+        <div className="statement-picker">
+            <div className="statement-picker-columns">
+                <FileDrop
+                    id="import-file"
+                    accept={STATEMENT_FILES}
+                    multiple
+                    title={words.drop}
+                    choose={words.choose}
+                    onFiles={onAdd}
+                />
+
+                <aside className="statement-tips">
+                    <h3 className="text-sm font-semibold">{words.tipsTitle}</h3>
+                    <ul className="statement-tips-list">
+                        {[
+                            { icon: FileSpreadsheet, tip: words.tips.export },
+                            { icon: Check, tip: words.tips.asIs },
+                            { icon: ListChecks, tip: words.tips.review },
+                        ].map(({ icon: Icon, tip }) => (
+                            <li key={tip.title} className="statement-tip">
+                                <span className="statement-tip-mark" aria-hidden="true">
+                                    <Icon className="size-4" />
+                                </span>
+                                <span className="min-w-0">
+                                    <strong className="block text-xs font-semibold">{tip.title}</strong>
+                                    <span className="note">{tip.body}</span>
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </aside>
+            </div>
+
+            <div className="statement-chosen-head">
+                <h3 className="text-sm font-semibold">{words.chosenTitle}</h3>
+                <Pill>
+                    {(staged.length === 1 ? words.oneFile : words.files).replace('{count}', String(staged.length))}
+                </Pill>
+            </div>
+
+            {staged.length === 0 ? (
+                <p className="statement-chosen-empty">{words.none}</p>
+            ) : (
+                <ul className="statement-chosen" aria-live="polite">
+                    {staged.map((chosen, index) => (
+                        <li key={`${chosen.name}-${String(index)}`}>
+                            <ChosenFile
+                                file={chosen}
+                                onRemove={() => {
+                                    onRemove(index);
+                                }}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 function BatchQueue({
     queue,
     reached,

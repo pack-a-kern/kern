@@ -82,6 +82,8 @@ export interface Dictionary {
         noSubjectsFound: string;
     };
     common: {
+        /** Where a file is dropped or chosen (`components/FileDrop`). `{formats}`: the extensions taken. */
+        fileDrop: { or: string; formats: string; formatsMany: string };
         loading: string;
         save: string;
         /** Dismisses a dialog that has nothing to submit — a viewer, not a form. */
@@ -231,6 +233,7 @@ export interface Dictionary {
         queueTitle: string;
         queueProcessing: string;
         queueEmpty: string;
+        queueEmptyHint: string;
         retry: string;
         remove: string;
         noActiveSubject: string;
@@ -792,7 +795,12 @@ export interface Dictionary {
                 next: string;
                 choose: string;
                 drop: string;
-                hint: string;
+                tipsTitle: string;
+                tips: Record<'export' | 'asIs' | 'review', { title: string; body: string }>;
+                chosenTitle: string;
+                oneFile: string;
+                files: string;
+                none: string;
                 uploading: string;
                 reading: string;
             };
@@ -1004,7 +1012,8 @@ export interface Dictionary {
             csv: {
                 modeOne: string;
                 modeCsv: string;
-                file: string;
+                drop: string;
+                choose: string;
                 fileHint: string;
                 separator: string;
                 separatorComma: string;
