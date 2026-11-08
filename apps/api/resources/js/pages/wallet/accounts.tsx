@@ -182,6 +182,18 @@ function emptyForm(): AccountForm {
     };
 }
 
+/**
+ * The terms the term select offers: the configured ones, and the deposit's own where it is none of
+ * them — a term typed in, or read from a file — so an edit shows it rather than nothing chosen.
+ */
+function termOptions(configured: number[], current: string): number[] {
+    const months = Number(current);
+
+    return Number.isInteger(months) && months > 0 && !configured.includes(months)
+        ? [...configured, months].sort((a, b) => a - b)
+        : configured;
+}
+
 export default function WalletAccounts(): JSX.Element {
     const { t, locale } = useTranslation();
     const currencies = useCurrencies();
@@ -1183,10 +1195,23 @@ export default function WalletAccounts(): JSX.Element {
                                                     onValueChange={(value) => {
                                                         setForm((current) => ({ ...current, term_months: value }));
                                                     }}
-                                                    options={options.termsMonths.map((months) => ({
-                                                        value: String(months),
-                                                        label: termLabel(months),
-                                                    }))}
+                                                    // The terms banks usually sell, and any other typed into
+                                                    // the search as a number of months.
+                                                    searchable
+                                                    searchPlaceholder={t((d) => d.pages.walletDeposits.form.termSearch)}
+                                                    custom={(typed) => {
+                                                        const months = Number(typed);
+
+                                                        return Number.isInteger(months) && months > 0
+                                                            ? { value: String(months), label: termLabel(months) }
+                                                            : null;
+                                                    }}
+                                                    options={termOptions(options.termsMonths, form.term_months).map(
+                                                        (months) => ({
+                                                            value: String(months),
+                                                            label: termLabel(months),
+                                                        }),
+                                                    )}
                                                 />
                                             </Field>
 

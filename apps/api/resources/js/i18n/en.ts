@@ -1238,6 +1238,7 @@ export const en = {
                 term: 'Term',
                 termMonths: '{months} months',
                 termOneMonth: 'One month',
+                termSearch: 'Search, or type a number of months',
                 termHint: 'How long the deposit runs. The maturity date follows from it.',
                 maturityAt: 'Maturity',
                 maturityCalculated: 'Calculated from the opening date and the term — {days} days.',

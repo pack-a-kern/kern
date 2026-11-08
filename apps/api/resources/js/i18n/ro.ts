@@ -1230,6 +1230,7 @@ export const ro = {
                 term: 'Termen',
                 termMonths: '{months} luni',
                 termOneMonth: 'O lună',
+                termSearch: 'Caută sau scrie un număr de luni',
                 termHint: 'Durata depozitului. Data scadenței se calculează din ea.',
                 maturityAt: 'Scadență',
                 maturityCalculated: 'Calculată din data deschiderii și termen — {days} zile.',

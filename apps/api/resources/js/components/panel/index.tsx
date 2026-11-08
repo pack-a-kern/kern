@@ -777,6 +777,10 @@ export function PanelSelect(props: {
     /** How many characters a chip shows before it is cut. The full text stays on hover. */
     chipMaxChars?: number;
     /** Shows a search box above the list. Worth it past roughly a dozen options, not before. */
+    /** A value typed into the search rather than picked — see `CustomSelect`'s `custom`. */
+    custom?: (typed: string) => { value: string; label: string } | null;
+    /** The search box's own words, where "Search" does not say what may be typed there. */
+    searchPlaceholder?: string;
     searchable?: boolean;
     /** `tile` sets each option's icon in a rounded square; `bare` draws it as-is, for a dot. */
     optionVisual?: 'tile' | 'bare';
@@ -818,9 +822,10 @@ export function PanelSelect(props: {
             {...(props['aria-label'] === undefined ? {} : { 'aria-label': props['aria-label'] })}
             disabled={props.disabled ?? false}
             searchable={props.searchable ?? false}
+            {...(props.custom === undefined ? {} : { custom: props.custom })}
             optionVisual={props.optionVisual ?? 'bare'}
             {...(props.icon === undefined ? {} : { icon: props.icon })}
-            searchPlaceholder={t((d) => d.common.search)}
+            searchPlaceholder={props.searchPlaceholder ?? t((d) => d.common.search)}
             emptyText={t((d) => d.common.noResults)}
         />
     );

@@ -14,7 +14,7 @@ return [
         // mistyped end date silently produces a wrong figure with nothing to flag it.
         'terms_months' => array_values(array_filter(array_map(
             static fn (string $value): int => (int) trim($value),
-            explode(',', (string) env('WALLET_DEPOSIT_TERMS_MONTHS', '1,3,6,9,12,24,36')),
+            explode(',', (string) env('WALLET_DEPOSIT_TERMS_MONTHS', '1,3,6,9,12,24,36,48,60,72,84')),
         ))),
 
         // Applied unless a deposit says otherwise. Not offered as a choice on the form: the

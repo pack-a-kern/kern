@@ -147,6 +147,7 @@ export default function CustomSelect<TMeta = unknown>({
     renderTrigger,
     closeOnSelect = true,
     hideChevron = false,
+    custom,
     'aria-label': ariaLabel,
 }: {
     options: SelectOption<TMeta>[];
@@ -202,6 +203,13 @@ export default function CustomSelect<TMeta = unknown>({
      * reopening for the next.
      */
     closeOnSelect?: boolean;
+    /**
+     * A value typed rather than listed: given what is in the search box, the option it stands for, or
+     * null when it is not one. Offered first, above the matches, and chosen like any of them — so a
+     * list of the usual answers does not stop anyone giving another. Needs `searchable`, which is
+     * where it is typed. The caller decides what counts: this only offers what it is handed.
+     */
+    custom?: (typed: string) => SelectOption<TMeta> | null;
     'aria-label'?: string;
 }): JSX.Element {
     const generatedId = useId();
@@ -225,14 +233,18 @@ export default function CustomSelect<TMeta = unknown>({
             return options;
         }
 
-        return options.filter((option) =>
+        const matches = options.filter((option) =>
             [option.label, option.description, ...(option.keywords ?? [])]
                 .filter((part): part is string => part !== undefined && part !== '')
                 .join(' ')
                 .toLowerCase()
                 .includes(needle),
         );
-    }, [options, query]);
+        // What was typed, as an answer of its own — unless the list already holds it.
+        const typed = custom?.(query.trim()) ?? null;
+
+        return typed === null || options.some((option) => option.value === typed.value) ? matches : [typed, ...matches];
+    }, [options, query, custom]);
 
     function openMenu(): void {
         if (disabled || triggerRef.current === null) {

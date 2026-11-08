@@ -1053,6 +1053,7 @@ export interface Dictionary {
                 term: string;
                 termMonths: string;
                 termOneMonth: string;
+                termSearch: string;
                 termHint: string;
                 maturityAt: string;
                 maturityCalculated: string;
