@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\Wallet\CounterpartyDirectoryTest;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\SubjectDekService;
 use Kern\Platform\Testing\InMemoryDekRepository;
@@ -473,6 +474,29 @@ it('forgets a counterparty without touching its transactions', function (): void
     expect(Counterparty::query()->count())->toBe(1)
         // Every transaction is exactly where it was.
         ->and(FinancialTransaction::query()->count())->toBe(2);
+});
+
+it('forgets every counterparty at once, and still no transaction', function (): void {
+    [$user, $subjectId, $accountId] = directorySubject();
+
+    record($this, $user, $subjectId, $accountId, 9_000, 'Bruma Mihaela');
+    record($this, $user, $subjectId, $accountId, 4_000, 'Altcineva');
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/counterparties/forget", ['all' => true])
+        ->assertOk()
+        ->assertJsonPath('counterparties_forgotten', 2);
+
+    expect(Counterparty::query()->count())->toBe(0)
+        ->and(FinancialTransaction::query()->count())->toBe(2);
+});
+
+it('asks for names or for all, never both and never neither', function (): void {
+    [$user, $subjectId] = directorySubject();
+    $url = "/api/v1/subjects/{$subjectId}/wallet/counterparties/forget";
+
+    $this->actingAs($user)->postJson($url, [])->assertUnprocessable();
+    $this->actingAs($user)->postJson($url, ['all' => true, 'counterparty_ids' => [(string) Str::uuid()]])->assertUnprocessable();
 });
 
 /**

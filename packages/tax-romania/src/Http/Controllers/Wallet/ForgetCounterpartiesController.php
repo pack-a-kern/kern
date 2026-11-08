@@ -10,7 +10,8 @@ use Kern\TaxRomania\Wallet\Actions\ForgetCounterparties;
 use Kern\TaxRomania\Wallet\Models\Counterparty;
 
 /**
- * `POST .../wallet/counterparties/forget` — forget what was decided about these parties.
+ * `POST .../wallet/counterparties/forget` — forget what was decided about these parties, or, with
+ * `all`, about every party this taxpayer has.
  *
  * A POST rather than a DELETE because it names several in a body, and because what it removes is a
  * set of decisions rather than one addressable thing. The transactions are untouched; the response
@@ -21,18 +22,23 @@ final class ForgetCounterpartiesController
     public function __invoke(Request $request, string $subject, ForgetCounterparties $forget): JsonResponse
     {
         $validated = $request->validate([
-            'counterparty_ids' => ['required', 'array', 'min:1'],
+            'all' => ['sometimes', 'boolean'],
+            'counterparty_ids' => ['required_unless:all,true', 'prohibited_if:all,true', 'array', 'min:1'],
             'counterparty_ids.*' => ['uuid'],
         ]);
 
-        /** @var list<string> $ids */
-        $ids = array_values(array_map(
-            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
-            is_array($validated['counterparty_ids']) ? $validated['counterparty_ids'] : [],
-        ));
-
         // Tenant-scoped: another subject's party is not found rather than forgotten.
-        $parties = Counterparty::query()->whereIn('id', $ids)->get()->all();
+        if ($request->boolean('all')) {
+            $parties = Counterparty::query()->get(['id', 'tax_subject_id'])->all();
+        } else {
+            /** @var list<string> $ids */
+            $ids = array_values(array_map(
+                static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+                is_array($validated['counterparty_ids'] ?? null) ? $validated['counterparty_ids'] : [],
+            ));
+
+            $parties = Counterparty::query()->whereIn('id', $ids)->get(['id', 'tax_subject_id'])->all();
+        }
 
         if ($parties === []) {
             return response()->json(['counterparties_forgotten' => 0]);

@@ -25,6 +25,8 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  */
 final readonly class ForgetCounterparties
 {
+    private const int CHUNK = 500;
+
     public function __construct(private WalletAudit $audit)
     {
     }
@@ -37,15 +39,17 @@ final readonly class ForgetCounterparties
     {
         $subjectId = $parties[0]->tax_subject_id;
 
+        // Set-based, in chunks: "forget all" is a whole directory — thousands of names — and one
+        // detach and one delete per party was two queries each.
         $forgotten = DB::transaction(static function () use ($parties): int {
             $count = 0;
 
-            foreach ($parties as $party) {
-                // The tag links go with it: the pivot's rows describe a party that is about to stop
-                // existing, and a cascade is not something to rely on for a decision this explicit.
-                $party->tags()->detach();
-                $party->delete();
-                $count++;
+            foreach (array_chunk(array_map(static fn (Counterparty $party): string => $party->id, $parties), self::CHUNK) as $ids) {
+                // The tag links go with them: the pivot's rows describe parties that are about to
+                // stop existing, and a cascade is not something to rely on for a decision this explicit.
+                DB::table('counterparty_tags')->whereIn('counterparty_id', $ids)->delete();
+                // `toBase()` keeps the tenant scope and says how many rows went, which the model builder does not.
+                $count += Counterparty::query()->whereKey($ids)->toBase()->delete();
             }
 
             return $count;
