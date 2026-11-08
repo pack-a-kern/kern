@@ -6,6 +6,7 @@ import { cspNonce, shareCspNonce } from './lib/cspNonce';
 import { registerServiceWorker } from './lib/registerServiceWorker';
 import { adoptSubjectFromLink } from './lib/subjectStore';
 import { appNameFrom } from './lib/sharedProps';
+import { stopFieldZoomOnIos } from './lib/viewport';
 import AppShell from './components/AppShell';
 import StepUpGate from './components/StepUpGate';
 import { Toaster } from './components/ui/sonner';
@@ -27,6 +28,7 @@ const PAGES_WITHOUT_SHELL = new Set(['home', 'auth/login', 'auth/verify-email'])
 // Before anything renders, so the first dialog's `<style>` already carries the page nonce.
 shareCspNonce();
 registerServiceWorker();
+stopFieldZoomOnIos();
 // Before any screen asks which taxpayer it is in.
 adoptSubjectFromLink();
 

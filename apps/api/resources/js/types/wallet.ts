@@ -331,7 +331,7 @@ export interface WalletTotals {
     /** Everything added together in the display currency — an indication, never a fiscal figure. */
     netWorth: NetWorth;
     holdings: {
-        /** Recorded in General, never below zero. */
+        /** Recorded in General — below zero while its earlier records are not imported. */
         general: Holding;
         /**
          * Moved out of a tracked account as the taxpayer's own transfer, landing somewhere this
@@ -342,7 +342,7 @@ export interface WalletTotals {
         /** Running principal, plus interest paid into a deposit and not yet settled. */
         deposits: Holding;
         cash: Holding;
-        /** Broker, crypto and other accounts, never below zero. */
+        /** Broker, crypto and other accounts, recorded the same way as General. */
         other: Holding;
         /** What can be spent today: General, cash and the accounts held elsewhere. */
         available: Holding;
@@ -355,12 +355,10 @@ export interface WalletTotals {
     /** Lent and not yet paid back. Beside what the taxpayer has, never part of it. */
     owedToMe: Holding;
     /**
-     * What the never-below-zero rule assumed was there before these records.
-     *
-     * Already inside `general`, so never added to anything — reported so a total larger than a
-     * person expects can say why, instead of leaving them to find the day their history starts.
+     * The first day recorded in an account that ends below zero — what it held before then is not
+     * imported. Null when every account adds up.
      */
-    assumedOpening: Holding;
+    recordsShortFrom: string | null;
 }
 
 /** The running deposits at one bank. */
@@ -769,7 +767,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
             interestAtMaturity: parseHolding(totals.interest_at_maturity),
             interestReceived: parseHolding(totals.interest_received),
             owedToMe: parseHolding(totals.owed_to_me),
-            assumedOpening: parseHolding(totals.assumed_opening),
+            recordsShortFrom: nullableStr(totals, 'records_short_from'),
         },
         banks: (Array.isArray(body.banks) ? body.banks : []).map((entry): BankDeposits => {
             const row = obj(entry);

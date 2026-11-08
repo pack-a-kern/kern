@@ -162,7 +162,7 @@ export default function WalletCounterparties(): JSX.Element {
      * subjects, so they are the same dialog with a different list — a second piece of state for the
      * single case would be two ways to forget that could drift apart.
      */
-    const [forgetting, setForgetting] = useState<Party[] | null>(null);
+    const [forgetting, setForgetting] = useState<Party[] | 'all' | null>(null);
     const [managingTags, setManagingTags] = useState(false);
     const [survivor, setSurvivor] = useState('');
     const [saving, setSaving] = useState(false);
@@ -338,14 +338,29 @@ export default function WalletCounterparties(): JSX.Element {
                        different kinds of thing in one line, and the only one of them that is always
                        available was the one wearing no word. */
                     aside={
-                        <PanelButton
-                            onClick={() => {
-                                setManagingTags(true);
-                            }}
-                        >
-                            <TagIcon className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.walletCounterparties.manageTags)}
-                        </PanelButton>
+                        <div className="flex items-center gap-2">
+                            <PanelButton
+                                onClick={() => {
+                                    setManagingTags(true);
+                                }}
+                            >
+                                <TagIcon className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletCounterparties.manageTags)}
+                            </PanelButton>
+                            {/* Every party, not the page on screen: the directory is paged and a person
+                                clearing it wants all of it gone, so the server is asked for all. Not
+                                while searching, where the count on screen is the matches, not all. */}
+                            <PanelButton
+                                variant="destructive"
+                                disabled={searching || (listing?.total ?? 0) === 0}
+                                onClick={() => {
+                                    setForgetting('all');
+                                }}
+                            >
+                                <Trash2 className="size-3.5" aria-hidden="true" />
+                                {t((d) => d.pages.walletCounterparties.forgetAll)}
+                            </PanelButton>
+                        </div>
                     }
                     foot={
                         // Gone while searching: those results are not a page of anything, they are
@@ -693,12 +708,20 @@ export default function WalletCounterparties(): JSX.Element {
             {forgetting === null ? null : (
                 <ConfirmDialog
                     open
-                    title={t((d) => d.pages.walletCounterparties.forgetTitle)}
+                    title={t((d) =>
+                        forgetting === 'all'
+                            ? d.pages.walletCounterparties.forgetAllTitle
+                            : d.pages.walletCounterparties.forgetTitle,
+                    )}
                     description={t((d) => d.pages.walletCounterparties.forgetHint).replace(
                         '{count}',
-                        String(forgetting.length),
+                        String(forgetting === 'all' ? (listing?.total ?? 0) : forgetting.length),
                     )}
-                    confirmLabel={t((d) => d.pages.walletCounterparties.forget)}
+                    confirmLabel={t((d) =>
+                        forgetting === 'all'
+                            ? d.pages.walletCounterparties.forgetAll
+                            : d.pages.walletCounterparties.forget,
+                    )}
                     cancelLabel={t((d) => d.common.cancel)}
                     onOpenChange={(open) => {
                         if (!open) {
@@ -706,17 +729,21 @@ export default function WalletCounterparties(): JSX.Element {
                         }
                     }}
                     onConfirm={() =>
-                        post('forget', { counterparty_ids: idsOf(forgetting) }, (text) => {
-                            const count = obj(JSON.parse(text)).counterparties_forgotten;
+                        post(
+                            'forget',
+                            forgetting === 'all' ? { all: true } : { counterparty_ids: idsOf(forgetting) },
+                            (text) => {
+                                const count = obj(JSON.parse(text)).counterparties_forgotten;
 
-                            setForgetting(null);
-                            toast.success(
-                                t((d) => d.pages.walletCounterparties.forgotten).replace(
-                                    '{count}',
-                                    String(typeof count === 'number' ? count : 0),
-                                ),
-                            );
-                        })
+                                setForgetting(null);
+                                toast.success(
+                                    t((d) => d.pages.walletCounterparties.forgotten).replace(
+                                        '{count}',
+                                        String(typeof count === 'number' ? count : 0),
+                                    ),
+                                );
+                            },
+                        )
                     }
                 />
             )}

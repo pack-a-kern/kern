@@ -327,7 +327,7 @@ function AdminJobsBody(): JSX.Element {
                                 <tr key={job.id}>
                                     {/* The class name, untranslated: it is a class, and a friendly
                                         name invented for it here would be a name nothing else uses. */}
-                                    <td className="col-primary">
+                                    <td className="col-primary col-foot">
                                         <div className="font-semibold break-all">{shortClass(job.name)}</div>
                                         {job.retried ? <Pill>{t((d) => d.pages.adminJobs.retriedPill)}</Pill> : null}
                                     </td>

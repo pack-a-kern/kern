@@ -45,6 +45,7 @@ export interface Dictionary {
         offline: string;
         offlineHint: string;
         backOnline: string;
+        loading: string;
         refreshing: string;
         systemDownOne: string;
         systemDownMany: string;
@@ -563,9 +564,8 @@ export interface Dictionary {
             interestMethods: Record<string, string | undefined>;
         };
         walletOverview: {
-            /** The assumed opening balance, and the sentence under it. */
-            assumedOpening: string;
-            assumedOpeningHint: string;
+            /** Under the total when an account's records start after money was already in it; `{date}`. */
+            recordsShortFrom: string;
             /** Everything the subject holds, in one currency. An indication, never a fiscal figure. */
             netWorth: string;
             netWorthRate: string;
@@ -639,6 +639,9 @@ export interface Dictionary {
             editHint: string;
             forget: string;
             forgetTitle: string;
+            /** Every payee, from the card's head rather than a selection. */
+            forgetAll: string;
+            forgetAllTitle: string;
             forgetHint: string;
             forgotten: string;
             willReplace: string;
@@ -2001,6 +2004,11 @@ export interface Dictionary {
             failed: string;
             newYear: string;
             newYearHint: string;
+            /** Every value read, decided or not, dropped for reading again. */
+            dropAll: string;
+            dropAllTitle: string;
+            dropAllHint: string;
+            dropped: string;
             year: string;
             propose: string;
             /** The `{year}` whose law is being read. */

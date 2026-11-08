@@ -420,6 +420,9 @@ export function Field(props: {
     unit?: string | undefined;
     hint?: ReactNode;
     htmlFor?: string;
+    /** A control small enough to share the label's line — a switch: on a phone it sits at the
+     *  label's right instead of on a line of its own under it. */
+    inline?: boolean;
     children: ReactNode;
     className?: string;
 }): JSX.Element {
@@ -429,7 +432,14 @@ export function Field(props: {
         // `field-invalid` rather than styling the control directly: the border belongs to the
         // `.input-group` when a field has an addon, and to the input itself otherwise. One class on
         // the field reaches both, whatever shape the control turns out to be.
-        <div className={cn('min-w-0', invalid && 'field-invalid', props.className)}>
+        <div
+            className={cn(
+                'min-w-0',
+                invalid && 'field-invalid',
+                props.inline === true && 'field-inline',
+                props.className,
+            )}
+        >
             <div className="field-label-row">
                 {props.mark}
                 {/* The mark sits beside the label's own text, not out at the field's right edge: it
@@ -516,15 +526,9 @@ export function Row(props: {
          * row. A name and a box asking for a new one are the same thing twice.
          */
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-[9px] first:pt-0 last:pb-0">
-            {/* With a state beside the name, a phone gives the name the whole line and the controls the
-                next one — every row of a card then reads the same way, whether its controls would have
-                fitted beside the name or not. */}
-            <div
-                className={cn(
-                    'min-w-0 sm:flex-[1_1_14rem]',
-                    props.status !== undefined ? 'flex-[1_1_100%]' : 'flex-[1_1_8rem]',
-                )}
-            >
+            {/* A state beside the name does not change that: the controls stay at the top right
+                while they fit there, and drop to their own line only when they do not. */}
+            <div className="min-w-0 flex-[1_1_8rem] sm:flex-[1_1_14rem]">
                 {props.status !== undefined ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <div className="text-xs font-semibold">{props.title}</div>

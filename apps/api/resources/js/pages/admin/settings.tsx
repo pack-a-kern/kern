@@ -1691,6 +1691,7 @@ function SettingField(props: {
             mark={props.hideMarker === true ? null : <SourceMark setting={setting} />}
             {...(props.help === undefined ? {} : { help: props.help })}
             htmlFor={setting.key}
+            inline={isBoolean}
             hint={
                 isSecret
                     ? setting.has_value

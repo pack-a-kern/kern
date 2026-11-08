@@ -4,16 +4,15 @@ import {
     Calculator,
     CalendarClock,
     ChartLine,
-    CircleHelp,
+    CirclePlus,
+    CloudDownload,
+    FileUp,
     HandCoins,
     Hourglass,
     Landmark,
     Percent,
     PiggyBank,
-    Plus,
-    RefreshCw,
     TrendingUp,
-    Upload,
     Wallet,
     Zap,
 } from 'lucide-react';
@@ -264,6 +263,18 @@ export default function Dashboard(): JSX.Element {
                                     <span className="note">{netWorthNote(totals.netWorth, t)}</span>
                                 </div>
                             )}
+
+                            {/* A total below what the person has, said where it is read: an account whose
+                                records start after money was already in it sums below zero, and the day
+                                its history starts is what importing earlier statements fixes. */}
+                            {totals?.recordsShortFrom == null ? null : (
+                                <p className="note mt-2">
+                                    {t((d) => d.pages.walletOverview.recordsShortFrom).replace(
+                                        '{date}',
+                                        formatDate(totals.recordsShortFrom, locale),
+                                    )}
+                                </p>
+                            )}
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -376,23 +387,6 @@ export default function Dashboard(): JSX.Element {
                                       .join(' · ')
                         }
                     />
-                    {/* Only when the rule actually fired. A balance is the sum of what was recorded, and
-                        an account cannot go below zero, so money leaving before anything arrived is
-                        taken as money the taxpayer already had. That assumption is inside the figures
-                        above and indistinguishable from money the records account for — which is how a
-                        total ends up larger than a person expects with nothing to explain it. */}
-                    {totals === null || Object.keys(totals.assumedOpening.amounts).length === 0 ? null : (
-                        <Kpi
-                            tone="info"
-                            icon={<CircleHelp className="size-4" />}
-                            label={t((d) => d.pages.walletOverview.assumedOpening)}
-                            value={holdingFigure(totals.assumedOpening)}
-                            sub={[
-                                t((d) => d.pages.walletOverview.assumedOpeningHint),
-                                perCurrency(totals.assumedOpening.amounts),
-                            ].join(' · ')}
-                        />
-                    )}
 
                     {/* Only once something is lent: a permanent zero would read as a debt being tracked. */}
                     {owedToMe === undefined || Object.keys(owedToMe.amounts).length === 0 ? null : (
@@ -678,25 +672,29 @@ export default function Dashboard(): JSX.Element {
                         description={t((d) => d.pages.walletOverview.quickHint)}
                         icon={<Zap className="size-4" />}
                     >
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-2 gap-2">
                             {[
                                 {
-                                    icon: <Upload className="size-3.5" aria-hidden="true" />,
+                                    icon: <FileUp className="size-3.5" aria-hidden="true" />,
+                                    tone: 'info',
                                     label: t((d) => d.pages.walletOverview.quickUpload),
                                     path: DOCUMENTS_PATH,
                                 },
                                 {
-                                    icon: <Plus className="size-3.5" aria-hidden="true" />,
+                                    icon: <CirclePlus className="size-3.5" aria-hidden="true" />,
+                                    tone: 'success',
                                     label: t((d) => d.pages.walletOverview.quickTransaction),
                                     path: TRANSACTIONS_PATH,
                                 },
                                 {
                                     icon: <Calculator className="size-3.5" aria-hidden="true" />,
+                                    tone: 'warning',
                                     label: t((d) => d.pages.walletOverview.quickAssess),
                                     path: TAXES_PATH,
                                 },
                                 {
-                                    icon: <RefreshCw className="size-3.5" aria-hidden="true" />,
+                                    icon: <CloudDownload className="size-3.5" aria-hidden="true" />,
+                                    tone: 'brand',
                                     label: t((d) => d.pages.walletOverview.quickSpv),
                                     path: SPV_PATH,
                                 },
@@ -705,6 +703,7 @@ export default function Dashboard(): JSX.Element {
                                     key={action.path}
                                     type="button"
                                     className="quick-action"
+                                    data-tone={action.tone}
                                     onClick={() => {
                                         router.visit(action.path);
                                     }}

@@ -40,6 +40,7 @@ export const en = {
         offline: 'No internet connection.',
         offlineHint: 'What you see may be out of date, and changes are not saved until it is back.',
         backOnline: 'Back online.',
+        loading: 'Loading',
         refreshing: 'Refreshing',
         systemDownOne: 'A service is not responding: {names}.',
         systemDownMany: '{count} services are not responding: {names}.',
@@ -768,8 +769,8 @@ export const en = {
             },
         },
         walletOverview: {
-            assumedOpening: 'Opening balance',
-            assumedOpeningHint: 'Spent before the first recorded income',
+            recordsShortFrom:
+                'Transactions before {date} are not imported, so an account below zero is missing what it held then',
             netWorth: 'Net worth',
             netWorthRate: 'BNR rate {date}',
             netWorthDirect: 'no conversion needed',
@@ -782,7 +783,7 @@ export const en = {
             available: 'Available',
             general: 'General',
             generalNote:
-                'General shows only money recorded in it and never goes below zero. Anything a deposit took beyond that counts as money you already had.',
+                'General is the sum of what was recorded in it, so it is below zero while earlier statements are not imported. Money that went into a deposit never takes it below zero: the deposit shows it was there.',
             deposits: 'In deposits',
             depositCount: '{count} active',
             cash: 'Cash',
@@ -829,6 +830,8 @@ export const en = {
             editHint: 'What money to and from this payee is.',
             forget: 'Forget',
             forgetTitle: 'Forget these payees?',
+            forgetAll: 'Delete all',
+            forgetAllTitle: 'Delete every payee?',
             forgetHint:
                 '{count} payees lose their settings. Their transactions stay as they are, and the next statement that names one adds it back.',
             forgotten: '{count} payees forgotten.',
@@ -2280,6 +2283,11 @@ export const en = {
             forbidden: 'You do not have access to the fiscal values.',
             failed: 'The fiscal values could not be loaded.',
             newYear: 'Read a year',
+            dropAll: 'Drop all',
+            dropAllTitle: 'Drop every value?',
+            dropAllHint:
+                'Every value read is deleted, approved ones included, so each year can be read again from the law. Taxes already computed keep their figures; new ones wait until values are approved again.',
+            dropped: 'All values dropped. Read a year to start again.',
             newYearHint:
                 'Reads one year’s law on its own: every value it states comes to review, to approve or reject.',
             year: 'Year',

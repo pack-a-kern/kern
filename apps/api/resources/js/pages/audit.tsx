@@ -357,7 +357,7 @@ function AdminAuditBody(): JSX.Element {
                                         in app.css. Time leads the row; the actor is the one column that
                                         is nothing but a UUID, so it is the one a phone drops — the
                                         drawer shows it in full. */}
-                                    <td className="col-primary whitespace-nowrap">
+                                    <td className="col-primary col-foot whitespace-nowrap">
                                         <EventTime iso={event.occurredAt} />
                                     </td>
                                     <td className="font-semibold">

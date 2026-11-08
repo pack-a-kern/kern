@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId, withoutSubjectLink } from '../lib/subjectStore';
 import { type SharedAuth } from '../lib/sharedProps';
@@ -172,8 +172,9 @@ export default function SubjectSwitcher({
 }: {
     collapsed?: boolean;
     /**
-     * The mark alone, with no tile around it, at the size the tile was — for the phone's top bar,
-     * where a bordered box around a round picture was a frame around a frame. Implies `collapsed`.
+     * The phone's top bar: one compact chip — the mark, the name cut to fit, and a chevron where
+     * there is a choice — the same with one taxpayer as with several, so the bar does not change
+     * shape with the number of taxpayers. Its menu opens across the screen rather than off the chip.
      */
     bare?: boolean;
 } = {}): JSX.Element {
@@ -206,26 +207,44 @@ export default function SubjectSwitcher({
     // because a menu offering the choice already made is a click that changes nothing.
     const switchable = subjects.length > 1;
 
-    const tile = (
-        <div
-            className={
-                bare
-                    ? 'subject-control-bare'
-                    : `shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`
-            }
-        >
-            <SubjectDisc
-                subject={active}
-                className={bare ? 'avatar-tile avatar-tile-bare avatar-accent' : 'avatar-tile avatar-accent'}
-            />
-            {!collapsed && !bare && (
+    const name = active ? active.displayName : t((d) => d.shell.noActiveSubject);
+
+    /*
+     * The phone's chip, as a label where there is no choice and as the menu's button where there is:
+     * one shape either way. It was a bare 46px picture with one taxpayer and the sidebar's full
+     * two-line tile with several — the largest thing in the bar, in two different designs.
+     */
+    const chip = (button: boolean): JSX.Element => {
+        const inside = (
+            <>
+                <SubjectDisc subject={active} className="avatar-tile avatar-tile-chip avatar-accent" />
+                <span className="subject-chip-name">{name}</span>
+                {button && <ChevronDown className="text-muted-foreground size-3 shrink-0" aria-hidden="true" />}
+            </>
+        );
+
+        return button ? (
+            <button type="button" className="shell-control subject-chip" aria-label={t((d) => d.shell.taxSubject)}>
+                {inside}
+            </button>
+        ) : (
+            <div className="shell-control subject-chip subject-chip-static" title={name}>
+                {inside}
+            </div>
+        );
+    };
+
+    const tile = bare ? (
+        chip(false)
+    ) : (
+        <div className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}>
+            <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
+            {!collapsed && (
                 <span className="min-w-0 flex-1">
                     <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
                         {t((d) => d.shell.taxSubject)}
                     </span>
-                    <span className="text-foreground block truncate text-xs font-semibold">
-                        {active ? active.displayName : t((d) => d.shell.noActiveSubject)}
-                    </span>
+                    <span className="text-foreground block truncate text-xs font-semibold">{name}</span>
                 </span>
             )}
         </div>
@@ -238,44 +257,53 @@ export default function SubjectSwitcher({
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                {/* A bordered tile at the foot of the sidebar rather than a bare button: it names the
-                    thing every figure on the page belongs to, so it should look like a control you
-                    can change, not a label. */}
-                <button
-                    type="button"
-                    className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
-                >
-                    <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
-                    {!collapsed && (
-                        <>
-                            <span className="min-w-0 flex-1">
-                                <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
-                                    {t((d) => d.shell.taxSubject)}
+                {bare ? (
+                    chip(true)
+                ) : (
+                    /* A bordered tile at the foot of the sidebar rather than a bare button: it names
+                       the thing every figure on the page belongs to, so it should look like a control
+                       you can change, not a label. */
+                    <button
+                        type="button"
+                        className={`shell-control subject-control w-full text-left${collapsed ? ' subject-control-rail' : ''}`}
+                    >
+                        <SubjectDisc subject={active} className="avatar-tile avatar-accent" />
+                        {!collapsed && (
+                            <>
+                                <span className="min-w-0 flex-1">
+                                    <span className="text-muted-foreground block text-2xs tracking-[0.08em] uppercase">
+                                        {t((d) => d.shell.taxSubject)}
+                                    </span>
+                                    <span className="text-foreground block truncate text-xs font-semibold">{name}</span>
                                 </span>
-                                <span className="text-foreground block truncate text-xs font-semibold">
-                                    {active ? active.displayName : t((d) => d.shell.noActiveSubject)}
-                                </span>
-                            </span>
-                            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                        </>
-                    )}
-                </button>
+                                <ChevronsUpDown
+                                    className="text-muted-foreground size-3.5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                            </>
+                        )}
+                    </button>
+                )}
             </DropdownMenuTrigger>
             <DropdownMenuContent
                 // Expanded, the menu rises from a trigger that already spans the sidebar, so it
                 // takes that width. Collapsed to the rail, the trigger is a 48px tile — matching it
                 // would squeeze the menu to a sliver — so it opens to the *right* of the rail at a
                 // fixed 280px, bottom-aligned, exactly as the design's `.rail #subjectMenu` does.
-                align="end"
-                side={collapsed ? 'right' : 'top'}
-                sideOffset={collapsed ? 16 : 4}
+                // On the phone it drops below the chip across the screen (`.shell-sheet-menu`).
+                align={bare ? 'center' : 'end'}
+                side={bare ? 'bottom' : collapsed ? 'right' : 'top'}
+                sideOffset={collapsed ? 16 : bare ? 8 : 4}
+                collisionPadding={bare ? 12 : 0}
                 // The list inside scrolls, so the search box stays put while it does. Radix puts a
                 // max-height and its own scrollbar on the content by default; left on, the two nest
                 // and the menu collapses to whatever height the outer one computes.
                 className={
-                    collapsed
-                        ? 'max-h-none w-[280px] overflow-hidden p-0'
-                        : 'w-(--radix-dropdown-menu-trigger-width) max-h-none overflow-hidden p-0'
+                    bare
+                        ? 'shell-sheet-menu max-h-none overflow-hidden p-0'
+                        : collapsed
+                          ? 'max-h-none w-[280px] overflow-hidden p-0'
+                          : 'w-(--radix-dropdown-menu-trigger-width) max-h-none overflow-hidden p-0'
                 }
             >
                 {/* Filtering, not searching the server: this list is the first page of subjects, so

@@ -40,6 +40,7 @@ export const ro = {
         offline: 'Nu ai conexiune la internet.',
         offlineHint: 'Ce vezi poate fi vechi, iar modificările nu se salvează până revine.',
         backOnline: 'Conexiunea a revenit.',
+        loading: 'Se încarcă',
         refreshing: 'Se reîmprospătează',
         systemDownOne: 'Un serviciu nu răspunde: {names}.',
         systemDownMany: '{count} servicii nu răspund: {names}.',
@@ -755,8 +756,8 @@ export const ro = {
             },
         },
         walletOverview: {
-            assumedOpening: 'Sold de pornire',
-            assumedOpeningHint: 'Bani cheltuiți înainte de prima intrare înregistrată',
+            recordsShortFrom:
+                'Tranzacțiile dinainte de {date} nu sunt importate, așa că unui cont sub zero îi lipsește ce avea atunci',
             netWorth: 'Averea ta',
             netWorthRate: 'curs BNR {date}',
             netWorthDirect: 'fără conversie',
@@ -769,7 +770,7 @@ export const ro = {
             available: 'Disponibil',
             general: 'General',
             generalNote:
-                'General arată doar banii înregistrați în el și nu scade sub zero. Ce ai pus într-un depozit peste această sumă se consideră bani pe care îi aveai deja.',
+                'General este suma a ce s-a înregistrat în el, deci e sub zero cât timp extrasele mai vechi nu sunt importate. Banii puși într-un depozit nu îl duc sub zero: depozitul arată că existau.',
             deposits: 'În depozite',
             depositCount: '{count} active',
             cash: 'Numerar',
@@ -816,6 +817,8 @@ export const ro = {
             editHint: 'Ce înseamnă banii primiți de la acest partener sau trimiși lui.',
             forget: 'Uită',
             forgetTitle: 'Uiți acești parteneri?',
+            forgetAll: 'Șterge tot',
+            forgetAllTitle: 'Ștergi toți partenerii?',
             forgetHint:
                 '{count} parteneri își pierd setările. Tranzacțiile rămân neschimbate, iar următorul extras care îi conține îi adaugă din nou.',
             forgotten: '{count} parteneri uitați.',
@@ -2283,6 +2286,11 @@ export const ro = {
             forbidden: 'Nu ai acces la valorile fiscale.',
             failed: 'Valorile fiscale nu au putut fi încărcate.',
             newYear: 'Citește un an',
+            dropAll: 'Șterge tot',
+            dropAllTitle: 'Ștergi toate valorile?',
+            dropAllHint:
+                'Toate valorile citite se șterg, inclusiv cele aprobate, ca fiecare an să poată fi citit din nou din lege. Impozitele deja calculate își păstrează cifrele; cele noi așteaptă până se aprobă din nou valorile.',
+            dropped: 'Toate valorile au fost șterse. Citește un an ca să reîncepi.',
             newYearHint:
                 'Citește legea unui an: fiecare valoare pe care o spune ajunge la verificare, pentru a fi aprobată sau respinsă.',
             year: 'An',

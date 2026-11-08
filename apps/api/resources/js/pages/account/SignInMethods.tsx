@@ -14,6 +14,7 @@ import {
 import {
     Field,
     Panel,
+    ActionGroup,
     PanelButton,
     PanelDialog,
     PanelInput,
@@ -183,26 +184,34 @@ export default function SignInMethods(props: {
                             )
                         }
                     >
-                        {mfa !== null && mfa.passkeysCount > 0 ? (
-                            <PanelButton
-                                disabled={busy}
-                                onClick={() => {
-                                    setManagingPasskeys(true);
-                                }}
-                            >
-                                <KeyRound className="size-3.5" aria-hidden="true" />
-                                {t((d) => d.pages.settingsSecurity.managePasskeys)}
-                            </PanelButton>
-                        ) : null}
-                        <PanelButton
-                            disabled={busy}
-                            onClick={() => {
-                                void addPasskey();
-                            }}
-                        >
-                            <Plus className="size-3.5" aria-hidden="true" />
-                            {t((d) => d.pages.settingsSecurity.addPasskey)}
-                        </PanelButton>
+                        <ActionGroup
+                            collapse
+                            menuLabel={t((d) => d.pages.settingsSecurity.passkeys)}
+                            actions={[
+                                ...(mfa !== null && mfa.passkeysCount > 0
+                                    ? [
+                                          {
+                                              key: 'manage',
+                                              label: t((d) => d.pages.settingsSecurity.managePasskeys),
+                                              icon: <KeyRound className="size-3.5" aria-hidden="true" />,
+                                              disabled: busy,
+                                              onClick: () => {
+                                                  setManagingPasskeys(true);
+                                              },
+                                          },
+                                      ]
+                                    : []),
+                                {
+                                    key: 'add',
+                                    label: t((d) => d.pages.settingsSecurity.addPasskey),
+                                    icon: <Plus className="size-3.5" aria-hidden="true" />,
+                                    disabled: busy,
+                                    onClick: () => {
+                                        void addPasskey();
+                                    },
+                                },
+                            ]}
+                        />
                     </Row>
                     <Row
                         title={t((d) => d.pages.settingsSecurity.totp)}

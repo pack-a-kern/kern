@@ -23,6 +23,11 @@ export async function rejectFiscalParameter(versionId: string): Promise<void> {
     await apiRequest(`/v1/fiscal-parameters/versions/${encodeURIComponent(versionId)}/reject`, { method: 'POST' });
 }
 
+/** Drops every value read, proposed or decided, so the law can be read again from nothing. */
+export async function dropFiscalParameterValues(): Promise<void> {
+    await apiRequest('/v1/fiscal-parameters/values', { method: 'DELETE' });
+}
+
 /** Asks for one year's law to be read. Queued: the values appear as they are read. */
 export async function readFiscalYear(year: number): Promise<void> {
     await apiRequest('/v1/fiscal-parameters/years', { method: 'POST', body: { year } });

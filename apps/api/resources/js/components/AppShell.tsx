@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeftRight,
     Bell,
@@ -28,7 +28,7 @@ import {
     UsersRound,
     Wallet,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { logout } from '../api/authApi';
 import { listNotifications, markAllNotificationsRead } from '../api/notificationsApi';
@@ -36,12 +36,15 @@ import ConnectionBanner from './ConnectionBanner';
 import SystemHealthBanner from './SystemHealthBanner';
 import { PullIndicator } from './PullToRefresh';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { useNavigationPending } from '../hooks/useNavigationPending';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import ImpersonationBanner from './ImpersonationBanner';
 import { usePageHeader } from '../lib/pageHeader';
 import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
+import { BOTTOM_BAR } from '../lib/bottomBar';
 import { subscribeToTaxpayerChanges, subscribeToUserNotifications } from '../lib/echo';
 import { formatDate, formatDateTime } from '../lib/format';
 import { getFilingDeadline } from '../api/fiscalParametersApi';
@@ -387,7 +390,9 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                     )}
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[min(320px,calc(100vw-32px))] p-0">
+            {/* Below its button at 320px on a desktop; on a phone across the screen, each notice its
+                own card, the way a phone's own notifications read (`.shell-sheet-menu`). */}
+            <DropdownMenuContent align="end" collisionPadding={12} className="shell-sheet-menu w-80 p-0">
                 <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
                     <span className="text-xs font-semibold">{t((d) => d.shell.notifications)}</span>
                     {unread > 0 && (
@@ -401,7 +406,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                         </button>
                     )}
                 </div>
-                <div className="max-h-[360px] overflow-y-auto p-1.5">
+                <div className="notice-list max-h-[360px] overflow-y-auto p-1.5">
                     {notices.length === 0 &&
                         (failed ? (
                             <EmptyState
@@ -418,7 +423,7 @@ function NotificationsMenu({ userId }: { userId: string }): JSX.Element {
                     {notices.map((notice) => (
                         <DropdownMenuItem
                             key={notice.id}
-                            className="items-start gap-2.5"
+                            className="notice-item items-start gap-2.5"
                             onSelect={() => {
                                 openNotice(notice);
                             }}
@@ -684,142 +689,145 @@ function containsCurrent(item: NavLink, currentUrl: string): boolean {
     );
 }
 
+/** A group's pages as the strip above the bottom bar lists them: its own page first, if it has one. */
+function sectionPages(item: NavLink | undefined): NavLink[] {
+    if (item?.children === undefined) {
+        return [];
+    }
+
+    const pages = [
+        ...(item.href === undefined ? [] : [{ href: item.href, label: item.label, icon: item.icon }]),
+        ...item.children,
+    ];
+
+    // A section with one page has nothing to choose between.
+    return pages.length < 2 ? [] : pages;
+}
+
 /**
- * The phone's navigation: every section of the menu in one bar along the bottom, scrolled sideways,
- * with the one you are in brought into view. Replaces the drawer below `lg` — the sidebar is still the
- * menu from there up. A group goes to its first page; its other pages are the tabs above the page
- * ({@link SectionTabs}).
+ * The phone's navigation: every section of the menu in one bar along the bottom, and above them, in
+ * the same bar, the pages of the section you are in. Replaces the drawer below `lg` — the sidebar is
+ * still the menu from there up. A group goes to its first page.
  *
- * Floating, clear of the home bar and the rounded corners (`env(safe-area-inset-*)`), and the page's
- * scroll area leaves `--dock-space` below its content so the last card is never under it.
+ * A few sections at a time ({@link BOTTOM_BAR}), the one you are in kept towards the middle and the
+ * rest a swipe away, snapping to whole tabs. How it looks — names, the mark on the current section,
+ * floating or edge to edge — is {@link BOTTOM_BAR} too, read by app.css from the `data-*` here. The
+ * page's scroll area leaves `--dock-space` below its content so the last card is never under it.
  */
-function BottomNav({ currentUrl }: { currentUrl: string }): JSX.Element {
+function BottomNav({ currentUrl: loadedUrl }: { currentUrl: string }): JSX.Element {
     const { t } = useTranslation();
+    // Where a tap is going, marked at once rather than when the page arrives — the bar answers the
+    // finger, not the network. Dropped when the visit ends, arrived or not, so a failed visit leaves
+    // the page you are still on marked.
+    const [going, setGoing] = useState<string | null>(null);
+    const currentUrl = going ?? loadedUrl;
+
+    useEffect(
+        () =>
+            router.on('finish', () => {
+                setGoing(null);
+            }),
+        [],
+    );
+
     const items = useVisibleSections()
         .flatMap((section) => section.items)
         .filter((item) => firstHref(item) !== undefined);
-    const current = useRef<HTMLAnchorElement>(null);
+    const track = useRef<HTMLDivElement>(null);
+    const strip = useRef<HTMLDivElement>(null);
+    const here = items.findIndex((item) => containsCurrent(item, currentUrl));
+    const pages = sectionPages(items[here]);
+    const shown = Math.min(items.length, BOTTOM_BAR.shown);
+    // Slots across the bar: one per section shown, and the current tab's extra ones when it carries its name.
+    const slots = shown + (BOTTOM_BAR.labels === 'beside' ? BOTTOM_BAR.activeSlots - 1 : 0);
+    const first = useRef(true);
 
-    // Not state: only the scroll position of the bar moves, so the tab you are on is the one you see.
+    // The window of sections moves so the one you are in has as many on either side as the ends
+    // allow: tap the fourth of five and it slides one along. Every tab before the current one is
+    // one slot wide, so the offset is a whole number of slots and no icon is ever cut at an edge.
     useEffect(() => {
-        current.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+        const bar = track.current;
+
+        if (bar === null || here < 0) {
+            return;
+        }
+
+        const start = Math.max(0, Math.min(here - Math.floor(shown / 2), items.length - shown));
+        bar.scrollTo({ left: (start * bar.clientWidth) / slots, behavior: first.current ? 'instant' : 'smooth' });
+        first.current = false;
+    }, [here, shown, slots, items.length]);
+
+    // The page you are on, centred in the strip — by moving the strip sideways only: `scrollIntoView`
+    // would also scroll the page, and the page is where the reader is.
+    useEffect(() => {
+        const row = strip.current;
+        const page = row?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
+
+        if (row !== null && page !== null) {
+            row.scrollTo({ left: page.offsetLeft - (row.clientWidth - page.offsetWidth) / 2 });
+        }
     }, [currentUrl]);
 
     return (
-        <nav className="bottom-dock lg:hidden" aria-label={t((d) => d.nav.dashboard)}>
-            <div className="bottom-dock-track">
-                {items.map((item) => {
+        <nav
+            className="bottom-dock"
+            data-labels={BOTTOM_BAR.labels}
+            data-mark={BOTTOM_BAR.mark}
+            data-shape={BOTTOM_BAR.shape}
+            aria-label={t((d) => d.nav.dashboard)}
+        >
+            <div className="bottom-dock-strip" data-open={pages.length > 0 ? '' : undefined}>
+                <div ref={strip} className="bottom-dock-pages">
+                    {pages.map((page) => {
+                        const Icon = page.icon;
+
+                        return (
+                            <Link
+                                key={page.href}
+                                href={page.href ?? '/'}
+                                className="bottom-page"
+                                onClick={() => {
+                                    setGoing(page.href ?? null);
+                                }}
+                                aria-current={
+                                    page.href !== undefined && isActive(currentUrl, page.href) ? 'page' : undefined
+                                }
+                            >
+                                <Icon className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                                {t(page.label)}
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+            <div
+                ref={track}
+                className="bottom-dock-track"
+                style={{ '--dock-slots': slots, '--dock-active-slots': BOTTOM_BAR.activeSlots } as CSSProperties}
+            >
+                {items.map((item, index) => {
                     const Icon = item.icon;
-                    const here = containsCurrent(item, currentUrl);
 
                     return (
                         <Link
                             key={groupKey(item)}
                             href={firstHref(item) ?? '/'}
                             className="bottom-tab"
-                            aria-current={here ? 'page' : undefined}
-                            ref={here ? current : undefined}
+                            onClick={() => {
+                                setGoing(firstHref(item) ?? null);
+                            }}
+                            aria-current={index === here ? 'page' : undefined}
                         >
                             <span className="bottom-tab-icon">
-                                <Icon className="size-5" aria-hidden="true" />
+                                <Icon strokeWidth={1.5} aria-hidden="true" />
                             </span>
-                            <span>{t(item.label)}</span>
+                            {/* Always in the document, whatever the bar shows: a screen reader reads
+                                every tab's name. */}
+                            <span className="bottom-tab-label">{t(item.label)}</span>
                         </Link>
                     );
                 })}
             </div>
-        </nav>
-    );
-}
-
-/**
- * The pages of the section you are in, as tabs across the top of the page — on a phone, where the
- * bar along the bottom names only the sections. A section with one page has no tabs to show.
- *
- * At rest a card above the page; scrolled up to the top bar, it stays there and widens to the full
- * width, so the two read as one bar and the pages are always one tap away. Whether it is there is
- * told by the strip's own top edge against the scroll area's — an observer, not a scroll listener,
- * so nothing runs while the page scrolls. Its own edge rather than a marker above it: a marker only
- * agrees with where the strip sticks while every browser places a sticky box in a padded scroll
- * area the same way, and the strip's position is the one thing that cannot disagree with itself.
- */
-function SectionTabs({ currentUrl }: { currentUrl: string }): JSX.Element | null {
-    const { t } = useTranslation();
-    // State, not a ref: the strip exists only on a section with pages, and the shell stays mounted
-    // while you move between sections, so the observer below has to start when the strip appears.
-    const [strip, setStrip] = useState<HTMLElement | null>(null);
-    const [stuck, setStuck] = useState(false);
-
-    // The page you are on, brought into view as the bottom bar does — by moving the strip sideways
-    // only: `scrollIntoView` would also scroll the page to it, and the page is where the reader is.
-    useEffect(() => {
-        const here = strip?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
-
-        if (strip !== null && here !== null) {
-            strip.scrollTo({ left: here.offsetLeft - (strip.clientWidth - here.offsetWidth) / 2 });
-        }
-    }, [strip, currentUrl]);
-
-    useEffect(() => {
-        const root = strip?.closest('main') ?? null;
-
-        if (strip === null || root === null) {
-            return;
-        }
-
-        // The scroll area's top edge moved down a pixel: the strip leaves that band only once its
-        // own top reaches the top bar. Only the top edge decides — the strip widens sideways when it
-        // sticks, and a sub-pixel at its sides must not read as having arrived.
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry?.rootBounds != null) {
-                    setStuck(entry.boundingClientRect.top < entry.rootBounds.top);
-                }
-            },
-            { root, rootMargin: '-1px 0px 0px 0px', threshold: 1 },
-        );
-        observer.observe(strip);
-
-        // A strip that goes away takes its stuck state with it, so the next section's starts at rest.
-        return () => {
-            observer.disconnect();
-            setStuck(false);
-        };
-    }, [strip]);
-    const group = useVisibleSections()
-        .flatMap((section) => section.items)
-        .find((item) => (item.children ?? []).length > 0 && containsCurrent(item, currentUrl));
-
-    if (group === undefined) {
-        return null;
-    }
-
-    const pages = [
-        ...(group.href === undefined ? [] : [{ href: group.href, label: group.label, icon: group.icon }]),
-        ...(group.children ?? []),
-    ];
-
-    if (pages.length < 2) {
-        return null;
-    }
-
-    return (
-        <nav ref={setStrip} className="section-tabs" data-stuck={stuck ? '' : undefined} aria-label={t(group.label)}>
-            {pages.map((page) => {
-                const Icon = page.icon;
-
-                return (
-                    <Link
-                        key={page.href}
-                        href={page.href}
-                        className="section-tab"
-                        aria-current={isActive(currentUrl, page.href) ? 'page' : undefined}
-                    >
-                        <Icon className="size-3.5" aria-hidden="true" />
-                        {t(page.label)}
-                    </Link>
-                );
-            })}
         </nav>
     );
 }
@@ -951,8 +959,7 @@ function readStoredCollapsed(): boolean {
  * (`docs/handoff/040-ui-foundation.md` "AppShell"). Desktop: a collapsible left sidebar (persisted
  * per-device, non-sensitive UI state — `BLUEPRINT.md` §17) holding every navigation destination,
  * grouped. Below `lg`: the same sections in a bar along the bottom that scrolls sideways
- * ({@link BottomNav}), the pages of the section you are in as tabs above the page ({@link SectionTabs}),
- * and the taxpayer switcher in the top bar — the drawer it replaces hid the whole menu behind one
+ * ({@link BottomNav}), the pages of the section you are in in a strip on top of it, and the taxpayer switcher in the top bar — the drawer it replaces hid the whole menu behind one
  * button. The active item is derived from Inertia's own `usePage().url`, so no page needs to pass a
  * "which screen am I" prop.
  *
@@ -970,6 +977,11 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
     const [collapsed, setCollapsed] = useState(readStoredCollapsed);
     const mainRef = useRef<HTMLElement>(null);
     const { pull, refreshing } = usePullToRefresh(mainRef);
+    // A page on its way shows what a pull shows once let go: the same disc, spinning.
+    const desktopShell = useMediaQuery('(min-width: 64rem)');
+    // On a phone only: from `lg` up the sidebar stays put and the page swaps in place, quickly enough
+    // that a veil over it would only flash.
+    const loading = useNavigationPending() && !desktopShell;
     // Published by whichever `Page` is rendered below; the shell is where it is drawn.
     const header = usePageHeader();
     const userId = auth?.user.id ?? '';
@@ -1037,7 +1049,7 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                         {/* On a phone there is no drawer, so the taxpayer the page is about is chosen
                             here, first in the bar where the menu button was, as the switcher's compact
                             mark. From `lg` it is at the sidebar's foot. */}
-                        <div className="lg:hidden">
+                        <div className="min-w-0 lg:hidden">
                             <SubjectSwitcher bare />
                         </div>
                         {/*
@@ -1095,14 +1107,20 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                     */}
                     {/* `scroll-region`: the frame stays mounted across pages, so this is the scroll
                         Inertia must reset on a visit and restore on Back — the window never scrolls. */}
-                    <main
-                        ref={mainRef}
-                        scroll-region=""
-                        className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+var(--dock-space)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+var(--dock-space)+env(safe-area-inset-bottom))]"
-                    >
-                        <PullIndicator pull={pull} refreshing={refreshing} label={t((d) => d.shell.refreshing)} />
-                        <SectionTabs currentUrl={url} />
-                        {/*
+                    {/* The pull's veil and disc sit beside the scroll area rather than in it, so they
+                        cover what is on screen wherever the page is scrolled to. */}
+                    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                        <PullIndicator
+                            pull={pull}
+                            refreshing={refreshing || loading}
+                            label={t((d) => (refreshing ? d.shell.refreshing : d.shell.loading))}
+                        />
+                        <main
+                            ref={mainRef}
+                            scroll-region=""
+                            className="relative min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-3 pb-[calc(--spacing(3)+var(--dock-space)+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(--spacing(5)+var(--dock-space)+env(safe-area-inset-bottom))]"
+                        >
+                            {/*
                             The cap widens on a large monitor, not below one.
                             `2xl:` is 1536px and up, so every laptop keeps the 1420px it had; past
                             that the content takes 1680px and the margins stop growing as fast. It
@@ -1110,8 +1128,9 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                             well as a table, and a form two thousand pixels wide reads worse than one
                             at fourteen hundred.
                         */}
-                        <div className="mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]">{children}</div>
-                    </main>
+                            <div className="mx-auto w-full max-w-[1420px] space-y-4 2xl:max-w-[1680px]">{children}</div>
+                        </main>
+                    </div>
                 </div>
             </div>
 
