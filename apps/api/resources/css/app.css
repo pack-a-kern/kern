@@ -1979,6 +1979,15 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     overflow-y: auto;
     overscroll-behavior: contain;
 }
+/* A dialog with nothing between its title and its buttons — a confirmation whose title and
+   description already say it all — shows no body rather than an empty padded band, and its footer
+   drops the rule that would sit against the header's. */
+.dialog-body:empty {
+    display: none;
+}
+.dialog-body:empty + .dialog-footer {
+    border-top: 0;
+}
 .dialog-footer {
     display: flex;
     justify-content: flex-end;

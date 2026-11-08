@@ -13,10 +13,13 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
     plugins: [
-        laravel({
-            input: ['resources/css/app.css', 'resources/js/app.tsx'],
-            refresh: true,
-        }),
+        // Not under Vitest: the tests need none of what it does (entry points, manifest, reload), and
+        // it refuses to start a dev server where CI is set — which is how CI's test step failed.
+        process.env.VITEST === undefined &&
+            laravel({
+                input: ['resources/css/app.css', 'resources/js/app.tsx'],
+                refresh: true,
+            }),
         react(),
         tailwindcss(),
     ],
