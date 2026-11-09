@@ -14,15 +14,17 @@ import {
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { getLaw, getLawOutline, getLawText } from '../../api/legislationApi';
-import { Page, PanelButton, PanelSelect, SearchInput } from '../../components/panel';
+import { getLaw, getLawOutline, getLawText, readPortalAct } from '../../api/legislationApi';
+import { Page, PanelButton, PanelSelect, SearchInput, Status } from '../../components/panel';
+import { describeApiFailure } from '../../lib/apiErrors';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTranslation } from '../../i18n';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatDateTime } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { anchorOf, foldForFind } from '../../lib/lawText';
+import { useSharedAuth } from '../../lib/sharedProps';
 import { cn } from '../../lib/utils';
 import type { LawDetail, LawHeading, LawOutline, LawPart, LawSection, LawText } from '../../types/legislation';
 import LawArticle from './LawArticle';
@@ -109,6 +111,48 @@ function holds(group: ArticleGroup, words: string[]): boolean {
  * paragraphs on their own labels, the version shown and its source at hand, every other version in a
  * panel beside it.
  */
+/**
+ * The reading of this law stopped on this installation's side — storage, the database, the browser worker —
+ * and nothing was marked as unreadable: why, when, and, for whoever may start a reading, reading it again
+ * as it was first read.
+ */
+function ReadingStopped({ law }: { law: LawDetail }): JSX.Element {
+    const { t, locale } = useTranslation();
+    const canRead = useSharedAuth()?.user.permissions.includes('operations.run') === true;
+    const [busy, setBusy] = useState(false);
+    const words = t((d) => d.pages.legislation.law);
+
+    const readAgain = async (): Promise<void> => {
+        setBusy(true);
+
+        try {
+            await readPortalAct({ type: law.type, number: law.number ?? '', year: law.year, portalId: law.portalId });
+            toast.success(words.readAgainStarted);
+        } catch (cause) {
+            toast.error(describeApiFailure(cause, t));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Status tone="bad">{words.readingStopped[law.readingStopped ?? ''] ?? law.readingStopped}</Status>
+            <span className="note">
+                {words.readingStoppedAt.replace(
+                    '{date}',
+                    law.readingStoppedAt === null ? '' : formatDateTime(law.readingStoppedAt, locale),
+                )}
+            </span>
+            {canRead && law.number !== null && law.year !== null ? (
+                <PanelButton disabled={busy} onClick={() => void readAgain()}>
+                    {words.readAgain}
+                </PanelButton>
+            ) : null}
+        </div>
+    );
+}
+
 export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Element {
     const { t, locale } = useTranslation();
     const [law, setLaw] = useState<LawDetail | null>(null);
@@ -322,6 +366,7 @@ export default function LegislationLaw({ lawId }: { lawId: string }): JSX.Elemen
                             ) : (
                                 <>
                                     <h2 className="line-clamp-2 text-base font-semibold text-balance">{law.title}</h2>
+                                    {law.readingStopped === null ? null : <ReadingStopped law={law} />}
                                     <div className="text-muted-foreground mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                         {law.actDate === null ? null : (
                                             <span className="inline-flex items-center gap-1">

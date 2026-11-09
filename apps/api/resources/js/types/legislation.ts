@@ -91,6 +91,12 @@ export interface Law {
     inForceFrom: string | null;
     url: string;
     lastSyncedAt: string | null;
+    /** The portal's id of the act, and its year: what reading it again asks for. */
+    portalId: string | null;
+    year: number | null;
+    /** Why the last reading stopped on this installation's side — `storage_unavailable` — or null. */
+    readingStopped: string | null;
+    readingStoppedAt: string | null;
 }
 
 export interface LawSummary extends Law {
@@ -346,6 +352,10 @@ function parseLaw(row: Record<string, unknown>): Law {
         inForceFrom: nullableStr(row, 'in_force_from'),
         url: str(row, 'url'),
         lastSyncedAt: nullableStr(row, 'last_synced_at'),
+        portalId: nullableStr(row, 'portal_id'),
+        year: nullableNum(row, 'year'),
+        readingStopped: nullableStr(row, 'reading_stopped'),
+        readingStoppedAt: nullableStr(row, 'reading_stopped_at'),
     };
 }
 

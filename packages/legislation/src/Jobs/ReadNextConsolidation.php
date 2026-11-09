@@ -8,10 +8,16 @@ use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 use Kern\Legislation\Actions\ParseLegislationDocumentVersion;
+use Kern\Legislation\Enums\ReadingStop;
+use Kern\Legislation\Fetching\Exceptions\FetchSizeExceededException;
+use Kern\Legislation\Fetching\Exceptions\TooManyRedirectsException;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedContentTypeException;
 use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
+use Kern\Legislation\Legislatie\Exceptions\PortalBrowserException;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Parsing\Exceptions\UnparsableLegislationDocumentException;
@@ -29,10 +35,18 @@ use Throwable;
  *
  * ## When a consolidation cannot be read
  *
- * The portal stalls and drops connections: a network failure or a 5xx is retried after the pauses in
- * `legislation.sync.retry_seconds`. A consolidation that still fails — or that is not there, or does
- * not parse — is marked on the document's list and the next one read. One bad page never stops a
- * law, and the history names the gap it leaves ({@see \Kern\Legislation\Services\BuildSectionHistory}).
+ * The portal stalls and drops connections: a network failure, a 5xx or a page the browser could not
+ * read is retried after the pauses in `legislation.sync.retry_seconds`. A consolidation that still
+ * fails — or that is not there, or does not parse — is marked on the document's list and the next one
+ * read. One bad page never stops a law, and the history names the gap it leaves
+ * ({@see \Kern\Legislation\Services\BuildSectionHistory}).
+ *
+ * ## When this installation cannot
+ *
+ * Anything else is a failure on this side — storage, the database, the browser worker, the source turned
+ * off — and is no consolidation's fault. Retried and marked, it would mark every consolidation of every
+ * law it reaches. So the reading stops there: nothing is marked, the law says why ({@see ReadingStop}),
+ * and it is read again by a person once the fault is fixed.
  */
 final class ReadNextConsolidation implements ShouldQueue
 {
@@ -109,9 +123,37 @@ final class ReadNextConsolidation implements ShouldQueue
             } else {
                 throw $exception;
             }
+        } catch (Throwable $exception) {
+            if (self::isThePortals($exception)) {
+                throw $exception;
+            }
+
+            $this->stop($document, $exception);
+
+            return;
         }
 
         self::dispatch($document->id);
+    }
+
+    /**
+     * The portal's own failures, which another try may get past: no connection, a page too large or of
+     * another kind than a law's, redirects without end, or the browser reading it busy or failing on it.
+     */
+    private static function isThePortals(Throwable $exception): bool
+    {
+        return $exception instanceof ConnectionException
+            || $exception instanceof FetchSizeExceededException
+            || $exception instanceof UnexpectedContentTypeException
+            || $exception instanceof TooManyRedirectsException
+            || ($exception instanceof PortalBrowserException && $exception->reason !== PortalBrowserException::UNAVAILABLE);
+    }
+
+    /** This installation failed, not the page: the reading ends here, the law says why, nothing is marked. */
+    private function stop(SourceDocument $document, Throwable $exception): void
+    {
+        report($exception);
+        $document->forceFill(['reading_stopped' => ReadingStop::of($exception), 'reading_stopped_at' => now()])->save();
     }
 
     /** The retries are spent: this consolidation is marked, and the law carries on without it. */

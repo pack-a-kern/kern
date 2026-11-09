@@ -528,6 +528,9 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                                             .replace('{read}', String(law.consolidationsRead))
                                             .replace('{listed}', String(law.consolidationsListed))}
                                     </Pill>
+                                    {law.readingStopped === null ? null : (
+                                        <Status tone="bad">{t((d) => d.pages.legislation.laws.readingStopped)}</Status>
+                                    )}
                                     {law.consolidationsFailed === 0 ? null : (
                                         <Status tone="warn">
                                             {t((d) => d.pages.legislation.laws.consolidationsFailed).replace(

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Kern\Legislation\Database\Factories\SourceDocumentFactory;
+use Kern\Legislation\Enums\ReadingStop;
 use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 
 /**
@@ -32,6 +33,8 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property string|null $consolidated_document_id  the page that lists its consolidations
  * @property list<array{date: string, ref: string, url: string, failed?: bool}>|null $consolidations
  * @property \Illuminate\Support\Carbon|null $last_synced_at
+ * @property ReadingStop|null $reading_stopped  why its reading stopped on this installation's side, until read again
+ * @property \Illuminate\Support\Carbon|null $reading_stopped_at
  */
 #[UseFactory(SourceDocumentFactory::class)]
 final class SourceDocument extends Model
@@ -61,6 +64,8 @@ final class SourceDocument extends Model
         'consolidated_document_id',
         'consolidations',
         'last_synced_at',
+        'reading_stopped',
+        'reading_stopped_at',
     ];
 
     /** @var array<string, string> */
@@ -70,5 +75,7 @@ final class SourceDocument extends Model
         'in_force_from' => 'date:Y-m-d',
         'consolidations' => 'array',
         'last_synced_at' => 'datetime',
+        'reading_stopped' => ReadingStop::class,
+        'reading_stopped_at' => 'datetime',
     ];
 }

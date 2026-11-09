@@ -413,6 +413,12 @@ final readonly class LegislationLibrary
             'in_force_from' => $document->in_force_from?->format('Y-m-d'),
             'url' => $document->canonical_url,
             'last_synced_at' => $document->last_synced_at?->toIso8601String(),
+            // What reading it again needs — the act as the portal names it — and why the last reading
+            // stopped on this side, if it did.
+            'portal_id' => $document->portal_document_id,
+            'year' => $document->act_date === null ? null : (int) $document->act_date->format('Y'),
+            'reading_stopped' => $document->reading_stopped?->value,
+            'reading_stopped_at' => $document->reading_stopped_at?->toIso8601String(),
         ];
     }
 

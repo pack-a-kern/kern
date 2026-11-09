@@ -652,3 +652,43 @@ it('asks again for the password or code before a law is deleted', function (): v
     $this->actingAs($operator)->deleteJson('/api/v1/legislation/laws/' . \Illuminate\Support\Str::uuid7())->assertForbidden()
         ->assertJsonPath('reason', fn (string $reason): bool => in_array($reason, ['VERIFICATION_REQUIRED', 'PASSWORD_CONFIRMATION_REQUIRED'], true));
 });
+
+it('stops reading a law when storage fails, marks no consolidation, and says why', function (): void {
+    portal();
+    Queue::fake();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+
+    // Storage down: the fault is this server's, not any page's.
+    $down = \Mockery::mock(\Illuminate\Contracts\Filesystem\Filesystem::class);
+    $down->shouldReceive('exists')->andThrow(\League\Flysystem\UnableToCheckFileExistence::forLocation('sources/example'));
+    Storage::set('s3', $down);
+    app()->call([new \Kern\Legislation\Jobs\ReadNextConsolidation($law->id), 'handle']);
+    $law->refresh();
+
+    expect($law->reading_stopped?->value)->toBe('storage_unavailable')
+        ->and($law->reading_stopped_at)->not->toBeNull()
+        ->and(collect($law->consolidations)->where('failed', true)->all())->toBe([])
+        ->and(SourceDocumentVersion::query()->where('source_document_id', $law->id)->count())->toBe(0);
+    // Stopped: the next consolidation is not queued.
+    Queue::assertPushed(\Kern\Legislation\Jobs\ReadNextConsolidation::class, 1);
+
+    $this->actingAs(settingsAdminUser())->getJson("/api/v1/legislation/laws/{$law->id}")->assertOk()
+        ->assertJsonPath('law.reading_stopped', 'storage_unavailable')
+        ->assertJsonPath('law.portal_id', '171280')
+        ->assertJsonPath('law.year', 2015);
+});
+
+it('clears a stopped reading when the law is read again', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $law->forceFill(['reading_stopped' => 'storage_unavailable', 'reading_stopped_at' => now()])->save();
+
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law->refresh();
+
+    expect($law->reading_stopped)->toBeNull()
+        ->and($law->reading_stopped_at)->toBeNull()
+        ->and(SourceDocumentVersion::query()->where('source_document_id', $law->id)->count())->toBe(3);
+});

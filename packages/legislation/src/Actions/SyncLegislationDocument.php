@@ -100,6 +100,9 @@ final readonly class SyncLegislationDocument
             'portal_document_id' => ConsolidationPages::documentId($act->link),
             'consolidated_document_id' => ConsolidationPages::documentId($consolidatedForm),
             'consolidations' => array_values($list),
+            // Read again: whatever stopped the last reading is this one's to say again, or not.
+            'reading_stopped' => null,
+            'reading_stopped_at' => null,
         ])->save();
 
         $this->adoptReadVersions($document, $listedDays);

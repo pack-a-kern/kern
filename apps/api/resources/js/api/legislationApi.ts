@@ -105,10 +105,13 @@ export async function cancelPortalSearch(searchId: string): Promise<PortalSearch
 }
 
 /**
- * Starts reading an act found on the portal — through the ingest task, so it is locked, audited and
- * in the run history. The portal id picks it out where several acts share its type and number.
+ * Starts reading an act from the portal — one a search found, or a law read again as it was first
+ * read — through the ingest task, so it is locked, audited and in the run history. The portal id picks
+ * it out where several acts share its type and number.
  */
-export async function readPortalAct(act: PortalActResult): Promise<void> {
+export async function readPortalAct(
+    act: Pick<PortalActResult, 'type' | 'number' | 'year' | 'portalId'>,
+): Promise<void> {
     await runOperationTask('legislation.ingest', {
         act_type: act.type,
         act_number: Number(act.number),
