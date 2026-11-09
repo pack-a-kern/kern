@@ -186,9 +186,14 @@ Nothing about a tax in code: every value is a fiscal parameter read from the sto
 
 1. **Research first: corporate bonds.** In the stored Fiscal Code, the treatment of a corporate bond's
    interest and of the gain on selling one; written into ADR 0025 §10 before any code, with the articles.
-2. `ParameterAnswer` gains `yes_no` and `days`, with their checks and tests.
+   *Done 2026-11-09:* municipal bonds are public debt under art. 93 (1) a); a corporate bond's coupon is
+   withheld and final under art. 97 (2) (read through art. 97^1 (1)), its gain is a security's under
+   art. 97 (8^1); the points the text leaves open are listed in §10.
+2. `ParameterAnswer` gains `yes_no` and `days`, with their checks and tests. *Done 2026-11-09.*
 3. The six parameters of §10 in `config/fiscal_parameters.php`, each with its question in the law's words.
    Run the reading; the candidates and their quoted sentences go in the handoff note for approval.
+   *Done 2026-11-09, with a seventh the research called for — `RO.INCOME_TAX.INTEREST_RATE` (art. 97 (2)),
+   a corporate bond's coupon. The reading is not run yet: it is the lead's, against the configured model.*
 4. The categories `PUBLIC_DEBT_INCOME`, `SECURITIES_GAIN`, `DIVIDENDS` in
    `config/reference/tax_categories.php`.
 5. The rules: public debt untaxed only while its exemption is approved; the share gain at the long or short

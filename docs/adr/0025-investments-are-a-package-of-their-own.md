@@ -353,22 +353,25 @@ questions and the tests, and are never a value.
 
 | Parameter | Asks | Answer | Found in |
 |---|---|---|---|
-| `RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT` | Is income from holding and transferring instruments of the state's public debt non-taxable? | `yes_no` | art. 93 (1) a) |
+| `RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT` | Is income from holding and transferring instruments of the public debt of the state and of the administrative-territorial units non-taxable? | `yes_no` | art. 93 (1) a) |
 | `RO.CASS.PUBLIC_DEBT_EXCLUDED` | Is that non-taxable income left out of the CASS base? | `yes_no` | art. 170 (5) |
 | `RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG` | The rate on a gain from securities sold through a Romanian intermediary, held at least the holding period | `percent` | art. 97 (8^1) a) |
 | `RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT` | The same, held less | `percent` | art. 97 (8^1) a) |
 | `RO.INCOME_TAX.SECURITIES_HOLDING_DAYS` | The holding period that separates the two | `days` | art. 97 (8^1) a) |
 | `RO.INCOME_TAX.DIVIDEND_RATE` | The rate withheld on dividends | `percent` | art. 97 (7) |
+| `RO.INCOME_TAX.INTEREST_RATE` | The rate withheld on interest from term deposits, savings instruments and civil contracts — a corporate bond's coupon (below) | `percent` | art. 97 (2) |
 
 **Two answer shapes are added to `ParameterAnswer`**: `yes_no` — `{"value": true|false, "citation": …}` —
-and `days` — a whole number of days. Both are checked like every other: the quoted sentence must stand,
-word for word, in the paragraph named.
+and `days` — a whole number of days. Both are checked like every other: the paragraph named must be one of
+those the reader was given, and a number of days must stand in it. A yes or a no has no number to find in
+the paragraph, so it rests on the paragraph alone — and on the person who reads it before approving. Each
+is stored keyed by what it is, as JSON: `{"value": true}`, `{"days": 365}`.
 
 **The categories**, beside the existing ones (`CRYPTO_GAIN`, `RENT`, `DIVIDENDS_INTEREST`):
 
 | Category | What | Treatment |
 |---|---|---|
-| `PUBLIC_DEBT_INCOME` | Fidelis and Tezaur: coupons, and a gain or a loss on a sale | Not taxed while `PUBLIC_DEBT_EXEMPT` is approved as yes; not counted for CASS while `PUBLIC_DEBT_EXCLUDED` is |
+| `PUBLIC_DEBT_INCOME` | Fidelis, Tezaur and municipal bonds: coupons, and a gain or a loss on a sale | Not taxed while `PUBLIC_DEBT_EXEMPT` is approved as yes; not counted for CASS while `PUBLIC_DEBT_EXCLUDED` is |
 | `SECURITIES_GAIN` | A gain or a loss on shares sold through a Romanian intermediary | Withheld at source and final: the long or short rate by the holding period; a loss neither carried forward nor offset (art. 97 (8^5)); counted for CASS |
 | `DIVIDENDS` | Dividends | Withheld by the payer at the dividend rate, final; counted for CASS net of the tax withheld (art. 170 (4) d)) |
 
@@ -386,9 +389,75 @@ Declarația Unică is CASS: `CassOtherIncomeRule` counts every category but `FRE
 changed to leave out `PUBLIC_DEBT_INCOME` while `PUBLIC_DEBT_EXCLUDED` is approved — otherwise Fidelis
 income would raise the person's CASS.
 
-**Corporate bonds are not covered yet.** Their interest and the gain on selling one have rules of their own,
-not yet looked up. Until they are, a corporate bond holding is valued but its income is not categorised;
-the research comes first in the tax task.
+**Corporate and municipal bonds**, as the stored Fiscal Code says (Law 227/2015, the version in force from
+2026-08-08; looked up 2026-11-09). Quoted word for word; what the text leaves open is listed as such.
+
+- **The public debt of counties and municipalities is non-taxable, by the text itself.** Art. 93 (1): "Nu sunt venituri impozabile
+  următoarele:", and lit. a): "veniturile realizate din deținerea și transferul instrumentelor financiare
+  care atestă datoria publică a statului, precum și a unităților administrativ-teritoriale, inclusiv din
+  operațiunile de tip repo și reverse/repo cu aceste instrumente, indiferent de piața/locul de
+  tranzacționare unde are loc operațiunea;". The coupon and the gain or loss on a sale of a bond issued by
+  a county or a municipality are non-taxable exactly as Fidelis and Tezaur are: they belong to
+  `PUBLIC_DEBT_INCOME`, under the same `PUBLIC_DEBT_EXEMPT`. The question names both, as the paragraph does.
+- **CASS leaves both out.** Art. 170 (5): "La încadrarea în plafonul prevăzut la alin. (4) nu se iau în
+  calcul veniturile neimpozabile, prevăzute la art. 93 și 105." — the same `PUBLIC_DEBT_EXCLUDED`.
+- **A corporate bond's coupon is taxed at source, final, by its payer.** Art. 97 (2): "Veniturile sub
+  formă de dobânzi pentru depozitele la termen constituite, instrumentele de economisire dobândite,
+  contractele civile încheiate se impun cu o cotă de 10% din suma acestora, impozitul fiind final,
+  indiferent de data constituirii raportului juridic. Pentru veniturile sub formă de dobânzi, impozitul se
+  calculează și se reține de către plătitorii de astfel de venituri la momentul înregistrării în contul
+  curent sau în contul de depozit al titularului, respectiv la momentul răscumpărării, în cazul unor
+  instrumente de economisire." The paragraph does not say "obligațiuni"; that it covers them is read from
+  art. 97^1 (1), which carves corporate bonds out of it: "Prin excepție de la prevederile art. 97 alin. (2)
+  , în cazul obligațiunilor emise de societăți, persoane juridice rezidente în România, pe piețe de capital
+  din afara României, veniturile sub formă de dobânzi plătite de societatea emitentă și înregistrate în
+  contul contribuabilului în cursul anului fiscal se impun cu o cotă de 10% din suma acestora." That rate is
+  `RO.INCOME_TAX.INTEREST_RATE`, a parameter added for it.
+- **The exception is declared, not withheld.** Art. 97^1 (2): "Impozitul pe veniturile sub formă de
+  dobânzi se calculează de contribuabili pe baza declarației unice privind impozitul pe venit și
+  contribuțiile sociale datorate de persoanele fizice, depusă potrivit prevederilor art. 122 ." — a
+  Romanian company's bond issued on a market outside Romania. Not covered: it needs the declaration's own
+  flow, like shares through a foreign intermediary.
+- **A gain on selling a corporate bond is a gain on a security, like a share's.** Art. 7 pct. 41: "titlu de
+  valoare - orice titlu de participare și orice instrumente financiare calificate astfel prin legislația în
+  materie din statul în care au fost emise;". Sold through a Romanian intermediary, it falls under art. 97
+  (8^1): "Veniturile sub forma câștigurilor din transferul titlurilor de valoare și din operațiuni cu
+  instrumente financiare derivate, determinate conform art. 94 și 95 , pentru transferuri/operațiuni
+  efectuate prin entitățile prevăzute la art. 96^1 alin. (1) , se impun prin reținere la sursă astfel:",
+  lit. a) "în cazul titlurilor de valoare:" — the long and short rates and the holding period above, and
+  art. 97 (8^4): "Impozitul pe venit calculat și reținut la sursă se declară și se virează la bugetul de
+  stat de către entitățile prevăzute la art. 96^1 alin. (1) până la data de 25 inclusiv a lunii următoare
+  celei în care a fost reținut și este impozit final." A loss is final too, art. 97 (8^5): "Pierderile
+  obținute din transferul titlurilor de valoare și din operațiuni cu instrumente financiare derivate,
+  efectuate prin entitățile prevăzute la art. 96^1 alin. (1) , după caz, nu se reportează și nu se
+  compensează, acestea reprezentând pierderi definitive ale contribuabilului." So the corporate bond's gain
+  is `SECURITIES_GAIN`, with no parameter of its own.
+- **CASS counts a corporate bond's coupon and gain**, as investment income (art. 155 (1) g): "venituri din
+  investiții, definite conform art. 91 ;"), the coupon net of what was withheld — art. 170 (4) d): "venitul
+  și/sau câștigul/câștigul net din investiții, stabilit conform dispozițiilor art. 94-97 . În cazul
+  veniturilor din dobânzi se iau în calcul sumele plătite, diminuate cu impozitul reținut, iar în cazul
+  veniturilor din dividende se iau în calcul dividendele plătite, diminuate cu impozitul reținut,
+  distribuite începând cu anul 2018;".
+
+**Open — the text does not settle them:**
+
+- Whether a corporate bond is one of the "instrumentele de economisire" of art. 97 (2): the Code does not
+  define the term; the reading above rests on art. 97^1 (1) calling itself an exception to that paragraph.
+  A person confirms it when approving `INTEREST_RATE` for bonds, or the implementing norms are read.
+- Whether a bond is an instrument "calificat astfel" (art. 7 pct. 41) is for the capital-market law
+  ("legislația în materie"), not the Code — and that law is not among the stored texts.
+- Which instruments "atestă datoria publică … a unităților administrativ-teritoriale" is for the law on
+  local public debt, also not stored. The Code names the bonds of those units once more, for non-residents
+  (art. 229 (1) a): "veniturile obținute din tranzacționarea titlurilor de stat și a obligațiunilor emise
+  de către unitățile administrativ-teritoriale"), which supports reading a municipal bond as one — a
+  reading, not a sentence of art. 93.
+- A bond of a foreign issuer: its coupon is foreign income (art. 130 (2): "Veniturile realizate din
+  străinătate se supun impozitării prin aplicarea cotelor de impozit asupra bazei de calcul determinate
+  după regulile proprii fiecărei categorii de venit, în funcție de natura acestuia."), declared — not
+  covered, with art. 97^1.
+
+Until the categories and rules are built, a corporate bond holding is valued and its income is not
+categorised.
 
 ### 11. The screens
 
