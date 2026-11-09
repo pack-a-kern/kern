@@ -27,7 +27,8 @@ use Psr\Log\LoggerInterface;
  *
  *  1. the paragraph it names is one of those it was given;
  *  2. every number it gives stands in that paragraph, read with the lettered points under it, as
- *     the law writes a rule across them: "baza o reprezintă: a) 6 salarii … b) 12 salarii".
+ *     the law writes a rule across them: "baza o reprezintă: a) 6 salarii … b) 12 salarii". A yes
+ *     or a no has no number, and rests on the first check alone.
  *
  * An answer failing either is not a value and is not recorded. The law's own words are never asked
  * for — this application holds them already, and a sentence copied back is the same sentence
@@ -163,10 +164,13 @@ final readonly class LawReader
 
             // A range stands on two paragraphs, a number each; every other answer states all of its
             // numbers in the one paragraph it names.
-            // A day is stated with its month's name; every other number as a number.
-            if ($paragraph === null || ! ($definition->answer->isDayAndMonth()
-                ? $this->statesDay($paragraph, $values[0], $values[1] ?? 0)
-                : $this->states($paragraph, $range ? [$values[$at] ?? $values[0]] : $values))) {
+            // A day is stated with its month's name; every other number as a number. A yes or a no
+            // has no number to find: the paragraph it names, among those given, is what it rests on.
+            if ($paragraph === null || ! match (true) {
+                $definition->answer->isYesOrNo() => true,
+                $definition->answer->isDayAndMonth() => $this->statesDay($paragraph, $values[0], $values[1] ?? 0),
+                default => $this->states($paragraph, $range ? [$values[$at] ?? $values[0]] : $values),
+            }) {
                 return null;
             }
 
@@ -247,7 +251,7 @@ final readonly class LawReader
 
     /**
      * The numbers of an answer, as the law writes them: a rate in percent — 10 for 10%, which is
-     * stored as 0.10 — wages and lei as stated.
+     * stored as 0.10 — wages, lei and days as stated, a yes as 1 and a no as 0.
      *
      * @param  array<string, mixed>  $reply
      * @return list<int>
@@ -264,6 +268,9 @@ final readonly class LawReader
             $range => [$reply['floor'] ?? null, $reply['cap'] ?? null],
             $definition->answer === ParameterAnswer::WAGES_LIST, $definition->answer->isEither() => is_array($reply['values'] ?? null) ? $reply['values'] : [],
             $definition->answer->isDayAndMonth() => [$reply['day'] ?? null, $reply['month'] ?? null],
+            // A yes or a no is a boolean and nothing else: a 1 or a "da" is a reader that has not
+            // answered the question asked.
+            $definition->answer->isYesOrNo() => [is_bool($reply['value'] ?? null) ? (int) $reply['value'] : null],
             default => [$reply['value'] ?? null],
         };
         $said = array_values(array_filter($given, static fn (mixed $value): bool => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value))));

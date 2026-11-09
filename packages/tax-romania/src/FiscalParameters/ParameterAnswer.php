@@ -46,6 +46,15 @@ enum ParameterAnswer: string
      */
     case DAY_MONTH = 'day_month';
 
+    /**
+     * Whether the law says something holds — "Nu sunt venituri impozabile următoarele: … veniturile
+     * realizate din deținerea și transferul instrumentelor financiare care atestă datoria publică".
+     */
+    case YES_NO = 'yes_no';
+
+    /** A number of days — "într-o perioadă mai mare de 365 de zile inclusiv de la data dobândirii". */
+    case DAYS = 'days';
+
     /** What a reader is told to answer with. */
     public function shape(): string
     {
@@ -56,6 +65,7 @@ enum ParameterAnswer: string
                 . '    {"shape": "interval", "floor": <number>, "floor_citation": "Art. X alin. (Y)", "cap": <number>, "cap_citation": "Art. X alin. (Y)"}' . PHP_EOL
                 . '    {"shape": "steps", "values": [<numbers, ascending>], "citation": "Art. X alin. (Y)"}',
             self::DAY_MONTH => '{"day": <number or null>, "month": <number or null>, "citation": "Art. X alin. (Y)"}',
+            self::YES_NO => '{"value": <true, false or null>, "citation": "Art. X alin. (Y)"}',
             default => '{"value": <number or null>, "citation": "Art. X alin. (Y)"}',
         };
     }
@@ -70,6 +80,8 @@ enum ParameterAnswer: string
             self::WAGES_BASE => 'numbers of minimum gross wages',
             self::LEI => 'an amount in lei (the number alone)',
             self::DAY_MONTH => 'a day of the month and the month as its number, 1 to 12 ("25 mai" is day 25, month 5)',
+            self::YES_NO => 'true if the paragraph says it holds, false if it says it does not (true or false, never a number)',
+            self::DAYS => 'a whole number of days (the number alone)',
         };
     }
 
@@ -86,6 +98,15 @@ enum ParameterAnswer: string
     public function isDayAndMonth(): bool
     {
         return $this === self::DAY_MONTH;
+    }
+
+    /**
+     * Whether the answer is a yes or a no: no number the paragraph could be searched for, so what is
+     * checked is that the paragraph named is one of those the reader was given.
+     */
+    public function isYesOrNo(): bool
+    {
+        return $this === self::YES_NO;
     }
 
     /** Whether the reply says which shape it is, the law having set this value both ways. */

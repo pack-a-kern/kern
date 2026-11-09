@@ -123,6 +123,70 @@ return [
                         'answer' => 'day_month',
                     ],
                 ],
+
+                // Investment income, all of it read in Capitolul V. Public debt — Fidelis, Tezaur,
+                // municipal bonds — is art. 93 alin. (1) lit. a), the state's and the unități
+                // administrativ-teritoriale's alike. The answer is a yes, because the law states an
+                // exemption, not a rate of zero.
+                'PUBLIC_DEBT_EXEMPT' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Sunt venituri neimpozabile veniturile realizate din deținerea și transferul instrumentelor financiare care atestă datoria publică a statului, precum și a unităților administrativ-teritoriale?',
+                        'answer' => 'yes_no',
+                    ],
+                ],
+
+                // A gain on securities sold through a Romanian intermediary, withheld by it: one rate
+                // for a holding at least as long as the period the law sets, another for a shorter
+                // one (art. 97 alin. (8^1) lit. a)). The period is a value of its own, read below.
+                'SECURITIES_GAIN_RATE_LONG' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Ce cotă se aplică, prin reținere la sursă, asupra fiecărui câștig din transferul titlurilor de valoare efectuat prin entitățile prevăzute la art. 96^1 alin. (1), pentru titlurile de valoare care au fost dobândite și înstrăinate într-o perioadă cel puțin egală cu perioada de deținere prevăzută de lege?',
+                        'answer' => 'percent',
+                    ],
+                ],
+
+                'SECURITIES_GAIN_RATE_SHORT' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Ce cotă se aplică, prin reținere la sursă, asupra fiecărui câștig din transferul titlurilor de valoare efectuat prin entitățile prevăzute la art. 96^1 alin. (1), pentru titlurile de valoare care au fost dobândite și înstrăinate într-o perioadă mai mică decât perioada de deținere prevăzută de lege?',
+                        'answer' => 'percent',
+                    ],
+                ],
+
+                'SECURITIES_HOLDING_DAYS' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Care este perioada, în zile de la data dobândirii, după care se aplică altă cotă de reținere la sursă asupra câștigului din transferul titlurilor de valoare efectuat prin entitățile prevăzute la art. 96^1 alin. (1)?',
+                        'answer' => 'days',
+                    ],
+                ],
+
+                'DIVIDEND_RATE' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Ce cotă se aplică veniturilor sub formă de dividende, impozitul fiind final?',
+                        'answer' => 'percent',
+                    ],
+                ],
+
+                // A corporate bond's coupon, withheld by its payer: art. 97 alin. (2) names
+                // "instrumentele de economisire", and art. 97^1 alin. (1) treats the bonds of
+                // Romanian companies issued abroad as the exception to it (ADR 0025 §10).
+                'INTEREST_RATE' => [
+                    'type' => 'DECIMAL',
+                    'law' => [
+                        'within' => ['Titlul IV Capitolul V'],
+                        'question' => 'Ce cotă se aplică veniturilor sub formă de dobânzi pentru depozitele la termen constituite, instrumentele de economisire dobândite, contractele civile încheiate?',
+                        'answer' => 'percent',
+                    ],
+                ],
             ],
         ],
 
@@ -203,6 +267,16 @@ return [
                     ],
                 ],
 
+                // Whether the non-taxable investment income of art. 93 — public debt among it — is left
+                // out of the income those levels are reached by (art. 170 alin. (5)).
+                'PUBLIC_DEBT_EXCLUDED' => [
+                    'type' => 'JSON',
+                    'law' => [
+                        'within' => ['Titlul V Capitolul III Secţiunea a 5-a'],
+                        'question' => 'La încadrarea în plafonul anual al veniturilor prevăzute la art. 155 alin. (1) lit. c)-h), pentru stabilirea bazei de calcul al contribuției de asigurări sociale de sănătate, sunt lăsate în afara calculului (nu se iau în calcul) veniturile neimpozabile prevăzute la art. 93?',
+                        'answer' => 'yes_no',
+                    ],
+                ],
             ],
         ],
     ],

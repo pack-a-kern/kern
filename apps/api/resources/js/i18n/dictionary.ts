@@ -1991,6 +1991,11 @@ export interface Dictionary {
             wages: string;
             /** A base between `{floor}` and `{cap}` minimum wages. */
             wagesRange: string;
+            /** What the law says holds, or does not — an exemption. */
+            yes: string;
+            no: string;
+            /** A period of `{count}` days. */
+            days: string;
             /** `{from}`, and `{until}` when it has an end. */
             periodOpen: string;
             periodClosed: string;

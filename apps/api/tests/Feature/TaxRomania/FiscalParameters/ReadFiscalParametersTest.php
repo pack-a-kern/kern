@@ -836,3 +836,70 @@ it('refuses a deadline whose month the paragraph does not name', function (): vo
         ->and(array_filter(candidates(), static fn (array $row): bool => $row[0] === 'RO.INCOME_TAX.FILING_DEADLINE'))->toBe([])
         ->and(outcomeOf('RO.INCOME_TAX.FILING_DEADLINE', 2023))->toBe('NOT_IN_LAW');
 });
+
+/** Art. 93 alin. (1) lit. a) and art. 97 alin. (8^1) lit. a) pct. (i), in the words of the 2026-08-08 consolidation. */
+function investmentIncome(): void
+{
+    heading(codulFiscal(), 'Titlul IV Capitolul V', [
+        ['Art. 93 alin. (1) lit. a)', 'veniturile realizate din deținerea și transferul instrumentelor financiare care atestă datoria publică a statului, precum și a unităților administrativ-teritoriale, inclusiv din operațiunile de tip repo și reverse/repo cu aceste instrumente, indiferent de piața/locul de tranzacționare unde are loc operațiunea;'],
+        ['Art. 97 alin. (8^1) lit. a) pct. (i)', 'prin aplicarea unei cote de 3% asupra fiecărui câștig din transferul titlurilor de valoare care au fost dobândite și înstrăinate într-o perioadă mai mare de 365 de zile inclusiv de la data dobândirii;'],
+    ]);
+    config(['ai.legislation.one_call_per_tax' => false]);
+}
+
+/** @return list<array<int, mixed>> */
+function candidatesOf(string $code): array
+{
+    return array_values(array_filter(candidates(), static fn (array $row): bool => $row[0] === $code));
+}
+
+it('reads an exemption as a yes or a no, from the paragraph it names', function (bool $said): void {
+    $this->travelTo('2023-06-01');
+    investmentIncome();
+    readers(['datoria publică a statului' => ['value' => $said, 'citation' => 'Art. 93 alin. (1) lit. a)']]);
+
+    app(StartFiscalYear::class)(2023);
+
+    // Stored as the boolean it is, not as a number a screen would read as minimum wages.
+    expect(candidatesOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT'))->toBe([
+        ['RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT', '2023-01-01', '2023-12-31', ['value' => $said], 'Art. 93 alin. (1) lit. a)'],
+    ]);
+})->with(['yes' => true, 'no' => false]);
+
+it('refuses a yes or a no given as anything but a boolean, or from a paragraph the reader was not given', function (array $answer): void {
+    $this->travelTo('2023-06-01');
+    investmentIncome();
+    readers(['datoria publică a statului' => $answer]);
+
+    // The only answer given is refused, so the year proposes nothing at all.
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
+        ->and(candidatesOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT'))->toBe([])
+        ->and(outcomeOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT', 2023))->toBe('NOT_IN_LAW');
+})->with([
+    'a number' => [['value' => 1, 'citation' => 'Art. 93 alin. (1) lit. a)']],
+    'a word' => [['value' => 'da', 'citation' => 'Art. 93 alin. (1) lit. a)']],
+    'a paragraph never sent' => [['value' => true, 'citation' => 'Art. 93 alin. (2) lit. a)']],
+]);
+
+it('reads a holding period as its number of days, from the paragraph that states it', function (): void {
+    $this->travelTo('2023-06-01');
+    investmentIncome();
+    readers(['în zile de la data dobândirii' => ['value' => 365, 'citation' => 'Art. 97 alin. (8^1) lit. a) pct. (i)']]);
+
+    app(StartFiscalYear::class)(2023);
+
+    expect(candidatesOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS'))->toBe([
+        ['RO.INCOME_TAX.SECURITIES_HOLDING_DAYS', '2023-01-01', '2023-12-31', ['days' => 365], 'Art. 97 alin. (8^1) lit. a) pct. (i)'],
+    ]);
+});
+
+it('refuses a holding period its paragraph does not state', function (): void {
+    $this->travelTo('2023-06-01');
+    investmentIncome();
+    // 365 stands in the paragraph; 730 does not.
+    readers(['în zile de la data dobândirii' => ['value' => 730, 'citation' => 'Art. 97 alin. (8^1) lit. a) pct. (i)']]);
+
+    expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
+        ->and(candidatesOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS'))->toBe([])
+        ->and(outcomeOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS', 2023))->toBe('NOT_IN_LAW');
+});

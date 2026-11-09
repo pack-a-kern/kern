@@ -6,7 +6,8 @@ type Translate = <T>(pick: (d: Dictionary) => T) => T;
 
 /**
  * A fiscal value as a person reads it, from how it is stored: the minimum wage an amount, a rate a
- * percent, a threshold so many minimum wages. One place, so the table and the detail agree.
+ * percent, a threshold so many minimum wages, an exemption a yes or a no. One place, so the table
+ * and the detail agree.
  */
 export function describeFiscalValue(
     type: ParameterType,
@@ -30,6 +31,15 @@ export function describeFiscalValue(
     // A deadline the law repeats every year: the day and the month, the year being the one after.
     if (typeof value.day === 'number' && typeof value.month === 'number') {
         return formatDayMonth(value.day, value.month, locale);
+    }
+
+    // What the law says holds or does not — an exemption — and a period counted in days.
+    if (typeof value.value === 'boolean') {
+        return value.value ? t((d) => d.pages.taxRules.yes) : t((d) => d.pages.taxRules.no);
+    }
+
+    if (typeof value.days === 'number') {
+        return t((d) => d.pages.taxRules.days).replace('{count}', String(value.days));
     }
 
     // A base with two ends — not less than six wages, not more than seventy-two — reads as a range.

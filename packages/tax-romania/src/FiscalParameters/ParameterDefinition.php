@@ -42,15 +42,25 @@ final readonly class ParameterDefinition
     /**
      * A value as it is stored, from the numbers the law states: a rate "0.10" from 10 percent, a
      * threshold `{value: 12}`, thresholds `{wages: [6, 12, 24]}`, an amount `{amount_minor: …}`, a
-     * deadline `{day: 25, month: 5}`.
+     * deadline `{day: 25, month: 5}`, an exemption `{value: true}`, a period `{days: 365}`. The last
+     * three are JSON values keyed by what they are, so a yes or a number of days is never read back as
+     * a number of minimum wages.
      *
-     * @param  list<int>  $numbers  percentages in hundredths, wages and lei as stated
+     * @param  list<int>  $numbers  percentages in hundredths, wages and lei as stated, a yes as 1 and a no as 0
      * @return array<string, mixed>
      */
     public function value(array $numbers, bool $range = false, string $currency = CurrencyCode::BASE): array
     {
         if ($this->answer->isDayAndMonth()) {
             return ['day' => $numbers[0], 'month' => $numbers[1] ?? null];
+        }
+
+        if ($this->answer->isYesOrNo()) {
+            return ['value' => $numbers[0] === 1];
+        }
+
+        if ($this->answer === ParameterAnswer::DAYS) {
+            return ['days' => $numbers[0]];
         }
 
         return match ($this->type) {
@@ -74,6 +84,14 @@ final readonly class ParameterDefinition
     {
         if ($this->answer->isDayAndMonth()) {
             return is_int($value['day'] ?? null) && is_int($value['month'] ?? null) ? [$value['day'], $value['month']] : [];
+        }
+
+        if ($this->answer->isYesOrNo()) {
+            return is_bool($value['value'] ?? null) ? [(int) $value['value']] : [];
+        }
+
+        if ($this->answer === ParameterAnswer::DAYS) {
+            return is_int($value['days'] ?? null) ? [$value['days']] : [];
         }
 
         return match ($this->type) {
