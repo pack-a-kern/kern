@@ -12,6 +12,14 @@ return [
             'label' => 'Scadența depozitelor',
             'hint' => 'Înainte ca un depozit la termen să ajungă la scadență — cu :days zile înainte și în ziua respectivă, la :time.',
         ],
+        'holding-payout' => [
+            'label' => 'Cupoane și scadența obligațiunilor',
+            'hint' => 'Înainte ca o obligațiune deținută să plătească un cupon sau să fie rambursată — cu :days zile înainte și în ziua respectivă, la :time.',
+        ],
+        'issue-on-offer' => [
+            'label' => 'Emisiuni noi de titluri de stat',
+            'hint' => 'Când o nouă emisiune Fidelis sau Tezaur poate fi subscrisă.',
+        ],
     ],
     'imports' => [
         'READY_FOR_MAPPING' => ['title' => 'Extras citit', 'body' => ':rows linii citite. Verifică coloanele.'],
@@ -25,5 +33,22 @@ return [
         'title_soon' => 'Un depozit ajunge la scadență în :days zile',
         'body' => ':bank: :amount pe :date.',
         'no_bank' => 'Depozit',
+    ],
+    'holdings' => [
+        'coupon' => [
+            'title_today' => 'Un cupon se plătește azi',
+            'title_tomorrow' => 'Un cupon se plătește mâine',
+            'title_soon' => 'Un cupon se plătește în :days zile',
+        ],
+        'principal' => [
+            'title_today' => 'O obligațiune se rambursează azi',
+            'title_tomorrow' => 'O obligațiune se rambursează mâine',
+            'title_soon' => 'O obligațiune se rambursează în :days zile',
+        ],
+        'body' => ':instrument, pe :date.',
+    ],
+    'issues' => [
+        'title' => 'În subscriere: :name',
+        'body' => ':rate% pe an, în :currency, cu scadența pe :date.',
     ],
 ];

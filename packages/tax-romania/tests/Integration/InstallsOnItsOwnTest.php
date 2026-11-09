@@ -14,7 +14,7 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
 /**
- * The product, installed as five packages into an application that is otherwise empty.
+ * The product, installed as six packages into an application that is otherwise empty.
  */
 it('brings the whole schema, its own and every package it depends on', function (): void {
     foreach ([

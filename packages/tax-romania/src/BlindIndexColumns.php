@@ -21,6 +21,7 @@ use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\Counterparty;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
+use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Models\Tag;
 
 /**
@@ -126,6 +127,17 @@ final class BlindIndexColumns
                     ->whereNotNull('external_id_ciphertext'),
                 indexColumn: 'external_id_blind_index',
                 normalize: self::text('external_id_ciphertext'),
+                hasher: $app->make(BlindIndexHasher::class),
+            ),
+
+            // A broker's own reference for a position, written by `AddHolding` exactly this way.
+            'kern.reindexer.investment-lots-external-ref' => static fn (Application $app): BlindIndexReindexer => new EloquentColumnReindexer(
+                label: 'investment_lots.external_ref_blind_index',
+                query: static fn (): Builder => InvestmentLot::query()
+                    ->withoutGlobalScope(TenantScope::class)
+                    ->whereNotNull('external_ref_ciphertext'),
+                indexColumn: 'external_ref_blind_index',
+                normalize: self::text('external_ref_ciphertext'),
                 hasher: $app->make(BlindIndexHasher::class),
             ),
 

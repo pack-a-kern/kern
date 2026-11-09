@@ -55,6 +55,7 @@
         <env name="SOURCES_CRAWLER_CONTACT" value="" force="true"/>
         <env name="OPERATIONS_CRON_INVESTMENTS_IMPORT_GOVERNMENT_BONDS" value="0 4 * * 0" force="true"/>
         <env name="OPERATIONS_CRON_INVESTMENTS_IMPORT_BVB" value="30 18 * * 1-5" force="true"/>
+        <env name="OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS" value="30 0 * * *" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
         <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>

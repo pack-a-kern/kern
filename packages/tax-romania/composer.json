@@ -20,6 +20,7 @@
         "illuminate/validation": "^13.0",
         "kern/audit": "@dev",
         "kern/documents": "@dev",
+        "kern/investments": "@dev",
         "kern/legislation": "@dev",
         "kern/notifications": "@dev",
         "kern/platform": "@dev"

@@ -742,6 +742,7 @@ export const ro = {
                 GENERAL: 'General',
                 CASH: 'Numerar',
                 TERM_DEPOSIT: 'Depozit la termen',
+                INVESTMENTS: 'Obligațiuni și acțiuni',
                 BROKER: 'Cont de investiții',
                 CRYPTO: 'Crypto',
                 OTHER: 'Altele',

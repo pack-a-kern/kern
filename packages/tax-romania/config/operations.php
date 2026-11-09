@@ -87,6 +87,7 @@ return [
             // ADR 0025: no default — the values are in .env.example, and a schedule missing fails by name.
             'investments.import_government_bonds' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_GOVERNMENT_BONDS'),
             'investments.import_bvb' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_BVB'),
+            'holdings.post_payouts' => env('OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS'),
         ],
     ],
 

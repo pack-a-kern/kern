@@ -11,6 +11,8 @@ use Illuminate\Support\ServiceProvider;
 use Kern\Investments\Config\InvestmentsConfig;
 use Kern\Investments\Console\ImportBvbCommand;
 use Kern\Investments\Console\ImportGovernmentBondsCommand;
+use Kern\Investments\Contracts\MarketData;
+use Kern\Investments\Queries\EloquentMarketData;
 use Kern\Investments\Listeners\ReadIssuesFromANewOrder;
 use Kern\Legislation\Config\OfficialSourceRegistry;
 use Kern\Legislation\Dependents\DocumentDependents;
@@ -47,6 +49,9 @@ final class InvestmentsServiceProvider extends ServiceProvider
             InvestmentsConfig::class,
             static fn (Application $app): InvestmentsConfig => InvestmentsConfig::read($app->make(ConfigRepository::class), $app->make(OfficialSourceRegistry::class)),
         );
+
+        // What another package may read of the market, as values (ADR 0025 §1).
+        $this->app->bind(MarketData::class, EloquentMarketData::class);
     }
 
     public function boot(): void

@@ -756,7 +756,9 @@ final readonly class WalletQuery
                 AccountKind::GENERAL => self::GENERAL,
                 AccountKind::TERM_DEPOSIT => self::DEPOSITS,
                 AccountKind::CASH => self::CASH,
-                AccountKind::BROKER, AccountKind::CRYPTO, AccountKind::OTHER => self::OTHER,
+                // What an investments account holds in money — coupons, dividends, repayments, sales — not
+                // its bonds and shares, whose value is the holdings' and is never a balance.
+                AccountKind::INVESTMENTS, AccountKind::BROKER, AccountKind::CRYPTO, AccountKind::OTHER => self::OTHER,
             };
 
             foreach ($byCurrency as $currency => $amount) {

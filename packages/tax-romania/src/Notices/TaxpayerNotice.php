@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Notices;
 use Illuminate\Database\Eloquent\Model;
 use Kern\Notifications\Contracts\NoticeType;
 use Kern\Platform\Tenancy\Contracts\TenantGate;
+use Kern\TaxRomania\Operations\Enums\OperationTask;
 
 /**
  * What every notice this product sends has in common: it is about one taxpayer.
@@ -44,6 +45,26 @@ abstract readonly class TaxpayerNotice implements NoticeType
         }
 
         return $visible;
+    }
+
+    /**
+     * The distances and the hour the reminders are actually configured to go out at — the deposits' and
+     * the holdings' alike, one task — so a switch says when it will speak.
+     *
+     * @return array{days: string, time: string}
+     */
+    protected function reminderSchedule(): array
+    {
+        /** @var list<int> $distances */
+        $distances = config('wallet.deposit.reminder_days', []);
+        // Read from the list, not by dotted path: the task's key has a dot of its own.
+        $cron = config()->array('operations.schedule.expressions', [])[OperationTask::WALLET_MATURITY_REMINDERS->value] ?? '';
+        $cron = is_string($cron) ? $cron : '';
+
+        return [
+            'days' => implode(', ', array_filter($distances, static fn (int $days): bool => $days > 0)),
+            'time' => preg_match('/^(\d{1,2}) (\d{1,2}) \* \* \*$/', $cron, $m) === 1 ? sprintf('%02d:%02d', (int) $m[2], (int) $m[1]) : $cron,
+        ];
     }
 
     /** @param array<string, string> $query */

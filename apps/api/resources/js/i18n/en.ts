@@ -755,6 +755,7 @@ export const en = {
                 GENERAL: 'General',
                 CASH: 'Cash',
                 TERM_DEPOSIT: 'Term deposit',
+                INVESTMENTS: 'Bonds and shares',
                 BROKER: 'Brokerage',
                 CRYPTO: 'Crypto',
                 OTHER: 'Other',

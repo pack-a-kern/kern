@@ -48,6 +48,17 @@ use Kern\TaxRomania\Wallet\ValueObjects\Decimal;
  *    to 30; `days = 0*360 + 2*30 + 0 = 60`; `fraction = 60/360 = 1/6` — this is the case the
  *    adjustment rule exists for: naive subtraction (`31 - 31 = 0` days for the day component)
  *    would silently understate the period by a full day pair without it.
+ *
+ * ## ACTUAL_ACTUAL
+ *
+ * Actual days over the actual days of the year that begins on `$from` — 365, or 366 when that year
+ * holds a 29 February. It is Tezaur's formula: "D = [valoarea nominală × rata dobânzii × număr de zile
+ * acumulate] / număr de zile an curent", where the current year is the current interest period, one
+ * year from the issue date (art. 13 of each Tezaur prospectus). A whole period is therefore exactly 1,
+ * whether it holds a 29 February or not.
+ *
+ * The year from a 29 February ends on the next 28 February, not on 1 March as PHP's `+1 year` would
+ * have it — the year from 2028-02-29 has 365 days.
  */
 final class DayCountCalculator
 {
@@ -63,6 +74,7 @@ final class DayCountCalculator
             DayCountConvention::ACTUAL_360 => $this->actualOverConstant($from, $to, 360),
             DayCountConvention::ACTUAL_365 => $this->actualOverConstant($from, $to, 365),
             DayCountConvention::THIRTY_360 => $this->thirty360($from, $to),
+            DayCountConvention::ACTUAL_ACTUAL => $this->actualOverActual($from, $to),
         };
     }
 
@@ -74,6 +86,14 @@ final class DayCountCalculator
         $days = $to->diff($from)->days;
 
         return Decimal::fromInt($days)->divide(Decimal::fromInt($denominator), self::SCALE);
+    }
+
+    private function actualOverActual(DateTimeImmutable $from, DateTimeImmutable $to): Decimal
+    {
+        $month = $from->modify('first day of +1 year');
+        $yearLater = $month->setDate((int) $month->format('Y'), (int) $month->format('n'), min((int) $from->format('j'), (int) $month->format('t')));
+
+        return Decimal::fromInt($to->diff($from)->days)->divide(Decimal::fromInt($yearLater->diff($from)->days), self::SCALE);
     }
 
     private function thirty360(DateTimeImmutable $from, DateTimeImmutable $to): Decimal
