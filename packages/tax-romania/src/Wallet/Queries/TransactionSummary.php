@@ -37,6 +37,8 @@ final readonly class TransactionSummary
         public ?string $bankName = null,
         public array $tags = [],
         public ?string $importId = null,
+        /** Where an automatic investments account keeps its money; the screen names the account from it. */
+        public ?string $accountHeldAt = null,
     ) {
     }
 
@@ -48,6 +50,7 @@ final readonly class TransactionSummary
             'account_id' => $this->accountId,
             'account_name' => $this->accountName,
             'account_kind' => $this->accountKind,
+            'account_held_at' => $this->accountHeldAt,
             'booked_at' => $this->bookedAt,
             'amount_minor' => $this->amountMinor,
             'currency_code' => $this->currencyCode,

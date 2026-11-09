@@ -534,8 +534,10 @@ function fakeLedger(array $entries): void
 {
     app()->instance(LedgerIncomeProvider::class, new class ($entries) implements LedgerIncomeProvider {
         /** @param list<LedgerIncomeEntry> $entries */
-        public function __construct(private array $entries)
-        {
+        public function __construct(
+            /** @var list<LedgerIncomeEntry> */
+            private array $entries,
+        ) {
         }
 
         /** @return list<int> */

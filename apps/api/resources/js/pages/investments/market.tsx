@@ -1,10 +1,11 @@
 import { Link } from '@inertiajs/react';
-import { ChartCandlestick, SearchX } from 'lucide-react';
+import { CalendarCheck, ChartCandlestick, Coins, Percent, SearchX, Shapes } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { listInstruments } from '../../api/investmentsApi';
 import {
+    CellLabel,
     DataTable,
     EmptyState,
     Page,
@@ -13,6 +14,7 @@ import {
     PanelSelect,
     Pill,
     SearchInput,
+    TableSkeleton,
     Toolbar,
 } from '../../components/panel';
 import { useTranslation } from '../../i18n';
@@ -40,6 +42,7 @@ export default function Market(): JSX.Element {
     const [status, setStatus] = useState<InstrumentStatus>('ACTIVE');
     const [search, setSearch] = useState('');
     const [rows, setRows] = useState<Instrument[] | null>(null);
+    const [failed, setFailed] = useState(false);
     const [next, setNext] = useState<string | null>(null);
 
     const query = search.trim().length >= MIN_SEARCH ? search.trim() : '';
@@ -52,18 +55,19 @@ export default function Market(): JSX.Element {
                 if (current) {
                     setRows(page.data);
                     setNext(page.nextCursor);
+                    setFailed(false);
                 }
             })
             .catch(() => {
                 if (current) {
-                    toast.error(words.failed);
+                    setFailed(true);
                 }
             });
 
         return () => {
             current = false;
         };
-    }, [kind, status, query, words.failed]);
+    }, [kind, status, query]);
 
     const more = async (): Promise<void> => {
         try {
@@ -77,10 +81,27 @@ export default function Market(): JSX.Element {
 
     return (
         <Page title={words.title} lede={words.description}>
-            <Panel title={words.statuses[status]} flush>
+            <Panel
+                title={words.title}
+                description={words.description}
+                icon={<ChartCandlestick className="size-4" />}
+                flush
+                {...(next === null
+                    ? {}
+                    : {
+                          footActions: (
+                              <PanelButton onClick={() => void more()}>
+                                  <ChartCandlestick className="size-3.5" aria-hidden="true" />
+                                  {words.more}
+                              </PanelButton>
+                          ),
+                      })}
+            >
                 <Toolbar>
                     <SearchInput value={search} placeholder={words.search} onChange={setSearch} />
                     <PanelSelect
+                        icon={<Shapes className="size-3.5" aria-hidden="true" />}
+                        className="filter-select"
                         aria-label={words.kind}
                         value={kind}
                         onValueChange={(value) => {
@@ -90,6 +111,7 @@ export default function Market(): JSX.Element {
                         options={INSTRUMENT_KINDS.map((value) => ({ value, label: words.kinds[value] }))}
                     />
                     <PanelSelect
+                        className="filter-select"
                         aria-label={words.status}
                         value={status}
                         onValueChange={(value) => {
@@ -98,7 +120,13 @@ export default function Market(): JSX.Element {
                         options={INSTRUMENT_STATUSES.map((value) => ({ value, label: words.statuses[value] }))}
                     />
                 </Toolbar>
-                {rows === null ? null : rows.length === 0 ? (
+                {rows === null ? (
+                    failed ? (
+                        <p className="note p-4">{words.failed}</p>
+                    ) : (
+                        <TableSkeleton />
+                    )
+                ) : rows.length === 0 ? (
                     <EmptyState icon={<SearchX className="size-5" />} title={words.none} />
                 ) : (
                     <DataTable
@@ -107,9 +135,9 @@ export default function Market(): JSX.Element {
                             <>
                                 <th>{words.columns.name}</th>
                                 <th>{words.columns.kind}</th>
-                                <th className="col-end">{words.columns.rate}</th>
+                                <th className="col-figure">{words.columns.rate}</th>
                                 <th>{words.columns.maturity}</th>
-                                <th className="col-end">{words.columns.price}</th>
+                                <th className="col-figure">{words.columns.price}</th>
                             </>
                         }
                     >
@@ -124,36 +152,48 @@ export default function Market(): JSX.Element {
                                     </div>
                                 </td>
                                 <td>
+                                    <CellLabel icon={<Shapes className="size-3.5" aria-hidden="true" />}>
+                                        {words.columns.kind}
+                                    </CellLabel>
                                     <Pill {...(instrument.status === 'ON_OFFER' ? { tone: 'accent' as const } : {})}>
                                         {words.kinds[instrument.kind]}
                                     </Pill>
                                 </td>
-                                <td className="col-end mono">
-                                    {instrument.ratePercent === null ? '' : `${instrument.ratePercent}%`}
+                                <td className="col-figure">
+                                    {instrument.ratePercent === null ? null : (
+                                        <>
+                                            <CellLabel icon={<Percent className="size-3.5" aria-hidden="true" />}>
+                                                {words.columns.rate}
+                                            </CellLabel>
+                                            {`${instrument.ratePercent}%`}
+                                        </>
+                                    )}
                                 </td>
-                                <td>
-                                    {instrument.maturityDate === null
-                                        ? ''
-                                        : formatDate(instrument.maturityDate, locale)}
+                                <td className="whitespace-nowrap">
+                                    {instrument.maturityDate === null ? null : (
+                                        <>
+                                            <CellLabel icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}>
+                                                {words.columns.maturity}
+                                            </CellLabel>
+                                            {formatDate(instrument.maturityDate, locale)}
+                                        </>
+                                    )}
                                 </td>
-                                <td className="col-end mono">
-                                    {instrument.latestPrice === null
-                                        ? ''
-                                        : instrument.kind === 'SHARE'
-                                          ? `${instrument.latestPrice.price} ${instrument.currency}`
-                                          : words.ofFace.replace('{price}', instrument.latestPrice.price)}
+                                <td className="col-figure">
+                                    {instrument.latestPrice === null ? null : (
+                                        <>
+                                            <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                {words.columns.price}
+                                            </CellLabel>
+                                            {instrument.kind === 'SHARE'
+                                                ? `${instrument.latestPrice.price} ${instrument.currency}`
+                                                : words.ofFace.replace('{price}', instrument.latestPrice.price)}
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                         ))}
                     </DataTable>
-                )}
-                {next === null ? null : (
-                    <div className="flex justify-center p-3">
-                        <PanelButton onClick={() => void more()}>
-                            <ChartCandlestick className="size-3.5" aria-hidden="true" />
-                            {words.more}
-                        </PanelButton>
-                    </div>
                 )}
             </Panel>
         </Page>

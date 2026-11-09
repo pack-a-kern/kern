@@ -10,7 +10,8 @@ export const en = {
         walletCounterparties: 'Payees',
         walletImports: 'Statement imports',
         walletReports: 'Reports',
-        walletHoldings: 'Holdings',
+        holdings: 'My holdings',
+        investments: 'Investments',
         market: 'Market',
         rentals: 'Rentals',
         analysis: 'Analysis',
@@ -914,14 +915,17 @@ export const en = {
             noPrices: 'No price in that time.',
             failed: 'The instrument could not be loaded.',
         },
-        walletHoldings: {
-            title: 'Holdings',
+        holdings: {
+            title: 'My holdings',
             description:
                 'Your bonds and shares, each purchase on its own: what it cost, what it is worth, what it paid. The value is information, never income: only a sale makes a gain.',
             add: 'Add a holding',
             sell: 'Sell',
             none: 'No holding yet.',
-            noAccount: 'Add an account of the kind “Bonds and shares” first.',
+            emptyHint: 'Choose a bond or a share from the market, then add what you bought of it.',
+            status: 'Status',
+            unit: 'purchases',
+            loadFailed: 'The holdings could not be loaded.',
             open: 'Held',
             sold: 'Sold',
             columns: {
@@ -937,7 +941,6 @@ export const en = {
             withheld: '{amount} withheld',
             heldAt: { TREASURY: 'Treasury', BANK: 'Bank', BROKER: 'Broker' },
             form: {
-                account: 'Account',
                 instrument: 'Instrument',
                 instrumentSearch: 'Search a symbol, an ISIN or a name',
                 noMatch: 'Nothing on the market matches.',
@@ -952,7 +955,7 @@ export const en = {
                 cancel: 'Cancel',
             },
             added: 'Holding added.',
-            soldDone: 'Sold. The proceeds are in the account.',
+            soldDone: 'Sold. The proceeds are in Transactions.',
             refusals: {
                 TEZAUR_ENDS_AT_MATURITY: 'A Tezaur bond cannot be sold early: it ends at maturity.',
                 NOT_ENOUGH_UNITS: 'That is more units than this account holds of it.',
@@ -1662,6 +1665,7 @@ export const en = {
                 inForceFrom: 'In force from',
                 consolidations: '{read} of {listed} consolidations read',
                 consolidationsFailed: '{count} could not be read',
+                readingStopped: 'Reading stopped',
                 currentVersion: 'Current version',
             },
             watches: {
@@ -1737,6 +1741,16 @@ export const en = {
                 incomplete: 'The search stopped at page {page}: {reason} The acts below are from the pages before it.',
             },
             law: {
+                readingStopped: {
+                    storage_unavailable: 'Reading stopped: storage unavailable.',
+                    database_unavailable: 'Reading stopped: the database did not answer.',
+                    browser_unavailable: 'Reading stopped: the browser worker is not available.',
+                    source_disabled: 'Reading stopped: the portal is turned off as a source.',
+                    internal_error: 'Reading stopped: an error on this server.',
+                },
+                readingStoppedAt: 'on {date}. Nothing was marked as unreadable; read it again once it is fixed.',
+                readAgain: 'Read again',
+                readAgainStarted: 'Reading again — it appears as it is read.',
                 datedByNote: 'Dated by the portal’s note',
                 reader: 'Consolidated legislation reader',
                 consolidatedOn: 'Consolidated {period}',

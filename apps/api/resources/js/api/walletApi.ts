@@ -34,7 +34,8 @@ export async function getWalletOverview(subjectId: string): Promise<WalletOvervi
 }
 
 /**
- * `GET .../wallet/accounts` — every account, term deposits included.
+ * `GET .../wallet/accounts` — every account, term deposits included. The automatic investments accounts only
+ * on request: the transactions filter names them, nothing else lists them.
  *
  * There is no separate deposits call: a deposit *is* an account, distinguished by carrying terms.
  * The response also brings the deposit form's options, so the one add-form has one source for them.

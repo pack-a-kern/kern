@@ -103,6 +103,7 @@ final readonly class OpenFinancialAccount
             'kind' => $input->kind,
             'display_name_ciphertext' => $input->displayName,
             'currency_code' => $input->currencyCode === null ? null : strtoupper($input->currencyCode),
+            'held_at' => $input->heldAt,
             'source' => RecordSource::MANUAL,
             'metadata_ciphertext' => $input->metadataJson,
         ]);
@@ -121,6 +122,7 @@ final readonly class OpenFinancialAccount
                 payload: [
                     'kind' => $input->kind->value,
                     'currency_code' => $input->currencyCode,
+                    'held_at' => $input->heldAt?->value,
                 ],
             );
 

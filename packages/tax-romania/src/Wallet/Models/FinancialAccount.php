@@ -13,6 +13,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
 use Kern\Platform\Crypto\Contracts\EncryptsWithSubjectDek;
 use Kern\Platform\Tenancy\ScopedToTenant;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\HeldAt;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use RuntimeException;
 
@@ -33,6 +34,7 @@ use RuntimeException;
  * @property string $display_name_ciphertext
  * @property string $currency_code
  * @property RecordSource $source
+ * @property HeldAt|null $held_at
  * @property string|null $metadata_ciphertext
  */
 final class FinancialAccount extends Model implements EncryptsWithSubjectDek
@@ -47,6 +49,7 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
         'kind',
         'display_name_ciphertext',
         'currency_code',
+        'held_at',
         'source',
         'metadata_ciphertext',
     ];
@@ -55,6 +58,7 @@ final class FinancialAccount extends Model implements EncryptsWithSubjectDek
     protected $casts = [
         'kind' => AccountKind::class,
         'source' => RecordSource::class,
+        'held_at' => HeldAt::class,
         'display_name_ciphertext' => Encrypted::class,
         'metadata_ciphertext' => Encrypted::class,
     ];

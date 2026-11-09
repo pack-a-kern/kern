@@ -19,7 +19,8 @@ export interface Dictionary {
         walletCounterparties: string;
         walletImports: string;
         walletReports: string;
-        walletHoldings: string;
+        holdings: string;
+        investments: string;
         market: string;
         rentals: string;
         analysis: string;
@@ -716,13 +717,16 @@ export interface Dictionary {
             failed: string;
         };
         /** A person's bonds and shares, each purchase on its own. */
-        walletHoldings: {
+        holdings: {
             title: string;
             description: string;
             add: string;
             sell: string;
             none: string;
-            noAccount: string;
+            emptyHint: string;
+            status: string;
+            unit: string;
+            loadFailed: string;
             open: string;
             sold: string;
             columns: { instrument: string; bought: string; units: string; cost: string; value: string; result: string };
@@ -733,7 +737,6 @@ export interface Dictionary {
             withheld: string;
             heldAt: Record<'TREASURY' | 'BANK' | 'BROKER', string>;
             form: {
-                account: string;
                 instrument: string;
                 instrumentSearch: string;
                 noMatch: string;
@@ -1454,6 +1457,8 @@ export interface Dictionary {
                 consolidations: string;
                 /** `{count}` that could not be read. */
                 consolidationsFailed: string;
+                /** The reading stopped on this side, not the portal's. */
+                readingStopped: string;
                 /** The consolidation in force now: the latest read. */
                 currentVersion: string;
             };
@@ -1538,6 +1543,11 @@ export interface Dictionary {
             law: {
                 /** A history stretch whose start is the portal note's day. */
                 datedByNote: string;
+                /** Why the last reading stopped on this installation's side, by `ReadingStop`; `{date}` when. */
+                readingStopped: Record<string, string | undefined>;
+                readingStoppedAt: string;
+                readAgain: string;
+                readAgainStarted: string;
                 reader: string;
                 /** `{period}` the consolidation shown applies in. */
                 consolidatedOn: string;

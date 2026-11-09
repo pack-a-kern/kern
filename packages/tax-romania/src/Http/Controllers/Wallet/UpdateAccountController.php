@@ -17,6 +17,7 @@ use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Enums\InterestMethod;
 use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
 use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Exceptions\AccountOpenedByHoldingsException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositClosedException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositTermsLockedException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
@@ -108,6 +109,8 @@ final class UpdateAccountController
             return response()->json(['message' => $exception->getMessage(), 'reason' => 'DEPOSIT_CLOSED'], 409);
         } catch (DepositTermsLockedException $exception) {
             return response()->json(['message' => $exception->getMessage(), 'reason' => 'DEPOSIT_TERMS_LOCKED'], 422);
+        } catch (AccountOpenedByHoldingsException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'reason' => $exception::REASON], 422);
         }
 
         return response()->json(['id' => $model->id]);

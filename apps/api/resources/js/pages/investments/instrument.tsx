@@ -1,10 +1,10 @@
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, CalendarClock } from 'lucide-react';
+import { ArrowLeft, CalendarCheck, CalendarClock, ChartLine, Coins, FileText } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { getInstrument, getPrices } from '../../api/investmentsApi';
-import { DataTable, Detail, DetailList, EmptyState, Page, Panel, Pill } from '../../components/panel';
+import { CellLabel, DataTable, Detail, DetailList, EmptyState, Page, Panel, Pill } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { formatDate, formatMinor, formatNumber } from '../../lib/format';
 import type { InstrumentDetail, PricePoint } from '../../types/investments';
@@ -17,7 +17,7 @@ const isoDay = (date: Date): string => date.toISOString().slice(0, 10);
 /**
  * One instrument (ADR 0025 §11): its terms as its source set them — the order for a government bond, BVB
  * for the rest — every payment it makes, and its price over the last weeks. Read-only: a holding of it is
- * added from Holdings.
+ * added from My holdings.
  */
 export default function InstrumentPage({ instrumentId }: { instrumentId: string }): JSX.Element {
     const { t, locale } = useTranslation();
@@ -64,7 +64,7 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
         >
             {instrument === null ? null : (
                 <>
-                    <Panel title={words.terms}>
+                    <Panel title={words.terms} icon={<FileText className="size-4" />}>
                         <DetailList split>
                             {instrument.isin === null ? null : <Detail label={words.isin}>{instrument.isin}</Detail>}
                             {instrument.symbol === null ? null : (
@@ -101,7 +101,7 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                         </DetailList>
                     </Panel>
 
-                    <Panel title={words.payouts} flush>
+                    <Panel title={words.payouts} icon={<CalendarClock className="size-4" />} flush>
                         {instrument.payouts.length === 0 ? (
                             <EmptyState icon={<CalendarClock className="size-5" />} title={words.noPayouts} />
                         ) : (
@@ -110,8 +110,8 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                                 head={
                                     <>
                                         <th>{words.payouts}</th>
-                                        <th>{words.paid}</th>
-                                        <th className="col-end">{words.perUnit}</th>
+                                        <th>{t((d) => d.pages.walletTransactions.columns.date)}</th>
+                                        <th className="col-figure">{words.perUnit}</th>
                                     </>
                                 }
                             >
@@ -123,8 +123,16 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                                                 {payout.status === 'PAID' ? words.paid : words.announced}
                                             </Pill>
                                         </td>
-                                        <td>{day(payout.paymentDate)}</td>
-                                        <td className="col-end mono">
+                                        <td className="whitespace-nowrap">
+                                            <CellLabel icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.walletTransactions.columns.date)}
+                                            </CellLabel>
+                                            {day(payout.paymentDate)}
+                                        </td>
+                                        <td className="col-figure">
+                                            <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                {words.perUnit}
+                                            </CellLabel>
                                             {payout.amountPerUnit === null
                                                 ? payout.ratePercent === null
                                                     ? ''
@@ -137,7 +145,7 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                         )}
                     </Panel>
 
-                    <Panel title={words.prices} flush>
+                    <Panel title={words.prices} icon={<ChartLine className="size-4" />} flush>
                         {prices.length === 0 ? (
                             <EmptyState icon={<CalendarClock className="size-5" />} title={words.noPrices} />
                         ) : (
@@ -146,14 +154,17 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                                 head={
                                     <>
                                         <th>{words.issued}</th>
-                                        <th className="col-end">{t((d) => d.pages.market.columns.price)}</th>
+                                        <th className="col-figure">{t((d) => d.pages.market.columns.price)}</th>
                                     </>
                                 }
                             >
                                 {[...prices].reverse().map((point) => (
                                     <tr key={point.tradingDate}>
                                         <td className="col-primary">{day(point.tradingDate)}</td>
-                                        <td className="col-end mono">
+                                        <td className="col-figure">
+                                            <CellLabel icon={<Coins className="size-3.5" aria-hidden="true" />}>
+                                                {t((d) => d.pages.market.columns.price)}
+                                            </CellLabel>
                                             {point.price}
                                             {point.changePercent === null ? '' : ` (${point.changePercent}%)`}
                                         </td>

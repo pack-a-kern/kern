@@ -74,6 +74,7 @@ import { useCountries } from './useCountries';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
+import { useAccountNames } from '../../hooks/useAccountNames';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate, formatMinor } from '../../lib/format';
 import { cn } from '../../lib/utils';
@@ -87,7 +88,7 @@ import {
     BASE_CURRENCY,
     entryAccount,
     isStreamKind,
-    sourceName,
+    transactionSource,
     type AccountSummary,
     type Bank,
     type DuplicateGroup,
@@ -147,6 +148,7 @@ function emptyTransactionForm(): TransactionForm {
 
 export default function WalletTransactions(): JSX.Element {
     const { t, locale } = useTranslation();
+    const accountNames = useAccountNames();
     const currencies = useCurrencies();
     const countries = useCountries();
     const subjectId = useActiveSubjectId();
@@ -331,9 +333,8 @@ export default function WalletTransactions(): JSX.Element {
         chip(
             'account',
             t((d) => d.pages.walletTransactions.filters.labelAccount),
-            sourceName(
+            accountNames.name(
                 accounts.find((account) => account.id === accountId) ?? { kind: 'GENERAL', displayName: '' },
-                t((d) => d.pages.wallet.generalSource),
             ),
             () => {
                 setAccountId('');
@@ -986,10 +987,7 @@ export default function WalletTransactions(): JSX.Element {
                                                         )
                                                         .map((account) => ({
                                                             value: account.id,
-                                                            label: sourceName(
-                                                                account,
-                                                                t((d) => d.pages.wallet.generalSource),
-                                                            ),
+                                                            label: accountNames.name(account),
                                                         }))}
                                                 />
                                             </Field>
@@ -1265,13 +1263,7 @@ export default function WalletTransactions(): JSX.Element {
                                             )}
                                             <div className="min-w-0">
                                                 <div className="truncate">
-                                                    {sourceName(
-                                                        {
-                                                            kind: transaction.accountKind,
-                                                            displayName: transaction.accountName,
-                                                        },
-                                                        t((d) => d.pages.wallet.generalSource),
-                                                    )}
+                                                    {accountNames.name(transactionSource(transaction))}
                                                 </div>
                                                 {transaction.bankName === null ? null : (
                                                     <div className="note truncate">{transaction.bankName}</div>
@@ -1606,16 +1598,7 @@ export default function WalletTransactions(): JSX.Element {
                             }}
                             options={(editing === null ? streamAccounts : accounts).map((account) => ({
                                 value: account.id,
-                                label:
-                                    account.currencyCode === null
-                                        ? sourceName(
-                                              account,
-                                              t((d) => d.pages.wallet.generalSource),
-                                          )
-                                        : `${sourceName(
-                                              account,
-                                              t((d) => d.pages.wallet.generalSource),
-                                          )} (${account.currencyCode})`,
+                                label: accountNames.option(account),
                             }))}
                         />
                     </Field>
@@ -1843,6 +1826,7 @@ function DuplicateGroups({
     onKeep: (group: DuplicateGroup) => void;
 }): JSX.Element {
     const { t, locale } = useTranslation();
+    const accountNames = useAccountNames();
 
     return (
         <div className="space-y-4 p-3">
@@ -1894,12 +1878,7 @@ function DuplicateGroups({
                                 <td className="col-primary whitespace-nowrap tabular-nums">
                                     {formatDate(transaction.bookedAt, locale)}
                                 </td>
-                                <td className="col-hide">
-                                    {sourceName(
-                                        { kind: transaction.accountKind, displayName: transaction.accountName },
-                                        t((d) => d.pages.wallet.generalSource),
-                                    )}
-                                </td>
+                                <td className="col-hide">{accountNames.name(transactionSource(transaction))}</td>
                                 <td className="col-wide">{transaction.description}</td>
                                 {/* Split out for the same reason as the ledger above, and it matters
                                     more here: deciding whether two rows are the same payment is

@@ -90,9 +90,10 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/wallet/reports', fn () => Inertia::render('wallet/reports'))->name('wallet.reports');
     // Bonds and shares held, and the market they are chosen from (ADR 0025 §11). Public market data: the
-    // pages ask the API, which needs a sign-in.
-    Route::get('/wallet/holdings', fn () => Inertia::render('wallet/holdings'))->name('wallet.holdings');
+    // pages ask the API, which needs a sign-in. Holdings were under the wallet once.
+    Route::redirect('/wallet/holdings', '/investments/holdings');
     Route::get('/investments', fn () => Inertia::render('investments/market'))->name('investments.market');
+    Route::get('/investments/holdings', fn () => Inertia::render('investments/holdings'))->name('investments.holdings');
     Route::get('/investments/{instrument}', fn (string $instrument) => Inertia::render('investments/instrument', [
         'instrumentId' => $instrument,
     ]))->whereUuid('instrument')->name('investments.instrument');

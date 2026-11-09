@@ -10,6 +10,7 @@ use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
 use Kern\TaxRomania\Wallet\DataTransferObjects\UpdateFinancialAccountInput;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
+use Kern\TaxRomania\Wallet\Exceptions\AccountOpenedByHoldingsException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositClosedException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositTermsLockedException;
 use Kern\TaxRomania\Wallet\Exceptions\InvalidDateRangeException;
@@ -56,6 +57,11 @@ final readonly class UpdateFinancialAccount
 
     public function __invoke(FinancialAccount $account, UpdateFinancialAccountInput $input): FinancialAccount
     {
+        // Found again by its place and currency, and named for them: nothing about it is a person's to edit.
+        if ($account->kind === AccountKind::INVESTMENTS) {
+            throw AccountOpenedByHoldingsException::cannotChange();
+        }
+
         $terms = $account->depositTerms;
 
         // Settled: its interest is paid and its principal returned, and every figure it produced is

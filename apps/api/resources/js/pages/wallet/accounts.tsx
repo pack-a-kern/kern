@@ -59,6 +59,7 @@ import { useRememberedPaging, useRememberedState } from '../../hooks/useRemember
 import { useRowSelection } from '../../hooks/useRowSelection';
 import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
+import { useAccountNames } from '../../hooks/useAccountNames';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
 import { formatDate, formatMinor } from '../../lib/format';
@@ -67,7 +68,6 @@ import { cn } from '../../lib/utils';
 import {
     OPENABLE_KINDS,
     isStreamKind,
-    sourceName,
     BASE_CURRENCY,
     INTEREST_METHODS,
     PAYMENT_FREQUENCIES,
@@ -196,6 +196,7 @@ function termOptions(configured: number[], current: string): number[] {
 
 export default function WalletAccounts(): JSX.Element {
     const { t, locale } = useTranslation();
+    const accountNames = useAccountNames();
     const currencies = useCurrencies();
     const subjectId = useActiveSubjectId();
 
@@ -245,7 +246,12 @@ export default function WalletAccounts(): JSX.Element {
         listAccounts(subjectId).then(
             (page) => {
                 if (active) {
-                    setLoaded({ rows: page.accounts, options: page.formOptions });
+                    // Not the bonds-and-shares accounts: a holding opens those, one per place and currency,
+                    // and they are not a person's to manage — their payments are in Transactions.
+                    setLoaded({
+                        rows: page.accounts.filter((account) => account.kind !== 'INVESTMENTS'),
+                        options: page.formOptions,
+                    });
                     setFailed(false);
                 }
             },
@@ -1124,10 +1130,7 @@ export default function WalletAccounts(): JSX.Element {
                                                 .filter((candidate) => isStreamKind(candidate.kind))
                                                 .map((candidate) => ({
                                                     value: candidate.id,
-                                                    label: sourceName(
-                                                        candidate,
-                                                        t((d) => d.pages.wallet.generalSource),
-                                                    ),
+                                                    label: accountNames.name(candidate),
                                                 }))}
                                         />
                                     </Field>

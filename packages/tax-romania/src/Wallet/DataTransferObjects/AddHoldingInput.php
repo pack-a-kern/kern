@@ -17,7 +17,7 @@ final readonly class AddHoldingInput
      * @param  numeric-string  $pricePerUnit
      */
     public function __construct(
-        public string $accountId,
+        public string $taxSubjectId,
         public string $instrumentId,
         public string $units,
         public string $pricePerUnit,

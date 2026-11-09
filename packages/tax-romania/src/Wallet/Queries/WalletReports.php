@@ -318,6 +318,7 @@ final readonly class WalletReports
                 'account_id' => (string) $row->account_id,
                 'name' => $account?->display_name_ciphertext,
                 'kind' => $account === null ? '' : $account->kind->value,
+                'held_at' => $account?->held_at?->value,
                 'currency_code' => (string) $row->currency_code,
                 'in_minor' => (int) $row->money_in,
                 'out_minor' => (int) $row->money_out,

@@ -10,6 +10,7 @@ import { useFormErrors } from '../../hooks/useFormErrors';
 import { currencyFrom, entryAt, groupOf, readString, subjectPaymentIndex } from '../../lib/readingFields';
 import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
+import { useAccountNames } from '../../hooks/useAccountNames';
 import type { DocumentExtractionSummary, DocumentSummary } from '../../types/documents';
 import {
     categoriesFor,
@@ -17,7 +18,6 @@ import {
     DIRECTION_ICONS,
     isStreamKind,
     signedMinor,
-    sourceName,
     type AccountSummary,
     type MoneyDirection,
     type TaxCategory,
@@ -57,6 +57,7 @@ export default function CreateTransactionDialog({
     onCreated: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
+    const accountNames = useAccountNames();
     const errors = useFormErrors();
 
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
@@ -220,16 +221,7 @@ export default function CreateTransactionDialog({
                             value: candidate.id,
                             // A source may hold several currencies and carry no default,
                             // so only name it when there is one.
-                            label:
-                                candidate.currencyCode === null
-                                    ? sourceName(
-                                          candidate,
-                                          t((d) => d.pages.wallet.generalSource),
-                                      )
-                                    : `${sourceName(
-                                          candidate,
-                                          t((d) => d.pages.wallet.generalSource),
-                                      )} · ${candidate.currencyCode}`,
+                            label: accountNames.option(candidate),
                         }))}
                     />
                 </Field>

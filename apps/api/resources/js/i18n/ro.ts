@@ -10,7 +10,8 @@ export const ro = {
         walletCounterparties: 'Parteneri',
         walletImports: 'Import extrase',
         walletReports: 'Rapoarte',
-        walletHoldings: 'Dețineri',
+        holdings: 'Deținerile mele',
+        investments: 'Investiții',
         market: 'Piață',
         rentals: 'Chirii',
         analysis: 'Analiză',
@@ -902,14 +903,17 @@ export const ro = {
             noPrices: 'Niciun preț în acest interval.',
             failed: 'Instrumentul nu a putut fi încărcat.',
         },
-        walletHoldings: {
-            title: 'Dețineri',
+        holdings: {
+            title: 'Deținerile mele',
             description:
                 'Obligațiunile și acțiunile tale, fiecare cumpărare separat: cât a costat, cât valorează, ce a plătit. Valoarea e informativă, niciodată venit: doar o vânzare face un câștig.',
             add: 'Adaugă o deținere',
             sell: 'Vinde',
             none: 'Încă nicio deținere.',
-            noAccount: 'Adaugă întâi un cont de tipul „Obligațiuni și acțiuni”.',
+            emptyHint: 'Alege o obligațiune sau o acțiune de pe piață, apoi adaugă ce ai cumpărat din ea.',
+            status: 'Stare',
+            unit: 'cumpărări',
+            loadFailed: 'Deținerile nu au putut fi încărcate.',
             open: 'Deținute',
             sold: 'Vândute',
             columns: {
@@ -925,7 +929,6 @@ export const ro = {
             withheld: '{amount} reținut',
             heldAt: { TREASURY: 'Trezorerie', BANK: 'Bancă', BROKER: 'Broker' },
             form: {
-                account: 'Cont',
                 instrument: 'Instrument',
                 instrumentSearch: 'Caută un simbol, un ISIN sau un nume',
                 noMatch: 'Nimic de pe piață nu se potrivește.',
@@ -941,7 +944,7 @@ export const ro = {
                 cancel: 'Renunță',
             },
             added: 'Deținere adăugată.',
-            soldDone: 'Vândut. Încasarea e în cont.',
+            soldDone: 'Vândut. Încasarea e în Tranzacții.',
             refusals: {
                 TEZAUR_ENDS_AT_MATURITY: 'Un titlu Tezaur nu poate fi vândut înainte: se termină la scadență.',
                 NOT_ENOUGH_UNITS: 'Sunt mai multe unități decât deține contul.',
@@ -1660,6 +1663,7 @@ export const ro = {
                 inForceFrom: 'În vigoare de la',
                 consolidations: '{read} din {listed} consolidări citite',
                 consolidationsFailed: '{count} nu au putut fi citite',
+                readingStopped: 'Citire oprită',
                 currentVersion: 'Versiunea curentă',
             },
             watches: {
@@ -1736,6 +1740,16 @@ export const ro = {
                     'Căutarea s-a oprit la pagina {page}: {reason} Actele de mai jos sunt din paginile dinainte.',
             },
             law: {
+                readingStopped: {
+                    storage_unavailable: 'Citirea s-a oprit: stocarea nu este disponibilă.',
+                    database_unavailable: 'Citirea s-a oprit: baza de date nu a răspuns.',
+                    browser_unavailable: 'Citirea s-a oprit: browserul de citire nu este disponibil.',
+                    source_disabled: 'Citirea s-a oprit: portalul este oprit ca sursă.',
+                    internal_error: 'Citirea s-a oprit: o eroare pe acest server.',
+                },
+                readingStoppedAt: 'pe {date}. Nimic nu a fost marcat ca necitibil; citește din nou după remediere.',
+                readAgain: 'Citește din nou',
+                readAgainStarted: 'Se citește din nou — apare pe măsură ce este citită.',
                 datedByNote: 'Datat după nota portalului',
                 reader: 'Cititor de legislație consolidată',
                 consolidatedOn: 'Consolidare {period}',

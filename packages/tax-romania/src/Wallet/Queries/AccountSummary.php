@@ -39,6 +39,8 @@ final readonly class AccountSummary
          * are exactly what made the two look like different things.
          */
         public ?DepositFacts $deposit = null,
+        /** Where an automatic investments account keeps its money; null for any other. */
+        public ?string $heldAt = null,
     ) {
     }
 
@@ -53,6 +55,7 @@ final readonly class AccountSummary
             'balances' => $this->balances,
             'source' => $this->source,
             'deposit' => $this->deposit?->toArray(),
+            'held_at' => $this->heldAt,
         ];
     }
 }

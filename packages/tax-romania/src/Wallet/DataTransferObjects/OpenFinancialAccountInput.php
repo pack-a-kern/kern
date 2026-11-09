@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\DataTransferObjects;
 
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\HeldAt;
 
 final readonly class OpenFinancialAccountInput
 {
@@ -37,6 +38,8 @@ final readonly class OpenFinancialAccountInput
         public ?DepositTermsInput $depositTerms = null,
         /** Who opened it, for the audit chain. Null for a system import with no person behind it. */
         public ?string $actorId = null,
+        /** Where an `INVESTMENTS` account's money is kept; null for every other kind. */
+        public ?HeldAt $heldAt = null,
     ) {
     }
 }

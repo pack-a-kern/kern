@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Wallet\Actions\AddHolding;
 use Kern\TaxRomania\Wallet\DataTransferObjects\AddHoldingInput;
 use Kern\TaxRomania\Wallet\Enums\HeldAt;
@@ -14,17 +15,17 @@ use Kern\TaxRomania\Wallet\Exceptions\HoldingRefusedException;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 
 /**
- * `POST /api/v1/subjects/{subject}/wallet/holdings` — a purchase of a bond or a share, into an
- * investments account. Only what the person decided is accepted; the instrument's terms are its own and
- * are not fields here. Thin over `AddHolding`, which refuses an account or an instrument that cannot hold
- * it, and finds again a purchase already entered under the same broker reference.
+ * `POST /api/v1/subjects/{subject}/wallet/holdings` — a purchase of a bond or a share. Only what the
+ * person decided is accepted; the instrument's terms are its own and are not fields here, nor is the
+ * account: `AddHolding` finds or opens the one for the place and currency. Thin over it, which refuses
+ * an instrument that is not on offer and finds again a purchase already entered under the same broker
+ * reference.
  */
 final class AddHoldingController
 {
-    public function __invoke(Request $request, AddHolding $add): JsonResponse
+    public function __invoke(Request $request, AddHolding $add, TenantContext $tenant): JsonResponse
     {
         $validated = $request->validate([
-            'account_id' => ['required', 'uuid'],
             'instrument_id' => ['required', 'uuid'],
             'units' => ['required', 'string', 'regex:' . InvestmentLot::DECIMAL],
             'price_per_unit' => ['required', 'string', 'regex:' . InvestmentLot::DECIMAL],
@@ -39,7 +40,7 @@ final class AddHoldingController
 
         try {
             $lot = $add(new AddHoldingInput(
-                accountId: DepositFields::str($validated, 'account_id'),
+                taxSubjectId: $tenant->currentTenantId(),
                 instrumentId: DepositFields::str($validated, 'instrument_id'),
                 units: self::decimal($validated, 'units'),
                 pricePerUnit: self::decimal($validated, 'price_per_unit'),

@@ -96,6 +96,9 @@ final readonly class WalletQuery
      * carries, and there is no parser to read one yet. Until then the balance is the sum of what has
      * actually been recorded — honest, and labelled as derived.
      *
+     * Every account, the investments ones a holding opened included: each screen narrows the list to what
+     * it offers (`isStreamKind` on the client), and the Accounts screen leaves those out.
+     *
      * @return list<AccountSummary>
      */
     public function accounts(): array
@@ -136,6 +139,7 @@ final readonly class WalletQuery
                     currencyCode: $account->currency_code,
                     balances: self::balanceList($balances[$id] ?? []),
                     source: $account->source->value,
+                    heldAt: $account->held_at?->value,
                     deposit: $this->depositFacts(
                         $account,
                         $rates[$id] ?? null,
@@ -529,16 +533,18 @@ final readonly class WalletQuery
         $names = [];
 
         $kinds = [];
+        $places = [];
 
         $accountIds = array_values(array_unique(array_map(
             static fn (FinancialTransaction $transaction): string => self::str($transaction->account_id),
             $transactions,
         )));
 
-        foreach (FinancialAccount::query()->whereKey($accountIds)->get(['id', 'tax_subject_id', 'kind', 'display_name_ciphertext']) as $account) {
+        foreach (FinancialAccount::query()->whereKey($accountIds)->get(['id', 'tax_subject_id', 'kind', 'held_at', 'display_name_ciphertext']) as $account) {
             $id = self::str($account->getKey());
             $names[$id] = self::str($account->display_name_ciphertext);
             $kinds[$id] = $account->kind->value;
+            $places[$id] = $account->held_at?->value;
         }
 
         $ids = array_map(
@@ -551,7 +557,7 @@ final readonly class WalletQuery
         $tags = $this->tagsByTransaction($ids);
 
         return array_map(
-            function (FinancialTransaction $transaction) use ($names, $kinds, $splits, $banks, $tags): TransactionSummary {
+            function (FinancialTransaction $transaction) use ($names, $kinds, $places, $splits, $banks, $tags): TransactionSummary {
                 $accountId = self::str($transaction->account_id);
 
                 return new TransactionSummary(
@@ -574,6 +580,7 @@ final readonly class WalletQuery
                     bankId: $transaction->bank_id,
                     bankName: $transaction->bank_id === null ? null : ($banks[$transaction->bank_id] ?? null),
                     tags: $tags[self::str($transaction->getKey())] ?? [],
+                    accountHeldAt: $places[$accountId] ?? null,
                 );
             },
             $transactions,

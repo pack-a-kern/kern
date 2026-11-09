@@ -25,6 +25,7 @@ import {
     Scale,
     ScrollText,
     Settings,
+    TrendingUp,
     UserRound,
     Users,
     UsersRound,
@@ -118,13 +119,26 @@ const RECORDS_GROUP: NavLink = {
     icon: Wallet,
     children: [
         { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
-        { href: '/wallet/holdings', label: (d) => d.nav.walletHoldings, icon: Briefcase },
-        { href: '/investments', label: (d) => d.nav.market, icon: ChartCandlestick },
         { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
         { href: '/wallet/counterparties', label: (d) => d.nav.walletCounterparties, icon: UsersRound },
         { href: '/wallet/imports', label: (d) => d.nav.walletImports, icon: FileSpreadsheet },
         { href: '/rentals', label: (d) => d.nav.rentals, icon: Building2 },
         { href: '/documents', label: (d) => d.nav.documents, icon: Files },
+    ],
+};
+
+/**
+ * Bonds and shares: what is on the market, and what the taxpayer holds of it (ADR 0025 §11). Their own
+ * group rather than part of the wallet: the money accounts they pay into are opened by a holding and
+ * are not the person's to manage.
+ */
+const INVESTMENTS_GROUP: NavLink = {
+    id: 'investments',
+    label: (d) => d.nav.investments,
+    icon: TrendingUp,
+    children: [
+        { href: '/investments', label: (d) => d.nav.market, icon: ChartCandlestick },
+        { href: '/investments/holdings', label: (d) => d.nav.holdings, icon: Briefcase },
     ],
 };
 
@@ -222,7 +236,11 @@ const NAV_SECTIONS: Array<{ id: string; heading?: (d: Dictionary) => string; ite
     // Analysis sits with the records it reads, not with the law. What a figure adds up to is a
     // question about the bookkeeping above it; what the law says is a different kind of question,
     // and the heading between them is the honest place to change subject.
-    { id: 'records', heading: (d) => d.nav.sections.records, items: [RECORDS_GROUP, ANALYSIS_GROUP] },
+    {
+        id: 'records',
+        heading: (d) => d.nav.sections.records,
+        items: [RECORDS_GROUP, INVESTMENTS_GROUP, ANALYSIS_GROUP],
+    },
     { id: 'law', heading: (d) => d.nav.sections.law, items: LAW_ITEMS },
     { id: 'connections', heading: (d) => d.nav.sections.connections, items: CONNECTION_ITEMS },
     { id: 'system', heading: (d) => d.nav.sections.system, items: [ACCOUNT_GROUP, AUDIT_ITEM, ADMIN_GROUP] },

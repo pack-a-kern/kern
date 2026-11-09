@@ -12,6 +12,7 @@ use Kern\Documents\DataTransferObjects\IncomingFile;
 use Kern\Documents\Exceptions\DuplicateDocumentException;
 use Kern\Documents\FileSecurity\Exceptions\FileSecurityException;
 use Kern\Platform\Tenancy\TenantContext;
+use Kern\TaxRomania\Rules\StreamSource;
 use Kern\TaxRomania\StatementImport\Actions\StartStatementImport;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use RuntimeException;
@@ -37,7 +38,8 @@ final class StartStatementImportController
             // should cost nothing but the message saying so. The reader has its own ceilings on rows
             // and pages, which decide whether a file that fits here can actually be read.
             'file' => ['required', 'file', 'max:' . (int) ($config->integer('statement_import.limits.max_file_bytes') / 1024)],
-            'account_id' => ['required', 'uuid'],
+            // A source that receives transactions: an investments account is filled by its holdings.
+            'account_id' => ['required', 'uuid', new StreamSource()],
         ]);
 
         // Tenant-scoped: an account belonging to another subject is not found rather than imported into.

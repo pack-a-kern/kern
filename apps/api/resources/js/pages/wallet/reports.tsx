@@ -52,6 +52,7 @@ import {
 import { themeColor } from '../../lib/themeColor';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
+import { useAccountNames } from '../../hooks/useAccountNames';
 import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { useRememberedState } from '../../hooks/useRememberedState';
 import { formatCompact, formatDate, formatMinor } from '../../lib/format';
@@ -129,6 +130,7 @@ interface AccountRow {
     accountId: string;
     name: string | null;
     kind: string;
+    heldAt: string | null;
     currencyCode: string;
     inMinor: number;
     outMinor: number;
@@ -229,6 +231,7 @@ function parseReports(payload: unknown): Reports {
                 accountId: str(row, 'account_id'),
                 name: typeof row.name === 'string' ? row.name : null,
                 kind: str(row, 'kind'),
+                heldAt: typeof row.held_at === 'string' ? row.held_at : null,
                 currencyCode: str(row, 'currency_code'),
                 inMinor: num(row, 'in_minor'),
                 outMinor: num(row, 'out_minor'),
@@ -308,6 +311,7 @@ function periodRange(period: string): { from: string; to: string } {
  */
 export default function WalletReports(): JSX.Element {
     const { t, locale } = useTranslation();
+    const accountNames = useAccountNames();
     const subjectId = useActiveSubjectId();
 
     const [reports, setReports] = useState<Reports | null>(null);
@@ -517,7 +521,12 @@ export default function WalletReports(): JSX.Element {
         if (movementView === 'account') {
             return reports.byAccount.map((row) => ({
                 key: row.accountId,
-                label: row.name ?? t((d) => d.pages.wallet.generalSource),
+                label: accountNames.name({
+                    kind: row.kind,
+                    displayName: row.name ?? '',
+                    heldAt: row.heldAt,
+                    currencyCode: row.currencyCode,
+                }),
                 currencyCode: row.currencyCode,
                 inMinor: row.inMinor,
                 outMinor: row.outMinor,
@@ -541,7 +550,7 @@ export default function WalletReports(): JSX.Element {
             inMinor: row.inMinor,
             outMinor: row.outMinor,
         }));
-    }, [reports, movementView, t]);
+    }, [reports, movementView, t, accountNames]);
 
     /**
      * The five biggest payments and the five biggest receipts, in one table.

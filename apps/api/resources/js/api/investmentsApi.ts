@@ -61,11 +61,10 @@ export async function listHoldings(subjectId: string): Promise<HoldingLine[]> {
     return (Array.isArray(answer.holdings) ? answer.holdings : []).map(parseHoldingLine);
 }
 
-/** A purchase added like a deposit: the instrument's terms are its own; the rest is what was paid. */
+/** A purchase: the instrument's terms are its own, the rest is what was paid. The server finds or opens the money account for where it is held. */
 export async function addHolding(
     subjectId: string,
     holding: {
-        accountId: string;
         instrumentId: string;
         units: string;
         pricePerUnit: string;
@@ -77,7 +76,6 @@ export async function addHolding(
     await apiRequest(holdingsPath(subjectId), {
         method: 'POST',
         body: {
-            account_id: holding.accountId,
             instrument_id: holding.instrumentId,
             units: holding.units,
             price_per_unit: holding.pricePerUnit,

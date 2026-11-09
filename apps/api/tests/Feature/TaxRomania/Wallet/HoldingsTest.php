@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\HoldingsTest;
 
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Kern\Investments\Enums\InstrumentKind;
@@ -25,6 +27,9 @@ use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Models\InvestmentLotPayout;
@@ -55,14 +60,14 @@ function owner(): array
     return [$user, $subject];
 }
 
-function account(TestCase $case, User $user, TaxSubject $subject, string $kind = 'INVESTMENTS'): string
+/** The money account the taxpayer's holdings opened — the only one of its kind in these tests. */
+function heldAccount(TaxSubject $subject): string
 {
-    $id = $case->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/accounts", [
-        'kind' => $kind,
-        'display_name' => 'Cont de test',
-    ])->assertCreated()->json('id');
-
-    return is_string($id) ? $id : '';
+    return FinancialAccount::query()->withoutGlobalScope(TenantScope::class)
+        ->where('tax_subject_id', $subject->id)
+        ->where('kind', AccountKind::INVESTMENTS->value)
+        ->sole()
+        ->id;
 }
 
 /** @param array<string, mixed> $overrides */
@@ -133,10 +138,9 @@ function price(FinancialInstrument $instrument, string $price, string $on = '202
  *
  * @return TestResponse<Response>
  */
-function buy(TestCase $case, User $user, TaxSubject $subject, string $account, FinancialInstrument $instrument, array $overrides = []): TestResponse
+function buy(TestCase $case, User $user, TaxSubject $subject, FinancialInstrument $instrument, array $overrides = []): TestResponse
 {
     return $case->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings", [
-        'account_id' => $account,
         'instrument_id' => $instrument->id,
         'units' => '10',
         'price_per_unit' => '100',
@@ -189,13 +193,12 @@ beforeEach(function (): void {
 
 it('adds a lot with its instrument’s terms, and refuses an instrument no longer on the market', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $euro = fidelis(['currency' => 'EUR']);
     $matured = instrument(['symbol' => 'GONE', 'isin' => 'ROGONE000001', 'status' => InstrumentStatus::MATURED]);
 
-    $id = lotId(buy($this, $user, $subject, $account, $euro, ['units' => '12.5', 'fees_minor' => 250])->assertCreated());
+    $id = lotId(buy($this, $user, $subject, $euro, ['units' => '12.5', 'fees_minor' => 250])->assertCreated());
 
-    buy($this, $user, $subject, $account, $matured)
+    buy($this, $user, $subject, $matured)
         ->assertUnprocessable()
         ->assertJsonPath('reason', 'INSTRUMENT_NOT_OFFERED');
 
@@ -206,28 +209,21 @@ it('adds a lot with its instrument’s terms, and refuses an instrument no longe
         ->and($line['costMinor'])->toBe(125_250);
 });
 
-it('refuses a holding in an account that is not for investments, and a malformed number of units', function (): void {
+it('refuses a malformed number of units', function (): void {
     [$user, $subject] = owner();
-    $other = account($this, $user, $subject, 'OTHER');
     $share = instrument();
 
-    buy($this, $user, $subject, $other, $share)
-        ->assertUnprocessable()
-        ->assertJsonPath('reason', 'NOT_AN_INVESTMENTS_ACCOUNT');
-
-    $account = account($this, $user, $subject);
     foreach (['0', '1e3', '1,5', '-2'] as $units) {
-        buy($this, $user, $subject, $account, $share, ['units' => $units])->assertUnprocessable()->assertJsonValidationErrors('units');
+        buy($this, $user, $subject, $share, ['units' => $units])->assertUnprocessable()->assertJsonValidationErrors('units');
     }
 });
 
 it('keeps a broker’s reference encrypted and adopts the lot by it, never adding it twice', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
 
-    $first = lotId(buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899'])->assertCreated());
-    $again = lotId(buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899', 'units' => '99'])->assertCreated());
+    $first = lotId(buy($this, $user, $subject, $share, ['external_ref' => 'POS-778899'])->assertCreated());
+    $again = lotId(buy($this, $user, $subject, $share, ['external_ref' => 'POS-778899', 'units' => '99'])->assertCreated());
 
     $row = DB::table('investment_lots')->where('id', $first)->first();
 
@@ -238,20 +234,22 @@ it('keeps a broker’s reference encrypted and adopts the lot by it, never addin
         ->and($row?->external_ref_blind_index)->toBeString();
 
     // The same reference at another place is another position.
-    buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899', 'held_at' => 'BANK'])->assertCreated();
+    buy($this, $user, $subject, $share, ['external_ref' => 'POS-778899', 'held_at' => 'BANK'])->assertCreated();
     expect(DB::table('investment_lots')->where('tax_subject_id', $subject->id)->count())->toBe(2);
 });
 
 it('never shows, adds to or sells another taxpayer’s holding', function (): void {
     [$alice, $hers] = owner();
     [$bob, $his] = owner();
-    $account = account($this, $alice, $hers);
     $share = instrument();
-    buy($this, $alice, $hers, $account, $share)->assertCreated();
+    buy($this, $alice, $hers, $share)->assertCreated();
+    $account = heldAccount($hers);
 
     expect(holdings($this, $bob, $his))->toBe([]);
 
-    buy($this, $bob, $his, $account, $share)->assertNotFound();
+    // His own purchase opens his own account, never hers.
+    buy($this, $bob, $his, $share)->assertCreated();
+    expect(heldAccount($his))->not->toBe($account);
     $this->actingAs($bob)->postJson("/api/v1/subjects/{$his->id}/wallet/holdings/sales", [
         'account_id' => $account,
         'instrument_id' => $share->id,
@@ -298,10 +296,10 @@ function saleSplits(string $account): array
 it('sells first in, first out, closing the oldest lot and splitting the next', function (): void {
     approvedSecuritiesRates();
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
-    $older = lotId(buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10', 'fees_minor' => 1_000]));
-    $newer = lotId(buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '110', 'bought_on' => '2026-02-10', 'fees_minor' => 500]));
+    $older = lotId(buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10', 'fees_minor' => 1_000]));
+    $account = heldAccount($subject);
+    $newer = lotId(buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '110', 'bought_on' => '2026-02-10', 'fees_minor' => 500]));
     $sale = fn (string $units) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account,
         'instrument_id' => $share->id,
@@ -343,10 +341,10 @@ it('sells first in, first out, closing the oldest lot and splitting the next', f
 it('withholds the long rate on a lot held the holding period, the short rate on one that was not', function (): void {
     approvedSecuritiesRates();
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2025-01-10']);
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-03-10']);
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2025-01-10']);
+    $account = heldAccount($subject);
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-03-10']);
 
     $sold = soldIds($this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account, 'instrument_id' => $share->id, 'units' => '20', 'price_per_unit' => '110', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
@@ -358,9 +356,9 @@ it('withholds the long rate on a lot held the holding period, the short rate on 
 
 it('refuses a gain on a share while no rate is approved, and writes nothing', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    $account = heldAccount($subject);
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '120', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
@@ -372,11 +370,11 @@ it('refuses a gain on a share while no rate is approved, and writes nothing', fu
 
 it('withholds nothing on a public-debt gain, filed as such, and nothing on a loss', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $bond = fidelis();
     $share = instrument();
-    buy($this, $user, $subject, $account, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    buy($this, $user, $subject, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    $account = heldAccount($subject);
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
     $sell = fn (FinancialInstrument $instrument, string $price) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account, 'instrument_id' => $instrument->id, 'units' => '10', 'price_per_unit' => $price, 'sold_on' => '2026-06-01', 'fees_minor' => 0,
     ])->assertCreated();
@@ -393,9 +391,9 @@ it('withholds nothing on a public-debt gain, filed as such, and nothing on a los
 
 it('refuses to sell a Tezaur bond early: it ends at maturity', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $tezaur = tezaur();
-    $lot = lotId(buy($this, $user, $subject, $account, $tezaur, ['units' => '5000', 'price_per_unit' => '1', 'held_at' => 'TREASURY']));
+    $lot = lotId(buy($this, $user, $subject, $tezaur, ['units' => '5000', 'price_per_unit' => '1', 'held_at' => 'TREASURY']));
+    $account = heldAccount($subject);
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account,
@@ -411,7 +409,6 @@ it('refuses to sell a Tezaur bond early: it ends at maturity', function (): void
 
 it('values each kind as its source prices it, and a bond not priced at its face value only when it is the state’s', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
     $listed = fidelis();
     $notYet = fidelis(['symbol' => 'R3099T', 'isin' => 'ROTEST000002', 'name' => 'FIDELIS R3099T', 'status' => InstrumentStatus::ON_OFFER]);
@@ -423,7 +420,7 @@ it('values each kind as its source prices it, and a bond not priced at its face 
     price($listed, '101.5');
     price($corporate, '98');
 
-    $id = fn (FinancialInstrument $instrument, array $overrides = []): string => lotId(buy($this, $user, $subject, $account, $instrument, $overrides)->assertCreated());
+    $id = fn (FinancialInstrument $instrument, array $overrides = []): string => lotId(buy($this, $user, $subject, $instrument, $overrides)->assertCreated());
     $lines = [
         'share' => $id($share),
         'listed' => $id($listed),
@@ -447,12 +444,12 @@ it('values each kind as its source prices it, and a bond not priced at its face 
 it('refuses a purchase or a sale past the largest a holding can be, and fees larger than a sale', function (): void {
     approvedSecuritiesRates();
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
 
-    buy($this, $user, $subject, $account, $share, ['units' => '999999999999', 'price_per_unit' => '999999999999'])
+    buy($this, $user, $subject, $share, ['units' => '999999999999', 'price_per_unit' => '999999999999'])
         ->assertUnprocessable()->assertJsonPath('reason', 'AMOUNT_TOO_LARGE');
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+    $account = heldAccount($subject);
 
     $sell = fn (array $sale) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '100', 'sold_on' => '2026-06-01', 'fees_minor' => 0, ...$sale,
@@ -465,22 +462,20 @@ it('refuses a purchase or a sale past the largest a holding can be, and fees lar
 
 it('refuses a broker reference that is another holding’s', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
-    $other = account($this, $user, $subject);
     $share = instrument();
     $reference = ['external_ref' => 'EXAMPLE-REF-1'];
 
-    $first = lotId(buy($this, $user, $subject, $account, $share, $reference)->assertCreated());
+    $first = lotId(buy($this, $user, $subject, $share, $reference)->assertCreated());
 
-    expect(lotId(buy($this, $user, $subject, $account, $share, $reference)->assertCreated()))->toBe($first);
-    buy($this, $user, $subject, $other, $share, $reference)->assertUnprocessable()->assertJsonPath('reason', 'REFERENCE_IN_USE');
+    expect(lotId(buy($this, $user, $subject, $share, $reference)->assertCreated()))->toBe($first);
+    buy($this, $user, $subject, instrument(['symbol' => 'OTHR', 'isin' => 'ROOTHR000001']), $reference)->assertUnprocessable()->assertJsonPath('reason', 'REFERENCE_IN_USE');
 });
 
 it('refuses a sale dated before a payment the units were already credited', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $bond = fidelis();
-    $lot = lotId(buy($this, $user, $subject, $account, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']));
+    $lot = lotId(buy($this, $user, $subject, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']));
+    $account = heldAccount($subject);
     $coupon = InstrumentPayout::query()->create([
         'instrument_id' => $bond->id, 'kind' => PayoutKind::COUPON, 'payment_date' => '2026-05-10', 'amount_per_unit' => '7', 'rate' => '7.00',
         'status' => PayoutStatus::PAID, 'source' => PayoutSource::ORDER,
@@ -497,9 +492,9 @@ it('refuses a sale dated before a payment the units were already credited', func
 
 it('asks again for the password or code before a sale', function (): void {
     [$user, $subject] = owner();
-    $account = account($this, $user, $subject);
     $share = instrument();
-    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+    $account = heldAccount($subject);
     withAuthenticator($user);
     forgetVerification();
 
@@ -507,4 +502,113 @@ it('asks again for the password or code before a sale', function (): void {
         'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '100', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
     ])->assertForbidden();
     expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sold_on')->exists())->toBeFalse();
+});
+
+it('opens the money account itself, one per place and currency, and finds it again', function (): void {
+    [$user, $subject] = owner();
+    $share = instrument();
+    $euro = instrument(['symbol' => 'EURX', 'isin' => 'ROEURX000001', 'currency' => 'EUR']);
+
+    buy($this, $user, $subject, $share)->assertCreated();
+    buy($this, $user, $subject, $share, ['units' => '3'])->assertCreated();
+    expect(heldAccounts($subject))->toHaveCount(1);
+
+    buy($this, $user, $subject, $share, ['held_at' => 'BANK'])->assertCreated();
+    buy($this, $user, $subject, $euro)->assertCreated();
+
+    $accounts = heldAccounts($subject);
+    expect($accounts)->toHaveCount(3)
+        ->and($accounts->map(fn (FinancialAccount $account): array => [$account->held_at?->value, $account->currency_code, $account->display_name_ciphertext])->sort()->values()->all())
+        ->toBe([['BANK', 'RON', 'Bank · RON'], ['BROKER', 'EUR', 'Broker · EUR'], ['BROKER', 'RON', 'Broker · RON']])
+        ->and(DB::table('audit_events')->where('event_type', 'WalletAccountOpened')->whereIn('resource_id', $accounts->pluck('id'))->count())->toBe(3);
+
+    [$other, $theirs] = owner();
+    buy($this, $other, $theirs, $share)->assertCreated();
+    expect(heldAccounts($theirs))->toHaveCount(1)->and(heldAccounts($subject))->toHaveCount(3);
+});
+
+it('refuses a second automatic account for the same place and currency in the database', function (): void {
+    [$user, $subject] = owner();
+    buy($this, $user, $subject, instrument())->assertCreated();
+    $account = heldAccounts($subject)->sole();
+
+    expect(fn () => FinancialAccount::query()->create([
+        'tax_subject_id' => $subject->id,
+        'kind' => AccountKind::INVESTMENTS,
+        'display_name_ciphertext' => 'Twin',
+        'currency_code' => 'RON',
+        'held_at' => $account->held_at,
+        'source' => RecordSource::MANUAL,
+    ]))->toThrow(UniqueConstraintViolationException::class);
+});
+
+it('lists the automatic account with its place, for the screens to narrow, and refuses it as a target of a transaction', function (): void {
+    [$user, $subject] = owner();
+    buy($this, $user, $subject, instrument())->assertCreated();
+    $account = heldAccount($subject);
+
+    // Listed like every account: each screen keeps what it offers, and the Accounts screen leaves it out.
+    $listed = $this->actingAs($user)->getJson("/api/v1/subjects/{$subject->id}/wallet/accounts")->assertOk()->json('accounts');
+    expect(collect(is_array($listed) ? $listed : [])->firstWhere('id', $account))->toMatchArray(['kind' => 'INVESTMENTS', 'held_at' => 'BROKER', 'currency_code' => 'RON']);
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/transactions", [
+        'account_id' => $account, 'amount_minor' => 100, 'currency_code' => 'RON', 'booked_at' => '2026-03-01', 'description' => 'Typed',
+    ])->assertUnprocessable()->assertJsonValidationErrors('account_id');
+});
+
+it('sells from the row of a holding, in the account its lot is in', function (): void {
+    approvedSecuritiesRates();
+    [$user, $subject] = owner();
+    $share = instrument();
+    $lot = lotId(buy($this, $user, $subject, $share, ['bought_on' => '2026-01-10']));
+    $row = holdings($this, $user, $subject)[$lot];
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $row['accountId'], 'instrument_id' => $row['instrumentId'], 'units' => '4', 'price_per_unit' => '110', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
+    ])->assertCreated();
+
+    // A payment into the account (a dividend, say) is listed with the place it keeps its money, which the screen words.
+    FinancialTransaction::query()->create([
+        'tax_subject_id' => $subject->id, 'account_id' => $row['accountId'], 'booked_at' => '2026-06-02', 'amount_minor' => 500,
+        'currency_code' => 'RON', 'description_ciphertext' => 'Dividend', 'counterparty_ciphertext' => '',
+        'classification_status' => 'UNCLASSIFIED', 'source' => RecordSource::MANUAL,
+    ]);
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subject->id}/wallet/transactions")->assertOk()
+        ->assertJsonPath('transactions.0.account_held_at', 'BROKER')
+        ->assertJsonPath('transactions.0.account_kind', 'INVESTMENTS');
+
+    expect($row['accountId'])->toBe(heldAccount($subject))
+        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $row['accountId'])->count())->toBe(2);
+});
+
+/** @return Collection<int, FinancialAccount> */
+function heldAccounts(TaxSubject $subject): Collection
+{
+    return FinancialAccount::query()->withoutGlobalScope(TenantScope::class)
+        ->where('tax_subject_id', $subject->id)
+        ->where('kind', AccountKind::INVESTMENTS->value)
+        ->get();
+}
+
+it('does not let a person open an investments account', function (): void {
+    [$user, $subject] = owner();
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/accounts", [
+        'kind' => 'INVESTMENTS',
+        'display_name' => 'Mine',
+    ])->assertUnprocessable()->assertJsonValidationErrors('kind');
+});
+
+it('refuses to edit or delete the automatic account, and keeps every holding in it', function (): void {
+    [$user, $subject] = owner();
+    $lot = lotId(buy($this, $user, $subject, instrument())->assertCreated());
+    $account = heldAccount($subject);
+
+    $this->actingAs($user)->patchJson("/api/v1/subjects/{$subject->id}/wallet/accounts/{$account}", ['display_name' => 'Renamed'])
+        ->assertUnprocessable()->assertJsonPath('reason', 'ACCOUNT_OPENED_BY_HOLDINGS');
+    $this->actingAs($user)->deleteJson("/api/v1/subjects/{$subject->id}/wallet/accounts/{$account}")
+        ->assertUnprocessable()->assertJsonPath('reason', 'ACCOUNT_OPENED_BY_HOLDINGS');
+
+    expect(FinancialAccount::query()->withoutGlobalScope(TenantScope::class)->whereKey($account)->exists())->toBeTrue()
+        ->and(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereKey($lot)->exists())->toBeTrue();
 });

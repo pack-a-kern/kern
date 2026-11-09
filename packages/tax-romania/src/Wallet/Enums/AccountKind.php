@@ -47,9 +47,10 @@ enum AccountKind: string
     case TERM_DEPOSIT = 'TERM_DEPOSIT';
 
     /**
-     * Bonds and shares, one lot per purchase (`investment_lots`); coupons, dividends and repayments are
-     * computed from the instrument's payouts, never typed (ADR 0025 §9). One kind for both, so a broker
-     * integrated later, which holds both, has nothing to merge.
+     * Where the money of bonds and shares arrives — coupons, dividends, repayments, sales — one account per
+     * taxpayer, place held and currency, opened by the holding that needs it and never by a person, never
+     * edited or deleted, and left off the Accounts screen (ADR 0025 §9). The lots themselves are `investment_lots`; the payments
+     * are computed from the instrument's payouts, never typed.
      */
     case INVESTMENTS = 'INVESTMENTS';
 

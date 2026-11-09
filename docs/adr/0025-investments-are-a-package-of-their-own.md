@@ -314,13 +314,25 @@ every other kind (ADR 0022). The import raises the event; `kern/tax-romania` sen
 
 ### 9. Holdings, in `kern/tax-romania`
 
-- **One holding kind, `INVESTMENTS`**, beside `TERM_DEPOSIT` in `AccountKind`: a holding whose movements are
-  computed, never typed. One kind for bonds and shares alike — each lot names its instrument, of whatever
-  kind — so that a broker integrated later, which holds both, has nothing to merge. The existing `BROKER`
-  stream stays as it is; what becomes of it is decided with the broker integration.
-- **Adding** is the deposit's flow: choose the account, choose the instrument from the active ones, and its
-  terms fill the form and cannot be edited — they are the source's. The person enters the units, the price
-  per unit, the date, the fees and where it is held.
+- **One holding kind, `INVESTMENTS`**, beside `TERM_DEPOSIT` in `AccountKind`: an account whose movements
+  are computed, never typed. One kind for bonds and shares alike — each lot names its instrument, of
+  whatever kind — so that a broker integrated later, which holds both, has nothing to merge. The existing
+  `BROKER` stream stays as it is; what becomes of it is decided with the broker integration.
+- **The person never opens that account** (decided 2026-11-10; this replaces "choose the account"). Adding a
+  holding finds or opens the one money account for **its tax subject, the place it is held (`HeldAt`) and
+  the instrument's currency**, named "Treasury · RON", "Broker · EUR" and so on (`HoldingAccounts`, through
+  `OpenFinancialAccount`, so it carries its `WalletAccountOpened` audit event). The name is stored encrypted
+  like any account's, so `financial_accounts.held_at` — unique with the subject and the currency — is how it
+  is found again, and what makes two holdings added at once open it once: the loser of the race finds what
+  the winner made. The accounts endpoint lists them like any account, and each screen narrows what it offers:
+  the Accounts screen leaves them out, the forms offer only the kinds that take typed transactions. They
+  are never edited or deleted (`ACCOUNT_OPENED_BY_HOLDINGS`): a delete would cascade to every holding and
+  payment in them. The kind is not offered when opening an account and the API refuses it. What they receive — coupons,
+  dividends, repayments, sale proceeds — shows in the transactions, and in the overview's totals, as before;
+  no manual transaction or statement import may target one (`StreamSource`, as for every holding kind).
+- **Adding** is the deposit's flow: choose the instrument from the active ones, and its terms fill the form
+  and cannot be edited — they are the source's. The person enters the units, the price per unit, the date,
+  the fees and where it is held.
 - **A dividend** is credited only for the units held the day before its ex-dividend date and not sold
   before it — bought on the ex-date or later, or sold before it, they have no right to it. It is credited
   net of the 16% the company withholds (§10): 100 shares at 1 leu credit 84 lei, the 16 lei recorded as
@@ -371,7 +383,8 @@ every other kind (ADR 0022). The import raises the event; `kern/tax-romania` sen
 - **A sale's money** — units × price, less the fees — arrives in the account as a `TRANSFER`, and the
   repayment at maturity likewise; coupons and dividends are `DIVIDENDS_INTEREST` until §10's categories
   exist. The result is computed from the lot whenever it is shown.
-- **"Which one" of a place** is the account the lot is in; `held_at` says what kind of place it is.
+- **"Which one" of a place** is the account the lot is in; `held_at` says what kind of place it is. A sale
+  is made from the lot's row and takes that row's account, which is where first in, first out is counted.
 - **The notice of a new issue** goes to everyone whose switch for it is on (on until turned off, as every
   kind's is); someone who turned it off is not sent it at all, the bell included — it is about the market,
   not about anything of theirs.
@@ -511,9 +524,15 @@ candidates, for a person to approve.
 
 Composed from `resources/js/components/panel` per `docs/UI-PATTERNS.md`:
 
-- **Market**: the issues on offer and active, the listed shares and bonds, the upcoming dividends.
-- **An instrument**: its terms, its price history, its payouts.
-- **Adding a holding** and **closing it early**, as in §9.
+The section is **Investments**, a group of its own in the menu (holdings left the Wallet, 2026-11-10), and its
+screens are built like Wallet → Transactions and Accounts: a page head, one panel with its icon, a toolbar, a
+stacked table with its cell labels on a phone, and a pager or the empty state.
+
+- **Market** (`/investments`): the issues on offer and active, the listed shares and bonds, the upcoming
+  dividends.
+- **An instrument** (`/investments/{id}`): its terms, its price history, its payouts.
+- **My holdings** (`/investments/holdings`; `/wallet/holdings` redirects): each purchase, held or sold.
+  **Adding a holding** and **closing it early** from the row, as in §9.
 
 ## Consequences
 

@@ -59,6 +59,8 @@ export interface AccountSummary {
     id: string;
     displayName: string;
     kind: string;
+    /** Where an automatic investments account keeps its money; null for any other. */
+    heldAt: string | null;
     /** A default for the transaction form; null for a source that holds several currencies. */
     currencyCode: string | null;
     /**
@@ -201,6 +203,8 @@ export interface TransactionSummary {
     accountName: string;
     /** The source's kind. The general source has no stored name; the screen names it by kind. */
     accountKind: string;
+    /** Where an automatic investments account keeps its money, or null for any other. */
+    accountHeldAt: string | null;
     bookedAt: string;
     amountMinor: number;
     currencyCode: string;
@@ -416,9 +420,10 @@ export const STREAM_KINDS = ['GENERAL', 'BROKER', 'CRYPTO', 'OTHER'] as const;
  * The kinds a person can actually open.
  *
  * `GENERAL` is not among them: it is created with the taxpayer and there is exactly one, so
- * offering it in a form would invite a second that means nothing.
+ * offering it in a form would invite a second that means nothing. Nor is `INVESTMENTS`: a holding opens
+ * the account its payments arrive in, and a person never makes one.
  */
-export const OPENABLE_KINDS = ACCOUNT_KINDS.filter((kind) => kind !== 'GENERAL');
+export const OPENABLE_KINDS = ACCOUNT_KINDS.filter((kind) => kind !== 'GENERAL' && kind !== 'INVESTMENTS');
 
 /** Whether transactions may be recorded against a source of this kind. */
 export function isStreamKind(kind: string): boolean {
@@ -440,8 +445,40 @@ export function entryAccount<T extends { kind: string }>(offered: T[]): T | unde
  * carries no stored name and the screen supplies one. Everything else is called what its owner
  * called it.
  */
-export function sourceName(account: { kind: string; displayName: string }, generalLabel: string): string {
-    return account.kind === 'GENERAL' ? generalLabel : account.displayName;
+export interface NamedSource {
+    kind: string;
+    displayName: string;
+    heldAt?: string | null;
+    currencyCode?: string | null;
+}
+
+/** A transaction's account, as `sourceName` names it. */
+export function transactionSource(transaction: {
+    accountKind: string;
+    accountName: string;
+    accountHeldAt: string | null;
+    currencyCode: string;
+}): NamedSource {
+    return {
+        kind: transaction.accountKind,
+        displayName: transaction.accountName,
+        heldAt: transaction.accountHeldAt,
+        currencyCode: transaction.currencyCode,
+    };
+}
+
+export function sourceName(account: NamedSource, generalLabel: string, heldAtLabels: Record<string, string>): string {
+    if (account.kind === 'GENERAL') {
+        return generalLabel;
+    }
+
+    // An investments account is opened by a holding and named for its place and currency; its stored name is
+    // in the server's language, so the screen words it in the person's own.
+    const place = account.heldAt == null ? undefined : heldAtLabels[account.heldAt];
+
+    return place === undefined || account.currencyCode == null
+        ? account.displayName
+        : `${place} · ${account.currencyCode}`;
 }
 
 /**
@@ -518,6 +555,7 @@ function parseAccount(payload: unknown): AccountSummary {
         id: str(row, 'id'),
         displayName: str(row, 'display_name'),
         kind: str(row, 'kind'),
+        heldAt: nullableStr(row, 'held_at'),
         currencyCode: nullableStr(row, 'currency_code'),
         balances: (Array.isArray(row.balances) ? row.balances : []).map((entry): AccountBalance => {
             const balance = obj(entry);
@@ -675,6 +713,7 @@ function parseTransactionRow(entry: unknown): TransactionSummary {
         accountId: str(row, 'account_id'),
         accountName: str(row, 'account_name'),
         accountKind: str(row, 'account_kind'),
+        accountHeldAt: nullableStr(row, 'account_held_at'),
         bookedAt: str(row, 'booked_at'),
         amountMinor: num(row, 'amount_minor'),
         currencyCode: str(row, 'currency_code'),

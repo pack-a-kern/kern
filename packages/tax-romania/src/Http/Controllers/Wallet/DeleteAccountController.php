@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\TaxRomania\Wallet\Actions\DeleteFinancialAccount;
 use Kern\TaxRomania\Wallet\Exceptions\AccountNotEmptyException;
+use Kern\TaxRomania\Wallet\Exceptions\AccountOpenedByHoldingsException;
 use Kern\TaxRomania\Wallet\Exceptions\UndeletableSourceException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 
@@ -39,6 +40,8 @@ final class DeleteAccountController
                 'message' => $exception->getMessage(),
                 'reason' => 'GENERAL_SOURCE_UNDELETABLE',
             ], 422);
+        } catch (AccountOpenedByHoldingsException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'reason' => $exception::REASON], 422);
         } catch (AccountNotEmptyException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

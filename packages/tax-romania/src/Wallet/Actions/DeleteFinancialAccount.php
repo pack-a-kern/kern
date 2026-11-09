@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
 use Kern\TaxRomania\Wallet\Exceptions\AccountNotEmptyException;
+use Kern\TaxRomania\Wallet\Exceptions\AccountOpenedByHoldingsException;
 use Kern\TaxRomania\Wallet\Exceptions\UndeletableSourceException;
 use Kern\TaxRomania\Wallet\Models\DepositInterestEvent;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
@@ -43,6 +44,11 @@ final readonly class DeleteFinancialAccount
     {
         if ($account->kind === AccountKind::GENERAL) {
             throw UndeletableSourceException::forGeneral();
+        }
+
+        // Its holdings, payouts and payments would go with it, by the foreign keys' cascade.
+        if ($account->kind === AccountKind::INVESTMENTS) {
+            throw AccountOpenedByHoldingsException::cannotChange();
         }
 
         if ($account->kind->isStream()) {

@@ -47,7 +47,8 @@ final class OpenAccountController
                 'max:120',
             ],
             'bank_id' => [...$depositOnly, ...$deposit['bank_id']],
-            'kind' => ['required', Rule::enum(AccountKind::class)],
+            // Not an investments account: a holding opens the one its payments arrive in (`HoldingAccounts`).
+            'kind' => ['required', Rule::enum(AccountKind::class)->except(AccountKind::INVESTMENTS)],
             // ISO 4217, and optional: this is the currency the transaction form pre-fills, not a
             // property of the source. A broker or a crypto exchange holds several at once and
             // should not be made to pick one. Uppercase enforced rather than normalised, so "eur"
