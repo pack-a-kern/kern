@@ -8,18 +8,18 @@ namespace Kern\Legislation\Legislatie;
  * One way of asking legislatie.just.ro which acts it has: its SOAP service ({@see SoapPortalSearch})
  * or its search page in the browser worker ({@see BrowserPortalSearch}).
  *
- * Each answers with the acts the portal listed, as {@see PortalAct}s built the same way, and nothing
- * more: {@see PortalSearch} keeps the ones that match, so what a person is shown and what an import
- * finds cannot depend on which way was asked.
+ * A page at a time, as the portal listed it, with {@see PortalAct}s built the same way either way:
+ * {@see PortalSearch} decides which to keep and when to stop, so what a person is shown and what an
+ * import finds cannot depend on which way was asked.
+ *
+ * A page the portal keeps refusing after the method's own retries is thrown — the site's error page as
+ * {@see Exceptions\PortalSearchRefusedException}, the service's error as the fetcher's — never answered
+ * as an empty page, which would read as the end of the results.
  */
 interface PortalSearchMethod
 {
-    /** @return list<PortalAct> every act the portal lists for this number and year */
-    public function byNumber(int $number, int $year): array;
-
     /**
-     * @param  int|null  $year  a hint the method may pass on to narrow what the portal sends
-     * @return list<PortalAct> every act the portal lists whose title holds these words
+     * @param  int  $page  counted from 1
      */
-    public function byTitle(string $words, ?int $year): array;
+    public function page(PortalQuery $query, int $page): PortalPage;
 }

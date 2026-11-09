@@ -81,6 +81,54 @@ final readonly class PortalAct
         return $this->actDate === null ? null : (int) $this->actDate->format('Y');
     }
 
+    /**
+     * The act as it is kept between the pages of a queued search — every field, dates as `Y-m-d`.
+     *
+     * @return array{type_label: string, number: string, title: string, issuer: ?string, act_date: ?string, official_journal: ?string, official_journal_number: ?string, published_on: ?string, in_force_from: ?string, link: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'type_label' => $this->typeLabel,
+            'number' => $this->number,
+            'title' => $this->title,
+            'issuer' => $this->issuer,
+            'act_date' => $this->actDate?->format('Y-m-d'),
+            'official_journal' => $this->officialJournal,
+            'official_journal_number' => $this->officialJournalNumber,
+            'published_on' => $this->publishedOn?->format('Y-m-d'),
+            'in_force_from' => $this->inForceFrom?->format('Y-m-d'),
+            'link' => $this->link,
+        ];
+    }
+
+    /**
+     * An act kept by {@see toArray()}, read back. A field that is not the type it was written as is
+     * read as absent rather than trusted — the row is this package's own, but a row is still data.
+     *
+     * @param  array<array-key, mixed>  $kept
+     */
+    public static function fromArray(array $kept): self
+    {
+        $text = static fn (string $key): ?string => is_string($kept[$key] ?? null) ? $kept[$key] : null;
+        $date = static fn (string $key): ?DateTimeImmutable => ($value = $text($key)) === null
+            ? null
+            : (DateTimeImmutable::createFromFormat('!Y-m-d', $value) ?: null);
+
+        return new self(
+            typeLabel: $text('type_label') ?? '',
+            number: $text('number') ?? '',
+            title: $text('title') ?? '',
+            issuer: $text('issuer'),
+            actDate: $date('act_date'),
+            officialJournal: $text('official_journal'),
+            officialJournalNumber: $text('official_journal_number'),
+            publishedOn: $date('published_on'),
+            inForceFrom: $date('in_force_from'),
+            link: $text('link') ?? '',
+        );
+    }
+
     /** A type as filed: upper case, no diacritics, so `Hotărâre` and `HOTARARE` are one type. */
     public static function key(string $type): string
     {

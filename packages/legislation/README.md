@@ -19,6 +19,25 @@ and never rewritten.
 - **Searches** it: lexical over Postgres' Romanian text configuration and semantic over pgvector, in
   one query, filtered by the date you are asking about.
 
+## Finding an act on the portal
+
+`Legislatie\PortalSearch` finds acts on legislatie.just.ro, through its SOAP service or its search page
+in the browser worker, as `sources.entries.LEGISLATIE.search` says (ADR 0024).
+
+- **To wait for the answer** — a job, a console command: `byTitle('Programului Tezaur', 2026)`,
+  `byNumber(4, 2021)`, `find('HOTARARE', 4, 2021)`, or `all(PortalQuery::byTitle(...))`. Every page is
+  read; a page the portal never answers is thrown, never left out quietly — the site's error page as
+  `PortalSearchRefusedException`, the browser as `PortalBrowserException`, anything else as it came.
+  `Enums\PortalSearchFailure::of()` names the reason.
+- **To follow it as it goes** — a screen: `Actions\StartPortalSearch` stores the query as a
+  `PortalSearchRun` and queues `Jobs\ReadPortalSearchPage`, a page a job, each retried by the queue.
+  The run ends `done`, `incomplete` (with the pages read) or `failed`, saying why; `PortalSearchChanged`
+  is broadcast on the owner's channel after each page. Over HTTP: `POST`, `GET` and `DELETE`
+  `/api/v1/legislation/portal-searches`. A run with no owner broadcasts nothing.
+
+Every number — page sizes, pages read, tries and pauses, the queue, how long a run is kept — is in
+`config/sources.php`, `config/playbooks/legislatie.php` and `config/legislation.php` (`portal_search`).
+
 ## What it is not
 
 It has no idea what a tax is. It knows a source, a document, its versions, its sections and their

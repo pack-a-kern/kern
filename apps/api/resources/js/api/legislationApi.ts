@@ -8,13 +8,14 @@ import {
     type LawText,
     type LegislationSearchResult,
     type PortalActResult,
+    type PortalSearchState,
     type ProvisionVersion,
     parseLawDetail,
     parseLawOutline,
     parseLaws,
     parseLawText,
     parseLegislationSearch,
-    parsePortalActs,
+    parsePortalSearch,
     parseProvisionHistory,
 } from '../types/legislation';
 
@@ -57,24 +58,47 @@ export async function searchLegislation(
 }
 
 /**
- * `GET /api/v1/legislation/portal` — acts on legislatie.just.ro, by words of their title (and a year,
- * if given) or by number and year, of one type if given. Only a search: reading one is the ingest task.
+ * `POST /api/v1/legislation/portal-searches` — starts a search of legislatie.just.ro by words of the title
+ * (and a year, if given) or by number and year, of one type if given. Answers at once with the search;
+ * it is read a page at a time on the server, its progress announced on the person's own channel.
  */
-export async function searchPortal(
+export async function startPortalSearch(
     query: { title: string; year: number | null } | { number: number; year: number },
     type: string | null = null,
-): Promise<PortalActResult[]> {
-    const params = new URLSearchParams('title' in query ? { title: query.title } : { number: String(query.number) });
+): Promise<PortalSearchState> {
+    return parsePortalSearch(
+        JSON.parse(
+            await apiRequest('/v1/legislation/portal-searches', {
+                method: 'POST',
+                body: {
+                    ...('title' in query ? { title: query.title } : { number: query.number }),
+                    ...(query.year === null ? {} : { year: query.year }),
+                    ...(type === null ? {} : { type }),
+                },
+            }),
+        ),
+    );
+}
 
-    if (query.year !== null) {
-        params.set('year', String(query.year));
-    }
+/** A portal search as it stands, with the acts found so far. */
+export async function getPortalSearch(searchId: string, signal?: AbortSignal): Promise<PortalSearchState> {
+    return parsePortalSearch(
+        JSON.parse(
+            await apiRequest(
+                `/v1/legislation/portal-searches/${encodeURIComponent(searchId)}`,
+                signal === undefined ? {} : { signal },
+            ),
+        ),
+    );
+}
 
-    if (type !== null) {
-        params.set('type', type);
-    }
-
-    return parsePortalActs(JSON.parse(await apiRequest(`/v1/legislation/portal?${params.toString()}`)));
+/** Stops a running portal search; it keeps what it found. */
+export async function cancelPortalSearch(searchId: string): Promise<PortalSearchState> {
+    return parsePortalSearch(
+        JSON.parse(
+            await apiRequest(`/v1/legislation/portal-searches/${encodeURIComponent(searchId)}`, { method: 'DELETE' }),
+        ),
+    );
 }
 
 /**

@@ -49,18 +49,23 @@ return [
             'pages' => env('LEGISLATIE_PAGES', 'direct'),
             // What the browser worker is sent for either, and how the site's search page is read.
             'playbook' => 'playbooks.legislatie',
-            // Results to a page, by either search — the service answers ten at most whatever is asked,
-            // and the site shows ten — and pages read before giving up: an act number is shared by a
-            // handful of acts a year, and a title search is read to 200 acts at most.
-            'search_page_size' => 10,
-            'search_max_pages' => 20,
-            // How long one search may keep reading pages, all together: past it, no further page is
-            // asked and the acts already found are the answer. Each page has its own limits in the
-            // playbook; this is what stops twenty slow pages holding a browser for twenty minutes.
+            // Results to a page, which is also how a full page is told from the last. The site's search page
+            // lists as many as its `rezultatePerPagina` code asks — the playbook's `page_size_value`, which
+            // is fifty, so this must say fifty too. The SOAP service answers ten whatever it is asked for
+            // (checked 2026-11-09, asked for fifty).
+            'search_page_size' => (int) env('LEGISLATIE_SEARCH_PAGE_SIZE', 50),
+            'soap_page_size' => (int) env('LEGISLATIE_SOAP_PAGE_SIZE', 10),
+            // Pages read before giving up, by either way and by a queued search alike: an act number is
+            // shared by a handful of acts a year, and a title search is read to this many pages at most.
+            'search_max_pages' => (int) env('LEGISLATIE_SEARCH_MAX_PAGES', 20),
+            // How long a search read all at once (`PortalSearch::all()` — the import's look-up, a console
+            // command) may keep reading pages: past it, no further page is asked and the acts already
+            // found are the answer. A queued search has no such limit; each of its pages has the job's.
             'search_deadline_seconds' => (int) env('LEGISLATIE_SEARCH_DEADLINE_SECONDS', 90),
-            // How many times the site's search page, answering its error page, is asked again, and the
-            // pause between: it answered about half of the same searches either way on 2026-11-07.
-            'search_refused_retries' => (int) env('LEGISLATIE_SEARCH_REFUSED_RETRIES', 2),
+            // How many times a search page is asked again when it fails — the site's search page answering
+            // its error page, the service answering HTTP 500 — and the pause between: both answered the
+            // same request either way minutes apart (2026-11-07, 2026-11-09), and asking again brings it.
+            'search_refused_retries' => (int) env('LEGISLATIE_SEARCH_REFUSED_RETRIES', 4),
             'search_refused_pause_ms' => (int) env('LEGISLATIE_SEARCH_REFUSED_PAUSE_MS', 1500),
             'enabled' => true,
             // Which source is preferred when two publish the same data: 1 before 2. Every source is the

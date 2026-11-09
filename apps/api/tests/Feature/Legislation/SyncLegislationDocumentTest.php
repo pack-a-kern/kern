@@ -9,7 +9,10 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
+use Illuminate\Testing\TestResponse;
 use Kern\Legislation\Actions\SyncLegislationDocument;
 use Kern\Legislation\Enums\SourceDocumentVersionStatus;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
@@ -22,6 +25,7 @@ use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Services\LegislationTemporalQuery;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Tests\TestCase;
 
 /**
  * A law read from a faked legislatie.just.ro, end to end: found through the web service, followed to
@@ -400,7 +404,7 @@ it('finds acts on the portal by title or by number, and says which are read alre
     app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, portalId: '236118');
 
     /** @var list<array<string, mixed>> $byNumber */
-    $byNumber = $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021')->assertOk()->json('acts');
+    $byNumber = portalSearch($this, $admin, ['number' => 4, 'year' => 2021])->assertJsonPath('status', 'done')->json('acts');
 
     expect(array_column($byNumber, 'portal_id'))->toBe(['236000', '236118'])
         ->and(array_column($byNumber, 'importable'))->toBe([true, true])
@@ -408,14 +412,16 @@ it('finds acts on the portal by title or by number, and says which are read alre
         ->and($byNumber[1]['law_id'])->toBe(SourceDocument::query()->where('portal_document_id', '236118')->sole()->id);
 
     // A year given to a title search is the act's own, compared here: 2020 has none of them.
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=salariului%20minim&year=2020')->assertOk()->assertJsonCount(0, 'acts');
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=ab')->assertStatus(422);
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4')->assertStatus(422);
+    portalSearch($this, $admin, ['title' => 'salariului minim', 'year' => 2020])->assertJsonCount(0, 'acts');
+    $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'ab'])->assertStatus(422);
+    $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['number' => 4])->assertStatus(422);
+    $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'salariului', 'number' => 4, 'year' => 2021])->assertStatus(422);
 });
 
-// What the portal said on 2026-11-07, when its own search server refused it: a fault, not an answer.
-// 503 rather than 502, which a proxy in front replaces with a page of its own.
-it('says the portal is not answering when its search fails, in words a proxy lets through', function (): void {
+// What the portal said on 2026-11-07 and 2026-11-09, when its own search server refused it: a fault, not
+// an answer — asked again before it is believed, and then a search that failed, saying why.
+it('asks the service again when it fails, and ends a search it never answers as failed, saying why', function (): void {
+    Sleep::fake();
     Http::fake(['legislatie.just.ro/*' => static fn (HttpRequest $request) => str_contains($request->header('SOAPAction')[0] ?? '', 'GetToken')
         ? Http::response('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><GetTokenResponse xmlns="http://tempuri.org/"><GetTokenResult>T</GetTokenResult></GetTokenResponse></s:Body></s:Envelope>')
         : Http::response('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><s:Fault><faultcode>a:InternalServiceFault</faultcode></s:Fault></s:Body></s:Envelope>', 500)]);
@@ -423,15 +429,17 @@ it('says the portal is not answering when its search fails, in words a proxy let
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=codul%20fiscal')
-        ->assertStatus(503)
-        ->assertJsonPath('message', __('legislation::laws.portal_unreachable'));
+    portalSearch($this, $admin, ['title' => 'codul fiscal'])
+        ->assertJsonPath('status', 'failed')
+        ->assertJsonPath('failure', 'portal_unreachable');
+
+    Sleep::assertSleptTimes(config()->integer('sources.entries.LEGISLATIE.search_refused_retries'));
 });
 
 it('searches the portal only for those who may read a law in', function (): void {
     Artisan::call('kern:access:sync');
 
-    $this->actingAs(User::factory()->create())->getJson('/api/v1/legislation/portal?title=codul%20fiscal')->assertForbidden();
+    $this->actingAs(User::factory()->create())->postJson('/api/v1/legislation/portal-searches', ['title' => 'codul fiscal'])->assertForbidden();
 });
 
 it('imports the act chosen on the screen, through the task, to the end', function (): void {
@@ -455,9 +463,9 @@ it('filters a portal search to one type', function (): void {
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=LEGE')->assertOk()->assertJsonCount(0, 'acts');
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=HOTARARE')->assertOk()->assertJsonCount(2, 'acts');
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?number=4&year=2021&type=DECRET')->assertStatus(422);
+    portalSearch($this, $admin, ['number' => 4, 'year' => 2021, 'type' => 'LEGE'])->assertJsonCount(0, 'acts');
+    portalSearch($this, $admin, ['number' => 4, 'year' => 2021, 'type' => 'HOTARARE'])->assertJsonCount(2, 'acts');
+    $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['number' => 4, 'year' => 2021, 'type' => 'DECRET'])->assertStatus(422);
 });
 
 it('adopts a consolidation already read that the list names by another id, and reads it not again', function (): void {
@@ -576,3 +584,19 @@ it('does not delete an exchange-rate source through the law route, and refuses a
     expect(SourceDocument::query()->whereKey($rates->id)->exists())->toBeTrue()
         ->and(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue();
 });
+
+/**
+ * Starts a portal search as the dialog does, reads it to the end as the queue would, and answers it as the
+ * dialog reads it back.
+ *
+ * @param  array<string, int|string>  $query
+ * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
+ */
+function portalSearch(TestCase $test, User $user, array $query): TestResponse
+{
+    Queue::fake();
+    $id = portalSearchId($test->actingAs($user)->postJson('/api/v1/legislation/portal-searches', $query));
+    readPortalSearchPages();
+
+    return $test->actingAs($user)->getJson("/api/v1/legislation/portal-searches/{$id}")->assertOk();
+}

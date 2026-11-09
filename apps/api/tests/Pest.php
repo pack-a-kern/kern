@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Illuminate\Support\Testing\Fakes\QueueFake;
+use Illuminate\Testing\TestResponse;
+use Kern\Legislation\Jobs\ReadPortalSearchPage;
+use Kern\Legislation\Legislatie\PortalSearch;
 use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Models\User;
@@ -636,4 +642,51 @@ function stopStubServer($process): void
 {
     proc_terminate($process);
     proc_close($process);
+}
+
+/**
+ * Reads a queued portal search page by page, as the queue would, with the queue faked
+ * (`Queue::fake()`): each `ReadPortalSearchPage` pushed is handled in turn, the ones it pushes after it
+ * included, and one that throws is given what the queue gives a job whose retries are spent — its
+ * `failed()`. So a test sees a search end exactly as it would on a worker, without a worker.
+ */
+function readPortalSearchPages(): void
+{
+    for ($ran = 0; ($job = portalSearchPagesPushed()->get($ran)) !== null; $ran++) {
+        try {
+            $job->handle(app(PortalSearch::class));
+        } catch (Throwable $exception) {
+            $job->failed($exception);
+        }
+    }
+}
+
+/**
+ * Every `ReadPortalSearchPage` pushed so far, in order, from the faked queue.
+ *
+ * @return Collection<int, ReadPortalSearchPage>
+ */
+function portalSearchPagesPushed(): Collection
+{
+    $queue = Queue::getFacadeRoot();
+
+    if (! $queue instanceof QueueFake) {
+        throw new LogicException('A portal search is read from a faked queue: call Queue::fake() first.');
+    }
+
+    return $queue->pushed(ReadPortalSearchPage::class)
+        ->filter(static fn (mixed $job): bool => $job instanceof ReadPortalSearchPage)
+        ->values();
+}
+
+/**
+ * The id of the portal search a `POST /api/v1/legislation/portal-searches` started.
+ *
+ * @param  TestResponse<\Symfony\Component\HttpFoundation\Response>  $started
+ */
+function portalSearchId(TestResponse $started): string
+{
+    $id = $started->assertStatus(202)->json('id');
+
+    return is_string($id) ? $id : throw new LogicException('The portal search started without an id.');
 }

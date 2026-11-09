@@ -8,7 +8,10 @@ use DateTimeImmutable;
 use DOMDocument;
 use DOMElement;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Support\Sleep;
 use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
+use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
+use Kern\Legislation\Fetching\FetchedDocument;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
 
 /**
@@ -34,20 +37,39 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
     ) {
     }
 
-    public function byNumber(int $number, int $year): array
-    {
-        return $this->collect(sprintf('<fws:SearchAn>%d</fws:SearchAn><fws:SearchNumar>%d</fws:SearchNumar>', $year, $number));
-    }
-
     /**
-     * The year is not asked of the service: its own year field is not the act's year (asked for 2024,
-     * it answers with acts of 2025 and 2026 too), so {@see PortalSearch} compares it on each act.
-     * Diacritics are the service's to match, and it does: "ţară", "țară" and "tara" find the same acts
-     * (checked 2026-09-22).
+     * One page of the service's results — at most ten, whatever is asked for above that (checked
+     * 2026-11-09, asked for fifty), which is `soap_page_size`. Pages count from 1; asked for page 0, the
+     * service answers with page 1 again.
+     *
+     * A number is asked with its year, which the service honours. A title is asked without one: beside a
+     * title the service ignores its year field (asked for 2020, it answers with 2026's acts), so
+     * {@see PortalQuery::keeps()} compares the year on each act. Diacritics are the service's to match,
+     * and it does: "ţară", "țară" and "tara" find the same acts (checked 2026-09-22).
      */
-    public function byTitle(string $words, ?int $year): array
+    public function page(PortalQuery $query, int $page): PortalPage
     {
-        return $this->collect('<fws:SearchTitlu>' . htmlspecialchars($words, ENT_XML1) . '</fws:SearchTitlu>');
+        $pageSize = $this->config->integer('sources.entries.' . self::SOURCE . '.soap_page_size');
+        $criteria = $query->number !== null && $query->year !== null
+            ? sprintf('<fws:SearchAn>%d</fws:SearchAn><fws:SearchNumar>%d</fws:SearchNumar>', $query->year, $query->number)
+            : '<fws:SearchTitlu>' . htmlspecialchars((string) $query->words, ENT_XML1) . '</fws:SearchTitlu>';
+
+        $document = $this->call('Search', sprintf(
+            '<tem:Search><tem:SearchModel><fws:NumarPagina>%d</fws:NumarPagina><fws:RezultatePagina>%d</fws:RezultatePagina>%s</tem:SearchModel>'
+            . '<tem:tokenKey>%s</tem:tokenKey></tem:Search>',
+            $page,
+            $pageSize,
+            $criteria,
+            htmlspecialchars($this->token(), ENT_XML1),
+        ));
+
+        $acts = [];
+
+        foreach ($document->getElementsByTagNameNS(self::DATA_NAMESPACE, 'Legi') as $entry) {
+            $acts[] = $this->act($entry);
+        }
+
+        return new PortalPage($acts, count($acts) >= $pageSize);
     }
 
     private function token(): string
@@ -56,47 +78,6 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
         $token = $document->getElementsByTagNameNS(self::SERVICE_NAMESPACE, 'GetTokenResult')->item(0)?->textContent;
 
         return is_string($token) && $token !== '' ? $token : throw PortalAnswerException::noToken();
-    }
-
-    /**
-     * Every result for these criteria, page after page, each act once.
-     *
-     * Pages count from 1 — asked for page 0, the service answers with page 1 again. A page that adds
-     * nothing new ends the reading, as an empty one does.
-     *
-     * @return list<PortalAct>
-     */
-    private function collect(string $criteria): array
-    {
-        $token = $this->token();
-        $found = [];
-
-        $pageSize = $this->config->integer('sources.entries.' . self::SOURCE . '.search_page_size');
-        $maxPages = $this->config->integer('sources.entries.' . self::SOURCE . '.search_max_pages');
-
-        for ($page = 1; $page <= $maxPages; $page++) {
-            $document = $this->call('Search', sprintf(
-                '<tem:Search><tem:SearchModel><fws:NumarPagina>%d</fws:NumarPagina><fws:RezultatePagina>%d</fws:RezultatePagina>%s</tem:SearchModel>'
-                . '<tem:tokenKey>%s</tem:tokenKey></tem:Search>',
-                $page,
-                $pageSize,
-                $criteria,
-                htmlspecialchars($token, ENT_XML1),
-            ));
-
-            $before = count($found);
-
-            foreach ($document->getElementsByTagNameNS(self::DATA_NAMESPACE, 'Legi') as $entry) {
-                $act = $this->act($entry);
-                $found[$act->link] ??= $act;
-            }
-
-            if (count($found) === $before) {
-                break;
-            }
-        }
-
-        return array_values($found);
     }
 
     private function act(DOMElement $entry): PortalAct
@@ -121,6 +102,33 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
         );
     }
 
+    /**
+     * The envelope sent, and sent again when the service answers with a server error: it answers the same
+     * call with HTTP 500 and with its result moments apart (2026-11-09: pages one to three of one search
+     * refused and answered by turns), and asking again is what brings the result. Any other status, and
+     * a 500 on the last try, is the caller's to see.
+     */
+    private function post(string $envelope, string $action): FetchedDocument
+    {
+        $retries = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_retries');
+        $pause = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_pause_ms');
+
+        for ($try = 0; ; $try++) {
+            try {
+                return $this->fetcher->post(self::SOURCE, $this->config->string('sources.entries.' . self::SOURCE . '.endpoints.soap'), $envelope, [
+                    'Content-Type' => 'text/xml; charset=utf-8',
+                    'SOAPAction' => '"' . self::SERVICE_NAMESPACE . 'IFreeWebService/' . $action . '"',
+                ]);
+            } catch (UnexpectedStatusException $refused) {
+                if ($refused->status < 500 || $try >= $retries) {
+                    throw $refused;
+                }
+
+                Sleep::for($pause)->milliseconds();
+            }
+        }
+    }
+
     /** One SOAP call, answered as a parsed document; a fault is refused with its own message. */
     private function call(string $action, string $body): DOMDocument
     {
@@ -128,10 +136,7 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
             . 'xmlns:tem="' . self::SERVICE_NAMESPACE . '" xmlns:fws="' . self::DATA_NAMESPACE . '">'
             . '<soap:Body>' . $body . '</soap:Body></soap:Envelope>';
 
-        $answer = $this->fetcher->post(self::SOURCE, $this->config->string('sources.entries.' . self::SOURCE . '.endpoints.soap'), $envelope, [
-            'Content-Type' => 'text/xml; charset=utf-8',
-            'SOAPAction' => '"' . self::SERVICE_NAMESPACE . 'IFreeWebService/' . $action . '"',
-        ]);
+        $answer = $this->post($envelope, $action);
 
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);

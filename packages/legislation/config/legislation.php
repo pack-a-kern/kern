@@ -100,6 +100,31 @@ return [
         'act' => '(?<type>LEGEA|LEGE|ORDONANȚA\s+DE\s+URGENȚĂ|ORDONANȚĂ\s+DE\s+URGENȚĂ|ORDONANȚA|ORDONANȚĂ|HOTĂRÂREA|HOTĂRÂRE|ORDINUL|ORDIN|DECIZIA\s+CURȚII\s+CONSTITUȚIONALE|DECIZIA|DECIZIE|RECTIFICAREA|RECTIFICARII|RECTIFICARE)\s+nr\.\s*(?<number>\d+)\s+din\s+(?<date>{date}),?\s+publicat(?:ă|a|e)?\s+în\s+Monitorul\s+Oficial(?:\s+al\s+României)?(?:,?\s+Partea\s+I)?,?\s+nr\.\s*(?<journal_number>\d+(?:\s*bis)?)\s+din\s+(?<journal_date>{date})',
     ],
 
+    /*
+     * A search of the portal from the screen (or from another package): a record, read a page a job
+     * (ADR 0024), so it is never a request waiting on the portal and can take as long as the portal does.
+     */
+    'portal_search' => [
+        // The queue its pages are read on. Not this package's own `queue`, where a consolidation holds a
+        // worker for minutes: a search is a person waiting, a page at a time, a few seconds each.
+        'queue' => (string) env('LEGISLATION_PORTAL_SEARCH_QUEUE', 'default'),
+        // How long one page may take: a browser for the page and its own retries on the site's error
+        // page. Under the timeout of the supervisor that works its queue — sixty seconds for `default`.
+        'job_timeout_seconds' => (int) env('LEGISLATION_PORTAL_SEARCH_JOB_TIMEOUT_SECONDS', 55),
+        // The pauses before a page the portal still would not answer is asked again, in seconds — one
+        // entry per retry. Spent, the search ends incomplete at that page, saying so.
+        'retry_seconds' => array_values(array_map('intval', array_filter(explode(',', (string) env('LEGISLATION_PORTAL_SEARCH_RETRY_SECONDS', '10,30,60'))))),
+        // How long a search is kept after it was started, for whoever is still reading its results.
+        // Older ones are removed when their owner starts the next.
+        'keep_hours' => (int) env('LEGISLATION_PORTAL_SEARCH_KEEP_HOURS', 24),
+        // How soon a screen asks for a running search again when no message came over the socket — the
+        // socket may be down, or a message lost; the answer is the same either way.
+        'poll_after_ms' => (int) env('LEGISLATION_PORTAL_SEARCH_POLL_AFTER_MS', 5000),
+        // The private channel a search's progress is broadcast on, `{user}` for whoever started it — the
+        // application's own per-person channel. Empty to broadcast nothing; a search with no owner never is.
+        'broadcast_channel' => (string) env('LEGISLATION_PORTAL_SEARCH_CHANNEL', 'users.{user}'),
+    ],
+
     'form' => [
         // The earliest year an act is looked for in, on the "Add a law" dialog and by the ingest
         // task; the latest is always the current one. The portal holds acts back to the nineteenth

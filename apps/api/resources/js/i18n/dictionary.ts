@@ -1413,6 +1413,12 @@ export interface Dictionary {
                 searchRefused: string;
                 browserBusy: string;
                 browserUnavailable: string;
+                /** `{pages}` read so far, `{count}` acts found so far. */
+                searching: string;
+                stop: string;
+                stopped: string;
+                /** `{page}` the page that would not answer, `{reason}` why. */
+                incomplete: string;
             };
             law: {
                 /** A history stretch whose start is the portal note's day. */

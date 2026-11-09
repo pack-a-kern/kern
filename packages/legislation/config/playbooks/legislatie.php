@@ -104,6 +104,13 @@ return [
         // Sent from this page on; the pages before it are asked without it (see above).
         'page_parameter' => 'page',
         'page_parameter_from' => 2,
+        // How many results a page holds, asked of the site on every page: fifty rather than its own ten
+        // means a fifth of the pages, and every page is one more chance of the site's error page. The
+        // value is the site's own code for it, not the count — `5` lists fifty, where `50` is ignored
+        // and lists ten (checked 2026-11-09). `search_page_size` in `sources.php` is the count that
+        // code stands for, which is what tells a full page from the last.
+        'page_size_parameter' => 'rezultatePerPagina',
+        'page_size_value' => '5',
 
         /*
          * The act's type and number, at the start of its title: "LEGE nr. 227 din 8 septembrie 2015 …",

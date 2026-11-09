@@ -1,15 +1,16 @@
-import { Download, Search, SearchX, X } from 'lucide-react';
+import { CircleStop, Download, Loader2, Search, SearchX, TriangleAlert, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { readPortalAct, searchPortal } from '../../api/legislationApi';
+import { readPortalAct } from '../../api/legislationApi';
 import { EmptyState, Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
+import { usePortalSearch } from '../../hooks/usePortalSearch';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
-import type { PortalActResult } from '../../types/legislation';
+import type { PortalActResult, PortalSearchState } from '../../types/legislation';
 
 type Mode = 'title' | 'number';
 
@@ -17,6 +18,10 @@ type Mode = 'title' | 'number';
  * Finds an act on legislatie.just.ro and starts reading it: by words of its title — "salariului de
  * bază minim brut", for every decision that set the minimum wage — or by its number and year, which
  * lists every act so numbered, of any type, to pick the right one.
+ *
+ * The search runs on the server a page at a time (ADR 0024): the acts show as each page is read, the
+ * search can be stopped, and one the portal would not finish says how far it got. Closing the dialog
+ * stops a search still running.
  *
  * Reading runs as the ingest task, so the lock, the audit record and the run history are the ones
  * every task has; this is only where the act is chosen.
@@ -45,9 +50,11 @@ export default function AddLawDialog({
     const [type, setType] = useState('');
     /** The act asked about: importing starts only once it is confirmed. */
     const [confirming, setConfirming] = useState<string | null>(null);
-    const [results, setResults] = useState<PortalActResult[] | null>(null);
-    const [searching, setSearching] = useState(false);
+    const [starting, setStarting] = useState(false);
     const [started, setStarted] = useState<Set<string>>(new Set());
+    const { search: portal, start, cancel, clear } = usePortalSearch();
+    const results = portal?.acts ?? null;
+    const running = portal?.status === 'running';
 
     // Newest first: the act looked for is most often this year's or last year's.
     const yearOptions =
@@ -61,28 +68,30 @@ export default function AddLawDialog({
     const canSearch = mode === 'title' ? title.trim().length >= 3 : number !== '' && year !== '';
 
     const search = async (): Promise<void> => {
-        setSearching(true);
+        setStarting(true);
 
         try {
             const yearValue = year === '' ? null : Number(year);
 
             setConfirming(null);
-            setResults(
-                await searchPortal(
-                    mode === 'title'
-                        ? { title: title.trim(), year: yearValue }
-                        : { number: Number(number), year: yearValue ?? 0 },
-                    type === '' ? null : type,
-                ),
+            await start(
+                mode === 'title'
+                    ? { title: title.trim(), year: yearValue }
+                    : { number: Number(number), year: yearValue ?? 0 },
+                type === '' ? null : type,
             );
         } catch (cause) {
-            toast.error(
-                cause instanceof ApiError && cause.status === 503
-                    ? t((d) => searchFailure(d.pages.legislation.add, cause.reason))
-                    : describeApiFailure(cause, t),
-            );
+            toast.error(describeApiFailure(cause, t));
         } finally {
-            setSearching(false);
+            setStarting(false);
+        }
+    };
+
+    const stop = async (): Promise<void> => {
+        try {
+            await cancel();
+        } catch (cause) {
+            toast.error(describeApiFailure(cause, t));
         }
     };
 
@@ -106,7 +115,14 @@ export default function AddLawDialog({
     return (
         <PanelDialog
             open={open}
-            onOpenChange={onOpenChange}
+            onOpenChange={(next) => {
+                // A search nobody is looking at any more is stopped, not left reading the portal.
+                if (!next) {
+                    void stop();
+                }
+
+                onOpenChange(next);
+            }}
             size="lg"
             title={t((d) => d.pages.legislation.add.title)}
             description={t((d) => d.pages.legislation.add.hint)}
@@ -114,13 +130,14 @@ export default function AddLawDialog({
                 <>
                     <PanelButton
                         onClick={() => {
+                            void stop();
                             onOpenChange(false);
                         }}
                     >
                         <X className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.legislation.add.close)}
                     </PanelButton>
-                    <PanelButton primary disabled={!canSearch || searching} onClick={() => void search()}>
+                    <PanelButton primary disabled={!canSearch || starting} onClick={() => void search()}>
                         <Search className="size-3.5" aria-hidden="true" />
                         {t((d) => d.pages.legislation.add.search)}
                     </PanelButton>
@@ -132,7 +149,7 @@ export default function AddLawDialog({
                 onSubmit={(event) => {
                     event.preventDefault();
 
-                    if (canSearch && !searching) {
+                    if (canSearch && !starting) {
                         void search();
                     }
                 }}
@@ -143,7 +160,8 @@ export default function AddLawDialog({
                         value={mode}
                         onValueChange={(value) => {
                             setMode(value === 'number' ? 'number' : 'title');
-                            setResults(null);
+                            void stop();
+                            clear();
                         }}
                         options={[
                             { value: 'title', label: t((d) => d.pages.legislation.add.byTitle) },
@@ -203,8 +221,14 @@ export default function AddLawDialog({
             </form>
 
             <div className="mt-4 space-y-2" aria-live="polite">
+                {portal === null ? null : <SearchProgress search={portal} onStop={() => void stop()} />}
                 {results === null ? null : results.length === 0 ? (
-                    <EmptyState icon={<SearchX className="size-5" />} title={t((d) => d.pages.legislation.add.none)} />
+                    running ? null : (
+                        <EmptyState
+                            icon={<SearchX className="size-5" />}
+                            title={t((d) => d.pages.legislation.add.none)}
+                        />
+                    )
                 ) : (
                     results.map((act) => (
                         <article
@@ -274,10 +298,53 @@ export default function AddLawDialog({
 }
 
 /**
- * What a search that got no list says, by the reason the server gave. The site's search page answers a
- * search with no result and one it could not run with the same error page, so that reason says both.
+ * Where the search is: reading, with how far it has got and a way to stop it; or why it stopped short.
+ * Nothing once every page was read — the acts below are the answer.
  */
-function searchFailure(add: Dictionary['pages']['legislation']['add'], reason: string | undefined): string {
+function SearchProgress({ search, onStop }: { search: PortalSearchState; onStop: () => void }): JSX.Element | null {
+    const { t } = useTranslation();
+    const add = t((d) => d.pages.legislation.add);
+
+    if (search.status === 'running') {
+        return (
+            <div className="search-progress" role="status">
+                <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                <span className="min-w-0 flex-1 text-xs">
+                    {add.searching
+                        .replace('{pages}', String(search.pagesRead))
+                        .replace('{count}', String(search.acts.length))}
+                </span>
+                <PanelButton onClick={onStop}>
+                    <CircleStop className="size-3.5" aria-hidden="true" />
+                    {add.stop}
+                </PanelButton>
+            </div>
+        );
+    }
+
+    if (search.status === 'done') {
+        return null;
+    }
+
+    const message =
+        search.status === 'cancelled'
+            ? add.stopped
+            : search.status === 'incomplete'
+              ? add.incomplete
+                    .replace('{page}', String(search.pagesRead + 1))
+                    .replace('{reason}', failureText(add, search.failure))
+              : failureText(add, search.failure);
+
+    return (
+        <p className="search-progress search-progress-stopped" role="status">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 text-xs">{message}</span>
+        </p>
+    );
+}
+
+/** Why a search stopped short, by the reason the server gave, in this screen's words. */
+function failureText(add: Dictionary['pages']['legislation']['add'], reason: string | null): string {
     switch (reason) {
         case 'portal_search_refused':
             return add.searchRefused;

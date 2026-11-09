@@ -7,6 +7,7 @@ namespace Tests\Feature\Legislation\PortalThroughBrowserTest;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
 use Kern\Legislation\Actions\SyncLegislationDocument;
@@ -14,6 +15,7 @@ use Kern\Legislation\Fetching\Exceptions\FetchSizeExceededException;
 use Kern\Legislation\Fetching\Exceptions\HostNotAllowedException;
 use Kern\Legislation\Fetching\Exceptions\UnexpectedStatusException;
 use Kern\Legislation\Fetching\PageFetcher;
+use Kern\Legislation\Legislatie\Exceptions\PortalSearchRefusedException;
 use Kern\Legislation\Legislatie\PortalSearch;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -43,6 +45,9 @@ beforeEach(function (): void {
         'sources.storage.prefix' => 'sources',
         'sources.entries.LEGISLATIE.search' => 'browser',
         'sources.entries.LEGISLATIE.pages' => 'browser',
+        // Pages of ten here, so a page of results is short to write out; the site's fifty is the same
+        // rule at another size.
+        'sources.entries.LEGISLATIE.search_page_size' => 10,
         'legislation.sync.retry_seconds' => [],
         'ai.embeddings.enabled' => false,
     ]);
@@ -72,12 +77,15 @@ function worker(array $results = [], array $pages = []): void
     Http::fake(static function (HttpRequest $request) use ($results, $pages) {
         $path = (string) parse_url($request->url(), PHP_URL_PATH);
         $url = $request->data()['secrets']['url'] ?? '';
-        $query = (string) parse_url($url, PHP_URL_QUERY);
+        // Matched without the page size every search asks for, so the results below read as the
+        // queries they stand for; that it is asked is a test of its own.
+        $query = preg_replace('/&?rezultatePerPagina=[^&]*/', '', (string) parse_url($url, PHP_URL_QUERY)) ?? '';
 
         return match (true) {
             $path === '/v1/sessions' => Http::response(['session_id' => 's1', 'expires_at' => '2026-11-07T12:00:00+00:00'], 201),
             $path === '/v1/sessions/s1' && $request->method() === 'DELETE' => Http::response(['destroyed' => true]),
-            $path === '/v1/sessions/s1/run' => match ($found = ($results[$query] ?? [])) {
+            // A search page is read in a browser of its own (`/v1/run`); a law's pages through a session.
+            $path === '/v1/run' || $path === '/v1/sessions/s1/run' => match ($found = ($results[$query] ?? [])) {
                 'refused' => Http::response(['outcome' => 'refused', 'data' => [], 'timing_ms' => 1]),
                 [] => Http::response(['outcome' => 'none', 'data' => [], 'timing_ms' => 1]),
                 default => Http::response(['outcome' => 'found', 'data' => ['acts' => $found], 'timing_ms' => 1]),
@@ -125,9 +133,9 @@ it('searches the site by number in its own "numar-an" form, and reads each row a
         ->and([$decision->officialJournal, $decision->officialJournalNumber, $decision->publishedOn?->format('Y-m-d')])->toBe(['Monitorul Oficial', '40', '2021-01-13'])
         ->and($decision->inForceFrom?->format('Y-m-d'))->toBe('2021-01-13');
 
-    // One browser for the whole search, closed after it.
-    Http::assertSentCount(3);
-    Http::assertSent(static fn (HttpRequest $request): bool => $request->method() === 'DELETE' && str_ends_with($request->url(), '/v1/sessions/s1'));
+    // A browser for the page, opened and closed by the worker in the one call; nothing straight to the site.
+    Http::assertSentCount(1);
+    Http::assertSent(static fn (HttpRequest $request): bool => str_ends_with($request->url(), '/v1/run'));
     Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains($request->url(), 'legislatie.just.ro'));
 });
 
@@ -194,14 +202,66 @@ it('imports an act found on the search page and read in the browser, the same as
     Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains($request->url(), 'legislatie.just.ro'));
 });
 
-it('keeps what the pages before found when the site refuses the page after the last', function (): void {
+// The site answers a page past the last with an empty list, and its error page at random to any page —
+// so a page that keeps failing is a search that did not finish, never the end of the results.
+it('says a search read all at once failed, rather than answer part of it, when a later page will not answer', function (): void {
+    Sleep::fake();
     $ten = static fn (int $from): array => array_map(
         static fn (int $id): array => row("LEGE nr. {$id} din 1 martie 2020\nprivind ceva\nEMITENT: PARLAMENTUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 1 din 2 martie 2020", '2 martie 2020', (string) $id),
         range($from, $from + 9),
     );
     worker(['titlu=ceva' => $ten(1), 'titlu=ceva&page=2' => $ten(11), 'titlu=ceva&page=3' => 'refused']);
 
-    expect(app(PortalSearch::class)->byTitle('ceva'))->toHaveCount(20);
+    expect(fn () => app(PortalSearch::class)->byTitle('ceva'))->toThrow(PortalSearchRefusedException::class);
+});
+
+it('ends the reading at a page shorter than a full one, without asking for the next', function (): void {
+    $ten = static fn (int $from, int $count = 10): array => array_map(
+        static fn (int $id): array => row("LEGE nr. {$id} din 1 martie 2020\nprivind ceva\nEMITENT: PARLAMENTUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 1 din 2 martie 2020", '2 martie 2020', (string) $id),
+        range($from, $from + $count - 1),
+    );
+    worker(['titlu=ceva' => $ten(1), 'titlu=ceva&page=2' => $ten(11, 4)]);
+
+    expect(app(PortalSearch::class)->byTitle('ceva'))->toHaveCount(14);
+    Http::assertNotSent(static fn (HttpRequest $request): bool => str_contains($request->data()['secrets']['url'] ?? '', 'page=3'));
+});
+
+it('asks the site for its fifty-a-page listing, by the code the site gives it', function (): void {
+    worker(['titlu=ceva' => [
+        row("LEGE nr. 1 din 1 martie 2020\nprivind ceva\nEMITENT: PARLAMENTUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 1 din 2 martie 2020", '2 martie 2020', '1'),
+    ]]);
+
+    app(PortalSearch::class)->byTitle('ceva');
+
+    Http::assertSent(static fn (HttpRequest $request): bool => str_contains($request->data()['secrets']['url'] ?? '', 'rezultatePerPagina=5'));
+});
+
+// A refresh brings the page: the site answered the same page with its error page and with its results
+// minutes apart, and a search that stopped at the first such page past page one answered twenty
+// orders of ninety.
+it('asks a refused page after the first again, and reads on when it answers', function (): void {
+    Sleep::fake();
+    $ten = static fn (int $from): array => array_map(
+        static fn (int $id): array => row("LEGE nr. {$id} din 1 martie 2020\nprivind ceva\nEMITENT: PARLAMENTUL\nPUBLICAT ÎN: MONITORUL OFICIAL nr. 1 din 2 martie 2020", '2 martie 2020', (string) $id),
+        range($from, $from + 9),
+    );
+    $askedForPageTwo = 0;
+
+    Http::fake(static function (HttpRequest $request) use ($ten, &$askedForPageTwo) {
+        $path = (string) parse_url($request->url(), PHP_URL_PATH);
+        $url = $request->data()['secrets']['url'] ?? '';
+
+        return match (true) {
+            str_contains($url, 'page=3') => Http::response(['outcome' => 'found', 'data' => ['acts' => array_slice($ten(21), 0, 3)], 'timing_ms' => 1]),
+            str_contains($url, 'page=2') => ++$askedForPageTwo === 1
+                ? Http::response(['outcome' => 'refused', 'data' => [], 'timing_ms' => 1])
+                : Http::response(['outcome' => 'found', 'data' => ['acts' => $ten(11)], 'timing_ms' => 1]),
+            default => Http::response(['outcome' => 'found', 'data' => ['acts' => $ten(1)], 'timing_ms' => 1]),
+        };
+    });
+
+    expect(app(PortalSearch::class)->byTitle('ceva'))->toHaveCount(23)
+        ->and($askedForPageTwo)->toBe(2);
 });
 
 it('stops asking for pages once the search has used its time, and answers with what it found', function (): void {
@@ -225,8 +285,6 @@ it('asks a refused first page again, and answers with the results when they come
         $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
         return match (true) {
-            $path === '/v1/sessions' => Http::response(['session_id' => 's1', 'expires_at' => '2026-11-07T12:00:00+00:00'], 201),
-            $path === '/v1/sessions/s1' => Http::response(['destroyed' => true]),
             default => ++$asked < 3
                 ? Http::response(['outcome' => 'refused', 'data' => [], 'timing_ms' => 1])
                 : Http::response(['outcome' => 'found', 'data' => ['acts' => [
@@ -240,29 +298,37 @@ it('asks a refused first page again, and answers with the results when they come
     Sleep::assertSleptTimes(2);
 });
 
-it('says the site refused the search, rather than that nothing matched, and closes the browser all the same', function (): void {
+it('ends a search the site kept refusing as failed, and says it was refused rather than that nothing matched', function (): void {
     Sleep::fake();
+    Queue::fake();
     worker(['titlu=codul+fiscal' => 'refused']);
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=codul%20fiscal')
-        ->assertStatus(503)
-        ->assertJsonPath('reason', 'portal_search_refused');
+    $id = portalSearchId($this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'codul fiscal']));
+    readPortalSearchPages();
 
-    Http::assertSent(static fn (HttpRequest $request): bool => $request->method() === 'DELETE');
+    $this->actingAs($admin)->getJson("/api/v1/legislation/portal-searches/{$id}")
+        ->assertOk()
+        ->assertJsonPath('status', 'failed')
+        ->assertJsonPath('failure', 'portal_search_refused')
+        ->assertJsonPath('acts', []);
 });
 
 it('says a busy browser as busy, not as a portal that is down', function (): void {
+    Queue::fake();
     Http::fake(['*' => Http::response(['error' => 'at_capacity'], 503)]);
     Artisan::call('kern:access:sync');
     $admin = User::factory()->create();
     $admin->assignRole('SUPER_ADMIN');
 
-    $this->actingAs($admin)->getJson('/api/v1/legislation/portal?title=codul%20fiscal')
-        ->assertStatus(503)
-        ->assertJsonPath('reason', 'portal_browser_busy');
+    $id = portalSearchId($this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'codul fiscal']));
+    readPortalSearchPages();
+
+    $this->actingAs($admin)->getJson("/api/v1/legislation/portal-searches/{$id}")
+        ->assertJsonPath('status', 'failed')
+        ->assertJsonPath('failure', 'portal_browser_busy');
 });
 
 it('holds a page read in the browser to the same rules as a download', function (): void {

@@ -1594,10 +1594,14 @@ export const en = {
                 busy: 'An act is already being imported. Try again when it is done.',
                 portalDown: 'legislatie.just.ro did not answer. Try again in a moment.',
                 searchRefused:
-                    'legislatie.just.ro answered with its error page: nothing matched, or its search is failing. Check the words, or try again later.',
+                    'legislatie.just.ro kept answering with its error page, however often it was asked. Try again later.',
                 browserBusy: 'The browser that searches the portal is busy. Try again in a moment.',
                 browserUnavailable:
                     'The browser that searches the portal is not available. Check the browser worker, or search through the web service in Settings.',
+                searching: 'Searching legislatie.just.ro — {pages} pages read, {count} acts found so far.',
+                stop: 'Stop',
+                stopped: 'Search stopped. The acts below are the ones found until then.',
+                incomplete: 'The search stopped at page {page}: {reason} The acts below are from the pages before it.',
             },
             law: {
                 datedByNote: 'Dated by the portal’s note',

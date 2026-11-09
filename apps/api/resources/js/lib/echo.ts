@@ -150,12 +150,17 @@ export function subscribeToImportsChannel(
 
 /*
  * The signed-in person's own private channel, `users.{userId}` (authorized in `routes/channels.php`),
- * which more than one part of the frame listens on: the bell for notices, the switcher for taxpayers.
+ * which more than one part of the frame listens on: the bell for notices, the switcher for taxpayers, the
+ * legislation dialog for its portal search.
  *
  * Joined once and shared. Each listener used to join and leave it itself — and leaving a channel in
  * Echo leaves it for everyone on it, so the first listener to go silenced the others.
  */
-const userListeners = { notices: new Set<(noticeId: string) => void>(), taxpayers: new Set<() => void>() };
+const userListeners = {
+    notices: new Set<(noticeId: string) => void>(),
+    taxpayers: new Set<() => void>(),
+    portalSearches: new Set<(searchId: string) => void>(),
+};
 let userChannel: string | null = null;
 
 function joinUserChannel(userId: string): void {
@@ -185,11 +190,21 @@ function joinUserChannel(userId: string): void {
             userListeners.taxpayers.forEach((listener) => {
                 listener();
             });
+        })
+        .listen('.legislation.portal-search.changed', (raw: unknown): void => {
+            const id =
+                typeof raw === 'object' && raw !== null && 'id' in raw && typeof raw.id === 'string' ? raw.id : null;
+
+            if (id !== null) {
+                userListeners.portalSearches.forEach((listener) => {
+                    listener(id);
+                });
+            }
         });
 }
 
 function leaveUserChannelIfUnheard(): void {
-    if (userChannel !== null && userListeners.notices.size === 0 && userListeners.taxpayers.size === 0) {
+    if (userChannel !== null && Object.values(userListeners).every((listeners) => listeners.size === 0)) {
         getEcho().leave(userChannel);
         userChannel = null;
     }
@@ -221,6 +236,21 @@ export function subscribeToTaxpayerChanges(userId: string, onChange: () => void)
 
     return () => {
         userListeners.taxpayers.delete(onChange);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onChange` with a portal search's id each time one of this person's moves — a page read, finished,
+ * cancelled (`Kern\Legislation\Events\PortalSearchChanged`). The socket carries the id and counts only:
+ * the caller fetches the search over HTTPS.
+ */
+export function subscribeToPortalSearches(userId: string, onChange: (searchId: string) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.portalSearches.add(onChange);
+
+    return () => {
+        userListeners.portalSearches.delete(onChange);
         leaveUserChannelIfUnheard();
     };
 }

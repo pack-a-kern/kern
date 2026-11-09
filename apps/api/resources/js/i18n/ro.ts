@@ -1589,10 +1589,15 @@ export const ro = {
                 busy: 'Un act se importă deja. Încearcă din nou când se termină.',
                 portalDown: 'legislatie.just.ro nu a răspuns. Încearcă din nou peste puțin timp.',
                 searchRefused:
-                    'legislatie.just.ro a răspuns cu pagina de eroare: nu s-a găsit nimic sau căutarea nu funcționează. Verifică termenii sau încearcă mai târziu.',
+                    'legislatie.just.ro a răspuns mereu cu pagina de eroare, oricât de des a fost întrebat. Încearcă mai târziu.',
                 browserBusy: 'Browserul care caută pe portal este ocupat. Încearcă din nou peste puțin timp.',
                 browserUnavailable:
                     'Browserul care caută pe portal nu este disponibil. Verifică browser-worker sau caută prin serviciul web, din Setări.',
+                searching: 'Se caută pe legislatie.just.ro — {pages} pagini citite, {count} acte găsite până acum.',
+                stop: 'Oprește',
+                stopped: 'Căutarea a fost oprită. Actele de mai jos sunt cele găsite până atunci.',
+                incomplete:
+                    'Căutarea s-a oprit la pagina {page}: {reason} Actele de mai jos sunt din paginile dinainte.',
             },
             law: {
                 datedByNote: 'Datat după nota portalului',

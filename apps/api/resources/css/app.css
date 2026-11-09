@@ -2209,6 +2209,30 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 }
 
 /*
+ * Where a portal search is (legislation's AddLawDialog): reading, with how far it got and a way to stop
+ * it, in the brand's quiet tint; or why it stopped short, in the warning's.
+ */
+.search-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border));
+    border-radius: var(--radius-lg);
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    color: var(--foreground);
+}
+
+.search-progress-stopped {
+    border-color: color-mix(in oklab, var(--warning) 35%, var(--border));
+    background: color-mix(in oklab, var(--warning) 10%, var(--card));
+}
+
+.search-progress-stopped svg {
+    color: var(--warning);
+}
+
+/*
  * A statement import's first step (wallet/import's StatementPicker): the drop area beside what to know
  * before choosing, then the statements chosen so far. Side by side from `md`; stacked below it. The drop
  * area (`.file-drop`) and a chosen file's row (`.chosen-file`) are components/FileDrop's, shared with

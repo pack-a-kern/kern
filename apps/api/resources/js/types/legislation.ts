@@ -473,3 +473,42 @@ export function parsePortalActs(payload: unknown): PortalActResult[] {
         };
     });
 }
+
+/**
+ * Where a search of legislatie.just.ro is (`Kern\Legislation\Enums\PortalSearchStatus`): still reading,
+ * every page read, stopped short at a page that would not answer, failed at the first, or cancelled.
+ */
+export type PortalSearchStatus = 'running' | 'done' | 'incomplete' | 'failed' | 'cancelled';
+
+const PORTAL_SEARCH_STATUSES: readonly PortalSearchStatus[] = ['running', 'done', 'incomplete', 'failed', 'cancelled'];
+
+/** A search of the portal, read a page at a time on the server (ADR 0024), as it stands. */
+export interface PortalSearchState {
+    id: string;
+    status: PortalSearchStatus;
+    pagesRead: number;
+    /** Why it stopped short — `portal_search_refused`, `portal_browser_busy`… — when it did. */
+    failure: string | null;
+    /** While it runs: how soon to ask again if no message comes over the socket. */
+    pollAfterMs: number | null;
+    /** The acts found so far, each already shaped by the server. */
+    acts: PortalActResult[];
+}
+
+export function parsePortalSearch(payload: unknown): PortalSearchState {
+    const row = obj(payload);
+    const status = PORTAL_SEARCH_STATUSES.find((known) => known === row.status);
+
+    if (status === undefined) {
+        throw new Error('A portal search answered without a status this screen knows.');
+    }
+
+    return {
+        id: str(row, 'id'),
+        status,
+        pagesRead: num(row, 'pages_read'),
+        failure: nullableStr(row, 'failure'),
+        pollAfterMs: nullableNum(row, 'poll_after_ms'),
+        acts: parsePortalActs(payload),
+    };
+}
