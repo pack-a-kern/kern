@@ -69,3 +69,130 @@ and this is tied to the unseal-key decision still open.
 - How often, and how many to keep.
 - Where the keys backup lives, apart from the data backup.
 - The unseal key itself (`init.json`): kept as it is, split, or moved off the server.
+
+---
+
+## 3. Investments: government bonds, shares, and what a person holds
+
+Agreed 2026-11-09. The decisions are **ADR 0025**; this is the order they are built in. Each task is
+built, tested and shown before the next starts, and each ends with the definition of done in
+`docs/AGENTS.md` §3: tests run on SQLite and Postgres, phpstan, pint, deptrac, the frontend checks where a
+screen changed, a handoff note, `docs/STATUS.md`.
+
+**Rules for every task** (on top of `docs/CODE-QUALITY.md` and `docs/DEPENDENCY-POLICY.md`):
+
+- Every URL, host, path, page size, schedule, age and limit is configuration read from the environment,
+  documented in the package's `.env.example`, with **no default in the config file**. A missing or
+  malformed value fails at first use, naming the variable (ADR 0025 §4).
+- No request to an official source except through `kern/legislation` (ADR 0025 §3).
+- A parser validates every value before it becomes a DTO; a source that does not parse writes nothing.
+- Readonly DTOs between layers; enums for every finite set; no model crosses a package boundary.
+- Every table indexed for the queries that use it — no query without an index behind it.
+- Short code: the shortest correct form, no layer that only forwards a call.
+- No personal data in a fixture, a log line, a broadcast or a test name.
+
+### Task 1 — One way out, and who goes out as what (`kern/legislation`, `kern/platform`, the settings screen)
+
+1. `identify_as` (`browser` | `crawler`) on a source entry, the installation's default from
+   `SOURCES_IDENTIFY_AS` (`browser` in `.env.example`, no default in the config file);
+   `OfficialSourceRegistry` turns the mapping into the header and is the only code that does.
+2. One setting, `sources.browser_user_agent`, replacing `legislation.portal_user_agent`; a migration moves
+   the stored value; `SettingKey` and its words follow.
+3. A settings card of its own, **Browser**: the browser `User-Agent`, the crawler's name, the crawler's
+   contact.
+4. Each source on the allowlist asked once as a browser; one that refuses is mapped to `crawler`; the
+   results in the handoff note.
+5. A package adds its own entries to the registry from its service provider, so `kern/legislation` names
+   none of another package's sources.
+6. Tests: legislatie.just.ro is sent the same header as before; every source goes out as the mapping says;
+   a missing browser `User-Agent` fails, naming the setting; an entry from another package is allowlisted
+   like one of its own.
+
+### Task 2 — The package (`kern/investments`)
+
+1. `composer.json`, service provider, `config/investments.php` (no defaults), `.env.example`, `README.md`,
+   `lang/`, its Pest suite running on its own; registered in `apps/api`, in `deptrac`.
+2. `InvestmentsConfig` and one DTO per source: read once, each value validated, a missing one fails.
+3. The four market tables of ADR 0025 §2, their models, enums and indexes; Postgres-only statements
+   guarded for the SQLite lane.
+4. `DayCountConvention` and `DayCountCalculator` move here from `Wallet`; deposits use them from here, their
+   tests unchanged and passing.
+
+### Task 3 — Parsers, against the real sources
+
+Each from a real page or file saved as a fixture, and from hostile ones (a missing, renamed or reordered
+column; an empty table; an oversize input; a malformed number, date or ISIN; markup in a cell).
+
+1. One reader of "a table with these headers" (`symfony/dom-crawler`).
+2. BVB shares, bonds and dividends listings → DTOs.
+3. A BVB instrument page → the issuer profile: meetings, shareholders.
+4. The processing service: a second endpoint answering a spreadsheet as a grid (the statement reader's
+   own code, without its statement semantics), with its Python tests; the Ministry's two spreadsheets →
+   rows of symbol or issue code, issue month, value subscribed, number of subscriptions — a round's month
+   carried down, year headings and totals skipped. Fixtures include the repeated Fidelis symbols.
+5. A Fidelis order and a Tezaur order (from the legislation document's text) → instruments and payouts,
+   checked against the order's own example figures.
+
+### Task 4 — The imports
+
+1. `investments.import_government_bonds` (weekly) and `investments.import_bvb` (every weekday — no holiday calendar: a price is stored under the date the page prints,
+   after the close), as `OperationTask` cases with their schedules in configuration.
+2. The search per programme in configuration — the title words, the year and the act type `PortalQuery`
+   takes, and the title patterns an act must match (no issuer: the search has none) — run through
+   `PortalSearch` in the way the settings choose; every year from the programme's first on the first run,
+   this year (and the last, within the configured overlap) after it; an order already a document never
+   fetched again, one already read never parsed again. The titles each search returns are recorded in the
+   handoff note, and the patterns fitted to them.
+3. Ingest through `SourceIngestionService`; a file ingested before is not parsed again; parse all, then
+   upsert in chunks by natural key; never delete; delisted and matured marked.
+4. The subscription figures: a spreadsheet row is matched to an instrument by symbol or issue code exactly
+   **and** by issue month and year; no match, or more than one, is reported and ignored.
+5. Fidelis against BVB, by ISIN: a listed government bond with no order, or an order not listed once its
+   trading day has passed, is reported by the run.
+6. The event for a new issue on offer.
+7. Tests: a run repeated changes nothing; a source that does not parse writes nothing; a source that is
+   down fails the run and keeps the previous data.
+
+### Task 5 — The endpoints (`kern/investments`)
+
+The read endpoints of ADR 0025 §7, cursor-paginated and bounded, rate-limited, behind authentication;
+the issuer profile: `GET` answers the stored one and never fetches, `POST …/refresh` reads it from BVB only when asked (the stored one while younger than its refresh age). No screen for it now. Tests for each filter, each
+bound and each refusal.
+
+### Task 6 — Holdings (`kern/tax-romania`)
+
+1. `AccountKind::INVESTMENTS`, `investment_lots`, scoped to the tax subject, with its indexes.
+2. Adding a holding: the instrument's terms fill the form; units, price per unit, date, fees and where it is
+   held are entered.
+3. Coupons, dividends and the repayment at maturity generated from the payouts, as a deposit's interest is.
+   A dividend only for the units held the day before the ex-dividend date and not sold before it, credited
+   net of the 16% withheld, the withheld part recorded. A corporate bond gets no coupons (BVB has no
+   payment dates for it). A Fidelis not yet trading, and a Tezaur, valued at face value.
+4. Closing early, all or part, with the units and the price per unit; the amount and the result computed;
+   a Tezaur holding refused; the value recomputed after each BVB run, shown as unrealised.
+5. The notice for a new issue on offer (ADR 0022), with its switch.
+6. Tests, including cross-tenant isolation and a lot adopted by its `external_ref` (matched by blind index, stored encrypted) without a duplicate.
+
+### Task 7 — Tax (`kern/tax-romania`)
+
+Nothing about a tax in code: every value is a fiscal parameter read from the stored Fiscal Code and approved
+(ADR 0025 §10).
+
+1. **Research first: corporate bonds.** In the stored Fiscal Code, the treatment of a corporate bond's
+   interest and of the gain on selling one; written into ADR 0025 §10 before any code, with the articles.
+2. `ParameterAnswer` gains `yes_no` and `days`, with their checks and tests.
+3. The six parameters of §10 in `config/fiscal_parameters.php`, each with its question in the law's words.
+   Run the reading; the candidates and their quoted sentences go in the handoff note for approval.
+4. The categories `PUBLIC_DEBT_INCOME`, `SECURITIES_GAIN`, `DIVIDENDS` in
+   `config/reference/tax_categories.php`.
+5. The rules: public debt untaxed only while its exemption is approved; the share gain at the long or short
+   rate by the holding period; dividends at the dividend rate — each recorded as withheld, never owed again.
+6. `CassOtherIncomeRule` leaves out `PUBLIC_DEBT_INCOME` while its exclusion is approved.
+7. Tests: a parameter not approved stops the assessment and names it; an exemption answered no taxes the
+   income; the weighted average price per symbol; first in, first out; either side of the holding period;
+   a loss not offset; nothing of public debt reaching the CASS base.
+
+### Task 8 — Screens
+
+Market, an instrument, adding a holding, closing it early — per `docs/UI-PATTERNS.md`, every word in both
+dictionaries, nothing parsed or computed in the browser.

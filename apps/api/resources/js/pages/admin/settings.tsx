@@ -46,6 +46,7 @@ import { cn } from '../../lib/utils';
 import { BASE_CURRENCY } from '../../types/wallet';
 import {
     ActivityIcon,
+    AppWindowIcon,
     BanknoteIcon,
     BotIcon,
     Building2Icon,
@@ -104,6 +105,7 @@ const GROUP_ICONS: Record<string, JSX.Element> = {
     ai: <BotIcon className="size-4" />,
     documents: <FilesIcon className="size-4" />,
     sources: <GlobeIcon className="size-4" />,
+    browser: <AppWindowIcon className="size-4" />,
     legislation_portal: <ScaleIcon className="size-4" />,
     fx: <BanknoteIcon className="size-4" />,
     spv: <LandmarkIcon className="size-4" />,
@@ -548,11 +550,11 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
 }
 
 /**
- * Official sources: how this installation presents itself to them and the limits on what it fetches,
- * first; where each one is fetched from, folded below.
+ * Official sources: the limits on what is fetched, first; where each one is fetched from, folded below.
+ * What a request says about itself is the Browser card's.
  *
  * The addresses are a different kind of setting — changed when a source moves, which is rare — and
- * listed among the identity and the limits they made the card read as a wall of URLs. Which is which
+ * listed among the limits they made the card read as a wall of URLs. Which is which
  * is read from the setting's own type, so an address added later folds in with the rest.
  */
 function SourcesPanel(props: {

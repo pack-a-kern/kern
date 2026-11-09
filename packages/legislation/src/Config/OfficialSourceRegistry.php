@@ -6,6 +6,7 @@ namespace Kern\Legislation\Config;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Legislation\DataTransferObjects\SourceDefinition;
+use Kern\Legislation\Enums\SourceIdentity;
 use Kern\Legislation\Enums\TrustTier;
 use Kern\Legislation\Exceptions\UnknownSourceException;
 use Kern\Platform\Settings\Enums\SettingType;
@@ -61,8 +62,38 @@ final readonly class OfficialSourceRegistry
     }
 
     /**
-     * The crawler as it names itself to a source with no name of its own to be called by:
-     * "Kern-RO-SourceCrawler/1.0 (contact: ops@example.ro)", or the name alone.
+     * The header a source is sent, by who it goes out as: its own `identify_as`, or the installation's.
+     *
+     * @param array<array-key, mixed> $entry
+     */
+    private function userAgent(string $code, array $entry): string
+    {
+        $identity = $entry['identify_as'] ?? $this->config->get('sources.identify_as');
+        $identity = is_string($identity) ? SourceIdentity::tryFrom($identity) : null;
+
+        if ($identity === null) {
+            throw new RuntimeException(sprintf('config/sources.php: source "%s" must go out as browser or crawler (identify_as, or SOURCES_IDENTIFY_AS).', $code));
+        }
+
+        return $identity === SourceIdentity::BROWSER ? $this->browserUserAgent() : $this->crawlerUserAgent();
+    }
+
+    private function browserUserAgent(): string
+    {
+        $userAgent = $this->config->get('sources.browser.user_agent');
+
+        // The same rule the settings screen holds a typed value to: printable ASCII on one line. A line
+        // break in a header is a second header nobody meant to send.
+        if (! is_string($userAgent) || ! SettingType::isHeaderValue($userAgent)) {
+            throw new RuntimeException('config/sources.php must give the browser a User-Agent a header can carry (SOURCES_BROWSER_USER_AGENT).');
+        }
+
+        return $userAgent;
+    }
+
+    /**
+     * The crawler as it names itself: "Kern-RO-SourceCrawler/1.0 (contact: ops@example.ro)", or the name
+     * alone.
      */
     private function crawlerUserAgent(): string
     {
@@ -70,13 +101,13 @@ final readonly class OfficialSourceRegistry
         $contact = $this->config->get('sources.crawler.contact');
 
         if (! is_string($name) || ! SettingType::isHeaderValue($name)) {
-            throw new RuntimeException('config/sources.php must name the crawler (crawler.name) in text a header can carry.');
+            throw new RuntimeException('config/sources.php must name the crawler in text a header can carry (SOURCES_CRAWLER_NAME).');
         }
 
         $contact = is_string($contact) ? trim($contact) : '';
 
         if ($contact !== '' && ! SettingType::isContact($contact)) {
-            throw new RuntimeException('config/sources.php has a crawler.contact that is not an e-mail address or an https address.');
+            throw new RuntimeException('config/sources.php has a crawler contact that is not an e-mail address or an https address (SOURCES_CRAWLER_CONTACT).');
         }
 
         $userAgent = trim($name) . ($contact === '' ? '' : " (contact: {$contact})");
@@ -97,7 +128,6 @@ final readonly class OfficialSourceRegistry
         $trustTier = $entry['trust_tier'] ?? null;
         $baseUrl = $entry['base_url'] ?? null;
         $allowedHosts = $entry['allowed_hosts'] ?? null;
-        $userAgent = $entry['user_agent'] ?? null;
         $enabled = $entry['enabled'] ?? null;
         $priority = $entry['priority'] ?? null;
         $tlsCurves = $entry['tls_curves'] ?? null;
@@ -125,12 +155,6 @@ final readonly class OfficialSourceRegistry
             }
 
             $normalizedHosts[] = strtolower($host);
-        }
-
-        // The same rule the settings screen holds a typed value to, for a value from `.env`: printable
-        // ASCII on one line. A line break in a header is a second header nobody meant to send.
-        if ($userAgent !== null && (! is_string($userAgent) || ! SettingType::isHeaderValue($userAgent))) {
-            throw new RuntimeException(sprintf('config/sources.php entry "%s" has a user_agent that cannot be sent as a header.', $code));
         }
 
         if (! is_bool($enabled)) {
@@ -168,7 +192,7 @@ final readonly class OfficialSourceRegistry
             trustTier: TrustTier::from($trustTier),
             baseUrl: $baseUrl,
             allowedHosts: $normalizedHosts,
-            userAgent: $userAgent ?? $this->crawlerUserAgent(),
+            userAgent: $this->userAgent($code, $entry),
             enabled: $enabled,
             priority: $priority,
             tlsCurves: $tlsCurves,

@@ -9,7 +9,7 @@ use Kern\Legislation\Enums\TrustTier;
 /**
  * One `config/sources.php` entry, resolved and typed. This is the only shape
  * `Kern\Legislation\Fetching\AllowlistedHttpFetcher` trusts for a host allowlist or a
- * per-source User-Agent — never a raw config array passed around by callers.
+ * source's User-Agent (decided by who it goes out as) — never a raw config array passed around by callers.
  *
  * @property-read list<string> $allowedHosts already lower-cased, for case-insensitive comparison.
  */

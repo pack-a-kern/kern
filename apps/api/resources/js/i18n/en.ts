@@ -2103,6 +2103,7 @@ export const en = {
                 ai: 'AI document processing',
                 documents: 'Documents and uploads',
                 sources: 'Official sources',
+                browser: 'Browser',
                 legislation_portal: 'Legislation portal',
                 fx: 'Exchange rates',
                 spv: 'SPV — ANAF',
@@ -2159,10 +2160,10 @@ export const en = {
                 'sources.fetch_max_redirects': 'Redirects allowed',
                 'legislation.portal_search': 'Search the portal with',
                 'legislation.portal_pages': 'Read a law’s pages with',
-                'legislation.portal_user_agent': 'User agent for legislatie.just.ro',
                 'legislation.portal_timeout_seconds': 'Timeout for legislatie.just.ro',
-                'sources.crawler_name': 'User agent',
-                'sources.crawler_contact': 'Contact, added to the user agent',
+                'sources.browser_user_agent': 'Browser user agent',
+                'sources.crawler_name': 'Crawler user agent',
+                'sources.crawler_contact': 'Contact, added to the crawler user agent',
                 'fx.verification_tolerance': 'Rate verification tolerance',
                 'fx.decimal_scale': 'Rate decimal scale',
                 'fx.currencies': 'Currencies this installation uses',
@@ -2193,7 +2194,9 @@ export const en = {
                 ai: 'Which provider reads scanned documents. The key is never shown again after saving.',
                 documents: 'Size and rate limits for uploaded files.',
                 sources:
-                    'How the app names itself to BNR, ECB, GLEIF, ANAF and MF, and the limits on what it downloads from them. Which hosts may be fetched is fixed in code (an allowlist), not here.',
+                    'Where BNR, ECB, GLEIF, ANAF and MF are read from, and the limits on what is downloaded from them. Which hosts may be fetched is fixed in code (an allowlist), not here.',
+                browser:
+                    'What the app’s requests to official sources say they are. Every source is sent the browser user agent unless its configuration names it for the crawler, which is then sent with its contact.',
                 legislation_portal:
                     'How legislatie.just.ro is searched and how a law’s pages are read. Each way is used alone: when it fails, it says so, and the other is not tried.',
                 fx: 'Tolerance between the locally calculated average and the one BNR publishes.',

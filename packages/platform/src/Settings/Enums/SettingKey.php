@@ -94,16 +94,16 @@ enum SettingKey: string
     case LEGISLATION_PORTAL_SEARCH = 'legislation.portal_search';
     case LEGISLATION_PORTAL_PAGES = 'legislation.portal_pages';
 
-    /** What this installation's own requests to the legislation portal call themselves. */
-    case LEGISLATION_PORTAL_USER_AGENT = 'legislation.portal_user_agent';
-
     /**
      * How long one request to the portal may take — its own, longer than the shared one: a
      * consolidation of the Codul fiscal is several megabytes, and the portal is slow to serve it.
      */
     case LEGISLATION_PORTAL_TIMEOUT_SECONDS = 'legislation.portal_timeout_seconds';
 
-    /** How the crawler names itself to the other sources, and who they may write to about it. */
+    /** The `User-Agent` of every source that goes out as a browser (ADR 0025 §3). */
+    case SOURCES_BROWSER_USER_AGENT = 'sources.browser_user_agent';
+
+    /** How the crawler names itself to a source that goes out as one, and who it may write to about it. */
     case SOURCES_CRAWLER_NAME = 'sources.crawler_name';
     case SOURCES_CRAWLER_CONTACT = 'sources.crawler_contact';
 
@@ -229,11 +229,13 @@ enum SettingKey: string
             self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL, self::SOURCES_GLEIF_BIC_LEI_PAGE_URL,
             self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL,
             self::SOURCES_FETCH_TIMEOUT_SECONDS, self::SOURCES_FETCH_MAX_BYTES,
-            self::SOURCES_FETCH_MAX_REDIRECTS, self::SOURCES_CRAWLER_NAME,
-            self::SOURCES_CRAWLER_CONTACT => SettingGroup::SOURCES,
+            self::SOURCES_FETCH_MAX_REDIRECTS => SettingGroup::SOURCES,
+
+            // What a request says about itself, in one place: the browser it goes out as, or the crawler.
+            self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_CRAWLER_NAME,
+            self::SOURCES_CRAWLER_CONTACT => SettingGroup::BROWSER,
 
             self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES,
-            self::LEGISLATION_PORTAL_USER_AGENT,
             self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => SettingGroup::LEGISLATION_PORTAL,
 
             self::FX_VERIFICATION_TOLERANCE, self::FX_DECIMAL_SCALE,
@@ -283,8 +285,8 @@ enum SettingKey: string
             self::SOURCES_FETCH_MAX_REDIRECTS => 'sources.fetch.max_redirects',
             self::LEGISLATION_PORTAL_SEARCH => 'sources.entries.LEGISLATIE.search',
             self::LEGISLATION_PORTAL_PAGES => 'sources.entries.LEGISLATIE.pages',
-            self::LEGISLATION_PORTAL_USER_AGENT => 'sources.entries.LEGISLATIE.user_agent',
             self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => 'sources.entries.LEGISLATIE.timeout_seconds',
+            self::SOURCES_BROWSER_USER_AGENT => 'sources.browser.user_agent',
             self::SOURCES_CRAWLER_NAME => 'sources.crawler.name',
             self::SOURCES_CRAWLER_CONTACT => 'sources.crawler.contact',
             self::FX_VERIFICATION_TOLERANCE => 'sources.fx.verification_tolerance',
@@ -320,7 +322,7 @@ enum SettingKey: string
             self::FX_CURRENCIES => SettingType::CURRENCY_LIST,
             self::BANKS_COUNTRIES => SettingType::COUNTRY_LIST,
             self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES => SettingType::CHOICE,
-            self::LEGISLATION_PORTAL_USER_AGENT, self::SOURCES_CRAWLER_NAME => SettingType::HEADER_VALUE,
+            self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_CRAWLER_NAME => SettingType::HEADER_VALUE,
             self::SOURCES_CRAWLER_CONTACT => SettingType::CONTACT,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
             self::SECURITY_HASH_DRIVER => SettingType::STRING,

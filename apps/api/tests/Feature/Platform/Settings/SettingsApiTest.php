@@ -47,7 +47,7 @@ it('returns every group with provenance for an administrator', function (): void
     $groups = $response->json('groups');
 
     expect(array_column($groups, 'group'))
-        ->toEqualCanonicalizing(['ai', 'documents', 'sources', 'legislation_portal', 'fx', 'spv', 'security', 'banks']);
+        ->toEqualCanonicalizing(['ai', 'documents', 'sources', 'browser', 'legislation_portal', 'fx', 'spv', 'security', 'banks']);
 
     $window = settingRow($this, $this->admin, 'spv', 'spv.messages_window_days');
 

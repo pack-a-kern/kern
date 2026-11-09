@@ -30,7 +30,6 @@ beforeEach(function (): void {
             'trust_tier' => 'A',
             'base_url' => 'https://legislatie-fixture.test',
             'allowed_hosts' => ['legislatie-fixture.test'],
-            'user_agent' => 'Kern-Test-Fetcher/1.0',
             'enabled' => true,
             'priority' => 1,
         ],

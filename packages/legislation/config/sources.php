@@ -16,18 +16,35 @@ declare(strict_types=1);
 return [
 
     /*
-     * How the crawler names itself to every source that takes a client by its own name — each entry
-     * below with no `user_agent` of its own. Composed by `OfficialSourceRegistry` as
-     * "<name> (contact: <contact>)", so the two are set apart, on the settings screen as here.
+     * Who this installation's requests say they are (ADR 0025 §3): `browser` or `crawler`. An entry
+     * below may say `identify_as` for itself; one that does not goes out as this. Which source goes out
+     * as what is this mapping and nothing else — no code names a source to choose its header. No
+     * default: unset, the first request fails naming the variable.
+     */
+    'identify_as' => env('SOURCES_IDENTIFY_AS'),
+
+    /*
+     * The browser's `User-Agent`, sent by every source that goes out as `browser`. legislatie.just.ro
+     * answers 403 to a plain client and 200 to a browser (2026-09-08); mfinante.gov.ro resets the
+     * connection of a short one (2026-11-09). Only what this installation's own requests send; the
+     * browser worker's Chromium names itself. No default, as above.
+     */
+    'browser' => [
+        'user_agent' => env('SOURCES_BROWSER_USER_AGENT'),
+    ],
+
+    /*
+     * How the crawler names itself to a source that goes out as `crawler`. Composed by
+     * `OfficialSourceRegistry` as "<name> (contact: <contact>)", so the two are set apart, on the
+     * settings screen as here.
      *
-     * The contact is the operator's own — an address the source can write to about this installation's
-     * traffic — so there is no default: unset, the crawler is named without one.
+     * No default for either. The name unset fails the first request going out as the crawler, naming
+     * the variable. The contact is the operator's own — an address the source can write to about this
+     * installation's traffic — and may be left empty: the crawler is then named without one.
      */
     'crawler' => [
-        // `?:`, not a default argument: an empty variable is a line someone left blank, which means the
-        // default, not a request sent with no name.
-        'name' => env('SOURCES_CRAWLER_NAME') ?: 'Kern-RO-SourceCrawler/1.0',
-        'contact' => env('SOURCES_CRAWLER_CONTACT', ''),
+        'name' => env('SOURCES_CRAWLER_NAME'),
+        'contact' => env('SOURCES_CRAWLER_CONTACT'),
     ],
 
     'entries' => [
@@ -36,11 +53,6 @@ return [
             'trust_tier' => 'A',
             'base_url' => 'https://legislatie.just.ro',
             'allowed_hosts' => ['legislatie.just.ro'],
-            // Verified 2026-09-08 (docs/reference/anaf-spv-integration.md): this host returns
-            // 403 to a plain HTTP client and 200 once a realistic browser User-Agent is sent. Only what
-            // this installation's own requests send; the browser worker's Chromium names itself.
-            'user_agent' => env('LEGISLATIE_USER_AGENT')
-                ?: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
             // How the portal is asked, each on its own and never one in place of the other when it fails:
             // a search (the screen's, and the import's own look-up of the act) through the SOAP service or
             // the site's search page in a browser; a law's pages downloaded directly or opened in a

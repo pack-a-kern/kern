@@ -13,6 +13,7 @@ enum SettingGroup: string
     case AI = 'ai';
     case DOCUMENTS = 'documents';
     case SOURCES = 'sources';
+    case BROWSER = 'browser';
     case LEGISLATION_PORTAL = 'legislation_portal';
     case FX = 'fx';
     case SPV = 'spv';

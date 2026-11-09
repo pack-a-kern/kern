@@ -25,17 +25,17 @@ beforeEach(function (): void {
             'trust_tier' => 'D',
             'base_url' => 'https://src-fixture.test',
             'allowed_hosts' => ['src-fixture.test'],
-            'user_agent' => 'Kern-Test-Fetcher/1.0',
             'enabled' => true,
             'priority' => 1,
         ],
+        'sources.browser.user_agent' => 'Kern-Test-Fetcher/1.0',
         'sources.fetch.max_redirects' => 3,
         'sources.fetch.max_response_bytes' => 1024,
         'sources.fetch.timeout_seconds' => 5,
     ]);
 });
 
-it('sends the source-specific User-Agent and returns the body on success', function (): void {
+it('sends the User-Agent of who the source goes out as, and returns the body on success', function (): void {
     Http::fake(['https://src-fixture.test/doc.xml' => Http::response('<a/>', 200, ['Content-Type' => 'application/xml'])]);
 
     $fetched = app(AllowlistedHttpFetcher::class)->fetch('TESTSRC', 'https://src-fixture.test/doc.xml');

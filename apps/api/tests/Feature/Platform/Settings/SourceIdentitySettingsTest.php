@@ -17,6 +17,9 @@ use Kern\Legislation\Config\OfficialSourceRegistry;
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
     $this->admin = settingsAdminUser();
+    // ANAF goes out as the crawler here, so what the crawler is called can be seen; every other source
+    // goes out as the browser, as the installation's default says.
+    config(['sources.entries.ANAF.identify_as' => 'crawler']);
 });
 
 it('accepts each way of reading the portal it knows, and no other', function (): void {
@@ -32,7 +35,7 @@ it('accepts each way of reading the portal it knows, and no other', function ():
 
 it('refuses a name that would not go out in a header as written', function (string $name): void {
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_name' => $name]])
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_name' => $name]])
         ->assertUnprocessable();
 })->with([
     'a second header' => ["Kern/1.0\r\nX-Injected: yes"],
@@ -41,9 +44,26 @@ it('refuses a name that would not go out in a header as written', function (stri
     'too long' => [str_repeat('a', 256)],
 ]);
 
+it('sends a browser User-Agent saved on the screen to every source going out as a browser', function (): void {
+    $this->actingAs($this->admin)
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.browser_user_agent' => 'Mozilla/5.0 (Saved) Chrome/130.0.0.0']])
+        ->assertOk();
+    Event::dispatch(new Looping('redis', 'default'));
+
+    $registry = app(OfficialSourceRegistry::class);
+
+    expect($registry->find('LEGISLATIE')->userAgent)->toBe('Mozilla/5.0 (Saved) Chrome/130.0.0.0')
+        ->and($registry->find('MF')->userAgent)->toBe('Mozilla/5.0 (Saved) Chrome/130.0.0.0')
+        ->and($registry->find('ANAF')->userAgent)->toStartWith('Kern-RO-SourceCrawler/1.0');
+
+    $this->actingAs($this->admin)
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.browser_user_agent' => "Mozilla/5.0\r\nX-Injected: yes"]])
+        ->assertUnprocessable();
+});
+
 it('takes an emptied name as going back to the default, never as an empty header', function (): void {
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_name' => '   ']])
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_name' => '   ']])
         ->assertOk();
 
     expect(app(OfficialSourceRegistry::class)->find('ANAF')->userAgent)->toStartWith('Kern-RO-SourceCrawler/1.0');
@@ -52,24 +72,24 @@ it('takes an emptied name as going back to the default, never as an empty header
 it('takes a contact as an e-mail address or an https address only', function (): void {
     foreach (['ops@example.ro', 'https://example.ro/contact'] as $contact) {
         $this->actingAs($this->admin)
-            ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_contact' => $contact]])
+            ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_contact' => $contact]])
             ->assertOk();
     }
 
     foreach (['http://example.ro', 'not a contact', "ops@example.ro\r\nX: y"] as $contact) {
         $this->actingAs($this->admin)
-            ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_contact' => $contact]])
+            ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_contact' => $contact]])
             ->assertUnprocessable();
     }
 });
 
-it('names the crawler with its contact to a source that has no name of its own to be called by', function (): void {
+it('names the crawler with its contact to a source going out as the crawler', function (): void {
     config(['sources.crawler.name' => 'Kern-RO-SourceCrawler/1.0', 'sources.crawler.contact' => 'ops@example.ro']);
 
     $registry = app(OfficialSourceRegistry::class);
 
     expect($registry->find('ANAF')->userAgent)->toBe('Kern-RO-SourceCrawler/1.0 (contact: ops@example.ro)')
-        // The portal keeps its own: it refuses a client that does not look like a browser.
+        // The rest go out as the browser: the portal refuses a client that does not look like one.
         ->and($registry->find('LEGISLATIE')->userAgent)->toStartWith('Mozilla/5.0');
 
     config(['sources.crawler.contact' => '']);
@@ -81,7 +101,7 @@ it('reaches a queue worker that was running when it was saved, and leaves it whe
     $default = config('sources.crawler.name');
 
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_name' => 'Kern-Test/2.0']])
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_name' => 'Kern-Test/2.0']])
         ->assertOk();
 
     // A worker booted before the save: it still holds what it booted with until its loop turns.
@@ -91,7 +111,7 @@ it('reaches a queue worker that was running when it was saved, and leaves it whe
     expect(config('sources.crawler.name'))->toBe('Kern-Test/2.0');
 
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/sources', ['settings' => ['sources.crawler_name' => null]])
+        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.crawler_name' => null]])
         ->assertOk();
     Event::dispatch(new Looping('redis', 'default'));
 
@@ -101,9 +121,10 @@ it('reaches a queue worker that was running when it was saved, and leaves it whe
 it('holds a name or contact from `.env` to the same rules as one typed on the screen', function (string $key, string $value): void {
     config([$key => $value]);
 
-    expect(fn () => app(OfficialSourceRegistry::class)->find('ANAF'))->toThrow(\RuntimeException::class);
+    expect(fn () => app(OfficialSourceRegistry::class)->find($key === 'sources.browser.user_agent' ? 'MF' : 'ANAF'))
+        ->toThrow(\RuntimeException::class);
 })->with([
     'a name with a line break' => ['sources.crawler.name', "Kern/1.0\r\nX-Injected: yes"],
     'a contact that is neither' => ['sources.crawler.contact', 'call me'],
-    'a portal agent with a line break' => ['sources.entries.ANAF.user_agent', "Mozilla\nX: y"],
+    'a browser agent with a line break' => ['sources.browser.user_agent', "Mozilla\nX: y"],
 ]);

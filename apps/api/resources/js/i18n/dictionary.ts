@@ -1898,6 +1898,7 @@ export interface Dictionary {
                 ai: string;
                 documents: string;
                 sources: string;
+                browser: string;
                 legislation_portal: string;
                 fx: string;
                 spv: string;
@@ -1931,6 +1932,7 @@ export interface Dictionary {
                 ai: string;
                 documents: string;
                 sources: string;
+                browser: string;
                 legislation_portal: string;
                 fx: string;
                 spv: string;

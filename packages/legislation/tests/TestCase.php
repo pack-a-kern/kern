@@ -62,6 +62,9 @@ abstract class TestCase extends Testbench
         ]);
         $app['config']->set('sources.storage.disk', 'sources');
         $app['config']->set('sources.storage.prefix', 'sources');
+        $app['config']->set('sources.identify_as', 'browser');
+        $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
+        $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
 
         // Reading a law is queued work — one consolidation per job — and this suite wants the reading

@@ -49,6 +49,10 @@
         <env name="PROCESSING_URL" value="http://python-api:8000" force="true"/>
         <env name="QUARANTINE_BUCKET" value="kern-quarantine" force="true"/>
         <env name="SOURCES_STORAGE_DISK" value="s3" force="true"/>
+        <env name="SOURCES_IDENTIFY_AS" value="browser" force="true"/>
+        <env name="SOURCES_BROWSER_USER_AGENT" value="Mozilla/5.0 (Test) Chrome/128.0.0.0" force="true"/>
+        <env name="SOURCES_CRAWLER_NAME" value="Kern-RO-SourceCrawler/1.0" force="true"/>
+        <env name="SOURCES_CRAWLER_CONTACT" value="" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
         <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>

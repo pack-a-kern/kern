@@ -2105,6 +2105,7 @@ export const ro = {
                 ai: 'Procesare AI a documentelor',
                 documents: 'Documente și încărcare',
                 sources: 'Surse oficiale',
+                browser: 'Browser',
                 legislation_portal: 'Portalul legislativ',
                 fx: 'Curs valutar',
                 spv: 'SPV — ANAF',
@@ -2161,10 +2162,10 @@ export const ro = {
                 'sources.fetch_max_redirects': 'Redirecționări permise',
                 'legislation.portal_search': 'Căutare pe portal prin',
                 'legislation.portal_pages': 'Citirea paginilor unei legi prin',
-                'legislation.portal_user_agent': 'User agent pentru legislatie.just.ro',
                 'legislation.portal_timeout_seconds': 'Timp maxim pentru legislatie.just.ro',
-                'sources.crawler_name': 'User agent',
-                'sources.crawler_contact': 'Contact, adăugat la user agent',
+                'sources.browser_user_agent': 'User agent browser',
+                'sources.crawler_name': 'User agent crawler',
+                'sources.crawler_contact': 'Contact, adăugat la user agentul crawlerului',
                 'fx.verification_tolerance': 'Toleranță verificare curs',
                 'fx.decimal_scale': 'Precizie zecimală curs',
                 'fx.currencies': 'Monedele folosite în aplicație',
@@ -2195,7 +2196,9 @@ export const ro = {
                 ai: 'Ce furnizor citește documentele scanate. Cheia nu este niciodată afișată după salvare.',
                 documents: 'Limite de mărime și ritm pentru fișierele încărcate.',
                 sources:
-                    'Cum se prezintă aplicația la BNR, BCE, GLEIF, ANAF și MF și limitele pentru ce descarcă de la ele. Ce adrese pot fi descărcate e fixat în cod (o listă permisă), nu aici.',
+                    'De unde se citesc BNR, BCE, GLEIF, ANAF și MF și limitele pentru ce se descarcă de la ele. Ce adrese pot fi descărcate e fixat în cod (o listă permisă), nu aici.',
+                browser:
+                    'Cum se prezintă cererile aplicației către sursele oficiale. Fiecare sursă primește user agentul browserului, în afară de cea pe care configurația o dă crawlerului, trimis atunci cu contactul lui.',
                 legislation_portal:
                     'Cum se caută pe legislatie.just.ro și cum se citesc paginile unei legi. Fiecare mod e folosit singur: când nu merge, spune asta, iar celălalt nu e încercat.',
                 fx: 'Toleranța la diferența dintre media calculată local și cea publicată de BNR.',
