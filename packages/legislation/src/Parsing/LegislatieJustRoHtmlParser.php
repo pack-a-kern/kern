@@ -683,7 +683,11 @@ final class LegislatieJustRoHtmlParser
         $parentPrefix = $parentCitationLabel ?? '';
 
         return match ($type) {
-            SectionType::ARTICOL => $this->articleCitationLabel($rawLabel, $ordinal),
+            // An article inside an annex is cited within it: an order's annex — a prospectus — numbers
+            // its own articles from 1, and "Art. 2" alone would be the order's Art. 2 and be dropped as
+            // ambiguous, taking the annex's text with it (a Tezaur prospectus' table of issues, 2026-11-09).
+            // A top-level article has no parent label and reads as before.
+            SectionType::ARTICOL => trim($parentPrefix . ' ' . $this->articleCitationLabel($rawLabel, $ordinal)),
             SectionType::ALINEAT => trim($parentPrefix . ' alin. ' . ($rawLabel !== '' ? $rawLabel : "({$ordinal})")),
             SectionType::LITERA => trim($parentPrefix . ' lit. ' . ($rawLabel !== '' ? $rawLabel : "{$ordinal})")),
             SectionType::PUNCT => trim($parentPrefix . ' pct. ' . ($rawLabel !== '' ? $rawLabel : "{$ordinal}.")),

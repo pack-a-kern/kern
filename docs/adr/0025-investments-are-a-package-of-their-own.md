@@ -85,7 +85,7 @@ The market tables carry the `ext_` prefix this codebase gives public data from o
 **`ext_financial_instruments`** — one row per security: a Fidelis or Tezaur issue, a corporate bond, a
 share.
 
-- `kind` (enum: government bond, corporate bond, share — no other kind until a source brings one), `programme` (enum, nullable: Fidelis,
+- `kind` (enum: government bond, corporate bond, municipal bond, share — BVB's three bond types and its shares; no other kind until a source brings one), `programme` (enum, nullable: Fidelis,
   Tezaur), `isin` (nullable — Tezaur has none), `symbol` (nullable), `issue_code` (nullable — Tezaur's),
   `name`, `issuer_name`, `currency` (ISO 4217), `face_value` (decimal, nullable), `rate` (decimal, nullable),
   `issue_date`, `maturity_date` (nullable), `market` (nullable), `status` (enum: on offer, active, matured,
@@ -210,11 +210,13 @@ reason of its own; the BVB and MF entries this ADR adds or changes, and the thre
    one that amends a prospectus, say — is recorded as read and skipped, so it is not read again.
 3. **The subscription figures.** Read the Ministry of Finance page, find the two spreadsheet links, ingest
    both as evidence; a file whose bytes were ingested before — the same hash — is not parsed again. A row
-   gives its two figures to an instrument only when **both** match: the symbol (Fidelis) or the issue code
-   (Tezaur) **exactly**, and the issue **month and year** — the spreadsheet has no ISIN and no issue day.
-   A row that matches no instrument, or more than one, is reported by the run and ignored; it never creates
-   or changes anything else. This is what keeps the file's own errors out: a symbol repeated under another
-   month matches nothing.
+   gives its two figures to an instrument matched **by its code alone** — the symbol (Fidelis) or the issue
+   code (Tezaur), exactly; the spreadsheet has no ISIN. Only where the list holds the same code more than
+   once is the **month and year** asked too: the row whose month (or one of its two, for a round written
+   "Apr - May 2023") is the instrument's issue month. What does not match for sure — no instrument, or
+   still more than one row — is skipped and reported; nothing is guessed, created or changed otherwise
+   (decided 2026-11-09). The figures are information, never required: an instrument without them is
+   whole.
 4. **The notice.** An issue seen for the first time while on offer raises a notice to those who
    subscribed (§8).
 
@@ -233,8 +235,8 @@ subscription and its first trading day it has no price, and is worth its face va
 and has no market price: a Tezaur holding is worth its face value until it matures.
 
 **Which instruments get payouts.** Fidelis and Tezaur: every coupon and the repayment, from the order. A
-share: its dividends, from the BVB dividends page. **A corporate bond: none** — BVB publishes its current
-coupon and its maturity, not its payment dates, so its coupons are never guessed; a corporate bond holding
+share: its dividends, from the BVB dividends page. **A corporate or municipal bond: none** — BVB publishes its current
+coupon and its maturity, not its payment dates, so its coupons are never guessed; a corporate or municipal bond holding
 shows its value and its maturity, and is sold or matures like any other.
 
 **Every weekday, after the market closes — BVB** (`investments.import_bvb`). No holiday calendar: a price

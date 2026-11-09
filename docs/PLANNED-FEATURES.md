@@ -130,8 +130,11 @@ column; an empty table; an oversize input; a malformed number, date or ISIN; mar
    own code, without its statement semantics), with its Python tests; the Ministry's two spreadsheets →
    rows of symbol or issue code, issue month, value subscribed, number of subscriptions — a round's month
    carried down, year headings and totals skipped. Fixtures include the repeated Fidelis symbols.
-5. A Fidelis order and a Tezaur order (from the legislation document's text) → instruments and payouts,
-   checked against the order's own example figures.
+5. A Fidelis order and a Tezaur order, as `kern/legislation` parses them (text and tables) → issues and
+   payouts. Found doing it, and fixed in `kern/legislation`: an annex's articles were cited as the
+   order's own and dropped — a Tezaur prospectus' table of issues with them; they are now cited within
+   their annex ("ANEXĂ Art. 2"). A Fidelis coupon period is left empty: the order's cell for it does not
+   read cleanly, and a coupon is the face value times the rate.
 
 ### Task 4 — The imports
 
@@ -145,8 +148,9 @@ column; an empty table; an oversize input; a malformed number, date or ISIN; mar
    handoff note, and the patterns fitted to them.
 3. Ingest through `SourceIngestionService`; a file ingested before is not parsed again; parse all, then
    upsert in chunks by natural key; never delete; delisted and matured marked.
-4. The subscription figures: a spreadsheet row is matched to an instrument by symbol or issue code exactly
-   **and** by issue month and year; no match, or more than one, is reported and ignored.
+4. The subscription figures: a spreadsheet row is matched to an instrument by its symbol or issue code
+   alone; only a code the list holds twice is told apart by the issue month and year. What does not match
+   for sure is skipped and reported — never guessed.
 5. Fidelis against BVB, by ISIN: a listed government bond with no order, or an order not listed once its
    trading day has passed, is reported by the run.
 6. The event for a new issue on offer.

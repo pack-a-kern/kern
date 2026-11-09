@@ -9,5 +9,8 @@ enum InstrumentKind: string
 {
     case GOVERNMENT_BOND = 'GOVERNMENT_BOND';
     case CORPORATE_BOND = 'CORPORATE_BOND';
+
+    /** A bond of a county, a city or a commune — "Obligatiuni municipale" on BVB. */
+    case MUNICIPAL_BOND = 'MUNICIPAL_BOND';
     case SHARE = 'SHARE';
 }

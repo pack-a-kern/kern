@@ -52,14 +52,14 @@ final class Values
         return (int) $decimal;
     }
 
-    /** `09.11.2026`, a real day of the calendar. */
+    /** `09.11.2026` — or `5.10.2026`, as an order's table writes it — a real day of the calendar. */
     public static function date(string $text, string $where): DateTimeImmutable
     {
-        if (preg_match('/\A(\d{2})\.(\d{2})\.(\d{4})\z/', $text, $parts) !== 1 || ! checkdate((int) $parts[2], (int) $parts[1], (int) $parts[3])) {
+        if (preg_match('/\A(\d{1,2})\.(\d{1,2})\.(\d{4})\z/', $text, $parts) !== 1 || ! checkdate((int) $parts[2], (int) $parts[1], (int) $parts[3])) {
             throw ParseFailure::at($where, 'not a date');
         }
 
-        return new DateTimeImmutable("{$parts[3]}-{$parts[2]}-{$parts[1]}", new DateTimeZone('UTC'));
+        return new DateTimeImmutable(sprintf('%s-%02d-%02d', $parts[3], $parts[2], $parts[1]), new DateTimeZone('UTC'));
     }
 
     /** `09.11.2026 17:59` as the source's clock shows it, as the instant it was. */
