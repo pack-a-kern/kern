@@ -41,6 +41,8 @@ final readonly class HoldingLine
         public ?string $soldOn,
         public ?string $soldPricePerUnit,
         public ?int $saleFeesMinor,
+        /** What the intermediary withheld on this lot's part of the sale's gain; none on a loss or public debt. */
+        public ?int $saleTaxWithheldMinor,
         public ?int $proceedsMinor,
         public ?int $resultMinor,
         public ?int $valueMinor,

@@ -19,6 +19,8 @@ export interface Dictionary {
         walletCounterparties: string;
         walletImports: string;
         walletReports: string;
+        walletHoldings: string;
+        market: string;
         rentals: string;
         analysis: string;
         taxes: string;
@@ -671,6 +673,84 @@ export interface Dictionary {
             emptyHint: string;
             loadFailed: string;
             unit: string;
+        };
+        /** The market of `kern/investments` and one instrument on it (ADR 0025 §11). */
+        market: {
+            title: string;
+            description: string;
+            search: string;
+            kind: string;
+            allKinds: string;
+            status: string;
+            kinds: Record<'GOVERNMENT_BOND' | 'MUNICIPAL_BOND' | 'CORPORATE_BOND' | 'SHARE', string>;
+            statuses: Record<'ON_OFFER' | 'ACTIVE' | 'MATURED' | 'DELISTED', string>;
+            columns: { name: string; kind: string; rate: string; maturity: string; price: string };
+            none: string;
+            more: string;
+            failed: string;
+            /** `{price}` in percent of the face value. */
+            ofFace: string;
+        };
+        instrument: {
+            back: string;
+            terms: string;
+            issuer: string;
+            isin: string;
+            symbol: string;
+            code: string;
+            currency: string;
+            faceValue: string;
+            rate: string;
+            issued: string;
+            matures: string;
+            /** `{value}`, `{count}` */
+            subscribed: string;
+            payouts: string;
+            payoutKinds: Record<'COUPON' | 'PRINCIPAL' | 'DIVIDEND', string>;
+            paid: string;
+            announced: string;
+            noPayouts: string;
+            perUnit: string;
+            prices: string;
+            noPrices: string;
+            failed: string;
+        };
+        /** A person's bonds and shares, each purchase on its own. */
+        walletHoldings: {
+            title: string;
+            description: string;
+            add: string;
+            sell: string;
+            none: string;
+            noAccount: string;
+            open: string;
+            sold: string;
+            columns: { instrument: string; bought: string; units: string; cost: string; value: string; result: string };
+            /** `{date}` */
+            pricedOn: string;
+            atFace: string;
+            /** `{amount}` */
+            withheld: string;
+            heldAt: Record<'TREASURY' | 'BANK' | 'BROKER', string>;
+            form: {
+                account: string;
+                instrument: string;
+                instrumentSearch: string;
+                noMatch: string;
+                units: string;
+                pricePerUnit: string;
+                pricePerUnitHint: string;
+                boughtOn: string;
+                soldOn: string;
+                fees: string;
+                heldAt: string;
+                save: string;
+                cancel: string;
+            };
+            added: string;
+            soldDone: string;
+            refusals: Record<string, string>;
+            failed: string;
         };
         walletReports: {
             date: string;

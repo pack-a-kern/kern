@@ -73,6 +73,7 @@ final readonly class Holdings
                 soldOn: $lot->sold_on?->toDateString(),
                 soldPricePerUnit: $lot->sold_price_per_unit,
                 saleFeesMinor: $lot->sale_fees_minor,
+                saleTaxWithheldMinor: $lot->sale_tax_withheld_minor,
                 proceedsMinor: $proceeds,
                 resultMinor: $proceeds === null ? null : $proceeds - $cost,
                 valueMinor: $value,

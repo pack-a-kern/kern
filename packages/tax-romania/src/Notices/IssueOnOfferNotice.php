@@ -70,7 +70,8 @@ final readonly class IssueOnOfferNotice implements NoticeType
                     'currency' => $instrument->currency,
                     'date' => $maturity === false ? $instrument->maturityDate->format('Y-m-d') : $maturity,
                 ], $locale),
-                url: '/wallet/accounts',
+                // The issue on the market: what it pays and until when it can be subscribed.
+                url: "/investments/{$instrument->id}",
                 tag: "issue-{$instrument->id}",
             );
         }
