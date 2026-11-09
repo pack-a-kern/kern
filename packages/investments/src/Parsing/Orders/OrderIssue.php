@@ -14,6 +14,8 @@ use Kern\Investments\Enums\Programme;
 final readonly class OrderIssue
 {
     /**
+     * @param numeric-string $faceValue
+     * @param numeric-string $ratePercent
      * @param non-empty-list<OrderPayout> $payouts every coupon, then the repayment
      */
     public function __construct(

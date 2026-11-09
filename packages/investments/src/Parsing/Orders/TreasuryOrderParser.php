@@ -218,7 +218,11 @@ final class TreasuryOrderParser
         return trim($value[1], " \t.,;");
     }
 
-    /** "7,60% pe an", "6,50%" → "7.60", "6.50". */
+    /**
+     * "7,60% pe an", "6,50%" → "7.60", "6.50".
+     *
+     * @return numeric-string
+     */
     private static function percent(string $text, string $where): string
     {
         if (preg_match('/\A(\d{1,2},\d{1,4})\s*%/', $text, $rate) !== 1) {
@@ -231,7 +235,7 @@ final class TreasuryOrderParser
     /**
      * "100 lei", "1 leu", "100 euro" → the amount and its currency.
      *
-     * @return array{string, string}
+     * @return array{numeric-string, string}
      */
     private static function amount(string $text, string $where): array
     {

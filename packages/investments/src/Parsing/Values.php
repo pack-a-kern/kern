@@ -17,7 +17,11 @@ final class Values
 {
     private const string DECIMAL = '/\A(-?)(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{1,12}))?\z/';
 
-    /** `1.234,5` → `1234.5`; a percent sign after it is dropped. Nothing else is a decimal. */
+    /**
+     * `1.234,5` → `1234.5`; a percent sign after it is dropped. Nothing else is a decimal.
+     *
+     * @return numeric-string
+     */
     public static function decimal(string $text, string $where): string
     {
         if (preg_match(self::DECIMAL, rtrim($text, ' %'), $parts) !== 1) {
@@ -31,7 +35,10 @@ final class Values
             throw ParseFailure::at($where, 'a decimal too large');
         }
 
-        return $parts[1] . $whole . (($parts[3] ?? '') === '' ? '' : '.' . $parts[3]);
+        $decimal = $parts[1] . $whole . (($parts[3] ?? '') === '' ? '' : '.' . $parts[3]);
+
+        // Always true by the pattern above; said so the type carries it.
+        return is_numeric($decimal) ? $decimal : throw ParseFailure::at($where, 'not a decimal');
     }
 
     /** An empty cell is no value; anything else must be a decimal. */

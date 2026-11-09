@@ -71,7 +71,7 @@ through its contracts and DTOs only; `deptrac` enforces it.
 Its own `README.md`, `config/investments.php`, `.env.example`, migrations, routes, `lang/`, and a Pest suite
 that runs on its own, like every other package.
 
-### 2. Five tables: four of the market, one of the holdings
+### 2. Six tables: five of the market, one of the holdings
 
 All public ids are UUIDv7. Timestamps are UTC (`timestampTz`); calendar facts — an issue date, a payment
 date — are `date`. Money is integer minor units. A price, a rate or a number of units is a decimal held as
@@ -125,6 +125,10 @@ has one profile.
 - `issuer_key` (the symbol BVB files the company under), `meetings` (json: date, kind), `shareholders`
   (json: holder, shares, percent), `read_at`, `evidence_id`.
 - Index: unique `issuer_key`. Read only when asked for (§5), never by a schedule.
+
+**`ext_treasury_orders`** — a Ministry of Finance order read for its issues: the legislation document
+(unique; removed with it), the programme, how many issues it held, when it was read. An order with none
+— one amending a prospectus — is recorded all the same, so no order is read twice (added 2026-11-09).
 
 **`investment_lots`** (`kern/tax-romania`) — one row per purchase a person made. Each purchase on its own
 because the tax on a share's gain depends on how long each purchase was held.
@@ -402,7 +406,7 @@ Composed from `resources/js/components/panel` per `docs/UI-PATTERNS.md`:
   read on.
 - The Tezaur and Fidelis history is complete from 2018 and 2020, as far as the portal holds the orders;
   Fidelis is checked against the BVB listing.
-- Five tables. A day's BVB run adds one price row per listed instrument that traded — a few hundred rows a trading day, none on a day the exchange is closed.
+- Six tables. A day's BVB run adds one price row per listed instrument that traded — a few hundred rows a trading day, none on a day the exchange is closed.
 - One more source on the allowlist (`bvb.ro`), with a rate limit of its own; mfinante.gov.ro is now asked
   as a browser.
 - The legislatie.just.ro `User-Agent` setting becomes the browser `User-Agent` setting, on a settings card of

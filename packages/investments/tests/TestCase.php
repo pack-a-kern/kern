@@ -48,18 +48,14 @@ abstract class TestCase extends Testbench
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ]);
+        $app['config']->set('filesystems.disks.sources', ['driver' => 'local', 'root' => $app->storagePath('kern-sources')]);
+        $app['config']->set('sources.storage.disk', 'sources');
+        $app['config']->set('sources.storage.prefix', 'sources');
         $app['config']->set('sources.identify_as', 'browser');
         $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
         $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
-        $app['config']->set('investments.bvb', [
-            'shares_url' => 'https://www.bvb.ro/shares',
-            'bonds_url' => 'https://www.bvb.ro/bonds',
-            'dividends_url' => 'https://www.bvb.ro/dividends',
-            'instrument_url' => 'https://www.bvb.ro/instrument?s={symbol}',
-            'timezone' => 'Europe/Bucharest',
-        ]);
-        $app['config']->set('investments.processing_timeout_seconds', '60');
+        $app['config']->set('investments', require __DIR__ . '/Fixtures/config.php');
         $app['config']->set('services.processing', ['base_url' => 'https://processing.test', 'auth_token' => 'test-token', 'ca_cert' => null]);
 
         $app->instance(KeyManagementService::class, new InMemoryKeyManagementService());
