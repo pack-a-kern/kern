@@ -19,6 +19,8 @@ return new class () extends Migration {
             $table->string('issuer_key', 16)->unique();
             $table->json('meetings');
             $table->json('shareholders');
+            // The day the company reported that structure as of, when its page says.
+            $table->date('shareholders_as_of')->nullable();
             $table->timestampTz('read_at');
             $table->foreignUuid('evidence_id')->constrained('ext_source_document_versions');
             $table->timestampsTz();

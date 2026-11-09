@@ -31,6 +31,7 @@ final readonly class InvestmentsConfig
         public SubscriptionLists $subscriptions,
         public int $writeChunk,
         public string $queue,
+        public ApiLimits $api,
     ) {
     }
 
@@ -74,7 +75,23 @@ final readonly class InvestmentsConfig
             ),
             writeChunk: max(1, min(5000, self::whole($config->get('investments.write_chunk'), 1, 5000, 'INVESTMENTS_WRITE_CHUNK'))),
             queue: self::text($config->get('investments.queue'), '/\A[a-z0-9_-]{1,64}\z/', 'INVESTMENTS_QUEUE'),
+            api: new ApiLimits(
+                pageSize: max(1, self::whole($config->get('investments.api.page_size'), 1, 200, 'INVESTMENTS_API_PAGE_SIZE')),
+                maxSpanDays: self::whole($config->get('investments.api.max_span_days'), 1, 3660, 'INVESTMENTS_API_MAX_SPAN_DAYS'),
+                profileRefreshHours: self::whole($config->get('investments.api.profile_refresh_hours'), 1, 720, 'INVESTMENTS_PROFILE_REFRESH_HOURS'),
+                reads: self::budget($config, 'reads_per_user', 'READS'),
+                refreshes: self::budget($config, 'refreshes_per_user', 'REFRESHES'),
+            ),
         );
+    }
+
+    /** @return array{int, int} attempts, and the seconds they are counted over */
+    private static function budget(ConfigRepository $config, string $key, string $name): array
+    {
+        return [
+            self::whole($config->get("investments.api.{$key}.max_attempts"), 1, 100000, "INVESTMENTS_API_{$name}_MAX_ATTEMPTS"),
+            self::whole($config->get("investments.api.{$key}.decay_seconds"), 1, 86400, "INVESTMENTS_API_{$name}_DECAY_SECONDS"),
+        ];
     }
 
     private static function programme(ConfigRepository $config, Programme $programme): ProgrammeOrders

@@ -65,6 +65,26 @@ return [
     // How many rows an import writes at once.
     'write_chunk' => env('INVESTMENTS_WRITE_CHUNK'),
 
+    /*
+     * The read endpoints (ADR 0025 §7): how many rows a page holds at most, how long a span of prices or
+     * of payouts one answer covers at most, and each caller's budget — reads, and the profile read from
+     * BVB on request, which reaches out and so has a budget of its own. A company's profile asked for
+     * again while younger than its refresh age is the stored one.
+     */
+    'api' => [
+        'page_size' => env('INVESTMENTS_API_PAGE_SIZE'),
+        'max_span_days' => env('INVESTMENTS_API_MAX_SPAN_DAYS'),
+        'reads_per_user' => [
+            'max_attempts' => env('INVESTMENTS_API_READS_MAX_ATTEMPTS'),
+            'decay_seconds' => env('INVESTMENTS_API_READS_DECAY_SECONDS'),
+        ],
+        'refreshes_per_user' => [
+            'max_attempts' => env('INVESTMENTS_API_REFRESHES_MAX_ATTEMPTS'),
+            'decay_seconds' => env('INVESTMENTS_API_REFRESHES_DECAY_SECONDS'),
+        ],
+        'profile_refresh_hours' => env('INVESTMENTS_PROFILE_REFRESH_HOURS'),
+    ],
+
     // The queue an order is read for its issues on, once kern/legislation has read the order.
     'queue' => env('INVESTMENTS_QUEUE'),
 

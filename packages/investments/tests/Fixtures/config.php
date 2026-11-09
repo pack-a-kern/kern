@@ -28,5 +28,12 @@ return [
     ],
     'write_chunk' => '500',
     'queue' => 'default',
+    'api' => [
+        'page_size' => '50',
+        'max_span_days' => '1830',
+        'reads_per_user' => ['max_attempts' => '120', 'decay_seconds' => '60'],
+        'refreshes_per_user' => ['max_attempts' => '10', 'decay_seconds' => '3600'],
+        'profile_refresh_hours' => '24',
+    ],
     'processing_timeout_seconds' => '60',
 ];

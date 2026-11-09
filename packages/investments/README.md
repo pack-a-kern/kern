@@ -124,6 +124,48 @@ FinancialInstrument::query()->create([
 ]);
 ```
 
+## Reading it over HTTP
+
+Read-only JSON under `/api/v1/investments`, behind authentication and a per-person budget
+(`INVESTMENTS_API_READS_*`); the one call that reaches out to BVB has its own (`INVESTMENTS_API_REFRESHES_*`).
+Every answer is shaped for the screen: dates `Y-m-d`, decimals as text, enums by value.
+
+| Call | Answers |
+|---|---|
+| `GET instruments?kind=&programme=&status=&q=&cursor=` | The market, active by default, by name; `q` is a symbol, ISIN or code exactly, or words of a name. Each with its latest price. |
+| `GET instruments/{id}` | The terms, every payout in date order, the latest price. |
+| `GET instruments/{id}/prices?from=&to=` | The price each trading day of a span, at most `INVESTMENTS_API_MAX_SPAN_DAYS`. |
+| `GET payouts/upcoming?kind=` · `GET payouts/recent?kind=` | Coupons, repayments and dividends from today on, or before it. |
+| `GET issuers/{key}` | A company's stored profile — meetings, shareholders — or 404. Never reaches out. |
+| `POST issuers/{key}/refresh` | The profile read from BVB now; the stored one while younger than `INVESTMENTS_PROFILE_REFRESH_HOURS`. |
+
+Lists page by cursor, `INVESTMENTS_API_PAGE_SIZE` rows at most; follow `nextCursor` until it is `null`.
+
+```sh
+curl -b cookies.txt 'https://example.test/api/v1/investments/instruments?kind=SHARE&q=example'
+```
+
+```json
+{
+  "data": [
+    {"id": "0190…", "kind": "SHARE", "isin": "ROEXAMPLE001", "symbol": "EXMPL", "name": "Example S.A.",
+     "currency": "RON", "status": "ACTIVE", "latestPrice": {"price": "11.5000", "tradingDate": "2026-11-09"}}
+  ],
+  "nextCursor": null
+}
+```
+
+## The imports
+
+Two scheduled tasks, each on the Operations screen:
+
+- **`investments.import_government_bonds`** (weekly) — each programme's new orders found on
+  legislatie.just.ro and read as laws; when one is read, its issues are read from it into instruments
+  and payouts (`ext_treasury_orders` remembers which). Then the Ministry's subscription lists.
+- **`investments.import_bvb`** (weekdays, after the close) — shares, bonds, dividends, the day's prices.
+
+Each says in its run history what it wrote and what it skipped.
+
 ## Tests
 
 The package's own suite runs on Postgres in an application with nothing but this package and what it

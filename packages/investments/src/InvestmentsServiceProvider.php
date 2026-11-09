@@ -6,7 +6,10 @@ namespace Kern\Investments;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Kern\Investments\Config\InvestmentsConfig;
 use Kern\Investments\Console\ImportBvbCommand;
@@ -15,6 +18,8 @@ use Kern\Investments\Listeners\ReadIssuesFromANewOrder;
 use Kern\Legislation\Config\OfficialSourceRegistry;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Events\LawConsolidationsRead;
+use Kern\Platform\Routing\ConfiguredRateLimit;
+use Kern\Platform\Routing\PackageRoutes;
 
 /**
  * What is on the market (ADR 0025): the configuration, the sources this package reads, its tables, and
@@ -62,5 +67,16 @@ final class InvestmentsServiceProvider extends ServiceProvider
 
         // A programme's order, once read as a law, is read for its issues.
         Event::listen(LawConsolidationsRead::class, [ReadIssuesFromANewOrder::class, 'handle']);
+
+        // Each person's budgets, from the validated configuration: read at the request, so a value missing
+        // fails there by name rather than as a limit of nought.
+        foreach (['investments-reads-per-user' => 'reads', 'investments-refreshes-per-user' => 'refreshes'] as $name => $budget) {
+            RateLimiter::for($name, fn (Request $request): Limit => new Limit(
+                ConfiguredRateLimit::perUser()($request),
+                ...$this->app->make(InvestmentsConfig::class)->api->{$budget},
+            ));
+        }
+
+        PackageRoutes::load(__DIR__ . '/../routes/api.php');
     }
 }

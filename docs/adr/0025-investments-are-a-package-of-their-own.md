@@ -123,7 +123,8 @@ meetings and the shareholder structure. Per issuer, not per instrument: a compan
 has one profile.
 
 - `issuer_key` (the symbol BVB files the company under), `meetings` (json: date, kind), `shareholders`
-  (json: holder, shares, percent), `read_at`, `evidence_id`.
+  (json: holder, shares, percent), `shareholders_as_of` (the day the company reported it as of, when the
+  page says), `read_at`, `evidence_id`.
 - Index: unique `issuer_key`. Read only when asked for (§5), never by a schedule.
 
 **`ext_treasury_orders`** — a Ministry of Finance order read for its issues: the legislation document

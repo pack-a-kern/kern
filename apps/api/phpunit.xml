@@ -55,6 +55,32 @@
         <env name="SOURCES_CRAWLER_CONTACT" value="" force="true"/>
         <env name="OPERATIONS_CRON_INVESTMENTS_IMPORT_GOVERNMENT_BONDS" value="0 4 * * 0" force="true"/>
         <env name="OPERATIONS_CRON_INVESTMENTS_IMPORT_BVB" value="30 18 * * 1-5" force="true"/>
+        <env name="INVESTMENTS_BVB_SHARES_URL" value="https://www.bvb.ro/FinancialInstruments/Markets/Shares" force="true"/>
+        <env name="INVESTMENTS_BVB_BONDS_URL" value="https://www.bvb.ro/FinancialInstruments/Markets/Bonds" force="true"/>
+        <env name="INVESTMENTS_BVB_DIVIDENDS_URL" value="https://www.bvb.ro/FinancialInstruments/CorporateActions/InfoDividend" force="true"/>
+        <env name="INVESTMENTS_BVB_INSTRUMENT_URL" value="https://www.bvb.ro/FinancialInstruments/Details/FinancialInstrumentsDetails.aspx?s={symbol}" force="true"/>
+        <env name="INVESTMENTS_BVB_TIMEZONE" value="Europe/Bucharest" force="true"/>
+        <env name="INVESTMENTS_ORDERS_ACT_TYPE" value="ORDIN" force="true"/>
+        <env name="INVESTMENTS_ORDERS_OVERLAP_DAYS" value="31" force="true"/>
+        <env name="INVESTMENTS_FIDELIS_SEARCH" value="Programul FIDELIS" force="true"/>
+        <env name="INVESTMENTS_FIDELIS_FIRST_YEAR" value="2020" force="true"/>
+        <env name="INVESTMENTS_FIDELIS_TITLE_PATTERN" value="/Programul FIDELIS/u" force="true"/>
+        <env name="INVESTMENTS_TEZAUR_SEARCH" value="Programului Tezaur" force="true"/>
+        <env name="INVESTMENTS_TEZAUR_FIRST_YEAR" value="2018" force="true"/>
+        <env name="INVESTMENTS_TEZAUR_TITLE_PATTERN" value="/în cadrul Programului Tezaur/u" force="true"/>
+        <env name="INVESTMENTS_SUBSCRIPTIONS_PAGE_URL" value="https://mfinante.gov.ro/ro/web/trezor/subscrieri-realizate-prin-tezaur-%C8%99i-fidelis" force="true"/>
+        <env name="INVESTMENTS_SUBSCRIPTIONS_FIDELIS_FILE" value="/FIDELIS[\w-]*\.xlsx/i" force="true"/>
+        <env name="INVESTMENTS_SUBSCRIPTIONS_TEZAUR_FILE" value="/TEZAUR[\w-]*\.xlsx/i" force="true"/>
+        <env name="INVESTMENTS_WRITE_CHUNK" value="500" force="true"/>
+        <env name="INVESTMENTS_QUEUE" value="default" force="true"/>
+        <env name="INVESTMENTS_API_PAGE_SIZE" value="50" force="true"/>
+        <env name="INVESTMENTS_API_MAX_SPAN_DAYS" value="1830" force="true"/>
+        <env name="INVESTMENTS_API_READS_MAX_ATTEMPTS" value="120" force="true"/>
+        <env name="INVESTMENTS_API_READS_DECAY_SECONDS" value="60" force="true"/>
+        <env name="INVESTMENTS_API_REFRESHES_MAX_ATTEMPTS" value="10" force="true"/>
+        <env name="INVESTMENTS_API_REFRESHES_DECAY_SECONDS" value="3600" force="true"/>
+        <env name="INVESTMENTS_PROFILE_REFRESH_HOURS" value="24" force="true"/>
+        <env name="INVESTMENTS_PROCESSING_TIMEOUT_SECONDS" value="60" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
         <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>
