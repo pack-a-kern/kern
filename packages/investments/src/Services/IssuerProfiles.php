@@ -6,6 +6,9 @@ namespace Kern\Investments\Services;
 
 use Kern\Investments\Config\BvbSource;
 use Kern\Investments\Config\InvestmentsConfig;
+use Kern\Investments\Enums\InstrumentKind;
+use Kern\Investments\Enums\Market;
+use Kern\Investments\Models\FinancialInstrument;
 use Kern\Investments\Models\IssuerProfile;
 use Kern\Investments\Parsing\Bvb\IssuerPageParser;
 use Kern\Investments\Parsing\Bvb\Meeting;
@@ -27,6 +30,9 @@ final readonly class IssuerProfiles
 
     public function refresh(string $key): IssuerProfile
     {
+        // Only a company the market knows: a made-up symbol is not a page to fetch and keep.
+        FinancialInstrument::query()->where('kind', InstrumentKind::SHARE)->where('market', Market::BVB)->where('symbol', $key)->firstOrFail();
+
         $stored = IssuerProfile::query()->where('issuer_key', $key)->first();
 
         if ($stored !== null && $stored->read_at->greaterThan(now()->subHours($this->config->api->profileRefreshHours))) {

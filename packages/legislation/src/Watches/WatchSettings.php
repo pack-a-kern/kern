@@ -17,6 +17,8 @@ final readonly class WatchSettings
     public function __construct(
         public int $lockSeconds,
         public int $overlapDays,
+        public int $maxNewActs,
+        public int $maxPerPerson,
         public array $intervals,
         public array $declared,
     ) {
@@ -38,6 +40,8 @@ final readonly class WatchSettings
         return new self(
             lockSeconds: $whole($config->get('legislation.watches.lock_seconds'), 1, 86400, 'LEGISLATION_WATCHES_LOCK_SECONDS'),
             overlapDays: $whole($config->get('legislation.watches.overlap_days'), 0, 90, 'LEGISLATION_WATCHES_OVERLAP_DAYS'),
+            maxNewActs: $whole($config->get('legislation.watches.max_new_acts'), 1, 1000, 'LEGISLATION_WATCHES_MAX_NEW_ACTS'),
+            maxPerPerson: $whole($config->get('legislation.watches.max_per_person'), 1, 1000, 'LEGISLATION_WATCHES_MAX_PER_PERSON'),
             intervals: $intervals,
             declared: array_map(
                 static fn (mixed $entry, string|int $key): WatchDeclaration => WatchDeclaration::fromConfig((string) $key, is_array($entry) ? $entry : []),

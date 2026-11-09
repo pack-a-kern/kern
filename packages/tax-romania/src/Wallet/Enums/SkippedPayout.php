@@ -10,7 +10,7 @@ namespace Kern\TaxRomania\Wallet\Enums;
  */
 enum SkippedPayout: string
 {
-    /** No approved `RO.INCOME_TAX.DIVIDEND_RATE` on the payment date, so the net cannot be known. */
+    /** No approved `RO.INVESTMENTS.DIVIDEND_RATE` on the payment date, so the net cannot be known. */
     case NO_APPROVED_DIVIDEND_RATE = 'NO_APPROVED_DIVIDEND_RATE';
 
     /** A dividend without its ex-dividend date: who is owed it cannot be told. */
@@ -18,4 +18,7 @@ enum SkippedPayout: string
 
     /** No amount per unit, and no period, rate and face value to compute one from. */
     case NO_AMOUNT = 'NO_AMOUNT';
+
+    /** Crediting one lot failed — its reason reported — and the run went on with the others. */
+    case FAILED = 'FAILED';
 }

@@ -155,6 +155,23 @@ function forgetVerification(): void
  * `session()` returns the manager, whose `driver()` is documented as returning a `Session` but is
  * typed loosely enough that every caller would otherwise narrow it itself.
  */
+/**
+ * An authenticator enrolled for `$user`, so `verify-recent` has a factor to ask for. A test user has no
+ * password and no factor — an account the gate can ask nothing of, and lets through — so a test asserting
+ * the refusal gives it one first. Made-up secret.
+ */
+function withAuthenticator(User $user): User
+{
+    \Kern\Platform\Identity\Models\UserMfaMethod::query()->create([
+        'user_id' => $user->id,
+        'type' => \Kern\Platform\Identity\Enums\MfaMethodType::TOTP,
+        'secret_ciphertext' => 'JBSWY3DPEHPK3PXP',
+        'confirmed_at' => now('UTC'),
+    ]);
+
+    return $user;
+}
+
 function testSessionStore(): \Illuminate\Contracts\Session\Session
 {
     $store = session()->driver();
@@ -446,7 +463,7 @@ function seedRuleParameters(): void
         'RO.CASS.INDEPENDENT_BASE_WAGES' => [FiscalParameterValueType::JSON, ['floor' => 6, 'cap' => 72]],
         // Public debt left out of the CASS ceiling and not taxed, as the law says (art. 170 (5), art. 93 (1) a)).
         'RO.CASS.PUBLIC_DEBT_EXCLUDED' => [FiscalParameterValueType::JSON, ['value' => true]],
-        'RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT' => [FiscalParameterValueType::JSON, ['value' => true]],
+        'RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT' => [FiscalParameterValueType::JSON, ['value' => true]],
     ];
 
     foreach ($values as $code => [$valueType, $valueJson]) {

@@ -64,7 +64,8 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     // Removing a law read in from the portal — one added to try, or the wrong act — is changing what
     // this installation holds, so it belongs to the same people who may start a reading. A law any
     // fiscal value rests on is refused rather than cascaded: see `DeleteLaw`.
-    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware('permission:operations.run');
+    // Removes the text figures are traced to, past undoing: asked again for the password or code.
+    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware(['permission:operations.run', 'verify-recent']);
 });
 
 // Searches of the portal kept and run again on their own clock, each new act read as a law: the
@@ -72,7 +73,9 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
 // people's who may start a reading.
 Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:operations.run', 'throttle:operator-calls-per-user'])->group(function (): void {
     Route::get('/', ListLawWatchesController::class);
-    Route::post('/', CreateLawWatchController::class);
-    Route::patch('{watch}', UpdateLawWatchController::class)->whereUuid('watch');
-    Route::delete('{watch}', DeleteLawWatchController::class)->whereUuid('watch');
+    // Each change sets what the server fetches from the portal, on a clock, or stops it: asked again for the
+    // password or code (`verify-recent`), so a session alone cannot.
+    Route::post('/', CreateLawWatchController::class)->middleware('verify-recent');
+    Route::patch('{watch}', UpdateLawWatchController::class)->whereUuid('watch')->middleware('verify-recent');
+    Route::delete('{watch}', DeleteLawWatchController::class)->whereUuid('watch')->middleware('verify-recent');
 });

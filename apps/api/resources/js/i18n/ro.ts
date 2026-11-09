@@ -949,6 +949,12 @@ export const ro = {
                     'Cotele de impozit pe câștigul din titluri nu sunt încă aprobate. Aprobă-le în Taxe → Reguli, apoi vinde.',
                 INSTRUMENT_NOT_OFFERED: 'Instrumentul nu mai e pe piață.',
                 NOT_AN_INVESTMENTS_ACCOUNT: 'Contul nu e pentru obligațiuni și acțiuni.',
+                AMOUNT_TOO_LARGE:
+                    'Suma e mai mare decât poate fi o deținere. Verifică unitățile, prețul și comisioanele.',
+                FEES_EXCEED_PROCEEDS: 'Comisioanele sunt mai mari decât s-au vândut unitățile.',
+                REFERENCE_IN_USE: 'Referința brokerului aparține deja altei dețineri.',
+                SOLD_BEFORE_A_CREDITED_PAYMENT:
+                    'Unitățile au primit o plată după acea dată, deci erau încă deținute. Verifică data.',
             },
             failed: 'Deținerile nu au putut fi încărcate.',
         },
@@ -1679,6 +1685,7 @@ export const ro = {
                 watchHint: 'Fiecare act nou găsit de această căutare va fi citit ca lege, singur.',
                 watchNeedsType: 'Alege un tip pentru a urmări această căutare.',
                 watched: 'Urmărită — fiecare act nou găsit va fi citit ca lege.',
+                tooMany: 'Ai deja câte căutări urmărite sunt permise. Elimină una ca să păstrezi alta.',
                 cancel: 'Renunță',
             },
             add: {
@@ -2397,12 +2404,11 @@ export const ro = {
                 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA': 'Cotă de cheltuieli — chirii',
                 'RO.INCOME_TAX.PENSION_TAX_FREE': 'Pensie neimpozabilă',
                 'RO.INCOME_TAX.FILING_DEADLINE': 'Termenul declarației unice',
-                'RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT': 'Datorie publică — neimpozabilă',
-                'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG': 'Cotă — câștig din titluri de valoare, deținere lungă',
-                'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT': 'Cotă — câștig din titluri de valoare, deținere scurtă',
-                'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS': 'Perioada de deținere — titluri de valoare',
-                'RO.INCOME_TAX.DIVIDEND_RATE': 'Cotă — dividende',
-                'RO.INCOME_TAX.INTEREST_RATE': 'Cotă — dobânzi',
+                'RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT': 'Obligațiuni scutite',
+                'RO.INVESTMENTS.SECURITIES_GAIN_RATE_LONG': 'Câștig, lung',
+                'RO.INVESTMENTS.SECURITIES_GAIN_RATE_SHORT': 'Câștig, scurt',
+                'RO.INVESTMENTS.SECURITIES_HOLDING_DAYS': 'Perioadă deținere',
+                'RO.INVESTMENTS.DIVIDEND_RATE': 'Dividende',
                 'RO.CAS.RATE': 'Cotă',
                 'RO.CAS.BASE_MIN_WAGES': 'Praguri ale bazei — activități independente și drepturi de autor',
                 'RO.CASS.RATE': 'Cotă',
@@ -2449,6 +2455,7 @@ export const ro = {
                 'RO.INCOME_TAX': 'Impozit pe venit',
                 'RO.CAS': 'CAS — contribuția de pensie',
                 'RO.CASS': 'CASS — contribuția de sănătate',
+                'RO.INVESTMENTS': 'Investiții — obligațiuni, acțiuni, dividende',
             },
             rulesCount: '{count} reguli',
             legend: 'Un punct marchează o valoare care te așteaptă. O liniuță înseamnă că legea acelui an a fost citită și nu o spune; o celulă goală, că anul nu a fost citit niciodată.',
@@ -2672,6 +2679,23 @@ export const ro = {
                         'Șterge din listă dispozitivele a căror sesiune a expirat. Nimic nu le închide de la sine, așa că rămâneau afișate ca active.',
                     'fx.backfill_year':
                         'Fiecare an de la cel pe care îl dai până în prezent, din arhivele anuale BNR — o acțiune de recuperare.',
+                    'legislation.sync':
+                        'Verifică fiecare lege deja citită pe legislatie.just.ro și citește consolidările ei noi.',
+                    'legislation.reindex':
+                        'Reface secțiunile și indexul de căutare ale fiecărei legi stocate, din textele deja descărcate. Nu descarcă nimic.',
+                    'audit.verify_chains':
+                        'Recalculează fiecare lanț de audit și raportează primul ale cărui înregistrări nu mai corespund — semn că ceva a fost modificat.',
+                    'access.sync': 'Creează rolurile și permisiunile declarate în configurație care lipsesc.',
+                    'deposit.post_interest':
+                        'Creditează depozitele la termen cu dobânda câștigată și le închide pe cele ajunse la scadență.',
+                    'banks.import':
+                        'Actualizează lista băncilor din lista instituțiilor BCE, cu codurile BIC din GLEIF.',
+                    'banks.backfill':
+                        'Adaugă băncile închise sau fuzionate înainte de primul import, din listele arhivate ale BCE — o acțiune de recuperare.',
+                    'counterparties.classify':
+                        'Pune la coadă contrapărțile neetichetate, pentru ca modelul AI să sugereze ce este fiecare.',
+                    'spv.close_expired_sessions':
+                        'Marchează închise conectările SPV a căror sesiune de browser a expirat.',
                 },
                 details: 'Istoric',
                 detailsTitle: 'Istoricul rulărilor',

@@ -124,6 +124,11 @@ function post(string $asOf): \Kern\TaxRomania\Wallet\DataTransferObjects\PostedH
     return app(PostHoldingPayouts::class)(CarbonImmutable::parse($asOf));
 }
 
+// A sale asks again for the password or code (`verify-recent`); these tests are past that.
+beforeEach(function (): void {
+    verifySession();
+});
+
 it('credits a dividend to the units held the day before its ex-date and not sold before it, net of the approved rate', function (): void {
     dividendRate('APPROVED');
     $account = investmentsAccount(TaxSubject::factory()->create());
@@ -240,4 +245,22 @@ it('keeps what a lot was paid with its units when part of it is sold, and pays n
             $sold => ['gross' => 2_800, 'withheld' => null, 'net' => 2_800],
         ])
         ->and(DB::table('investment_lot_payouts')->distinct()->count('transaction_id'))->toBe(1);
+});
+
+it('credits every other lot when one cannot be, and says how many could not', function (): void {
+    dividendRate('APPROVED');
+    $share = instrument();
+    payout($share, PayoutKind::DIVIDEND, '2026-06-25', ['ex_date' => '2026-06-10', 'amount_per_unit' => '1']);
+    $fine = lot(investmentsAccount(TaxSubject::factory()->create()), $share, '100', '2026-03-01');
+    // Units no purchase has — written past the form, which refuses them: their dividend is past what an
+    // integer holds, and crediting them fails.
+    $broken = lot(investmentsAccount(TaxSubject::factory()->create()), $share, '100', '2026-03-01');
+    InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereKey($broken->id)->update(['units' => '999999999999999999999']);
+
+    $run = post('2026-06-26');
+
+    expect($run->posted)->toBe(1)
+        ->and($run->skipped['FAILED'] ?? 0)->toBe(1)
+        ->and(credited())->toHaveKey($fine->id)
+        ->and(credited())->not->toHaveKey($broken->id);
 });

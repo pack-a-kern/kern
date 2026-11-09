@@ -42,6 +42,8 @@ use Tests\TestCase;
  */
 beforeEach(function (): void {
     Artisan::call('migrate', ['--force' => true]);
+    // Deleting a law asks again for the password or code (`verify-recent`); these tests are past that.
+    verifySession();
     Storage::fake('s3');
 
     config([
@@ -641,4 +643,12 @@ it('keeps a law’s whole title, however long the Official Gazette prints it', f
 
     expect(mb_strlen($title))->toBeGreaterThan(255)
         ->and(SourceDocument::query()->findOrFail($law->id)->title)->toBe($title);
+});
+
+it('asks again for the password or code before a law is deleted', function (): void {
+    $operator = withAuthenticator(settingsAdminUser());
+    forgetVerification();
+
+    $this->actingAs($operator)->deleteJson('/api/v1/legislation/laws/' . \Illuminate\Support\Str::uuid7())->assertForbidden()
+        ->assertJsonPath('reason', fn (string $reason): bool => in_array($reason, ['VERIFICATION_REQUIRED', 'PASSWORD_CONFIRMATION_REQUIRED'], true));
 });

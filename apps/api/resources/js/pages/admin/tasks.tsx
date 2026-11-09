@@ -282,7 +282,7 @@ function AdminOperationsBody(): JSX.Element {
                                     <CellLabel icon={<CalendarClock className="size-3.5" aria-hidden="true" />}>
                                         {t((d) => d.pages.adminOperations.tasks.columns.schedule)}
                                     </CellLabel>
-                                    {task.schedulable ? (
+                                    {hasTiming(task) ? (
                                         /* One element, not two: a stacked row lays a labelled cell out
                                            as a flex row, so loose siblings here become columns beside
                                            the label rather than lines under each other.
@@ -336,7 +336,7 @@ function AdminOperationsBody(): JSX.Element {
                                     </CellLabel>
                                     {task.running ? (
                                         <Status tone="warn">{t((d) => d.pages.adminOperations.tasks.running)}</Status>
-                                    ) : task.schedulable && !task.enabled ? (
+                                    ) : hasTiming(task) && !task.enabled ? (
                                         <Status tone="idle">{t((d) => d.pages.adminOperations.tasks.paused)}</Status>
                                     ) : (
                                         <Pill tone={task.readOnly ? 'neutral' : 'accent'}>
@@ -348,7 +348,7 @@ function AdminOperationsBody(): JSX.Element {
                                 </td>
                                 <td className="col-actions col-actions-split">
                                     <div className="flex items-center justify-end gap-2">
-                                        {task.schedulable ? (
+                                        {hasTiming(task) ? (
                                             <Switch
                                                 aria-label={t((d) => d.pages.adminOperations.tasks.enabled)}
                                                 checked={task.enabled}
@@ -748,6 +748,15 @@ function runTone(status: string): StatusTone {
  * by *doing* something — retrying a job, running a task — and one is a read-only chain of evidence.
  * They are in the navigation now, where a person can see all three without opening any.
  */
+/**
+ * A task on a clock: declared scheduled in code *and* given a time. One whose time is missing or empty in
+ * the environment runs only when started by hand — shown as such, with no switch to turn a clock it has not
+ * got on or off.
+ */
+function hasTiming(task: OperationTaskView): boolean {
+    return task.schedulable && task.cronExpression !== null;
+}
+
 export default function AdminTasks(): JSX.Element {
     const { t } = useTranslation();
 

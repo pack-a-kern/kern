@@ -200,8 +200,9 @@ Nothing about a tax in code: every value is a fiscal parameter read from the sto
 2. `ParameterAnswer` gains `yes_no` and `days`, with their checks and tests. *Done 2026-11-09.*
 3. The six parameters of §10 in `config/fiscal_parameters.php`, each with its question in the law's words.
    Run the reading; the candidates and their quoted sentences go in the handoff note for approval.
-   *Done 2026-11-09, with a seventh the research called for — `RO.INCOME_TAX.INTEREST_RATE` (art. 97 (2)),
-   a corporate bond's coupon. The reading is not run yet: it is the lead's, against the configured model.*
+   *Done 2026-11-09. A seventh, `RO.INVESTMENTS.INTEREST_RATE` (art. 97 (2), a company bond's coupon), was
+   added and then taken out the same day: nothing credits a company bond's coupon yet, so nothing read it.
+   It comes back with that. The reading is not run yet: it is the lead's, against the configured model.*
 4. The categories `PUBLIC_DEBT_INCOME`, `SECURITIES_GAIN`, `DIVIDENDS` in
    `config/reference/tax_categories.php`.
 5. The rules: public debt untaxed only while its exemption is approved; the share gain at the long or short

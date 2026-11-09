@@ -58,21 +58,24 @@ final readonly class RunLawWatches
                 continue;
             }
 
+            // What failed is said in a few words a screen can show; the exception itself goes to the log, where
+            // its addresses and internals belong.
             try {
-                $result = $this->run($watch, $settings);
+                [$result, $finished] = $this->run($watch, $settings);
             } catch (Throwable $exception) {
-                $result = "FAILED: {$exception->getMessage()}";
+                report($exception);
+                [$result, $finished] = ['FAILED: the portal search did not finish', false];
             } finally {
                 $lock->release();
             }
 
-            // A run that failed, all or in part, is tried again at the next hourly run, and is not the clean
-            // run `last_run_at` records — so a first run that failed still searches every year next time.
+            // A run that did not finish — failed, all or in part, or left acts for later — is tried again at the
+            // next hourly run, and is not the clean run `last_run_at` records: a first run that did not finish
+            // still searches every year next time.
             $now = now();
-            $failed = str_contains($result, 'FAILED');
             $watch->forceFill([
-                'last_run_at' => $failed ? $watch->last_run_at : $now,
-                'next_run_at' => $now->copy()->addHours($failed ? 1 : $watch->every_hours),
+                'last_run_at' => $finished ? $now : $watch->last_run_at,
+                'next_run_at' => $now->copy()->addHours($finished ? $watch->every_hours : 1),
                 'last_result' => mb_substr($result, 0, 500),
             ])->save();
             $lines[] = ($watch->key ?? $watch->id) . ": {$result}";
@@ -101,7 +104,8 @@ final readonly class RunLawWatches
         });
     }
 
-    private function run(LawWatch $watch, WatchSettings $settings): string
+    /** @return array{string, bool} what the run did, and whether it read everything it found */
+    private function run(LawWatch $watch, WatchSettings $settings): array
     {
         $today = Carbon::today();
         $years = $watch->last_run_at === null
@@ -109,7 +113,8 @@ final readonly class RunLawWatches
             : ($today->dayOfYear <= $settings->overlapDays ? [$today->year - 1, $today->year] : [$today->year]);
         $found = 0;
         $started = 0;
-        $failed = [];
+        $failed = 0;
+        $waiting = 0;
 
         foreach ($years as $year) {
             $acts = array_filter($this->search->all(PortalQuery::byTitle($watch->search_words, $year, $watch->act_type)), static fn (PortalAct $act): bool => $watch->keeps($act->title));
@@ -120,17 +125,28 @@ final readonly class RunLawWatches
                     continue;
                 }
 
+                // A search too broad reads no more than its share a run; the rest wait for the next.
+                if ($started + $failed >= $settings->maxNewActs) {
+                    $waiting++;
+
+                    continue;
+                }
+
                 // One act that will not start is that act's failure, not the watch's.
                 try {
                     ($this->sync)($watch->act_type, (int) $act->number, $act->year() ?? $year, null, $act->portalId());
                     $started++;
                 } catch (Throwable $exception) {
-                    $failed[] = "{$act->number}/{$year} ({$exception->getMessage()})";
+                    report($exception);
+                    $failed++;
                 }
             }
         }
 
-        return sprintf('%d acts found in %s, %d new read as laws', $found, implode(', ', $years), $started)
-            . ($failed === [] ? '' : '; FAILED to start ' . implode('; ', $failed));
+        $line = sprintf('%d acts found in %s, %d new read as laws', $found, implode(', ', $years), $started)
+            . ($waiting === 0 ? '' : "; {$waiting} left for the next run")
+            . ($failed === 0 ? '' : "; FAILED to start {$failed}");
+
+        return [$line, $waiting === 0 && $failed === 0];
     }
 }

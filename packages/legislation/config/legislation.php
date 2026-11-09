@@ -118,6 +118,10 @@ return [
         'overlap_days' => env('LEGISLATION_WATCHES_OVERLAP_DAYS'),
         // The intervals, in hours, a person may choose for a watch of their own.
         'intervals' => env('LEGISLATION_WATCHES_INTERVALS'),
+        // The most new acts one watch starts reading in one run — the rest wait for its next run — and the
+        // most watches one person may keep: a search too broad must not read the whole portal at once.
+        'max_new_acts' => env('LEGISLATION_WATCHES_MAX_NEW_ACTS'),
+        'max_per_person' => env('LEGISLATION_WATCHES_MAX_PER_PERSON'),
         'declared' => [],
     ],
 

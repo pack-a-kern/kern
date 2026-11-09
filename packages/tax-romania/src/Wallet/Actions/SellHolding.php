@@ -56,11 +56,11 @@ final readonly class SellHolding
     ) {
     }
 
-    public const string LONG_RATE = 'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG';
+    public const string LONG_RATE = 'RO.INVESTMENTS.SECURITIES_GAIN_RATE_LONG';
 
-    public const string SHORT_RATE = 'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT';
+    public const string SHORT_RATE = 'RO.INVESTMENTS.SECURITIES_GAIN_RATE_SHORT';
 
-    public const string HOLDING_DAYS = 'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS';
+    public const string HOLDING_DAYS = 'RO.INVESTMENTS.SECURITIES_HOLDING_DAYS';
 
     /** @return list<InvestmentLot> the rows closed by the sale, oldest purchase first */
     public function __invoke(SellHoldingInput $input): array
@@ -99,6 +99,16 @@ final readonly class SellHolding
                 throw HoldingRefusedException::because(HoldingRefusal::NOT_ENOUGH_UNITS);
             }
 
+            if (! LotAmounts::withinCeiling($input->units, $input->pricePerUnit) || $input->feesMinor > LotAmounts::ceiling()) {
+                throw HoldingRefusedException::because(HoldingRefusal::AMOUNT_TOO_LARGE);
+            }
+
+            $gross = LotAmounts::minor($input->units, $input->pricePerUnit);
+
+            if ($input->feesMinor > $gross) {
+                throw HoldingRefusedException::because(HoldingRefusal::FEES_EXCEED_PROCEEDS);
+            }
+
             $left = $input->units;
             $feesLeft = $input->feesMinor;
             $closed = [];
@@ -106,6 +116,11 @@ final readonly class SellHolding
             foreach ($open as $lot) {
                 if (bccomp($left, '0', 6) <= 0) {
                     break;
+                }
+
+                // Units credited a payment after the day they are said to be sold were held then: the date is wrong.
+                if (InvestmentLotPayout::query()->where('lot_id', $lot->id)->whereDate('paid_on', '>', $input->soldOn)->exists()) {
+                    throw HoldingRefusedException::because(HoldingRefusal::SOLD_BEFORE_A_CREDITED_PAYMENT);
                 }
 
                 $take = bccomp($lot->units, $left, 6) <= 0 ? $lot->units : self::plain($left);
@@ -116,7 +131,7 @@ final readonly class SellHolding
                 $closed[] = $this->close($lot, $take, $input, $fees);
             }
 
-            $proceeds = LotAmounts::minor($input->units, $input->pricePerUnit) - $input->feesMinor;
+            $proceeds = $gross - $input->feesMinor;
             $cost = LotAmounts::share($heldCost, $input->units, $held);
             $gain = $proceeds - $cost;
             $withheld = $gain > 0 && ! HoldingIncome::isPublicDebt($instrument->kind) ? $this->withhold($closed, $gain, $input) : 0;

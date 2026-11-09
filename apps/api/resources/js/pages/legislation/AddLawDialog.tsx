@@ -129,7 +129,11 @@ export default function AddLawDialog({
             toast.success(watchWords.watched);
             onWatched();
         } catch (cause) {
-            toast.error(describeApiFailure(cause, t));
+            toast.error(
+                cause instanceof ApiError && cause.reason === 'TOO_MANY_WATCHES'
+                    ? watchWords.tooMany
+                    : describeApiFailure(cause, t),
+            );
         }
     };
 

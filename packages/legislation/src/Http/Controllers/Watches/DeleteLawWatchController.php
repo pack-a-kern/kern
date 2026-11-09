@@ -12,8 +12,9 @@ use Kern\Audit\Services\AuditChainService;
 use Kern\Legislation\Models\LawWatch;
 
 /**
- * `DELETE /api/v1/legislation/watches/{id}` — a person's watch, removed; the laws it found stay. A package's
- * watch is refused: it is that package's, and comes back at the next run — pause it instead.
+ * `DELETE /api/v1/legislation/watches/{id}` — a person's watch, removed by that person; the laws it found
+ * stay. A package's watch is refused: it is that package's, and comes back at the next run — pause it
+ * instead.
  */
 final class DeleteLawWatchController
 {
@@ -25,8 +26,12 @@ final class DeleteLawWatchController
             return response()->json(['reason' => 'WATCH_IS_DECLARED', 'message' => "This watch is {$found->declared_by}'s; pause it instead."], 409);
         }
 
-        $found->delete();
         $actor = $request->user()?->getAuthIdentifier();
+
+        // A person's watch is that person's to remove.
+        abort_if($found->created_by === null || $found->created_by !== (is_scalar($actor) ? (string) $actor : null), 403);
+
+        $found->delete();
 
         $audit->record(AuditEventInput::occurringNow(
             subjectId: null,

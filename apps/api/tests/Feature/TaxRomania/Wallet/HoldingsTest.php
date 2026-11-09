@@ -9,8 +9,12 @@ use Illuminate\Testing\TestResponse;
 use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
 use Kern\Investments\Enums\Market;
+use Kern\Investments\Enums\PayoutKind;
+use Kern\Investments\Enums\PayoutSource;
+use Kern\Investments\Enums\PayoutStatus;
 use Kern\Investments\Enums\Programme;
 use Kern\Investments\Models\FinancialInstrument;
+use Kern\Investments\Models\InstrumentPayout;
 use Kern\Investments\Models\InstrumentPrice;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
 use Kern\Legislation\Models\SourceSection;
@@ -23,6 +27,7 @@ use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
+use Kern\TaxRomania\Wallet\Models\InvestmentLotPayout;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
@@ -177,6 +182,11 @@ function soldIds(TestResponse $sale): array
     return array_values(array_filter(is_array($ids) ? $ids : [], is_string(...)));
 }
 
+// A sale asks again for the password or code (`verify-recent`); these tests are past that.
+beforeEach(function (): void {
+    verifySession();
+});
+
 it('adds a lot with its instrument’s terms, and refuses an instrument no longer on the market', function (): void {
     [$user, $subject] = owner();
     $account = account($this, $user, $subject);
@@ -259,9 +269,9 @@ it('never shows, adds to or sells another taxpayer’s holding', function (): vo
 function approvedSecuritiesRates(): void
 {
     foreach ([
-        'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG' => [FiscalParameterValueType::DECIMAL, ['value' => '0.03']],
-        'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT' => [FiscalParameterValueType::DECIMAL, ['value' => '0.06']],
-        'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS' => [FiscalParameterValueType::JSON, ['days' => 365]],
+        'RO.INVESTMENTS.SECURITIES_GAIN_RATE_LONG' => [FiscalParameterValueType::DECIMAL, ['value' => '0.03']],
+        'RO.INVESTMENTS.SECURITIES_GAIN_RATE_SHORT' => [FiscalParameterValueType::DECIMAL, ['value' => '0.06']],
+        'RO.INVESTMENTS.SECURITIES_HOLDING_DAYS' => [FiscalParameterValueType::JSON, ['days' => 365]],
     ] as $code => [$type, $value]) {
         insertApprovedFiscalParameterVersion(
             FiscalParameter::factory()->create(['code' => $code, 'value_type' => $type->value])->id,
@@ -432,4 +442,69 @@ it('values each kind as its source prices it, and a bond not priced at its face 
         ->and($value('tezaur'))->toBe([100_000, 'FACE_VALUE'])              // never listed: 1.000 × 1 leu
         ->and($value('corporate'))->toBe([49_000, 'MARKET_PRICE'])          // 5 × 100 lei × 98 %
         ->and($value('municipal'))->toBe([null, null]);                     // not priced, and not the state's
+});
+
+it('refuses a purchase or a sale past the largest a holding can be, and fees larger than a sale', function (): void {
+    approvedSecuritiesRates();
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $share = instrument();
+
+    buy($this, $user, $subject, $account, $share, ['units' => '999999999999', 'price_per_unit' => '999999999999'])
+        ->assertUnprocessable()->assertJsonPath('reason', 'AMOUNT_TOO_LARGE');
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+
+    $sell = fn (array $sale) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '100', 'sold_on' => '2026-06-01', 'fees_minor' => 0, ...$sale,
+    ]);
+
+    $sell(['fees_minor' => 100_001])->assertUnprocessable()->assertJsonPath('reason', 'FEES_EXCEED_PROCEEDS');
+    $sell(['fees_minor' => PHP_INT_MAX])->assertUnprocessable()->assertJsonPath('reason', 'AMOUNT_TOO_LARGE');
+    expect(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->exists())->toBeFalse();
+});
+
+it('refuses a broker reference that is another holding’s', function (): void {
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $other = account($this, $user, $subject);
+    $share = instrument();
+    $reference = ['external_ref' => 'EXAMPLE-REF-1'];
+
+    $first = lotId(buy($this, $user, $subject, $account, $share, $reference)->assertCreated());
+
+    expect(lotId(buy($this, $user, $subject, $account, $share, $reference)->assertCreated()))->toBe($first);
+    buy($this, $user, $subject, $other, $share, $reference)->assertUnprocessable()->assertJsonPath('reason', 'REFERENCE_IN_USE');
+});
+
+it('refuses a sale dated before a payment the units were already credited', function (): void {
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $bond = fidelis();
+    $lot = lotId(buy($this, $user, $subject, $account, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']));
+    $coupon = InstrumentPayout::query()->create([
+        'instrument_id' => $bond->id, 'kind' => PayoutKind::COUPON, 'payment_date' => '2026-05-10', 'amount_per_unit' => '7', 'rate' => '7.00',
+        'status' => PayoutStatus::PAID, 'source' => PayoutSource::ORDER,
+    ]);
+    InvestmentLotPayout::query()->withoutGlobalScope(TenantScope::class)->create([
+        'tax_subject_id' => $subject->id, 'lot_id' => $lot, 'payout_id' => $coupon->id, 'kind' => PayoutKind::COUPON,
+        'paid_on' => '2026-05-10', 'currency' => 'RON', 'gross_minor' => 7_000, 'net_minor' => 7_000,
+    ]);
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $bond->id, 'units' => '10', 'price_per_unit' => '101', 'sold_on' => '2026-05-01', 'fees_minor' => 0,
+    ])->assertUnprocessable()->assertJsonPath('reason', 'SOLD_BEFORE_A_CREDITED_PAYMENT');
+});
+
+it('asks again for the password or code before a sale', function (): void {
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $share = instrument();
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10'])->assertCreated();
+    withAuthenticator($user);
+    forgetVerification();
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '100', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
+    ])->assertForbidden();
+    expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sold_on')->exists())->toBeFalse();
 });

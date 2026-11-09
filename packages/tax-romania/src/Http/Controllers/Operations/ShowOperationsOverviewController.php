@@ -40,6 +40,10 @@ final class ShowOperationsOverviewController
         ProbeSchedulerStatus $scheduler,
     ): JsonResponse {
         $latest = $runs->latestPerTask();
+        $listed = array_values(array_filter($registry->all(), static fn (ScheduledTaskDefinition $definition): bool => $definition->task->isListed()));
+        // The tasks on a clock — scheduled in code and given a time, the ones with a switch — first; each
+        // part keeps the order the code lists them in (`usort` is stable).
+        usort($listed, static fn (ScheduledTaskDefinition $a, ScheduledTaskDefinition $b): int => self::onAClock($b) <=> self::onAClock($a));
 
         return response()->json([
             'scheduler' => $scheduler()->toArray(),
@@ -49,9 +53,14 @@ final class ShowOperationsOverviewController
                     $latest[$definition->task->value] ?? null,
                     $runs->isRunning($definition->task),
                 ),
-                array_values(array_filter($registry->all(), static fn (ScheduledTaskDefinition $definition): bool => $definition->task->isListed())),
+                $listed,
             ),
         ]);
+    }
+
+    private static function onAClock(ScheduledTaskDefinition $definition): bool
+    {
+        return $definition->task->isScheduled() && $definition->cronExpression !== null;
     }
 
     /**

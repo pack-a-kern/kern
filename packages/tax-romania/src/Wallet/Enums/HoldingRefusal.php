@@ -20,4 +20,16 @@ enum HoldingRefusal: string
 
     /** A gain on a share or a company bond, and no approved rate or holding period to say what was withheld. */
     case NO_APPROVED_SECURITIES_RATE = 'NO_APPROVED_SECURITIES_RATE';
+
+    /** A purchase, a sale or its fees past `wallet.holdings.max_amount_minor`. */
+    case AMOUNT_TOO_LARGE = 'AMOUNT_TOO_LARGE';
+
+    /** Sale fees larger than what the units sold for: a sale that pays to give its units away is a mistake. */
+    case FEES_EXCEED_PROCEEDS = 'FEES_EXCEED_PROCEEDS';
+
+    /** The broker's reference is another holding's — in another account, or of another instrument. */
+    case REFERENCE_IN_USE = 'REFERENCE_IN_USE';
+
+    /** Sold on a day before a payment the units were already credited: the units held it, so they were held then. */
+    case SOLD_BEFORE_A_CREDITED_PAYMENT = 'SOLD_BEFORE_A_CREDITED_PAYMENT';
 }

@@ -65,6 +65,17 @@ it('shows the values to those who may view them, and decisions to those who may 
         ->assertForbidden();
 });
 
+it('shows the rates of bonds and shares as a tax of their own, read from income tax’s part of the law', function (): void {
+    /** @var list<array{code: string, tax: string}> $rows */
+    $rows = $this->actingAs(person('ACCOUNTANT'))->getJson('/api/v1/fiscal-parameters')->assertOk()->json('parameters');
+    $parameters = array_column($rows, 'tax', 'code');
+
+    expect($parameters['RO.INVESTMENTS.DIVIDEND_RATE'])->toBe('RO.INVESTMENTS')
+        ->and($parameters['RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT'])->toBe('RO.INVESTMENTS')
+        ->and($parameters['RO.INCOME_TAX.RATE'])->toBe('RO.INCOME_TAX')
+        ->and($parameters)->not->toHaveKey('RO.INVESTMENTS.INTEREST_RATE');
+});
+
 it('approves a value on a paragraph found to say it, in the name of the person, and audits it', function (): void {
     $version = proposed();
     $admin = person('SUPER_ADMIN');

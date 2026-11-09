@@ -1487,6 +1487,7 @@ export interface Dictionary {
                 watchHint: string;
                 watchNeedsType: string;
                 watched: string;
+                tooMany: string;
                 cancel: string;
             };
             /** Finding an act on legislatie.just.ro and reading it. */

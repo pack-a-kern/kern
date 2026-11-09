@@ -43,4 +43,11 @@ return [
         ],
     ],
 
+    // Bonds and shares held (ADR 0025 §9). The largest a purchase, a sale or its fees may be, in minor
+    // units: past it a figure is no holding anybody has, and arithmetic on it would leave what a column
+    // can hold. No default (ADR 0025 §4): the value is in .env.example, and a missing one fails by name.
+    'holdings' => [
+        'max_amount_minor' => env('WALLET_HOLDINGS_MAX_AMOUNT_MINOR'),
+    ],
+
 ];

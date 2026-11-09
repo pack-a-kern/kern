@@ -157,7 +157,21 @@ it('answers a stored profile without reaching out, and 404 for one never read', 
     Http::assertNothingSent();
 });
 
+/** A share the market knows, under the symbol the fixture page is of. Made-up names. */
+function knownShare(): void
+{
+    FinancialInstrument::query()->create(['kind' => InstrumentKind::SHARE, 'isin' => 'RO4Q0Z5RO1B6', 'symbol' => 'H2O', 'name' => 'Example energy S.A.', 'issuer_name' => 'Example energy S.A.', 'currency' => 'RON', 'market' => Market::BVB, 'status' => InstrumentStatus::ACTIVE]);
+}
+
+it('refreshes only a company the market knows, and fetches nothing for any other', function (): void {
+    Http::fake();
+
+    $this->actingAs($this->user)->postJson('/api/v1/investments/issuers/MADEUP/refresh')->assertNotFound();
+    Http::assertNothingSent();
+});
+
 it('reads a profile from BVB when asked, and answers the stored one while it is young', function (): void {
+    knownShare();
     $page = (string) file_get_contents(base_path('../../packages/investments/tests/Fixtures/bvb/instrument-share.html'));
     Http::fake(['https://www.bvb.ro/*' => Http::response($page)]);
 
@@ -172,6 +186,7 @@ it('reads a profile from BVB when asked, and answers the stored one while it is 
 });
 
 it('refuses a refresh past the person’s budget', function (): void {
+    knownShare();
     Http::fake(['https://www.bvb.ro/*' => Http::response((string) file_get_contents(base_path('../../packages/investments/tests/Fixtures/bvb/instrument-share.html')))]);
 
     foreach (range(1, app(\Kern\Investments\Config\InvestmentsConfig::class)->api->refreshes[0]) as $ignored) {

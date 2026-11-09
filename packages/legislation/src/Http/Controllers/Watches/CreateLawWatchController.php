@@ -32,11 +32,17 @@ final class CreateLawWatchController
             'every_hours' => ['required', 'integer', Rule::in($settings->intervals)],
         ]);
         $actor = $request->user()?->getAuthIdentifier();
+        $actor = is_scalar($actor) ? (string) $actor : null;
+
+        // A few searches a person keeps, not a crawl of the portal.
+        if (LawWatch::query()->where('created_by', $actor)->count() >= $settings->maxPerPerson) {
+            return response()->json(['reason' => 'TOO_MANY_WATCHES', 'message' => "A person keeps {$settings->maxPerPerson} watches at most."], 422);
+        }
 
         $watch = LawWatch::query()->create([
             ...$asked,
             'search_words' => trim((string) $asked['search_words']),
-            'created_by' => is_scalar($actor) ? (string) $actor : null,
+            'created_by' => $actor,
             'enabled' => true,
             'next_run_at' => now(),
         ]);

@@ -26,6 +26,7 @@ function declared(): LawWatch
 
 beforeEach(function (): void {
     $this->operator = settingsAdminUser();
+    verifySession();
 });
 
 it('is for those who may start a reading, and no one else', function (): void {
@@ -91,4 +92,38 @@ it('deletes a person’s watch, recorded, and refuses a package’s', function (
 
     expect(LawWatch::query()->pluck('id')->all())->toBe([$package->id])
         ->and(DB::table('audit_events')->where('event_type', 'LawWatchDeleted')->count())->toBe(1);
+});
+
+it('leaves a person’s watch to that person, and records every pause or change', function (): void {
+    $package = declared();
+    $theirs = keep($this, $this->operator);
+    $colleague = settingsAdminUser();
+
+    $this->actingAs($colleague)->patchJson("/api/v1/legislation/watches/{$theirs}", ['enabled' => false])->assertForbidden();
+    $this->actingAs($colleague)->deleteJson("/api/v1/legislation/watches/{$theirs}")->assertForbidden();
+    $this->actingAs($colleague)->patchJson("/api/v1/legislation/watches/{$package->id}", ['enabled' => false])->assertOk();
+
+    expect(LawWatch::query()->whereKey($theirs)->value('enabled'))->toBeTruthy()
+        ->and(DB::table('audit_events')->where('event_type', 'LawWatchChanged')->where('resource_id', $package->id)->count())->toBe(1);
+});
+
+it('keeps no more watches for a person than allowed', function (): void {
+    config()->set('legislation.watches.max_per_person', '1');
+    keep($this, $this->operator);
+
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'altul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])
+        ->assertUnprocessable()->assertJsonPath('reason', 'TOO_MANY_WATCHES');
+});
+
+it('asks again for the password or code before a watch is kept, changed or removed', function (): void {
+    $package = declared();
+    withAuthenticator($this->operator);
+    forgetVerification();
+
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->assertForbidden();
+    $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['enabled' => false])->assertForbidden();
+    $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$package->id}")->assertForbidden();
+    $this->actingAs($this->operator)->getJson('/api/v1/legislation/watches')->assertOk();
+
+    expect(LawWatch::query()->count())->toBe(1)->and($package->fresh()?->enabled)->toBeTruthy();
 });

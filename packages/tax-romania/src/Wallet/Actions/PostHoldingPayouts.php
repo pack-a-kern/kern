@@ -27,6 +27,7 @@ use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
 use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
 use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
+use Throwable;
 
 /**
  * Credits every lot what its instrument has paid it — coupons, dividends, the repayment at maturity — as
@@ -48,7 +49,7 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  * no coupon here: BVB publishes its rate, not its payment dates, and a coupon is never guessed.
  *
  * A dividend is credited **net** of the tax the company withholds, and the withheld part is recorded
- * beside it. The rate is never written here: it is `RO.INCOME_TAX.DIVIDEND_RATE`, read from the Fiscal
+ * beside it. The rate is never written here: it is `RO.INVESTMENTS.DIVIDEND_RATE`, read from the Fiscal
  * Code and counted only once a person approved it. Without an approved value on the payment date the
  * dividend is not credited — the run reports it, and the next run, once one is approved, credits it.
  *
@@ -59,7 +60,7 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  */
 final readonly class PostHoldingPayouts
 {
-    public const string DIVIDEND_RATE = 'RO.INCOME_TAX.DIVIDEND_RATE';
+    public const string DIVIDEND_RATE = 'RO.INVESTMENTS.DIVIDEND_RATE';
 
     public function __construct(
         private MarketData $market,
@@ -133,9 +134,15 @@ final readonly class PostHoldingPayouts
                     continue;
                 }
 
+                // Each lot on its own: one that cannot be credited — whatever the reason — is reported and
+                // counted, and every other taxpayer's payment is still made tonight.
                 foreach ($owed as $lot) {
-                    $this->credit($lot, $instrument, $payout, $perUnit, $rate);
-                    $posted++;
+                    try {
+                        $posted += $this->credit($lot, $instrument, $payout, $perUnit, $rate) ? 1 : 0;
+                    } catch (Throwable $exception) {
+                        report($exception);
+                        $skipped[SkippedPayout::FAILED->value] = ($skipped[SkippedPayout::FAILED->value] ?? 0) + 1;
+                    }
                 }
             }
         }
@@ -143,8 +150,14 @@ final readonly class PostHoldingPayouts
         return new PostedHoldingPayouts($posted, $skipped);
     }
 
-    /** @param numeric-string $perUnit */
-    private function credit(InvestmentLot $lot, InstrumentTerms $instrument, PayoutTerms $payout, string $perUnit, ?ResolvedFiscalParameter $rate): void
+    /**
+     * One lot credited one payout — or not, when the lot changed since it was read: a sale splitting or
+     * closing it meanwhile. It is re-read under a lock, the one a sale takes, so the two never act on the same
+     * units at once; changed, it is left to the next run, which reads it as it is then.
+     *
+     * @param numeric-string $perUnit
+     */
+    private function credit(InvestmentLot $lot, InstrumentTerms $instrument, PayoutTerms $payout, string $perUnit, ?ResolvedFiscalParameter $rate): bool
     {
         $gross = LotAmounts::minor($lot->units, $perUnit);
         $withheld = null;
@@ -158,7 +171,17 @@ final readonly class PostHoldingPayouts
         $net = $gross - ($withheld ?? 0);
         $fx = $lot->currency === CurrencyCode::BASE ? null : $this->fx->tryAnnotate($lot->currency, $payout->paymentDate, $gross);
 
-        $row = DB::transaction(function () use ($lot, $instrument, $payout, $gross, $withheld, $net, $rate, $fx): InvestmentLotPayout {
+        $row = DB::transaction(function () use ($lot, $instrument, $payout, $gross, $withheld, $net, $rate, $fx): ?InvestmentLotPayout {
+            $held = InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->lockForUpdate()->find($lot->id);
+            $unchanged = $held !== null
+                && bccomp($held->units, $lot->units, 6) === 0
+                && $held->sold_on?->toDateString() === $lot->sold_on?->toDateString()
+                && ! InvestmentLotPayout::query()->withoutGlobalScope(TenantScope::class)->where('lot_id', $lot->id)->where('payout_id', $payout->id)->exists();
+
+            if (! $unchanged) {
+                return null;
+            }
+
             $transaction = $net === 0 ? null : $this->movements->write(
                 subjectId: $lot->tax_subject_id,
                 accountId: $lot->financial_account_id,
@@ -194,6 +217,10 @@ final readonly class PostHoldingPayouts
             ]);
         });
 
+        if ($row === null) {
+            return false;
+        }
+
         $this->audit->record(
             subjectId: $lot->tax_subject_id,
             actorId: null,
@@ -209,6 +236,8 @@ final readonly class PostHoldingPayouts
                 'currency' => $lot->currency,
             ],
         );
+
+        return true;
     }
 
     /**

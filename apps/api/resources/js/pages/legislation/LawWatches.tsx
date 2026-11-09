@@ -15,7 +15,7 @@ import type { LawWatch } from '../../types/legislation';
 /**
  * The searches of the portal kept and run again, each new act they find read as a law: the packages'
  * — paused here at most, since their interval is their configuration's — and those a person kept, which
- * they may also run more or less often, or stop watching. `reload` is bumped when "Add a law" keeps one.
+ * that person alone may also run more or less often, or stop watching. `reload` is bumped when "Add a law" keeps one.
  */
 export default function LawWatches({ reload }: { reload: number }): JSX.Element {
     const { t, locale } = useTranslation();
@@ -83,7 +83,7 @@ export default function LawWatches({ reload }: { reload: number }): JSX.Element 
                                 </Pill>
                             }
                         >
-                            {watch.declaredBy === null ? (
+                            {watch.mine ? (
                                 <PanelSelect
                                     aria-label={words.interval}
                                     value={String(watch.everyHours)}
@@ -99,7 +99,7 @@ export default function LawWatches({ reload }: { reload: number }): JSX.Element 
                                 checked={watch.enabled}
                                 onCheckedChange={(enabled) => void change(watch, { enabled })}
                             />
-                            {watch.declaredBy === null ? (
+                            {watch.mine ? (
                                 <PanelButton
                                     onClick={() => {
                                         setRemoving(watch);

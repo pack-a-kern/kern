@@ -123,7 +123,18 @@ return [
                         'answer' => 'day_month',
                     ],
                 ],
+            ],
+        ],
 
+        /*
+         * Bonds, shares and dividends: income tax, read from its part of the law (Titlul IV Capitolul V),
+         * kept apart so the Fiscal parameters screen shows them as a table of their own.
+         */
+        'RO.INVESTMENTS' => [
+            'subject' => 'PERSON',
+            'law' => ['within' => ['Titlul IV Capitolul V']],
+
+            'rules' => [
                 // Investment income, all of it read in Capitolul V. Public debt — Fidelis, Tezaur,
                 // municipal bonds — is art. 93 alin. (1) lit. a), the state's and the unități
                 // administrativ-teritoriale's alike. The answer is a yes, because the law states an
@@ -172,18 +183,6 @@ return [
                     'law' => [
                         'within' => ['Titlul IV Capitolul V'],
                         'question' => 'Ce cotă se aplică veniturilor sub formă de dividende, impozitul fiind final?',
-                        'answer' => 'percent',
-                    ],
-                ],
-
-                // A corporate bond's coupon, withheld by its payer: art. 97 alin. (2) names
-                // "instrumentele de economisire", and art. 97^1 alin. (1) treats the bonds of
-                // Romanian companies issued abroad as the exception to it (ADR 0025 §10).
-                'INTEREST_RATE' => [
-                    'type' => 'DECIMAL',
-                    'law' => [
-                        'within' => ['Titlul IV Capitolul V'],
-                        'question' => 'Ce cotă se aplică veniturilor sub formă de dobânzi pentru depozitele la termen constituite, instrumentele de economisire dobândite, contractele civile încheiate?',
                         'answer' => 'percent',
                     ],
                 ],

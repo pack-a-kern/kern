@@ -861,8 +861,8 @@ it('reads an exemption as a yes or a no, from the paragraph it names', function 
     app(StartFiscalYear::class)(2023);
 
     // Stored as the boolean it is, not as a number a screen would read as minimum wages.
-    expect(candidatesOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT'))->toBe([
-        ['RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT', '2023-01-01', '2023-12-31', ['value' => $said], 'Art. 93 alin. (1) lit. a)'],
+    expect(candidatesOf('RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT'))->toBe([
+        ['RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT', '2023-01-01', '2023-12-31', ['value' => $said], 'Art. 93 alin. (1) lit. a)'],
     ]);
 })->with(['yes' => true, 'no' => false]);
 
@@ -873,8 +873,8 @@ it('refuses a yes or a no given as anything but a boolean, or from a paragraph t
 
     // The only answer given is refused, so the year proposes nothing at all.
     expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
-        ->and(candidatesOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT'))->toBe([])
-        ->and(outcomeOf('RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT', 2023))->toBe('NOT_IN_LAW');
+        ->and(candidatesOf('RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT'))->toBe([])
+        ->and(outcomeOf('RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT', 2023))->toBe('NOT_IN_LAW');
 })->with([
     'a number' => [['value' => 1, 'citation' => 'Art. 93 alin. (1) lit. a)']],
     'a word' => [['value' => 'da', 'citation' => 'Art. 93 alin. (1) lit. a)']],
@@ -888,8 +888,8 @@ it('reads a holding period as its number of days, from the paragraph that states
 
     app(StartFiscalYear::class)(2023);
 
-    expect(candidatesOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS'))->toBe([
-        ['RO.INCOME_TAX.SECURITIES_HOLDING_DAYS', '2023-01-01', '2023-12-31', ['days' => 365], 'Art. 97 alin. (8^1) lit. a) pct. (i)'],
+    expect(candidatesOf('RO.INVESTMENTS.SECURITIES_HOLDING_DAYS'))->toBe([
+        ['RO.INVESTMENTS.SECURITIES_HOLDING_DAYS', '2023-01-01', '2023-12-31', ['days' => 365], 'Art. 97 alin. (8^1) lit. a) pct. (i)'],
     ]);
 });
 
@@ -900,6 +900,6 @@ it('refuses a holding period its paragraph does not state', function (): void {
     readers(['în zile de la data dobândirii' => ['value' => 730, 'citation' => 'Art. 97 alin. (8^1) lit. a) pct. (i)']]);
 
     expect(fn () => app(StartFiscalYear::class)(2023))->toThrow(FiscalParameterDecisionException::class)
-        ->and(candidatesOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS'))->toBe([])
-        ->and(outcomeOf('RO.INCOME_TAX.SECURITIES_HOLDING_DAYS', 2023))->toBe('NOT_IN_LAW');
+        ->and(candidatesOf('RO.INVESTMENTS.SECURITIES_HOLDING_DAYS'))->toBe([])
+        ->and(outcomeOf('RO.INVESTMENTS.SECURITIES_HOLDING_DAYS', 2023))->toBe('NOT_IN_LAW');
 });

@@ -18,12 +18,13 @@ use RuntimeException;
  * The portal's SOAP service, listing one made-up order for 2026 to a search for "exemplul", and the
  * order's own page. `$failing` makes every search answer HTTP 500, as the service does at random.
  */
-function portal(bool $failing = false): void
+function portal(bool $failing = false, int $acts = 1): void
 {
-    $act = '<a:Legi><a:DataVigoare>2026-10-01</a:DataVigoare><a:Emitent>Ministerul Exemplului</a:Emitent>'
-        . '<a:LinkHtml>http://legislatie.just.ro/Public/DetaliiDocument/900001</a:LinkHtml><a:Numar>77</a:Numar>'
+    $one = static fn (int $n): string => '<a:Legi><a:DataVigoare>2026-10-01</a:DataVigoare><a:Emitent>Ministerul Exemplului</a:Emitent>'
+        . '<a:LinkHtml>http://legislatie.just.ro/Public/DetaliiDocument/' . (900000 + $n) . '</a:LinkHtml><a:Numar>' . (76 + $n) . '</a:Numar>'
         . '<a:Publicatie>Monitorul Oficial</a:Publicatie><a:Text>…</a:Text><a:TipAct>Ordin</a:TipAct>'
-        . '<a:Titlu>ORDIN nr. 77 din 30 septembrie 2026 privind exemplul de ordin urmărit</a:Titlu></a:Legi>';
+        . '<a:Titlu>ORDIN nr. ' . (76 + $n) . ' din 30 septembrie 2026 privind exemplul de ordin urmărit</a:Titlu></a:Legi>';
+    $act = implode('', array_map($one, range(1, $acts)));
     $envelope = static fn (string $inner): string => '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' . $inner . '</s:Body></s:Envelope>';
 
     Http::fake(static function (Request $request) use ($act, $envelope, $failing) {
@@ -143,3 +144,24 @@ it('fails by name when its own settings are missing', function (): void {
 
     expect(fn () => WatchSettings::read(config()))->toThrow(RuntimeException::class, 'LEGISLATION_WATCHES_INTERVALS');
 });
+
+it('starts no more new acts a run than allowed, and reads the rest at the next run within the hour', function (): void {
+    config(['legislation.watches.max_new_acts' => '1']);
+    portal(acts: 2);
+
+    $lines = run(declaration());
+    $watch = LawWatch::query()->where('key', 'example.orders')->firstOrFail();
+
+    expect($lines[0])->toContain('1 new read as laws; 1 left for the next run')
+        ->and($watch->last_run_at)->toBeNull()
+        ->and($watch->next_run_at->toDateTimeString())->toBe('2026-11-09 04:05:00');
+});
+
+it('fails by name when a watch cap is missing', function (string $key, string $variable): void {
+    config(["legislation.watches.{$key}" => null]);
+
+    expect(fn () => WatchSettings::read(config()))->toThrow(RuntimeException::class, $variable);
+})->with([
+    ['max_new_acts', 'LEGISLATION_WATCHES_MAX_NEW_ACTS'],
+    ['max_per_person', 'LEGISLATION_WATCHES_MAX_PER_PERSON'],
+]);

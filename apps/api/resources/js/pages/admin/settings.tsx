@@ -94,6 +94,9 @@ const DOCUMENTS_GROUP = 'documents';
 const BANKS_GROUP = 'banks';
 const SOURCES_GROUP = 'sources';
 
+/** Settings whose value is a long line — a browser's User-Agent — given the card's full width; the rest pair up. */
+const WIDE_SETTINGS = new Set(['sources.browser_user_agent']);
+
 /**
  * The mark on each card's head.
  *
@@ -534,16 +537,20 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
                 point; pulling them into a separate list made them look like a different kind of
                 thing. The `locked` marker and the foot legend carry the "cannot change" meaning. */}
             <FieldGrid>
-                {group.settings.map((setting) => (
-                    <SettingField
-                        key={setting.key}
-                        setting={setting}
-                        draft={props.drafts[setting.key]}
-                        onDraft={(value) => {
-                            props.onDraft(setting.key, value);
-                        }}
-                    />
-                ))}
+                {group.settings.map((setting) => {
+                    const field = (
+                        <SettingField
+                            key={setting.key}
+                            setting={setting}
+                            draft={props.drafts[setting.key]}
+                            onDraft={(value) => {
+                                props.onDraft(setting.key, value);
+                            }}
+                        />
+                    );
+
+                    return WIDE_SETTINGS.has(setting.key) ? <FieldSpan key={setting.key}>{field}</FieldSpan> : field;
+                })}
             </FieldGrid>
         </Panel>
     );

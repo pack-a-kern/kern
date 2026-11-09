@@ -73,9 +73,17 @@ it('reports every listed task, whether scheduled or manual only', function (): v
     // Reading a law is started from the legislation page, never from here.
     expect(array_column($tasks, 'key'))->not->toContain(OperationTask::LEGISLATION_INGEST->value);
 
-    // Asserted by index rather than by search, which also pins the order to `OperationTask::cases()`
-    // — the screen lists tasks in enum order, and a silent reordering would move a switch under an
-    // operator's cursor.
+    // The tasks on a clock — scheduled and given a time, the ones with a switch — first, then the rest; each
+    // part in enum order. Pinned exactly: a silent reordering would move a switch under an operator's cursor.
+    $onAClock = static fn (array $task): bool => $task['schedulable'] === true && $task['cron_expression'] !== null;
+    $inEnumOrder = static fn (array $part): array => array_values(array_intersect(array_map(static fn (OperationTask $task): string => $task->value, $listed), array_column($part, 'key')));
+    $clocked = array_values(array_filter($tasks, $onAClock));
+    $rest = array_values(array_filter($tasks, static fn (array $task): bool => ! $onAClock($task)));
+
+    expect(array_column($tasks, 'key'))->toBe([...$inEnumOrder($clocked), ...$inEnumOrder($rest)])
+        ->and($clocked)->not->toBeEmpty()
+        ->and($rest)->not->toBeEmpty();
+
     $response->assertJsonCount(count($listed), 'tasks')
         ->assertJsonPath('tasks.0.key', OperationTask::FX_IMPORT_DAILY->value)
         ->assertJsonPath('tasks.0.schedulable', true)
@@ -87,7 +95,7 @@ it('reports every listed task, whether scheduled or manual only', function (): v
         ])
         ->assertJsonPath('tasks.0.key', OperationTask::FX_IMPORT_DAILY->value);
 
-    $manualIndex = array_search(OperationTask::LEGISLATION_REINDEX, $listed, true);
+    $manualIndex = array_search(OperationTask::LEGISLATION_REINDEX->value, array_column($tasks, 'key'), true);
 
     $response->assertJsonPath("tasks.{$manualIndex}.key", OperationTask::LEGISLATION_REINDEX->value)
         ->assertJsonPath("tasks.{$manualIndex}.schedulable", false)
@@ -226,11 +234,12 @@ it("lists one task's runs, newest first, and embeds the latest on the overview",
     $history->assertJsonPath('runs.0.task_key', $task->value)
         ->assertJsonPath('runs.0.duration_seconds', 4);
 
-    // Located by position among the listed `OperationTask::cases()` rather than a hard-coded index: adding a task
-    // to the enum shifts every one after it, and a literal here would fail for that alone.
-    $index = array_search($task, array_values(array_filter(OperationTask::cases(), static fn (OperationTask $listed): bool => $listed->isListed())), true);
+    // Located by its key in the answer rather than a hard-coded index: adding a task shifts every one after it,
+    // and a literal here would fail for that alone.
+    $overview = $this->actingAs($actor)->getJson('/api/v1/operations')->assertOk();
+    $index = array_search($task->value, array_column((array) $overview->json('tasks'), 'key'), true);
 
-    $this->actingAs($actor)->getJson('/api/v1/operations')->assertOk()
+    $overview
         ->assertJsonPath("tasks.{$index}.key", $task->value)
         ->assertJsonPath("tasks.{$index}.last_run.status", TaskRunStatus::SUCCEEDED->value);
 });

@@ -960,6 +960,12 @@ export const en = {
                     'The tax rates on a securities gain are not approved yet. Approve them under Taxes → Rules, then sell.',
                 INSTRUMENT_NOT_OFFERED: 'That instrument is no longer on the market.',
                 NOT_AN_INVESTMENTS_ACCOUNT: 'That account is not for bonds and shares.',
+                AMOUNT_TOO_LARGE:
+                    'That amount is larger than a holding can be. Check the units, the price and the fees.',
+                FEES_EXCEED_PROCEEDS: 'The fees are larger than what the units sold for.',
+                REFERENCE_IN_USE: 'That broker reference already belongs to another holding.',
+                SOLD_BEFORE_A_CREDITED_PAYMENT:
+                    'These units were credited a payment after that date, so they were still held then. Check the date.',
             },
             failed: 'The holdings could not be loaded.',
         },
@@ -1681,6 +1687,7 @@ export const en = {
                 watchHint: 'Every new act this search finds will be read as a law, on its own.',
                 watchNeedsType: 'Choose a type to watch this search.',
                 watched: 'Watched — each new act it finds will be read as a law.',
+                tooMany: 'You keep as many watched searches as allowed. Remove one to keep another.',
                 cancel: 'Cancel',
             },
             add: {
@@ -2391,12 +2398,11 @@ export const en = {
                 'RO.INCOME_TAX.RENT_EXPENSE_QUOTA': 'Expense quota — rent',
                 'RO.INCOME_TAX.PENSION_TAX_FREE': 'Pension free of tax',
                 'RO.INCOME_TAX.FILING_DEADLINE': 'Tax return deadline',
-                'RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT': 'Public debt — not taxed',
-                'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG': 'Rate — securities gain, long holding',
-                'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT': 'Rate — securities gain, short holding',
-                'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS': 'Holding period — securities',
-                'RO.INCOME_TAX.DIVIDEND_RATE': 'Rate — dividends',
-                'RO.INCOME_TAX.INTEREST_RATE': 'Rate — interest',
+                'RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT': 'Bonds tax-free',
+                'RO.INVESTMENTS.SECURITIES_GAIN_RATE_LONG': 'Gain, long',
+                'RO.INVESTMENTS.SECURITIES_GAIN_RATE_SHORT': 'Gain, short',
+                'RO.INVESTMENTS.SECURITIES_HOLDING_DAYS': 'Holding period',
+                'RO.INVESTMENTS.DIVIDEND_RATE': 'Dividends',
                 'RO.CAS.RATE': 'Rate',
                 'RO.CAS.BASE_MIN_WAGES': 'Base thresholds — independent activities and IP',
                 'RO.CASS.RATE': 'Rate',
@@ -2442,6 +2448,7 @@ export const en = {
                 'RO.INCOME_TAX': 'Income tax',
                 'RO.CAS': 'CAS — pension contribution',
                 'RO.CASS': 'CASS — health contribution',
+                'RO.INVESTMENTS': 'Investments — bonds, shares, dividends',
             },
             rulesCount: '{count} rules',
             legend: 'A dot marks a value waiting for you. A dash means the law of that year was read and does not state it; an empty cell, that the year was never read.',
@@ -2664,6 +2671,22 @@ export const en = {
                         'Drops the devices whose session has expired. Nothing closes those on its own, so they kept being listed as signed in.',
                     'fx.backfill_year':
                         'Every year from the one you give to the present, out of the BNR yearly archives — a recovery action.',
+                    'legislation.sync':
+                        'Checks every law already read on legislatie.just.ro and reads its new consolidations.',
+                    'legislation.reindex':
+                        'Rebuilds the sections and the search index of every stored law from the texts already downloaded. Nothing is fetched.',
+                    'audit.verify_chains':
+                        'Recomputes every audit chain and reports the first whose records no longer add up — a sign something was changed.',
+                    'access.sync': 'Creates any role or permission the configuration declares that is missing.',
+                    'deposit.post_interest':
+                        'Credits term deposits the interest they earned, and closes the ones that matured.',
+                    'banks.import':
+                        'Refreshes the bank list from the ECB’s list of institutions, with BIC codes from GLEIF.',
+                    'banks.backfill':
+                        'Adds the banks that closed or merged before the first import, from the ECB’s archived lists — a recovery action.',
+                    'counterparties.classify':
+                        'Queues the counterparties nobody has labelled, for the AI model to suggest what each is.',
+                    'spv.close_expired_sessions': 'Marks SPV sign-ins closed once their browser session has expired.',
                 },
                 details: 'History',
                 detailsTitle: 'Run history',

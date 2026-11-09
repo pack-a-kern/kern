@@ -59,6 +59,8 @@
         <env name="LEGISLATION_WATCHES_LOCK_SECONDS" value="900" force="true"/>
         <env name="LEGISLATION_WATCHES_OVERLAP_DAYS" value="31" force="true"/>
         <env name="LEGISLATION_WATCHES_INTERVALS" value="24,168,720" force="true"/>
+        <env name="LEGISLATION_WATCHES_MAX_NEW_ACTS" value="50" force="true"/>
+        <env name="LEGISLATION_WATCHES_MAX_PER_PERSON" value="20" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_SEARCH" value="salariului de bază minim brut" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_ACT_TYPE" value="HOTARARE" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_TITLE_PATTERN" value="/stabilirea salariului de baz[aă] minim brut pe [tţț]ar[aă] garantat [iî]n plat[aă]/iu" force="true"/>
@@ -91,6 +93,7 @@
         <env name="INVESTMENTS_API_REFRESHES_DECAY_SECONDS" value="3600" force="true"/>
         <env name="INVESTMENTS_PROFILE_REFRESH_HOURS" value="24" force="true"/>
         <env name="INVESTMENTS_PROCESSING_TIMEOUT_SECONDS" value="60" force="true"/>
+        <env name="WALLET_HOLDINGS_MAX_AMOUNT_MINOR" value="100000000000000" force="true"/>
         <env name="OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS" value="30 0 * * *" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>

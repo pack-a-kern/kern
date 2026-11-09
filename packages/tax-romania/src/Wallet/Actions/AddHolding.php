@@ -15,6 +15,7 @@ use Kern\TaxRomania\Wallet\Enums\WalletAuditEvent;
 use Kern\TaxRomania\Wallet\Exceptions\HoldingRefusedException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
+use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
 /**
@@ -59,8 +60,16 @@ final readonly class AddHolding
             ->where('external_ref_blind_index', $index)
             ->first();
 
+        // The same position adopted again is the lot it already is; the reference on another account or
+        // instrument is someone's mistake, and refused rather than answered with the wrong lot.
         if ($existing !== null) {
-            return $existing;
+            return $existing->financial_account_id === $account->id && $existing->instrument_id === $instrument->id
+                ? $existing
+                : throw HoldingRefusedException::because(HoldingRefusal::REFERENCE_IN_USE);
+        }
+
+        if (! LotAmounts::withinCeiling($input->units, $input->pricePerUnit, $input->feesMinor)) {
+            throw HoldingRefusedException::because(HoldingRefusal::AMOUNT_TOO_LARGE);
         }
 
         $lot = InvestmentLot::query()->create([

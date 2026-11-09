@@ -113,13 +113,15 @@ Tezaur orders.
 
 Kept from the "Add a law" dialog — **Watch this search** — for the words and act type searched, every
 year from the one given, at one of the intervals `LEGISLATION_WATCHES_INTERVALS` offers. It keeps every
-act its search finds. Theirs to change or delete; it goes with their account.
+act its search finds, at most `LEGISLATION_WATCHES_MAX_NEW_ACTS` new ones a run — the rest at the next
+run, within the hour. A person keeps `LEGISLATION_WATCHES_MAX_PER_PERSON` watches at most. Theirs alone to
+change or delete (anyone else gets 403); it goes with their account.
 
 | Call (`/api/v1/legislation/watches`, `operations.run`) | Does |
 |---|---|
 | `GET /` | Every watch, the packages' first, and the intervals a person may choose |
-| `POST /` `{search_words, act_type, first_year, every_hours}` | Keeps a search — audited |
-| `PATCH /{id}` `{enabled?, every_hours?}` | Pauses or resumes; a person's own also runs more or less often |
+| `POST /` `{search_words, act_type, first_year, every_hours}` | Keeps a search — audited; past the cap, `TOO_MANY_WATCHES` |
+| `PATCH /{id}` `{enabled?, every_hours?}` | Pauses or resumes — audited; a person's own, by that person, also runs more or less often |
 | `DELETE /{id}` | Removes a person's watch — audited; a package's is refused (`WATCH_IS_DECLARED`) |
 
 ## What it is not

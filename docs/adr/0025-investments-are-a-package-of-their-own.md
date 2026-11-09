@@ -364,7 +364,7 @@ every other kind (ADR 0022). The import raises the event; `kern/tax-romania` sen
 - **Who is owed a payout**: the units bought before its date and not sold before it — the ex-dividend date
   for a dividend; the record date for a coupon, or the period's last day for Tezaur, which has none; the
   payment date for the repayment. The movements are written by a daily task of their own,
-  `holdings.post_payouts`; a dividend with no approved `RO.INCOME_TAX.DIVIDEND_RATE` on its payment date is
+  `holdings.post_payouts`; a dividend with no approved `RO.INVESTMENTS.DIVIDEND_RATE` on its payment date is
   reported by the run and credited by a later one.
 - **A partial sale splits what was already credited too**: a coupon or a dividend paid to the lot before the
   sale is shared by units between the closed row and the open one, so neither is owed it again.
@@ -385,17 +385,16 @@ once a person approves it — as the income tax rate and the CASS bands are toda
 where the answers were found on 2026-11-09 (Law 227/2015, in force from 2026-08-08); they guide the
 questions and the tests, and are never a value.
 
-**The parameters added**, each with its question and the shape of its answer:
+**The parameters added**, in a group of their own, `RO.INVESTMENTS` — income tax, read from its part of the law (Titlul IV Capitolul V), and shown as their own table on the Fiscal parameters screen — each with its question and the shape of its answer:
 
 | Parameter | Asks | Answer | Found in |
 |---|---|---|---|
-| `RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT` | Is income from holding and transferring instruments of the public debt of the state and of the administrative-territorial units non-taxable? | `yes_no` | art. 93 (1) a) |
+| `RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT` | Is income from holding and transferring instruments of the public debt of the state and of the administrative-territorial units non-taxable? | `yes_no` | art. 93 (1) a) |
 | `RO.CASS.PUBLIC_DEBT_EXCLUDED` | Is that non-taxable income left out of the CASS base? | `yes_no` | art. 170 (5) |
-| `RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG` | The rate on a gain from securities sold through a Romanian intermediary, held at least the holding period | `percent` | art. 97 (8^1) a) |
-| `RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT` | The same, held less | `percent` | art. 97 (8^1) a) |
-| `RO.INCOME_TAX.SECURITIES_HOLDING_DAYS` | The holding period that separates the two | `days` | art. 97 (8^1) a) |
-| `RO.INCOME_TAX.DIVIDEND_RATE` | The rate withheld on dividends | `percent` | art. 97 (7) |
-| `RO.INCOME_TAX.INTEREST_RATE` | The rate withheld on interest from term deposits, savings instruments and civil contracts — a corporate bond's coupon (below) | `percent` | art. 97 (2) |
+| `RO.INVESTMENTS.SECURITIES_GAIN_RATE_LONG` | The rate on a gain from securities sold through a Romanian intermediary, held at least the holding period | `percent` | art. 97 (8^1) a) |
+| `RO.INVESTMENTS.SECURITIES_GAIN_RATE_SHORT` | The same, held less | `percent` | art. 97 (8^1) a) |
+| `RO.INVESTMENTS.SECURITIES_HOLDING_DAYS` | The holding period that separates the two | `days` | art. 97 (8^1) a) |
+| `RO.INVESTMENTS.DIVIDEND_RATE` | The rate withheld on dividends | `percent` | art. 97 (7) |
 
 **Two answer shapes are added to `ParameterAnswer`**: `yes_no` — `{"value": true|false, "citation": …}` —
 and `days` — a whole number of days. Both are checked like every other: the paragraph named must be one of
@@ -447,8 +446,9 @@ income would raise the person's CASS.
   art. 97^1 (1), which carves corporate bonds out of it: "Prin excepție de la prevederile art. 97 alin. (2)
   , în cazul obligațiunilor emise de societăți, persoane juridice rezidente în România, pe piețe de capital
   din afara României, veniturile sub formă de dobânzi plătite de societatea emitentă și înregistrate în
-  contul contribuabilului în cursul anului fiscal se impun cu o cotă de 10% din suma acestora." That rate is
-  `RO.INCOME_TAX.INTEREST_RATE`, a parameter added for it.
+  contul contribuabilului în cursul anului fiscal se impun cu o cotă de 10% din suma acestora." That rate
+  would be `RO.INVESTMENTS.INTEREST_RATE` — not defined while nothing credits a company bond's coupon (the
+  nightly run credits government bonds' only); it is added with that.
 - **The exception is declared, not withheld.** Art. 97^1 (2): "Impozitul pe veniturile sub formă de
   dobânzi se calculează de contribuabili pe baza declarației unice privind impozitul pe venit și
   contribuțiile sociale datorate de persoanele fizice, depusă potrivit prevederilor art. 122 ." — a
@@ -479,7 +479,7 @@ income would raise the person's CASS.
 
 - Whether a corporate bond is one of the "instrumentele de economisire" of art. 97 (2): the Code does not
   define the term; the reading above rests on art. 97^1 (1) calling itself an exception to that paragraph.
-  A person confirms it when approving `INTEREST_RATE` for bonds, or the implementing norms are read.
+  A person confirms it when `INTEREST_RATE` is added and approved for bonds, or the implementing norms are read.
 - Whether a bond is an instrument "calificat astfel" (art. 7 pct. 41) is for the capital-market law
   ("legislația în materie"), not the Code — and that law is not among the stored texts.
 - Which instruments "atestă datoria publică … a unităților administrativ-teritoriale" is for the law on

@@ -32,6 +32,9 @@ beforeEach(function (): void {
     if (DB::connection()->getDriverName() !== 'pgsql') {
         $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
     }
+
+    // Deleting an account asks again for the password or code (`verify-recent`); these tests are past that.
+    verifySession();
 });
 /**
  * A term deposit from opening to closing, and what it writes on the accounts around it.

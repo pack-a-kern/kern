@@ -20,7 +20,7 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  *
  * Why a rule that computes nought exists at all: the exemption is a value read from the law, like a rate.
  * Without this rule nothing would notice the day the law stops saying it; with it, an assessment holding
- * such income needs `RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT` approved, and an answer of no stops the assessment
+ * such income needs `RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT` approved, and an answer of no stops the assessment
  * rather than leave the income quietly untaxed — what would tax it then is a rule to write, not to guess.
  */
 #[TaxRuleAttribute(
@@ -33,12 +33,12 @@ final class PublicDebtIncomeTaxRule implements TaxRuleContract
 {
     public const string CATEGORY = 'PUBLIC_DEBT_INCOME';
 
-    public const string EXEMPT = 'RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT';
+    public const string EXEMPT = 'RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT';
 
     public function evaluate(TaxRuleInput $input): TaxRuleOutcome
     {
         if (($input->parameters->get(self::EXEMPT)->asJson()['value'] ?? null) !== true) {
-            throw TaxRuleCannotComputeException::because('the approved RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT says public debt is taxed, and no rule taxes it');
+            throw TaxRuleCannotComputeException::because('the approved RO.INVESTMENTS.PUBLIC_DEBT_EXEMPT says public debt is taxed, and no rule taxes it');
         }
 
         $income = Money::zero(CurrencyCode::BASE);

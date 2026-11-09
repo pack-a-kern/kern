@@ -168,12 +168,14 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // figure through the account, which is what `closed_at` is for instead. Every mutation writes an
     // audit event — an edit nobody recorded is indistinguishable from one that never happened.
     Route::patch('wallet/accounts/{account}', UpdateAccountController::class)->where('account', '[0-9a-f-]{36}');
-    Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
+    // Past undoing: asked again for the password or code (`verify-recent`).
+    Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}')->middleware('verify-recent');
     // Bonds and shares in an investments account, one lot per purchase (ADR 0025 §9). A lot is added and
     // sold; its coupons, dividends and repayment are computed from its instrument, never entered.
     Route::get('wallet/holdings', ShowHoldingsController::class);
     Route::post('wallet/holdings', AddHoldingController::class);
-    Route::post('wallet/holdings/sales', SellHoldingController::class);
+    // A sale records a taxable gain and what was withheld from it: asked again for the password or code.
+    Route::post('wallet/holdings/sales', SellHoldingController::class)->middleware('verify-recent');
 
     // Rentals: what a contract owes, per year. A rental never creates a transaction — see `RentalQuery`.
     Route::get('rentals', ShowRentalsController::class);

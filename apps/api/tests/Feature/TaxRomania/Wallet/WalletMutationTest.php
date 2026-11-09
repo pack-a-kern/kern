@@ -26,6 +26,9 @@ beforeEach(function (): void {
     if (DB::connection()->getDriverName() !== 'pgsql') {
         $this->markTestSkipped('Needs a real Postgres connection — run `make check-php-pg`.');
     }
+
+    // Deleting an account asks again for the password or code (`verify-recent`); these tests are past that.
+    verifySession();
 });
 /**
  * Editing and deleting wallet records — and the audit entry every change leaves behind.
@@ -142,6 +145,17 @@ it('deletes an account nothing points at', function (): void {
         ->assertStatus(204);
 
     expect(FinancialAccount::query()->whereKey($accountId)->exists())->toBeFalse();
+});
+
+it('asks again for the password or code before an account is deleted', function (): void {
+    [$user, $subjectId] = mutationSubject();
+    $accountId = openCurrentAccount($this, $user, $subjectId);
+    withAuthenticator($user);
+    forgetVerification();
+
+    $this->actingAs($user)->deleteJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$accountId}")->assertForbidden();
+
+    expect(FinancialAccount::query()->whereKey($accountId)->exists())->toBeTrue();
 });
 
 it('never edits or deletes another subject account', function (): void {
