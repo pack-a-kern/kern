@@ -61,3 +61,17 @@ class CheckStatementResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     format: str = Field(description="CSV, XLSX, XLS or PDF — decided by the bytes, never the name.")
+
+
+class GridResponse(BaseModel):
+    """One sheet of a workbook as rows of text cells — `POST /v1/spreadsheets/grid`.
+
+    Nothing is interpreted: no header row is looked for and no column described. A date cell is the
+    date and time it holds, `2020-08-01 00:00:00`; an empty or merged-over cell is empty text.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sheet: str = Field(description="Which sheet was read.")
+    sheets: list[str] = Field(description="Every sheet the workbook holds.")
+    rows: list[list[str]] = Field(description="Every row, trailing empty cells dropped.")

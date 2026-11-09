@@ -13,11 +13,12 @@ use RuntimeException;
 function read(array $bvb = []): InvestmentsConfig
 {
     $config = new Repository([
-        'investments' => ['bvb' => [
+        'investments' => ['processing_timeout_seconds' => array_key_exists('processing_timeout_seconds', $bvb) ? $bvb['processing_timeout_seconds'] : '60', 'bvb' => [
             'shares_url' => 'https://www.bvb.ro/shares',
             'bonds_url' => 'https://www.bvb.ro/bonds',
             'dividends_url' => 'https://www.bvb.ro/dividends',
             'instrument_url' => 'https://www.bvb.ro/instrument?s={symbol}',
+            'timezone' => 'Europe/Bucharest',
             ...$bvb,
         ]],
         'sources' => [
@@ -50,6 +51,11 @@ it('fails naming the variable when an address is missing or not one to fetch', f
     'another host' => ['shares_url', 'https://bvb.ro.example.com/shares', 'INVESTMENTS_BVB_SHARES_URL'],
     'a host behind a user' => ['bonds_url', 'https://www.bvb.ro@example.com/bonds', 'INVESTMENTS_BVB_BONDS_URL'],
     'not text' => ['instrument_url', ['https://www.bvb.ro/instrument?s={symbol}'], 'INVESTMENTS_BVB_INSTRUMENT_URL'],
+    'no time zone' => ['timezone', null, 'INVESTMENTS_BVB_TIMEZONE'],
+    'not a time zone' => ['timezone', 'Bucharest', 'INVESTMENTS_BVB_TIMEZONE'],
+    'no timeout' => ['processing_timeout_seconds', null, 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
+    'a timeout of none' => ['processing_timeout_seconds', '0', 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
+    'a timeout in words' => ['processing_timeout_seconds', 'a minute', 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
 ]);
 
 it('fails when the instrument page does not say once where its symbol goes', function (string $url): void {

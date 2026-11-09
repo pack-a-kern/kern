@@ -1,5 +1,6 @@
-"""`POST /v1/statements/parse` — a bank statement file, read into rows — and `/check`, the same
-refusals without the reading.
+"""`POST /v1/statements/parse` — a bank statement file, read into rows — `/check`, the same
+refusals without the reading, and `POST /v1/spreadsheets/grid`, a workbook's sheet as plain rows
+for a caller that knows its layout.
 
 Called by Laravel's statement import over the internal network, authenticated with the same shared
 secret as the document endpoints. Like them, it maps each refusal to a closed code the screen can
@@ -26,11 +27,16 @@ from processing.statements.errors import (
     TooManyRowsError,
     UnsupportedFormatError,
 )
-from processing.statements.isolated import check_statement_isolated, parse_statement_isolated
+from processing.statements.isolated import (
+    check_statement_isolated,
+    parse_statement_isolated,
+    read_grid_isolated,
+)
 from processing.statements.parse import describe_columns
 from processing.statements.schemas import (
     CheckStatementResponse,
     ColumnPayload,
+    GridResponse,
     ParseStatementResponse,
 )
 
@@ -152,3 +158,36 @@ async def parse(
         warnings=statement.warnings,
         labels_by_amount_column=statement.labels_by_amount_column,
     )
+
+
+@router.post(
+    "/v1/spreadsheets/grid",
+    response_model=GridResponse,
+    responses={
+        401: {"model": ErrorResponse},
+        413: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+    },
+)
+async def grid(
+    file: Annotated[UploadFile, File(description="Raw workbook bytes, XLSX. The bytes decide.")],
+    _authenticated: Annotated[None, Depends(require_internal_auth)],
+    sheet: Annotated[
+        str | None, Form(description="Which sheet to read; the first if none.")
+    ] = None,
+) -> GridResponse | JSONResponse:
+    """A workbook's sheet as rows of text cells, read with the statement reader's limits and in
+    its disposable process, and interpreted not at all."""
+    content = await file.read()
+
+    try:
+        read = await run_in_threadpool(read_grid_isolated, content, sheet, StatementParseSettings())
+    except StatementParseError as exc:
+        return _refusal(exc, "spreadsheet_grid_rejected")
+
+    logger.info(
+        "spreadsheet_grid_completed",
+        extra={"event": "spreadsheet_grid_completed", "row_count": len(read.rows)},
+    )
+
+    return GridResponse(sheet=read.sheet, sheets=read.sheets, rows=read.rows)

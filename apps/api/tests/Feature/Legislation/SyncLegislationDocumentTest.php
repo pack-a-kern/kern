@@ -627,3 +627,18 @@ function portalSearch(TestCase $test, User $user, array $query): TestResponse
 
     return $test->actingAs($user)->getJson("/api/v1/legislation/portal-searches/{$id}")->assertOk();
 }
+
+it('keeps a law’s whole title, however long the Official Gazette prints it', function (): void {
+    // A Ministry of Finance order approving an issue's final terms is titled in some 400 characters.
+    $title = 'ORDIN nr. 1 din 1 ianuarie 2026 privind aprobarea Termenilor finali ' . str_repeat('ai emisiunilor de titluri de stat ', 12);
+
+    $law = SourceDocument::query()->create([
+        'official_source_id' => app(OfficialSourceRepository::class)->idForCode('LEGISLATIE'),
+        'document_type' => 'ORDIN',
+        'canonical_url' => 'https://legislatie.just.ro/Public/DetaliiDocument/1',
+        'title' => $title,
+    ]);
+
+    expect(mb_strlen($title))->toBeGreaterThan(255)
+        ->and(SourceDocument::query()->findOrFail($law->id)->title)->toBe($title);
+});

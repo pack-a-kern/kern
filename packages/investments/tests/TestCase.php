@@ -57,7 +57,10 @@ abstract class TestCase extends Testbench
             'bonds_url' => 'https://www.bvb.ro/bonds',
             'dividends_url' => 'https://www.bvb.ro/dividends',
             'instrument_url' => 'https://www.bvb.ro/instrument?s={symbol}',
+            'timezone' => 'Europe/Bucharest',
         ]);
+        $app['config']->set('investments.processing_timeout_seconds', '60');
+        $app['config']->set('services.processing', ['base_url' => 'https://processing.test', 'auth_token' => 'test-token', 'ca_cert' => null]);
 
         $app->instance(KeyManagementService::class, new InMemoryKeyManagementService());
         $app->instance(SubjectDekRepository::class, new InMemoryDekRepository());

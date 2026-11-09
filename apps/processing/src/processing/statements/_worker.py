@@ -10,10 +10,10 @@ from multiprocessing.connection import Connection
 from processing.isolation import limit_memory
 from processing.statements.config import StatementParseSettings
 from processing.statements.errors import StatementParseError
-from processing.statements.parse import check_statement, parse_statement
+from processing.statements.parse import check_statement, parse_statement, read_grid
 
 # Sent back as exactly one `(status, payload)` message:
-#   ("ok", ParsedStatement | str)   - the statement, or the checked format
+#   ("ok", ParsedStatement | Grid | str) - the statement, the grid, or the format
 #   ("refused", StatementParseError) - a refusal the person can act on, as the reader raised it
 #   ("too_large", str)               - the reader ran out of memory
 #   ("error", str)                   - anything else; still reported, never swallowed
@@ -26,13 +26,15 @@ def read_worker(
     settings: StatementParseSettings,
     conn: Connection,
 ) -> None:
-    """`parse` or `check` one file, in this process. Never raises: there is nothing else listening
-    once it ends, so every outcome goes through `conn`."""
+    """`parse`, `grid` or `check` one file, in this process. Never raises: there is nothing else
+    listening once it ends, so every outcome goes through `conn`."""
     limit_memory(settings.max_worker_memory_bytes)
     try:
         result = (
             parse_statement(content, sheet, settings)
             if operation == "parse"
+            else read_grid(content, sheet, settings)
+            if operation == "grid"
             else check_statement(content, settings)
         )
         conn.send(("ok", result))

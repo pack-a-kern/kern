@@ -11,7 +11,7 @@ from processing.isolation import IsolatedTimeoutError, IsolatedWorkerDiedError, 
 from processing.statements._worker import read_worker
 from processing.statements.config import StatementParseSettings
 from processing.statements.errors import FileTooLargeError, StatementParseError
-from processing.statements.parse import ParsedStatement
+from processing.statements.parse import Grid, ParsedStatement
 
 _TOO_LARGE = "The file is too large to read."
 
@@ -23,6 +23,16 @@ def parse_statement_isolated(
     result = _read("parse", content, sheet, settings)
 
     if not isinstance(result, ParsedStatement):
+        raise StatementParseError(f"worker returned an unexpected result: {type(result).__name__}")
+
+    return result
+
+
+def read_grid_isolated(content: bytes, sheet: str | None, settings: StatementParseSettings) -> Grid:
+    """`read_grid`, in its own process."""
+    result = _read("grid", content, sheet, settings)
+
+    if not isinstance(result, Grid):
         raise StatementParseError(f"worker returned an unexpected result: {type(result).__name__}")
 
     return result

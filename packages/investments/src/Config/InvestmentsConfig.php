@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\Investments\Config;
 
+use DateTimeZone;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Legislation\Config\OfficialSourceRegistry;
 use Kern\Legislation\DataTransferObjects\SourceDefinition;
@@ -18,6 +19,7 @@ final readonly class InvestmentsConfig
 {
     public function __construct(
         public BvbSource $bvb,
+        public int $processingTimeoutSeconds,
     ) {
     }
 
@@ -32,12 +34,35 @@ final readonly class InvestmentsConfig
             throw new RuntimeException(sprintf('INVESTMENTS_BVB_INSTRUMENT_URL must hold %s exactly once.', BvbSource::SYMBOL));
         }
 
-        return new self(new BvbSource(
+        return new self(bvb: new BvbSource(
             sharesUrl: $url('shares_url', 'INVESTMENTS_BVB_SHARES_URL'),
             bondsUrl: $url('bonds_url', 'INVESTMENTS_BVB_BONDS_URL'),
             dividendsUrl: $url('dividends_url', 'INVESTMENTS_BVB_DIVIDENDS_URL'),
             instrumentUrl: $instrumentUrl,
-        ));
+            timezone: self::timezone($config->get('investments.bvb.timezone'), 'INVESTMENTS_BVB_TIMEZONE'),
+        ), processingTimeoutSeconds: self::seconds($config->get('investments.processing_timeout_seconds'), 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'));
+    }
+
+    /** A whole number of seconds, 1 to 600, as `.env` writes one; anything else fails, naming the variable. */
+    private static function seconds(mixed $value, string $variable): int
+    {
+        $seconds = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 600]]);
+
+        if (! is_int($seconds)) {
+            throw new RuntimeException(sprintf('%s must be a whole number of seconds, 1 to 600.', $variable));
+        }
+
+        return $seconds;
+    }
+
+    /** A time zone by its IANA name, `Europe/Bucharest`; anything else fails, naming the variable. */
+    private static function timezone(mixed $value, string $variable): DateTimeZone
+    {
+        if (! is_string($value) || ! in_array($value, DateTimeZone::listIdentifiers(), true)) {
+            throw new RuntimeException(sprintf('%s must be a time zone, as Europe/Bucharest.', $variable));
+        }
+
+        return new DateTimeZone($value);
     }
 
     /** An https address on a host the source allows — the fetcher's own rule — or it fails, naming the variable. */

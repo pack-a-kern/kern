@@ -193,9 +193,21 @@ def _read_csv(content: bytes, settings: StatementParseSettings) -> ParsedStateme
     return _assemble("CSV", rows, settings)
 
 
-def _read_xlsx(
-    content: bytes, sheet: str | None, settings: StatementParseSettings
-) -> ParsedStatement:
+@dataclass(frozen=True)
+class Grid:
+    """One sheet of a workbook as rows of text cells, nothing found in it: no header, no columns.
+
+    A date cell arrives as the date and time it holds (`2020-08-01 00:00:00`), never as the serial
+    number the file stores; a merged cell's value stands in its first cell and the rest are empty.
+    """
+
+    rows: list[list[str]]
+    sheet: str
+    sheets: list[str]
+
+
+def _xlsx_grid(content: bytes, sheet: str | None, settings: StatementParseSettings) -> Grid:
+    """A workbook's sheet read into rows: one bounded, streamed read for a statement and a grid."""
     import openpyxl
 
     _refuse_if_it_unpacks_too_far(content, settings)
@@ -227,7 +239,14 @@ def _read_xlsx(
     finally:
         workbook.close()
 
-    parsed = _assemble("XLSX", rows, settings)
+    return Grid(rows=rows, sheet=chosen, sheets=sheets)
+
+
+def _read_xlsx(
+    content: bytes, sheet: str | None, settings: StatementParseSettings
+) -> ParsedStatement:
+    grid = _xlsx_grid(content, sheet, settings)
+    parsed = _assemble("XLSX", grid.rows, settings)
 
     return ParsedStatement(
         file_format=parsed.file_format,
@@ -235,8 +254,8 @@ def _read_xlsx(
         headers=parsed.headers,
         header_row=parsed.header_row,
         preamble=parsed.preamble,
-        sheet=chosen,
-        sheets=sheets,
+        sheet=grid.sheet,
+        sheets=grid.sheets,
         warnings=parsed.warnings,
         labels_by_amount_column=parsed.labels_by_amount_column,
     )
@@ -646,3 +665,22 @@ def parse_statement(
         return _read_xls(content, sheet, settings)
 
     return _read_pdf(content, settings)
+
+
+def read_grid(
+    content: bytes, sheet: str | None = None, settings: StatementParseSettings | None = None
+) -> Grid:
+    """A workbook's sheet as a grid of text cells, with the statement reader's limits and none of
+    its reading: for a file whose layout its caller knows, as the Ministry of Finance's issue lists.
+    """
+    settings = settings or StatementParseSettings()
+
+    if _checked_format(content, settings) != "XLSX":
+        raise UnsupportedFormatError("Only a workbook (XLSX) is read as a grid.")
+
+    grid = _xlsx_grid(content, sheet, settings)
+
+    if len(grid.rows) > settings.max_rows:
+        raise TooManyRowsError("The sheet has more rows than are read.")
+
+    return grid

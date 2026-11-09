@@ -23,6 +23,12 @@ return [
         'dividends_url' => env('INVESTMENTS_BVB_DIVIDENDS_URL'),
         // One instrument's page; `{symbol}` is replaced by its symbol.
         'instrument_url' => env('INVESTMENTS_BVB_INSTRUMENT_URL'),
+        // Whose clock the times on those pages are — a price's "17:59" is that, there.
+        'timezone' => env('INVESTMENTS_BVB_TIMEZONE'),
     ],
+
+    // How long the processing service may take to turn one of the Ministry of Finance's spreadsheets
+    // into rows, in seconds.
+    'processing_timeout_seconds' => env('INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'),
 
 ];

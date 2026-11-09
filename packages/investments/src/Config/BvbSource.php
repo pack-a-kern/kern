@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\Investments\Config;
 
+use DateTimeZone;
+
 /** The Bucharest Stock Exchange's pages, as `InvestmentsConfig` validated them. */
 final readonly class BvbSource
 {
@@ -16,6 +18,7 @@ final readonly class BvbSource
         public string $bondsUrl,
         public string $dividendsUrl,
         private string $instrumentUrl,
+        public DateTimeZone $timezone,
     ) {
     }
 
