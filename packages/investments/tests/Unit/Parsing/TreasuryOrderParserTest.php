@@ -67,6 +67,19 @@ it('reads every issue a Tezaur prospectus launches, each coupon with its period'
         ->and(dates($three, PayoutKind::PRINCIPAL))->toBe(['2029-11-12']);
 });
 
+it('reads a Tezaur prospectus that prints every schedule in one table, each issue its own', function (): void {
+    // The three schedules one after another in a single table, each from its own "Cod emisiune" row.
+    $cell = '<td style="border: 1px solid black;white-space:pre" colspan="3" align="" rowspan="">Cod emisiune';
+    $issues = TreasuryOrderParser::tezaur(order('tezaur-prospectus', ['</table><table style="display: block; color:black;"><tr>' . $cell => '<tr>' . $cell]));
+
+    expect(array_map(fn (OrderIssue $i): ?string => $i->issueCode, $issues))->toBe(['0228', '0229', '0230'])
+        ->and(dates($issues[0], PayoutKind::COUPON))->toBe(['2027-11-10'])
+        ->and(dates($issues[1], PayoutKind::COUPON))->toBe(['2027-11-10', '2028-11-10', '2029-11-12'])
+        ->and(dates($issues[1], PayoutKind::PRINCIPAL))->toBe(['2029-11-12'])
+        ->and(count(dates($issues[2], PayoutKind::COUPON)))->toBe(5)
+        ->and(dates($issues[2], PayoutKind::PRINCIPAL))->toBe(['2031-11-10']);
+});
+
 it('reads an order of the other programme as no issue', function (): void {
     expect(TreasuryOrderParser::tezaur(order('fidelis-terms')))->toBe([])
         ->and(TreasuryOrderParser::fidelis(order('tezaur-prospectus')))->toBe([]);

@@ -136,8 +136,9 @@ final class TreasuryOrderParser
     }
 
     /**
-     * A Tezaur prospectus' schedules: a table per issue, headed "Cod emisiune 0228", its coupons — number,
-     * period, payment date — then the date the face value is repaid.
+     * A Tezaur prospectus' schedules: per issue, a heading "Cod emisiune 0228", its coupons — number,
+     * period, payment date — then the date the face value is repaid. A prospectus prints them a table each
+     * or one after another in a single table, so a table is read as blocks, each starting at its heading.
      *
      * @param list<list<list<string>>> $tables
      *
@@ -147,12 +148,8 @@ final class TreasuryOrderParser
     {
         $schedules = [];
 
-        foreach ($tables as $table) {
-            if (preg_match('/\ACod emisiune (\d{4})\z/', $table[0][0] ?? '', $code) !== 1) {
-                continue;
-            }
-
-            $at = "{$where}, schedule of {$code[1]}";
+        foreach (self::blocks($tables) as [$code, $table]) {
+            $at = "{$where}, schedule of {$code}";
             $payouts = [];
             $repaid = null;
 
@@ -172,10 +169,44 @@ final class TreasuryOrderParser
                 throw ParseFailure::at($at, 'a schedule without its coupons or its repayment');
             }
 
-            $schedules[$code[1]] = [...$payouts, new OrderPayout(PayoutKind::PRINCIPAL, $repaid)];
+            $schedules[$code] = [...$payouts, new OrderPayout(PayoutKind::PRINCIPAL, $repaid)];
         }
 
         return $schedules;
+    }
+
+    /**
+     * The schedule blocks of these tables: from each "Cod emisiune" heading to the next, or to its table's end.
+     *
+     * @param list<list<list<string>>> $tables
+     *
+     * @return list<array{string, non-empty-list<list<string>>}> each issue's code, and its rows from its heading on
+     */
+    private static function blocks(array $tables): array
+    {
+        $blocks = [];
+
+        foreach ($tables as $table) {
+            $block = null;
+
+            foreach ($table as $row) {
+                if (count($row) === 1 && preg_match('/\ACod emisiune (\d{4})\z/', $row[0], $heading) === 1) {
+                    if ($block !== null) {
+                        $blocks[] = $block;
+                    }
+
+                    $block = [$heading[1], [$row]];
+                } elseif ($block !== null) {
+                    $block[1][] = $row;
+                }
+            }
+
+            if ($block !== null) {
+                $blocks[] = $block;
+            }
+        }
+
+        return $blocks;
     }
 
     /**
