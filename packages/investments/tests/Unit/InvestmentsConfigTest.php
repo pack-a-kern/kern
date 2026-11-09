@@ -72,7 +72,8 @@ it('reads each programme’s search, and tells its titles from a law that only m
 it('finds each list’s link on the Ministry’s page', function (): void {
     $page = '<a href="/static/TEZAUR2018-2026_06102026.xlsx">Tezaur</a> <a href="/static/FIDELIS2020-2026_12102026.xlsx">Fidelis</a>';
 
-    expect(read()->subscriptions->linkIn($page, Programme::FIDELIS))->toBe('FIDELIS2020-2026_12102026.xlsx')
+    expect(read()->subscriptions->linkIn($page, Programme::FIDELIS))->toBe('https://mfinante.gov.ro/static/FIDELIS2020-2026_12102026.xlsx')
+        ->and(read()->subscriptions->linkIn('<a href="//elsewhere.example/TEZAUR.xlsx">x</a>', Programme::TEZAUR))->toBeNull()
         ->and(read()->subscriptions->linkIn('<p>moved</p>', Programme::TEZAUR))->toBeNull();
 });
 

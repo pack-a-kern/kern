@@ -2506,8 +2506,14 @@ export const en = {
                     'identity.prune_sessions': 'Expired session cleanup',
                     'system.health_watch': 'Service health watch',
                     'wallet.maturity_reminders': 'Deposit maturity reminders',
+                    'investments.import_government_bonds': 'Government bond import',
+                    'investments.import_bvb': 'BVB import',
                 },
                 descriptions: {
+                    'investments.import_government_bonds':
+                        'Finds the Ministry of Finance’s new Fidelis and Tezaur orders, reads each as a law and for its issues, and reads the subscription lists.',
+                    'investments.import_bvb':
+                        'Reads BVB’s shares, bonds and dividends, and the day’s prices. A day the exchange is closed adds nothing.',
                     'wallet.maturity_reminders':
                         'Tells owners about deposits nearing maturity, once for each distance.',
                     'system.health_watch':

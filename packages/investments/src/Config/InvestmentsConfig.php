@@ -20,6 +20,7 @@ final readonly class InvestmentsConfig
 {
     /**
      * @param array<string, ProgrammeOrders> $programmes by programme
+     * @param int<1, 5000> $writeChunk
      */
     public function __construct(
         public BvbSource $bvb,
@@ -71,7 +72,7 @@ final readonly class InvestmentsConfig
                     array_map(static fn (Programme $p): string => self::pattern($config->get("investments.subscriptions.file_patterns.{$p->value}"), "INVESTMENTS_SUBSCRIPTIONS_{$p->value}_FILE"), Programme::cases()),
                 ),
             ),
-            writeChunk: self::whole($config->get('investments.write_chunk'), 1, 5000, 'INVESTMENTS_WRITE_CHUNK'),
+            writeChunk: max(1, min(5000, self::whole($config->get('investments.write_chunk'), 1, 5000, 'INVESTMENTS_WRITE_CHUNK'))),
             queue: self::text($config->get('investments.queue'), '/\A[a-z0-9_-]{1,64}\z/', 'INVESTMENTS_QUEUE'),
         );
     }

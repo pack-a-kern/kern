@@ -125,6 +125,15 @@ enum OperationTask: string
      */
     case WALLET_MATURITY_REMINDERS = 'wallet.maturity_reminders';
 
+    /**
+     * The Ministry of Finance's new Fidelis and Tezaur orders, read as laws and for their issues, and its
+     * subscription lists (`kern/investments`, ADR 0025 §5). Weekly, after the laws are updated.
+     */
+    case INVESTMENTS_IMPORT_GOVERNMENT_BONDS = 'investments.import_government_bonds';
+
+    /** BVB's shares, bonds, dividends and the day's prices (`kern/investments`). Every weekday after the close. */
+    case INVESTMENTS_IMPORT_BVB = 'investments.import_bvb';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -143,6 +152,8 @@ enum OperationTask: string
             self::IDENTITY_PRUNE_SESSIONS => 'kern:identity:prune-sessions',
             self::SYSTEM_HEALTH_WATCH => 'kern:health:watch',
             self::WALLET_MATURITY_REMINDERS => 'kern:wallet:remind-maturities',
+            self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS => 'kern:investments:import-government-bonds',
+            self::INVESTMENTS_IMPORT_BVB => 'kern:investments:import-bvb',
         };
     }
 
@@ -165,6 +176,8 @@ enum OperationTask: string
             self::IDENTITY_PRUNE_SESSIONS,
             self::SYSTEM_HEALTH_WATCH,
             self::WALLET_MATURITY_REMINDERS,
+            self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS,
+            self::INVESTMENTS_IMPORT_BVB,
         ], true);
     }
 

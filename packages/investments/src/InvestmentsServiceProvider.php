@@ -9,6 +9,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Kern\Investments\Config\InvestmentsConfig;
+use Kern\Investments\Console\ImportBvbCommand;
+use Kern\Investments\Console\ImportGovernmentBondsCommand;
 use Kern\Investments\Listeners\ReadIssuesFromANewOrder;
 use Kern\Legislation\Config\OfficialSourceRegistry;
 use Kern\Legislation\Dependents\DocumentDependents;
@@ -50,6 +52,10 @@ final class InvestmentsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ImportGovernmentBondsCommand::class, ImportBvbCommand::class]);
+        }
 
         // A bond's terms are read from the order that issued it: that law stays while the bond does.
         $this->app->make(DocumentDependents::class)->declare('instruments', 'ext_financial_instruments', 'terms_document_id');

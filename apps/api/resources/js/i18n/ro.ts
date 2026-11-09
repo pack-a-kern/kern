@@ -1543,7 +1543,8 @@ export const ro = {
                 removed: 'Legea a fost ștearsă.',
                 removeRefused:
                     'Din această lege au fost citite valori fiscale care se sprijină pe paragrafele ei. Rămâne.',
-                removeReadFrom: 'Din această lege au fost citite titluri sau alte înregistrări care se sprijină pe ea. Rămâne.',
+                removeReadFrom:
+                    'Din această lege au fost citite titluri sau alte înregistrări care se sprijină pe ea. Rămâne.',
                 open: 'Deschide',
                 journal: 'Monitorul Oficial nr. {number}',
                 actDate: 'Data actului',
@@ -2511,8 +2512,14 @@ export const ro = {
                     'identity.prune_sessions': 'Curățare sesiuni expirate',
                     'system.health_watch': 'Supraveghere servicii',
                     'wallet.maturity_reminders': 'Remindere scadență depozite',
+                    'investments.import_government_bonds': 'Import titluri de stat',
+                    'investments.import_bvb': 'Import BVB',
                 },
                 descriptions: {
+                    'investments.import_government_bonds':
+                        'Caută noile ordine ale Ministerului Finanțelor pentru Fidelis și Tezaur, le citește ca legi și pentru emisiunile lor, și citește listele de subscrieri.',
+                    'investments.import_bvb':
+                        'Citește acțiunile, obligațiunile și dividendele de pe BVB și prețurile zilei. O zi în care bursa e închisă nu adaugă nimic.',
                     'wallet.maturity_reminders':
                         'Le spune proprietarilor despre depozitele care se apropie de scadență, o dată pentru fiecare interval.',
                     'system.health_watch':
