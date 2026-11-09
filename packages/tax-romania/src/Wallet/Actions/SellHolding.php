@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Actions;
 
+use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
+use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Investments\Contracts\MarketData;
 use Kern\Investments\Enums\Programme;
@@ -30,10 +34,17 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  * credited — a coupon, a dividend — is split with its units, so the closed row and the open one together
  * still hold exactly what was paid, and neither is owed it again.
  *
- * **What is written.** The sale fees are shared among the lots sold by units; the money received —
- * units × price, less the fees — arrives in the account as one `TRANSFER`, on the day of the sale. The
- * result is the difference between that and what the units cost, and is computed from the rows whenever
- * it is shown; the tax on it is the tax rules' (ADR 0025 §10).
+ * **What is written.** The sale fees are shared among the lots sold by units. The units cost what the
+ * law says they cost — the weighted average price of the account's units of that instrument, purchase
+ * fees included (art. 97 (8^2)) — and the gain is the proceeds, less the sale fees, less that cost. On a
+ * share or a company bond the intermediary withholds the tax on it at the source (art. 97 (8^1), (8^4)):
+ * each lot's part of the gain at the long rate when held at least the holding period, counted first in,
+ * first out, at the short rate otherwise — the rates and the period the approved fiscal parameters, never
+ * a number here; without them a gain is refused rather than guessed. Public debt is withheld nothing
+ * (art. 93 (1) a)). A loss is no tax and is not carried (art. 97 (8^5)).
+ *
+ * The money arrives as one movement on the day of the sale: the cost coming back (`TRANSFER`) and the
+ * gain, net of what was withheld, filed under its income (`HoldingIncome`).
  */
 final readonly class SellHolding
 {
@@ -41,8 +52,15 @@ final readonly class SellHolding
         private MarketData $market,
         private DepositMovements $movements,
         private WalletAudit $audit,
+        private ApprovedParameter $approved,
     ) {
     }
+
+    public const string LONG_RATE = 'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG';
+
+    public const string SHORT_RATE = 'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT';
+
+    public const string HOLDING_DAYS = 'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS';
 
     /** @return list<InvestmentLot> the rows closed by the sale, oldest purchase first */
     public function __invoke(SellHoldingInput $input): array
@@ -74,6 +92,8 @@ final readonly class SellHolding
                 ->all();
 
             $held = array_reduce($open, static fn (string $sum, InvestmentLot $lot): string => bcadd($sum, $lot->units, 6), '0');
+            // What every unit held cost, fees included, before any is sold: the weighted average price.
+            $heldCost = array_sum(array_map(static fn (InvestmentLot $lot): int => LotAmounts::minor($lot->units, $lot->price_per_unit) + $lot->fees_minor, $open));
 
             if ($instrument === null || bccomp($held, $input->units, 6) < 0) {
                 throw HoldingRefusedException::because(HoldingRefusal::NOT_ENOUGH_UNITS);
@@ -96,17 +116,22 @@ final readonly class SellHolding
                 $closed[] = $this->close($lot, $take, $input, $fees);
             }
 
-            $received = LotAmounts::minor($input->units, $input->pricePerUnit) - $input->feesMinor;
+            $proceeds = LotAmounts::minor($input->units, $input->pricePerUnit) - $input->feesMinor;
+            $cost = LotAmounts::share($heldCost, $input->units, $held);
+            $gain = $proceeds - $cost;
+            $withheld = $gain > 0 && ! HoldingIncome::isPublicDebt($instrument->kind) ? $this->withhold($closed, $gain, $input) : 0;
 
-            if ($received !== 0) {
-                $this->movements->write(
+            if ($proceeds - $withheld !== 0) {
+                $this->movements->writeSplit(
                     subjectId: $account->tax_subject_id,
                     accountId: $account->id,
                     bookedAt: $input->soldOn,
-                    amountMinor: $received,
                     currencyCode: $instrument->currency,
                     description: $instrument->name,
-                    category: DepositMovements::TRANSFER,
+                    // A loss is the proceeds alone coming back; a gain, the cost back and the gain beside it.
+                    splits: $gain > 0
+                        ? [DepositMovements::TRANSFER => $cost, HoldingIncome::ofGain($instrument->kind) => $gain - $withheld]
+                        : [DepositMovements::TRANSFER => $proceeds],
                 );
             }
 
@@ -132,6 +157,45 @@ final readonly class SellHolding
         }
 
         return $sold;
+    }
+
+    /**
+     * What the intermediary withheld on a gain, lot by lot, each lot's part of it by units at the rate its
+     * own holding period gives — written on the lot — and the sum of it.
+     *
+     * @param list<InvestmentLot> $closed oldest purchase first
+     */
+    private function withhold(array $closed, int $gain, SellHoldingInput $input): int
+    {
+        $on = new DateTimeImmutable($input->soldOn);
+        [$long, $short, $days] = array_map(
+            fn (string $code): ResolvedFiscalParameter => $this->approved->onDay($code, $on)
+                ?? throw HoldingRefusedException::because(HoldingRefusal::NO_APPROVED_SECURITIES_RATE),
+            [self::LONG_RATE, self::SHORT_RATE, self::HOLDING_DAYS],
+        );
+        $period = $days->asJson()['days'] ?? null;
+
+        if (! is_int($period)) {
+            throw HoldingRefusedException::because(HoldingRefusal::NO_APPROVED_SECURITIES_RATE);
+        }
+
+        $total = 0;
+        $left = $gain;
+
+        foreach ($closed as $at => $lot) {
+            // The last lot takes what is left of the gain, so the parts add up to it exactly.
+            $part = $at === array_key_last($closed) ? $left : LotAmounts::share($gain, $lot->units, $input->units);
+            $left -= $part;
+            $rate = $lot->bought_on->diffInDays($on) >= $period ? $long : $short;
+            $fraction = $rate->asDecimalRate()->toString();
+            assert(is_numeric($fraction));
+            $tax = LotAmounts::rounded(bcmul((string) $part, $fraction, 15));
+
+            $lot->fill(['sale_tax_withheld_minor' => $tax])->save();
+            $total += $tax;
+        }
+
+        return $total;
     }
 
     /** @param numeric-string $units */

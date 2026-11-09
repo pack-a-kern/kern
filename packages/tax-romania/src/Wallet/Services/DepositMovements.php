@@ -104,6 +104,24 @@ final readonly class DepositMovements
         string $description,
         string $category,
     ): FinancialTransaction {
+        return $this->writeSplit($subjectId, $accountId, $bookedAt, $currencyCode, $description, [$category => $amountMinor]);
+    }
+
+    /**
+     * One movement whose money is several things — a sale's proceeds, the cost coming back and the gain on
+     * it — a split each, by category. The movement is their sum; a split of nought is not written.
+     *
+     * @param non-empty-array<string, int> $splits amount in minor units, by category
+     */
+    public function writeSplit(
+        string $subjectId,
+        string $accountId,
+        string $bookedAt,
+        string $currencyCode,
+        string $description,
+        array $splits,
+    ): FinancialTransaction {
+        $amountMinor = array_sum($splits);
         $transaction = FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->create([
             'tax_subject_id' => $subjectId,
             'account_id' => $accountId,
@@ -116,12 +134,14 @@ final readonly class DepositMovements
             'source' => RecordSource::SYSTEM,
         ]);
 
-        TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->create([
-            'tax_subject_id' => $subjectId,
-            'transaction_id' => self::id($transaction),
-            'amount_minor' => $amountMinor,
-            'category_code' => $category,
-        ]);
+        foreach (array_filter($splits) as $category => $amount) {
+            TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->create([
+                'tax_subject_id' => $subjectId,
+                'transaction_id' => self::id($transaction),
+                'amount_minor' => $amount,
+                'category_code' => $category,
+            ]);
+        }
 
         return $transaction;
     }

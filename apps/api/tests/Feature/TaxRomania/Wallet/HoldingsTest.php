@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\HoldingsTest;
 
+use Kern\TaxRomania\Wallet\Models\TransactionSplit;
+use Kern\Legislation\Models\SourceSection;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Illuminate\Support\Facades\DB;
 use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
@@ -218,7 +222,32 @@ it('never shows, adds to or sells another taxpayer’s holding', function (): vo
     expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sold_on')->count())->toBe(0);
 });
 
+/** The securities gain's rates and holding period, approved — as the law states them, 2026. */
+function approvedSecuritiesRates(): void
+{
+    foreach ([
+        'RO.INCOME_TAX.SECURITIES_GAIN_RATE_LONG' => [FiscalParameterValueType::DECIMAL, ['value' => '0.03']],
+        'RO.INCOME_TAX.SECURITIES_GAIN_RATE_SHORT' => [FiscalParameterValueType::DECIMAL, ['value' => '0.06']],
+        'RO.INCOME_TAX.SECURITIES_HOLDING_DAYS' => [FiscalParameterValueType::JSON, ['days' => 365]],
+    ] as $code => [$type, $value]) {
+        insertApprovedFiscalParameterVersion(
+            FiscalParameter::factory()->create(['code' => $code, 'value_type' => $type->value])->id,
+            SourceSection::factory()->create()->id,
+            ['valid_from' => '2026-01-01', 'value_json' => json_encode($value, JSON_THROW_ON_ERROR)],
+        );
+    }
+}
+
+/** @return array<string, int> the sale movement's splits, by category */
+function saleSplits(string $account): array
+{
+    $sale = FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->sole();
+
+    return TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->where('transaction_id', $sale->id)->pluck('amount_minor', 'category_code')->all();
+}
+
 it('sells first in, first out, closing the oldest lot and splitting the next', function (): void {
+    approvedSecuritiesRates();
     [$user, $subject] = owner();
     $account = account($this, $user, $subject);
     $share = instrument();
@@ -254,8 +283,63 @@ it('sells first in, first out, closing the oldest lot and splitting the next', f
         ->and($lines[$newer]['units'])->toBe('5')
         ->and($lines[$newer]['feesMinor'])->toBe(250)
         ->and($lines[$newer]['soldOn'])->toBeNull()
-        // What arrived: 15 × 120 lei, less the fees.
-        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->sole()->amount_minor)->toBe(179_700);
+        // What arrived: 15 × 120 lei, less the fees, less what the intermediary withheld on the gain.
+        // The units cost the weighted average of both lots, fees in (art. 97 (8^2)): 2.115 lei for 20, so
+        // 1.586,25 for 15; the gain 210,75; both lots held under 365 days, 6%: 84,30 + 42,15 → 12,65 withheld.
+        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->sole()->amount_minor)->toBe(178_435)
+        ->and(saleSplits($account))->toBe(['TRANSFER' => 158_625, 'SECURITIES_GAIN' => 19_810])
+        ->and(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereIn('id', $sold)->pluck('sale_tax_withheld_minor')->all())->toEqualCanonicalizing([843, 422]);
+});
+
+it('withholds the long rate on a lot held the holding period, the short rate on one that was not', function (): void {
+    approvedSecuritiesRates();
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $share = instrument();
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2025-01-10']);
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-03-10']);
+
+    $sold = $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $share->id, 'units' => '20', 'price_per_unit' => '110', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
+    ])->assertCreated()->json('ids');
+
+    // 200 lei gained, 100 a lot: 3 on the one held over a year, 6 on the other.
+    expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereIn('id', $sold)->orderBy('bought_on')->pluck('sale_tax_withheld_minor')->all())->toBe([300, 600]);
+});
+
+it('refuses a gain on a share while no rate is approved, and writes nothing', function (): void {
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $share = instrument();
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+
+    $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $share->id, 'units' => '10', 'price_per_unit' => '120', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
+    ])->assertUnprocessable()->assertJsonPath('reason', 'NO_APPROVED_SECURITIES_RATE');
+
+    expect(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->exists())->toBeFalse()
+        ->and(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sold_on')->exists())->toBeFalse();
+});
+
+it('withholds nothing on a public-debt gain, filed as such, and nothing on a loss', function (): void {
+    [$user, $subject] = owner();
+    $account = account($this, $user, $subject);
+    $bond = fidelis();
+    $share = instrument();
+    buy($this, $user, $subject, $account, $bond, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10']);
+    $sell = fn (FinancialInstrument $instrument, string $price) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+        'account_id' => $account, 'instrument_id' => $instrument->id, 'units' => '10', 'price_per_unit' => $price, 'sold_on' => '2026-06-01', 'fees_minor' => 0,
+    ])->assertCreated();
+
+    $sell($bond, '102');
+    $sell($share, '90');
+
+    $splits = TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->pluck('amount_minor', 'category_code')->all();
+
+    expect($splits['PUBLIC_DEBT_INCOME'] ?? null)->toBe(2_000)
+        ->and($splits)->not->toHaveKey('SECURITIES_GAIN')
+        ->and(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sale_tax_withheld_minor')->exists())->toBeFalse();
 });
 
 it('refuses to sell a Tezaur bond early: it ends at maturity', function (): void {

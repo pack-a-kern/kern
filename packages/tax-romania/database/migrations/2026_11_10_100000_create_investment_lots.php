@@ -52,6 +52,9 @@ return new class () extends Migration {
             $table->date('sold_on')->nullable();
             $table->string('sold_price_per_unit', 32)->nullable();
             $table->bigInteger('sale_fees_minor')->nullable();
+            // What the intermediary withheld on this lot's part of a sale's gain (art. 97 (8^1)); none on a loss
+            // or on public debt.
+            $table->bigInteger('sale_tax_withheld_minor')->nullable();
             $table->timestampsTz();
 
             $table->index(['tax_subject_id', 'instrument_id']);

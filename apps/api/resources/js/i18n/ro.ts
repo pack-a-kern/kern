@@ -731,6 +731,7 @@ export const ro = {
         'tax.ro.pf.income_tax.rent':
             'Chiria, mai puțin cota forfetară de cheltuieli, impozitată la cota de impozit pe venit.',
         'tax.ro.pf.income_tax.crypto_gain': 'Câștigurile din monedă virtuală, impozitate la cota de impozit pe venit.',
+        'tax.ro.pf.income_tax.public_debt': 'Venituri din titluri de stat și obligațiuni municipale, pe care legea nu le impozitează.',
     },
     pages: {
         wallet: {
@@ -1333,6 +1334,9 @@ export const ro = {
             },
             categories: {
                 DIVIDENDS_INTEREST: 'Dobânzi și dividende',
+                PUBLIC_DEBT_INCOME: 'Titluri de stat și obligațiuni municipale',
+                SECURITIES_GAIN: 'Câștiguri din acțiuni și obligațiuni',
+                DIVIDENDS: 'Dividende',
                 CAPITAL_GAIN: 'Câștiguri investiții',
                 CRYPTO_GAIN: 'Câștiguri crypto',
                 FREELANCE: 'Activități independente',

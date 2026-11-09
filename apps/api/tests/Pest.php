@@ -443,6 +443,9 @@ function seedRuleParameters(): void
         'RO.CAS.RATE' => [FiscalParameterValueType::DECIMAL, ['value' => '0.25']],
         'RO.CAS.BASE_MIN_WAGES' => [FiscalParameterValueType::JSON, ['wages' => [12, 24]]],
         'RO.CASS.INDEPENDENT_BASE_WAGES' => [FiscalParameterValueType::JSON, ['floor' => 6, 'cap' => 72]],
+        // Public debt left out of the CASS ceiling and not taxed, as the law says (art. 170 (5), art. 93 (1) a)).
+        'RO.CASS.PUBLIC_DEBT_EXCLUDED' => [FiscalParameterValueType::JSON, ['value' => true]],
+        'RO.INCOME_TAX.PUBLIC_DEBT_EXEMPT' => [FiscalParameterValueType::JSON, ['value' => true]],
     ];
 
     foreach ($values as $code => [$valueType, $valueJson]) {

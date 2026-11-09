@@ -35,6 +35,7 @@ use RuntimeException;
  * @property \Illuminate\Support\Carbon|null $sold_on
  * @property numeric-string|null $sold_price_per_unit
  * @property int|null $sale_fees_minor
+ * @property int|null $sale_tax_withheld_minor
  */
 final class InvestmentLot extends Model implements EncryptsWithSubjectDek
 {
@@ -63,7 +64,7 @@ final class InvestmentLot extends Model implements EncryptsWithSubjectDek
         'external_ref_blind_index',
         'sold_on',
         'sold_price_per_unit',
-        'sale_fees_minor',
+        'sale_fees_minor', 'sale_tax_withheld_minor',
     ];
 
     /** @var array<string, string> */
@@ -74,6 +75,7 @@ final class InvestmentLot extends Model implements EncryptsWithSubjectDek
         'external_ref_ciphertext' => Encrypted::class,
         'sold_on' => 'date',
         'sale_fees_minor' => 'integer',
+        'sale_tax_withheld_minor' => 'integer',
     ];
 
     protected static function booted(): void

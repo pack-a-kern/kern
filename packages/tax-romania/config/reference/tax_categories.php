@@ -54,6 +54,11 @@ return [
      */
     'income' => [
         'DIVIDENDS_INTEREST' => 'in',
+        // A holding's money (ADR 0025 §10): public debt — Fidelis, Tezaur, municipal bonds — not taxed and,
+        // while the law says so, not counted for CASS; a securities gain and a dividend withheld at source.
+        'PUBLIC_DEBT_INCOME' => 'in',
+        'SECURITIES_GAIN' => 'in',
+        'DIVIDENDS' => 'in',
         'CAPITAL_GAIN' => 'in',
         'CRYPTO_GAIN' => 'in',
         'FREELANCE' => 'in',

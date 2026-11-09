@@ -14,12 +14,7 @@ use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\PayoutKind;
 use Kern\Platform\Money\CurrencyCode;
 use Kern\Platform\Tenancy\TenantScope;
-use Kern\TaxRomania\TaxEngine\Contracts\FiscalParameterProvider;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
-use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
-use Kern\TaxRomania\TaxEngine\Exceptions\AmbiguousFiscalParameterVersionException;
-use Kern\TaxRomania\TaxEngine\Exceptions\NoFiscalParameterVersionInForceException;
-use Kern\TaxRomania\TaxEngine\Exceptions\UnknownFiscalParameterException;
 use Kern\TaxRomania\Wallet\DataTransferObjects\PostedHoldingPayouts;
 use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Enums\SkippedPayout;
@@ -28,6 +23,8 @@ use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Models\InvestmentLotPayout;
 use Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
+use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
+use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
 use Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
@@ -67,7 +64,7 @@ final readonly class PostHoldingPayouts
 
     public function __construct(
         private MarketData $market,
-        private FiscalParameterProvider $parameters,
+        private ApprovedParameter $approved,
         private DayCountCalculator $dayCount,
         private DepositInterestFxAnnotator $fx,
         private DepositMovements $movements,
@@ -123,7 +120,7 @@ final readonly class PostHoldingPayouts
                 }
 
                 $perUnit = $this->perUnit($payout, $instrument);
-                $rate = $payout->kind === PayoutKind::DIVIDEND ? $this->dividendRate($payout->paymentDate) : null;
+                $rate = $payout->kind === PayoutKind::DIVIDEND ? $this->approved->onDay(self::DIVIDEND_RATE, $payout->paymentDate) : null;
                 $skip = match (true) {
                     $owedOn === null => SkippedPayout::NO_EX_DATE,
                     $perUnit === null => SkippedPayout::NO_AMOUNT,
@@ -173,8 +170,9 @@ final readonly class PostHoldingPayouts
                 amountMinor: $net,
                 currencyCode: $lot->currency,
                 description: $instrument->name,
-                // The face value repaid is the person's own money coming back; a coupon or a dividend is income.
-                category: $payout->kind === PayoutKind::PRINCIPAL ? DepositMovements::TRANSFER : DepositMovements::INTEREST,
+                // The face value repaid is the person's own money coming back; a coupon or a dividend is income,
+                // filed by what the instrument is (`HoldingIncome`).
+                category: HoldingIncome::ofPayout($instrument->kind, $payout->kind),
             );
 
             return InvestmentLotPayout::query()->withoutGlobalScope(TenantScope::class)->create([
@@ -240,17 +238,5 @@ final readonly class PostHoldingPayouts
         assert(is_numeric($fraction) && is_numeric($rate) && is_numeric($instrument->faceValue));
 
         return bcdiv(bcmul(bcmul($instrument->faceValue, $rate, 15), $fraction, 15), '100', 15);
-    }
-
-    /** The approved dividend rate on the day it is paid, or null when there is none to count. */
-    private function dividendRate(DateTimeImmutable $on): ?ResolvedFiscalParameter
-    {
-        try {
-            $rate = $this->parameters->versionInForceOn(self::DIVIDEND_RATE, $on);
-        } catch (UnknownFiscalParameterException | NoFiscalParameterVersionInForceException | AmbiguousFiscalParameterVersionException) {
-            return null;
-        }
-
-        return $rate->status === RuleApprovalStatus::APPROVED ? $rate : null;
     }
 }

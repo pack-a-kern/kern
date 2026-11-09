@@ -744,6 +744,7 @@ export const en = {
             'Rent taxed on the full amount: the law of that year allowed no flat expense deduction.',
         'tax.ro.pf.income_tax.rent': 'Rent, less the flat expense allowance, taxed at the income tax rate.',
         'tax.ro.pf.income_tax.crypto_gain': 'Gains from virtual currency, taxed at the income tax rate.',
+        'tax.ro.pf.income_tax.public_debt': 'Income from government and municipal bonds, which the law does not tax.',
     },
     pages: {
         wallet: {
@@ -1341,6 +1342,9 @@ export const en = {
             },
             categories: {
                 DIVIDENDS_INTEREST: 'Dividends & interest',
+                PUBLIC_DEBT_INCOME: 'Government and municipal bonds',
+                SECURITIES_GAIN: 'Gains on shares and bonds',
+                DIVIDENDS: 'Dividends',
                 CAPITAL_GAIN: 'Capital gains',
                 CRYPTO_GAIN: 'Crypto gains',
                 FREELANCE: 'Freelance',

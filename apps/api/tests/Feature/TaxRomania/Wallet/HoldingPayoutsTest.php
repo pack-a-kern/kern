@@ -149,7 +149,7 @@ it('credits a dividend to the units held the day before its ex-date and not sold
         ->and($rows)->not->toHaveKey($soldBefore->id)
         ->and($transactions->pluck('amount_minor')->all())->toBe([1_680, 8_400])
         ->and($transactions->first()?->booked_at->toDateString())->toBe('2026-06-25')
-        ->and(TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->whereIn('transaction_id', $transactions->modelKeys())->pluck('category_code')->unique()->all())->toBe(['DIVIDENDS_INTEREST']);
+        ->and(TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->whereIn('transaction_id', $transactions->modelKeys())->pluck('category_code')->unique()->all())->toBe(['DIVIDENDS']);
 });
 
 it('credits no dividend while no rate is approved, says so, and credits it once one is', function (): void {

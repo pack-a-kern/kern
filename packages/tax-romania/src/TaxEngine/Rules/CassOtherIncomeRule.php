@@ -47,11 +47,16 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\WageThresholds;
  */
 #[TaxRuleAttribute(
     code: 'RO.PF.CASS.OTHER_INCOME',
-    version: '1.0.0',
+    // 1.1.0: a holding's income (ADR 0025 §10) — dividends and securities gains counted, public debt left
+    // out while the law says so.
+    version: '1.1.0',
     // Every category it is given except independent activity, which has its own base entirely — see the
     // class docblock. Listed rather than left empty so the one exclusion is stated where it can be checked.
     categories: [
         'DIVIDENDS_INTEREST',
+        'DIVIDENDS',
+        'SECURITIES_GAIN',
+        'PUBLIC_DEBT_INCOME',
         'CAPITAL_GAIN',
         'CRYPTO_GAIN',
         'OTHER_INCOME',
@@ -61,6 +66,7 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\WageThresholds;
         CassOtherIncomeRule::MINIMUM_WAGE,
         CassOtherIncomeRule::RATE,
         CassOtherIncomeRule::BANDS,
+        CassOtherIncomeRule::PUBLIC_DEBT_EXCLUDED,
     ],
 )]
 final class CassOtherIncomeRule implements TaxRuleContract
@@ -70,6 +76,14 @@ final class CassOtherIncomeRule implements TaxRuleContract
     public const string RATE = 'RO.CASS.RATE';
 
     public const string BANDS = 'RO.CASS.OTHER_INCOME_BANDS_WAGES';
+
+    /**
+     * Whether income from public debt — non-taxable under art. 93 — is left out of the ceiling (art. 170 (5)).
+     * A yes or a no read from the law and approved, never assumed: answered no, that income counts.
+     */
+    public const string PUBLIC_DEBT_EXCLUDED = 'RO.CASS.PUBLIC_DEBT_EXCLUDED';
+
+    private const string PUBLIC_DEBT = 'PUBLIC_DEBT_INCOME';
 
     /**
      * Independent activity is not "other income" and is excluded here.
@@ -98,9 +112,10 @@ final class CassOtherIncomeRule implements TaxRuleContract
          */
         $income = Money::zero(CurrencyCode::BASE);
         $counted = 0;
+        $publicDebtLeftOut = ($input->parameters->get(self::PUBLIC_DEBT_EXCLUDED)->asJson()['value'] ?? null) === true;
 
         foreach ($input->facts as $fact) {
-            if ($fact->categoryCode === self::EXCLUDED_CATEGORY) {
+            if ($fact->categoryCode === self::EXCLUDED_CATEGORY || ($publicDebtLeftOut && $fact->categoryCode === self::PUBLIC_DEBT)) {
                 continue;
             }
 
@@ -117,6 +132,7 @@ final class CassOtherIncomeRule implements TaxRuleContract
             ruleVersion: $input->ruleVersion->semanticVersion,
             inputs: [
                 'qualifying_income' => $income->toString(),
+                'public_debt_left_out' => $publicDebtLeftOut ? 'true' : 'false',
                 'minimum_wage' => $minimumWage->toString(),
                 'rate' => $rate->toString(),
                 ...$thresholds,

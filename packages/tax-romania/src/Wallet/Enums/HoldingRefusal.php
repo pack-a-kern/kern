@@ -17,4 +17,7 @@ enum HoldingRefusal: string
 
     /** More units than the account holds of the instrument, bought by the day of the sale. */
     case NOT_ENOUGH_UNITS = 'NOT_ENOUGH_UNITS';
+
+    /** A gain on a share or a company bond, and no approved rate or holding period to say what was withheld. */
+    case NO_APPROVED_SECURITIES_RATE = 'NO_APPROVED_SECURITIES_RATE';
 }

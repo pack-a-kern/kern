@@ -495,6 +495,18 @@ income would raise the person's CASS.
 Until the categories and rules are built, a corporate bond holding is valued and its income is not
 categorised.
 
+**Built (2026-11-09).** A holding's money is filed by what the instrument is (`HoldingIncome`): a coupon
+or a gain on public debt — the state's or a municipality's — `PUBLIC_DEBT_INCOME`; a dividend `DIVIDENDS`,
+credited net; a share's or a company bond's gain `SECURITIES_GAIN`; the face value repaid and a sale's cost
+coming back `TRANSFER`. A sale's cost is the weighted average price of the account's units of the
+instrument, fees in; each lot's part of the gain is withheld at the long or short rate by its own holding
+period, first in, first out, and written on the lot (`sale_tax_withheld_minor`); the gain is filed net of
+it, as a dividend is. Without the approved rates and period, a gain on a share is refused, never guessed.
+`RO.PF.INCOME_TAX.PUBLIC_DEBT` computes nothing while the exemption is approved, and refuses to compute
+if it is answered no; `RO.PF.CASS.OTHER_INCOME` 1.1.0 counts dividends and securities gains and leaves
+public debt out while `RO.CASS.PUBLIC_DEBT_EXCLUDED` is approved. Both rule versions are registered as
+candidates, for a person to approve.
+
 ### 11. The screens
 
 Composed from `resources/js/components/panel` per `docs/UI-PATTERNS.md`:

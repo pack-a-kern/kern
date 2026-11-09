@@ -24,7 +24,7 @@ use Kern\TaxRomania\TaxEngine\ValueObjects\Money;
  * Round numbers throughout, for the same reason: 1,000 per wage makes the thresholds 6,000 / 12,000 /
  * 24,000, and a reader can check every assertion in their head.
  */
-function cassParameters(int $minimumWageMinor = 100000, string $rate = '0.1000'): ResolvedParameterSet
+function cassParameters(int $minimumWageMinor = 100000, string $rate = '0.1000', bool $publicDebtLeftOut = true): ResolvedParameterSet
 {
     $validFrom = new DateTimeImmutable('2026-01-01');
 
@@ -61,6 +61,16 @@ function cassParameters(int $minimumWageMinor = 100000, string $rate = '0.1000')
             sourceSectionId: 'section-bands',
             status: RuleApprovalStatus::APPROVED,
         ),
+        'RO.CASS.PUBLIC_DEBT_EXCLUDED' => new ResolvedFiscalParameter(
+            parameterCode: 'RO.CASS.PUBLIC_DEBT_EXCLUDED',
+            parameterVersionId: 'public-debt-version',
+            valueType: FiscalParameterValueType::JSON,
+            valueJson: ['value' => $publicDebtLeftOut],
+            validFrom: $validFrom,
+            validUntil: null,
+            sourceSectionId: 'section-public-debt',
+            status: RuleApprovalStatus::APPROVED,
+        ),
     ]);
 }
 
@@ -81,14 +91,14 @@ function cassRuleVersion(): ResolvedTaxRuleVersion
 }
 
 /** @param list<int> $grossMinorAmounts */
-function cassInput(array $grossMinorAmounts, int $minimumWageMinor = 100000): TaxRuleInput
+function cassInput(array $grossMinorAmounts, int $minimumWageMinor = 100000, string $category = 'DIVIDENDS_INTEREST', bool $publicDebtLeftOut = true): TaxRuleInput
 {
     $facts = [];
 
     foreach ($grossMinorAmounts as $index => $minor) {
         $facts[] = new TaxFactSnapshot(
             id: 'fact-' . $index,
-            categoryCode: 'DIVIDENDS_INTEREST',
+            categoryCode: $category,
             subtypeCode: null,
             recognitionDate: new DateTimeImmutable('2026-06-01'),
             cashDate: null,
@@ -109,7 +119,7 @@ function cassInput(array $grossMinorAmounts, int $minimumWageMinor = 100000): Ta
         fiscalYear: 2026,
         asOf: new DateTimeImmutable('2026-06-01'),
         facts: $facts,
-        parameters: cassParameters(minimumWageMinor: $minimumWageMinor),
+        parameters: cassParameters(minimumWageMinor: $minimumWageMinor, publicDebtLeftOut: $publicDebtLeftOut),
         ruleVersion: cassRuleVersion(),
     );
 }
@@ -225,3 +235,16 @@ it('leaves independent activity out, because that has its own base entirely', fu
         ->and($outcome->tax->toString())->toBe('600.00 RON')
         ->and($outcome->trace->steps[0]->detail['fact_count'])->toBe('1');
 });
+
+it('counts dividends and securities gains toward the ceiling, and leaves public debt out while the law says so', function (string $category, bool $leftOut, bool $counted): void {
+    $outcome = (new CassOtherIncomeRule())->evaluate(cassInput([700000], category: $category, publicDebtLeftOut: $leftOut));
+
+    expect($outcome->trace->inputs['qualifying_income'])->toBe($counted ? '7000.00 RON' : '0.00 RON')
+        ->and($outcome->trace->inputs['public_debt_left_out'])->toBe($leftOut ? 'true' : 'false');
+})->with([
+    'a dividend' => ['DIVIDENDS', true, true],
+    'a gain on shares' => ['SECURITIES_GAIN', true, true],
+    'a Fidelis coupon, left out' => ['PUBLIC_DEBT_INCOME', true, false],
+    'a Fidelis coupon, the law answered no' => ['PUBLIC_DEBT_INCOME', false, true],
+]);
+
