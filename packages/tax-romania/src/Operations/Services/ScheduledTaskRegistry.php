@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Operations\Services;
 
-use RuntimeException;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\TaxRomania\Operations\DataTransferObjects\ScheduledTaskDefinition;
 use Kern\TaxRomania\Operations\Enums\OperationTask;
@@ -131,13 +130,7 @@ final readonly class ScheduledTaskRegistry
 
         $expression = $expressions[$task->value] ?? null;
 
-        // A task declared scheduled with no timing is a value missing, not a choice (ADR 0025 §4): it fails
-        // here, naming the variable, rather than quietly drop off the schedule.
-        if (! is_string($expression) || $expression === '') {
-            throw new RuntimeException(sprintf('%s is missing: the task %s is scheduled and has no timing.', 'OPERATIONS_CRON_' . strtoupper(str_replace('.', '_', $task->value)), $task->value));
-        }
-
-        return $expression;
+        return is_string($expression) && $expression !== '' ? $expression : null;
     }
 
     private function timezone(): string

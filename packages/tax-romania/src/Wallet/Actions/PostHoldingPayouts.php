@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Wallet\Actions;
 
 use Carbon\CarbonImmutable;
-use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Investments\Contracts\MarketData;
 use Kern\Investments\DataTransferObjects\InstrumentTerms;
@@ -23,9 +22,9 @@ use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Models\InvestmentLotPayout;
 use Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
+use Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
 use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
-use Kern\TaxRomania\Wallet\Services\Fx\DepositInterestFxAnnotator;
 use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
@@ -133,8 +132,6 @@ final readonly class PostHoldingPayouts
 
                     continue;
                 }
-
-                assert($perUnit !== null);
 
                 foreach ($owed as $lot) {
                     $this->credit($lot, $instrument, $payout, $perUnit, $rate);

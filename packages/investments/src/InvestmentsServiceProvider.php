@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\Investments;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,8 +15,8 @@ use Kern\Investments\Config\InvestmentsConfig;
 use Kern\Investments\Console\ImportBvbCommand;
 use Kern\Investments\Console\ImportGovernmentBondsCommand;
 use Kern\Investments\Contracts\MarketData;
-use Kern\Investments\Queries\EloquentMarketData;
 use Kern\Investments\Listeners\ReadIssuesFromANewOrder;
+use Kern\Investments\Queries\EloquentMarketData;
 use Kern\Legislation\Config\OfficialSourceRegistry;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Events\LawConsolidationsRead;
@@ -48,13 +48,9 @@ final class InvestmentsServiceProvider extends ServiceProvider
                 $config->set("sources.entries.{$code}", $entry);
             }
 
-            // Each programme's orders, watched for on the portal by kern/legislation.
-            /** @var array<string, array<string, mixed>> $watches */
-            $watches = require __DIR__ . '/../config/watches.php';
-
-            foreach ($watches as $key => $watch) {
-                $config->set("legislation.watches.declared.{$key}", $watch);
-            }
+            // Each programme's orders, watched for on the portal by kern/legislation — merged in whole: a
+            // watch's key has a dot in it, which `set()` would read as one level deeper.
+            $config->set('legislation.watches.declared', [...$config->array('legislation.watches.declared', []), ...require __DIR__ . '/../config/watches.php']);
         });
 
         // Read and checked once, at first use; a value missing fails then, naming its variable.

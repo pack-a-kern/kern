@@ -85,9 +85,9 @@ return [
 ```php
 // ExampleReportsServiceProvider::register()
 $this->app->booting(static function (Application $app): void {
-    foreach (require __DIR__ . '/../config/watches.php' as $key => $watch) {
-        $app->make('config')->set("legislation.watches.declared.{$key}", $watch);
-    }
+    // Merged in whole: a watch's key has a dot in it, which `set()` would read as one level deeper.
+    $config = $app->make('config');
+    $config->set('legislation.watches.declared', [...$config->array('legislation.watches.declared', []), ...require __DIR__ . '/../config/watches.php']);
 });
 
 // …and, to read what it watches for once it is read:

@@ -7,6 +7,14 @@ namespace Tests\Feature\Legislation\LawWatchesApiTest;
 use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Models\LawWatch;
 
+/** A search kept by a person, by the API, and its id. Made up. */
+function keep(\Tests\TestCase $case, \Kern\Platform\Identity\Models\User $user): string
+{
+    $id = $case->actingAs($user)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->assertCreated()->json('id');
+
+    return is_string($id) ? $id : '';
+}
+
 /** A package's watch, as the hourly run mirrors one. Made up. */
 function declared(): LawWatch
 {
@@ -31,7 +39,7 @@ it('keeps a search a person asks to keep, runs it at the next hourly run, and re
         'search_words' => '  exemplul de hotărâre  ', 'act_type' => 'HOTARARE', 'first_year' => 2025, 'every_hours' => 24,
     ])->assertCreated();
 
-    $watch = LawWatch::query()->findOrFail($kept->json('id'));
+    $watch = LawWatch::query()->whereKey($kept->json('id'))->sole();
 
     expect($kept->json('mine'))->toBeTrue()
         ->and($kept->json('declaredBy'))->toBeNull()
@@ -59,13 +67,15 @@ it('lists the packages’ watches first, with the intervals a person may choose'
 
     $listed = $this->actingAs($this->operator)->getJson('/api/v1/legislation/watches')->assertOk();
 
-    expect(array_column($listed->json('watches'), 'declaredBy'))->toBe(['kern/example', null])
+    $watches = $listed->json('watches');
+
+    expect(array_column(is_array($watches) ? $watches : [], 'declaredBy'))->toBe(['kern/example', null])
         ->and($listed->json('intervals'))->toBe([24, 168, 720]);
 });
 
 it('pauses a package’s watch but keeps its interval, and lets a person’s run more or less often', function (): void {
     $package = declared();
-    $mine = $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->json('id');
+    $mine = keep($this, $this->operator);
 
     $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['enabled' => false])->assertOk()->assertJsonPath('enabled', false);
     $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['every_hours' => 24])->assertUnprocessable();
@@ -74,7 +84,7 @@ it('pauses a package’s watch but keeps its interval, and lets a person’s run
 
 it('deletes a person’s watch, recorded, and refuses a package’s', function (): void {
     $package = declared();
-    $mine = $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->json('id');
+    $mine = keep($this, $this->operator);
 
     $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$package->id}")->assertStatus(409)->assertJsonPath('reason', 'WATCH_IS_DECLARED');
     $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$mine}")->assertNoContent();

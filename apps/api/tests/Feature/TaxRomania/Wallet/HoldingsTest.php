@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TaxRomania\Wallet\HoldingsTest;
 
-use Kern\TaxRomania\Wallet\Models\TransactionSplit;
-use Kern\Legislation\Models\SourceSection;
-use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
-use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
 use Kern\Investments\Enums\Market;
@@ -16,13 +13,18 @@ use Kern\Investments\Enums\Programme;
 use Kern\Investments\Models\FinancialInstrument;
 use Kern\Investments\Models\InstrumentPrice;
 use Kern\Legislation\Database\Factories\SourceDocumentVersionFactory;
+use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\TenantScope;
+use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
+use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
+use Kern\TaxRomania\Wallet\Models\TransactionSplit;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -121,8 +123,12 @@ function price(FinancialInstrument $instrument, string $price, string $on = '202
     ]);
 }
 
-/** @param array<string, mixed> $overrides */
-function buy(TestCase $case, User $user, TaxSubject $subject, string $account, FinancialInstrument $instrument, array $overrides = []): \Illuminate\Testing\TestResponse
+/**
+ * @param array<string, mixed> $overrides
+ *
+ * @return TestResponse<Response>
+ */
+function buy(TestCase $case, User $user, TaxSubject $subject, string $account, FinancialInstrument $instrument, array $overrides = []): TestResponse
 {
     return $case->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings", [
         'account_id' => $account,
@@ -136,12 +142,39 @@ function buy(TestCase $case, User $user, TaxSubject $subject, string $account, F
     ]);
 }
 
-/** @return array<string, array<string, mixed>> the holdings the API answers, by lot id */
+/** @return array<string, array<array-key, mixed>> the holdings the API answers, by lot id */
 function holdings(TestCase $case, User $user, TaxSubject $subject): array
 {
     $lines = $case->actingAs($user)->getJson("/api/v1/subjects/{$subject->id}/wallet/holdings")->assertOk()->json('holdings');
+    $byId = [];
 
-    return array_column(is_array($lines) ? $lines : [], null, 'id');
+    foreach (is_array($lines) ? $lines : [] as $line) {
+        if (is_array($line) && is_string($line['id'] ?? null)) {
+            $byId[$line['id']] = $line;
+        }
+    }
+
+    return $byId;
+}
+
+/** @param TestResponse<Response> $added */
+function lotId(TestResponse $added): string
+{
+    $id = $added->json('id');
+
+    return is_string($id) ? $id : '';
+}
+
+/**
+ * @param TestResponse<Response> $sale
+ *
+ * @return list<string> the lots the sale closed, oldest purchase first
+ */
+function soldIds(TestResponse $sale): array
+{
+    $ids = $sale->json('ids');
+
+    return array_values(array_filter(is_array($ids) ? $ids : [], is_string(...)));
 }
 
 it('adds a lot with its instrument’s terms, and refuses an instrument no longer on the market', function (): void {
@@ -150,7 +183,7 @@ it('adds a lot with its instrument’s terms, and refuses an instrument no longe
     $euro = fidelis(['currency' => 'EUR']);
     $matured = instrument(['symbol' => 'GONE', 'isin' => 'ROGONE000001', 'status' => InstrumentStatus::MATURED]);
 
-    $id = buy($this, $user, $subject, $account, $euro, ['units' => '12.5', 'fees_minor' => 250])->assertCreated()->json('id');
+    $id = lotId(buy($this, $user, $subject, $account, $euro, ['units' => '12.5', 'fees_minor' => 250])->assertCreated());
 
     buy($this, $user, $subject, $account, $matured)
         ->assertUnprocessable()
@@ -183,8 +216,8 @@ it('keeps a broker’s reference encrypted and adopts the lot by it, never addin
     $account = account($this, $user, $subject);
     $share = instrument();
 
-    $first = buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899'])->assertCreated()->json('id');
-    $again = buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899', 'units' => '99'])->assertCreated()->json('id');
+    $first = lotId(buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899'])->assertCreated());
+    $again = lotId(buy($this, $user, $subject, $account, $share, ['external_ref' => 'POS-778899', 'units' => '99'])->assertCreated());
 
     $row = DB::table('investment_lots')->where('id', $first)->first();
 
@@ -243,7 +276,13 @@ function saleSplits(string $account): array
 {
     $sale = FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account)->sole();
 
-    return TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->where('transaction_id', $sale->id)->pluck('amount_minor', 'category_code')->all();
+    $splits = [];
+
+    foreach (TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->where('transaction_id', $sale->id)->get() as $split) {
+        $splits[$split->category_code] = $split->amount_minor;
+    }
+
+    return $splits;
 }
 
 it('sells first in, first out, closing the oldest lot and splitting the next', function (): void {
@@ -251,8 +290,8 @@ it('sells first in, first out, closing the oldest lot and splitting the next', f
     [$user, $subject] = owner();
     $account = account($this, $user, $subject);
     $share = instrument();
-    $older = buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10', 'fees_minor' => 1_000])->json('id');
-    $newer = buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '110', 'bought_on' => '2026-02-10', 'fees_minor' => 500])->json('id');
+    $older = lotId(buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-01-10', 'fees_minor' => 1_000]));
+    $newer = lotId(buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '110', 'bought_on' => '2026-02-10', 'fees_minor' => 500]));
     $sale = fn (string $units) => $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account,
         'instrument_id' => $share->id,
@@ -263,10 +302,10 @@ it('sells first in, first out, closing the oldest lot and splitting the next', f
     ]);
 
     $sale('21')->assertUnprocessable()->assertJsonPath('reason', 'NOT_ENOUGH_UNITS');
-    $sold = $sale('15')->assertCreated()->json('ids');
+    $sold = soldIds($sale('15')->assertCreated());
 
     $lines = holdings($this, $user, $subject);
-    $split = $lines[is_array($sold) ? $sold[1] : ''];
+    $split = $lines[$sold[1]];
 
     expect($sold)->toHaveCount(2)
         ->and($sold[0])->toBe($older)
@@ -299,9 +338,9 @@ it('withholds the long rate on a lot held the holding period, the short rate on 
     buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2025-01-10']);
     buy($this, $user, $subject, $account, $share, ['units' => '10', 'price_per_unit' => '100', 'bought_on' => '2026-03-10']);
 
-    $sold = $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
+    $sold = soldIds($this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account, 'instrument_id' => $share->id, 'units' => '20', 'price_per_unit' => '110', 'sold_on' => '2026-06-01', 'fees_minor' => 0,
-    ])->assertCreated()->json('ids');
+    ])->assertCreated());
 
     // 200 lei gained, 100 a lot: 3 on the one held over a year, 6 on the other.
     expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereIn('id', $sold)->orderBy('bought_on')->pluck('sale_tax_withheld_minor')->all())->toBe([300, 600]);
@@ -346,7 +385,7 @@ it('refuses to sell a Tezaur bond early: it ends at maturity', function (): void
     [$user, $subject] = owner();
     $account = account($this, $user, $subject);
     $tezaur = tezaur();
-    $lot = buy($this, $user, $subject, $account, $tezaur, ['units' => '5000', 'price_per_unit' => '1', 'held_at' => 'TREASURY'])->json('id');
+    $lot = lotId(buy($this, $user, $subject, $account, $tezaur, ['units' => '5000', 'price_per_unit' => '1', 'held_at' => 'TREASURY']));
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subject->id}/wallet/holdings/sales", [
         'account_id' => $account,
@@ -374,7 +413,7 @@ it('values each kind as its source prices it, and a bond not priced at its face 
     price($listed, '101.5');
     price($corporate, '98');
 
-    $id = fn (FinancialInstrument $instrument, array $overrides = []): string => (string) buy($this, $user, $subject, $account, $instrument, $overrides)->assertCreated()->json('id');
+    $id = fn (FinancialInstrument $instrument, array $overrides = []): string => lotId(buy($this, $user, $subject, $account, $instrument, $overrides)->assertCreated());
     $lines = [
         'share' => $id($share),
         'listed' => $id($listed),

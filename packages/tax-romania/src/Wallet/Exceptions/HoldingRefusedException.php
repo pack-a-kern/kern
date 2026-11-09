@@ -22,6 +22,7 @@ final class HoldingRefusedException extends InvalidArgumentException
             HoldingRefusal::INSTRUMENT_NOT_OFFERED => 'Only an instrument on offer or trading can be added.',
             HoldingRefusal::TEZAUR_ENDS_AT_MATURITY => 'A Tezaur bond cannot be sold early; it is repaid at maturity.',
             HoldingRefusal::NOT_ENOUGH_UNITS => 'The account does not hold that many units of the instrument on that day.',
+            HoldingRefusal::NO_APPROVED_SECURITIES_RATE => 'A gain on a security is withheld at rates a person has to approve first; none is approved for that day.',
         });
     }
 }

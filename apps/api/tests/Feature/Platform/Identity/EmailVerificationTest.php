@@ -180,7 +180,10 @@ function madeUpParameter(?string $constraint): string
 {
     // A value the route's own `where` accepts, or the router answers 404 before any middleware runs and
     // the route would look open when it was never reached.
-    foreach ([(string) Str::uuid(), 'a', '1'] as $candidate) {
+    // A constraint that is a choice of words — `whereIn()` — takes its first.
+    $word = $constraint !== null && preg_match('/^[a-z]+(\|[a-z]+)*$/', $constraint) === 1 ? explode('|', $constraint)[0] : 'a';
+
+    foreach ([(string) Str::uuid(), $word, '1'] as $candidate) {
         if ($constraint === null || preg_match('/^(?:' . $constraint . ')$/', $candidate) === 1) {
             return $candidate;
         }

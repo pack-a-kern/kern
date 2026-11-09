@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature\TaxRomania\TaxEngine\PublicDebtIncomeTaxRuleTest;
 
 use DateTimeImmutable;
-use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedParameterSet;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedTaxRuleVersion;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxFactSnapshot;
 use Kern\TaxRomania\TaxEngine\DataTransferObjects\TaxRuleInput;
+use Kern\TaxRomania\TaxEngine\Enums\FiscalParameterValueType;
 use Kern\TaxRomania\TaxEngine\Enums\RuleApprovalStatus;
 use Kern\TaxRomania\TaxEngine\Enums\TaxFactStatus;
 use Kern\TaxRomania\TaxEngine\Exceptions\TaxRuleCannotComputeException;
@@ -23,21 +23,45 @@ function input(bool $exempt): TaxRuleInput
         fiscalYear: 2026,
         asOf: new DateTimeImmutable('2026-12-31'),
         facts: [new TaxFactSnapshot(
-            id: 'coupon', categoryCode: 'PUBLIC_DEBT_INCOME', subtypeCode: null, recognitionDate: new DateTimeImmutable('2026-10-14'),
-            cashDate: null, earnedAt: null, receivedAt: null, paidAt: null, distributedAt: null, contractDate: null, transactionDate: null,
-            grossAmountRon: Money::ofMinorUnits(76_000, 'RON'), deductibleAmountRon: null, withheldTaxRon: null, status: TaxFactStatus::CONFIRMED,
+            id: 'coupon',
+            categoryCode: 'PUBLIC_DEBT_INCOME',
+            subtypeCode: null,
+            recognitionDate: new DateTimeImmutable('2026-10-14'),
+            cashDate: null,
+            earnedAt: null,
+            receivedAt: null,
+            paidAt: null,
+            distributedAt: null,
+            contractDate: null,
+            transactionDate: null,
+            grossAmountRon: Money::ofMinorUnits(76_000, 'RON'),
+            deductibleAmountRon: null,
+            withheldTaxRon: null,
+            status: TaxFactStatus::CONFIRMED,
         )],
         parameters: new ResolvedParameterSet([
             PublicDebtIncomeTaxRule::EXEMPT => new ResolvedFiscalParameter(
-                parameterCode: PublicDebtIncomeTaxRule::EXEMPT, parameterVersionId: 'exempt-version', valueType: FiscalParameterValueType::JSON,
-                valueJson: ['value' => $exempt], validFrom: new DateTimeImmutable('2026-01-01'), validUntil: null,
-                sourceSectionId: 'section-art-93', status: RuleApprovalStatus::APPROVED,
+                parameterCode: PublicDebtIncomeTaxRule::EXEMPT,
+                parameterVersionId: 'exempt-version',
+                valueType: FiscalParameterValueType::JSON,
+                valueJson: ['value' => $exempt],
+                validFrom: new DateTimeImmutable('2026-01-01'),
+                validUntil: null,
+                sourceSectionId: 'section-art-93',
+                status: RuleApprovalStatus::APPROVED,
             ),
         ]),
         ruleVersion: new ResolvedTaxRuleVersion(
-            id: 'public-debt-version', ruleCode: 'RO.PF.INCOME_TAX.PUBLIC_DEBT', taxCode: 'INCOME_TAX', semanticVersion: '1.0.0',
-            validFrom: new DateTimeImmutable('2026-01-01'), validUntil: null, implementationClass: PublicDebtIncomeTaxRule::class,
-            configJson: [], status: RuleApprovalStatus::APPROVED, sourceSectionIds: ['section-art-93'],
+            id: 'public-debt-version',
+            ruleCode: 'RO.PF.INCOME_TAX.PUBLIC_DEBT',
+            taxCode: 'INCOME_TAX',
+            semanticVersion: '1.0.0',
+            validFrom: new DateTimeImmutable('2026-01-01'),
+            validUntil: null,
+            implementationClass: PublicDebtIncomeTaxRule::class,
+            configJson: [],
+            status: RuleApprovalStatus::APPROVED,
+            sourceSectionIds: ['section-art-93'],
         ),
     );
 }

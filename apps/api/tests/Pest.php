@@ -62,6 +62,7 @@ uses()->beforeEach(function (): void {
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Banks');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Fx');
 uses(RefreshDatabase::class)->in('Feature/Legislation');
+uses(RefreshDatabase::class)->in('Feature/Investments');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/FiscalParameters');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Subjects');
 uses(RefreshDatabase::class)->in('Feature/Platform/Identity');

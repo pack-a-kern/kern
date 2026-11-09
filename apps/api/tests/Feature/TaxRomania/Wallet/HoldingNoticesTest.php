@@ -68,7 +68,7 @@ it('tells of a new issue on offer everyone whose switch is on, and nobody who tu
     app(AnnounceIssueOnOffer::class)->handle(new IssueOnOffer($issue->id));
 
     expect(DB::table('notifications')->where('notifiable_id', $declined->id)->exists())->toBeFalse()
-        ->and(json_decode((string) DB::table('notifications')->where('notifiable_id', $told->id)->value('data'), true))->toBe(['instrument_id' => $issue->id]);
+        ->and(DB::table('notifications')->where('notifiable_id', $told->id)->value('data'))->toBe(json_encode(['instrument_id' => $issue->id]));
 
     $this->actingAs($told)->getJson('/api/v1/notifications?locale=ro')
         ->assertOk()

@@ -39,11 +39,11 @@ final readonly class WatchSettings
             lockSeconds: $whole($config->get('legislation.watches.lock_seconds'), 1, 86400, 'LEGISLATION_WATCHES_LOCK_SECONDS'),
             overlapDays: $whole($config->get('legislation.watches.overlap_days'), 0, 90, 'LEGISLATION_WATCHES_OVERLAP_DAYS'),
             intervals: $intervals,
-            declared: array_values(array_map(
+            declared: array_map(
                 static fn (mixed $entry, string|int $key): WatchDeclaration => WatchDeclaration::fromConfig((string) $key, is_array($entry) ? $entry : []),
                 is_array($declared) ? $declared : [],
                 array_keys(is_array($declared) ? $declared : []),
-            )),
+            ),
         );
     }
 }

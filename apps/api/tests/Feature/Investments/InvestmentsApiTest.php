@@ -20,7 +20,21 @@ use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
 
-/** Made-up market data: two listed shares, a Tezaur issue, one matured bond. */
+/**
+ * Every row's value at a key, of a list answered — `array_column` over a response that is a list of rows.
+ *
+ * @return list<mixed>
+ */
+function column(mixed $rows, string $key): array
+{
+    return array_column(is_array($rows) ? $rows : [], $key);
+}
+
+/**
+ * Made-up market data: two listed shares, a Tezaur issue, one matured bond.
+ *
+ * @return array<string, FinancialInstrument>
+ */
 function market(): array
 {
     $make = static fn (array $values): FinancialInstrument => FinancialInstrument::query()->create([
@@ -69,17 +83,19 @@ it('lists the active market by name, each with its latest price, a page at a tim
     app()->forgetInstance(\Kern\Investments\Config\InvestmentsConfig::class);
 
     $first = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments')->assertOk();
-    $second = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?cursor=' . $first->json('nextCursor'))->assertOk();
+    $cursor = $first->json('nextCursor');
+    expect($cursor)->toBeString();
+    $second = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?cursor=' . (is_string($cursor) ? $cursor : ''))->assertOk();
 
-    expect(array_column($first->json('data'), 'name'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
+    expect(column($first->json('data'), 'name'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
         ->and($first->json('data.0.latestPrice'))->toBe(['price' => '11.5000', 'tradingDate' => '2026-11-09'])
-        ->and(array_column($second->json('data'), 'name'))->toBe(['TEZAUR 0001'])
+        ->and(column($second->json('data'), 'name'))->toBe(['TEZAUR 0001'])
         ->and($second->json('nextCursor'))->toBeNull();
 });
 
 it('filters by kind, programme and status, and searches a code exactly or words of a name', function (): void {
     market();
-    $names = fn (string $query): array => array_column($this->actingAs($this->user)->getJson("/api/v1/investments/instruments?{$query}")->assertOk()->json('data'), 'name');
+    $names = fn (string $query): array => column($this->actingAs($this->user)->getJson("/api/v1/investments/instruments?{$query}")->assertOk()->json('data'), 'name');
 
     expect($names('kind=SHARE'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
         ->and($names('programme=TEZAUR'))->toBe(['TEZAUR 0001'])
@@ -104,7 +120,7 @@ it('shows an instrument with every payout in date order', function (): void {
     $shown = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$tezaur->id}")->assertOk();
 
     expect($shown->json('issueCode'))->toBe('0001')
-        ->and(array_column($shown->json('payouts'), 'paymentDate'))->toBe(['2027-07-01', '2028-07-01'])
+        ->and(column($shown->json('payouts'), 'paymentDate'))->toBe(['2027-07-01', '2028-07-01'])
         ->and($shown->json('latestPrice'))->toBeNull();
     $this->actingAs($this->user)->getJson('/api/v1/investments/instruments/01900000-0000-7000-8000-000000000000')->assertNotFound();
 });
@@ -126,8 +142,8 @@ it('lists upcoming payouts soonest first and recent ones latest first', function
         InstrumentPayout::query()->create(['instrument_id' => $alpha->id, 'kind' => PayoutKind::DIVIDEND, 'payment_date' => $paid, 'amount_per_unit' => '1.5', 'status' => PayoutStatus::ANNOUNCED, 'source' => PayoutSource::BVB]);
     }
 
-    expect(array_column($this->actingAs($this->user)->getJson('/api/v1/investments/payouts/upcoming')->assertOk()->json('data'), 'paymentDate'))->toBe(['2026-12-01', '2027-01-15'])
-        ->and(array_column($this->actingAs($this->user)->getJson('/api/v1/investments/payouts/recent?kind=DIVIDEND')->assertOk()->json('data'), 'paymentDate'))->toBe(['2026-06-25']);
+    expect(column($this->actingAs($this->user)->getJson('/api/v1/investments/payouts/upcoming')->assertOk()->json('data'), 'paymentDate'))->toBe(['2026-12-01', '2027-01-15'])
+        ->and(column($this->actingAs($this->user)->getJson('/api/v1/investments/payouts/recent?kind=DIVIDEND')->assertOk()->json('data'), 'paymentDate'))->toBe(['2026-06-25']);
     $this->actingAs($this->user)->getJson('/api/v1/investments/payouts/later')->assertNotFound();
 });
 
@@ -158,7 +174,7 @@ it('reads a profile from BVB when asked, and answers the stored one while it is 
 it('refuses a refresh past the person’s budget', function (): void {
     Http::fake(['https://www.bvb.ro/*' => Http::response((string) file_get_contents(base_path('../../packages/investments/tests/Fixtures/bvb/instrument-share.html')))]);
 
-    foreach (range(1, (int) config('investments.api.refreshes_per_user.max_attempts')) as $ignored) {
+    foreach (range(1, app(\Kern\Investments\Config\InvestmentsConfig::class)->api->refreshes[0]) as $ignored) {
         $this->actingAs($this->user)->postJson('/api/v1/investments/issuers/H2O/refresh')->assertOk();
     }
 

@@ -49,7 +49,7 @@ final readonly class EloquentMarketData implements MarketData
 
     public function payouts(array $instrumentIds, DateTimeImmutable $from, DateTimeImmutable $to): array
     {
-        return InstrumentPayout::query()
+        return array_values(InstrumentPayout::query()
             ->whereIn('instrument_id', $instrumentIds)
             // By date, not by the stored text: SQLite keeps a date written through a model with its time.
             ->whereDate('payment_date', '>=', $from->format('Y-m-d'))
@@ -68,8 +68,7 @@ final readonly class EloquentMarketData implements MarketData
                 amountPerUnit: $payout->amount_per_unit,
                 ratePercent: $payout->rate,
             ))
-            ->values()
-            ->all();
+            ->all());
     }
 
     public function latestPrices(array $instrumentIds): array

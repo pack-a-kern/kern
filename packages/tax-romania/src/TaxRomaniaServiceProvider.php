@@ -99,13 +99,10 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
 
         // The minimum-wage decisions, watched for on the portal by kern/legislation — added once every
         // provider has registered, so legislation's own configuration is there to add to.
+        // Merged in whole: a watch's key has a dot in it, which `set()` would read as one level deeper.
         $this->app->booting(static function (Application $app): void {
-            /** @var array<string, array<string, mixed>> $watches */
-            $watches = require __DIR__ . '/../config/watches.php';
-
-            foreach ($watches as $key => $watch) {
-                $app->make('config')->set("legislation.watches.declared.{$key}", $watch);
-            }
+            $config = $app->make('config');
+            $config->set('legislation.watches.declared', [...$config->array('legislation.watches.declared', []), ...require __DIR__ . '/../config/watches.php']);
         });
 
         /*

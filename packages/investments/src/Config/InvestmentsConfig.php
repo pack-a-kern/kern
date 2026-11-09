@@ -8,8 +8,8 @@ use DateTimeZone;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Investments\Enums\Programme;
 use Kern\Legislation\Config\OfficialSourceRegistry;
-use Kern\Legislation\Watches\LawWatchPattern;
 use Kern\Legislation\DataTransferObjects\SourceDefinition;
+use Kern\Legislation\Watches\LawWatchPattern;
 use RuntimeException;
 
 /**
@@ -77,7 +77,7 @@ final readonly class InvestmentsConfig
             writeChunk: max(1, min(5000, self::whole($config->get('investments.write_chunk'), 1, 5000, 'INVESTMENTS_WRITE_CHUNK'))),
             queue: self::text($config->get('investments.queue'), '/\A[a-z0-9_-]{1,64}\z/', 'INVESTMENTS_QUEUE'),
             api: new ApiLimits(
-                pageSize: max(1, self::whole($config->get('investments.api.page_size'), 1, 200, 'INVESTMENTS_API_PAGE_SIZE')),
+                pageSize: min(200, max(1, self::whole($config->get('investments.api.page_size'), 1, 200, 'INVESTMENTS_API_PAGE_SIZE'))),
                 maxSpanDays: self::whole($config->get('investments.api.max_span_days'), 1, 3660, 'INVESTMENTS_API_MAX_SPAN_DAYS'),
                 profileRefreshHours: self::whole($config->get('investments.api.profile_refresh_hours'), 1, 720, 'INVESTMENTS_PROFILE_REFRESH_HOURS'),
                 reads: self::budget($config, 'reads_per_user', 'READS'),

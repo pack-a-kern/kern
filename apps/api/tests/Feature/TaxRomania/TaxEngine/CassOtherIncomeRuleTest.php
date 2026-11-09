@@ -247,4 +247,3 @@ it('counts dividends and securities gains toward the ceiling, and leaves public 
     'a Fidelis coupon, left out' => ['PUBLIC_DEBT_INCOME', true, false],
     'a Fidelis coupon, the law answered no' => ['PUBLIC_DEBT_INCOME', false, true],
 ]);
-

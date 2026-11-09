@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Wallet\Actions;
 
-use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
-use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
-use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Investments\Contracts\MarketData;
 use Kern\Investments\Enums\Programme;
+use Kern\TaxRomania\TaxEngine\DataTransferObjects\ResolvedFiscalParameter;
 use Kern\TaxRomania\Wallet\DataTransferObjects\SellHoldingInput;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\HoldingRefusal;
@@ -20,6 +18,8 @@ use Kern\TaxRomania\Wallet\Models\FinancialAccount;
 use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Models\InvestmentLotPayout;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
+use Kern\TaxRomania\Wallet\Services\Holdings\ApprovedParameter;
+use Kern\TaxRomania\Wallet\Services\Holdings\HoldingIncome;
 use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 

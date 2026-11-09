@@ -193,7 +193,7 @@ it('computes a Tezaur coupon as its prospectus does: face value × rate × days 
         ->toBe([['gross_minor' => 86_415, 'withheld_minor' => null], ['gross_minor' => 86_415, 'withheld_minor' => null]]);
 
     expect(post('2029-11-12')->posted)->toBe(1)
-        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->sum('amount_minor'))->toBe(86_415 * 2 + 1_234_500);
+        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->sum('amount_minor'))->toEqual(86_415 * 2 + 1_234_500);
 });
 
 it('credits no coupon to a corporate or a municipal bond, whose payment dates BVB does not publish', function (): void {
@@ -231,6 +231,8 @@ it('keeps what a lot was paid with its units when part of it is sold, and pays n
         'sold_on' => '2026-07-01',
         'fees_minor' => 0,
     ])->assertCreated()->json('ids.0');
+    expect($sold)->toBeString();
+    $sold = is_string($sold) ? $sold : '';
 
     expect(post('2026-07-02')->posted)->toBe(0)
         ->and(credited())->toEqual([

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\Legislation\Watches;
 
-use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Contracts\Cache\Factory as Cache;
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Actions\SyncLegislationDocument;
@@ -13,6 +14,7 @@ use Kern\Legislation\Legislatie\PortalQuery;
 use Kern\Legislation\Legislatie\PortalSearch;
 use Kern\Legislation\Models\LawWatch;
 use Kern\Legislation\Models\SourceDocument;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -39,11 +41,18 @@ final readonly class RunLawWatches
     public function __invoke(WatchSettings $settings): array
     {
         $this->mirror($settings->declared);
+        // The cache *store* locks, not the repository; one that cannot is refused rather than left to
+        // let two runs of a watch race.
+        $locks = $this->cache->store()->getStore();
+
+        if (! $locks instanceof LockProvider) {
+            throw new RuntimeException('The configured cache store provides no atomic locks.');
+        }
 
         $lines = [];
 
         foreach (LawWatch::query()->where('enabled', true)->where('next_run_at', '<=', now())->orderBy('next_run_at')->cursor() as $watch) {
-            $lock = $this->cache->lock("legislation.watch.{$watch->id}", $settings->lockSeconds);
+            $lock = $locks->lock("legislation.watch.{$watch->id}", $settings->lockSeconds);
 
             if (! $lock->get()) {
                 continue;
