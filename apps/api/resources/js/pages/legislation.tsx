@@ -615,11 +615,14 @@ function Laws({ reload }: { reload: number }): JSX.Element {
                             setRemoving(null);
                             setAgain((run) => run + 1);
                         } catch (cause) {
-                            // A law the fiscal values rest on is refused, and says how many rest on it.
+                            // A law the fiscal values rest on, or one something else was read from, stays.
+                            const reason = cause instanceof ApiError ? cause.reason : undefined;
                             const said =
-                                cause instanceof ApiError && cause.reason === 'LAW_HAS_VALUES'
+                                reason === 'LAW_HAS_VALUES'
                                     ? t((d) => d.pages.legislation.laws.removeRefused)
-                                    : describeApiFailure(cause, t);
+                                    : reason === 'LAW_IS_READ_FROM'
+                                      ? t((d) => d.pages.legislation.laws.removeReadFrom)
+                                      : describeApiFailure(cause, t);
 
                             toast.error(said);
                             throw cause;

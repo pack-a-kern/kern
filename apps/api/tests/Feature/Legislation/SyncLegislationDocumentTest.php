@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
 use Illuminate\Testing\TestResponse;
+use Kern\Investments\Enums\InstrumentKind;
+use Kern\Investments\Enums\InstrumentStatus;
+use Kern\Investments\Enums\Programme;
+use Kern\Investments\Models\FinancialInstrument;
 use Kern\Legislation\Actions\SyncLegislationDocument;
 use Kern\Legislation\Enums\SourceDocumentVersionStatus;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
@@ -564,6 +568,29 @@ it('refuses to delete a law a fiscal value rests on, and says how many', functio
     // Nothing was touched: a law the values rest on stays whole.
     expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue()
         ->and(SourceSection::query()->whereKey($section->id)->exists())->toBeTrue();
+});
+
+it('refuses to delete a law a bond was read from, and says what and how many', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    FinancialInstrument::query()->create([
+        'kind' => InstrumentKind::GOVERNMENT_BOND,
+        'programme' => Programme::TEZAUR,
+        'issue_code' => '0001',
+        'name' => 'Example issue',
+        'issuer_name' => 'Example issuer',
+        'currency' => 'RON',
+        'status' => InstrumentStatus::ACTIVE,
+        'terms_document_id' => $law->id,
+    ]);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'LAW_IS_READ_FROM')
+        ->assertJsonPath('read_from.instruments', 1);
+
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue();
 });
 
 it('does not delete an exchange-rate source through the law route, and refuses a person who may not run operations', function (): void {

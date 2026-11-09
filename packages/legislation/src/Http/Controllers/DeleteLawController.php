@@ -39,6 +39,16 @@ final class DeleteLawController
             ], 409);
         }
 
+        $readFrom = $delete->readFrom($found);
+
+        if ($readFrom !== []) {
+            return response()->json([
+                'reason' => 'LAW_IS_READ_FROM',
+                'message' => 'Records elsewhere in the application were read from this law and rest on it.',
+                'read_from' => $readFrom,
+            ], 409);
+        }
+
         $actor = $request->user()?->getAuthIdentifier();
 
         return response()->json($delete($found, is_scalar($actor) ? (string) $actor : null), 200);

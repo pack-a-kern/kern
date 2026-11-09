@@ -9,9 +9,11 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Kern\Investments\Config\InvestmentsConfig;
 use Kern\Legislation\Config\OfficialSourceRegistry;
+use Kern\Legislation\Dependents\DocumentDependents;
 
 /**
- * What is on the market (ADR 0025): the configuration, the sources this package reads, its tables.
+ * What is on the market (ADR 0025): the configuration, the sources this package reads, its tables, and
+ * the laws its instruments were read from, which may not be deleted from under them.
  *
  * Its sources are added to `kern/legislation`'s registry once every provider has registered, so they
  * land beside the registry's own whichever provider registers first — a merge before that one would be
@@ -45,5 +47,8 @@ final class InvestmentsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        // A bond's terms are read from the order that issued it: that law stays while the bond does.
+        $this->app->make(DocumentDependents::class)->declare('instruments', 'ext_financial_instruments', 'terms_document_id');
     }
 }

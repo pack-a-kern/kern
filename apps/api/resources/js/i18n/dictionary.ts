@@ -1362,6 +1362,8 @@ export interface Dictionary {
                 removeDetail: string;
                 removed: string;
                 removeRefused: string;
+                /** Something else in the app was read from the law as a whole: a bond from the order that issued it. */
+                removeReadFrom: string;
                 open: string;
                 /** `{number}` is the Monitorul Oficial issue. */
                 journal: string;

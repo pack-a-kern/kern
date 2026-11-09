@@ -1543,6 +1543,7 @@ export const ro = {
                 removed: 'Legea a fost ștearsă.',
                 removeRefused:
                     'Din această lege au fost citite valori fiscale care se sprijină pe paragrafele ei. Rămâne.',
+                removeReadFrom: 'Din această lege au fost citite titluri sau alte înregistrări care se sprijină pe ea. Rămâne.',
                 open: 'Deschide',
                 journal: 'Monitorul Oficial nr. {number}',
                 actDate: 'Data actului',

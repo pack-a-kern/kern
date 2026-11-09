@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Console\Commands\ReindexLegislationCommand;
 use Kern\Legislation\Console\Commands\SyncLegislationCommand;
+use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
 use Kern\Legislation\Fetching\PageFetcher;
@@ -52,6 +53,7 @@ final class LegislationServiceProvider extends ServiceProvider
         // Whoever holds a reference to a paragraph declares it here, so a law is never deleted out
         // from under something that rests on it — and so this package needs to know about nothing.
         $this->app->singleton(SectionDependents::class);
+        $this->app->singleton(DocumentDependents::class);
 
         $this->mergeConfigFrom(__DIR__ . '/../config/legislation.php', 'legislation');
         $this->mergeConfigFrom(__DIR__ . '/../config/sources.php', 'sources');

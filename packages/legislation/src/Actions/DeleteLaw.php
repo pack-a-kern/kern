@@ -7,6 +7,7 @@ namespace Kern\Legislation\Actions;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
+use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -44,6 +45,7 @@ final readonly class DeleteLaw
     public function __construct(
         private AuditChainService $audit,
         private SectionDependents $dependents,
+        private DocumentDependents $readFrom,
     ) {
     }
 
@@ -61,6 +63,17 @@ final readonly class DeleteLaw
             ->toBase();
 
         return $this->dependents->countFor($sections);
+    }
+
+    /**
+     * What else was read from this law as a whole — by the name its package declared it under — and
+     * holds it as `resting()`'s values hold it: a bond's terms read from the order that issued it.
+     *
+     * @return array<string, int> none, empty
+     */
+    public function readFrom(SourceDocument $law): array
+    {
+        return $this->readFrom->countFor($law->id);
     }
 
     /** @return array{versions: int, sections: int} what was removed */

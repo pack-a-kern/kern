@@ -94,6 +94,9 @@ share.
   `subscriptions_count` (integer, nullable), `subscriptions_read_at` — one figure per issue, so columns,
   not a table; the only source of them for Tezaur, which BVB does not list.
 - Provenance: `terms_document_id` (the legislation document the terms were read from), `listing_read_at`.
+  A law an instrument was read from cannot be deleted: the package declares the column to
+  `kern/legislation`'s `DocumentDependents`, and deleting the law is refused (`LAW_IS_READ_FROM`, with the
+  count) — as a law a fiscal value rests on is.
 - Indexes: unique `isin` where not null; unique (`programme`, `issue_code`) where not null; unique
   (`market`, `symbol`) where not null; (`kind`, `status`); (`maturity_date`); a trigram index on `name`
   for the search, Postgres only and guarded, as every Postgres-only statement here is.
@@ -256,8 +259,10 @@ repeated is a run that changes nothing. Nothing from a source is ever deleted.
 
 ### 6. Parsing: strict, bounded, and never trusted
 
-- **HTML** with PHP's own `ext-dom` (`DOMDocument`, `DOMXPath`, loaded with `LIBXML_NONET`), as the
-  legislation parser already reads the portal — no library added. A table is found by its header row, by the
+- **HTML** with PHP's own `Dom\HTMLDocument` (PHP 8.4+): an HTML5 parser, the way a browser reads a
+  page, with CSS selectors built in, loaded with `LIBXML_NONET` — no library added (chosen 2026-11-09 over
+  `symfony/dom-crawler`, a wrapper over the older `DOMDocument` that adds two dependencies). Only
+  `textContent` is read; no markup from a source is ever kept or shown. A table is found by its header row, by the
   header texts the source shows, never by position or by a generated id; a missing header fails the parse.
   One reader of "a table with these headers" serves the three BVB listings.
 - **XLSX** is read where this codebase already reads spreadsheets: the processing service
@@ -321,10 +326,12 @@ every other kind (ADR 0022). The import raises the event; `kern/tax-romania` sen
 - **No duplicate when a broker comes**: a lot knows where it is held. A broker integrated later matches its
   positions to the lots already held there by instrument, and adopts them (setting `external_ref`) rather
   than adding new ones; where a match is not certain, the person is asked.
-- **Day-count arithmetic is one implementation.** `DayCountConvention` and `DayCountCalculator` move from
-  `Wallet` to `kern/investments`, which both deposits and holdings then use. Tezaur's formula — the days
-  accrued over the days in the current year — is **ACT/ACT**, which the calculator lacks and gains, with a
-  test from the order's own example. A Fidelis coupon needs none: the order gives each payment date and the
+- **Day-count arithmetic stays where it is.** `DayCountConvention` and `DayCountCalculator` stay in
+  `Wallet`: the market package stores what the orders say and computes no interest, and the holdings that
+  do sit beside the deposits in `kern/tax-romania` (decided 2026-11-09 — moving them would take
+  `Wallet`'s `Decimal` and its date-range exception along). Tezaur's formula — the days accrued over the
+  days in the current year, 365 or 366 — is **ACT/ACT**, which the calculator lacks and gains there, with
+  a test from the order's own example. A Fidelis coupon needs none: the order gives each payment date and the
   rate, so a coupon is the face value times the rate.
 
 ### 10. Tax
@@ -399,7 +406,6 @@ Composed from `resources/js/components/panel` per `docs/UI-PATTERNS.md`:
 - The legislatie.just.ro `User-Agent` setting becomes the browser `User-Agent` setting, on a settings card of
   its own beside the crawler's name and contact; an installation keeps its value through the migration.
   Every source goes out as a browser unless its entry says otherwise.
-- Deposits take their day-count arithmetic from `kern/investments`.
 
 ## Not done
 

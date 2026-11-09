@@ -1548,6 +1548,7 @@ export const en = {
                     'Every consolidation read ({consolidations}), every provision and everything indexed from them goes. Reading it again restores it from the portal.',
                 removed: 'The law was deleted.',
                 removeRefused: 'Fiscal values were read from this law and rest on its paragraphs. It stays.',
+                removeReadFrom: 'Bonds or other records were read from this law and rest on it. It stays.',
                 open: 'Open',
                 journal: 'Monitorul Oficial no. {number}',
                 actDate: 'Act date',

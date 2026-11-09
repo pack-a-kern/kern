@@ -115,15 +115,15 @@ screen changed, a handoff note, `docs/STATUS.md`.
 2. `InvestmentsConfig` and one DTO per source: read once, each value validated, a missing one fails.
 3. The four market tables of ADR 0025 §2, their models, enums and indexes; Postgres-only statements
    guarded for the SQLite lane.
-4. `DayCountConvention` and `DayCountCalculator` move here from `Wallet`; deposits use them from here, their
-   tests unchanged and passing.
+4. A law an instrument was read from is not deleted: `DocumentDependents` in `kern/legislation`, declared
+   by this package, and the refusal on the laws screen.
 
 ### Task 3 — Parsers, against the real sources
 
 Each from a real page or file saved as a fixture, and from hostile ones (a missing, renamed or reordered
 column; an empty table; an oversize input; a malformed number, date or ISIN; markup in a cell).
 
-1. One reader of "a table with these headers" (`ext-dom`, as the legislation parser).
+1. One reader of "a table with these headers" (`Dom\HTMLDocument`, built into PHP).
 2. BVB shares, bonds and dividends listings → DTOs.
 3. A BVB instrument page → the issuer profile: meetings, shareholders.
 4. The processing service: a second endpoint answering a spreadsheet as a grid (the statement reader's
@@ -165,6 +165,8 @@ bound and each refusal.
 2. Adding a holding: the instrument's terms fill the form; units, price per unit, date, fees and where it is
    held are entered.
 3. Coupons, dividends and the repayment at maturity generated from the payouts, as a deposit's interest is.
+   `DayCountCalculator` (in `Wallet`, where it stays) gains ACT/ACT for Tezaur, tested on the order's own
+   example.
    A dividend only for the units held the day before the ex-dividend date and not sold before it, credited
    net of the 16% withheld, the withheld part recorded. A corporate bond gets no coupons (BVB has no
    payment dates for it). A Fidelis not yet trading, and a Tezaur, valued at face value.
