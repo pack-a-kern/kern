@@ -85,6 +85,7 @@ return [
             // Daily at nine in the schedule's timezone: a reminder is read, not woken to.
             'wallet.maturity_reminders' => env('OPERATIONS_CRON_WALLET_MATURITY_REMINDERS', '0 9 * * *'),
             // ADR 0025: no default — the values are in .env.example, and a schedule missing fails by name.
+            'legislation.watch' => env('OPERATIONS_CRON_LEGISLATION_WATCH'),
             'investments.import_government_bonds' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_GOVERNMENT_BONDS'),
             'investments.import_bvb' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_BVB'),
         ],

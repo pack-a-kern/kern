@@ -16,11 +16,7 @@ return [
     ],
     'orders' => [
         'act_type' => 'ORDIN',
-        'overlap_days' => '31',
-        'programmes' => [
-            'FIDELIS' => ['search' => 'Programul FIDELIS', 'first_year' => '2020', 'title_pattern' => '/Programul FIDELIS/u'],
-            'TEZAUR' => ['search' => 'Programului Tezaur', 'first_year' => '2018', 'title_pattern' => '/în cadrul Programului Tezaur/u'],
-        ],
+        'title_patterns' => ['FIDELIS' => '/Programul FIDELIS/u', 'TEZAUR' => '/în cadrul Programului Tezaur/u'],
     ],
     'subscriptions' => [
         'page_url' => 'https://mfinante.gov.ro/subscriptions',

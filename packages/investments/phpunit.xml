@@ -9,6 +9,10 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <!-- Read by config/sources.php as the package adds BVB to the registry. -->
+        <env name="INVESTMENTS_BVB_BASE_URL" value="https://www.bvb.ro" force="true"/>
+    </php>
     <source>
         <include>
             <directory>src</directory>

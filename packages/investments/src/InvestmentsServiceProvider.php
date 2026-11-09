@@ -25,8 +25,8 @@ use Kern\Platform\Routing\PackageRoutes;
  * What is on the market (ADR 0025): the configuration, the sources this package reads, its tables, and
  * the laws its instruments were read from, which may not be deleted from under them.
  *
- * Its sources are added to `kern/legislation`'s registry once every provider has registered, so they
- * land beside the registry's own whichever provider registers first — a merge before that one would be
+ * Its sources and its law watches are added to `kern/legislation`'s once every provider has registered, so
+ * they land beside legislation's own whichever provider registers first — a merge before that one would be
  * overwritten by it. Through the registry they are fetched like any other: allowlisted, as the
  * installation's identity says.
  */
@@ -44,6 +44,14 @@ final class InvestmentsServiceProvider extends ServiceProvider
 
             foreach ($entries as $code => $entry) {
                 $config->set("sources.entries.{$code}", $entry);
+            }
+
+            // Each programme's orders, watched for on the portal by kern/legislation.
+            /** @var array<string, array<string, mixed>> $watches */
+            $watches = require __DIR__ . '/../config/watches.php';
+
+            foreach ($watches as $key => $watch) {
+                $config->set("legislation.watches.declared.{$key}", $watch);
             }
         });
 

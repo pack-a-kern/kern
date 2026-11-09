@@ -5,35 +5,35 @@ declare(strict_types=1);
 namespace Kern\Investments\Console;
 
 use Illuminate\Console\Command;
-use Kern\Investments\Services\OrderSearch;
 use Kern\Investments\Services\SubscriptionFiguresImport;
+use Kern\Investments\Services\UnreadOrders;
 use Throwable;
 
 /**
- * The weekly government-bond import (ADR 0025 §5): each programme's new orders found and read as laws —
- * their issues are read from them as each is read — and the Ministry's subscription lists. One failing
- * does not stop the other; the run fails if either did, saying which.
+ * The weekly government-bond task (ADR 0025 §5). The orders themselves are found by kern/legislation's law
+ * watches, which this package declares; here, an order already a law but never read for its issues is
+ * queued to be read, and the Ministry's subscription lists are read. Fails when the lists could not be.
  */
 final class ImportGovernmentBondsCommand extends Command
 {
     protected $signature = 'kern:investments:import-government-bonds';
 
-    protected $description = 'Find the Ministry of Finance\'s new Fidelis and Tezaur orders, and read its subscription lists.';
+    protected $description = 'Read the orders never read for their issues, and the Ministry of Finance\'s subscription lists.';
 
-    public function handle(OrderSearch $orders, SubscriptionFiguresImport $subscriptions): int
+    public function handle(UnreadOrders $orders, SubscriptionFiguresImport $subscriptions): int
     {
-        $lines = $orders->run();
+        $this->line($orders->queue());
 
         try {
-            $lines = [...$lines, ...$subscriptions->run()];
+            foreach ($subscriptions->run() as $line) {
+                $this->line($line);
+            }
         } catch (Throwable $exception) {
-            $lines[] = 'FAILED subscriptions: ' . $exception->getMessage();
+            $this->line('FAILED subscriptions: ' . $exception->getMessage());
+
+            return self::FAILURE;
         }
 
-        foreach ($lines as $line) {
-            $this->line($line);
-        }
-
-        return array_filter($lines, static fn (string $line): bool => str_starts_with($line, 'FAILED')) === [] ? self::SUCCESS : self::FAILURE;
+        return self::SUCCESS;
     }
 }

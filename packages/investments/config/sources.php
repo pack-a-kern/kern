@@ -16,7 +16,8 @@ return [
 
     'BVB' => [
         'trust_tier' => 'D',
-        'base_url' => null,
+        // The exchange's home page, as each source shows its own on the official sources screen.
+        'base_url' => env('INVESTMENTS_BVB_BASE_URL'),
         'allowed_hosts' => ['www.bvb.ro', 'bvb.ro'],
         'enabled' => true,
         'priority' => 1,

@@ -38,6 +38,90 @@ in the browser worker, as `sources.entries.LEGISLATIE.search` says (ADR 0024).
 Every number — page sizes, pages read, tries and pauses, the queue, how long a run is kept — is in
 `config/sources.php`, `config/playbooks/legislatie.php` and `config/legislation.php` (`portal_search`).
 
+## Watching for new acts
+
+A law already read is kept up to date by the sync, which reads its new consolidations. A **new act** —
+this year's minimum-wage decision, a new order of a ministry — is a different document, and nobody
+updates it: it has to be found. A **law watch** finds it: a search of the portal run again on its own
+clock, each new act it finds read as a law, the way the "Add a law" dialog reads one.
+
+Watches live in `ext_law_watches`. The hourly task `legislation.watch` (`php artisan kern:legislation:watch`)
+runs only those due:
+
+- **its first run** searches every year from the watch's first; **each later run** this year, and last
+  year too while this one is younger than `LEGISLATION_WATCHES_OVERLAP_DAYS`;
+- an act already in the library is skipped; a new one is read as a law, and when that finishes
+  `LawConsolidationsRead` fires — whoever watches for it reads what it needs from it then;
+- each runs under a lock of its own (`LEGISLATION_WATCHES_LOCK_SECONDS`) and fails alone: a run that
+  failed, all or in part, is tried again the next hour, and a first run that failed still searches every
+  year next time;
+- its last result is kept and shown on the laws screen.
+
+There are two kinds.
+
+### A package's watch
+
+Declared by the package that needs the acts, in its own configuration, and mirrored into the table at
+every run: a new one is added, a changed one takes its new search, one no longer declared — the package
+removed — is removed. It keeps its own interval; on the screen it can be paused, not deleted.
+
+A package declares its watch in a `config/watches.php` of its own — every value from its environment, no
+default — and adds it from its service provider once every provider has registered. With made-up names:
+
+```php
+// packages/example-reports/config/watches.php
+return [
+    'example-reports.circulars' => [
+        'declared_by' => 'kern/example-reports',
+        'search' => env('EXAMPLE_CIRCULARS_SEARCH'),            // words of the title, as the portal searches them
+        'act_type' => env('EXAMPLE_CIRCULARS_ACT_TYPE'),        // the portal's type key, e.g. CIRCULARA
+        'title_pattern' => env('EXAMPLE_CIRCULARS_TITLE'),      // a PCRE pattern a title must match, or null for all
+        'first_year' => env('EXAMPLE_CIRCULARS_FIRST_YEAR'),    // the first year searched
+        'every_hours' => env('EXAMPLE_CIRCULARS_WATCH_HOURS'),  // how often it runs
+    ],
+];
+```
+
+```php
+// ExampleReportsServiceProvider::register()
+$this->app->booting(static function (Application $app): void {
+    foreach (require __DIR__ . '/../config/watches.php' as $key => $watch) {
+        $app->make('config')->set("legislation.watches.declared.{$key}", $watch);
+    }
+});
+
+// …and, to read what it watches for once it is read:
+Event::listen(LawConsolidationsRead::class, [ReadExampleCirculars::class, 'handle']);
+```
+
+```dotenv
+# packages/example-reports/.env.example
+EXAMPLE_CIRCULARS_SEARCH="circulara privind exemplul"
+EXAMPLE_CIRCULARS_ACT_TYPE=CIRCULARA
+EXAMPLE_CIRCULARS_TITLE="/privind exemplul/u"
+EXAMPLE_CIRCULARS_FIRST_YEAR=2024
+EXAMPLE_CIRCULARS_WATCH_HOURS=168
+```
+
+The key is the package's name and the watch's, so two packages never share one. A value missing or wrong
+fails the run, naming the watch and pointing at the declaring package's `.env.example`.
+
+Watches declared today: `kern/tax-romania`'s minimum-wage decisions, `kern/investments`' Fidelis and
+Tezaur orders.
+
+### A person's watch
+
+Kept from the "Add a law" dialog — **Watch this search** — for the words and act type searched, every
+year from the one given, at one of the intervals `LEGISLATION_WATCHES_INTERVALS` offers. It keeps every
+act its search finds. Theirs to change or delete; it goes with their account.
+
+| Call (`/api/v1/legislation/watches`, `operations.run`) | Does |
+|---|---|
+| `GET /` | Every watch, the packages' first, and the intervals a person may choose |
+| `POST /` `{search_words, act_type, first_year, every_hours}` | Keeps a search — audited |
+| `PATCH /{id}` `{enabled?, every_hours?}` | Pauses or resumes; a person's own also runs more or less often |
+| `DELETE /{id}` | Removes a person's watch — audited; a package's is refused (`WATCH_IS_DECLARED`) |
+
 ## What it is not
 
 It has no idea what a tax is. It knows a source, a document, its versions, its sections and their

@@ -6,13 +6,11 @@ namespace Kern\Investments\Config;
 
 use Kern\Investments\Enums\Programme;
 
-/** How one programme's orders are found on the portal, as `InvestmentsConfig` validated it. */
+/** How one programme's order is told among the laws read, as `InvestmentsConfig` validated it. */
 final readonly class ProgrammeOrders
 {
     public function __construct(
         public Programme $programme,
-        public string $search,
-        public int $firstYear,
         private string $titlePattern,
     ) {
     }

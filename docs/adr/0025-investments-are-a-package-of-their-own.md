@@ -202,7 +202,11 @@ reason of its own; the BVB and MF entries this ADR adds or changes, and the thre
 
 ### 5. The flow
 
-**Weekly — government bonds** (`investments.import_government_bonds`, a new `OperationTask`):
+**Weekly — government bonds** (`investments.import_government_bonds`, a new `OperationTask`). Since ADR
+0026 the orders are found by the **law watches** this package declares (`investments.fidelis`,
+`investments.tezaur`), run by `legislation.watch` on their own clock; step 1 below is theirs, and this
+task keeps the subscription figures and a sweep of orders already in the library never read for their
+issues.
 
 1. **The orders.** For each programme, search the portal (ADR 0024) year by year, in the way the settings
    choose — the service or the browser, exactly as the "Add a law" dialog does — and ingest each order

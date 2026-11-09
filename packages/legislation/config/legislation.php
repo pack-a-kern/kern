@@ -104,6 +104,23 @@ return [
      * A search of the portal from the screen (or from another package): a record, read a page a job
      * (ADR 0024), so it is never a request waiting on the portal and can take as long as the portal does.
      */
+    /*
+     * Searches of the portal run again and again, each new act read as a law (`Kern\Legislation\Watches`).
+     * No default for any of these (ADR 0025 §4): the values are in .env.example, and one missing fails
+     * by name. `declared` is filled by the packages that watch for something — each adds its own from
+     * its provider — never written here.
+     */
+    'watches' => [
+        // How long one watch's run may hold its lock, in seconds: a slow search is never run twice at once.
+        'lock_seconds' => env('LEGISLATION_WATCHES_LOCK_SECONDS'),
+        // An act of late December is published in January: while the year is younger than this many
+        // days, last year is searched again too.
+        'overlap_days' => env('LEGISLATION_WATCHES_OVERLAP_DAYS'),
+        // The intervals, in hours, a person may choose for a watch of their own.
+        'intervals' => env('LEGISLATION_WATCHES_INTERVALS'),
+        'declared' => [],
+    ],
+
     'portal_search' => [
         // The queue its pages are read on. Not this package's own `queue`, where a consolidation holds a
         // worker for minutes: a search is a person waiting, a page at a time, a few seconds each.

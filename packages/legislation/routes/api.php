@@ -13,6 +13,10 @@ use Kern\Legislation\Http\Controllers\ShowLawTextController;
 use Kern\Legislation\Http\Controllers\ShowPortalSearchController;
 use Kern\Legislation\Http\Controllers\ShowProvisionHistoryController;
 use Kern\Legislation\Http\Controllers\StartPortalSearchController;
+use Kern\Legislation\Http\Controllers\Watches\CreateLawWatchController;
+use Kern\Legislation\Http\Controllers\Watches\DeleteLawWatchController;
+use Kern\Legislation\Http\Controllers\Watches\ListLawWatchesController;
+use Kern\Legislation\Http\Controllers\Watches\UpdateLawWatchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -61,4 +65,14 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     // this installation holds, so it belongs to the same people who may start a reading. A law any
     // fiscal value rests on is refused rather than cascaded: see `DeleteLaw`.
     Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware('permission:operations.run');
+});
+
+// Searches of the portal kept and run again on their own clock, each new act read as a law: the
+// packages' (shown, paused at most) and those a person keeps. Reaching out to the portal is the same
+// people's who may start a reading.
+Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:operations.run', 'throttle:operator-calls-per-user'])->group(function (): void {
+    Route::get('/', ListLawWatchesController::class);
+    Route::post('/', CreateLawWatchController::class);
+    Route::patch('{watch}', UpdateLawWatchController::class)->whereUuid('watch');
+    Route::delete('{watch}', DeleteLawWatchController::class)->whereUuid('watch');
 });

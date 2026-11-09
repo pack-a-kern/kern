@@ -8,6 +8,7 @@ use DateTimeZone;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Investments\Enums\Programme;
 use Kern\Legislation\Config\OfficialSourceRegistry;
+use Kern\Legislation\Watches\LawWatchPattern;
 use Kern\Legislation\DataTransferObjects\SourceDefinition;
 use RuntimeException;
 
@@ -26,7 +27,6 @@ final readonly class InvestmentsConfig
         public BvbSource $bvb,
         public int $processingTimeoutSeconds,
         public string $ordersActType,
-        public int $ordersOverlapDays,
         public array $programmes,
         public SubscriptionLists $subscriptions,
         public int $writeChunk,
@@ -46,6 +46,8 @@ final readonly class InvestmentsConfig
         $url = static fn (string $key, string $variable): string => self::url($config->get("investments.bvb.{$key}"), $variable, $bvb);
 
         $instrumentUrl = $url('instrument_url', 'INVESTMENTS_BVB_INSTRUMENT_URL');
+        // Shown, not fetched — but a source with no home page is one set up wrong, and says so.
+        self::url($bvb->baseUrl, 'INVESTMENTS_BVB_BASE_URL', $bvb);
 
         if (substr_count($instrumentUrl, BvbSource::SYMBOL) !== 1) {
             throw new RuntimeException(sprintf('INVESTMENTS_BVB_INSTRUMENT_URL must hold %s exactly once.', BvbSource::SYMBOL));
@@ -61,7 +63,6 @@ final readonly class InvestmentsConfig
             ),
             processingTimeoutSeconds: self::whole($config->get('investments.processing_timeout_seconds'), 1, 600, 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'),
             ordersActType: self::text($config->get('investments.orders.act_type'), '/\A[A-Z]{2,32}\z/', 'INVESTMENTS_ORDERS_ACT_TYPE'),
-            ordersOverlapDays: self::whole($config->get('investments.orders.overlap_days'), 0, 90, 'INVESTMENTS_ORDERS_OVERLAP_DAYS'),
             programmes: array_combine(
                 array_map(static fn (Programme $p): string => $p->value, Programme::cases()),
                 array_map(static fn (Programme $p): ProgrammeOrders => self::programme($config, $p), Programme::cases()),
@@ -96,14 +97,9 @@ final readonly class InvestmentsConfig
 
     private static function programme(ConfigRepository $config, Programme $programme): ProgrammeOrders
     {
-        $key = "investments.orders.programmes.{$programme->value}";
-        $variable = "INVESTMENTS_{$programme->value}";
-
         return new ProgrammeOrders(
             programme: $programme,
-            search: self::text($config->get("{$key}.search"), '/\A\S.{1,198}\S\z/u', "{$variable}_SEARCH"),
-            firstYear: self::whole($config->get("{$key}.first_year"), 2000, (int) date('Y'), "{$variable}_FIRST_YEAR"),
-            titlePattern: self::pattern($config->get("{$key}.title_pattern"), "{$variable}_TITLE_PATTERN"),
+            titlePattern: self::pattern($config->get("investments.orders.title_patterns.{$programme->value}"), "INVESTMENTS_{$programme->value}_TITLE_PATTERN"),
         );
     }
 
@@ -129,23 +125,10 @@ final readonly class InvestmentsConfig
         return $value;
     }
 
-    /** A delimited PCRE pattern that compiles; anything else fails, naming the variable. */
+    /** A delimited PCRE pattern that compiles, as a law watch's must; anything else fails, naming the variable. */
     private static function pattern(mixed $value, string $variable): string
     {
-        // A pattern that does not compile answers false, and warns: the warning is this failure, not noise.
-        set_error_handler(static fn (): bool => true);
-
-        try {
-            $compiles = is_string($value) && $value !== '' && preg_match($value, '') !== false;
-        } finally {
-            restore_error_handler();
-        }
-
-        if (! $compiles || ! is_string($value)) {
-            throw new RuntimeException(sprintf('%s must be a PCRE pattern, as /…/u.', $variable));
-        }
-
-        return $value;
+        return LawWatchPattern::compiles($value) && is_string($value) ? $value : throw new RuntimeException(sprintf('%s must be a PCRE pattern, as /…/u.', $variable));
     }
 
     /** A time zone by its IANA name, `Europe/Bucharest`; anything else fails, naming the variable. */

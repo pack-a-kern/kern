@@ -1377,6 +1377,38 @@ export interface Dictionary {
                 /** The consolidation in force now: the latest read. */
                 currentVersion: string;
             };
+            /** Searches of the portal kept and run again, each new act read as a law. */
+            watches: {
+                title: string;
+                hint: string;
+                empty: string;
+                /** `{package}` is the package that declared it. */
+                declaredBy: string;
+                yours: string;
+                someone: string;
+                /** `{type}` the act type, `{year}` the first year searched. */
+                scope: string;
+                everyDay: string;
+                /** `{days}` */
+                everyDays: string;
+                /** `{hours}` */
+                everyHours: string;
+                notRun: string;
+                /** `{date}`, `{result}` */
+                lastRun: string;
+                active: string;
+                interval: string;
+                remove: string;
+                removeConfirm: string;
+                removed: string;
+                failed: string;
+                /** In "Add a law": keeping the current search. */
+                watch: string;
+                watchHint: string;
+                watchNeedsType: string;
+                watched: string;
+                cancel: string;
+            };
             /** Finding an act on legislatie.just.ro and reading it. */
             add: {
                 title: string;

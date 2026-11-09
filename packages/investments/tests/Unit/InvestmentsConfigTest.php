@@ -19,12 +19,13 @@ function read(array $changed = []): InvestmentsConfig
             'identify_as' => 'browser',
             'browser' => ['user_agent' => 'Mozilla/5.0 (Test)'],
             // The package's own entry, as its provider adds it, and kern/legislation's MF.
-            'entries' => [...require __DIR__ . '/../../config/sources.php', 'MF' => ['trust_tier' => 'C', 'allowed_hosts' => ['mfinante.gov.ro'], 'enabled' => true, 'priority' => 1]],
+            'entries' => [...array_replace_recursive(require __DIR__ . '/../../config/sources.php', ['BVB' => ['base_url' => 'https://www.bvb.ro']]), 'MF' => ['trust_tier' => 'C', 'allowed_hosts' => ['mfinante.gov.ro'], 'enabled' => true, 'priority' => 1]],
         ],
     ]);
 
     foreach ($changed as $key => $value) {
-        $config->set("investments.{$key}", $value);
+        // The base address is the BVB source entry's, not this package's configuration.
+        $config->set($key === '__bvb_base' ? 'sources.entries.BVB.base_url' : "investments.{$key}", $value);
     }
 
     return InvestmentsConfig::read($config, new OfficialSourceRegistry($config));
@@ -51,6 +52,7 @@ it('fails naming the variable when an address is missing or not one to fetch', f
     'not text' => ['bvb.instrument_url', ['https://www.bvb.ro/instrument?s={symbol}'], 'INVESTMENTS_BVB_INSTRUMENT_URL'],
     'no time zone' => ['bvb.timezone', null, 'INVESTMENTS_BVB_TIMEZONE'],
     'not a time zone' => ['bvb.timezone', 'Bucharest', 'INVESTMENTS_BVB_TIMEZONE'],
+    'no base address' => ['__bvb_base', null, 'INVESTMENTS_BVB_BASE_URL'],
     'no timeout' => ['processing_timeout_seconds', null, 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
     'a timeout of none' => ['processing_timeout_seconds', '0', 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
     'a timeout in words' => ['processing_timeout_seconds', 'a minute', 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'],
@@ -60,12 +62,10 @@ it('fails when the instrument page does not say once where its symbol goes', fun
     expect(fn () => read(['bvb.instrument_url' => $url]))->toThrow(RuntimeException::class, 'INVESTMENTS_BVB_INSTRUMENT_URL');
 })->with(['none' => ['https://www.bvb.ro/instrument'], 'twice' => ['https://www.bvb.ro/{symbol}?s={symbol}']]);
 
-it('reads each programme’s search, and tells its titles from a law that only mentions it', function (): void {
+it('tells a programme’s order from a law that only mentions it', function (): void {
     $tezaur = read()->orders(Programme::TEZAUR);
 
-    expect($tezaur->search)->toBe('Programului Tezaur')
-        ->and($tezaur->firstYear)->toBe(2018)
-        ->and($tezaur->isTitled('ORDIN privind prospectul de emisiune … în cadrul Programului Tezaur, în perioada noiembrie 2026'))->toBeTrue()
+    expect($tezaur->isTitled('ORDIN privind prospectul de emisiune … în cadrul Programului Tezaur, în perioada noiembrie 2026'))->toBeTrue()
         ->and($tezaur->isTitled('LEGE privind bugetul de stat, care pomenește Programul Tezaur'))->toBeFalse();
 });
 
@@ -81,10 +81,8 @@ it('fails naming the variable when an order or list setting is missing or wrong'
     expect(fn () => read([$key => $value]))->toThrow(RuntimeException::class, $variable);
 })->with([
     'no act type' => ['orders.act_type', null, 'INVESTMENTS_ORDERS_ACT_TYPE'],
-    'an overlap past a quarter' => ['orders.overlap_days', '120', 'INVESTMENTS_ORDERS_OVERLAP_DAYS'],
-    'no search words' => ['orders.programmes.FIDELIS.search', '', 'INVESTMENTS_FIDELIS_SEARCH'],
-    'a first year to come' => ['orders.programmes.TEZAUR.first_year', '2999', 'INVESTMENTS_TEZAUR_FIRST_YEAR'],
-    'a pattern that does not compile' => ['orders.programmes.TEZAUR.title_pattern', '/Tezaur(/u', 'INVESTMENTS_TEZAUR_TITLE_PATTERN'],
+    'a pattern that does not compile' => ['orders.title_patterns.TEZAUR', '/Tezaur(/u', 'INVESTMENTS_TEZAUR_TITLE_PATTERN'],
+    'no pattern' => ['orders.title_patterns.FIDELIS', null, 'INVESTMENTS_FIDELIS_TITLE_PATTERN'],
     'a page off its host' => ['subscriptions.page_url', 'https://example.com/lists', 'INVESTMENTS_SUBSCRIPTIONS_PAGE_URL'],
     'no file pattern' => ['subscriptions.file_patterns.FIDELIS', null, 'INVESTMENTS_SUBSCRIPTIONS_FIDELIS_FILE'],
     'a chunk of nothing' => ['write_chunk', '0', 'INVESTMENTS_WRITE_CHUNK'],

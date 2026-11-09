@@ -1558,6 +1558,31 @@ export const en = {
                 consolidationsFailed: '{count} could not be read',
                 currentVersion: 'Current version',
             },
+            watches: {
+                title: 'Watched searches',
+                hint: 'Searches of legislatie.just.ro run again on their own clock: each new act one finds is read as a law, with nobody adding it.',
+                empty: 'Nothing is watched yet. In “Add a law”, a search can be kept to be watched.',
+                declaredBy: 'Set by {package}',
+                yours: 'Kept by you',
+                someone: 'Kept by a person',
+                scope: '{type}, every year from {year}',
+                everyDay: 'Every day',
+                everyDays: 'Every {days} days',
+                everyHours: 'Every {hours} hours',
+                notRun: 'Not run yet',
+                lastRun: 'Last run {date}: {result}',
+                active: 'Watched',
+                interval: 'How often',
+                remove: 'Remove',
+                removeConfirm: 'Stop watching this search? The laws it found stay.',
+                removed: 'No longer watched.',
+                failed: 'The watched searches could not be loaded.',
+                watch: 'Watch this search',
+                watchHint: 'Every new act this search finds will be read as a law, on its own.',
+                watchNeedsType: 'Choose a type to watch this search.',
+                watched: 'Watched — each new act it finds will be read as a law.',
+                cancel: 'Cancel',
+            },
             add: {
                 title: 'Add a law',
                 hint: 'Find an act on legislatie.just.ro and import it with all its consolidations.',
@@ -2516,12 +2541,15 @@ export const en = {
                     'identity.prune_sessions': 'Expired session cleanup',
                     'system.health_watch': 'Service health watch',
                     'wallet.maturity_reminders': 'Deposit maturity reminders',
+                    'legislation.watch': 'Law watches',
                     'investments.import_government_bonds': 'Government bond import',
                     'investments.import_bvb': 'BVB import',
                 },
                 descriptions: {
+                    'legislation.watch':
+                        'Runs every law watch that is due, each on its own clock: a new act a watched search finds is read as a law.',
                     'investments.import_government_bonds':
-                        'Finds the Ministry of Finance’s new Fidelis and Tezaur orders, reads each as a law and for its issues, and reads the subscription lists.',
+                        'Reads the Ministry of Finance’s subscription lists, and any Fidelis or Tezaur order already a law but never read for its issues.',
                     'investments.import_bvb':
                         'Reads BVB’s shares, bonds and dividends, and the day’s prices. A day the exchange is closed adds nothing.',
                     'wallet.maturity_reminders':

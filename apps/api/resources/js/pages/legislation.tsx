@@ -47,6 +47,7 @@ import { formatDate } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { useSharedAuth } from '../lib/sharedProps';
 import AddLawDialog from './legislation/AddLawDialog';
+import LawWatches from './legislation/LawWatches';
 import type { LawSummary, LegislationHit, LegislationSearchResult } from '../types/legislation';
 
 /** Trust tiers as `config/sources.php` declares them; A is the most authoritative. */
@@ -85,6 +86,7 @@ export default function Legislation({
     const [adding, setAdding] = useState(false);
     const [reload, setReload] = useState(0);
     const canAdd = useSharedAuth()?.user.permissions.includes('operations.run') === true;
+    const [watched, setWatched] = useState(0);
 
     /*
      * Results hang under the field rather than taking the page.
@@ -326,6 +328,7 @@ export default function Legislation({
                 </div>
 
                 <Laws reload={reload} />
+                {canAdd ? <LawWatches reload={watched} /> : null}
             </Page>
 
             {canAdd ? (
@@ -343,6 +346,9 @@ export default function Legislation({
                     }}
                     onStarted={() => {
                         setReload((count) => count + 1);
+                    }}
+                    onWatched={() => {
+                        setWatched((count) => count + 1);
                     }}
                 />
             ) : null}

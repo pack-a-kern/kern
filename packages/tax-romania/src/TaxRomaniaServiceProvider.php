@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania;
 
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Notifications\Services\NoticeTypes;
@@ -89,6 +90,17 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         foreach (self::CONFIG as $file) {
             $this->mergeConfigFrom(__DIR__ . "/../config/{$file}.php", str_replace('/', '.', $file));
         }
+
+        // The minimum-wage decisions, watched for on the portal by kern/legislation — added once every
+        // provider has registered, so legislation's own configuration is there to add to.
+        $this->app->booting(static function (Application $app): void {
+            /** @var array<string, array<string, mixed>> $watches */
+            $watches = require __DIR__ . '/../config/watches.php';
+
+            foreach ($watches as $key => $watch) {
+                $app->make('config')->set("legislation.watches.declared.{$key}", $watch);
+            }
+        });
 
         /*
          * The ledger behind the tax engine's income port.

@@ -157,11 +157,16 @@ curl -b cookies.txt 'https://example.test/api/v1/investments/instruments?kind=SH
 
 ## The imports
 
-Two scheduled tasks, each on the Operations screen:
+The **orders** arrive through `kern/legislation`'s law watches, which this package declares
+(`config/watches.php`): each programme's orders searched on the portal by words of their title, every
+`INVESTMENTS_ORDERS_WATCH_HOURS`. A new order is read as a law; when that finishes, this package reads
+its issues from it into instruments and payouts (`ext_treasury_orders` remembers which). The legislation
+README shows how any package declares a watch of its own.
 
-- **`investments.import_government_bonds`** (weekly) — each programme's new orders found on
-  legislatie.just.ro and read as laws; when one is read, its issues are read from it into instruments
-  and payouts (`ext_treasury_orders` remembers which). Then the Ministry's subscription lists.
+Two scheduled tasks of this package, each on the Operations screen:
+
+- **`investments.import_government_bonds`** (weekly) — the Ministry's subscription lists, and any order
+  already a law but never read for its issues (added before this package was installed, say).
 - **`investments.import_bvb`** (weekdays, after the close) — shares, bonds, dividends, the day's prices.
 
 Each says in its run history what it wrote and what it skipped.

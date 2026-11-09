@@ -1,4 +1,4 @@
-import { nullableNum, nullableStr, num, obj, str } from '../lib/json';
+import { bool, nullableNum, nullableStr, num, obj, str } from '../lib/json';
 
 /**
  * Shapes returned by `/api/v1/legislation/search`.
@@ -510,5 +510,53 @@ export function parsePortalSearch(payload: unknown): PortalSearchState {
         failure: nullableStr(row, 'failure'),
         pollAfterMs: nullableNum(row, 'poll_after_ms'),
         acts: parsePortalActs(payload),
+    };
+}
+
+/** A search of the portal kept and run again — a package's, or one a person keeps (`ext_law_watches`). */
+export interface LawWatch {
+    id: string;
+    /** The package that declared it; null for one a person keeps. */
+    declaredBy: string | null;
+    mine: boolean;
+    searchWords: string;
+    actType: string;
+    firstYear: number;
+    everyHours: number;
+    enabled: boolean;
+    nextRunAt: string;
+    lastRunAt: string | null;
+    lastResult: string | null;
+}
+
+export function parseLawWatch(payload: unknown): LawWatch {
+    const row = obj(payload);
+
+    return {
+        id: str(row, 'id'),
+        declaredBy: nullableStr(row, 'declaredBy'),
+        mine: bool(row, 'mine'),
+        searchWords: str(row, 'searchWords'),
+        actType: str(row, 'actType'),
+        firstYear: num(row, 'firstYear'),
+        everyHours: num(row, 'everyHours'),
+        enabled: bool(row, 'enabled'),
+        nextRunAt: str(row, 'nextRunAt'),
+        lastRunAt: nullableStr(row, 'lastRunAt'),
+        lastResult: nullableStr(row, 'lastResult'),
+    };
+}
+
+/** Every watch, and the intervals — in hours — a person may choose for one of their own. */
+export function parseLawWatches(payload: unknown): { watches: LawWatch[]; intervals: number[] } {
+    const row = obj(payload);
+    const watches = Array.isArray(row.watches) ? row.watches : [];
+    const intervals = Array.isArray(row.intervals) ? row.intervals : [];
+
+    return {
+        watches: watches.map(parseLawWatch),
+        intervals: intervals.filter(
+            (hours): hours is number => typeof hours === 'number' && Number.isInteger(hours) && hours > 0,
+        ),
     };
 }

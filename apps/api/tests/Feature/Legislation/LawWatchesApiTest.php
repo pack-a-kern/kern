@@ -1,0 +1,84 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Legislation\LawWatchesApiTest;
+
+use Illuminate\Support\Facades\DB;
+use Kern\Legislation\Models\LawWatch;
+
+/** A package's watch, as the hourly run mirrors one. Made up. */
+function declared(): LawWatch
+{
+    return LawWatch::query()->create([
+        'key' => 'example.orders', 'declared_by' => 'kern/example', 'search_words' => 'exemplul de ordin', 'act_type' => 'ORDIN',
+        'title_pattern' => '/exemplul/u', 'first_year' => 2024, 'every_hours' => 168, 'enabled' => true, 'next_run_at' => now(),
+    ]);
+}
+
+beforeEach(function (): void {
+    $this->operator = settingsAdminUser();
+});
+
+it('is for those who may start a reading, and no one else', function (): void {
+    $this->getJson('/api/v1/legislation/watches')->assertUnauthorized();
+    $this->actingAs(ordinaryUser())->getJson('/api/v1/legislation/watches')->assertForbidden();
+    $this->actingAs(ordinaryUser())->postJson('/api/v1/legislation/watches', [])->assertForbidden();
+});
+
+it('keeps a search a person asks to keep, runs it at the next hourly run, and records it', function (): void {
+    $kept = $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', [
+        'search_words' => '  exemplul de hotărâre  ', 'act_type' => 'HOTARARE', 'first_year' => 2025, 'every_hours' => 24,
+    ])->assertCreated();
+
+    $watch = LawWatch::query()->findOrFail($kept->json('id'));
+
+    expect($kept->json('mine'))->toBeTrue()
+        ->and($kept->json('declaredBy'))->toBeNull()
+        ->and($watch->search_words)->toBe('exemplul de hotărâre')
+        ->and($watch->title_pattern)->toBeNull()
+        ->and($watch->next_run_at->lte(now()))->toBeTrue()
+        ->and(DB::table('audit_events')->where('event_type', 'LawWatchCreated')->count())->toBe(1);
+});
+
+it('refuses a search it cannot keep', function (array $asked): void {
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', [
+        'search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 24, ...$asked,
+    ])->assertUnprocessable();
+})->with([
+    'an interval not offered' => [['every_hours' => 1]],
+    'a type that is not one' => [['act_type' => 'ordin; drop']],
+    'a year before the library' => [['first_year' => 1990]],
+    'a year to come' => [['first_year' => 2999]],
+    'words too short' => [['search_words' => 'ab']],
+]);
+
+it('lists the packages’ watches first, with the intervals a person may choose', function (): void {
+    declared();
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->assertCreated();
+
+    $listed = $this->actingAs($this->operator)->getJson('/api/v1/legislation/watches')->assertOk();
+
+    expect(array_column($listed->json('watches'), 'declaredBy'))->toBe(['kern/example', null])
+        ->and($listed->json('intervals'))->toBe([24, 168, 720]);
+});
+
+it('pauses a package’s watch but keeps its interval, and lets a person’s run more or less often', function (): void {
+    $package = declared();
+    $mine = $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->json('id');
+
+    $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['enabled' => false])->assertOk()->assertJsonPath('enabled', false);
+    $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['every_hours' => 24])->assertUnprocessable();
+    $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$mine}", ['every_hours' => 720])->assertOk()->assertJsonPath('everyHours', 720);
+});
+
+it('deletes a person’s watch, recorded, and refuses a package’s', function (): void {
+    $package = declared();
+    $mine = $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->json('id');
+
+    $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$package->id}")->assertStatus(409)->assertJsonPath('reason', 'WATCH_IS_DECLARED');
+    $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$mine}")->assertNoContent();
+
+    expect(LawWatch::query()->pluck('id')->all())->toBe([$package->id])
+        ->and(DB::table('audit_events')->where('event_type', 'LawWatchDeleted')->count())->toBe(1);
+});

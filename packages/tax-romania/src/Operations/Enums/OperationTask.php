@@ -126,8 +126,15 @@ enum OperationTask: string
     case WALLET_MATURITY_REMINDERS = 'wallet.maturity_reminders';
 
     /**
-     * The Ministry of Finance's new Fidelis and Tezaur orders, read as laws and for their issues, and its
-     * subscription lists (`kern/investments`, ADR 0025 §5). Weekly, after the laws are updated.
+     * Every law watch that is due (`kern/legislation`): each new act a watched search finds is read as a
+     * law — the bond orders, the minimum-wage decisions, a search a person keeps. Hourly; each watch runs
+     * on its own clock, so an hour with none due does nothing.
+     */
+    case LEGISLATION_WATCH = 'legislation.watch';
+
+    /**
+     * The Ministry of Finance's subscription lists, and any order already a law never read for its issues
+     * (`kern/investments`, ADR 0025 §5); the orders themselves arrive through the law watches. Weekly.
      */
     case INVESTMENTS_IMPORT_GOVERNMENT_BONDS = 'investments.import_government_bonds';
 
@@ -152,6 +159,7 @@ enum OperationTask: string
             self::IDENTITY_PRUNE_SESSIONS => 'kern:identity:prune-sessions',
             self::SYSTEM_HEALTH_WATCH => 'kern:health:watch',
             self::WALLET_MATURITY_REMINDERS => 'kern:wallet:remind-maturities',
+            self::LEGISLATION_WATCH => 'kern:legislation:watch',
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS => 'kern:investments:import-government-bonds',
             self::INVESTMENTS_IMPORT_BVB => 'kern:investments:import-bvb',
         };
@@ -176,6 +184,7 @@ enum OperationTask: string
             self::IDENTITY_PRUNE_SESSIONS,
             self::SYSTEM_HEALTH_WATCH,
             self::WALLET_MATURITY_REMINDERS,
+            self::LEGISLATION_WATCH,
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS,
             self::INVESTMENTS_IMPORT_BVB,
         ], true);

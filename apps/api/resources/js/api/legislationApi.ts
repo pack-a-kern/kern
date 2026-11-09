@@ -6,6 +6,7 @@ import {
     type LawPart,
     type LawSummary,
     type LawText,
+    type LawWatch,
     type LegislationSearchResult,
     type PortalActResult,
     type PortalSearchState,
@@ -14,6 +15,8 @@ import {
     parseLawOutline,
     parseLaws,
     parseLawText,
+    parseLawWatch,
+    parseLawWatches,
     parseLegislationSearch,
     parsePortalSearch,
     parseProvisionHistory,
@@ -167,4 +170,54 @@ export async function getLawOutline(lawId: string, asOf: string): Promise<LawOut
     return parseLawOutline(
         JSON.parse(await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}/outline?${params.toString()}`)),
     );
+}
+
+/** Every watched search, and the intervals a person may choose. */
+export async function listLawWatches(): Promise<{ watches: LawWatch[]; intervals: number[] }> {
+    return parseLawWatches(JSON.parse(await apiRequest('/v1/legislation/watches')));
+}
+
+/** Keeps a search to be run again every `everyHours`, every year from `firstYear`. */
+export async function keepLawWatch(watch: {
+    searchWords: string;
+    actType: string;
+    firstYear: number;
+    everyHours: number;
+}): Promise<LawWatch> {
+    return parseLawWatch(
+        JSON.parse(
+            await apiRequest('/v1/legislation/watches', {
+                method: 'POST',
+                body: {
+                    search_words: watch.searchWords,
+                    act_type: watch.actType,
+                    first_year: watch.firstYear,
+                    every_hours: watch.everyHours,
+                },
+            }),
+        ),
+    );
+}
+
+/** Pauses or resumes a watch; a person's own also runs more or less often. */
+export async function changeLawWatch(
+    id: string,
+    change: { enabled?: boolean; everyHours?: number },
+): Promise<LawWatch> {
+    return parseLawWatch(
+        JSON.parse(
+            await apiRequest(`/v1/legislation/watches/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: {
+                    ...(change.enabled === undefined ? {} : { enabled: change.enabled }),
+                    ...(change.everyHours === undefined ? {} : { every_hours: change.everyHours }),
+                },
+            }),
+        ),
+    );
+}
+
+/** Stops watching a search a person kept; the laws it found stay. A package's is refused. */
+export async function deleteLawWatch(id: string): Promise<void> {
+    await apiRequest(`/v1/legislation/watches/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

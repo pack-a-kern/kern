@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Kern\Legislation\Console\Commands\ReindexLegislationCommand;
 use Kern\Legislation\Console\Commands\SyncLegislationCommand;
+use Kern\Legislation\Console\Commands\WatchLegislationCommand;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
@@ -127,7 +128,7 @@ final class LegislationServiceProvider extends ServiceProvider
         ], 'kern-legislation-config');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncLegislationCommand::class, ReindexLegislationCommand::class]);
+            $this->commands([SyncLegislationCommand::class, ReindexLegislationCommand::class, WatchLegislationCommand::class]);
         }
     }
 }

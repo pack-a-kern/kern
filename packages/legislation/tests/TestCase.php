@@ -66,6 +66,7 @@ abstract class TestCase extends Testbench
         $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
         $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
+        $app['config']->set('legislation.watches', ['lock_seconds' => '900', 'overlap_days' => '31', 'intervals' => '24,168,720', 'declared' => []]);
 
         // Reading a law is queued work — one consolidation per job — and this suite wants the reading
         // itself, not a queue. `sync` runs each job where it is dispatched.

@@ -1554,6 +1554,31 @@ export const ro = {
                 consolidationsFailed: '{count} nu au putut fi citite',
                 currentVersion: 'Versiunea curentă',
             },
+            watches: {
+                title: 'Căutări urmărite',
+                hint: 'Căutări pe legislatie.just.ro rulate din nou, fiecare după propriul interval: fiecare act nou găsit e citit ca lege, fără să-l adauge cineva.',
+                empty: 'Nu se urmărește încă nimic. În „Adaugă un act”, o căutare poate fi păstrată pentru urmărire.',
+                declaredBy: 'Stabilită de {package}',
+                yours: 'Păstrată de tine',
+                someone: 'Păstrată de o persoană',
+                scope: '{type}, în fiecare an din {year}',
+                everyDay: 'Zilnic',
+                everyDays: 'La fiecare {days} zile',
+                everyHours: 'La fiecare {hours} ore',
+                notRun: 'Încă nerulată',
+                lastRun: 'Ultima rulare {date}: {result}',
+                active: 'Urmărită',
+                interval: 'Cât de des',
+                remove: 'Elimină',
+                removeConfirm: 'Nu mai urmărești această căutare? Legile găsite rămân.',
+                removed: 'Nu mai e urmărită.',
+                failed: 'Căutările urmărite nu au putut fi încărcate.',
+                watch: 'Urmărește această căutare',
+                watchHint: 'Fiecare act nou găsit de această căutare va fi citit ca lege, singur.',
+                watchNeedsType: 'Alege un tip pentru a urmări această căutare.',
+                watched: 'Urmărită — fiecare act nou găsit va fi citit ca lege.',
+                cancel: 'Renunță',
+            },
             add: {
                 title: 'Adaugă un act',
                 hint: 'Găsește un act pe legislatie.just.ro și importă-l cu toate consolidările.',
@@ -2522,12 +2547,15 @@ export const ro = {
                     'identity.prune_sessions': 'Curățare sesiuni expirate',
                     'system.health_watch': 'Supraveghere servicii',
                     'wallet.maturity_reminders': 'Remindere scadență depozite',
+                    'legislation.watch': 'Urmărire legi',
                     'investments.import_government_bonds': 'Import titluri de stat',
                     'investments.import_bvb': 'Import BVB',
                 },
                 descriptions: {
+                    'legislation.watch':
+                        'Rulează fiecare căutare urmărită care e la rând, fiecare după propriul interval: un act nou găsit e citit ca lege.',
                     'investments.import_government_bonds':
-                        'Caută noile ordine ale Ministerului Finanțelor pentru Fidelis și Tezaur, le citește ca legi și pentru emisiunile lor, și citește listele de subscrieri.',
+                        'Citește listele de subscrieri ale Ministerului Finanțelor și orice ordin Fidelis sau Tezaur deja citit ca lege, dar necitit pentru emisiunile lui.',
                     'investments.import_bvb':
                         'Citește acțiunile, obligațiunile și dividendele de pe BVB și prețurile zilei. O zi în care bursa e închisă nu adaugă nimic.',
                     'wallet.maturity_reminders':

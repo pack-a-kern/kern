@@ -28,27 +28,15 @@ return [
     ],
 
     /*
-     * How the Ministry of Finance's orders for each programme are found on legislatie.just.ro (ADR 0025
-     * §5): the words searched for in a title, the act type kept, the first year an order was issued, and
-     * the pattern a title must match to be read as that programme's — so a law that only mentions it is
-     * not taken for one. A delimited PCRE pattern, as `/…/u`.
+     * How a programme's order is told among the laws read (ADR 0025 §5): its act type, and the pattern its
+     * title matches — a delimited PCRE pattern, as `/…/u`. The search that finds the orders is the law
+     * watches' (`config/watches.php`), which use these same values.
      */
     'orders' => [
         'act_type' => env('INVESTMENTS_ORDERS_ACT_TYPE'),
-        // An order of late December is published in January: while this year is younger than this many
-        // days, last year is searched again too.
-        'overlap_days' => env('INVESTMENTS_ORDERS_OVERLAP_DAYS'),
-        'programmes' => [
-            'FIDELIS' => [
-                'search' => env('INVESTMENTS_FIDELIS_SEARCH'),
-                'first_year' => env('INVESTMENTS_FIDELIS_FIRST_YEAR'),
-                'title_pattern' => env('INVESTMENTS_FIDELIS_TITLE_PATTERN'),
-            ],
-            'TEZAUR' => [
-                'search' => env('INVESTMENTS_TEZAUR_SEARCH'),
-                'first_year' => env('INVESTMENTS_TEZAUR_FIRST_YEAR'),
-                'title_pattern' => env('INVESTMENTS_TEZAUR_TITLE_PATTERN'),
-            ],
+        'title_patterns' => [
+            'FIDELIS' => env('INVESTMENTS_FIDELIS_TITLE_PATTERN'),
+            'TEZAUR' => env('INVESTMENTS_TEZAUR_TITLE_PATTERN'),
         ],
     ],
 

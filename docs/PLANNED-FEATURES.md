@@ -157,6 +157,9 @@ column; an empty table; an oversize input; a malformed number, date or ISIN; mar
 7. Tests: a run repeated changes nothing; a source that does not parse writes nothing; a source that is
    down fails the run and keeps the previous data.
 
+**Since ADR 0026:** the orders' search is `kern/legislation`'s law watches, declared by this package;
+the weekly task keeps the subscription lists and the sweep of orders never read.
+
 ### Task 5 — The endpoints (`kern/investments`)
 
 The read endpoints of ADR 0025 §7, cursor-paginated and bounded, rate-limited, behind authentication;

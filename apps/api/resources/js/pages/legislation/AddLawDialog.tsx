@@ -1,8 +1,8 @@
-import { CircleStop, Download, Loader2, Search, SearchX, TriangleAlert, X } from 'lucide-react';
+import { CircleStop, Download, Eye, Loader2, Search, SearchX, TriangleAlert, X } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { readPortalAct } from '../../api/legislationApi';
+import { keepLawWatch, listLawWatches, readPortalAct } from '../../api/legislationApi';
 import { EmptyState, Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
 import { usePortalSearch } from '../../hooks/usePortalSearch';
 import { useTranslation } from '../../i18n';
@@ -10,6 +10,7 @@ import type { Dictionary } from '../../i18n/dictionary';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
+import { intervalLabel } from '../../lib/watchInterval';
 import type { PortalActResult, PortalSearchState } from '../../types/legislation';
 
 type Mode = 'title' | 'number';
@@ -32,6 +33,7 @@ export default function AddLawDialog({
     years,
     onOpenChange,
     onStarted,
+    onWatched,
 }: {
     open: boolean;
     /** The act types a law can be read as — `config/operations.php`, as the portal files them. */
@@ -41,6 +43,8 @@ export default function AddLawDialog({
     onOpenChange: (open: boolean) => void;
     /** A read was queued: the list of laws will change once it runs. */
     onStarted: () => void;
+    /** The search was kept to be watched: the list of watches has one more. */
+    onWatched: () => void;
 }): JSX.Element {
     const { t, locale } = useTranslation();
     const [mode, setMode] = useState<Mode>('title');
@@ -53,6 +57,10 @@ export default function AddLawDialog({
     const [starting, setStarting] = useState(false);
     const [started, setStarted] = useState<Set<string>>(new Set());
     const { search: portal, start, cancel, clear } = usePortalSearch();
+    /** The intervals offered once "Watch this search" is asked, in hours; null while not asked. */
+    const [watchIntervals, setWatchIntervals] = useState<number[] | null>(null);
+    const [watchEvery, setWatchEvery] = useState('');
+    const watchWords = t((d) => d.pages.legislation.watches);
     const results = portal?.acts ?? null;
     const running = portal?.status === 'running';
 
@@ -90,6 +98,36 @@ export default function AddLawDialog({
     const stop = async (): Promise<void> => {
         try {
             await cancel();
+        } catch (cause) {
+            toast.error(describeApiFailure(cause, t));
+        }
+    };
+
+    // A watch runs the same search again: words of a title and a type, every year from the one chosen (or
+    // the library's first). A search by number names one act, which is read, not watched.
+    const canWatch = mode === 'title' && title.trim().length >= 3;
+
+    const askToWatch = async (): Promise<void> => {
+        try {
+            const { intervals } = await listLawWatches();
+            setWatchIntervals(intervals);
+            setWatchEvery(String(intervals[0] ?? ''));
+        } catch (cause) {
+            toast.error(describeApiFailure(cause, t));
+        }
+    };
+
+    const watch = async (): Promise<void> => {
+        try {
+            await keepLawWatch({
+                searchWords: title.trim(),
+                actType: type,
+                firstYear: year === '' ? (years?.min ?? new Date().getFullYear()) : Number(year),
+                everyHours: Number(watchEvery),
+            });
+            setWatchIntervals(null);
+            toast.success(watchWords.watched);
+            onWatched();
         } catch (cause) {
             toast.error(describeApiFailure(cause, t));
         }
@@ -219,6 +257,50 @@ export default function AddLawDialog({
                 {/* Enter in a field searches; the dialog's own button does the same. */}
                 <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
             </form>
+
+            {canWatch ? (
+                <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                    {watchIntervals === null ? (
+                        <>
+                            <span className="note min-w-0 flex-1">
+                                {type === '' ? watchWords.watchNeedsType : watchWords.watchHint}
+                            </span>
+                            <PanelButton disabled={type === ''} onClick={() => void askToWatch()}>
+                                <Eye className="size-3.5" aria-hidden="true" />
+                                {watchWords.watch}
+                            </PanelButton>
+                        </>
+                    ) : (
+                        <>
+                            <PanelSelect
+                                aria-label={watchWords.interval}
+                                value={watchEvery}
+                                onValueChange={setWatchEvery}
+                                options={watchIntervals.map((hours) => ({
+                                    value: String(hours),
+                                    label: intervalLabel(watchWords, hours),
+                                }))}
+                            />
+                            <PanelButton
+                                onClick={() => {
+                                    setWatchIntervals(null);
+                                }}
+                            >
+                                <X className="size-3.5" aria-hidden="true" />
+                                {watchWords.cancel}
+                            </PanelButton>
+                            <PanelButton
+                                primary
+                                disabled={watchEvery === '' || type === ''}
+                                onClick={() => void watch()}
+                            >
+                                <Eye className="size-3.5" aria-hidden="true" />
+                                {watchWords.watch}
+                            </PanelButton>
+                        </>
+                    )}
+                </div>
+            ) : null}
 
             <div className="mt-4 space-y-2" aria-live="polite">
                 {portal === null ? null : <SearchProgress search={portal} onStop={() => void stop()} />}
