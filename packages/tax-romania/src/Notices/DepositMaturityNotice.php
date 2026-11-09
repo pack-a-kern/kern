@@ -10,7 +10,6 @@ use Kern\Notifications\DataTransferObjects\Message;
 use Kern\Notifications\Notice;
 use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\Banks\Models\Bank;
-use Kern\TaxRomania\Operations\Enums\OperationTask;
 use Kern\TaxRomania\Wallet\Models\DepositTerms;
 use NumberFormatter;
 
@@ -44,19 +43,9 @@ final readonly class DepositMaturityNotice extends TaxpayerNotice
         return __('tax-romania::notifications.types.deposit-maturity.label', [], $locale);
     }
 
-    /** The distances and the hour actually configured, so the switch says when it will speak. */
     public function hint(string $locale): string
     {
-        /** @var list<int> $distances */
-        $distances = config('wallet.deposit.reminder_days', []);
-        // Read from the list, not by dotted path: the task's key has a dot of its own.
-        $cron = config()->array('operations.schedule.expressions', [])[OperationTask::WALLET_MATURITY_REMINDERS->value] ?? '';
-        $cron = is_string($cron) ? $cron : '';
-
-        return __('tax-romania::notifications.types.deposit-maturity.hint', [
-            'days' => implode(', ', array_filter($distances, static fn (int $days): bool => $days > 0)),
-            'time' => preg_match('/^(\d{1,2}) (\d{1,2}) \* \* \*$/', $cron, $m) === 1 ? sprintf('%02d:%02d', (int) $m[2], (int) $m[1]) : $cron,
-        ], $locale);
+        return __('tax-romania::notifications.types.deposit-maturity.hint', $this->reminderSchedule(), $locale);
     }
 
     public function render(array $notices, Model $notifiable, string $locale): array

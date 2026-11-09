@@ -117,8 +117,8 @@ enum OperationTask: string
     case SYSTEM_HEALTH_WATCH = 'system.health_watch';
 
     /**
-     * Tell taxpayers' owners about deposits nearing maturity, once per distance in
-     * `wallet.deposit.reminder_days` (`RemindMaturingDepositsCommand`).
+     * Tell taxpayers' owners about deposits nearing maturity, and holdings nearing a coupon or a
+     * repayment, once per distance in `wallet.deposit.reminder_days` (`RemindMaturingDepositsCommand`).
      *
      * Daily, at an hour a person is awake: in the bell and, where they turned it on, on their phone.
      * After the interest task, which closes deposits maturing today — "it matures today" is still said.
@@ -131,6 +131,13 @@ enum OperationTask: string
      * on its own clock, so an hour with none due does nothing.
      */
     case LEGISLATION_WATCH = 'legislation.watch';
+
+    /**
+     * Credit holdings the coupons, dividends and repayments their instruments have paid
+     * (`PostHoldingPayoutsCommand`, ADR 0025 §9). Daily, like the deposits' interest: a payment date
+     * passing is not an action anyone takes.
+     */
+    case HOLDINGS_POST_PAYOUTS = 'holdings.post_payouts';
 
     /**
      * The Ministry of Finance's subscription lists, and any order already a law never read for its issues
@@ -160,6 +167,7 @@ enum OperationTask: string
             self::SYSTEM_HEALTH_WATCH => 'kern:health:watch',
             self::WALLET_MATURITY_REMINDERS => 'kern:wallet:remind-maturities',
             self::LEGISLATION_WATCH => 'kern:legislation:watch',
+            self::HOLDINGS_POST_PAYOUTS => 'kern:wallet:post-holding-payouts',
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS => 'kern:investments:import-government-bonds',
             self::INVESTMENTS_IMPORT_BVB => 'kern:investments:import-bvb',
         };
@@ -185,6 +193,7 @@ enum OperationTask: string
             self::SYSTEM_HEALTH_WATCH,
             self::WALLET_MATURITY_REMINDERS,
             self::LEGISLATION_WATCH,
+            self::HOLDINGS_POST_PAYOUTS,
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS,
             self::INVESTMENTS_IMPORT_BVB,
         ], true);

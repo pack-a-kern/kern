@@ -345,6 +345,37 @@ every other kind (ADR 0022). The import raises the event; `kern/tax-romania` sen
   a test from the order's own example. A Fidelis coupon needs none: the order gives each payment date and the
   rate, so a coupon is the face value times the rate.
 
+**Established while building it (Task 6, 2026-11-10).**
+
+- **The prospectus' "current year" is the interest period.** Art. 13 (2) of the Tezaur prospectus (order
+  1.324/2026) defines both "număr de zile acumulate" and "număr de zile an curent" as the actual days of the
+  interest period, "an curent = perioada de dobândă curentă". `ACTUAL_ACTUAL` is therefore the days accrued
+  over the days of the year that begins on the period's first day — 365, or 366 when that year holds a
+  29 February — so a whole period is exactly one year's interest. A year from 29 February ends on
+  28 February. Art. 13 (5) rounds the investor's total, half up, to the ban.
+- **Reading the market from `kern/tax-romania`** is `Kern\Investments\Contracts\MarketData` — instruments,
+  payouts between two dates, latest prices — answering readonly DTOs (`InstrumentTerms`, `PayoutTerms`,
+  `LatestPrice`). `deptrac` collects the package's `Models/` as a layer no module is granted.
+- **Two more tables beside `investment_lots`**, both in `kern/tax-romania`: `investment_lot_payouts` — what
+  one lot was owed of one payout, gross, withheld and net, with the transaction the net became and the BNR
+  conversion, as `deposit_interest_events` keeps a deposit's; and `investment_payout_reminders` — the
+  reminders sent before a coupon or a repayment, as `deposit_maturity_reminders` keeps a deposit's. And one
+  more index, `investment_lots (instrument_id)`: the nightly tasks find lots by instrument across taxpayers.
+- **Who is owed a payout**: the units bought before its date and not sold before it — the ex-dividend date
+  for a dividend; the record date for a coupon, or the period's last day for Tezaur, which has none; the
+  payment date for the repayment. The movements are written by a daily task of their own,
+  `holdings.post_payouts`; a dividend with no approved `RO.INCOME_TAX.DIVIDEND_RATE` on its payment date is
+  reported by the run and credited by a later one.
+- **A partial sale splits what was already credited too**: a coupon or a dividend paid to the lot before the
+  sale is shared by units between the closed row and the open one, so neither is owed it again.
+- **A sale's money** — units × price, less the fees — arrives in the account as a `TRANSFER`, and the
+  repayment at maturity likewise; coupons and dividends are `DIVIDENDS_INTEREST` until §10's categories
+  exist. The result is computed from the lot whenever it is shown.
+- **"Which one" of a place** is the account the lot is in; `held_at` says what kind of place it is.
+- **The notice of a new issue** goes to everyone whose switch for it is on (on until turned off, as every
+  kind's is); someone who turned it off is not sent it at all, the bell included — it is about the market,
+  not about anything of theirs.
+
 ### 10. Tax
 
 **Nothing about a tax is written in the code.** Every rate, every period and every exemption is a fiscal

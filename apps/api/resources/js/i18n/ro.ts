@@ -742,6 +742,7 @@ export const ro = {
                 GENERAL: 'General',
                 CASH: 'Numerar',
                 TERM_DEPOSIT: 'Depozit la termen',
+                INVESTMENTS: 'Obligațiuni și acțiuni',
                 BROKER: 'Cont de investiții',
                 CRYPTO: 'Crypto',
                 OTHER: 'Altele',
@@ -2548,10 +2549,13 @@ export const ro = {
                     'system.health_watch': 'Supraveghere servicii',
                     'wallet.maturity_reminders': 'Remindere scadență depozite',
                     'legislation.watch': 'Urmărire legi',
+                    'holdings.post_payouts': 'Înregistrare plăți dețineri',
                     'investments.import_government_bonds': 'Import titluri de stat',
                     'investments.import_bvb': 'Import BVB',
                 },
                 descriptions: {
+                    'holdings.post_payouts':
+                        'Creditează obligațiunile și acțiunile deținute cu cupoanele, dividendele și rambursările plătite.',
                     'legislation.watch':
                         'Rulează fiecare căutare urmărită care e la rând, fiecare după propriul interval: un act nou găsit e citit ca lege.',
                     'investments.import_government_bonds':

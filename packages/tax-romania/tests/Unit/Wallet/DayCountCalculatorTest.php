@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Exceptions\InvalidDateRangeException;
 use Kern\TaxRomania\Wallet\Services\DayCount\DayCountCalculator;
+use Kern\TaxRomania\Wallet\ValueObjects\Decimal;
 
 /**
  * Hand-computed expectations — see `DayCountCalculator`'s own docblock for the worked examples
@@ -74,3 +75,27 @@ it('refuses a period that does not end strictly after it starts', function (): v
         new DateTimeImmutable('2026-01-01'),
     );
 })->throws(InvalidDateRangeException::class);
+
+it('computes ACTUAL_ACTUAL as a Tezaur prospectus does: days accrued over the days of the current year', function (string $from, string $to, string $expected): void {
+    $fraction = (new DayCountCalculator())->yearFraction(DayCountConvention::ACTUAL_ACTUAL, new DateTimeImmutable($from), new DateTimeImmutable($to));
+
+    expect($fraction->roundedTo(6)->toString())->toBe($expected);
+})->with([
+    // Art. 13 (2): D = [face value × rate × days accrued] / days in the current year, the current year being
+    // the interest period. A whole period is a whole year's interest, whether it holds 29 February or not.
+    'a whole period of 365 days' => ['2026-11-10', '2027-11-10', '1.000000'],
+    'a whole period holding 29 February' => ['2027-11-10', '2028-11-10', '1.000000'],
+    // 111 days of a 365-day year; 112 days of a 366-day one.
+    'part of a common year' => ['2026-11-10', '2027-03-01', '0.304110'],
+    'part of a leap year' => ['2027-11-10', '2028-03-01', '0.306011'],
+    // The year from 29 February ends on 28 February: 365 days, not 366.
+    'a year from 29 February' => ['2028-02-29', '2029-02-28', '1.000000'],
+]);
+
+it('gives the interest of art. 13 for one leu at 7 % over a whole period, on 10 000 units', function (): void {
+    $fraction = (new DayCountCalculator())->yearFraction(DayCountConvention::ACTUAL_ACTUAL, new DateTimeImmutable('2027-11-10'), new DateTimeImmutable('2028-11-10'));
+    $perUnit = Decimal::fromString('1')->multiply(Decimal::fromString('0.07'), 15)->multiply($fraction, 15);
+
+    // D × the units held, rounded to the ban (alin. (4) and (5)): 700,00 lei.
+    expect($perUnit->multiply(Decimal::fromInt(10_000), 15)->roundedTo(2)->toString())->toBe('700.00');
+});

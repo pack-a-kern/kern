@@ -19,8 +19,8 @@ namespace Kern\TaxRomania\Wallet\Enums;
  *
  *  - **Streams** ({@see self::GENERAL}, {@see self::BROKER}, {@see self::CRYPTO}, {@see self::OTHER})
  *    receive many transactions over time — typed by hand or parsed out of a statement.
- *  - **Holdings** ({@see self::CASH}, {@see self::TERM_DEPOSIT}) are a single declared value, or a
- *    schedule the system generates from one. Nothing is ever typed into them: "I hold 5.000 RON in
+ *  - **Holdings** ({@see self::CASH}, {@see self::TERM_DEPOSIT}, {@see self::INVESTMENTS}) are a single
+ *    declared value, or movements the system generates from declared terms. Nothing is ever typed into them: "I hold 5.000 RON in
  *    cash" is one statement of fact, and a deposit's movements are computed from its terms. Adding
  *    an arbitrary transaction to either is how the ledger stops reflecting anything real — and was
  *    possible until this enum could say so.
@@ -46,6 +46,13 @@ enum AccountKind: string
     /** Principal plus terms; the interest schedule is computed, never entered. */
     case TERM_DEPOSIT = 'TERM_DEPOSIT';
 
+    /**
+     * Bonds and shares, one lot per purchase (`investment_lots`); coupons, dividends and repayments are
+     * computed from the instrument's payouts, never typed (ADR 0025 §9). One kind for both, so a broker
+     * integrated later, which holds both, has nothing to merge.
+     */
+    case INVESTMENTS = 'INVESTMENTS';
+
     /** eToro, Interactive Brokers — a statement gets imported here. */
     case BROKER = 'BROKER';
 
@@ -65,7 +72,7 @@ enum AccountKind: string
     {
         return match ($this) {
             self::GENERAL, self::BROKER, self::CRYPTO, self::OTHER => true,
-            self::CASH, self::TERM_DEPOSIT => false,
+            self::CASH, self::TERM_DEPOSIT, self::INVESTMENTS => false,
         };
     }
 

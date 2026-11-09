@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Tests;
 
 use Kern\Audit\AuditServiceProvider;
 use Kern\Documents\DocumentsServiceProvider;
+use Kern\Investments\InvestmentsServiceProvider;
 use Kern\Legislation\LegislationServiceProvider;
 use Kern\Notifications\NotificationsServiceProvider;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
@@ -15,7 +16,7 @@ use Kern\TaxRomania\TaxRomaniaServiceProvider;
 use Orchestra\Testbench\TestCase as Testbench;
 
 /**
- * The whole product installed into an empty Laravel application: five packages and no application.
+ * The whole product installed into an empty Laravel application: six packages and no application.
  *
  * Two things it does *not* need, unlike the suites of the packages it depends on: a `TenantGate` and a
  * `TenantNames`. This package is where a tenant is a taxpayer, so it answers both itself — a
@@ -38,6 +39,7 @@ abstract class TestCase extends Testbench
             PlatformServiceProvider::class,
             DocumentsServiceProvider::class,
             LegislationServiceProvider::class,
+            InvestmentsServiceProvider::class,
             TaxRomaniaServiceProvider::class,
         ];
     }

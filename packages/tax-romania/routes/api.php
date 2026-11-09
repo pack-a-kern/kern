@@ -59,6 +59,7 @@ use Kern\TaxRomania\Http\Controllers\TaxEngine\ExportAssessmentController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\FinaliseFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\ShowFiscalYearAssessmentController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\UnlockFiscalYearController;
+use Kern\TaxRomania\Http\Controllers\Wallet\AddHoldingController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ClassifyTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteAccountController;
 use Kern\TaxRomania\Http\Controllers\Wallet\DeleteTagController;
@@ -75,8 +76,10 @@ use Kern\TaxRomania\Http\Controllers\Wallet\ReadDepositCsvController;
 use Kern\TaxRomania\Http\Controllers\Wallet\RecordTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowAccountsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowBanksController;
+use Kern\TaxRomania\Http\Controllers\Wallet\SellHoldingController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartiesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowDuplicateTransactionsController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ShowHoldingsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTagsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTaxCategoriesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTransactionsController;
@@ -166,6 +169,11 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // audit event — an edit nobody recorded is indistinguishable from one that never happened.
     Route::patch('wallet/accounts/{account}', UpdateAccountController::class)->where('account', '[0-9a-f-]{36}');
     Route::delete('wallet/accounts/{account}', DeleteAccountController::class)->where('account', '[0-9a-f-]{36}');
+    // Bonds and shares in an investments account, one lot per purchase (ADR 0025 §9). A lot is added and
+    // sold; its coupons, dividends and repayment are computed from its instrument, never entered.
+    Route::get('wallet/holdings', ShowHoldingsController::class);
+    Route::post('wallet/holdings', AddHoldingController::class);
+    Route::post('wallet/holdings/sales', SellHoldingController::class);
 
     // Rentals: what a contract owes, per year. A rental never creates a transaction — see `RentalQuery`.
     Route::get('rentals', ShowRentalsController::class);

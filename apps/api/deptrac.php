@@ -74,14 +74,23 @@ return static function (DeptracConfig $config): void {
         DirectoryConfig::create('packages/tax-romania/src/StatementImport/.*'),
     );
 
+    /*
+     * `kern/investments` is a package, so Composer rather than this file says that `kern/tax-romania` may
+     * use it. How is this file's: through its contracts and DTOs only, never its models (ADR 0025 §1). Its
+     * models are collected as a layer no module is granted, so a module that names one is a violation.
+     */
+    $investmentModels = Layer::withName('InvestmentModels')->collectors(
+        DirectoryConfig::create('packages/investments/src/Models/.*'),
+    );
+
     $config
         // The modules live in `kern/tax-romania` now — `packages/` from the host, `/var/packages`
         // from a container rooted at `/var/www/html`, the same spelling phpstan.neon uses. The
         // application's own `app/` is four controllers and two middleware and has no modules to keep
         // apart; what it may reach is Composer's business, not this file's.
-        ->paths('../../packages/tax-romania/src', '../../packages/tax-romania/database', '../../packages/tax-romania/routes')
+        ->paths('../../packages/tax-romania/src', '../../packages/tax-romania/database', '../../packages/tax-romania/routes', '../../packages/investments/src/Models')
         ->excludeFiles('#.*/tests/.*#')
-        ->layers($subjects, $fiscalParameters, $fx, $banks, $wallet, $taxEngine, $rental, $declarations, $spv, $operations, $statementImport)
+        ->layers($subjects, $fiscalParameters, $fx, $banks, $wallet, $taxEngine, $rental, $declarations, $spv, $operations, $statementImport, $investmentModels)
         ->rulesets(
             // Subjects -> Audit: Kern\TaxRomania\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
@@ -207,5 +216,6 @@ return static function (DeptracConfig $config): void {
             // StatementImport -> Banks: Kern\TaxRomania\StatementImport\Services\GuessStatementBank matches the
             // statement's IBAN, or the bank the model named, against the bank directory.
             Ruleset::forLayer($statementImport)->accesses($subjects, $wallet, $banks),
+            Ruleset::forLayer($investmentModels),
         );
 };

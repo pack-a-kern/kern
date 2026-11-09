@@ -182,6 +182,11 @@ bound and each refusal.
 5. The notice for a new issue on offer (ADR 0022), with its switch.
 6. Tests, including cross-tenant isolation and a lot adopted by its `external_ref` (matched by blind index, stored encrypted) without a duplicate.
 
+Decided while building it (ADR 0025 §9, "Established while building it"): two more tables,
+`investment_lot_payouts` and `investment_payout_reminders`, and an index on `investment_lots
+(instrument_id)`; the movements written by a daily task of their own, `holdings.post_payouts`
+(`OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS`).
+
 ### Task 7 — Tax (`kern/tax-romania`)
 
 Nothing about a tax in code: every value is a fiscal parameter read from the stored Fiscal Code and approved

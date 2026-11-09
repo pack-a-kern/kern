@@ -755,6 +755,7 @@ export const en = {
                 GENERAL: 'General',
                 CASH: 'Cash',
                 TERM_DEPOSIT: 'Term deposit',
+                INVESTMENTS: 'Bonds and shares',
                 BROKER: 'Brokerage',
                 CRYPTO: 'Crypto',
                 OTHER: 'Other',
@@ -2542,10 +2543,13 @@ export const en = {
                     'system.health_watch': 'Service health watch',
                     'wallet.maturity_reminders': 'Deposit maturity reminders',
                     'legislation.watch': 'Law watches',
+                    'holdings.post_payouts': 'Record holding payouts',
                     'investments.import_government_bonds': 'Government bond import',
                     'investments.import_bvb': 'BVB import',
                 },
                 descriptions: {
+                    'holdings.post_payouts':
+                        'Credits bonds and shares held the coupons, dividends and repayments their instruments paid.',
                     'legislation.watch':
                         'Runs every law watch that is due, each on its own clock: a new act a watched search finds is read as a law.',
                     'investments.import_government_bonds':

@@ -1623,7 +1623,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/investments",
-                "reference": "7df3b1e484f6a0973848e0839c7e391fd22c5c25"
+                "reference": "732febb715b40450d7adfff7f730e98c2d317f7b"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -1636,6 +1636,8 @@
                 "php": "^8.4"
             },
             "require-dev": {
+                "kern/audit": "@dev",
+                "kern/notifications": "@dev",
                 "orchestra/testbench": "^11.0",
                 "pestphp/pest": "^5.1"
             },
@@ -1848,7 +1850,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/tax-romania",
-                "reference": "30f953361b8108af2621e375afbcb47a8ab3488b"
+                "reference": "0803d417b04f64f5ae1e727c5f8a35b5f09d5dfe"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -1866,6 +1868,7 @@
                 "illuminate/validation": "^13.0",
                 "kern/audit": "@dev",
                 "kern/documents": "@dev",
+                "kern/investments": "@dev",
                 "kern/legislation": "@dev",
                 "kern/notifications": "@dev",
                 "kern/platform": "@dev",

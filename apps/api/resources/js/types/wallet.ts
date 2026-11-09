@@ -401,14 +401,14 @@ export interface WalletOverview {
  * but filtered out of the "new source" select — see `STREAM_KINDS` for the split that decides where
  * a transaction may be recorded.
  */
-export const ACCOUNT_KINDS = ['GENERAL', 'CASH', 'TERM_DEPOSIT', 'BROKER', 'CRYPTO', 'OTHER'] as const;
+export const ACCOUNT_KINDS = ['GENERAL', 'CASH', 'TERM_DEPOSIT', 'INVESTMENTS', 'BROKER', 'CRYPTO', 'OTHER'] as const;
 
 /**
  * Sources that receive transactions: typed by hand or parsed out of a statement.
  *
- * The others — cash and term deposits — are a single declared value or a schedule computed from
- * one, so posting an arbitrary transaction into them detaches the ledger from the thing it
- * describes. The form offers only these; the server enforces the same rule where a form cannot.
+ * The others — cash, term deposits and investments — are a single declared value or movements
+ * computed from declared terms, so posting an arbitrary transaction into them detaches the ledger
+ * from the thing it describes. The form offers only these; the server enforces the same rule where a form cannot.
  */
 export const STREAM_KINDS = ['GENERAL', 'BROKER', 'CRYPTO', 'OTHER'] as const;
 

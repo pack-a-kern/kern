@@ -40,6 +40,15 @@ enum WalletAuditEvent: string
     /** A deposit reached maturity and its money went back to where it came from. */
     case DEPOSIT_CLOSED = 'WalletDepositClosed';
 
+    /** A purchase of a bond or a share entered as a lot — or found again by its broker's reference. */
+    case HOLDING_ADDED = 'WalletHoldingAdded';
+
+    /** Units sold before maturity, first in first out; the lot sold from is the resource. */
+    case HOLDING_SOLD = 'WalletHoldingSold';
+
+    /** A coupon, a dividend or a repayment a lot was owed became a transaction. */
+    case HOLDING_PAYOUT_POSTED = 'WalletHoldingPayoutPosted';
+
     /*
      * Tags are a person's own vocabulary for their spending, and renaming or merging one rewrites
      * what every transaction carrying it says. The name itself never reaches the payload — it is
@@ -95,12 +104,14 @@ enum WalletAuditEvent: string
             self::TRANSACTION_DELETED,
             self::TRANSACTION_CLASSIFIED,
             self::DEPOSIT_INTEREST_POSTED,
+            self::HOLDING_PAYOUT_POSTED,
             self::TRANSACTIONS_MERGED,
             self::DUPLICATES_KEPT => 'FinancialTransaction',
             self::TAG_RENAMED,
             self::TAGS_MERGED,
             self::COUNTERPARTY_UPDATED, self::COUNTERPARTIES_MERGED, self::COUNTERPARTIES_FORGOTTEN => 'Counterparty',
             self::TAG_DELETED => 'Tag',
+            self::HOLDING_ADDED, self::HOLDING_SOLD => 'InvestmentLot',
             self::STATEMENT_IMPORTED,
             self::STATEMENT_IMPORT_UNDONE,
             self::STATEMENT_IMPORT_DELETED,

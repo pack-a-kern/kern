@@ -91,6 +91,7 @@
         <env name="INVESTMENTS_API_REFRESHES_DECAY_SECONDS" value="3600" force="true"/>
         <env name="INVESTMENTS_PROFILE_REFRESH_HOURS" value="24" force="true"/>
         <env name="INVESTMENTS_PROCESSING_TIMEOUT_SECONDS" value="60" force="true"/>
+        <env name="OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS" value="30 0 * * *" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
         <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kern\TaxRomania;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Kern\Investments\Events\IssueOnOffer;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Notifications\Services\NoticeTypes;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
@@ -23,11 +25,15 @@ use Kern\TaxRomania\Console\Commands\Wallet\BackfillCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\ClassifyCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\IndexCounterpartiesCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\PostDepositInterestCommand;
+use Kern\TaxRomania\Console\Commands\Wallet\PostHoldingPayoutsCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\RemindMaturingDepositsCommand;
 use Kern\TaxRomania\Declarations\DeclarationsServiceProvider;
 use Kern\TaxRomania\FiscalParameters\FiscalParametersServiceProvider;
 use Kern\TaxRomania\Fx\FxServiceProvider;
+use Kern\TaxRomania\Notices\AnnounceIssueOnOffer;
 use Kern\TaxRomania\Notices\DepositMaturityNotice;
+use Kern\TaxRomania\Notices\HoldingPayoutNotice;
+use Kern\TaxRomania\Notices\IssueOnOfferNotice;
 use Kern\TaxRomania\Notices\StatementImportNotice;
 use Kern\TaxRomania\Spv\SpvServiceProvider;
 use Kern\TaxRomania\StatementImport\StatementImportServiceProvider;
@@ -182,6 +188,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
                 RegisterTaxRulesCommand::class,
                 IndexCounterpartiesCommand::class,
                 PostDepositInterestCommand::class,
+                PostHoldingPayoutsCommand::class,
                 RemindMaturingDepositsCommand::class,
             ]);
         }
@@ -196,6 +203,11 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $types = $this->app->make(NoticeTypes::class);
         $types->register(StatementImportNotice::class);
         $types->register(DepositMaturityNotice::class);
+        $types->register(HoldingPayoutNotice::class);
+        $types->register(IssueOnOfferNotice::class);
+
+        // `kern/investments` raises it when it first reads an issue still on offer; the notice is this package's (ADR 0025 §8).
+        Event::listen(IssueOnOffer::class, [AnnounceIssueOnOffer::class, 'handle']);
     }
 
     /**
