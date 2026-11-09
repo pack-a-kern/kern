@@ -1,0 +1,55 @@
+{
+    "name": "kern/investments",
+    "description": "What is on the market: government bonds (Fidelis, Tezaur), shares and bonds listed on the Bucharest Stock Exchange, their payouts and daily prices, each fact kept with the official source it was read from.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "ext-bcmath": "*",
+        "ext-dom": "*",
+        "illuminate/contracts": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/support": "^13.0",
+        "kern/legislation": "@dev",
+        "kern/platform": "@dev"
+    },
+    "require-dev": {
+        "kern/audit": "@dev",
+        "kern/notifications": "@dev",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kern\\Investments\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kern\\Investments\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kern\\Investments\\InvestmentsServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
+}

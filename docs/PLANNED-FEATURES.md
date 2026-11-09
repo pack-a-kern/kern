@@ -123,7 +123,7 @@ screen changed, a handoff note, `docs/STATUS.md`.
 Each from a real page or file saved as a fixture, and from hostile ones (a missing, renamed or reordered
 column; an empty table; an oversize input; a malformed number, date or ISIN; markup in a cell).
 
-1. One reader of "a table with these headers" (`symfony/dom-crawler`).
+1. One reader of "a table with these headers" (`ext-dom`, as the legislation parser).
 2. BVB shares, bonds and dividends listings → DTOs.
 3. A BVB instrument page → the issuer profile: meetings, shareholders.
 4. The processing service: a second endpoint answering a spreadsheet as a grid (the statement reader's

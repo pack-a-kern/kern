@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e9fd4f03b8aea02dcd13fb1c7bebd932",
+    "content-hash": "2c2b129cf15cac48ca0f033a8a30ac68",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1618,6 +1618,55 @@
             }
         },
         {
+            "name": "kern/investments",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/investments",
+                "reference": "7df3b1e484f6a0973848e0839c7e391fd22c5c25"
+            },
+            "require": {
+                "ext-bcmath": "*",
+                "ext-dom": "*",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/support": "^13.0",
+                "kern/legislation": "@dev",
+                "kern/platform": "@dev",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kern\\Investments\\InvestmentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kern\\Investments\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kern\\Investments\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "What is on the market: government bonds (Fidelis, Tezaur), shares and bonds listed on the Bucharest Stock Exchange, their payouts and daily prices, each fact kept with the official source it was read from.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "kern/legislation",
             "version": "dev-main",
             "dist": {
@@ -1734,7 +1783,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform",
-                "reference": "6c4d6a4a5d27cab4e807e5fb027efb7feef99291"
+                "reference": "253cb7ed703dab079191fa3164a94d2c568fe8c5"
             },
             "require": {
                 "ext-intl": "*",
@@ -1748,6 +1797,7 @@
                 "illuminate/http": "^13.0",
                 "illuminate/log": "^13.0",
                 "illuminate/notifications": "^13.0",
+                "illuminate/queue": "^13.0",
                 "illuminate/routing": "^13.0",
                 "illuminate/support": "^13.0",
                 "illuminate/validation": "^13.0",
@@ -3176,8 +3226,7 @@
                 "issues": "https://github.com/web-push-libs/web-push-php/issues",
                 "source": "https://github.com/web-push-libs/web-push-php/tree/v11.0.0"
             },
-            "time": "2026-07-23T16:10:05+00:00",
-            "published-time": "2026-07-23T16:19:08+00:00"
+            "time": "2026-07-23T16:10:05+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -6748,8 +6797,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:32:01+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/finder",
@@ -6898,8 +6946,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:54+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/http-kernel",
@@ -7009,8 +7056,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T11:29:46+00:00",
-            "published-time": "2026-11-04T11:32:19+00:00"
+            "time": "2026-11-04T11:29:46+00:00"
         },
         {
             "name": "symfony/mailer",
@@ -8397,8 +8443,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:30:59+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/serializer",
@@ -8497,8 +8542,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:12+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/service-contracts",
@@ -13479,8 +13523,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:48+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/dependency-injection",
@@ -13807,8 +13850,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:03+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "ta-tikoma/phpunit-architecture-test",
@@ -13925,6 +13967,7 @@
     "stability-flags": {
         "kern/audit": 20,
         "kern/documents": 20,
+        "kern/investments": 20,
         "kern/legislation": 20,
         "kern/notifications": 20,
         "kern/platform": 20,
@@ -13951,5 +13994,5 @@
         "ext-redis": "0",
         "ext-sodium": "0"
     },
-    "plugin-api-version": "2.11.0"
+    "plugin-api-version": "2.9.0"
 }

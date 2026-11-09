@@ -75,7 +75,7 @@ that runs on its own, like every other package.
 
 All public ids are UUIDv7. Timestamps are UTC (`timestampTz`); calendar facts — an issue date, a payment
 date — are `date`. Money is integer minor units. A price, a rate or a number of units is a decimal held as
-text and computed with `brick/math` (already a dependency), for the reason `fx_rates` records: a SQLite
+text and computed with `ext-bcmath`, as `Fx\ValueObjects\DecimalRate` already is, for the reason `fx_rates` records: a SQLite
 `decimal` is a float, and the suite runs on both databases. Every decimal column is validated against its
 pattern before it is written.
 
@@ -256,7 +256,8 @@ repeated is a run that changes nothing. Nothing from a source is ever deleted.
 
 ### 6. Parsing: strict, bounded, and never trusted
 
-- **HTML** with `symfony/dom-crawler`, already a dependency. A table is found by its header row, by the
+- **HTML** with PHP's own `ext-dom` (`DOMDocument`, `DOMXPath`, loaded with `LIBXML_NONET`), as the
+  legislation parser already reads the portal — no library added. A table is found by its header row, by the
   header texts the source shows, never by position or by a generated id; a missing header fails the parse.
   One reader of "a table with these headers" serves the three BVB listings.
 - **XLSX** is read where this codebase already reads spreadsheets: the processing service

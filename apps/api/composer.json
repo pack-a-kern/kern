@@ -19,6 +19,7 @@
         "inertiajs/inertia-laravel": "^3.3.3",
         "kern/audit": "@dev",
         "kern/documents": "@dev",
+        "kern/investments": "@dev",
         "kern/legislation": "@dev",
         "kern/notifications": "@dev",
         "kern/platform": "@dev",

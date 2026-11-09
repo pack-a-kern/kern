@@ -15,6 +15,7 @@ parameters:
         - ../../packages/notifications/database/migrations
         - ../../packages/documents/database/migrations
         - ../../packages/legislation/database/migrations
+        - ../../packages/investments/database/migrations
         - ../../packages/tax-romania/database/migrations
         - ../../packages/platform/database/migrations
     paths:
@@ -26,6 +27,7 @@ parameters:
         - ../../packages/notifications/src
         - ../../packages/documents/src
         - ../../packages/legislation/src
+        - ../../packages/investments/src
         - ../../packages/tax-romania/src
         - ../../packages/platform/src
         - app
